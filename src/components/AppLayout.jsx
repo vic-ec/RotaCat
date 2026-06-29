@@ -31,7 +31,7 @@ export default function AppLayout() {
       {/* Sidebar — desktop */}
       <aside className="hidden w-60 flex-col border-r border-slate-line bg-canvas-raised md:flex">
         <div className="px-5 py-6">
-          <h1 className="font-display text-lg font-medium text-ink">VHW EC Roster</h1>
+          <h1 className="font-display text-lg font-medium text-ink">VHW EC Roster Builder</h1>
           {profile && (
             <p className="mt-1 text-xs text-ink-muted">
               {profile.name} {profile.surname} · {isAdmin ? 'Admin' : profile.category}

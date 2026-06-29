@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import lilyIcon from '../assets/lily-icon.jpg'
 
 const adminNav = [
   { to: '/', label: 'Dashboard', icon: HomeIcon },
@@ -31,9 +32,17 @@ export default function AppLayout() {
       {/* Sidebar — desktop */}
       <aside className="hidden w-60 flex-col border-r border-slate-line bg-canvas-raised md:flex">
         <div className="px-5 py-6">
-          <h1 className="font-display text-lg font-medium text-ink">VHW EC Roster Builder</h1>
+          <div className="flex items-center gap-2.5">
+            <img
+              src={lilyIcon}
+              alt=""
+              className="h-8 w-8 rounded-md object-cover"
+              draggable="false"
+            />
+            <h1 className="font-display text-lg font-medium text-ink">RotaCat</h1>
+          </div>
           {profile && (
-            <p className="mt-1 text-xs text-ink-muted">
+            <p className="mt-2 text-xs text-ink-muted">
               {profile.name} {profile.surname} · {isAdmin ? 'Admin' : profile.category}
             </p>
           )}

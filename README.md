@@ -1,4 +1,4 @@
-# VHW EC Roster
+# VHW EC Roster Builder
 
 A shift scheduling PWA for the VHW Emergency Centre medical team. Replaces a
 manual PDF-based rostering process with an automated scheduler, admin tools,

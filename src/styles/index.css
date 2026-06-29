@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Visible keyboard focus everywhere — accessibility floor */
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded bg-accent px-4 py-2.5
+           text-sm font-medium text-white shadow-sm transition-colors
+           hover:bg-accent-dark active:bg-accent-dark
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-slate-line
+           bg-canvas-raised px-4 py-2.5 text-sm font-medium text-ink transition-colors
+           hover:bg-canvas-sunken
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .card {
+    @apply rounded-lg border border-slate-line bg-canvas-raised shadow-card;
+  }
+
+  .input-field {
+    @apply w-full rounded border border-slate-line bg-canvas-raised px-3 py-2.5
+           text-sm text-ink placeholder:text-ink-muted
+           focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+
+  .label-text {
+    @apply mb-1.5 block text-sm font-medium text-ink-light;
+  }
+}

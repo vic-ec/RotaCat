@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lily from '../assets/lily.jpg'
+import lily from '../assets/lily.png'
 
 export default function LoginPage() {
   const { signIn } = useAuth()

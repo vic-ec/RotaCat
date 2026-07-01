@@ -25,6 +25,16 @@ export default {
           light: '#E3F0EC',
           tint: '#F0F7F5'
         },
+        // Secondary brand accent — warm pink from Lily's collar.
+        // Used for links, highlights, and illustrative/marketing touches
+        // (login, empty states, onboarding). Not a third "status" color —
+        // keep roster-state meaning exclusively on the flag* colors below.
+        rose: {
+          DEFAULT: '#D6577E',
+          dark: '#B8456F',
+          light: '#F8E3EA',
+          tint: '#FCF0F3'
+        },
         // Reserved STRICTLY for roster-state semantics — never general UI
         flagRed: {
           DEFAULT: '#C0362C',

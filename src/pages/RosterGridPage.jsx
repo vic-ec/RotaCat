@@ -55,6 +55,7 @@ export default function RosterGridPage() {
   const [viewMode, setViewMode] = useState('month') // 'month' | 'week'
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
+  const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
 
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
@@ -71,21 +72,35 @@ export default function RosterGridPage() {
     setLoading(true)
     setError('')
     try {
-      const [rosterRes, entriesRes, profilesRes, shiftTypesRes] = await Promise.all([
+      const [rosterRes, entriesRes, profilesRes, shiftTypesRes, phRes] = await Promise.all([
         supabase.from('roster_months').select('*').eq('id', id).single(),
-        supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position'),
+        supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position', { nullsFirst: true }),
         supabase.from('profiles').select('id, name, surname, category, color_code, contract_type').eq('is_approved', true).neq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
+        supabase.from('public_holidays').select('date, name'),
       ])
 
       if (rosterRes.error) throw new Error(rosterRes.error.message)
       setRosterMonth(rosterRes.data)
-      setEntries(entriesRes.data || [])
+      // Normalise date strings — Supabase may return "2026-08-01T00:00:00"
+      // or "2026-08-01" depending on column type. Slice to "YYYY-MM-DD" to
+      // guarantee consistent keys throughout the component.
+      setEntries((entriesRes.data || []).map(e => ({
+        ...e,
+        date: e.date?.slice(0, 10),
+      })))
       setProfiles(profilesRes.data || [])
 
       const stMap = {}
       for (const st of (shiftTypesRes.data || [])) stMap[st.id] = st.code
       setShiftTypes(stMap)
+
+      // Build PH lookup keyed by "YYYY-MM-DD"
+      const phMap = {}
+      for (const ph of (phRes.data || [])) {
+        phMap[ph.date?.slice(0, 10)] = ph.name
+      }
+      setPublicHolidays(phMap)
     } catch (err) {
       setError(err.message)
     }
@@ -93,7 +108,7 @@ export default function RosterGridPage() {
   }
 
   // Build calendar days for this month
-  const calendarDays = rosterMonth ? buildCalendarDays(rosterMonth.year, rosterMonth.month) : []
+  const calendarDays = rosterMonth ? buildCalendarDays(rosterMonth.year, rosterMonth.month, publicHolidays) : []
   const weeks = buildWeeks(calendarDays)
   const visibleDays = viewMode === 'week' ? (weeks[currentWeek] || []) : calendarDays
 
@@ -296,8 +311,12 @@ export default function RosterGridPage() {
           <tbody>
             {visibleDays.map((day, dayIdx) => {
               const shifts = getShiftsForDay(day.dayType)
-              const isWeekend = day.dayType === 'weekend' || day.dayType === 'PH'
-              const isToday = day.dateStr === new Date().toISOString().split('T')[0]
+              const isWeekend = day.dayType === 'weekend' || day.dayType === 'PH' || day.dayType === 'PH_weekday'
+              const todayStr = (() => {
+                const n = new Date()
+                return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
+              })()
+              const isToday = day.dateStr === todayStr
 
               return (
                 <tr
@@ -310,9 +329,18 @@ export default function RosterGridPage() {
                   <td className={`w-20 border-r border-slate-line px-2 py-1.5 font-medium ${
                     isWeekend ? 'text-accent-dark' : 'text-ink'
                   }`}>
-                    <span className="block text-[10px] text-ink-muted">{DAY_NAMES[new Date(day.dateStr).getDay()]}</span>
-                    <span>{new Date(day.dateStr).getDate()}</span>
-                    {day.phName && <span className="block text-[9px] text-flagAmber truncate">{day.phName}</span>}
+                    {(() => {
+                      // Parse date parts directly to avoid UTC timezone shift
+                      const [y, m, d] = day.dateStr.split('-').map(Number)
+                      const localDate = new Date(y, m - 1, d)
+                      return (
+                        <>
+                          <span className="block text-[10px] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
+                          <span>{d}</span>
+                          {day.phName && <span className="block text-[9px] text-flagAmber truncate">{day.phName}</span>}
+                        </>
+                      )
+                    })()}
                   </td>
 
                   {/* Consultant column */}
@@ -330,6 +358,10 @@ export default function RosterGridPage() {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
                     const hasShortfall = cellEntries.some(e => e.is_flagged)
                     const hasLocum = cellEntries.some(e => e.is_locum)
+                    // Show column header when day type changes (first row of a
+                    // new block of weekday/weekend/PH days)
+                    const prevDay = visibleDays[dayIdx - 1]
+                    const showHeader = !prevDay || prevDay.dayType !== day.dayType
 
                     return (
                       <td
@@ -340,8 +372,8 @@ export default function RosterGridPage() {
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >
-                        {/* Column header on first day */}
-                        {dayIdx === 0 && (
+                        {/* Column header when day type starts */}
+                        {showHeader && (
                           <div className="border-b border-slate-line bg-canvas-sunken px-1.5 py-1 text-center font-semibold text-ink-muted">
                             {label}
                           </div>
@@ -545,33 +577,55 @@ function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, 
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function buildCalendarDays(year, month) {
+function buildCalendarDays(year, month, publicHolidays = {}) {
   const days = []
   const daysInMonth = new Date(year, month, 0).getDate()
   for (let d = 1; d <= daysInMonth; d++) {
+    // Use LOCAL date constructor — avoids UTC timezone shift that causes
+    // dates to be classified as the wrong weekday (e.g. Saturdays appearing
+    // as Fridays in UTC+2 regions like South Africa).
     const date = new Date(year, month - 1, d)
-    const weekday = date.getDay() // 0=Sun, 6=Sat
-    const dateStr = date.toISOString().split('T')[0]
-    const isWeekend = weekday === 0 || weekday === 6
-    days.push({
-      dateStr,
-      dayType: isWeekend ? 'weekend' : 'weekday',
-      phName: null,
-    })
+    const weekday = date.getDay() // 0=Sun, 1=Mon … 6=Sat (local time)
+    const isWeekendDay = weekday === 0 || weekday === 6  // Sun or Sat
+
+    // Build "YYYY-MM-DD" without relying on toISOString() (which is UTC)
+    const mm = String(month).padStart(2, '0')
+    const dd = String(d).padStart(2, '0')
+    const dateStr = `${year}-${mm}-${dd}`
+
+    const phName = publicHolidays[dateStr] || null
+    const isPH = Boolean(phName)
+
+    let dayType
+    if (isPH) {
+      // v2.1: PH on a weekday (Mon-Fri) uses PHW_08/12/15/22 (4-slot)
+      //       PH on a weekend (Sat/Sun) uses PH_08/13/20 (3-slot)
+      dayType = isWeekendDay ? 'PH' : 'PH_weekday'
+    } else {
+      dayType = isWeekendDay ? 'weekend' : 'weekday'
+    }
+
+    days.push({ dateStr, dayType, phName })
   }
   return days
 }
 
 function buildWeeks(days) {
+  // Split into weeks. A new week starts on Monday (weekday index 1).
+  // We parse the day-of-week directly from the dateStr to avoid UTC issues.
   const weeks = []
   let week = []
   for (const day of days) {
+    const [y, m, d] = day.dateStr.split('-').map(Number)
+    const weekday = new Date(y, m - 1, d).getDay() // local time
     week.push(day)
-    if (new Date(day.dateStr).getDay() === 0 || day === days[days.length - 1]) {
+    // End of week = Sunday (0), or last day of month
+    if (weekday === 0 || day === days[days.length - 1]) {
       weeks.push(week)
       week = []
     }
   }
+  if (week.length > 0) weeks.push(week)
   return weeks.filter(w => w.length > 0)
 }
 

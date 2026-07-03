@@ -35,34 +35,6 @@ export default {
           light: '#F8E3EA',
           tint: '#FCF0F3'
         },
-        // Dark theme — exploratory palette for the "night" look (login, and
-        // eventually other screens if the full dark theme goes ahead).
-        // Kept as its own namespace rather than overwriting canvas/ink so the
-        // existing light-mode screens are completely unaffected until each
-        // one is deliberately migrated.
-        night: {
-          bg: '#0A101C',        // outer page background
-          panel: '#0D1526',     // image/hero side panel
-          card: '#101B33',      // form panel — one step lighter, "midnight blue"
-          ink: '#F1F3F8',       // primary text on dark
-          muted: '#8A93A8',     // secondary text on dark
-          line: '#223350',      // borders, dividers
-          accent: '#1C8FD1',    // primary button — bright blue, not the teal accent
-          accentDark: '#156FA6',
-          gold: '#D9A74A'       // heading accent — echoes the robot cat's bronze plating
-        },
-        // Dark theme, variant B — neutral graphite instead of navy.
-        // Note this variant's button color in the reference mockup is
-        // already close to your existing `accent` teal, so it reuses that
-        // token directly rather than introducing a third blue.
-        graphite: {
-          bg: '#1A1A1A',
-          panel: '#242424',
-          card: '#2A2A2A',
-          ink: '#F1F1EF',
-          muted: '#9A9691',
-          line: '#3A3A38'
-        },
         // Reserved STRICTLY for roster-state semantics — never general UI
         flagRed: {
           DEFAULT: '#C0362C',

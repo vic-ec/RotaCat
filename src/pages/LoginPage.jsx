@@ -1,7 +1,19 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import robotLily from '../assets/lily-robot-navy.png'
+import robotLily from '../assets/lily-robot-clean.png'
+
+function Butterfly({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M12 6c-1-3-6-4-7-1-1 2.5 1.5 4.5 4 4.5" stroke="#7FD8E8" strokeWidth="1.4" fill="#7FD8E8" fillOpacity="0.55" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 6c1-3 6-4 7-1 1 2.5-1.5 4.5-4 4.5" stroke="#E888B0" strokeWidth="1.4" fill="#E888B0" fillOpacity="0.55" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 8c-1 2.5-5 3.5-5.5 1-.4-2 2-3.2 4-2.3" stroke="#7FD8E8" strokeWidth="1.2" fill="#7FD8E8" fillOpacity="0.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M12 8c1 2.5 5 3.5 5.5 1 .4-2-2-3.2-4-2.3" stroke="#E888B0" strokeWidth="1.2" fill="#E888B0" fillOpacity="0.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="12" y1="5.5" x2="12" y2="13" stroke="#2A3550" strokeWidth="1.1" strokeLinecap="round"/>
+    </svg>
+  )
+}
 
 export default function LoginPage() {
   const { signIn } = useAuth()
@@ -34,23 +46,26 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-night-bg p-4 md:p-8">
       <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-night-line shadow-raised md:flex-row md:h-[640px]">
 
-        {/* Hero panel — robot Lily, brand mark. Full-bleed image with a
-            gradient fade so the rectangular photo dissolves into the panel
-            rather than showing a hard edge. */}
-        <div className="relative flex shrink-0 flex-col justify-start overflow-hidden bg-night-panel px-8 pt-8 pb-6 md:w-1/2 md:px-10 md:pt-10">
-          <div>
+        {/* Hero panel — title, tagline (with butterfly on the "g"), cat
+            looking up toward it, all stacked in normal flow underneath. */}
+        <div className="flex shrink-0 flex-col items-center bg-night-panel px-8 pt-10 pb-4 md:w-1/2 md:px-10">
+          <div className="w-full">
             <h1 className="font-display text-4xl font-medium leading-none text-night-ink">
               Rota<span className="font-semibold">Cat</span>
             </h1>
-            <p className="mt-1.5 text-sm text-night-gold">
-              the smarter play in EC rostering
+            <p className="relative mt-1.5 inline-block text-sm text-night-gold">
+              the smarter play in EC rosterin
+              <span className="relative inline-block">
+                g
+                <Butterfly className="absolute -top-3.5 left-1 h-4 w-4 -rotate-12" />
+              </span>
             </p>
           </div>
 
           <img
             src={robotLily}
             alt=""
-            className="pointer-events-none absolute inset-x-0 bottom-0 mx-auto h-[320px] w-auto select-none object-contain md:h-[420px]"
+            className="mt-2 h-auto max-h-[400px] w-auto max-w-[85%] select-none object-contain md:max-h-[440px]"
             draggable="false"
           />
         </div>

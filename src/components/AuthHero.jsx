@@ -1,16 +1,5 @@
 import robotLily from '../assets/lily-robot-ginger.png'
-
-function Butterfly({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
-      <path d="M12 6c-1-3-6-4-7-1-1 2.5 1.5 4.5 4 4.5" stroke="#0E7C6B" strokeWidth="1.4" fill="#0E7C6B" fillOpacity="0.45" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M12 6c1-3 6-4 7-1 1 2.5-1.5 4.5-4 4.5" stroke="#D6577E" strokeWidth="1.4" fill="#D6577E" fillOpacity="0.45" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M12 8c-1 2.5-5 3.5-5.5 1-.4-2 2-3.2 4-2.3" stroke="#0E7C6B" strokeWidth="1.2" fill="#0E7C6B" fillOpacity="0.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M12 8c1 2.5 5 3.5 5.5 1 .4-2-2-3.2-4-2.3" stroke="#D6577E" strokeWidth="1.2" fill="#D6577E" fillOpacity="0.3" strokeLinecap="round" strokeLinejoin="round"/>
-      <line x1="12" y1="5.5" x2="12" y2="13" stroke="#0F172A" strokeWidth="1.1" strokeLinecap="round"/>
-    </svg>
-  )
-}
+import butterflyImg from '../assets/butterfly-realistic.png'
 
 // Named export — used by page titles that also need "Cat" in teal
 // (e.g. "Sign in to your RotaCat account", if that copy comes back later)
@@ -34,7 +23,12 @@ export default function AuthHero() {
         the smarter play in EC{' '}
         <span className="relative inline-block">
           rostering
-          <Butterfly className="absolute -top-[13px] -right-1 h-6 w-6 -rotate-12" />
+          <img
+            src={butterflyImg}
+            alt=""
+            className="absolute -top-[13px] -right-1 h-6 w-6 -rotate-12 select-none"
+            draggable="false"
+          />
         </span>
       </p>
 

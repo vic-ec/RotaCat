@@ -1,15 +1,6 @@
 import robotLily from '../assets/lily-robot-ginger.png'
 import butterflyImg from '../assets/butterfly-realistic.png'
-
-// Named export — used by page titles that also need "Cat" in teal
-// (e.g. "Sign in to your RotaCat account", if that copy comes back later)
-export function RotaCat({ className }) {
-  return (
-    <span className={className}>
-      Rota<span className="text-accent">Cat</span>
-    </span>
-  )
-}
+import RotaCat from './RotaCat'
 
 // Shared hero/branding panel — identical on login and signup by construction,
 // not by two people remembering to keep two copies in sync.

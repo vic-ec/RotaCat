@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lilyIcon from '../assets/Lily-robot-icon.png'
+import lilyIcon from '../assets/lily-icon.png'
 
 const adminNav = [
   { to: '/', label: 'Dashboard', icon: HomeIcon },
@@ -79,14 +79,32 @@ export default function AppLayout() {
         </div>
       </aside>
 
+      {/* Top bar — mobile only. Bottom nav is for primary navigation;
+          sign-out lives here so it doesn't have to compete for space
+          in an already-full bottom row. */}
+      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-slate-line bg-canvas-raised px-4 py-3 md:hidden">
+        <div className="flex items-center gap-2">
+          <img src={lilyIcon} alt="" className="h-6 w-6 object-contain" draggable="false" />
+          <span className="font-display text-base font-medium text-ink">RotaCat</span>
+        </div>
+        <button
+          onClick={handleSignOut}
+          aria-label="Sign out"
+          className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-canvas-sunken"
+        >
+          <LogoutIcon className="h-[18px] w-[18px]" />
+          Sign out
+        </button>
+      </header>
+
       {/* Main content */}
-      <div className="flex flex-1 flex-col pb-16 md:pb-0">
+      <div className="flex flex-1 flex-col pb-16 pt-14 md:pb-0 md:pt-0">
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
       </div>
 
-      {/* Bottom nav — mobile */}
+      {/* Bottom nav — mobile, primary navigation only */}
       <nav className="fixed inset-x-0 bottom-0 flex border-t border-slate-line bg-canvas-raised md:hidden">
         {navItems.map((item) => (
           <NavLink

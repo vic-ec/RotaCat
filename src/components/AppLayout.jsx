@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lilyIcon from '../assets/lily-icon.png'
+import lilyIcon from '../assets/Lily-robot-icon.png'
 
 const adminNav = [
   { to: '/', label: 'Dashboard', icon: HomeIcon },

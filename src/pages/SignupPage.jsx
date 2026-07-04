@@ -70,11 +70,8 @@ export default function SignupPage() {
             <p className="text-2xl font-semibold text-ink md:text-3xl">
               Register your account
             </p>
-            <p className="mt-2 text-sm text-ink-muted">
-              Admin approval is required before you can sign in
-            </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="name" className="mb-1.5 block text-base font-semibold text-ink">

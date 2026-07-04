@@ -11,7 +11,7 @@ export default function AuthHero() {
         <RotaCat />
       </h1>
       <p className="mt-[15px] whitespace-nowrap text-sm text-ink-muted sm:text-lg md:text-[22px]">
-        smarter scheduling made{' '}
+        Smarter scheduling made{' '}
         <span className="relative inline-block">
           effortless
           <img

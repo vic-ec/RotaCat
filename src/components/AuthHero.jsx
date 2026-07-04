@@ -1,5 +1,5 @@
 import robotLily from '../assets/lily-robot-ginger.png'
-import butterflyImg from '../assets/butterfly-realistic.png'
+import butterflyImg from '../assets/butterfly-v3.png'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel — identical on login and signup by construction,

@@ -50,37 +50,37 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
-      <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-canvas-raised shadow-raised md:flex-row">
+      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl bg-canvas-raised shadow-raised md:flex-row">
 
-        {/* Hero panel */}
-        <div className="flex flex-col items-center justify-center bg-canvas px-10 py-14 md:w-1/2 md:px-14 md:py-16">
-          <h1 className="font-display text-5xl font-medium leading-none text-ink md:text-6xl">
+        {/* Hero panel — accent.tint gives it a distinct mint highlight
+            against both the grey page and the white form panel */}
+        <div className="flex flex-col items-center justify-center bg-accent-tint px-[3.125rem] py-[4.375rem] md:w-1/2 md:px-[4.375rem] md:py-20">
+          <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">
             <RotaCat />
           </h1>
-          <p className="relative mt-3 text-base text-ink-muted md:text-lg">
+          <p className="relative mt-[15px] text-xl text-ink-muted md:text-[22px]">
             the smarter play in EC rostering
-            <Butterfly className="absolute -top-4 -right-2 h-5 w-5 -rotate-12" />
+            <Butterfly className="absolute top-0 -right-2 h-[25px] w-[25px] -rotate-12" />
           </p>
 
           <img
             src={robotLily}
             alt=""
-            className="mt-8 h-56 w-auto select-none md:h-64"
+            className="mt-10 h-[280px] w-auto select-none md:h-80"
             draggable="false"
           />
         </div>
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-canvas-raised px-10 py-14 md:px-14 md:py-16">
+        <div className="flex flex-1 flex-col justify-center bg-canvas-raised px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
-            <h2 className="text-2xl font-semibold text-ink">Welcome</h2>
-            <p className="mt-1 text-sm text-ink-muted">
+            <p className="text-2xl font-semibold text-ink md:text-3xl">
               Sign in to your <RotaCat /> account
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
                   Email
                 </label>
                 <input
@@ -92,14 +92,14 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   className="w-full rounded-lg border border-slate-line bg-canvas-sunken px-4 py-3
-                    text-base text-ink placeholder:text-ink-muted
+                    text-lg text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="password" className="mb-1.5 block text-base font-semibold text-ink">
                   Password
                 </label>
                 <input
@@ -111,7 +111,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full rounded-lg border border-slate-line bg-canvas-sunken px-4 py-3
-                    text-base text-ink placeholder:text-ink-muted
+                    text-lg text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
                 />
@@ -126,7 +126,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-base font-semibold text-white
+                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
                   transition-colors hover:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -135,7 +135,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-ink-muted">
+            <p className="mt-6 text-center text-base text-ink-muted">
               Don't have an account?{' '}
               <Link to="/signup" className="font-semibold text-rose hover:text-rose-dark hover:underline">
                 Register here

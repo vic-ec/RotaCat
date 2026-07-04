@@ -50,7 +50,7 @@ export default function App() {
             <Route path="staff" element={<StaffListPage />} />
             <Route
               path="leave"
-              element={<PlaceholderPage title="Leave requests" description="Leave submission and approval workflow coming in a later phase." />}
+              element={<PlaceholderPage title="Leave Requests" description="Leave submission and approval workflow coming in a later phase." />}
             />
             <Route
               path="swaps"
@@ -58,7 +58,7 @@ export default function App() {
             />
             <Route
               path="settings"
-              element={<PlaceholderPage title="Rules & settings" description="No-code constraint editor coming in a later phase." />}
+              element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
             />
           </Route>
 

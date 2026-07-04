@@ -37,7 +37,7 @@ export default function LoginPage() {
         {/* Form panel */}
         <div className="flex flex-1 flex-col justify-center bg-canvas-raised px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink md:text-3xl">
+            <p className="text-2xl font-semibold text-ink lg:text-3">
               Sign in to your account
             </p>
 

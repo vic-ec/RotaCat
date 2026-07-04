@@ -7,8 +7,8 @@ const adminNav = [
   { to: '/', label: 'Dashboard', icon: HomeIcon },
   { to: '/roster', label: 'Roster', icon: CalendarIcon },
   { to: '/staff', label: 'Staff', icon: UsersIcon },
-  { to: '/leave', label: 'Leave requests', icon: ClipboardIcon },
-  { to: '/settings', label: 'Rules & settings', icon: SlidersIcon }
+  { to: '/leave', label: 'Leave', icon: ClipboardIcon },
+  { to: '/settings', label: 'Settings', icon: SlidersIcon }
 ]
 
 const doctorNav = [

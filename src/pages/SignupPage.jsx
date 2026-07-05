@@ -65,7 +65,7 @@ export default function SignupPage() {
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-canvas-cool px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink lg:text-3xl">
               Register your account
@@ -83,7 +83,7 @@ export default function SignupPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -99,7 +99,7 @@ export default function SignupPage() {
                     required
                     value={surname}
                     onChange={(e) => setSurname(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -119,7 +119,7 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -138,7 +138,7 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"

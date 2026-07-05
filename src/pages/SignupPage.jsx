@@ -36,7 +36,7 @@ export default function SignupPage() {
   if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-accent px-4">
-        <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas p-8 text-center shadow-raised">
+        <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-accent-tint p-8 text-center shadow-raised">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
             <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -60,12 +60,12 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
-      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas shadow-raised md:flex-row">
+      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-accent-tint shadow-raised md:flex-row">
 
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-canvas px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-tint px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink lg:text-3xl">
               Register your account

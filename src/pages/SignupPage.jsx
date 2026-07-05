@@ -35,7 +35,7 @@ export default function SignupPage() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
+      <div className="flex min-h-screen items-center justify-center bg-canvas.cool px-4">
         <div className="w-full max-w-sm rounded-xl border border-accent/25 bg-canvas-raised p-8 text-center shadow-raised">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
             <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -59,7 +59,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-canvas.cool px-4 py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
 
         <AuthHero />
@@ -119,7 +119,7 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border border-slate-line bg-canvas-sunken px-4 py-3
+                  className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -138,7 +138,7 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="w-full rounded-lg border border-slate-line bg-canvas-sunken px-4 py-3
+                  className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"

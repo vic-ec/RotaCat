@@ -65,7 +65,7 @@ export default {
       },
       boxShadow: {
         card: '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 6px -1px rgba(15, 23, 42, 0.06)',
-        raised: '0 4px 16px -2px rgba(15, 23, 42, 0.10)'
+        raised: '0 4px 16px -2px rgba(15, 23, 42, 0.16)'
       }
     }
   },

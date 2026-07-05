@@ -30,12 +30,11 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
-      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-cool shadow-raised md:flex-row">
-
+      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-accent-light shadow-raised md:flex-row">
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-canvas-cool px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink lg:text-3xl">
               Sign in to your account
@@ -54,7 +53,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                     text-lg text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -73,7 +72,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas px-4 py-3
                     text-lg text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"

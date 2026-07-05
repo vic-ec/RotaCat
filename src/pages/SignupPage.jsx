@@ -83,7 +83,7 @@ export default function SignupPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -99,7 +99,7 @@ export default function SignupPage() {
                     required
                     value={surname}
                     onChange={(e) => setSurname(e.target.value)}
-                    className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -119,7 +119,7 @@ export default function SignupPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
@@ -138,7 +138,7 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 8 characters"
-                  className="w-full rounded-lg border border-accent/50 bg-accent-tint px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-accent-tint px-4 py-3
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"

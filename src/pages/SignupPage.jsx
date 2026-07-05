@@ -36,7 +36,7 @@ export default function SignupPage() {
   if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas.cool px-4">
-        <div className="w-full max-w-sm rounded-xl border border-accent/25 bg-canvas-raised p-8 text-center shadow-raised">
+        <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas-raised p-8 text-center shadow-raised">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
             <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -45,11 +45,11 @@ export default function SignupPage() {
           <h2 className="font-display text-xl text-ink">Registration received</h2>
           <p className="mt-2 text-sm text-ink-muted">
             Check your email to confirm your address. Once confirmed, an admin will
-            review and approve your account — you'll get a notification when it's active.
+            review and approve your account. You will get a notification when your account is active.
           </p>
           <Link
             to="/login"
-            className="mt-6 inline-block rounded-lg border border-accent px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-tint"
+            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light"
           >
             Back to sign in
           </Link>

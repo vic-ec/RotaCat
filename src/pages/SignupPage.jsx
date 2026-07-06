@@ -65,113 +65,90 @@ export default function SignupPage() {
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
-          <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink lg:text-3xl">
-              Register your account
-            </p>
+<div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+  <div className="mx-auto w-full max-w-sm">
+    <p className="text-2xl font-semibold text-ink lg:text-3xl">
+      Register your account
+    </p>
 
-            <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="name" className="mb-1.5 block text-base font-semibold text-ink">
-                    First name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="surname" className="mb-1.5 block text-base font-semibold text-ink">
-                    Surname
-                  </label>
-                  <input
-                    id="surname"
-                    type="text"
-                    required
-                    value={surname}
-                    onChange={(e) => setSurname(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="mb-1.5 block text-base font-semibold text-ink">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
-                />
-              </div>
-
-              {error && (
-                <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
-                  transition-colors hover:bg-accent-dark
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
-              >
-                {submitting ? 'Creating account…' : 'Create account'}
-              </button>
-            </form>
-
-            <p className="mt-6 text-center text-sm text-ink-muted">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-rose hover:text-rose-dark hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </div>
+    <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-5">
+      <div>
+        <label htmlFor="name" className="mb-1.5 block text-base font-semibold text-ink">
+          First name
+        </label>
+        <input
+          id="name"
+          type="text"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+            text-base text-ink placeholder:text-ink-muted
+            transition-colors focus:border-rose focus:bg-canvas-raised
+            focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+        />
       </div>
-    </div>
-  )
-}
+
+      <div>
+        <label htmlFor="surname" className="mb-1.5 block text-base font-semibold text-ink">
+          Surname
+        </label>
+        <input
+          id="surname"
+          type="text"
+          required
+          value={surname}
+          onChange={(e) => setSurname(e.target.value)}
+          className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+            text-base text-ink placeholder:text-ink-muted
+            transition-colors focus:border-rose focus:bg-canvas-raised
+            focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+            text-base text-ink placeholder:text-ink-muted
+            transition-colors focus:border-rose focus:bg-canvas-raised
+            focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="password" className="mb-1.5 block text-base font-semibold text-ink">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          required
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 8 characters"
+          className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+            text-base text-ink placeholder:text-ink-muted
+            transition-colors focus:border-rose focus:bg-canvas-raised
+            focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+          {error}
+        </div>
+      )}
+    </form>
+  </div>
+</div>

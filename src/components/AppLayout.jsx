@@ -29,7 +29,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-accent-light">
+    <div className="flex min-h-screen bg-accent-tint">
       {/* Sidebar — desktop */}
       <aside className="hidden w-60 flex-col border-r border-slate-line bg-canvas-raised md:flex">
         <div className="px-5 py-6">

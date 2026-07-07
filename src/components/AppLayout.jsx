@@ -31,7 +31,7 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen bg-accent-light">
       {/* Sidebar — desktop */}
-      <aside className="hidden w-60 flex-col border-r border-slate-line bg-canvas-raised md:flex">
+      <aside className="hidden w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2.5">
             <img
@@ -83,7 +83,7 @@ export default function AppLayout() {
       {/* Top bar — mobile only. Bottom nav is for primary navigation;
           sign-out lives here so it doesn't have to compete for space
           in an already-full bottom row. */}
-      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-slate-line bg-canvas-raised px-4 py-3 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
           <img src={lilyIcon} alt="" className="h-6 w-6 object-contain" draggable="false" />
           <span className="font-display text-base font-medium text-ink"><RotaCat /></span>
@@ -106,7 +106,7 @@ export default function AppLayout() {
       </div>
 
       {/* Bottom nav — mobile, primary navigation only */}
-      <nav className="fixed inset-x-0 bottom-0 flex border-t border-slate-line bg-canvas-raised md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 flex border-t border-accent/50 bg-canvas-raised md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

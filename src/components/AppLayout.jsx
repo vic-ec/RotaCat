@@ -58,7 +58,7 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-accent-light text-accent-dark'
+                    ? 'bg-accent text-canvas-raised'
                     : 'text-ink-light hover:bg-accent-light'
                 }`
               }

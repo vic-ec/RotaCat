@@ -1,4 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger.png'
+import robotLily from '../assets/lily-robot-ginger-shadow.png'
 import butterflyImg from '../assets/butterfly-v3.png'
 import RotaCat from './RotaCat'
 

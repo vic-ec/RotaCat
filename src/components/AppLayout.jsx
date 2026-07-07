@@ -69,10 +69,10 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-accent/25 text-ink-light p-3">
+        <div className="border-t border-accent/25 p-3">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-canvas-raised hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent hover:text-canvas-raised"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
             Sign out
@@ -91,7 +91,7 @@ export default function AppLayout() {
         <button
           onClick={handleSignOut}
           aria-label="Sign out"
-          className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent hover:text-canvas-raised"
+          className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
         >
           <LogoutIcon className="h-[18px] w-[18px]" />
           Sign out

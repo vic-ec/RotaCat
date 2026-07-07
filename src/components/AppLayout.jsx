@@ -59,7 +59,7 @@ export default function AppLayout() {
                 `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-accent-light text-accent-dark'
-                    : 'text-ink-light hover:bg-accent'
+                    : 'text-ink-light hover:bg-accent-light'
                 }`
               }
             >
@@ -72,7 +72,7 @@ export default function AppLayout() {
         <div className="border-t border-accent/25 p-3">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light hover:bg-accent-light"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
             Sign out
@@ -91,7 +91,7 @@ export default function AppLayout() {
         <button
           onClick={handleSignOut}
           aria-label="Sign out"
-          className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent"
+          className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
         >
           <LogoutIcon className="h-[18px] w-[18px]" />
           Sign out

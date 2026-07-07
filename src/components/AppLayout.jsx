@@ -69,7 +69,7 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="border-t border-slate-line p-3">
+        <div className="border-t border-accent/25 p-3">
           <button
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light hover:bg-canvas-sunken"

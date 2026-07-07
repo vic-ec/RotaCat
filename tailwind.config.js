@@ -13,7 +13,8 @@ export default {
         canvas: {
           DEFAULT: '#F7F6F3',   // app background — warm off-white, not stark white
           raised: '#FFFFFF',    // cards, panels
-          sunken: '#EFEDE7'     // input backgrounds, table stripes
+          sunken: '#EFEDE7',     // input backgrounds, table stripes
+          cool: '#F4F6F6'
         },
         slate: {
           line: '#E4E1D8'       // hairline borders

@@ -13,7 +13,7 @@ export default function RotaCat({ className }) {
           <img
             src={butterflyImg}
             alt=""
-            className="absolute -top-[17px] -right-5 h-7 w-7 -rotate-12 select-none"
+            className="absolute -top-[14px] -right-5 h-7 w-7 -rotate-12 select-none"
             draggable="false"
           />
         </span>

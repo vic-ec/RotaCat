@@ -110,6 +110,24 @@ export default function SignupPage() {
                 <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
                   Email
                 </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <path d="M3 7l9 6 9-6" />
+                    </svg>
+                  </span>
+                
                 <input
                   id="email"
                   type="email"
@@ -129,6 +147,24 @@ export default function SignupPage() {
                 <label htmlFor="password" className="mb-1.5 block text-base font-semibold text-ink">
                   Password
                 </label>
+
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path d="M8 11V8a4 4 0 118 0v3" />
+                    </svg>
+                  </span>
+                
                 <input
                   id="password"
                   type="password"

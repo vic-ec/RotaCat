@@ -72,7 +72,7 @@ export default function AppLayout() {
         <div className="border-t border-accent/25 p-3">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light"
+            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent hover:text-canvas-raised"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
             Sign out

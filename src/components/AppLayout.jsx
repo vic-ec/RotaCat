@@ -59,7 +59,7 @@ export default function AppLayout() {
                 `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-accent text-canvas-raised'
-                    : 'text-ink-light hover:bg-accent-light'
+                    : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised'
                 }`
               }
             >

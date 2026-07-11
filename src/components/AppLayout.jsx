@@ -31,7 +31,7 @@ export default function AppLayout() {
   return (
     <div className="flex min-h-screen bg-accent-light">
       {/* Sidebar — desktop */}
-      <aside className="hidden w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2.5">
             <img

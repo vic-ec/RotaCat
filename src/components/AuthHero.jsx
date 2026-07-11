@@ -29,7 +29,7 @@ export default function AuthHero() {
           alt=""
           className="relative z-10 h-[280px] w-auto select-none md:h-80"
           draggable="UK
-        
+        />
       </div>
     </div>
   )

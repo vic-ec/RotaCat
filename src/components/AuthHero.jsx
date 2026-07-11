@@ -1,4 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-shadow.png'
+import robotLily from '../assets/lily-robot-ginger-mirrorshadow-bgFFFFFF.jpg'
 import butterflyImg from '../assets/butterfly-v3.png'
 import RotaCat from './RotaCat'
 
@@ -29,12 +29,6 @@ export default function AuthHero() {
           alt=""
           className="relative z-10 h-[280px] w-auto select-none md:h-80"
           draggable="false"
-        />
-        {/* CSS-drawn contact shadow — deliberate and controllable,
-            not dependent on extracting a faint shadow from the source photo */}
-        <div
-          className="absolute bottom-1 left-1/2 h-4 w-32 -translate-x-1/2 rounded-full bg-ink/20 blur-md md:h-5 md:w-40"
-          aria-hidden="true"
         />
       </div>
     </div>

@@ -317,12 +317,17 @@ export default function RosterGridPage() {
                 return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
               })()
               const isToday = day.dateStr === todayStr
+              // Show column header when day type changes (first row of a
+              // new block of weekday/weekend/PH days)
+              const prevDay = visibleDays[dayIdx - 1]
+              const showHeader = !prevDay || prevDay.dayType !== day.dayType
+              const headerBg = isWeekend ? 'bg-gray-300' : 'bg-canvas-sunken'
 
               return (
                 <tr
                   key={day.dateStr}
                   className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-canvas-sunken' : 'bg-canvas-raised'
+                    isWeekend ? 'bg-gray-300' : 'bg-canvas-raised'
                   } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
@@ -344,13 +349,20 @@ export default function RosterGridPage() {
                   </td>
 
                   {/* Consultant column */}
-                  <td className="w-24 border-r border-slate-line px-1.5 py-1 align-top">
-                    <ConsultantCell
-                      date={day.dateStr}
-                      rosterMonthId={id}
-                      existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
-                      onRefresh={loadAll}
-                    />
+                  <td className="w-24 border-r border-slate-line align-top p-0">
+                    {showHeader && (
+                      <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
+                        Consultant
+                      </div>
+                    )}
+                    <div className="px-1.5 py-1">
+                      <ConsultantCell
+                        date={day.dateStr}
+                        rosterMonthId={id}
+                        existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
+                        onRefresh={loadAll}
+                      />
+                    </div>
                   </td>
 
                   {/* Shift columns */}
@@ -358,10 +370,6 @@ export default function RosterGridPage() {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
                     const hasShortfall = cellEntries.some(e => e.is_flagged)
                     const hasLocum = cellEntries.some(e => e.is_locum)
-                    // Show column header when day type changes (first row of a
-                    // new block of weekday/weekend/PH days)
-                    const prevDay = visibleDays[dayIdx - 1]
-                    const showHeader = !prevDay || prevDay.dayType !== day.dayType
 
                     return (
                       <td
@@ -374,7 +382,7 @@ export default function RosterGridPage() {
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className="border-b border-slate-line bg-canvas-sunken px-1.5 py-1 text-center font-semibold text-ink-muted">
+                          <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
                             {label}
                           </div>
                         )}

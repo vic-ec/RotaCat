@@ -80,6 +80,7 @@ export default function GenerationConfigPage() {
       .select('id, status')
       .eq('year', year)
       .eq('month', month)
+      .is('deleted_at', null)
       .single()
     setExistingRoster(data || null)
   }

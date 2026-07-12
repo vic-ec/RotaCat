@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'VHW EC Roster Builder',
-        short_name: 'EC Roster',
-        description: 'VHW Emergency Centre shift scheduling app',
+        name: 'RotaCat',
+        short_name: 'RotaCat',
+        description: 'Smart ED shift scheduling app',
         theme_color: '#0F172A',
         background_color: '#F7F6F3',
         display: 'standalone',

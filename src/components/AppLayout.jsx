@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lilyIcon from '../assets/lily-robot-ginger-front-headshot.png'
+import lilyIcon from '../assets/lily-robot-ginger-front-tilted-headshot.png'
 import RotaCat from '../components/RotaCat'
 
 const adminNav = [

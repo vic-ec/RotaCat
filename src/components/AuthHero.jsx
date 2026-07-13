@@ -1,4 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
+import robotLily from '../assets/lily-robot-orange-reflectiveshadow-cropped.png'
 import butterflyImg from '../assets/butterfly-v3.png'
 import RotaCat from './RotaCat'
 

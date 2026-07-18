@@ -79,7 +79,7 @@ export default function AppLayout() {
             <img
               src={lilyIcon}
               alt=""
-              className="h-8 w-8 object-contain"
+              className="h-10 w-10 object-contain"
               draggable="false"
             />
             <h1 className="font-display text-lg font-medium text-ink"><RotaCat /></h1>
@@ -128,7 +128,7 @@ export default function AppLayout() {
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
-          <img src={lilyIcon} alt="" className="h-6 w-6 object-contain" draggable="false" />
+          <img src={lilyIcon} alt="" className="h-8 w-8 object-contain" draggable="false" />
           <span className="font-display text-base font-medium text-ink"><RotaCat /></span>
         </div>
         <button

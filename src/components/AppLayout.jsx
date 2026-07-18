@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lilyIcon from '../assets/lily-robot-ginger-front-tilted-headshot.png'
+import lilyIcon from '../assets/icon-lily-robot-orange-leftheadtilt-nobg.jpg'
 import RotaCat from '../components/RotaCat'
 
 // ── Nav sets per role ──────────────────────────────────────

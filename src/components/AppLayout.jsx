@@ -3,25 +3,67 @@ import { useAuth } from '../context/AuthContext'
 import lilyIcon from '../assets/lily-robot-ginger-front-tilted-headshot.png'
 import RotaCat from '../components/RotaCat'
 
+// ── Nav sets per role ──────────────────────────────────────
+// Each role sees a tailored nav — preserving the original
+// adminNav / doctorNav pattern and extending it for locum + clerk.
+
 const adminNav = [
-  { to: '/', label: 'Dashboard', icon: HomeIcon },
-  { to: '/roster', label: 'Roster', icon: CalendarIcon },
-  { to: '/staff', label: 'Staff', icon: UsersIcon },
-  { to: '/leave', label: 'Leave', icon: ClipboardIcon },
-  { to: '/settings', label: 'Settings', icon: SlidersIcon }
+  { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
+  { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+  { to: '/leave',  label: 'Leave',       icon: ClipboardIcon },
+  { to: '/settings', label: 'Settings',  icon: SlidersIcon },
 ]
 
 const doctorNav = [
-  { to: '/', label: 'My shifts', icon: HomeIcon },
+  { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Full roster', icon: CalendarIcon },
-  { to: '/leave', label: 'My leave', icon: ClipboardIcon },
-  { to: '/swaps', label: 'Swaps', icon: SwapIcon }
+  { to: '/leave',  label: 'My leave',    icon: ClipboardIcon },
+  { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
 ]
 
+// Locums: see roster and open shifts, can request locum↔locum swaps.
+// No leave, no weekend grid (enforced via canViewWeekendGrid in those pages).
+const locumNav = [
+  { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
+  { to: '/roster', label: 'Full roster', icon: CalendarIcon },
+  { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
+  { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+]
+
+// Clerks: read-only. Roster, weekend grid, contact list only.
+const clerkNav = [
+  { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
+  { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+]
+
+const ROLE_CATEGORY_LABEL = {
+  MO:          'EC Medical Officer',
+  Registrar:   'Registrar',
+  EC_COSMO:    'EC Intern / COSMO',
+  OT_COSMO:    'OT Intern / COSMO',
+  COSMO_Psych: 'OT Intern / COSMO (Psych)',
+  Consultant:  'Consultant',
+  Locum:       'Locum',
+  COSMO:       'COSMO',       // legacy value
+  COSMOPsych:  'COSMO Psych', // legacy value
+}
+
 export default function AppLayout() {
-  const { profile, signOut, isAdmin } = useAuth()
+  const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
   const navigate = useNavigate()
-  const navItems = isAdmin ? adminNav : doctorNav
+
+  const navItems = isAdmin  ? adminNav
+                 : isLocum  ? locumNav
+                 : isClerk  ? clerkNav
+                 : doctorNav
+
+  // Subtitle under the name in the sidebar
+  const subtitle = isAdmin  ? 'Admin'
+                 : isLocum  ? 'Locum'
+                 : isClerk  ? 'Clerk'
+                 : ROLE_CATEGORY_LABEL[profile?.category] || profile?.category || 'Doctor'
 
   async function handleSignOut() {
     await signOut()
@@ -44,8 +86,11 @@ export default function AppLayout() {
           </div>
           {profile && (
             <p className="mt-2 text-xs text-ink-muted">
-              {profile.name} {profile.surname} · {isAdmin ? 'Admin' : profile.category}
+              {profile.name} {profile.surname} · {subtitle}
             </p>
+          )}
+          {!profile?.is_approved && (
+            <p className="mt-1 text-xs text-flagAmber">Pending approval</p>
           )}
         </div>
 
@@ -54,7 +99,7 @@ export default function AppLayout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.end ?? false}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
@@ -80,9 +125,7 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* Top bar — mobile only. Bottom nav is for primary navigation;
-          sign-out lives here so it doesn't have to compete for space
-          in an already-full bottom row. */}
+      {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
           <img src={lilyIcon} alt="" className="h-6 w-6 object-contain" draggable="false" />
@@ -111,7 +154,7 @@ export default function AppLayout() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
+            end={item.end ?? false}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${
                 isActive ? 'text-accent-dark' : 'text-ink-muted'
@@ -127,7 +170,7 @@ export default function AppLayout() {
   )
 }
 
-/* ---- Inline icon components (no external icon library needed) ---- */
+/* ── Inline icon components ─────────────────────────────── */
 
 function HomeIcon(props) {
   return (
@@ -174,6 +217,13 @@ function SwapIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h13l-3-3M20 17H7l3 3" />
+    </svg>
+  )
+}
+function ShiftIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
     </svg>
   )
 }

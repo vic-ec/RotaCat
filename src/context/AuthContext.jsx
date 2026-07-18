@@ -53,12 +53,20 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
-  async function signUp(email, password, name, surname) {
+  // Updated: accepts role and category for the new account model.
+  // role defaults to 'doctor' to keep backward compatibility with any
+  // existing callers that only pass email/password/name/surname.
+  async function signUp(email, password, name, surname, role = 'doctor', category = null) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { name, surname }
+        data: {
+          name,
+          surname,
+          role,
+          ...(category ? { category } : {}),
+        }
       }
     })
     return { error }
@@ -68,13 +76,41 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  // ── Role helpers ───────────────────────────────────────────
+  const role     = profile?.role ?? null
+  const isAdmin  = role === 'admin'
+  const isDoctor = role === 'doctor'
+  const isLocum  = role === 'locum'
+  const isClerk  = role === 'clerk'
+
+  // ── Permission helpers ─────────────────────────────────────
+  // Centralised here so every screen can gate on a single boolean
+  // rather than reimplementing role logic independently.
+  const canSubmitLeave     = (isAdmin || isDoctor) && profile?.is_approved
+  const canViewWeekendGrid = !isLocum   // locums cannot see weekend grid
+  const canManageRoster    = isAdmin
+  const canClaimShifts     = isLocum && profile?.is_approved
+  const canRequestSwap     = (isDoctor || isLocum) && profile?.is_approved
+
   const value = {
     session,
     user: session?.user ?? null,
     profile,
     loading,
-    isAdmin: profile?.role === 'admin',
+    // Role booleans
+    role,
+    isAdmin,
+    isDoctor,
+    isLocum,
+    isClerk,
     isApproved: profile?.is_approved === true,
+    // Permission helpers
+    canSubmitLeave,
+    canViewWeekendGrid,
+    canManageRoster,
+    canClaimShifts,
+    canRequestSwap,
+    // Auth actions
     signIn,
     signUp,
     signOut,

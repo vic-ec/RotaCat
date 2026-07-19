@@ -12,6 +12,7 @@ const adminNav = [
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Leave',       icon: ClipboardIcon },
+  { to: '/account', label: 'Account',    icon: UserIcon },
   { to: '/settings', label: 'Settings',  icon: SlidersIcon },
 ]
 
@@ -20,6 +21,7 @@ const doctorNav = [
   { to: '/roster', label: 'Full roster', icon: CalendarIcon },
   { to: '/leave',  label: 'My leave',    icon: ClipboardIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+  { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
 // Locums: see roster and open shifts, can request locum↔locum swaps.
@@ -29,6 +31,7 @@ const locumNav = [
   { to: '/roster', label: 'Full roster', icon: CalendarIcon },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+  { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
 // Clerks: read-only. Roster, weekend grid, contact list only.
@@ -36,6 +39,7 @@ const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+  { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
 const ROLE_CATEGORY_LABEL = {
@@ -224,6 +228,14 @@ function ShiftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  )
+}
+function UserIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <circle cx="12" cy="8" r="4" />
+      <path strokeLinecap="round" d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
     </svg>
   )
 }

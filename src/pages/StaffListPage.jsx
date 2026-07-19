@@ -96,7 +96,7 @@ export default function StaffListPage() {
         .order('surname'),
       // Only admins act on pending approvals — skip the fetch entirely for everyone else.
       isAdmin
-        supabase
+      ? supabase
         .from('profiles')
         .select('*')
         .eq('is_approved', false)

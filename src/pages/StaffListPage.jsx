@@ -19,11 +19,9 @@ const CATEGORY_LABELS = {
 }
 
 const ROLE_LABELS = {
-  admin:      'Admin',
-  doctor:     'Doctor',
-  consultant: 'Consultant',
-  locum:      'Locum',
-  clerk:      'Clerk',
+  doctor: 'Doctor',
+  locum:  'Locum',
+  clerk:  'Clerk',
 }
 
 const REQUEST_TYPE_LABELS = {
@@ -33,11 +31,16 @@ const REQUEST_TYPE_LABELS = {
 }
 
 const ROLE_BADGE = {
-  admin:      'bg-accent text-white',
-  doctor:     'bg-success-bg text-success',
-  consultant: 'bg-success-bg text-success',
-  locum:      'bg-canvas-sunken text-ink-muted',
-  clerk:      'bg-flagAmber-bg text-flagAmber',
+  doctor: 'bg-success-bg text-success',
+  locum:  'bg-canvas-sunken text-ink-muted',
+  clerk:  'bg-flagAmber-bg text-flagAmber',
+}
+
+const PERMISSION_LABELS = { user: 'User', clerk: 'Clerk', admin: 'Admin' }
+const PERMISSION_BADGE = {
+  admin: 'bg-accent text-white',
+  clerk: 'bg-flagBlue-bg text-flagBlue',
+  user:  '',
 }
 
 // Category options for the approval edit panel
@@ -145,8 +148,9 @@ export default function StaffListPage() {
 
   async function approveAccount(profile) {
     const ed = editData[profile.id] || {}
-    const role     = ed.role     ?? profile.role     ?? 'doctor'
-    const category = ed.category ?? profile.category ?? null
+    const role       = ed.role       ?? profile.role       ?? 'doctor'
+    const category   = role === 'doctor' ? (ed.category ?? profile.category ?? null) : null
+    const permission = ed.permission ?? profile.permission_level ?? 'user'
 
     const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
@@ -154,15 +158,16 @@ export default function StaffListPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     const { error } = await supabase.from('profiles').update({
-      is_approved:  true,
-      is_active:    true,
+      is_approved:      true,
+      is_active:        true,
       role,
-      category:     category || null,
-      min_hours:    hours.min,
-      max_hours:    hours.max,
-      swap_group:   swapGroup,
-      approved_by:  user.id,
-      approved_at:  new Date().toISOString(),
+      category:         category || null,
+      permission_level: permission,
+      min_hours:        hours.min,
+      max_hours:        hours.max,
+      swap_group:       swapGroup,
+      approved_by:      user.id,
+      approved_at:      new Date().toISOString(),
     }).eq('id', profile.id)
 
     if (error) {
@@ -196,7 +201,10 @@ export default function StaffListPage() {
 
     // Apply the actual change first
     if (request.request_type === 'role') {
-      await supabase.from('profiles').update({ role: request.requested_value }).eq('id', request.profile_id)
+      // Category only makes sense for doctors — clear it if the new role isn't 'doctor'
+      const patch = { role: request.requested_value }
+      if (request.requested_value !== 'doctor') patch.category = null
+      await supabase.from('profiles').update(patch).eq('id', request.profile_id)
     } else if (request.request_type === 'category') {
       await supabase.from('profiles').update({ category: request.requested_value }).eq('id', request.profile_id)
     } else if (request.request_type === 'deletion') {
@@ -416,9 +424,16 @@ export default function StaffListPage() {
                         <td className="px-4 py-2.5 font-medium text-ink">{person.surname}</td>
                         <td className="px-4 py-2.5 text-ink">{person.name || '—'}</td>
                         <td className="px-4 py-2.5">
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                            {ROLE_LABELS[person.role] || person.role}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                              {ROLE_LABELS[person.role] || person.role}
+                            </span>
+                            {person.permission_level && person.permission_level !== 'user' && (
+                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PERMISSION_BADGE[person.permission_level] || 'bg-canvas-sunken text-ink-muted'}`}>
+                                {PERMISSION_LABELS[person.permission_level] || person.permission_level}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-2.5 text-ink-light">
                           {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
@@ -477,6 +492,7 @@ export default function StaffListPage() {
                 const ed = editData[person.id] || {}
                 const currentRole     = ed.role     ?? person.role     ?? 'doctor'
                 const currentCategory = ed.category ?? person.category ?? ''
+                const currentPermission = ed.permission ?? person.permission_level ?? 'user'
 
                 return (
                   <div key={person.id} className="px-5 py-4">
@@ -536,12 +552,11 @@ export default function StaffListPage() {
                               className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
                             >
                               <option value="doctor">Doctor</option>
-                              <option value="admin">Admin</option>
                               <option value="locum">Locum</option>
                               <option value="clerk">Clerk</option>
                             </select>
                           </div>
-                          {currentRole !== 'clerk' && (
+                          {currentRole === 'doctor' && (
                             <div>
                               <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
                               <select
@@ -559,6 +574,21 @@ export default function StaffListPage() {
                               </select>
                             </div>
                           )}
+                          <div>
+                            <label className="mb-1 block text-xs font-semibold text-ink-muted">Permissions</label>
+                            <select
+                              value={currentPermission}
+                              onChange={e => setEditData(prev => ({
+                                ...prev,
+                                [person.id]: { ...prev[person.id], permission: e.target.value }
+                              }))}
+                              className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
+                            >
+                              <option value="user">User</option>
+                              <option value="clerk">Clerk</option>
+                              <option value="admin">Admin</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     )}

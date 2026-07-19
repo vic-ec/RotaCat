@@ -1,31 +1,28 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { getCroppedImageBlob } from '../lib/cropImage'
 
-// ── Display label maps (kept local + consistent with StaffListPage/AppLayout) ──
+// ── Display label maps ──────────────────────────────────────
+// Role = account type (drives which pages/features are visible)
+const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
+const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
+
+// Category = clinical subtype, only meaningful when role = 'doctor'
 const CATEGORY_LABELS = {
-  MO:              'Medical Officer',
-  Registrar:       'Registrar',
-  COSMO:           'COSMO',
-  COSMOPsych:      'COSMO (Psych)',
-  Intern:          'Intern',
-  Consultant:      'Consultant',
-  Locum:           'Locum',
-  EC_COSMO:        'EC COSMO',
-  EC_COSMO_Intern: 'EC Intern',
-  OT_COSMO:        'OT COSMO',
-  OT_COSMO_Intern: 'OT Intern',
+  MO:         'Medical Officer',
+  Registrar:  'Registrar',
+  COSMO:      'COSMO',
+  COSMOPsych: 'COSMO (Psych)',
+  Intern:     'Intern',
+  Consultant: 'Consultant',
 }
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
 
-const ROLE_LABELS = {
-  admin:      'Admin',
-  doctor:     'Doctor',
-  consultant: 'Consultant',
-  locum:      'Locum',
-  clerk:      'Clerk',
-}
-const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
+// Permissions = access tier, independent of role, admin-managed only
+const PERMISSION_LABELS = { user: 'User', clerk: 'Clerk', admin: 'Admin' }
+const PERMISSION_OPTIONS = Object.entries(PERMISSION_LABELS).map(([value, label]) => ({ value, label }))
 
 const NOTIFICATION_LABELS = {
   roster_published:    'Roster published',
@@ -35,19 +32,18 @@ const NOTIFICATION_LABELS = {
   swap_accepted:       'Swap accepted by colleague',
   swap_rejected:       'Swap rejected by colleague',
   swap_admin_approved: 'Swap approved by admin',
-  shift_claimed:       'Advertised shift claimed',
+  shift_claimed:       'Advertised locum shift claimed',
+  shift_cancelled:     'Advertised locum shift cancelled',
   account_approved:    'Account approved',
   account_rejected:    'Account rejected',
-  ph_lieu_updated:     'Public holiday lieu day updated',
   reminder:            'Reminders',
   general:             'General notifications',
 }
-// Fixed display order — falls back to object key order for anything unlisted
 const NOTIFICATION_ORDER = [
   'roster_published', 'leave_approved', 'leave_rejected',
   'swap_request', 'swap_accepted', 'swap_rejected', 'swap_admin_approved',
-  'shift_claimed', 'account_approved', 'account_rejected',
-  'ph_lieu_updated', 'reminder', 'general',
+  'shift_claimed', 'shift_cancelled', 'account_approved', 'account_rejected',
+  'reminder', 'general',
 ]
 
 const REQUEST_STATUS_BADGE = {
@@ -55,6 +51,10 @@ const REQUEST_STATUS_BADGE = {
   approved: 'bg-success-bg text-success',
   rejected: 'bg-flagRed-bg text-flagRed',
 }
+
+// Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
+const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
 
 function Toggle({ checked, onChange, disabled }) {
   return (
@@ -77,30 +77,93 @@ function Toggle({ checked, onChange, disabled }) {
   )
 }
 
+// ── Avatar crop modal ────────────────────────────────────────
+function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
+
+  const onCropComplete = useCallback((_area, areaPixels) => {
+    setCroppedAreaPixels(areaPixels)
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+      <div className="card w-full max-w-sm p-5">
+        <h3 className="mb-3 text-sm font-semibold text-ink">Adjust your photo</h3>
+        <div className="relative h-72 w-full overflow-hidden rounded-lg bg-canvas-sunken">
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={1}
+            cropShape="round"
+            showGrid={false}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+          />
+        </div>
+        <div className="mt-4">
+          <label className="label-text">Zoom</label>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={e => setZoom(Number(e.target.value))}
+            className="w-full accent-accent"
+          />
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCancel} disabled={saving} className="btn-secondary px-3 py-1.5 text-xs">
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(croppedAreaPixels)}
+            disabled={saving || !croppedAreaPixels}
+            className="btn-primary px-3 py-1.5 text-xs"
+          >
+            {saving ? 'Saving…' : 'Save photo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AccountSettingsPage() {
   const { user, profile, isAdmin, refreshProfile } = useAuth()
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({ name: '', surname: '', phone: '' })
   const [savingProfile, setSavingProfile] = useState(false)
-  const [profileMsg, setProfileMsg] = useState(null) // { type: 'success'|'error', text }
+  const [profileMsg, setProfileMsg] = useState(null)
 
+  const [newEmail, setNewEmail] = useState('')
+  const [emailSaving, setEmailSaving] = useState(false)
+  const [emailMsg, setEmailMsg] = useState(null)
+
+  const [cropSrc, setCropSrc] = useState(null) // object URL while cropping
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState('')
 
   const [prefs, setPrefs] = useState({})
   const [prefsSaving, setPrefsSaving] = useState(false)
 
-  const [pwForm, setPwForm] = useState({ password: '', confirm: '' })
+  const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
 
-  // Admin-only direct role/category edit
+  // Admin: direct edit of own role / category / permission level
   const [adminRole, setAdminRole] = useState('')
   const [adminCategory, setAdminCategory] = useState('')
+  const [adminPermission, setAdminPermission] = useState('')
   const [adminSaving, setAdminSaving] = useState(false)
+  const [adminMsg, setAdminMsg] = useState(null)
 
-  // Non-admin change requests
+  // Non-admin: request role/category changes
   const [myRequests, setMyRequests] = useState([])
   const [requestForm, setRequestForm] = useState({ type: 'role', value: '', reason: '' })
   const [requestSaving, setRequestSaving] = useState(false)
@@ -119,7 +182,12 @@ export default function AccountSettingsPage() {
     setPrefs(profile.notification_prefs || {})
     setAdminRole(profile.role || '')
     setAdminCategory(profile.category || '')
+    setAdminPermission(profile.permission_level || 'user')
   }, [profile])
+
+  useEffect(() => {
+    if (user) setNewEmail(user.email || '')
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -160,8 +228,32 @@ export default function AccountSettingsPage() {
     }
   }
 
+  // ── Email ───────────────────────────────────────────────────
+  async function changeEmail(e) {
+    e.preventDefault()
+    setEmailMsg(null)
+
+    if (!newEmail || newEmail === user.email) {
+      setEmailMsg({ type: 'error', text: 'Enter a different email address.' })
+      return
+    }
+
+    setEmailSaving(true)
+    const { error } = await supabase.auth.updateUser({ email: newEmail })
+    setEmailSaving(false)
+
+    if (error) {
+      setEmailMsg({ type: 'error', text: error.message })
+    } else {
+      setEmailMsg({
+        type: 'success',
+        text: 'Check both your old and new inbox for confirmation links — the change only applies once confirmed.',
+      })
+    }
+  }
+
   // ── Avatar ──────────────────────────────────────────────────
-  async function handleAvatarSelect(e) {
+  function handleAvatarSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
     setAvatarError('')
@@ -170,44 +262,52 @@ export default function AccountSettingsPage() {
       setAvatarError('Please choose an image file.')
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setAvatarError('Image must be under 5MB.')
+    if (file.size > 8 * 1024 * 1024) {
+      setAvatarError('Image must be under 8MB.')
       return
     }
+    setCropSrc(URL.createObjectURL(file))
+    e.target.value = '' // allow re-selecting the same file later
+  }
 
+  async function confirmCrop(croppedAreaPixels) {
+    if (!croppedAreaPixels) return
     setUploadingAvatar(true)
-    const ext = file.name.split('.').pop()
-    const path = `${user.id}/avatar.${ext}`
+    setAvatarError('')
 
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true, cacheControl: '3600' })
+    try {
+      const blob = await getCroppedImageBlob(cropSrc, croppedAreaPixels)
+      const path = `${user.id}/avatar.jpg`
 
-    if (uploadError) {
-      setUploadingAvatar(false)
-      setAvatarError(uploadError.message)
-      return
-    }
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, blob, { upsert: true, cacheControl: '3600', contentType: 'image/jpeg' })
 
-    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-    // Cache-bust so the new image shows immediately even at the same path
-    const avatarUrl = `${pub.publicUrl}?t=${Date.now()}`
+      if (uploadError) throw uploadError
 
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ avatar_url: avatarUrl })
-      .eq('id', user.id)
+      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
+      const avatarUrl = `${pub.publicUrl}?t=${Date.now()}`
 
-    setUploadingAvatar(false)
-    if (updateError) {
-      setAvatarError(updateError.message)
-    } else {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
       refreshProfile()
+      URL.revokeObjectURL(cropSrc)
+      setCropSrc(null)
+    } catch (err) {
+      setAvatarError(err.message)
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
   // ── Notification preferences ───────────────────────────────
   async function togglePref(key, value) {
+    const prev = prefs
     const next = { ...prefs, [key]: value }
     setPrefs(next)
     setPrefsSaving(true)
@@ -217,8 +317,7 @@ export default function AccountSettingsPage() {
       .eq('id', user.id)
     setPrefsSaving(false)
     if (error) {
-      // Revert on failure
-      setPrefs(prefs)
+      setPrefs(prev)
       alert('Could not save notification preference: ' + error.message)
     }
   }
@@ -228,8 +327,12 @@ export default function AccountSettingsPage() {
     e.preventDefault()
     setPwMsg(null)
 
-    if (pwForm.password.length < 8) {
-      setPwMsg({ type: 'error', text: 'Password must be at least 8 characters.' })
+    if (!pwForm.current) {
+      setPwMsg({ type: 'error', text: 'Enter your current password.' })
+      return
+    }
+    if (!PASSWORD_RULE.test(pwForm.password)) {
+      setPwMsg({ type: 'error', text: 'New password doesn\u2019t meet the requirements above.' })
       return
     }
     if (pwForm.password !== pwForm.confirm) {
@@ -238,6 +341,18 @@ export default function AccountSettingsPage() {
     }
 
     setPwSaving(true)
+
+    // Verify the current password by re-authenticating before changing it
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: pwForm.current,
+    })
+    if (verifyError) {
+      setPwSaving(false)
+      setPwMsg({ type: 'error', text: 'Current password is incorrect.' })
+      return
+    }
+
     const { error } = await supabase.auth.updateUser({ password: pwForm.password })
     setPwSaving(false)
 
@@ -245,21 +360,40 @@ export default function AccountSettingsPage() {
       setPwMsg({ type: 'error', text: error.message })
     } else {
       setPwMsg({ type: 'success', text: 'Password updated.' })
-      setPwForm({ password: '', confirm: '' })
+      setPwForm({ current: '', password: '', confirm: '' })
     }
   }
 
-  // ── Admin: direct role/category edit ───────────────────────
-  async function saveAdminRoleCategory() {
+  // ── Admin: direct role/category/permission edit ─────────────
+  function handleAdminRoleChange(value) {
+    setAdminRole(value)
+    if (value !== 'doctor') setAdminCategory('')
+  }
+
+  async function saveAdminAccountFields() {
     setAdminSaving(true)
+    setAdminMsg(null)
+
+    if (adminRole === 'doctor' && !adminCategory) {
+      setAdminSaving(false)
+      setAdminMsg({ type: 'error', text: 'Select a category for a doctor account.' })
+      return
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({ role: adminRole, category: adminCategory || null })
+      .update({
+        role: adminRole,
+        category: adminRole === 'doctor' ? adminCategory : null,
+        permission_level: adminPermission,
+      })
       .eq('id', user.id)
+
     setAdminSaving(false)
     if (error) {
-      alert('Could not save: ' + error.message)
+      setAdminMsg({ type: 'error', text: error.message })
     } else {
+      setAdminMsg({ type: 'success', text: 'Saved.' })
       refreshProfile()
     }
   }
@@ -322,6 +456,15 @@ export default function AccountSettingsPage() {
         <p className="mt-1 text-sm text-ink-muted">Manage your profile, notifications, and account security.</p>
       </div>
 
+      {cropSrc && (
+        <AvatarCropModal
+          imageSrc={cropSrc}
+          saving={uploadingAvatar}
+          onCancel={() => { URL.revokeObjectURL(cropSrc); setCropSrc(null) }}
+          onConfirm={confirmCrop}
+        />
+      )}
+
       {/* ── Profile ─────────────────────────────────────────── */}
       <section className="card mb-6 p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Profile</h2>
@@ -339,20 +482,14 @@ export default function AccountSettingsPage() {
                 {(profile.name?.[0] || '') + (profile.surname?.[0] || '')}
               </div>
             )}
-            {uploadingAvatar && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-ink/40">
-                <span className="text-[10px] font-medium text-white">…</span>
-              </div>
-            )}
           </div>
           <div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingAvatar}
               className="btn-secondary px-3 py-1.5 text-xs"
             >
-              {uploadingAvatar ? 'Uploading…' : 'Change photo'}
+              Change photo
             </button>
             <input
               ref={fileInputRef}
@@ -366,25 +503,23 @@ export default function AccountSettingsPage() {
         </div>
 
         <form onSubmit={saveProfile} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-text">First name</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label-text">Surname</label>
-              <input
-                type="text"
-                value={form.surname}
-                onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
-                className="input-field"
-              />
-            </div>
+          <div>
+            <label className="label-text">First name</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="label-text">Surname</label>
+            <input
+              type="text"
+              value={form.surname}
+              onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
+              className="input-field"
+            />
           </div>
           <div>
             <label className="label-text">Mobile number</label>
@@ -410,48 +545,112 @@ export default function AccountSettingsPage() {
         </form>
       </section>
 
-      {/* ── Role & category ─────────────────────────────────── */}
+      {/* ── Email ───────────────────────────────────────────── */}
       <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Role & category</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Email address</h2>
+        <form onSubmit={changeEmail} className="space-y-3">
+          <div>
+            <label className="label-text">Email</label>
+            <input
+              type="email"
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value)}
+              className="input-field"
+            />
+          </div>
+          <p className="text-xs text-ink-muted">
+            This is also your login username. Changing it sends confirmation links to both your old and new address —
+            the change only takes effect once confirmed, so it won't lock you out.
+          </p>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={emailSaving} className="btn-primary">
+              {emailSaving ? 'Sending…' : 'Change email'}
+            </button>
+            {emailMsg && (
+              <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                {emailMsg.text}
+              </span>
+            )}
+          </div>
+        </form>
+      </section>
+
+      {/* ── Role, category & permissions ────────────────────── */}
+      <section className="card mb-6 p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Role, category & permissions</h2>
 
         {isAdmin ? (
           <div className="space-y-4">
-            <p className="text-xs text-ink-muted">As an admin, changes here apply immediately — no approval needed.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-text">Role</label>
-                <select value={adminRole} onChange={e => setAdminRole(e.target.value)} className="input-field">
+                <select
+                  value={adminRole}
+                  onChange={e => handleAdminRoleChange(e.target.value)}
+                  className="input-field"
+                >
                   {ROLE_OPTIONS.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="label-text">Category</label>
-                <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
-                  <option value="">None</option>
-                  {CATEGORY_OPTIONS.map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
+              {adminRole === 'doctor' && (
+                <div>
+                  <label className="label-text">Category</label>
+                  <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
+                    <option value="">Select…</option>
+                    {CATEGORY_OPTIONS.map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
-            <button onClick={saveAdminRoleCategory} disabled={adminSaving} className="btn-primary">
-              {adminSaving ? 'Saving…' : 'Save'}
-            </button>
+            <div>
+              <label className="label-text">Permissions</label>
+              <select value={adminPermission} onChange={e => setAdminPermission(e.target.value)} className="input-field w-1/2">
+                {PERMISSION_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-ink-muted">
+                Independent of role — controls access level, not clinical duties.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={saveAdminAccountFields} disabled={adminSaving} className="btn-primary">
+                {adminSaving ? 'Saving…' : 'Save'}
+              </button>
+              {adminMsg && (
+                <span className={`text-xs font-medium ${adminMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                  {adminMsg.text}
+                </span>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
-              <span className="text-ink-muted">Current:</span>
+              <span className="text-ink-muted">Role:</span>
               <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
                 {ROLE_LABELS[profile.role] || profile.role}
               </span>
               {profile.category && (
-                <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
-                  {CATEGORY_LABELS[profile.category] || profile.category}
-                </span>
+                <>
+                  <span className="text-ink-muted">Category:</span>
+                  <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
+                    {CATEGORY_LABELS[profile.category] || profile.category}
+                  </span>
+                </>
               )}
+              <span className="text-ink-muted">Permissions:</span>
+              <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
+                {PERMISSION_LABELS[profile.permission_level] || 'User'}
+              </span>
+            </div>
+
+            <div className="rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+              Role and category changes need admin approval before they take effect.
             </div>
 
             {pendingRoleOrCategory ? (
@@ -460,7 +659,6 @@ export default function AccountSettingsPage() {
               </div>
             ) : (
               <form onSubmit={submitChangeRequest} className="space-y-3 rounded-lg border border-slate-line bg-canvas-sunken p-4">
-                <p className="text-xs text-ink-muted">Role and category changes need admin approval.</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label-text">Change</label>
@@ -470,7 +668,7 @@ export default function AccountSettingsPage() {
                       className="input-field"
                     >
                       <option value="role">Role</option>
-                      <option value="category">Category</option>
+                      {profile.role === 'doctor' && <option value="category">Category</option>}
                     </select>
                   </div>
                   <div>
@@ -487,6 +685,11 @@ export default function AccountSettingsPage() {
                     </select>
                   </div>
                 </div>
+                {requestForm.type === 'role' && profile.role !== 'doctor' && requestForm.value === 'doctor' && (
+                  <p className="text-xs text-ink-muted">
+                    Once this is approved, you'll be able to submit a separate request to set your clinical category.
+                  </p>
+                )}
                 <div>
                   <label className="label-text">Reason (optional)</label>
                   <textarea
@@ -528,10 +731,23 @@ export default function AccountSettingsPage() {
         </div>
       </section>
 
-      {/* ── Security ─────────────────────────────────────────── */}
+      {/* ── Change password ─────────────────────────────────── */}
       <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Password</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Change password</h2>
+        <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+          {PASSWORD_HINT}
+        </div>
         <form onSubmit={changePassword} className="space-y-4">
+          <div>
+            <label className="label-text">Current password</label>
+            <input
+              type="password"
+              value={pwForm.current}
+              onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+              className="input-field"
+              autoComplete="current-password"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label-text">New password</label>
@@ -590,7 +806,7 @@ export default function AccountSettingsPage() {
 
       {/* ── Danger zone ──────────────────────────────────────── */}
       <section className="card border-flagRed/30 p-5">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-flagRed">Danger zone</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-flagRed">Danger zone</h2>
         {pendingDeletion ? (
           <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
             Your account deletion request is pending admin review.
@@ -598,7 +814,7 @@ export default function AccountSettingsPage() {
         ) : deleteConfirming ? (
           <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
             <p className="mb-3 text-sm text-flagRed">
-              This will send an account deletion request to an admin. Are you sure?
+              This sends an account deletion request to an admin for review. Continue?
             </p>
             <div className="flex gap-2">
               <button
@@ -614,17 +830,12 @@ export default function AccountSettingsPage() {
             </div>
           </div>
         ) : (
-          <div>
-            <p className="mb-3 text-xs text-ink-muted">
-              Requesting deletion sends this to an admin for review — it isn\u2019t immediate, even for admin accounts.
-            </p>
-            <button
-              onClick={() => setDeleteConfirming(true)}
-              className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
-            >
-              Request account deletion
-            </button>
-          </div>
+          <button
+            onClick={() => setDeleteConfirming(true)}
+            className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+          >
+            Request account deletion
+          </button>
         )}
       </section>
     </div>

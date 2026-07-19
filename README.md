@@ -1,27 +1,66 @@
-# Account Settings — files to copy into RotaCat
+# RotaCat
 
-New file:
-- src/pages/AccountSettingsPage.jsx
+A shift scheduling PWA for the VHW Emergency Centre medical team. Replaces a
+manual PDF-based rostering process with an automated scheduler, admin tools,
+and a doctor-facing portal. This tool was created independently and is not 
+endorsed by WCG, NDoH, or VHW. 
 
-Modified files (replace in your repo):
-- src/App.jsx              (added /account route)
-- src/components/AppLayout.jsx  (added "Account" nav item for all roles)
-- src/pages/StaffListPage.jsx   (added "Account requests" admin review tab)
+## Stack
 
-## Supabase migration — ALREADY APPLIED to the live RotaCat project
-No action needed. For your records, this was applied directly:
-- profiles.avatar_url (text)
-- profiles.notification_prefs (jsonb, default all-on)
-- New table: account_change_requests (role/category/deletion requests, mirrors leave_requests pattern)
-- New storage bucket: avatars (public read, owner-only write via RLS, path convention "<user_id>/avatar.<ext>")
+- **Frontend:** React + Vite + Tailwind CSS, deployed on Vercel
+- **Backend (scheduling engine):** Python FastAPI + OR-Tools, deployed on Render
+- **Database / Auth / Storage:** Supabase
 
-## Note on account deletion
-Approving a deletion request deactivates the profile (is_active=false, is_approved=false) —
-it does NOT delete the Supabase auth user, since that requires the service role key,
-which should never live in the frontend. If you want true deletion, that needs a
-Supabase Edge Function (service role) or manual removal in the Supabase dashboard.
+## Local development setup
 
-## One thing to watch
-Admin nav now has 6 items (Dashboard, Roster, Staff, Leave, Account, Settings) in the
-mobile bottom nav — might feel cramped on small screens. Worth a look once you're
-testing on your phone; happy to move Account into a profile-menu instead if so.
+1. Install dependencies:
+   ```
+   npm install
+   ```
+
+2. Copy the environment template and fill in your Supabase values:
+   ```
+   cp .env.example .env.local
+   ```
+   Then edit `.env.local` and set:
+   - `VITE_SUPABASE_URL` — your Supabase project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — your Supabase publishable key
+
+   Both values are available in Supabase under **Project Settings → API Keys**.
+
+3. Start the dev server:
+   ```
+   npm run dev
+   ```
+   The app will be available at `http://localhost:5173`
+
+## Project structure
+
+```
+src/
+  components/   Shared UI components (layout, route guards)
+  context/      React context providers (auth/session state)
+  lib/          External service clients (Supabase)
+  pages/        Route-level page components
+  styles/       Global CSS and Tailwind entry point
+```
+
+## Deployment
+
+- **Frontend:** connect this repo to Vercel; set the same environment
+  variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) in the
+  Vercel project settings.
+- **Backend:** see `/backend` (added in a later phase) for the FastAPI
+  scheduling engine, deployed separately on Render.
+
+## Build phases
+
+- [x] Phase 1 — Supabase schema, auth, RLS policies
+- [x] Phase 2 — React frontend shell, auth flow, staff list (this repo state)
+- [ ] Phase 3 — Python scheduling engine (OR-Tools)
+- [ ] Phase 4 — Roster grid display + manual editing
+- [ ] Phase 5 — Excel export
+- [ ] Phase 6 — Doctor portal (leave requests, calendar blocks)
+- [ ] Phase 7 — Shift swap workflow
+- [ ] Phase 8 — Notifications
+- [ ] Phase 9 — Excel re-upload + diff logic

@@ -138,17 +138,23 @@ export default function StaffListPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
 
-await supabase.from('profiles').update({
-  is_approved:  true,
-  is_active:    true,
-  role,
-  category:     category || null,
-  min_hours:    hours.min,
-  max_hours:    hours.max,
-  swap_group:   swapGroup,
-  approved_by:  user.id,
-  approved_at:  new Date().toISOString(),
-}).eq('id', profile.id)
+    const { error } = await supabase.from('profiles').update({
+      is_approved:  true,
+      is_active:    true,
+      role,
+      category:     category || null,
+      min_hours:    hours.min,
+      max_hours:    hours.max,
+      swap_group:   swapGroup,
+      approved_by:  user.id,
+      approved_at:  new Date().toISOString(),
+    }).eq('id', profile.id)
+
+    if (error) {
+      console.error('Approval failed:', error.message)
+      alert('Could not approve account: ' + error.message)
+      return
+    }
 
     setEditingId(null)
     loadAll()

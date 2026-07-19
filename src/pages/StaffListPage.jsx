@@ -96,7 +96,7 @@ export default function StaffListPage() {
         .order('surname', { ascending: true }),
       supabase
         .from('profiles')
-        .select('*')
+        .select('*, approver:approved_by(name, surname)')
         .eq('is_approved', true)
         .order('category')
         .order('surname'),
@@ -134,15 +134,19 @@ export default function StaffListPage() {
     const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
 
-    await supabase.from('profiles').update({
-      is_approved:  true,
-      is_active:    true,
-      role,
-      category:     category || null,
-      min_hours:    hours.min,
-      max_hours:    hours.max,
-      swap_group:   swapGroup,
-    }).eq('id', profile.id)
+    const { data: { user } } = await supabase.auth.getUser()
+
+await supabase.from('profiles').update({
+  is_approved:  true,
+  is_active:    true,
+  role,
+  category:     category || null,
+  min_hours:    hours.min,
+  max_hours:    hours.max,
+  swap_group:   swapGroup,
+  approved_by:  user.id,
+  approved_at:  new Date().toISOString(),
+}).eq('id', profile.id)
 
     setEditingId(null)
     loadAll()
@@ -237,7 +241,7 @@ export default function StaffListPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium text-ink">
-                          {person.surname}{person.name ? `, ${person.name}` : ''}
+                         {person.name ? `${person.name} ` : ''}{person.surname}
                         </p>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
                           {ROLE_LABELS[person.role] || person.role}
@@ -251,6 +255,17 @@ export default function StaffListPage() {
                       {!person.is_active && (
                         <p className="mt-0.5 text-xs text-flagAmber">Inactive — excluded from roster generation</p>
                       )}
+                      {person.approved_at && (
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                        Approved{person.approver
+                        ? ` by ${person.approver.name ? `${person.approver.name} ` : ''}${person.approver.surname}`
+                        : ''
+                      } · {new Date(person.approved_at).toLocaleString('en-ZA', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                    </p>
+                  )}
                     </div>
                     {/* Active / Inactive toggle */}
                     <button
@@ -345,7 +360,7 @@ export default function StaffListPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-ink text-sm">
-                            {person.surname}{person.name ? `, ${person.name}` : ''}
+                            {person.name ? `${person.name} ` : ''}{person.surname}
                           </p>
                           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
                             {ROLE_LABELS[person.role] || person.role}

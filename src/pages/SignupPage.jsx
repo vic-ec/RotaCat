@@ -7,18 +7,18 @@ import AuthHero from '../components/AuthHero'
 const ROLE_OPTIONS = [
   {
     value: 'doctor',
-    label: 'Doctor / Clinical staff',
-    description: 'EC Medical Officer, Registrar, Intern/COSMO, Consultant',
+    label: 'I am a Doctor',
+    description: 'A versatile account for contracted clinical staff',
   },
   {
     value: 'locum',
-    label: 'Locum',
-    description: 'Apply for open shifts and view published roster',
+    label: 'I am a Locum Doctor',
+    description: 'A no-frills account for part-time clinical staff',
   },
   {
     value: 'clerk',
-    label: 'Clerk / Admin staff',
-    description: 'Read-only access to roster and contact details',
+    label: 'I am a Clerk',
+    description: 'A basic account for read-only access',
   },
 ]
 

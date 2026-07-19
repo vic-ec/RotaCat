@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import lilyIcon from '../assets/icon-lily-robot-orange-leftheadtilt-reflectiveshadow-nobg.png'
+import lilyIcon from '../assets/lily-robot-ginger-front-tilted-headshot.png'
 import RotaCat from '../components/RotaCat'
 
 // ── Nav sets per role ──────────────────────────────────────
@@ -75,14 +75,14 @@ export default function AppLayout() {
       {/* Sidebar — desktop */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2.5">
             <img
               src={lilyIcon}
               alt=""
-              className="h-10 w-10 object-contain"
+              className="h-8 w-8 object-contain"
               draggable="false"
             />
-            <h1 className="font-display text-3xl font-medium text-ink"><RotaCat /></h1>
+            <h1 className="font-display text-lg font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
             <p className="mt-2 text-xs text-ink-muted">
@@ -127,9 +127,9 @@ export default function AppLayout() {
 
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
-        <div className="flex items-center gap-1">
-          <img src={lilyIcon} alt="" className="h-8 w-8 object-contain" draggable="false" />
-          <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
+        <div className="flex items-center gap-2">
+          <img src={lilyIcon} alt="" className="h-6 w-6 object-contain" draggable="false" />
+          <span className="font-display text-base font-medium text-ink"><RotaCat /></span>
         </div>
         <button
           onClick={handleSignOut}

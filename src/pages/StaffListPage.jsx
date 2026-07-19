@@ -154,10 +154,19 @@ await supabase.from('profiles').update({
   }
 
   async function rejectAccount(profileId) {
-    await supabase.from('profiles').update({ is_approved: false, is_active: false })
-      .eq('id', profileId)
-    loadAll()
+  const { error } = await supabase.from('profiles').update({
+    is_approved: false,
+    is_active: false,
+    is_rejected: true,
+  }).eq('id', profileId)
+
+  if (error) {
+    console.error('Reject failed:', error.message)
+    alert('Could not reject account: ' + error.message)
+    return
   }
+  loadAll()
+}
 
   // ── Accounts grid: filter options derived from the loaded data ──
   const accountRoleOptions = [...new Set(activeAccounts.map(p => p.role).filter(Boolean))].sort()

@@ -11,6 +11,7 @@ import StaffListPage from './pages/StaffListPage'
 import RosterDashboardPage from './pages/RosterDashboardPage'
 import GenerationConfigPage from './pages/GenerationConfigPage'
 import RosterGridPage from './pages/RosterGridPage'
+import AccountSettingsPage from './pages/AccountSettingsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 function PendingRoute() {
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="roster/:id" element={<RosterGridPage />} />
 
             <Route path="staff" element={<StaffListPage />} />
+            <Route path="account" element={<AccountSettingsPage />} />
             <Route
               path="leave"
               element={<PlaceholderPage title="Leave Requests" description="Leave submission and approval workflow coming in a later phase." />}

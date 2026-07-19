@@ -94,16 +94,15 @@ export default function StaffListPage() {
         .eq('is_approved', true)
         .order('category')
         .order('surname'),
-      // Only admins act on pending approvals — skip the fetch entirely for everyone else.
       isAdmin
-      ? supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_approved', false)
-        .eq('is_rejected', false)
-        .order('created_at', { ascending: true }),
+        ? supabase
+            .from('profiles')
+            .select('*')
+            .eq('is_approved', false)
+            .eq('is_rejected', false)
+            .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
-      supabase.rpc('get_staff_emails'),
+      Promise.resolve({ data: [] }),
     ])
 
     if (accountsRes.error) {

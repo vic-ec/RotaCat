@@ -76,17 +76,21 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
-  // ── Role helpers ───────────────────────────────────────────
+  // ── Role helpers (account type: doctor / locum / clerk) ────
   const role     = profile?.role ?? null
-  const isAdmin  = role === 'admin'
   const isDoctor = role === 'doctor'
   const isLocum  = role === 'locum'
   const isClerk  = role === 'clerk'
 
-  // ── Permission helpers ─────────────────────────────────────
+  // ── Permission helpers (tier: user / clerk / admin) ─────────
+  const permissionLevel = profile?.permission_level ?? 'user'
+  const isAdmin = permissionLevel === 'admin'
+  const hasClerkPermission = permissionLevel === 'clerk' || isAdmin
+
+  // ── Combined app permissions ─────────────────────────────────
   // Centralised here so every screen can gate on a single boolean
-  // rather than reimplementing role logic independently.
-  const canSubmitLeave     = (isAdmin || isDoctor) && profile?.is_approved
+  // rather than reimplementing role/permission logic independently.
+  const canSubmitLeave     = isDoctor && profile?.is_approved
   const canViewWeekendGrid = !isLocum   // locums cannot see weekend grid
   const canManageRoster    = isAdmin
   const canClaimShifts     = isLocum && profile?.is_approved
@@ -97,12 +101,15 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     profile,
     loading,
-    // Role booleans
+    // Role booleans (account type)
     role,
-    isAdmin,
     isDoctor,
     isLocum,
     isClerk,
+    // Permission booleans (access tier)
+    permissionLevel,
+    isAdmin,
+    hasClerkPermission,
     isApproved: profile?.is_approved === true,
     // Permission helpers
     canSubmitLeave,

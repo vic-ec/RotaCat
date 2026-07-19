@@ -2,7 +2,7 @@
 
 A shift scheduling PWA for the VHW Emergency Centre medical team. Replaces a
 manual PDF-based rostering process with an automated scheduler, admin tools,
-and a doctor-facing portal.
+and a doctor-facing portal. This tool was created independently and is not endorsed by WCG, NDoH, or VHW. 
 
 ## Stack
 

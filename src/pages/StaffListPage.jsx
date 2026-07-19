@@ -380,18 +380,7 @@ export default function StaffListPage() {
                               {person.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </div>
-                          {person.approved_at && (
-                            <p className="mt-1 text-[11px] text-ink-muted">
-                              Approved{person.approver
-                                ? ` by ${person.approver.name ? `${person.approver.name} ` : ''}${person.approver.surname}`
-                                : ''
-                              } · {new Date(person.approved_at).toLocaleString('en-ZA', {
-                                day: 'numeric', month: 'short', year: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              })}
-                            </p>
-                          )}
-                        </td>
+                          </td>
                       </tr>
                     )
                   })}

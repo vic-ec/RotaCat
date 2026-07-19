@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { generateRoster, checkBackendHealth } from '../lib/schedulerApi'
+import { generateRoster } from '../lib/schedulerApi'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-// Generation takes up to 2 minutes on a cold Render free instance.
-// These messages cycle during the wait so the admin knows it's working.
 const PROGRESS_MESSAGES = [
   'Waking up the scheduling engine…',
   'Loading your team data from the database…',
@@ -23,33 +21,61 @@ const PROGRESS_MESSAGES = [
   'Almost done…',
 ]
 
+const CATEGORY_LABELS = {
+  MO:         'Medical Officer',
+  Registrar:  'Registrar',
+  COSMO:      'COSMO',
+  COSMOPsych: 'COSMO (Psych)',
+  Intern:     'Intern',
+  Consultant: 'Consultant',
+  // Future values (dormant until Jan 2027)
+  EC_COSMO:       'EC COSMO',
+  EC_COSMO_Intern:'EC Intern',
+  OT_COSMO:       'OT COSMO',
+  OT_COSMO_Intern:'OT Intern',
+}
+
+// Categories the solver actually schedules — Consultants and Locums
+// are never auto-scheduled so we exclude them from the selection panel
+const SCHEDULABLE_CATEGORIES = [
+  'MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern',
+  // Future values included so they work automatically when activated
+  'EC_COSMO', 'EC_COSMO_Intern', 'OT_COSMO', 'OT_COSMO_Intern',
+]
+
 export default function GenerationConfigPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
 
-  // Default to next month
   const now = new Date()
   const defaultMonth = now.getMonth() === 11 ? 1 : now.getMonth() + 2
-  const defaultYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear()
+  const defaultYear  = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear()
 
-  const [year, setYear] = useState(defaultYear)
-  const [month, setMonth] = useState(defaultMonth)
+  const [year, setYear]                 = useState(defaultYear)
+  const [month, setMonth]               = useState(defaultMonth)
   const [useCarryForward, setUseCarryForward] = useState(false)
-  const [leaveBlocks, setLeaveBlocks] = useState([])
+  const [leaveBlocks, setLeaveBlocks]   = useState([])
   const [loadingLeave, setLoadingLeave] = useState(false)
   const [existingRoster, setExistingRoster] = useState(null)
 
-  const [generating, setGenerating] = useState(false)
-  const [progressIdx, setProgressIdx] = useState(0)
-  const [error, setError] = useState('')
+  // Doctor selection — all schedulable active doctors, keyed by profile id
+  const [allDoctors, setAllDoctors]   = useState([])
+  const [excluded, setExcluded]       = useState(new Set()) // profile ids to exclude
+  const [loadingDoctors, setLoadingDoctors] = useState(false)
 
-  // Load leave summary and check for existing roster whenever month/year changes
+  const [generating, setGenerating]   = useState(false)
+  const [progressIdx, setProgressIdx] = useState(0)
+  const [error, setError]             = useState('')
+
   useEffect(() => {
     loadLeaveSummary()
     checkExistingRoster()
   }, [year, month])
 
-  // Cycle progress messages during generation
+  useEffect(() => {
+    loadDoctors()
+  }, [])
+
   useEffect(() => {
     if (!generating) return
     const interval = setInterval(() => {
@@ -58,10 +84,24 @@ export default function GenerationConfigPage() {
     return () => clearInterval(interval)
   }, [generating])
 
+  async function loadDoctors() {
+    setLoadingDoctors(true)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, surname, category, color_code, is_active')
+      .eq('is_approved', true)
+      .eq('is_active', true)
+      .in('category', SCHEDULABLE_CATEGORIES)
+      .order('category')
+      .order('surname')
+    setAllDoctors(data || [])
+    setLoadingDoctors(false)
+  }
+
   async function loadLeaveSummary() {
     setLoadingLeave(true)
     const firstDay = `${year}-${String(month).padStart(2, '0')}-01`
-    const lastDay = new Date(year, month, 0).toISOString().split('T')[0]
+    const lastDay  = new Date(year, month, 0).toISOString().split('T')[0]
 
     const { data } = await supabase
       .from('leave_requests')
@@ -85,6 +125,23 @@ export default function GenerationConfigPage() {
     setExistingRoster(data || null)
   }
 
+  function toggleDoctor(profileId) {
+    setExcluded(prev => {
+      const next = new Set(prev)
+      if (next.has(profileId)) next.delete(profileId)
+      else next.add(profileId)
+      return next
+    })
+  }
+
+  function toggleAll(include) {
+    if (include) {
+      setExcluded(new Set())
+    } else {
+      setExcluded(new Set(allDoctors.map(d => d.id)))
+    }
+  }
+
   async function handleGenerate() {
     if (!profile?.id) return
     setError('')
@@ -97,6 +154,7 @@ export default function GenerationConfigPage() {
         month,
         useCarryForward,
         adminProfileId: profile.id,
+        excludedProfileIds: Array.from(excluded),
       })
 
       if (result.roster_month_id) {
@@ -111,6 +169,15 @@ export default function GenerationConfigPage() {
   }
 
   const yearOptions = [now.getFullYear(), now.getFullYear() + 1]
+  const includedCount = allDoctors.length - excluded.size
+
+  // Group doctors by category for display in the selection panel
+  const grouped = allDoctors.reduce((acc, doc) => {
+    const key = CATEGORY_LABELS[doc.category] || doc.category
+    if (!acc[key]) acc[key] = []
+    acc[key].push(doc)
+    return acc
+  }, {})
 
   return (
     <div className="mx-auto max-w-xl">
@@ -143,6 +210,7 @@ export default function GenerationConfigPage() {
       )}
 
       <div className="card p-6 space-y-6">
+
         {/* Month and year picker */}
         <div>
           <label className="label-text">Month</label>
@@ -205,9 +273,7 @@ export default function GenerationConfigPage() {
           {loadingLeave ? (
             <p className="text-sm text-ink-muted">Loading…</p>
           ) : leaveBlocks.length === 0 ? (
-            <p className="text-sm text-ink-muted">
-              No approved leave for this month.
-            </p>
+            <p className="text-sm text-ink-muted">No approved leave for this month.</p>
           ) : (
             <div className="mt-2 divide-y divide-slate-line rounded-lg border border-slate-line">
               {leaveBlocks.map((lb, i) => (
@@ -223,6 +289,98 @@ export default function GenerationConfigPage() {
                         : `${lb.date_from} → ${lb.date_to}`}
                     </p>
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Doctor selection panel ── */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="label-text">
+              Doctors included in this roster
+            </p>
+            <span className="text-xs text-ink-muted">
+              {includedCount} of {allDoctors.length} included
+            </span>
+          </div>
+
+          {excluded.size > 0 && (
+            <div className="mb-2 rounded bg-flagAmber-bg px-3 py-2 text-xs text-flagAmber">
+              {excluded.size} doctor{excluded.size !== 1 ? 's' : ''} excluded from this generation run.
+            </div>
+          )}
+
+          {loadingDoctors ? (
+            <p className="text-sm text-ink-muted">Loading doctors…</p>
+          ) : (
+            <div className="rounded-lg border border-slate-line overflow-hidden">
+              {/* Select all / none */}
+              <div className="flex items-center justify-between border-b border-slate-line bg-canvas-sunken px-3 py-2">
+                <p className="text-xs font-medium text-ink-muted">All active doctors</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => toggleAll(true)}
+                    disabled={generating}
+                    className="text-xs text-accent hover:underline disabled:opacity-40"
+                  >
+                    Include all
+                  </button>
+                  <button
+                    onClick={() => toggleAll(false)}
+                    disabled={generating}
+                    className="text-xs text-ink-muted hover:underline disabled:opacity-40"
+                  >
+                    Exclude all
+                  </button>
+                </div>
+              </div>
+
+              {/* Grouped doctor list */}
+              {Object.entries(grouped).map(([categoryLabel, doctors]) => (
+                <div key={categoryLabel}>
+                  <div className="bg-canvas-sunken px-3 py-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">
+                      {categoryLabel} ({doctors.filter(d => !excluded.has(d.id)).length}/{doctors.length})
+                    </p>
+                  </div>
+                  {doctors.map(doc => {
+                    const isExcluded = excluded.has(doc.id)
+                    return (
+                      <button
+                        key={doc.id}
+                        onClick={() => !generating && toggleDoctor(doc.id)}
+                        disabled={generating}
+                        className={`flex w-full items-center gap-3 border-b border-slate-line px-3 py-2.5 text-left transition-colors last:border-b-0 ${
+                          isExcluded
+                            ? 'bg-canvas-sunken opacity-50'
+                            : 'hover:bg-accent-tint'
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${
+                          isExcluded
+                            ? 'border-slate-line bg-canvas-raised'
+                            : 'border-accent bg-accent'
+                        }`}>
+                          {!isExcluded && (
+                            <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </span>
+                        {/* Colour dot */}
+                        <span
+                          className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: doc.color_code || '#4A90D9' }}
+                        />
+                        <span className={`text-sm ${isExcluded ? 'line-through text-ink-muted' : 'text-ink'}`}>
+                          {doc.surname}{doc.name ? `, ${doc.name}` : ''}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               ))}
             </div>
@@ -250,9 +408,11 @@ export default function GenerationConfigPage() {
         ) : (
           <button
             onClick={handleGenerate}
-            className="btn-primary w-full"
+            disabled={includedCount === 0}
+            className="btn-primary w-full disabled:opacity-50"
           >
             Generate {MONTH_NAMES[month]} {year} roster
+            {excluded.size > 0 && ` (${includedCount} doctors)`}
           </button>
         )}
       </div>
@@ -271,8 +431,7 @@ function SpinnerIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   )
 }

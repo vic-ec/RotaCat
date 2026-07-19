@@ -24,12 +24,12 @@ const ROLE_OPTIONS = [
 
 // Category options shown only when role = 'doctor'
 const CATEGORY_OPTIONS = [
-  { value: 'MO',          label: 'EC Medical Officer' },
-  { value: 'Registrar',   label: 'Registrar' },
-  { value: 'EC_COSMO',    label: 'EC Intern / COSMO' },
-  { value: 'OT_COSMO',    label: 'OT Intern / COSMO' },
-  { value: 'COSMO_Psych', label: 'OT Intern / COSMO (Psych)' },
-  { value: 'Consultant',  label: 'Consultant' },
+  { value: 'MO',         label: 'Medical Officer' },
+  { value: 'Registrar',  label: 'Registrar' },
+  { value: 'COSMO',      label: 'COSMO' },
+  { value: 'COSMOPsych', label: 'COSMO (Psych)' },
+  { value: 'Intern',     label: 'Intern' },
+  { value: 'Consultant', label: 'Consultant' },
 ]
 
 export default function SignupPage() {

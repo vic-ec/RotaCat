@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 // ── Display label maps ─────────────────────────────────────
 const CATEGORY_LABELS = {
@@ -15,12 +16,6 @@ const CATEGORY_LABELS = {
   EC_COSMO_Intern:'EC Intern',
   OT_COSMO:       'OT COSMO',
   OT_COSMO_Intern:'OT Intern',
-}
-
-const CONTRACT_LABELS = {
-  full:          'Full-time',
-  five_eighths:  '⅝ contract',
-  psych_overtime:'Psych overtime',
 }
 
 const ROLE_LABELS = {
@@ -72,8 +67,8 @@ const DEFAULT_SWAP_GROUP = {
 }
 
 export default function StaffListPage() {
-  const [tab, setTab] = useState('reference') // 'reference' | 'accounts' | 'pending'
-  const [staff, setStaff] = useState([])
+  const { isAdmin } = useAuth()
+  const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,36 +81,32 @@ export default function StaffListPage() {
 
   useEffect(() => {
     loadAll()
-  }, [])
+  }, [isAdmin])
 
   async function loadAll() {
     setLoading(true)
     setError('')
 
-    const [refRes, accountsRes, pendingRes, emailsRes] = await Promise.all([
-      supabase
-        .from('staff_reference')
-        .select('*')
-        .order('category', { ascending: true })
-        .order('surname', { ascending: true }),
+    const [accountsRes, pendingRes, emailsRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('*, approver:approved_by(name, surname)')
         .eq('is_approved', true)
         .order('category')
         .order('surname'),
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_approved', false)
-        .order('created_at', { ascending: true }),
+      // Only admins act on pending approvals — skip the fetch entirely for everyone else.
+      isAdmin
+        ? supabase
+            .from('profiles')
+            .select('*')
+            .eq('is_approved', false)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [] }),
       supabase.rpc('get_staff_emails'),
     ])
 
-    if (refRes.error) {
-      setError(refRes.error.message)
-    } else {
-      setStaff(refRes.data)
+    if (accountsRes.error) {
+      setError(accountsRes.error.message)
     }
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
@@ -168,17 +159,6 @@ await supabase.from('profiles').update({
     loadAll()
   }
 
-  // ── Group staff_reference by category for display ──────────
-  const grouped = staff.reduce((acc, person) => {
-    const key = person.category
-    if (!acc[key]) acc[key] = []
-    acc[key].push(person)
-    return acc
-  }, {})
-
-  const categoryOrder = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern', 'Consultant', 'Locum',
-                          'EC_COSMO', 'EC_COSMO_Intern', 'OT_COSMO', 'OT_COSMO_Intern']
-
   // ── Accounts grid: filter options derived from the loaded data ──
   const accountRoleOptions = [...new Set(activeAccounts.map(p => p.role).filter(Boolean))].sort()
   const accountCategoryOptions = [...new Set(activeAccounts.map(p => p.category).filter(Boolean))].sort()
@@ -207,8 +187,8 @@ await supabase.from('profiles').update({
         <div>
           <h1 className="font-display text-2xl text-ink">Staff</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {staff.length} staff members on record
-            {pending.length > 0 && ` · ${pending.length} pending approval`}
+            {activeAccounts.length} staff members on record
+            {isAdmin && pending.length > 0 && ` · ${pending.length} pending approval`}
           </p>
         </div>
       </div>
@@ -216,33 +196,27 @@ await supabase.from('profiles').update({
       {/* Tabs */}
       <div className="mb-5 flex gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 w-fit">
         <button
-          onClick={() => setTab('reference')}
-          className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === 'reference' ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
-          }`}
-        >
-          Staff list
-        </button>
-        <button
           onClick={() => setTab('accounts')}
           className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
             tab === 'accounts' ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
           }`}
         >
-          Accounts ({activeAccounts.length})
+          All Staff ({activeAccounts.length})
         </button>
-        <button
-          onClick={() => setTab('pending')}
-          className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === 'pending'
-              ? 'bg-accent text-white'
-              : pending.length > 0
-                ? 'text-flagAmber hover:text-ink'
-                : 'text-ink-light hover:text-ink'
-          }`}
-        >
-          Pending ({pending.length})
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setTab('pending')}
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === 'pending'
+                ? 'bg-accent text-white'
+                : pending.length > 0
+                  ? 'text-flagAmber hover:text-ink'
+                  : 'text-ink-light hover:text-ink'
+            }`}
+          >
+            Pending ({pending.length})
+          </button>
+        )}
       </div>
 
       {loading && <p className="text-sm text-ink-muted">Loading…</p>}
@@ -257,8 +231,9 @@ await supabase.from('profiles').update({
       {!loading && tab === 'accounts' && (
         <div>
           <p className="mb-3 text-xs text-ink-muted">
-            Inactive doctors remain on record but are excluded from roster generation.
-            Toggle the switch to activate or deactivate an account.
+            {isAdmin
+              ? 'Inactive doctors remain on record but are excluded from roster generation. Toggle the switch to activate or deactivate an account.'
+              : 'Inactive doctors remain on record but are excluded from roster generation.'}
           </p>
 
           {/* Filters */}
@@ -365,20 +340,27 @@ await supabase.from('profiles').update({
                         <td className="px-4 py-2.5 text-ink-light">{emailById[person.id] || '—'}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => !isToggling && toggleActive(person.id, person.is_active)}
-                              disabled={isToggling}
-                              title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-                                person.is_active ? 'bg-accent' : 'bg-slate-line'
-                              }`}
-                            >
-                              <span
-                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                  person.is_active ? 'translate-x-5' : 'translate-x-0'
+                            {isAdmin ? (
+                              <button
+                                onClick={() => !isToggling && toggleActive(person.id, person.is_active)}
+                                disabled={isToggling}
+                                title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                                  person.is_active ? 'bg-accent' : 'bg-slate-line'
                                 }`}
+                              >
+                                <span
+                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                    person.is_active ? 'translate-x-5' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            ) : (
+                              <span
+                                className={`h-2 w-2 flex-shrink-0 rounded-full ${person.is_active ? 'bg-success' : 'bg-flagAmber'}`}
+                                aria-hidden="true"
                               />
-                            </button>
+                            )}
                             <span className={`text-xs font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
                               {person.is_active ? 'Active' : 'Inactive'}
                             </span>
@@ -405,57 +387,8 @@ await supabase.from('profiles').update({
         </div>
       )}
 
-      {/* ── Tab: staff_reference (original grouped view) ── */}
-      {!loading && !error && tab === 'reference' && (
-        <div className="space-y-6">
-          {categoryOrder
-            .filter((cat) => grouped[cat]?.length)
-            .map((cat) => (
-              <div key={cat}>
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                  {CATEGORY_LABELS[cat] || cat} ({grouped[cat].length})
-                </h2>
-                <div className="card divide-y divide-slate-line overflow-hidden">
-                  {grouped[cat].map((person) => (
-                    <div key={person.id} className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="h-3 w-3 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: person.color_code }}
-                          aria-hidden="true"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-ink">
-                            {person.name ? `${person.name} ` : ''}{person.surname}
-                          </p>
-                          <p className="text-xs text-ink-muted">
-                            {CONTRACT_LABELS[person.contract_type]} ·{' '}
-                            {person.min_hours}–{person.max_hours}h/month
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {person.weekend_day_saturday_only && (
-                          <span className="rounded bg-flagAmber-bg px-2 py-0.5 text-[11px] font-medium text-flagAmber">
-                            Sat only
-                          </span>
-                        )}
-                        {person.no_weekend_nights && (
-                          <span className="rounded bg-canvas-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted">
-                            No WE nights
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {/* ── Tab: pending account approvals ── */}
-      {!loading && tab === 'pending' && (
+      {/* ── Tab: pending account approvals (admin only) ── */}
+      {!loading && isAdmin && tab === 'pending' && (
         <div>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">

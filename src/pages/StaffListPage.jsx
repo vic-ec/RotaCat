@@ -24,17 +24,19 @@ const CONTRACT_LABELS = {
 }
 
 const ROLE_LABELS = {
-  admin:  'Admin',
-  doctor: 'Doctor',
-  locum:  'Locum',
-  clerk:  'Clerk',
+  admin:      'Admin',
+  doctor:     'Doctor',
+  consultant: 'Consultant',
+  locum:      'Locum',
+  clerk:      'Clerk',
 }
 
 const ROLE_BADGE = {
-  admin:  'bg-accent text-white',
-  doctor: 'bg-success-bg text-success',
-  locum:  'bg-canvas-sunken text-ink-muted',
-  clerk:  'bg-flagAmber-bg text-flagAmber',
+  admin:      'bg-accent text-white',
+  doctor:     'bg-success-bg text-success',
+  consultant: 'bg-success-bg text-success',
+  locum:      'bg-canvas-sunken text-ink-muted',
+  clerk:      'bg-flagAmber-bg text-flagAmber',
 }
 
 // Category options for the approval edit panel
@@ -79,6 +81,8 @@ export default function StaffListPage() {
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
   const [togglingId, setTogglingId] = useState(null)
+  const [emailById, setEmailById] = useState({})
+  const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all' })
 
   useEffect(() => {
     loadAll()
@@ -88,7 +92,7 @@ export default function StaffListPage() {
     setLoading(true)
     setError('')
 
-    const [refRes, accountsRes, pendingRes] = await Promise.all([
+    const [refRes, accountsRes, pendingRes, emailsRes] = await Promise.all([
       supabase
         .from('staff_reference')
         .select('*')
@@ -105,6 +109,7 @@ export default function StaffListPage() {
         .select('*')
         .eq('is_approved', false)
         .order('created_at', { ascending: true }),
+      supabase.rpc('get_staff_emails'),
     ])
 
     if (refRes.error) {
@@ -114,6 +119,11 @@ export default function StaffListPage() {
     }
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
+
+    const emailMap = {}
+    for (const row of emailsRes.data || []) emailMap[row.id] = row.email
+    setEmailById(emailMap)
+
     setLoading(false)
   }
 
@@ -168,6 +178,28 @@ await supabase.from('profiles').update({
 
   const categoryOrder = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern', 'Consultant', 'Locum',
                           'EC_COSMO', 'EC_COSMO_Intern', 'OT_COSMO', 'OT_COSMO_Intern']
+
+  // ── Accounts grid: filter options derived from the loaded data ──
+  const accountRoleOptions = [...new Set(activeAccounts.map(p => p.role).filter(Boolean))].sort()
+  const accountCategoryOptions = [...new Set(activeAccounts.map(p => p.category).filter(Boolean))].sort()
+
+  const filteredAccounts = activeAccounts.filter(person => {
+    const q = accountFilters.q.trim().toLowerCase()
+    if (q) {
+      const fullName = `${person.surname || ''} ${person.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    if (accountFilters.role !== 'all' && person.role !== accountFilters.role) return false
+    if (accountFilters.category !== 'all' && person.category !== accountFilters.category) return false
+    if (accountFilters.status !== 'all') {
+      const wantActive = accountFilters.status === 'active'
+      if (Boolean(person.is_active) !== wantActive) return false
+    }
+    return true
+  })
+
+  const accountFiltersActive = accountFilters.q || accountFilters.role !== 'all' ||
+    accountFilters.category !== 'all' || accountFilters.status !== 'all'
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -228,63 +260,146 @@ await supabase.from('profiles').update({
             Inactive doctors remain on record but are excluded from roster generation.
             Toggle the switch to activate or deactivate an account.
           </p>
+
+          {/* Filters */}
+          <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="min-w-[200px] flex-1">
+              <label className="label-text">Search name</label>
+              <input
+                type="text"
+                value={accountFilters.q}
+                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                placeholder="Surname or first name…"
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="label-text">Role</label>
+              <select
+                value={accountFilters.role}
+                onChange={e => setAccountFilters(f => ({ ...f, role: e.target.value }))}
+                className="input-field w-auto"
+              >
+                <option value="all">All roles</option>
+                {accountRoleOptions.map(r => (
+                  <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text">Category</label>
+              <select
+                value={accountFilters.category}
+                onChange={e => setAccountFilters(f => ({ ...f, category: e.target.value }))}
+                className="input-field w-auto"
+              >
+                <option value="all">All categories</option>
+                {accountCategoryOptions.map(c => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-text">Status</label>
+              <select
+                value={accountFilters.status}
+                onChange={e => setAccountFilters(f => ({ ...f, status: e.target.value }))}
+                className="input-field w-auto"
+              >
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            {accountFiltersActive && (
+              <button
+                onClick={() => setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all' })}
+                className="btn-secondary px-3 py-2.5 text-xs"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+
           {activeAccounts.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No approved accounts yet.</p>
             </div>
+          ) : filteredAccounts.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
+            </div>
           ) : (
-            <div className="card overflow-hidden divide-y divide-slate-line">
-              {activeAccounts.map(person => {
-                const isToggling = togglingId === person.id
-                return (
-                  <div key={person.id} className={`flex items-center justify-between px-5 py-3 ${!person.is_active ? 'opacity-50' : ''}`}>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-ink">
-                         {person.name ? `${person.name} ` : ''}{person.surname}
-                        </p>
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                          {ROLE_LABELS[person.role] || person.role}
-                        </span>
-                        {person.category && (
-                          <span className="text-xs text-ink-muted">
-                            {CATEGORY_LABELS[person.category] || person.category}
+            <div className="card overflow-x-auto">
+              <table className="w-full min-w-[860px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-line bg-canvas-sunken text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                    <th className="px-4 py-2.5">Surname</th>
+                    <th className="px-4 py-2.5">First name</th>
+                    <th className="px-4 py-2.5">Role</th>
+                    <th className="px-4 py-2.5">Category</th>
+                    <th className="px-4 py-2.5">Mobile</th>
+                    <th className="px-4 py-2.5">Email</th>
+                    <th className="px-4 py-2.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAccounts.map(person => {
+                    const isToggling = togglingId === person.id
+                    return (
+                      <tr
+                        key={person.id}
+                        className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''}`}
+                      >
+                        <td className="px-4 py-2.5 font-medium text-ink">{person.surname}</td>
+                        <td className="px-4 py-2.5 text-ink">{person.name || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                            {ROLE_LABELS[person.role] || person.role}
                           </span>
-                        )}
-                      </div>
-                      {!person.is_active && (
-                        <p className="mt-0.5 text-xs text-flagAmber">Inactive — excluded from roster generation</p>
-                      )}
-                      {person.approved_at && (
-                        <p className="mt-0.5 text-xs text-ink-muted">
-                        Approved{person.approver
-                        ? ` by ${person.approver.name ? `${person.approver.name} ` : ''}${person.approver.surname}`
-                        : ''
-                      } · {new Date(person.approved_at).toLocaleString('en-ZA', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                          hour: '2-digit', minute: '2-digit'
-                        })}
-                    </p>
-                  )}
-                    </div>
-                    {/* Active / Inactive toggle */}
-                    <button
-                      onClick={() => !isToggling && toggleActive(person.id, person.is_active)}
-                      disabled={isToggling}
-                      title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                      className={`relative ml-4 inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-                        person.is_active ? 'bg-accent' : 'bg-slate-line'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                          person.is_active ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                )
-              })}
+                        </td>
+                        <td className="px-4 py-2.5 text-ink-light">
+                          {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-ink-light">{person.phone || '—'}</td>
+                        <td className="px-4 py-2.5 text-ink-light">{emailById[person.id] || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => !isToggling && toggleActive(person.id, person.is_active)}
+                              disabled={isToggling}
+                              title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
+                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                                person.is_active ? 'bg-accent' : 'bg-slate-line'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                  person.is_active ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                            <span className={`text-xs font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
+                              {person.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          {person.approved_at && (
+                            <p className="mt-1 text-[11px] text-ink-muted">
+                              Approved{person.approver
+                                ? ` by ${person.approver.name ? `${person.approver.name} ` : ''}${person.approver.surname}`
+                                : ''
+                              } · {new Date(person.approved_at).toLocaleString('en-ZA', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              })}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

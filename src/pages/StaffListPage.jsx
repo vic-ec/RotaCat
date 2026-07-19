@@ -26,6 +26,12 @@ const ROLE_LABELS = {
   clerk:      'Clerk',
 }
 
+const REQUEST_TYPE_LABELS = {
+  role: 'Role change',
+  category: 'Category change',
+  deletion: 'Account deletion',
+}
+
 const ROLE_BADGE = {
   admin:      'bg-accent text-white',
   doctor:     'bg-success-bg text-success',
@@ -78,6 +84,8 @@ export default function StaffListPage() {
   const [togglingId, setTogglingId] = useState(null)
   const [emailById, setEmailById] = useState({})
   const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all' })
+  const [accountRequests, setAccountRequests] = useState([])
+  const [requestActioningId, setRequestActioningId] = useState(null)
 
   useEffect(() => {
     loadAll()
@@ -87,7 +95,7 @@ export default function StaffListPage() {
     setLoading(true)
     setError('')
 
-    const [accountsRes, pendingRes, emailsRes] = await Promise.all([
+    const [accountsRes, pendingRes, emailsRes, requestsRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('*, approver:approved_by(name, surname)')
@@ -103,6 +111,13 @@ export default function StaffListPage() {
             .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
       Promise.resolve({ data: [] }),
+      isAdmin
+        ? supabase
+            .from('account_change_requests')
+            .select('*, requester:profile_id(name, surname)')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [] }),
     ])
 
     if (accountsRes.error) {
@@ -110,6 +125,7 @@ export default function StaffListPage() {
     }
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
+    setAccountRequests(requestsRes.data || [])
 
     const emailMap = {}
     for (const row of emailsRes.data || []) emailMap[row.id] = row.email
@@ -174,6 +190,48 @@ export default function StaffListPage() {
   loadAll()
 }
 
+  async function approveRequest(request) {
+    setRequestActioningId(request.id)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Apply the actual change first
+    if (request.request_type === 'role') {
+      await supabase.from('profiles').update({ role: request.requested_value }).eq('id', request.profile_id)
+    } else if (request.request_type === 'category') {
+      await supabase.from('profiles').update({ category: request.requested_value }).eq('id', request.profile_id)
+    } else if (request.request_type === 'deletion') {
+      // Client-side keys can't delete an auth user directly (needs service role).
+      // Deactivate the account now; remove the auth user manually in Supabase if required.
+      await supabase.from('profiles').update({ is_active: false, is_approved: false }).eq('id', request.profile_id)
+    }
+
+    const { error } = await supabase.from('account_change_requests').update({
+      status: 'approved',
+      reviewed_by: user.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', request.id)
+
+    if (error) alert('Could not update request: ' + error.message)
+    await loadAll()
+    setRequestActioningId(null)
+  }
+
+  async function rejectRequest(request, notes) {
+    setRequestActioningId(request.id)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase.from('account_change_requests').update({
+      status: 'rejected',
+      admin_notes: notes || null,
+      reviewed_by: user.id,
+      reviewed_at: new Date().toISOString(),
+    }).eq('id', request.id)
+
+    if (error) alert('Could not update request: ' + error.message)
+    await loadAll()
+    setRequestActioningId(null)
+  }
+
   // ── Accounts grid: filter options derived from the loaded data ──
   const accountRoleOptions = [...new Set(activeAccounts.map(p => p.role).filter(Boolean))].sort()
   const accountCategoryOptions = [...new Set(activeAccounts.map(p => p.category).filter(Boolean))].sort()
@@ -230,6 +288,20 @@ export default function StaffListPage() {
             }`}
           >
             Pending ({pending.length})
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            onClick={() => setTab('requests')}
+            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === 'requests'
+                ? 'bg-accent text-white'
+                : accountRequests.length > 0
+                  ? 'text-flagAmber hover:text-ink'
+                  : 'text-ink-light hover:text-ink'
+            }`}
+          >
+            Account requests ({accountRequests.length})
           </button>
         )}
       </div>
@@ -490,6 +562,69 @@ export default function StaffListPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: pending account change requests (admin only) ── */}
+      {!loading && isAdmin && tab === 'requests' && (
+        <div>
+          {accountRequests.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No account requests pending review.</p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden divide-y divide-slate-line">
+              {accountRequests.map((r) => {
+                const isActioning = requestActioningId === r.id
+                return (
+                  <div key={r.id} className="px-5 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-ink text-sm">
+                            {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                          </p>
+                          <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium text-ink-light">
+                            {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
+                          </span>
+                        </div>
+                        {r.request_type !== 'deletion' && (
+                          <p className="mt-1 text-xs text-ink-light">
+                            {r.current_value || '—'} → <span className="font-medium text-ink">{r.requested_value}</span>
+                          </p>
+                        )}
+                        {r.reason && <p className="mt-1 text-xs text-ink-muted">"{r.reason}"</p>}
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          Requested {r.created_at?.slice(0, 10)}
+                        </p>
+                        {r.request_type === 'deletion' && (
+                          <p className="mt-1 text-xs text-flagAmber">
+                            Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          disabled={isActioning}
+                          onClick={() => approveRequest(r)}
+                          className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-80 disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          disabled={isActioning}
+                          onClick={() => rejectRequest(r)}
+                          className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )
               })}

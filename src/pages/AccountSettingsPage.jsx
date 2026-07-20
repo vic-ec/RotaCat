@@ -682,7 +682,7 @@ export default function AccountSettingsPage() {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={savingProfile} className="btn-primary">
-              {savingProfile ? 'Saving…' : 'Change mobile'}
+              {savingProfile ? 'Saving…' : 'Save changes'}
             </button>
             {profileMsg && (
               <span className={`text-xs font-medium ${profileMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>

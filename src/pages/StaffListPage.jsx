@@ -36,14 +36,14 @@ const ROLE_BADGE = {
   clerk:  'bg-flagAmber-bg text-flagAmber',
 }
 
-const PERMISSION_LABELS = { user: 'User', clerk: 'Clerk', admin: 'Admin' }
+const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
 const PERMISSION_BADGE = {
   admin: 'bg-accent text-white',
-  clerk: 'bg-flagBlue-bg text-flagBlue',
-  user:  '',
+  super_admin: 'bg-accent text-white',
 }
 
 // Category options for the approval edit panel
+// Doctor: full clinical set. Locum: MO/Registrar only (drives shift-claim eligibility). Clerk: none.
 const CATEGORY_OPTIONS = [
   { value: 'MO',         label: 'Medical Officer' },
   { value: 'Registrar',  label: 'Registrar' },
@@ -51,8 +51,16 @@ const CATEGORY_OPTIONS = [
   { value: 'COSMOPsych', label: 'COSMO (Psych)' },
   { value: 'Intern',     label: 'Intern' },
   { value: 'Consultant', label: 'Consultant' },
-  { value: 'Locum',      label: 'Locum' },
 ]
+const LOCUM_CATEGORY_OPTIONS = [
+  { value: 'MO',        label: 'Medical Officer' },
+  { value: 'Registrar', label: 'Registrar' },
+]
+function categoryOptionsForRole(role) {
+  if (role === 'doctor') return CATEGORY_OPTIONS
+  if (role === 'locum') return LOCUM_CATEGORY_OPTIONS
+  return []
+}
 
 // Default hours targets per category (admin can override per individual)
 const DEFAULT_HOURS = {
@@ -85,6 +93,7 @@ export default function StaffListPage() {
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
   const [togglingId, setTogglingId] = useState(null)
+  const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
   const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all' })
   const [accountRequests, setAccountRequests] = useState([])
@@ -146,11 +155,25 @@ export default function StaffListPage() {
     setTogglingId(null)
   }
 
+  async function toggleAdmin(person) {
+    setTogglingAdminId(person.id)
+    const { error } = await supabase.from('profiles')
+      .update({ is_admin: !person.is_admin })
+      .eq('id', person.id)
+    if (error) alert(error.message.replace(/^.*?: /, ''))
+    await loadAll()
+    setTogglingAdminId(null)
+  }
+
   async function approveAccount(profile) {
     const ed = editData[profile.id] || {}
-    const role       = ed.role       ?? profile.role       ?? 'doctor'
-    const category   = role === 'doctor' ? (ed.category ?? profile.category ?? null) : null
-    const permission = ed.permission ?? profile.permission_level ?? 'user'
+    const role = ed.role ?? profile.role ?? 'doctor'
+    const rawCategory = ed.category ?? profile.category ?? null
+    const category =
+      role === 'doctor' ? rawCategory :
+      role === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
+      null
+    const isAdminFlag = role === 'clerk' ? false : (ed.isAdmin ?? profile.is_admin ?? false)
 
     const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
@@ -158,16 +181,16 @@ export default function StaffListPage() {
     const { data: { user } } = await supabase.auth.getUser()
 
     const { error } = await supabase.from('profiles').update({
-      is_approved:      true,
-      is_active:        true,
+      is_approved:  true,
+      is_active:    true,
       role,
-      category:         category || null,
-      permission_level: permission,
-      min_hours:        hours.min,
-      max_hours:        hours.max,
-      swap_group:       swapGroup,
-      approved_by:      user.id,
-      approved_at:      new Date().toISOString(),
+      category:     category || null,
+      is_admin:     isAdminFlag,
+      min_hours:    hours.min,
+      max_hours:    hours.max,
+      swap_group:   swapGroup,
+      approved_by:  user.id,
+      approved_at:  new Date().toISOString(),
     }).eq('id', profile.id)
 
     if (error) {
@@ -201,9 +224,14 @@ export default function StaffListPage() {
 
     // Apply the actual change first
     if (request.request_type === 'role') {
-      // Category only makes sense for doctors — clear it if the new role isn't 'doctor'
       const patch = { role: request.requested_value }
-      if (request.requested_value !== 'doctor') patch.category = null
+      if (request.requested_value === 'clerk') {
+        patch.category = null
+      } else if (request.requested_value === 'locum') {
+        // Locums can only carry MO/Registrar (drives shift-claim eligibility) — clear otherwise
+        const { data: current } = await supabase.from('profiles').select('category').eq('id', request.profile_id).single()
+        patch.category = ['MO', 'Registrar'].includes(current?.category) ? current.category : null
+      }
       await supabase.from('profiles').update(patch).eq('id', request.profile_id)
     } else if (request.request_type === 'category') {
       await supabase.from('profiles').update({ category: request.requested_value }).eq('id', request.profile_id)
@@ -410,6 +438,7 @@ export default function StaffListPage() {
                     <th className="px-4 py-2.5">Category</th>
                     <th className="px-4 py-2.5">Mobile</th>
                     <th className="px-4 py-2.5">Email</th>
+                    <th className="px-4 py-2.5">Admin</th>
                     <th className="px-4 py-2.5">Status</th>
                   </tr>
                 </thead>
@@ -428,9 +457,9 @@ export default function StaffListPage() {
                             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
                               {ROLE_LABELS[person.role] || person.role}
                             </span>
-                            {person.permission_level && person.permission_level !== 'user' && (
-                              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PERMISSION_BADGE[person.permission_level] || 'bg-canvas-sunken text-ink-muted'}`}>
-                                {PERMISSION_LABELS[person.permission_level] || person.permission_level}
+                            {person.is_admin && (
+                              <span className={PERMISSION_BADGE.admin + ' rounded-full px-2 py-0.5 text-xs font-medium'}>
+                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                               </span>
                             )}
                           </div>
@@ -440,6 +469,28 @@ export default function StaffListPage() {
                         </td>
                         <td className="px-4 py-2.5 text-ink-light">{person.phone || '—'}</td>
                         <td className="px-4 py-2.5 text-ink-light">{emailById[person.id] || '—'}</td>
+                        <td className="px-4 py-2.5">
+                          {person.role === 'clerk' ? (
+                            <span className="text-xs text-ink-muted">—</span>
+                          ) : isAdmin ? (
+                            <button
+                              onClick={() => togglingAdminId !== person.id && toggleAdmin(person)}
+                              disabled={togglingAdminId === person.id || person.is_super_admin}
+                              title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
+                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                person.is_admin ? 'bg-accent' : 'bg-slate-line'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                  person.is_admin ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5">
                           <div className="flex items-center gap-2">
                             {isAdmin ? (
@@ -492,7 +543,7 @@ export default function StaffListPage() {
                 const ed = editData[person.id] || {}
                 const currentRole     = ed.role     ?? person.role     ?? 'doctor'
                 const currentCategory = ed.category ?? person.category ?? ''
-                const currentPermission = ed.permission ?? person.permission_level ?? 'user'
+                const currentIsAdmin = ed.isAdmin ?? person.is_admin ?? false
 
                 return (
                   <div key={person.id} className="px-5 py-4">
@@ -556,7 +607,7 @@ export default function StaffListPage() {
                               <option value="clerk">Clerk</option>
                             </select>
                           </div>
-                          {currentRole === 'doctor' && (
+                          {currentRole !== 'clerk' && (
                             <div>
                               <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
                               <select
@@ -567,28 +618,27 @@ export default function StaffListPage() {
                                 }))}
                                 className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
                               >
-                                <option value="">None</option>
-                                {CATEGORY_OPTIONS.map(({ value, label }) => (
+                                <option value="">{currentRole === 'locum' ? 'None' : 'Select…'}</option>
+                                {categoryOptionsForRole(currentRole).map(({ value, label }) => (
                                   <option key={value} value={value}>{label}</option>
                                 ))}
                               </select>
                             </div>
                           )}
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-ink-muted">Permissions</label>
-                            <select
-                              value={currentPermission}
-                              onChange={e => setEditData(prev => ({
-                                ...prev,
-                                [person.id]: { ...prev[person.id], permission: e.target.value }
-                              }))}
-                              className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
-                            >
-                              <option value="user">User</option>
-                              <option value="clerk">Clerk</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                          </div>
+                          {currentRole !== 'clerk' && (
+                            <label className="flex items-center gap-2 text-sm text-ink">
+                              <input
+                                type="checkbox"
+                                checked={currentIsAdmin}
+                                onChange={e => setEditData(prev => ({
+                                  ...prev,
+                                  [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
+                                }))}
+                                className="h-4 w-4 rounded border-slate-line accent-accent"
+                              />
+                              Admin
+                            </label>
+                          )}
                         </div>
                       </div>
                     )}

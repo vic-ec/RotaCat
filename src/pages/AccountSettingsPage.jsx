@@ -9,7 +9,8 @@ import { getCroppedImageBlob } from '../lib/cropImage'
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
 
-// Category = clinical subtype, only meaningful when role = 'doctor'
+// Category = clinical subtype. Doctor: any of these. Locum: MO/Registrar only
+// (this is what makes shift-claim eligibility possible). Clerk: none.
 const CATEGORY_LABELS = {
   MO:         'Medical Officer',
   Registrar:  'Registrar',
@@ -18,11 +19,16 @@ const CATEGORY_LABELS = {
   Intern:     'Intern',
   Consultant: 'Consultant',
 }
-const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-
-// Permissions = access tier, independent of role, admin-managed only
-const PERMISSION_LABELS = { user: 'User', clerk: 'Clerk', admin: 'Admin' }
-const PERMISSION_OPTIONS = Object.entries(PERMISSION_LABELS).map(([value, label]) => ({ value, label }))
+const DOCTOR_CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
+const LOCUM_CATEGORY_OPTIONS = [
+  { value: 'MO', label: 'Medical Officer' },
+  { value: 'Registrar', label: 'Registrar' },
+]
+function categoryOptionsForRole(role) {
+  if (role === 'doctor') return DOCTOR_CATEGORY_OPTIONS
+  if (role === 'locum') return LOCUM_CATEGORY_OPTIONS
+  return []
+}
 
 const NOTIFICATION_LABELS = {
   roster_published:    'Roster published',
@@ -134,7 +140,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 }
 
 export default function AccountSettingsPage() {
-  const { user, profile, isAdmin, refreshProfile } = useAuth()
+  const { user, profile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
   const fileInputRef = useRef(null)
 
   const [form, setForm] = useState({ name: '', surname: '', phone: '' })
@@ -156,12 +162,19 @@ export default function AccountSettingsPage() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
 
-  // Admin: direct edit of own role / category / permission level
+  // Admin: direct edit of own role / category / admin flag
   const [adminRole, setAdminRole] = useState('')
   const [adminCategory, setAdminCategory] = useState('')
-  const [adminPermission, setAdminPermission] = useState('')
+  const [adminIsAdmin, setAdminIsAdmin] = useState(false)
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
+
+  // Super-admin: transfer to another admin
+  const [otherAdmins, setOtherAdmins] = useState([])
+  const [transferTargetId, setTransferTargetId] = useState('')
+  const [transferConfirming, setTransferConfirming] = useState(false)
+  const [transferSaving, setTransferSaving] = useState(false)
+  const [transferMsg, setTransferMsg] = useState(null)
 
   // Non-admin: request role/category changes
   const [myRequests, setMyRequests] = useState([])
@@ -182,7 +195,7 @@ export default function AccountSettingsPage() {
     setPrefs(profile.notification_prefs || {})
     setAdminRole(profile.role || '')
     setAdminCategory(profile.category || '')
-    setAdminPermission(profile.permission_level || 'user')
+    setAdminIsAdmin(profile.is_admin === true)
   }, [profile])
 
   useEffect(() => {
@@ -193,6 +206,16 @@ export default function AccountSettingsPage() {
     if (!user) return
     loadMyRequests()
   }, [user])
+
+  useEffect(() => {
+    if (!isSuperAdmin || !user) return
+    supabase
+      .from('profiles')
+      .select('id, name, surname')
+      .eq('is_admin', true)
+      .neq('id', user.id)
+      .then(({ data }) => setOtherAdmins(data || []))
+  }, [isSuperAdmin, user])
 
   async function loadMyRequests() {
     const { data, error } = await supabase
@@ -364,10 +387,10 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Admin: direct role/category/permission edit ─────────────
+  // ── Admin: direct role/category/admin-flag edit ─────────────
   function handleAdminRoleChange(value) {
     setAdminRole(value)
-    if (value !== 'doctor') setAdminCategory('')
+    setAdminCategory('') // clear — the valid category set differs per role
   }
 
   async function saveAdminAccountFields() {
@@ -384,8 +407,8 @@ export default function AccountSettingsPage() {
       .from('profiles')
       .update({
         role: adminRole,
-        category: adminRole === 'doctor' ? adminCategory : null,
-        permission_level: adminPermission,
+        category: adminRole === 'clerk' ? null : (adminCategory || null),
+        is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
       })
       .eq('id', user.id)
 
@@ -394,6 +417,24 @@ export default function AccountSettingsPage() {
       setAdminMsg({ type: 'error', text: error.message })
     } else {
       setAdminMsg({ type: 'success', text: 'Saved.' })
+      refreshProfile()
+    }
+  }
+
+  // ── Super-admin: transfer to another admin ──────────────────
+  async function transferSuperAdmin() {
+    if (!transferTargetId) return
+    setTransferSaving(true)
+    setTransferMsg(null)
+
+    const { error } = await supabase.rpc('transfer_super_admin', { new_super_admin_id: transferTargetId })
+
+    setTransferSaving(false)
+    setTransferConfirming(false)
+    if (error) {
+      setTransferMsg({ type: 'error', text: error.message })
+    } else {
+      setTransferMsg({ type: 'success', text: 'Super-admin transferred.' })
       refreshProfile()
     }
   }
@@ -594,29 +635,32 @@ export default function AccountSettingsPage() {
                   ))}
                 </select>
               </div>
-              {adminRole === 'doctor' && (
+              {adminRole !== 'clerk' && (
                 <div>
                   <label className="label-text">Category</label>
                   <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
-                    <option value="">Select…</option>
-                    {CATEGORY_OPTIONS.map(({ value, label }) => (
+                    <option value="">{adminRole === 'locum' ? 'None' : 'Select…'}</option>
+                    {categoryOptionsForRole(adminRole).map(({ value, label }) => (
                       <option key={value} value={value}>{label}</option>
                     ))}
                   </select>
                 </div>
               )}
             </div>
-            <div>
-              <label className="label-text">Permissions</label>
-              <select value={adminPermission} onChange={e => setAdminPermission(e.target.value)} className="input-field w-1/2">
-                {PERMISSION_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-ink-muted">
-                Independent of role — controls access level, not clinical duties.
-              </p>
-            </div>
+
+            {adminRole !== 'clerk' && (
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={adminIsAdmin}
+                  onChange={e => setAdminIsAdmin(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-line accent-accent"
+                />
+                Admin
+                {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can't be removed here)</span>}
+              </label>
+            )}
+
             <div className="flex items-center gap-3">
               <button onClick={saveAdminAccountFields} disabled={adminSaving} className="btn-primary">
                 {adminSaving ? 'Saving…' : 'Save'}
@@ -627,6 +671,60 @@ export default function AccountSettingsPage() {
                 </span>
               )}
             </div>
+
+            {isSuperAdmin && (
+              <div className="mt-2 border-t border-slate-line pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Super-admin</p>
+                {otherAdmins.length === 0 ? (
+                  <p className="text-xs text-ink-muted">
+                    No other admins yet — make someone else an admin first to be able to transfer this.
+                  </p>
+                ) : transferConfirming ? (
+                  <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3">
+                    <p className="mb-2 text-xs text-flagAmber">
+                      This immediately hands off super-admin — you won't be able to take it back yourself.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={transferSuperAdmin}
+                        disabled={transferSaving}
+                        className="rounded bg-flagAmber px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      >
+                        {transferSaving ? 'Transferring…' : 'Confirm transfer'}
+                      </button>
+                      <button onClick={() => setTransferConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={transferTargetId}
+                      onChange={e => setTransferTargetId(e.target.value)}
+                      className="input-field w-auto flex-1"
+                    >
+                      <option value="">Transfer to…</option>
+                      {otherAdmins.map(a => (
+                        <option key={a.id} value={a.id}>{a.name} {a.surname}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setTransferConfirming(true)}
+                      disabled={!transferTargetId}
+                      className="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap"
+                    >
+                      Transfer
+                    </button>
+                  </div>
+                )}
+                {transferMsg && (
+                  <span className={`mt-2 block text-xs font-medium ${transferMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                    {transferMsg.text}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -643,10 +741,11 @@ export default function AccountSettingsPage() {
                   </span>
                 </>
               )}
-              <span className="text-ink-muted">Permissions:</span>
-              <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
-                {PERMISSION_LABELS[profile.permission_level] || 'User'}
-              </span>
+              {profile.is_admin && (
+                <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">
+                  {profile.is_super_admin ? 'Super-admin' : 'Admin'}
+                </span>
+              )}
             </div>
 
             <div className="rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
@@ -668,7 +767,7 @@ export default function AccountSettingsPage() {
                       className="input-field"
                     >
                       <option value="role">Role</option>
-                      {profile.role === 'doctor' && <option value="category">Category</option>}
+                      {(profile.role === 'doctor' || profile.role === 'locum') && <option value="category">Category</option>}
                     </select>
                   </div>
                   <div>
@@ -679,7 +778,7 @@ export default function AccountSettingsPage() {
                       className="input-field"
                     >
                       <option value="">Select…</option>
-                      {(requestForm.type === 'role' ? ROLE_OPTIONS : CATEGORY_OPTIONS).map(({ value, label }) => (
+                      {(requestForm.type === 'role' ? ROLE_OPTIONS : categoryOptionsForRole(profile.role)).map(({ value, label }) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>

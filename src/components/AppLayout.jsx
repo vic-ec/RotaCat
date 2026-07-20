@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import lilyIcon from '../assets/icon-lily-robot-orange-leftheadtilt-reflectiveshadow-nobg.png'
@@ -79,6 +79,32 @@ function UserAvatar({ profile, className }) {
   )
 }
 
+// Mobile top-bar avatar: hover shows a "Logged in as X" tooltip; tap toggles it (no hover on touch).
+function MobileAvatarWithTooltip({ profile }) {
+  const [show, setShow] = useState(false)
+  if (!profile) return null
+  return (
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        title={`Logged in as ${profile.name} ${profile.surname}`}
+        aria-label={`Logged in as ${profile.name} ${profile.surname}`}
+        className="block"
+      >
+        <UserAvatar profile={profile} className="h-7 w-7 text-[10px]" />
+      </button>
+      <div
+        className={`pointer-events-none absolute right-0 top-full z-20 mt-1 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
+          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        Logged in as {profile.name} {profile.surname}
+      </div>
+    </div>
+  )
+}
+
 export default function AppLayout() {
   const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
   const navigate = useNavigate()
@@ -111,19 +137,22 @@ export default function AppLayout() {
       {/* Sidebar — desktop */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
-          <div className="flex items-center gap-0">
+          <div className="flex items-center gap-2">
             <img
               src={lilyIcon}
               alt=""
               className="h-10 w-10 object-contain"
               draggable="false"
             />
-            <h1 className="-ml-1.5 font-display text-2xl font-medium text-ink"><RotaCat /></h1>
+            <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
-            <p className="mt-2 text-xs text-ink-muted">
-              {profile.name} {profile.surname} · {subtitle}
-            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <UserAvatar profile={profile} className="h-9 w-9 text-xs" />
+              <p className="text-xs text-ink-muted">
+                {profile.name} {profile.surname} · {subtitle}
+              </p>
+            </div>
           )}
           {!profile?.is_approved && (
             <p className="mt-1 text-xs text-flagAmber">Pending approval</p>
@@ -150,30 +179,25 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 border-t border-accent/25 p-3">
-          <UserAvatar profile={profile} className="h-8 w-8 text-xs" />
+        <div className="border-t border-accent/25 p-3">
           <button
             onClick={handleSignOut}
-            title="Sign out"
-            aria-label="Sign out"
-            className="group flex flex-1 items-center gap-3 overflow-hidden rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised"
+            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised"
           >
-            <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[80px] group-hover:opacity-100">
-              Sign out
-            </span>
+            <LogoutIcon className="h-[18px] w-[18px]" />
+            Sign out
           </button>
         </div>
       </aside>
 
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
-        <div className="flex items-center gap-0">
+        <div className="flex items-center gap-2">
           <img src={lilyIcon} alt="" className="h-8 w-8 object-contain" draggable="false" />
-          <span className="-ml-1.5 font-display text-xl font-medium text-ink"><RotaCat /></span>
+          <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <UserAvatar profile={profile} className="h-7 w-7 text-[10px]" />
+          <MobileAvatarWithTooltip profile={profile} />
           <button
             onClick={handleSignOut}
             title="Sign out"

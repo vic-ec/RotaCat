@@ -97,7 +97,7 @@ export default function StaffListPage() {
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
-  const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all' })
+  const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
 
@@ -285,11 +285,15 @@ export default function StaffListPage() {
       const wantActive = accountFilters.status === 'active'
       if (Boolean(person.is_active) !== wantActive) return false
     }
+    if (accountFilters.isAdmin !== 'all') {
+      const wantAdmin = accountFilters.isAdmin === 'yes'
+      if (Boolean(person.is_admin) !== wantAdmin) return false
+    }
     return true
   })
 
   const accountFiltersActive = accountFilters.q || accountFilters.role !== 'all' ||
-    accountFilters.category !== 'all' || accountFilters.status !== 'all'
+    accountFilters.category !== 'all' || accountFilters.status !== 'all' || accountFilters.isAdmin !== 'all'
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -361,8 +365,8 @@ export default function StaffListPage() {
           </p>
 
           {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-end gap-3">
-            <div className="min-w-[200px] flex-1">
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-8">
+            <div className="md:col-span-4">
               <label className="label-text">Search name</label>
               <input
                 type="text"
@@ -372,51 +376,67 @@ export default function StaffListPage() {
                 className="input-field"
               />
             </div>
-            <div>
-              <label className="label-text">Role</label>
-              <select
-                value={accountFilters.role}
-                onChange={e => setAccountFilters(f => ({ ...f, role: e.target.value }))}
-                className="input-field w-auto"
-              >
-                <option value="all">All roles</option>
-                {accountRoleOptions.map(r => (
-                  <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label-text">Category</label>
-              <select
-                value={accountFilters.category}
-                onChange={e => setAccountFilters(f => ({ ...f, category: e.target.value }))}
-                className="input-field w-auto"
-              >
-                <option value="all">All categories</option>
-                {accountCategoryOptions.map(c => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label-text">Status</label>
-              <select
-                value={accountFilters.status}
-                onChange={e => setAccountFilters(f => ({ ...f, status: e.target.value }))}
-                className="input-field w-auto"
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+            <div className="grid grid-cols-4 gap-3 md:contents">
+              <div className="md:col-span-1">
+                <label className="label-text">Role</label>
+                <select
+                  value={accountFilters.role}
+                  onChange={e => setAccountFilters(f => ({ ...f, role: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All roles</option>
+                  {accountRoleOptions.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-1">
+                <label className="label-text">Category</label>
+                <select
+                  value={accountFilters.category}
+                  onChange={e => setAccountFilters(f => ({ ...f, category: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All categories</option>
+                  {accountCategoryOptions.map(c => (
+                    <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-1">
+                <label className="label-text">Status</label>
+                <select
+                  value={accountFilters.status}
+                  onChange={e => setAccountFilters(f => ({ ...f, status: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="md:col-span-1">
+                <label className="label-text">Is Admin</label>
+                <select
+                  value={accountFilters.isAdmin}
+                  onChange={e => setAccountFilters(f => ({ ...f, isAdmin: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
             </div>
             {accountFiltersActive && (
-              <button
-                onClick={() => setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all' })}
-                className="btn-secondary px-3 py-2.5 text-xs"
-              >
-                Clear filters
-              </button>
+              <div className="md:col-span-8">
+                <button
+                  onClick={() => setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })}
+                  className="btn-secondary"
+                >
+                  Clear filters
+                </button>
+              </div>
             )}
           </div>
 
@@ -526,7 +546,7 @@ export default function StaffListPage() {
                               disabled={togglingAdminId === person.id || person.is_super_admin}
                               title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
                               className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                person.is_admin ? 'bg-accent' : 'bg-canvas-raised'
+                                person.is_admin ? 'bg-accent' : 'bg-slate-line'
                               }`}
                             >
                               <span

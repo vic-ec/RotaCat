@@ -965,27 +965,25 @@ export default function AccountSettingsPage() {
                 autoComplete="current-password"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label-text">New password</label>
-                <input
-                  type="password"
-                  value={pwForm.password}
-                  onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
-                  className="input-field"
-                  autoComplete="new-password"
-                />
-              </div>
-              <div>
-                <label className="label-text">Confirm password</label>
-                <input
-                  type="password"
-                  value={pwForm.confirm}
-                  onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
-                  className="input-field"
-                  autoComplete="new-password"
-                />
-              </div>
+            <div>
+              <label className="label-text">New password</label>
+              <input
+                type="password"
+                value={pwForm.password}
+                onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                className="input-field"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="label-text">Confirm password</label>
+              <input
+                type="password"
+                value={pwForm.confirm}
+                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                className="input-field"
+                autoComplete="new-password"
+              />
             </div>
             <div className="flex items-center gap-3">
               <button type="submit" disabled={pwSaving} className="btn-primary">

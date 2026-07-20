@@ -441,7 +441,7 @@ export default function StaffListPage() {
                     <th className="px-2.5 py-2">Mobile</th>
                     <th className="px-2.5 py-2">Email</th>
                     <th className="px-2.5 py-2">Status</th>
-                    <th className="px-2.5 py-2 bg-gray-300 text-ink">Is Admin</th>
+                    <th className="px-2.5 py-2">Is Admin</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -517,7 +517,7 @@ export default function StaffListPage() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-2.5 py-1.5 bg-gray-300">
+                        <td className="px-2.5 py-1.5">
                           {person.role === 'clerk' ? (
                             <span className="text-[11px] text-ink-muted">—</span>
                           ) : isAdmin ? (

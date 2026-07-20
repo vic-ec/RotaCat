@@ -4,6 +4,39 @@ import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
+import { LAST_PATH_KEY } from '../components/AppLayout'
+
+// Maps a route path to the nav label shown for it, for the "Back to X" link
+function labelForPath(pathname) {
+  if (pathname === '/') return 'Dashboard'
+  if (pathname.startsWith('/roster')) return 'Roster'
+  if (pathname.startsWith('/staff')) return 'Staff list'
+  if (pathname.startsWith('/leave')) return 'Leave'
+  if (pathname.startsWith('/swaps')) return 'Swaps'
+  if (pathname.startsWith('/shifts')) return 'Open shifts'
+  if (pathname.startsWith('/settings')) return 'Settings'
+  return 'previous page'
+}
+
+function ArrowLeftIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+function BackButton({ onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+    >
+      <ArrowLeftIcon className="h-4 w-4" />
+      Back to {label}
+    </button>
+  )
+}
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -531,9 +564,13 @@ export default function AccountSettingsPage() {
     return <Navigate to="/account" replace />
   }
 
+  const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
+  const backLabel = labelForPath(lastPath)
+
   if (!isOwnAccount && targetLoadError) {
     return (
       <div className="mx-auto max-w-2xl pb-12">
+        {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block px-3 py-1.5 text-xs">Back to Staff list</Link>
@@ -548,15 +585,13 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
+      {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
       <div className="mb-6">
         {!isOwnAccount && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
             <span>
               Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
             </span>
-            <button onClick={() => navigate('/staff')} className="ml-auto underline hover:no-underline">
-              Back to Staff list
-            </button>
           </div>
         )}
         <h1 className="font-display text-2xl text-ink">Account</h1>

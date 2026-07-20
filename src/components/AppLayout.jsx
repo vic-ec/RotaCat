@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import lilyIcon from '../assets/icon-lily-robot-orange-leftheadtilt-reflectiveshadow-nobg.png'
 import RotaCat from '../components/RotaCat'
@@ -54,9 +55,20 @@ const ROLE_CATEGORY_LABEL = {
   COSMOPsych:  'COSMO Psych', // legacy value
 }
 
+// Remembers the last non-account page visited, so the Account Settings
+// page can offer a "Back to X" link even on a fresh page load.
+export const LAST_PATH_KEY = 'rotacat:lastNonAccountPath'
+
 export default function AppLayout() {
   const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.pathname.startsWith('/account')) {
+      sessionStorage.setItem(LAST_PATH_KEY, location.pathname)
+    }
+  }, [location.pathname])
 
   const navItems = isAdmin  ? adminNav
                  : isLocum  ? locumNav

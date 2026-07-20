@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -85,6 +86,7 @@ const DEFAULT_SWAP_GROUP = {
 
 export default function StaffListPage() {
   const { isAdmin } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
@@ -112,7 +114,6 @@ export default function StaffListPage() {
         .from('profiles')
         .select('*, approver:approved_by(name, surname)')
         .eq('is_approved', true)
-        .order('category')
         .order('surname'),
       isAdmin
         ? supabase
@@ -122,7 +123,7 @@ export default function StaffListPage() {
             .eq('is_rejected', false)
             .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
-      Promise.resolve({ data: [] }),
+      supabase.rpc('get_staff_emails'),
       isAdmin
         ? supabase
             .from('account_change_requests')
@@ -429,82 +430,79 @@ export default function StaffListPage() {
             </div>
           ) : (
             <div className="card overflow-x-auto">
-              <table className="w-full min-w-[860px] border-collapse text-sm">
+              <table className="w-full min-w-[920px] border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-line bg-canvas-sunken text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                    <th className="px-4 py-2.5">Surname</th>
-                    <th className="px-4 py-2.5">First name</th>
-                    <th className="px-4 py-2.5">Role</th>
-                    <th className="px-4 py-2.5">Category</th>
-                    <th className="px-4 py-2.5">Mobile</th>
-                    <th className="px-4 py-2.5">Email</th>
-                    <th className="px-4 py-2.5">Admin</th>
-                    <th className="px-4 py-2.5">Status</th>
+                  <tr className="border-b border-slate-line bg-canvas-sunken text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                    <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
+                    <th className="px-2.5 py-2">Surname</th>
+                    <th className="px-2.5 py-2">First name</th>
+                    <th className="px-2.5 py-2">Role</th>
+                    <th className="px-2.5 py-2">Category</th>
+                    <th className="px-2.5 py-2">Mobile</th>
+                    <th className="px-2.5 py-2">Email</th>
+                    <th className="px-2.5 py-2">Status</th>
+                    <th className="px-2.5 py-2 bg-gray-300 text-ink">Is Admin</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAccounts.map(person => {
                     const isToggling = togglingId === person.id
+                    const initials = (person.name?.[0] || '') + (person.surname?.[0] || '')
                     return (
                       <tr
                         key={person.id}
-                        className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''}`}
+                        onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                        title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
+                        className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''} ${
+                          isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+                        }`}
                       >
-                        <td className="px-4 py-2.5 font-medium text-ink">{person.surname}</td>
-                        <td className="px-4 py-2.5 text-ink">{person.name || '—'}</td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-2 py-1.5">
+                          {person.avatar_url ? (
+                            <img
+                              src={person.avatar_url}
+                              alt=""
+                              className="h-7 w-7 rounded-full object-cover ring-1 ring-slate-line"
+                            />
+                          ) : (
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-light text-[10px] font-medium text-accent-dark ring-1 ring-slate-line">
+                              {initials}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
+                        <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
+                        <td className="px-2.5 py-1.5">
                           <div className="flex flex-wrap gap-1">
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                            <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
                               {ROLE_LABELS[person.role] || person.role}
                             </span>
                             {person.is_admin && (
-                              <span className={PERMISSION_BADGE.admin + ' rounded-full px-2 py-0.5 text-xs font-medium'}>
+                              <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
                                 {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2.5 text-ink-light">
+                        <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
                           {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
                         </td>
-                        <td className="px-4 py-2.5 text-ink-light">{person.phone || '—'}</td>
-                        <td className="px-4 py-2.5 text-ink-light">{emailById[person.id] || '—'}</td>
-                        <td className="px-4 py-2.5">
-                          {person.role === 'clerk' ? (
-                            <span className="text-xs text-ink-muted">—</span>
-                          ) : isAdmin ? (
-                            <button
-                              onClick={() => togglingAdminId !== person.id && toggleAdmin(person)}
-                              disabled={togglingAdminId === person.id || person.is_super_admin}
-                              title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
-                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                person.is_admin ? 'bg-accent' : 'bg-slate-line'
-                              }`}
-                            >
-                              <span
-                                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                  person.is_admin ? 'translate-x-5' : 'translate-x-0'
-                                }`}
-                              />
-                            </button>
-                          ) : (
-                            <span className="text-xs text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
+                        <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">{person.phone || '—'}</td>
+                        <td className="px-2.5 py-1.5 text-ink-light">{emailById[person.id] || '—'}</td>
+                        <td className="px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5">
                             {isAdmin ? (
                               <button
-                                onClick={() => !isToggling && toggleActive(person.id, person.is_active)}
+                                onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
                                 disabled={isToggling}
                                 title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
                                   person.is_active ? 'bg-accent' : 'bg-slate-line'
                                 }`}
                               >
                                 <span
-                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                    person.is_active ? 'translate-x-5' : 'translate-x-0'
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                    person.is_active ? 'translate-x-4' : 'translate-x-0'
                                   }`}
                                 />
                               </button>
@@ -514,11 +512,33 @@ export default function StaffListPage() {
                                 aria-hidden="true"
                               />
                             )}
-                            <span className={`text-xs font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
+                            <span className={`whitespace-nowrap text-[11px] font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
                               {person.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </div>
-                          </td>
+                        </td>
+                        <td className="px-2.5 py-1.5 bg-gray-300">
+                          {person.role === 'clerk' ? (
+                            <span className="text-[11px] text-ink-muted">—</span>
+                          ) : isAdmin ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); togglingAdminId !== person.id && toggleAdmin(person) }}
+                              disabled={togglingAdminId === person.id || person.is_super_admin}
+                              title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
+                              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                person.is_admin ? 'bg-accent' : 'bg-canvas-raised'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                  person.is_admin ? 'translate-x-4' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
+                          )}
+                        </td>
                       </tr>
                     )
                   })}

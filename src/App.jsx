@@ -50,6 +50,7 @@ export default function App() {
 
             <Route path="staff" element={<StaffListPage />} />
             <Route path="account" element={<AccountSettingsPage />} />
+            <Route path="account/:id" element={<AccountSettingsPage />} />
             <Route
               path="leave"
               element={<PlaceholderPage title="Leave Requests" description="Leave submission and approval workflow coming in a later phase." />}

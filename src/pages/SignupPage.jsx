@@ -7,17 +7,17 @@ import AuthHero from '../components/AuthHero'
 const ROLE_OPTIONS = [
   {
     value: 'doctor',
-    label: 'I am a Doctor',
-    description: 'A versatile account for contracted clinical staff',
+    label: 'I'm a Doctor',
+    description: 'A versatile account for contracted clinicians',
   },
   {
     value: 'locum',
-    label: 'I am a Locum Doctor',
-    description: 'A no-frills account for part-time clinical staff',
+    label: 'I'm a Locum Doctor',
+    description: 'A no-frills account for part-time clinicians',
   },
   {
     value: 'clerk',
-    label: 'I am a Clerk',
+    label: 'I'm a Clerk',
     description: 'A basic account for read-only access',
   },
 ]
@@ -27,7 +27,6 @@ const CATEGORY_OPTIONS = [
   { value: 'MO',         label: 'Medical Officer' },
   { value: 'Registrar',  label: 'Registrar' },
   { value: 'COSMO',      label: 'COSMO' },
-  { value: 'COSMOPsych', label: 'COSMO (Psych)' },
   { value: 'Intern',     label: 'Intern' },
   { value: 'Consultant', label: 'Consultant' },
 ]
@@ -67,7 +66,7 @@ export default function SignupPage() {
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError('Password must be alphanumeric with at least 8 characters; and include at least one small letter, one capital letter, one nunber, and one symbol.')
       return
     }
 
@@ -273,7 +272,7 @@ export default function SignupPage() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
+                    placeholder="Password must be alphanumeric with at least 8 characters; and include at least one small letter, one capital letter, one nunber, and one symbol."
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
@@ -313,7 +312,7 @@ export default function SignupPage() {
                     type="text"
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
-                    placeholder="Agency name or 'Independent'"
+                    placeholder="Agency name"
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised

@@ -611,7 +611,7 @@ export default function AccountSettingsPage() {
         />
       )}
 
-      {/* ── Profile (name, surname, mobile, email) ───────────── */}
+      {/* ── Profile ───────────────────────────────────────────── */}
       <section className="card mb-6 p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Profile</h2>
 
@@ -682,7 +682,7 @@ export default function AccountSettingsPage() {
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={savingProfile} className="btn-primary">
-              {savingProfile ? 'Saving…' : 'Save changes'}
+              {savingProfile ? 'Saving…' : 'Update'}
             </button>
             {profileMsg && (
               <span className={`text-xs font-medium ${profileMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
@@ -691,42 +691,44 @@ export default function AccountSettingsPage() {
             )}
           </div>
         </form>
+      </section>
 
-        <div className="mt-5 border-t border-slate-line pt-4">
-          {isOwnAccount ? (
-            <form onSubmit={changeEmail} className="space-y-3">
-              <div>
-                <label className="label-text">Email address</label>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={e => setNewEmail(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <p className="text-xs text-ink-muted">
-                This is also your login username. Changing it sends confirmation links to both your old and new address —
-                the change only takes effect once confirmed, so it won't lock you out.
-              </p>
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={emailSaving} className="btn-primary">
-                  {emailSaving ? 'Sending…' : 'Change email'}
-                </button>
-                {emailMsg && (
-                  <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                    {emailMsg.text}
-                  </span>
-                )}
-              </div>
-            </form>
-          ) : (
+      {/* ── Email ───────────────────────────────────────────── */}
+      <section className="card mb-6 p-5">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Email address</h2>
+        {isOwnAccount ? (
+          <form onSubmit={changeEmail} className="space-y-3">
             <div>
-              <label className="label-text">Email address</label>
-              <input type="email" value={displayEmail || '—'} disabled className="input-field cursor-not-allowed opacity-60" />
-              <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
+              <label className="label-text">Email</label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                className="input-field"
+              />
             </div>
-          )}
-        </div>
+            <p className="text-xs text-ink-muted">
+              This is also your login username. Changing it sends confirmation links to both your old and new address —
+              the change only takes effect once confirmed, so it won't lock you out.
+            </p>
+            <div className="flex items-center gap-3">
+              <button type="submit" disabled={emailSaving} className="btn-primary">
+                {emailSaving ? 'Sending…' : 'Update'}
+              </button>
+              {emailMsg && (
+                <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                  {emailMsg.text}
+                </span>
+              )}
+            </div>
+          </form>
+        ) : (
+          <div>
+            <label className="label-text">Email</label>
+            <input type="email" value={displayEmail || '—'} disabled className="input-field cursor-not-allowed opacity-60" />
+            <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
+          </div>
+        )}
       </section>
 
       {/* ── Role, category & permissions ────────────────────── */}
@@ -774,7 +776,7 @@ export default function AccountSettingsPage() {
 
             <div className="flex items-center gap-3">
               <button onClick={saveAdminAccountFields} disabled={adminSaving} className="btn-primary">
-                {adminSaving ? 'Saving…' : 'Save'}
+                {adminSaving ? 'Saving…' : 'Update'}
               </button>
               {adminMsg && (
                 <span className={`text-xs font-medium ${adminMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
@@ -987,7 +989,7 @@ export default function AccountSettingsPage() {
             </div>
             <div className="flex items-center gap-3">
               <button type="submit" disabled={pwSaving} className="btn-primary">
-                {pwSaving ? 'Updating…' : 'Update password'}
+                {pwSaving ? 'Updating…' : 'Update'}
               </button>
               {pwMsg && (
                 <span className={`text-xs font-medium ${pwMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>

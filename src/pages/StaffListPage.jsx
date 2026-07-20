@@ -292,7 +292,7 @@ export default function StaffListPage() {
     accountFilters.category !== 'all' || accountFilters.status !== 'all'
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl text-ink">Staff</h1>

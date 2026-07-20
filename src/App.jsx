@@ -5,6 +5,8 @@ import AppLayout from './components/AppLayout'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import DashboardPage from './pages/DashboardPage'
 import StaffListPage from './pages/StaffListPage'
@@ -30,6 +32,8 @@ export default function App() {
           {/* Public routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/pending" element={<PendingRoute />} />
 
           {/* Protected app shell */}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -140,8 +141,20 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 }
 
 export default function AccountSettingsPage() {
-  const { user, profile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
+  const { user, profile: myProfile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
+  const { id: routeId } = useParams()
+  const navigate = useNavigate()
   const fileInputRef = useRef(null)
+
+  // Viewing someone else's account requires admin permission — enforced below via redirect.
+  const targetId = routeId || user?.id
+  const isOwnAccount = !routeId || routeId === user?.id
+
+  const [targetProfile, setTargetProfile] = useState(null)
+  const [targetLoadError, setTargetLoadError] = useState('')
+  const [targetEmail, setTargetEmail] = useState('')
+
+  const profile = isOwnAccount ? myProfile : targetProfile
 
   const [form, setForm] = useState({ name: '', surname: '', phone: '' })
   const [savingProfile, setSavingProfile] = useState(false)
@@ -162,14 +175,14 @@ export default function AccountSettingsPage() {
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
 
-  // Admin: direct edit of own role / category / admin flag
+  // Admin: direct edit of role / category / admin flag for the account being viewed
   const [adminRole, setAdminRole] = useState('')
   const [adminCategory, setAdminCategory] = useState('')
   const [adminIsAdmin, setAdminIsAdmin] = useState(false)
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
 
-  // Super-admin: transfer to another admin
+  // Super-admin: transfer to another admin (own account only)
   const [otherAdmins, setOtherAdmins] = useState([])
   const [transferTargetId, setTransferTargetId] = useState('')
   const [transferConfirming, setTransferConfirming] = useState(false)
@@ -185,6 +198,31 @@ export default function AccountSettingsPage() {
   const [deleteConfirming, setDeleteConfirming] = useState(false)
   const [deleteSaving, setDeleteSaving] = useState(false)
 
+  // ── Load the account being viewed (self or, for admins, someone else) ──
+  async function reloadTarget() {
+    if (isOwnAccount) {
+      await refreshProfile()
+      return
+    }
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', targetId).single()
+    if (error) setTargetLoadError(error.message)
+    else setTargetProfile(data)
+  }
+
+  useEffect(() => {
+    if (isOwnAccount || !isAdmin) return
+    setTargetLoadError('')
+    setTargetProfile(null)
+    supabase.from('profiles').select('*').eq('id', targetId).single().then(({ data, error }) => {
+      if (error) setTargetLoadError(error.message)
+      else setTargetProfile(data)
+    })
+    supabase.rpc('get_staff_emails').then(({ data }) => {
+      const row = (data || []).find(r => r.id === targetId)
+      setTargetEmail(row?.email || '')
+    })
+  }, [targetId, isOwnAccount, isAdmin])
+
   useEffect(() => {
     if (!profile) return
     setForm({
@@ -199,8 +237,8 @@ export default function AccountSettingsPage() {
   }, [profile])
 
   useEffect(() => {
-    if (user) setNewEmail(user.email || '')
-  }, [user])
+    if (isOwnAccount && user) setNewEmail(user.email || '')
+  }, [user, isOwnAccount])
 
   useEffect(() => {
     if (!user) return
@@ -208,14 +246,14 @@ export default function AccountSettingsPage() {
   }, [user])
 
   useEffect(() => {
-    if (!isSuperAdmin || !user) return
+    if (!isSuperAdmin || !user || !isOwnAccount) return
     supabase
       .from('profiles')
       .select('id, name, surname')
       .eq('is_admin', true)
       .neq('id', user.id)
       .then(({ data }) => setOtherAdmins(data || []))
-  }, [isSuperAdmin, user])
+  }, [isSuperAdmin, user, isOwnAccount])
 
   async function loadMyRequests() {
     const { data, error } = await supabase
@@ -240,18 +278,18 @@ export default function AccountSettingsPage() {
     const { error } = await supabase
       .from('profiles')
       .update({ name: form.name.trim(), surname: form.surname.trim(), phone: form.phone.trim() || null })
-      .eq('id', user.id)
+      .eq('id', targetId)
 
     setSavingProfile(false)
     if (error) {
       setProfileMsg({ type: 'error', text: error.message })
     } else {
       setProfileMsg({ type: 'success', text: 'Saved.' })
-      refreshProfile()
+      reloadTarget()
     }
   }
 
-  // ── Email ───────────────────────────────────────────────────
+  // ── Email (own account only — Supabase auth can only change the logged-in user's own email) ──
   async function changeEmail(e) {
     e.preventDefault()
     setEmailMsg(null)
@@ -275,7 +313,7 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Avatar ──────────────────────────────────────────────────
+  // ── Avatar (own account only) ────────────────────────────────
   function handleAvatarSelect(e) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -328,7 +366,7 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Notification preferences ───────────────────────────────
+  // ── Notification preferences (own account only) ─────────────
   async function togglePref(key, value) {
     const prev = prefs
     const next = { ...prefs, [key]: value }
@@ -345,7 +383,7 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Password ────────────────────────────────────────────────
+  // ── Password (own account only) ──────────────────────────────
   async function changePassword(e) {
     e.preventDefault()
     setPwMsg(null)
@@ -355,7 +393,7 @@ export default function AccountSettingsPage() {
       return
     }
     if (!PASSWORD_RULE.test(pwForm.password)) {
-      setPwMsg({ type: 'error', text: 'New password doesn\u2019t meet the requirements above.' })
+      setPwMsg({ type: 'error', text: 'New password doesn’t meet the requirements above.' })
       return
     }
     if (pwForm.password !== pwForm.confirm) {
@@ -410,14 +448,14 @@ export default function AccountSettingsPage() {
         category: adminRole === 'clerk' ? null : (adminCategory || null),
         is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
       })
-      .eq('id', user.id)
+      .eq('id', targetId)
 
     setAdminSaving(false)
     if (error) {
       setAdminMsg({ type: 'error', text: error.message })
     } else {
       setAdminMsg({ type: 'success', text: 'Saved.' })
-      refreshProfile()
+      reloadTarget()
     }
   }
 
@@ -445,7 +483,7 @@ export default function AccountSettingsPage() {
     setRequestMsg(null)
 
     if (!requestForm.value) {
-      setRequestMsg({ type: 'error', text: 'Choose the new value you\u2019re requesting.' })
+      setRequestMsg({ type: 'error', text: 'Choose the new value you’re requesting.' })
       return
     }
 
@@ -488,13 +526,45 @@ export default function AccountSettingsPage() {
     }
   }
 
-  if (!profile) return null
+  // Non-admins may only ever view their own account.
+  if (routeId && routeId !== user?.id && !isAdmin) {
+    return <Navigate to="/account" replace />
+  }
+
+  if (!isOwnAccount && targetLoadError) {
+    return (
+      <div className="mx-auto max-w-2xl pb-12">
+        <div className="card border-flagRed bg-flagRed-bg p-4">
+          <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
+          <Link to="/staff" className="btn-secondary mt-3 inline-block px-3 py-1.5 text-xs">Back to Staff list</Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (!profile) return <p className="text-sm text-ink-muted">Loading…</p>
+
+  const displayEmail = isOwnAccount ? user.email : targetEmail
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
       <div className="mb-6">
+        {!isOwnAccount && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
+            <span>
+              Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
+            </span>
+            <button onClick={() => navigate('/staff')} className="ml-auto underline hover:no-underline">
+              Back to Staff list
+            </button>
+          </div>
+        )}
         <h1 className="font-display text-2xl text-ink">Account</h1>
-        <p className="mt-1 text-sm text-ink-muted">Manage your profile, notifications, and account security.</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          {isOwnAccount
+            ? 'Manage your profile, notifications, and account security.'
+            : "Manage this person's profile, role, and permissions."}
+        </p>
       </div>
 
       {cropSrc && (
@@ -506,7 +576,7 @@ export default function AccountSettingsPage() {
         />
       )}
 
-      {/* ── Profile ─────────────────────────────────────────── */}
+      {/* ── Profile (name, surname, mobile, email) ───────────── */}
       <section className="card mb-6 p-5">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Profile</h2>
 
@@ -524,23 +594,25 @@ export default function AccountSettingsPage() {
               </div>
             )}
           </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="btn-secondary px-3 py-1.5 text-xs"
-            >
-              Change photo
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarSelect}
-              className="hidden"
-            />
-            {avatarError && <p className="mt-1 text-xs text-flagRed">{avatarError}</p>}
-          </div>
+          {isOwnAccount && (
+            <div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-secondary px-3 py-1.5 text-xs"
+              >
+                Change photo
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarSelect}
+                className="hidden"
+              />
+              {avatarError && <p className="mt-1 text-xs text-flagRed">{avatarError}</p>}
+            </div>
+          )}
         </div>
 
         <form onSubmit={saveProfile} className="space-y-4">
@@ -584,36 +656,42 @@ export default function AccountSettingsPage() {
             )}
           </div>
         </form>
-      </section>
 
-      {/* ── Email ───────────────────────────────────────────── */}
-      <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Email address</h2>
-        <form onSubmit={changeEmail} className="space-y-3">
-          <div>
-            <label className="label-text">Email</label>
-            <input
-              type="email"
-              value={newEmail}
-              onChange={e => setNewEmail(e.target.value)}
-              className="input-field"
-            />
-          </div>
-          <p className="text-xs text-ink-muted">
-            This is also your login username. Changing it sends confirmation links to both your old and new address —
-            the change only takes effect once confirmed, so it won't lock you out.
-          </p>
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={emailSaving} className="btn-primary">
-              {emailSaving ? 'Sending…' : 'Change email'}
-            </button>
-            {emailMsg && (
-              <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                {emailMsg.text}
-              </span>
-            )}
-          </div>
-        </form>
+        <div className="mt-5 border-t border-slate-line pt-4">
+          {isOwnAccount ? (
+            <form onSubmit={changeEmail} className="space-y-3">
+              <div>
+                <label className="label-text">Email address</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <p className="text-xs text-ink-muted">
+                This is also your login username. Changing it sends confirmation links to both your old and new address —
+                the change only takes effect once confirmed, so it won't lock you out.
+              </p>
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={emailSaving} className="btn-primary">
+                  {emailSaving ? 'Sending…' : 'Change email'}
+                </button>
+                {emailMsg && (
+                  <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                    {emailMsg.text}
+                  </span>
+                )}
+              </div>
+            </form>
+          ) : (
+            <div>
+              <label className="label-text">Email address</label>
+              <input type="email" value={displayEmail || '—'} disabled className="input-field cursor-not-allowed opacity-60" />
+              <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
+            </div>
+          )}
+        </div>
       </section>
 
       {/* ── Role, category & permissions ────────────────────── */}
@@ -622,31 +700,29 @@ export default function AccountSettingsPage() {
 
         {isAdmin ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label-text">Role</label>
+              <select
+                value={adminRole}
+                onChange={e => handleAdminRoleChange(e.target.value)}
+                className="input-field"
+              >
+                {ROLE_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            {adminRole !== 'clerk' && (
               <div>
-                <label className="label-text">Role</label>
-                <select
-                  value={adminRole}
-                  onChange={e => handleAdminRoleChange(e.target.value)}
-                  className="input-field"
-                >
-                  {ROLE_OPTIONS.map(({ value, label }) => (
+                <label className="label-text">Category</label>
+                <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
+                  <option value="">{adminRole === 'locum' ? 'None' : 'Select…'}</option>
+                  {categoryOptionsForRole(adminRole).map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
               </div>
-              {adminRole !== 'clerk' && (
-                <div>
-                  <label className="label-text">Category</label>
-                  <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
-                    <option value="">{adminRole === 'locum' ? 'None' : 'Select…'}</option>
-                    {categoryOptionsForRole(adminRole).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+            )}
 
             {adminRole !== 'clerk' && (
               <label className="flex items-center gap-2 text-sm text-ink">
@@ -656,7 +732,7 @@ export default function AccountSettingsPage() {
                   onChange={e => setAdminIsAdmin(e.target.checked)}
                   className="h-4 w-4 rounded border-slate-line accent-accent"
                 />
-                Admin
+                Has admin permissions
                 {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can't be removed here)</span>}
               </label>
             )}
@@ -672,7 +748,7 @@ export default function AccountSettingsPage() {
               )}
             </div>
 
-            {isSuperAdmin && (
+            {isOwnAccount && isSuperAdmin && (
               <div className="mt-2 border-t border-slate-line pt-4">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Super-admin</p>
                 {otherAdmins.length === 0 ? (
@@ -728,25 +804,27 @@ export default function AccountSettingsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-ink">
-              <span className="text-ink-muted">Role:</span>
-              <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
-                {ROLE_LABELS[profile.role] || profile.role}
-              </span>
-              {profile.category && (
-                <>
-                  <span className="text-ink-muted">Category:</span>
-                  <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium">
-                    {CATEGORY_LABELS[profile.category] || profile.category}
-                  </span>
-                </>
-              )}
-              {profile.is_admin && (
-                <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white">
-                  {profile.is_super_admin ? 'Super-admin' : 'Admin'}
-                </span>
-              )}
+            <div>
+              <label className="label-text">Role</label>
+              <select value={profile.role || ''} disabled className="input-field cursor-not-allowed opacity-60">
+                <option value={profile.role || ''}>{ROLE_LABELS[profile.role] || profile.role}</option>
+              </select>
             </div>
+            <div>
+              <label className="label-text">Category</label>
+              <select value={profile.category || ''} disabled className="input-field cursor-not-allowed opacity-60">
+                <option value={profile.category || ''}>{profile.category ? (CATEGORY_LABELS[profile.category] || profile.category) : 'None'}</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={profile.is_admin === true}
+                disabled
+                className="h-4 w-4 rounded border-slate-line opacity-50 cursor-not-allowed"
+              />
+              Has admin permissions
+            </label>
 
             <div className="rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
               Role and category changes need admin approval before they take effect.
@@ -814,76 +892,80 @@ export default function AccountSettingsPage() {
         )}
       </section>
 
-      {/* ── Notification preferences ────────────────────────── */}
-      <section className="card mb-6 p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Notifications</h2>
-          {prefsSaving && <span className="text-xs text-ink-muted">Saving…</span>}
-        </div>
-        <div className="divide-y divide-slate-line">
-          {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
-            <div key={key} className="flex items-center justify-between py-2.5">
-              <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
-              <Toggle checked={prefs[key] !== false} onChange={v => togglePref(key, v)} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Change password ─────────────────────────────────── */}
-      <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Change password</h2>
-        <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
-          {PASSWORD_HINT}
-        </div>
-        <form onSubmit={changePassword} className="space-y-4">
-          <div>
-            <label className="label-text">Current password</label>
-            <input
-              type="password"
-              value={pwForm.current}
-              onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
-              className="input-field"
-              autoComplete="current-password"
-            />
+      {/* ── Notification preferences (own account only) ─────── */}
+      {isOwnAccount && (
+        <section className="card mb-6 p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Notifications</h2>
+            {prefsSaving && <span className="text-xs text-ink-muted">Saving…</span>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="divide-y divide-slate-line">
+            {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
+              <div key={key} className="flex items-center justify-between py-2.5">
+                <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
+                <Toggle checked={prefs[key] !== false} onChange={v => togglePref(key, v)} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Change password (own account only) ──────────────── */}
+      {isOwnAccount && (
+        <section className="card mb-6 p-5">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Change password</h2>
+          <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+            {PASSWORD_HINT}
+          </div>
+          <form onSubmit={changePassword} className="space-y-4">
             <div>
-              <label className="label-text">New password</label>
+              <label className="label-text">Current password</label>
               <input
                 type="password"
-                value={pwForm.password}
-                onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                value={pwForm.current}
+                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
                 className="input-field"
-                autoComplete="new-password"
+                autoComplete="current-password"
               />
             </div>
-            <div>
-              <label className="label-text">Confirm password</label>
-              <input
-                type="password"
-                value={pwForm.confirm}
-                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
-                className="input-field"
-                autoComplete="new-password"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-text">New password</label>
+                <input
+                  type="password"
+                  value={pwForm.password}
+                  onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                  className="input-field"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="label-text">Confirm password</label>
+                <input
+                  type="password"
+                  value={pwForm.confirm}
+                  onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                  className="input-field"
+                  autoComplete="new-password"
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={pwSaving} className="btn-primary">
-              {pwSaving ? 'Updating…' : 'Update password'}
-            </button>
-            {pwMsg && (
-              <span className={`text-xs font-medium ${pwMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                {pwMsg.text}
-              </span>
-            )}
-          </div>
-        </form>
-      </section>
+            <div className="flex items-center gap-3">
+              <button type="submit" disabled={pwSaving} className="btn-primary">
+                {pwSaving ? 'Updating…' : 'Update password'}
+              </button>
+              {pwMsg && (
+                <span className={`text-xs font-medium ${pwMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                  {pwMsg.text}
+                </span>
+              )}
+            </div>
+          </form>
+        </section>
+      )}
 
-      {/* ── Request history ──────────────────────────────────── */}
-      {myRequests.length > 0 && (
+      {/* ── Request history (own account only) ───────────────── */}
+      {isOwnAccount && myRequests.length > 0 && (
         <section className="card mb-6 p-5">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Your requests</h2>
           <div className="divide-y divide-slate-line">
@@ -903,40 +985,42 @@ export default function AccountSettingsPage() {
         </section>
       )}
 
-      {/* ── Danger zone ──────────────────────────────────────── */}
-      <section className="card border-flagRed/30 p-5">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-flagRed">Danger zone</h2>
-        {pendingDeletion ? (
-          <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
-            Your account deletion request is pending admin review.
-          </div>
-        ) : deleteConfirming ? (
-          <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
-            <p className="mb-3 text-sm text-flagRed">
-              This sends an account deletion request to an admin for review. Continue?
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={requestDeletion}
-                disabled={deleteSaving}
-                className="rounded bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-              >
-                {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
-              </button>
-              <button onClick={() => setDeleteConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
-                Cancel
-              </button>
+      {/* ── Danger zone (own account only) ───────────────────── */}
+      {isOwnAccount && (
+        <section className="card border-flagRed/30 p-5">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-flagRed">Danger zone</h2>
+          {pendingDeletion ? (
+            <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
+              Your account deletion request is pending admin review.
             </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setDeleteConfirming(true)}
-            className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
-          >
-            Request account deletion
-          </button>
-        )}
-      </section>
+          ) : deleteConfirming ? (
+            <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
+              <p className="mb-3 text-sm text-flagRed">
+                This sends an account deletion request to an admin for review. Continue?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={requestDeletion}
+                  disabled={deleteSaving}
+                  className="rounded bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
+                </button>
+                <button onClick={() => setDeleteConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setDeleteConfirming(true)}
+              className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+            >
+              Request account deletion
+            </button>
+          )}
+        </section>
+      )}
     </div>
   )
 }

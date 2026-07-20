@@ -111,14 +111,14 @@ export default function AppLayout() {
       {/* Sidebar — desktop */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0">
             <img
               src={lilyIcon}
               alt=""
               className="h-10 w-10 object-contain"
               draggable="false"
             />
-            <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
+            <h1 className="-ml-1.5 font-display text-2xl font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
             <p className="mt-2 text-xs text-ink-muted">
@@ -168,9 +168,9 @@ export default function AppLayout() {
 
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0">
           <img src={lilyIcon} alt="" className="h-8 w-8 object-contain" draggable="false" />
-          <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
+          <span className="-ml-1.5 font-display text-xl font-medium text-ink"><RotaCat /></span>
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
           <UserAvatar profile={profile} className="h-7 w-7 text-[10px]" />

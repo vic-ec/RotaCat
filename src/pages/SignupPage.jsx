@@ -3,21 +3,25 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AuthHero from '../components/AuthHero'
 
+// Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
+const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
+
 // Which role the registrant is selecting at step 1
 const ROLE_OPTIONS = [
   {
     value: 'doctor',
-    label: 'I'm a Doctor',
+    label: "I'm a Doctor",
     description: 'A versatile account for contracted clinicians',
   },
   {
     value: 'locum',
-    label: 'I'm a Locum Doctor',
+    label: "I'm a Locum Doctor",
     description: 'A no-frills account for part-time clinicians',
   },
   {
     value: 'clerk',
-    label: 'I'm a Clerk',
+    label: "I'm a Clerk",
     description: 'A basic account for read-only access',
   },
 ]
@@ -30,6 +34,32 @@ const CATEGORY_OPTIONS = [
   { value: 'Intern',     label: 'Intern' },
   { value: 'Consultant', label: 'Consultant' },
 ]
+
+// Small "i" icon next to the Password label — hover reveals requirements on
+// desktop, tap toggles them on mobile (no hover there).
+function PasswordRequirementsInfo() {
+  const [show, setShow] = useState(false)
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        onBlur={() => setShow(false)}
+        aria-label="Password requirements"
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-ink-muted text-[10px] font-semibold leading-none text-ink-muted transition-colors hover:border-ink hover:text-ink"
+      >
+        i
+      </button>
+      <span
+        className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
+          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
+        {PASSWORD_HINT}
+      </span>
+    </span>
+  )
+}
 
 export default function SignupPage() {
   const { signUp } = useAuth()
@@ -65,8 +95,8 @@ export default function SignupPage() {
       setError('Please select your staff category.')
       return
     }
-    if (password.length < 8) {
-      setError('Password must be alphanumeric with at least 8 characters; and include at least one small letter, one capital letter, one nunber, and one symbol.')
+    if (!PASSWORD_RULE.test(password)) {
+      setError(`Password doesn’t meet the requirements. ${PASSWORD_HINT}`)
       return
     }
 
@@ -255,8 +285,9 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-base font-semibold text-ink">
                   Password
+                  <PasswordRequirementsInfo />
                 </label>
                 <div className="relative">
                   <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
@@ -272,7 +303,7 @@ export default function SignupPage() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password must be alphanumeric with at least 8 characters; and include at least one small letter, one capital letter, one nunber, and one symbol."
+                    placeholder="Enter password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised

@@ -1,5 +1,5 @@
 import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
-import butterflyImg from '../assets/butterfly-v3.png'
+import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel — identical on login and signup by construction,
@@ -15,9 +15,9 @@ export default function AuthHero() {
         <span className="relative inline-block">
           effortless
           <img
-            src={butterflyImg}
+            src={butterflyLoop}
             alt=""
-            className="absolute -top-[16px] -right-[19px] h-[26px] w-[26px] -rotate-12 select-none"
+            className="absolute -top-[16px] -right-[19px] h-[26px] w-[26px] select-none"
             draggable="false"
           />
         </span>

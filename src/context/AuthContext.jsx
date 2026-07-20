@@ -82,10 +82,9 @@ export function AuthProvider({ children }) {
   const isLocum  = role === 'locum'
   const isClerk  = role === 'clerk'
 
-  // ── Permission helpers (tier: user / clerk / admin) ─────────
-  const permissionLevel = profile?.permission_level ?? 'user'
-  const isAdmin = permissionLevel === 'admin'
-  const hasClerkPermission = permissionLevel === 'clerk' || isAdmin
+  // ── Permission helpers ───────────────────────────────────────
+  const isAdmin      = profile?.is_admin === true
+  const isSuperAdmin = profile?.is_super_admin === true
 
   // ── Combined app permissions ─────────────────────────────────
   // Centralised here so every screen can gate on a single boolean
@@ -94,7 +93,7 @@ export function AuthProvider({ children }) {
   const canViewWeekendGrid = !isLocum   // locums cannot see weekend grid
   const canManageRoster    = isAdmin
   const canClaimShifts     = isLocum && profile?.is_approved
-  const canRequestSwap     = (isDoctor || isLocum) && profile?.is_approved
+  const canRequestSwap     = isDoctor && profile?.is_approved
 
   const value = {
     session,
@@ -106,10 +105,9 @@ export function AuthProvider({ children }) {
     isDoctor,
     isLocum,
     isClerk,
-    // Permission booleans (access tier)
-    permissionLevel,
+    // Permission booleans
     isAdmin,
-    hasClerkPermission,
+    isSuperAdmin,
     isApproved: profile?.is_approved === true,
     // Permission helpers
     canSubmitLeave,

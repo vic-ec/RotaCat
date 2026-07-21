@@ -52,20 +52,20 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
+            <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">Reset your password</p>
             <p className="mt-2 text-sm text-ink-muted">
               Enter the email address on your account and we'll send you a link to reset your password.
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Email
                 </label>
                 <div className="relative">
@@ -83,10 +83,11 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-4
-                      text-lg text-ink placeholder:text-ink-muted
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-4
+                      text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3 md:text-lg"
                   />
                 </div>
               </div>
@@ -100,18 +101,19 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                  disabled:opacity-60
+                  md:py-3.5 md:text-lg"
               >
                 {submitting ? 'Sending…' : 'Send reset link'}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-base text-ink-muted">
+            <p className="mt-6 text-center text-xs text-ink-muted md:text-base">
               Remembered it after all?{' '}
-              <Link to="/login" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+              <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                 Sign in
               </Link>
             </p>

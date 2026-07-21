@@ -37,13 +37,13 @@ export default function LoginPage() {
         {/* Form panel */}
         <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink lg:text-3xl">
+            <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">
               Sign in to your account
             </p>
 
             <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Email
                 </label>
 
@@ -72,17 +72,18 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-4
-                      text-lg text-ink placeholder:text-ink-muted
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-4
+                      text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3 md:text-lg"
                   />
                 </div>
               </div>
 
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <label htmlFor="password" className="block text-base font-semibold text-ink">
+                  <label htmlFor="password" className="block text-sm font-semibold text-ink md:text-base">
                     Password
                   </label>
 
@@ -119,10 +120,11 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-12
-                      text-lg text-ink placeholder:text-ink-muted
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-12
+                      text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3 md:text-lg"
                   />
 
                   <button
@@ -175,18 +177,19 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                  disabled:opacity-60
+                  md:py-3.5 md:text-lg"
               >
                 {submitting ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
 
-            <p className="mt-6 text-center text-base text-ink-muted">
-              Don't have an account?{' '}
-              <Link to="/signup" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+            <p className="mt-6 text-center text-xs text-ink-muted md:text-base">
+              No account?{' '}
+              <Link to="/signup" className="text-rose hover:text-rose-dark hover:underline">
                 Register here
               </Link>
             </p>

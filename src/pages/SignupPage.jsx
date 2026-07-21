@@ -140,12 +140,12 @@ export default function SignupPage() {
   // ── Step 1: Role selection ─────────────────────────────────
   if (step === 1) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
+      <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
         <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
-          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
             <div className="mx-auto w-full max-w-sm">
-              <p className="text-2xl font-semibold text-ink lg:text-3xl">Create account</p>
+              <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">Create account</p>
               <p className="mt-2 text-sm text-ink-muted">What best describes you?</p>
               <div className="mt-8 space-y-3">
                 {ROLE_OPTIONS.map(opt => (
@@ -159,9 +159,9 @@ export default function SignupPage() {
                   </button>
                 ))}
               </div>
-              <p className="mt-6 text-center text-base text-ink-muted">
+              <p className="mt-6 text-center text-xs text-ink-muted md:text-base">
                 Already have an account?{' '}
-                <Link to="/login" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+                <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                   Sign in
                 </Link>
               </p>
@@ -174,13 +174,13 @@ export default function SignupPage() {
 
   // ── Step 2: Details form (same layout/styling as original) ─
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
 
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
 
             <button
@@ -193,16 +193,16 @@ export default function SignupPage() {
               Change account type
             </button>
 
-            <p className="text-2xl font-semibold text-ink lg:text-3xl">
+            <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">
               {ROLE_OPTIONS.find(r => r.value === role)?.label}
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
 
               {/* Category selector — doctors only */}
               {role === 'doctor' && (
                 <div>
-                  <label htmlFor="category" className="mb-1.5 block text-base font-semibold text-ink">
+                  <label htmlFor="category" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                     Staff category
                   </label>
                   <select
@@ -210,10 +210,11 @@ export default function SignupPage() {
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                       text-base text-ink transition-colors
                       focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3"
                   >
                     <option value="">Select category…</option>
                     {CATEGORY_OPTIONS.map(opt => (
@@ -224,7 +225,7 @@ export default function SignupPage() {
               )}
 
               <div>
-                <label htmlFor="name" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   First name
                 </label>
                 <input
@@ -233,15 +234,16 @@ export default function SignupPage() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    md:py-3"
                 />
               </div>
 
               <div>
-                <label htmlFor="surname" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="surname" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Surname
                 </label>
                 <input
@@ -250,15 +252,16 @@ export default function SignupPage() {
                   required
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    md:py-3"
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Email
                 </label>
                 <div className="relative">
@@ -276,16 +279,17 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-4
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-4
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-base font-semibold text-ink">
+                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink md:text-base">
                   Password
                   <PasswordRequirementsInfo />
                 </label>
@@ -304,10 +308,11 @@ export default function SignupPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-12
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3"
                   />
                   <button
                     type="button"
@@ -335,7 +340,7 @@ export default function SignupPage() {
               {/* Locum agency — optional */}
               {role === 'locum' && (
                 <div>
-                  <label htmlFor="agency" className="mb-1.5 block text-base font-semibold text-ink">
+                  <label htmlFor="agency" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                     Agency <span className="font-normal text-ink-muted">(optional)</span>
                   </label>
                   <input
@@ -344,10 +349,11 @@ export default function SignupPage() {
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
                     placeholder="Agency name"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                      md:py-3"
                   />
                 </div>
               )}
@@ -361,17 +367,18 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                  disabled:opacity-60
+                  md:py-3.5 md:text-lg"
               >
                 {submitting ? 'Registering…' : 'Register'}
               </button>
 
-              <p className="mt-4 text-center text-base text-ink-muted">
+              <p className="mt-4 text-center text-xs text-ink-muted md:text-base">
                 Already have an account?{' '}
-                <Link to="/login" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+                <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                   Sign in
                 </Link>
               </p>

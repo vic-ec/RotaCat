@@ -6,7 +6,7 @@ import RotaCat from './RotaCat'
 // not by two people remembering to keep two copies in sync.
 export default function AuthHero() {
   return (
-    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-8 pb-2 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20">
+    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-4 pb-6 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20">
       <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">
         <RotaCat />
       </h1>
@@ -27,7 +27,7 @@ export default function AuthHero() {
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[280px] w-auto select-none md:h-80"
+          className="relative z-10 h-[190px] w-auto select-none md:h-80"
           draggable="false"
         />
       </div>

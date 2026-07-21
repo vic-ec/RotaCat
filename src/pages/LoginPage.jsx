@@ -30,18 +30,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink lg:text-3xl">
               Sign in to your account
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-base font-semibold text-ink">
                   Email

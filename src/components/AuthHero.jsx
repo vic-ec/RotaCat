@@ -27,7 +27,7 @@ export default function AuthHero() {
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[280px] w-auto select-none md:h-80"
+          className="relative z-10 h-[190px] w-auto select-none md:h-80"
           draggable="false"
         />
       </div>

@@ -122,18 +122,18 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-[4.375rem] md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink lg:text-3xl">Set a new password</p>
+            <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">Set a new password</p>
             <p className="mt-2 text-sm text-ink-muted">Choose a new password for your account.</p>
 
-            <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
               <div>
-                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-base font-semibold text-ink">
+                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink md:text-base">
                   New password
                   <PasswordRequirementsInfo />
                 </label>
@@ -145,15 +145,16 @@ export default function ResetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    md:py-3"
                 />
               </div>
 
               <div>
-                <label htmlFor="confirm" className="mb-1.5 block text-base font-semibold text-ink">
+                <label htmlFor="confirm" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Confirm password
                 </label>
                 <input
@@ -164,10 +165,11 @@ export default function ResetPasswordPage() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-3
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    md:py-3"
                 />
               </div>
 
@@ -180,10 +182,11 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                  disabled:opacity-60
+                  md:py-3.5 md:text-lg"
               >
                 {submitting ? 'Updating…' : 'Update password'}
               </button>

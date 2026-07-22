@@ -185,6 +185,26 @@ function RoleDetailsForm({ role }) {
         </div>
       )}
 
+      {/* Locum agency — optional, placed after name/surname */}
+      {role === 'locum' && (
+        <div>
+          <label htmlFor="agency" className="mb-1.5 block text-sm font-semibold text-ink">
+            Agency <span className="font-normal text-ink-muted">(optional)</span>
+          </label>
+          <input
+            id="agency"
+            type="text"
+            value={locumAgency}
+            onChange={(e) => setLocumAgency(e.target.value)}
+            placeholder="Agency name"
+            className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+              text-base text-ink placeholder:text-ink-muted
+              transition-colors focus:border-rose focus:bg-canvas-raised
+              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+          />
+        </div>
+      )}
+
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
           Email
@@ -259,26 +279,6 @@ function RoleDetailsForm({ role }) {
           </button>
         </div>
       </div>
-
-      {/* Locum agency — optional */}
-      {role === 'locum' && (
-        <div>
-          <label htmlFor="agency" className="mb-1.5 block text-sm font-semibold text-ink">
-            Agency <span className="font-normal text-ink-muted">(optional)</span>
-          </label>
-          <input
-            id="agency"
-            type="text"
-            value={locumAgency}
-            onChange={(e) => setLocumAgency(e.target.value)}
-            placeholder="Agency name"
-            className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
-              text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:border-rose focus:bg-canvas-raised
-              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
-          />
-        </div>
-      )}
 
       {error && (
         <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
@@ -358,8 +358,8 @@ export default function SignupPage() {
                   onClick={() => setSelectedRole(opt.value)}
                   className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-3 text-left transition-colors hover:border-accent hover:bg-accent-tint md:p-4"
                 >
-                  <p className="text-sm font-semibold text-ink">{opt.label}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted">{opt.description}</p>
+                  <p className="text-base font-semibold text-ink">{opt.label}</p>
+                  <p className="mt-0.5 text-sm text-ink-muted">{opt.description}</p>
                 </button>
               ))}
             </div>

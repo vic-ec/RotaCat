@@ -226,10 +226,10 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero />
+        <AuthHero tall />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-20 md:px-[4.375rem]">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-24 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
 
             {/* Desktop: title + inline form, unchanged */}
@@ -248,13 +248,14 @@ export default function LoginPage() {
 
             {/* Mobile: two entry-point buttons, form lives in a modal */}
             <div className="md:hidden">
-              <p className="text-2xl font-semibold text-ink">Welcome</p>
+              <p className="text-2xl font-semibold text-ink">Welcome back</p>
+              <p className="mt-1 text-sm text-ink-muted">What would you like to do?</p>
 
               <div className="mt-6 flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={() => setShowSignInModal(true)}
-                  className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
+                  className="w-full rounded-lg bg-accent py-8 text-base font-semibold text-white
                     transition-colors hover:bg-accent-dark
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
                 >
@@ -263,7 +264,7 @@ export default function LoginPage() {
 
                 <Link
                   to="/signup"
-                  className="w-full rounded-lg border border-accent bg-accent-tint py-3 text-center text-base font-semibold text-accent
+                  className="w-full rounded-lg border border-accent bg-accent-tint py-8 text-center text-base font-semibold text-accent
                     transition-colors hover:bg-accent-light"
                 >
                   Create account

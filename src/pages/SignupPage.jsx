@@ -348,7 +348,7 @@ export default function SignupPage() {
   return (
     <>
       {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="flex h-screen flex-col md:hidden">
+      <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
         <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-4">

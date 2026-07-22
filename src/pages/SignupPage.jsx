@@ -348,22 +348,22 @@ export default function SignupPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-0 md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] pt-[12.33px] pb-[12.33px] md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink md:text-2xl lg:text-3xl">Create your account</p>
-            <div className="mt-3 space-y-0 md:mt-8 md:space-y-3">
+            <div className="mt-[12.33px] space-y-[12.33px] md:mt-8 md:space-y-3">
               {ROLE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setSelectedRole(opt.value)}
-                  className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-2 text-left leading-tight transition-colors hover:border-accent hover:bg-accent-tint md:p-4 md:leading-normal"
+                  className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-1 text-left leading-tight transition-colors hover:border-accent hover:bg-accent-tint md:p-4 md:leading-normal"
                 >
                   <p className="text-sm font-semibold text-ink md:text-base">{opt.label}</p>
                   <p className="mt-0.5 text-xs text-ink-muted md:text-sm">{opt.description}</p>
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-center text-xs text-ink-muted md:mt-6 md:text-base">
+            <p className="mt-[12.33px] text-center text-xs text-ink-muted md:mt-6 md:text-base">
               Already have an account?{' '}
               <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                 Sign in

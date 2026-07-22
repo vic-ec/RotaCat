@@ -14,12 +14,12 @@ const ROLE_OPTIONS = [
   {
     value: 'doctor',
     label: "I'm a Doctor",
-    description: 'A versatile account for doctors',
+    description: 'A versatile account for contracted clinicians',
   },
   {
     value: 'locum',
     label: "I'm a Locum Doctor",
-    description: 'A no-frills account for locums',
+    description: 'A no-frills account for part-time clinicians',
   },
   {
     value: 'clerk',
@@ -352,7 +352,7 @@ export default function SignupPage() {
         <MobileAuthHero />
 
         <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-4">
-          <p className="text-2xl font-semibold text-ink">Create your account</p>
+          <p className="text-center text-2xl font-semibold text-ink">Create your account</p>
           <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (
               <button

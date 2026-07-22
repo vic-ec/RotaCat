@@ -230,7 +230,7 @@ export default function LoginPage() {
       <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-8">
+        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 pt-8 pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
           <p className="mt-2 text-center text-sm text-ink-muted">Get started with your account</p>
 
@@ -238,7 +238,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setShowSignInModal(true)}
-              className="w-full rounded-lg bg-accent py-4 text-base font-semibold text-white
+              className="w-full rounded-lg bg-accent py-6 text-base font-semibold text-white
                 transition-colors hover:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
             >
@@ -247,14 +247,14 @@ export default function LoginPage() {
 
             <Link
               to="/signup"
-              className="w-full rounded-lg border border-accent bg-accent-tint py-4 text-center text-base font-semibold text-accent
+              className="w-full rounded-lg border border-accent bg-accent-tint py-6 text-center text-base font-semibold text-accent
                 transition-colors hover:bg-accent-light"
             >
               Sign up
             </Link>
           </div>
 
-          <AuthFooter onLight topGap="mt-8" />
+          <AuthFooter onLight topGap="mt-4" />
         </div>
       </div>
 

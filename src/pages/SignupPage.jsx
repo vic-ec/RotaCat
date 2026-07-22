@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AuthHero from '../components/AuthHero'
+import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
@@ -345,39 +346,72 @@ export default function SignupPage() {
   const [selectedRole, setSelectedRole] = useState(null)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
-      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero />
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] pt-[12.33px] pb-[12.33px] md:px-[4.375rem] md:py-20">
-          <div className="mx-auto w-full max-w-sm">
-            <p className="text-2xl font-semibold text-ink md:text-2xl lg:text-3xl">Create your account</p>
-            <div className="mt-[12.33px] space-y-[12.33px] md:mt-8 md:space-y-3">
-              {ROLE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setSelectedRole(opt.value)}
-                  className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-1 text-left leading-tight transition-colors hover:border-accent hover:bg-accent-tint md:p-4 md:leading-normal"
-                >
-                  <p className="text-sm font-semibold text-ink md:text-base">{opt.label}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted md:text-sm">{opt.description}</p>
-                </button>
-              ))}
-            </div>
-            <p className="mt-[12.33px] text-center text-xs text-ink-muted md:mt-6 md:text-base">
-              Already have an account?{' '}
-              <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
-                Sign in
-              </Link>
-            </p>
+    <>
+      {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
+      <div className="flex h-screen flex-col md:hidden">
+        <MobileAuthHero />
+
+        <div className="flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-4">
+          <p className="text-2xl font-semibold text-ink">Create your account</p>
+          <div className="mt-3 space-y-1.5">
+            {ROLE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setSelectedRole(opt.value)}
+                className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-4 text-left transition-colors hover:border-accent hover:bg-accent-tint"
+              >
+                <p className="text-sm font-semibold text-ink">{opt.label}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">{opt.description}</p>
+              </button>
+            ))}
           </div>
+          <p className="mt-2 text-center text-xs text-ink-muted">
+            Already have an account?{' '}
+            <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+              Sign in
+            </Link>
+          </p>
+
+          <AuthFooter onLight />
         </div>
       </div>
 
-      <AuthFooter />
+      {/* Desktop: split-screen card, unchanged */}
+      <div className="hidden min-h-screen flex-col items-center justify-center bg-accent px-4 py-10 md:flex">
+        <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
+          <AuthHero />
+
+          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[4.375rem] py-20">
+            <div className="mx-auto w-full max-w-sm">
+              <p className="text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
+              <div className="mt-8 space-y-3">
+                {ROLE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSelectedRole(opt.value)}
+                    className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-4 text-left transition-colors hover:border-accent hover:bg-accent-tint"
+                  >
+                    <p className="text-base font-semibold text-ink">{opt.label}</p>
+                    <p className="mt-0.5 text-sm text-ink-muted">{opt.description}</p>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-6 text-center text-base text-ink-muted">
+                Already have an account?{' '}
+                <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <AuthFooter />
+      </div>
 
       {selectedRole && (
         <RoleModal role={selectedRole} onClose={() => setSelectedRole(null)} />
       )}
-    </div>
+    </>
   )
 }

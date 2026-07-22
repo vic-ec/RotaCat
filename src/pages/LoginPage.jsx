@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AuthHero from '../components/AuthHero'
+import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 
 // Email + password sign-in form — shared by the desktop inline panel and
@@ -224,60 +225,64 @@ export default function LoginPage() {
   const [showSignInModal, setShowSignInModal] = useState(false)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
-      <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero />
+    <>
+      {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
+      <div className="flex h-screen flex-col md:hidden">
+        <MobileAuthHero />
 
-        {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] pt-[30.8px] pb-[30.8px] md:px-[4.375rem] md:py-20">
-          <div className="mx-auto w-full max-w-sm">
+        <div className="flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-8">
+          <p className="text-2xl font-semibold text-ink">Welcome</p>
+          <p className="mt-2 text-sm text-ink-muted">Get started with your account</p>
 
-            {/* Desktop: title + inline form, unchanged */}
-            <div className="hidden md:block">
-              <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">
+          <div className="mt-6 flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={() => setShowSignInModal(true)}
+              className="w-full rounded-lg bg-accent py-4 text-base font-semibold text-white
+                transition-colors hover:bg-accent-dark
+                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+            >
+              Sign in
+            </button>
+
+            <Link
+              to="/signup"
+              className="w-full rounded-lg border border-accent bg-accent-tint py-4 text-center text-base font-semibold text-accent
+                transition-colors hover:bg-accent-light"
+            >
+              Sign up
+            </Link>
+          </div>
+
+          <AuthFooter onLight />
+        </div>
+      </div>
+
+      {/* Desktop: split-screen card, unchanged */}
+      <div className="hidden min-h-screen flex-col items-center justify-center bg-accent px-4 py-10 md:flex">
+        <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
+          <AuthHero />
+
+          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[4.375rem] py-20">
+            <div className="mx-auto w-full max-w-sm">
+              <p className="text-2xl font-semibold text-ink lg:text-3xl">
                 Sign in to your account
               </p>
               <SignInForm />
-              <p className="mt-6 text-center text-xs text-ink-muted md:text-base">
+              <p className="mt-6 text-center text-base text-ink-muted">
                 No account?{' '}
                 <Link to="/signup" className="text-rose hover:text-rose-dark hover:underline">
                   Register here
                 </Link>
               </p>
             </div>
-
-            {/* Mobile: two entry-point buttons, form lives in a modal */}
-            <div className="md:hidden">
-              <p className="text-2xl font-semibold text-ink">Welcome back</p>
-              <p className="mt-[30.8px] text-sm text-ink-muted">What would you like to do?</p>
-
-              <div className="mt-[30.8px] flex flex-col gap-[30.8px]">
-                <button
-                  type="button"
-                  onClick={() => setShowSignInModal(true)}
-                  className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-                    transition-colors hover:bg-accent-dark
-                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
-                >
-                  Sign in
-                </button>
-
-                <Link
-                  to="/signup"
-                  className="w-full rounded-lg border border-accent bg-accent-tint py-3 text-center text-base font-semibold text-accent
-                    transition-colors hover:bg-accent-light"
-                >
-                  Create account
-                </Link>
-              </div>
-            </div>
           </div>
         </div>
+
+        <AuthFooter />
       </div>
 
-      <AuthFooter />
-
       {showSignInModal && <SignInModal onClose={() => setShowSignInModal(false)} />}
-    </div>
+    </>
   )
 }

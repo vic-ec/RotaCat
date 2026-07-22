@@ -351,7 +351,7 @@ export default function SignupPage() {
         <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-0 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink md:text-2xl lg:text-3xl">Create your account</p>
-            <div className="mt-3 space-y-0.5 md:mt-8 md:space-y-3">
+            <div className="mt-3 space-y-0 md:mt-8 md:space-y-3">
               {ROLE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
@@ -363,7 +363,7 @@ export default function SignupPage() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-center text-xs text-ink-muted md:mt-6 md:text-base">
+            <p className="mt-1 text-center text-xs text-ink-muted md:mt-6 md:text-base">
               Already have an account?{' '}
               <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                 Sign in

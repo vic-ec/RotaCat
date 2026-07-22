@@ -351,14 +351,14 @@ export default function SignupPage() {
       <div className="flex h-screen flex-col md:hidden">
         <MobileAuthHero />
 
-        <div className="flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-4">
+        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-4">
           <p className="text-2xl font-semibold text-ink">Create your account</p>
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-4 text-left transition-colors hover:border-accent hover:bg-accent-tint"
+                className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-tint"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-muted">{opt.description}</p>
@@ -372,7 +372,7 @@ export default function SignupPage() {
             </Link>
           </p>
 
-          <AuthFooter onLight />
+          <AuthFooter onLight topGap="mt-4" />
         </div>
       </div>
 

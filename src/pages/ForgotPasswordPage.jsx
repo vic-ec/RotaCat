@@ -95,7 +95,10 @@ export default function ForgotPasswordPage() {
 
         <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Reset your password</p>
-          <p className="mt-2 text-center text-sm text-ink-light">
+          {/* min-h reserves space for 2 lines even when the copy fits on
+              one — on wider phones it wraps to a single line, which would
+              otherwise shrink the sheet below login/signup's height. */}
+          <p className="mt-2 flex min-h-[40px] items-center justify-center text-center text-sm text-ink-light">
             We'll send a password-reset link to your account email.
           </p>
 

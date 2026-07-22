@@ -372,7 +372,7 @@ export default function SignupPage() {
             </Link>
           </p>
 
-          <AuthFooter onLight topGap="mt-4" />
+          <AuthFooter onLight topGap="mt-4" compact />
         </div>
       </div>
 
@@ -406,7 +406,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <AuthFooter />
+        <AuthFooter compact />
       </div>
 
       {selectedRole && (

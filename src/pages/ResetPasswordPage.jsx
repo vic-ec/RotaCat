@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -165,7 +165,7 @@ export default function ResetPasswordPage() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25

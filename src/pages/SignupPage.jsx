@@ -345,25 +345,25 @@ export default function SignupPage() {
   const [selectedRole, setSelectedRole] = useState(null)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-2 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero tall />
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-6 md:px-[4.375rem] md:py-20">
+        <AuthHero />
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-2 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink md:text-2xl lg:text-3xl">Create your account</p>
-            <div className="mt-4 space-y-1.5 md:mt-8 md:space-y-3">
+            <div className="mt-2 space-y-0.5 md:mt-8 md:space-y-3">
               {ROLE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
                   onClick={() => setSelectedRole(opt.value)}
-                  className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-3 text-left transition-colors hover:border-accent hover:bg-accent-tint md:p-4"
+                  className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-2 text-left leading-tight transition-colors hover:border-accent hover:bg-accent-tint md:p-4 md:leading-normal"
                 >
-                  <p className="text-base font-semibold text-ink">{opt.label}</p>
-                  <p className="mt-0.5 text-sm text-ink-muted">{opt.description}</p>
+                  <p className="text-sm font-semibold text-ink md:text-base">{opt.label}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted md:text-sm">{opt.description}</p>
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-center text-xs text-ink-muted md:mt-6 md:text-base">
+            <p className="mt-2 text-center text-xs text-ink-muted md:mt-6 md:text-base">
               Already have an account?{' '}
               <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                 Sign in

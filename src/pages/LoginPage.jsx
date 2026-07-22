@@ -224,12 +224,12 @@ export default function LoginPage() {
   const [showSignInModal, setShowSignInModal] = useState(false)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-2 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero tall />
+        <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-24 md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-10 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
 
             {/* Desktop: title + inline form, unchanged */}
@@ -255,7 +255,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowSignInModal(true)}
-                  className="w-full rounded-lg bg-accent py-8 text-base font-semibold text-white
+                  className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                     transition-colors hover:bg-accent-dark
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
                 >
@@ -264,7 +264,7 @@ export default function LoginPage() {
 
                 <Link
                   to="/signup"
-                  className="w-full rounded-lg border border-accent bg-accent-tint py-8 text-center text-base font-semibold text-accent
+                  className="w-full rounded-lg border border-accent bg-accent-tint py-3 text-center text-base font-semibold text-accent
                     transition-colors hover:bg-accent-light"
                 >
                   Create account

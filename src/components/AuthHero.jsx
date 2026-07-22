@@ -7,7 +7,7 @@ import RotaCat from './RotaCat'
 // the mobile-only vertical padding so this panel can be height-matched
 // against a taller form panel (e.g. signup's role list) on pages that need it.
 export default function AuthHero({ tall = false }) {
-  const mobilePadding = tall ? 'pt-12 pb-14' : 'pt-4 pb-6'
+  const mobilePadding = tall ? 'pt-12 pb-14' : 'pt-2 pb-3'
   return (
     <div className={`flex flex-col items-center justify-center bg-canvas-raised px-6 ${mobilePadding} sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20`}>
       <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">

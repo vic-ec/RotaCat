@@ -53,8 +53,11 @@ function PasswordRequirementsInfo() {
       >
         i
       </button>
+      {/* Left-anchored rather than centered under the icon — the icon sits
+          close to the modal's left edge, so a centered tooltip would push
+          past it and get clipped by the modal's overflow-hidden. */}
       <span
-        className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
+        className={`pointer-events-none absolute left-0 top-full z-20 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
           show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
@@ -132,7 +135,8 @@ function RoleModal({ role, onClose }) {
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
+        className={`flex w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised
+          ${submitted ? 'max-h-[90vh]' : 'h-[471px] max-h-[90vh]'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between p-5 pb-3">
@@ -173,7 +177,7 @@ function RoleModal({ role, onClose }) {
             <form
               id="role-details-form"
               onSubmit={handleSubmit}
-              className="flex flex-col gap-2 overflow-y-auto px-5 pb-4"
+              className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 pb-4"
             >
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">

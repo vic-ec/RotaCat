@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
             Enter your account email and we'll send a password-reset link.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
             <div>
               <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
                 Email
@@ -155,7 +155,7 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
-          <p className="mt-1 text-center text-xs text-ink-light">
+          <p className="mt-2 text-center text-xs text-ink-light">
             Remembered it after all?{' '}
             <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
               Sign in

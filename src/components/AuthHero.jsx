@@ -19,7 +19,7 @@ export default function AuthHero() {
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[11px] -right-[6px] h-5 w-5 -rotate-10 select-none"
+            className="absolute -top-[11px] -right-[16px] h-5 w-5 -rotate-10 select-none"
             draggable="false"
           />
         </span>

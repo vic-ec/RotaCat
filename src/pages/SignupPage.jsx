@@ -210,7 +210,7 @@ export default function SignupPage() {
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                       text-base text-ink transition-colors
                       focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -234,7 +234,7 @@ export default function SignupPage() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -252,7 +252,7 @@ export default function SignupPage() {
                   required
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-rose focus:bg-canvas-raised
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -279,7 +279,7 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-4
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-4
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -308,7 +308,7 @@ export default function SignupPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2.5 pl-12 pr-12
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
@@ -349,7 +349,7 @@ export default function SignupPage() {
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
                     placeholder="Agency name"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2.5
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:border-rose focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25

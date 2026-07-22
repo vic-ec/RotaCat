@@ -13,12 +13,12 @@ const ROLE_OPTIONS = [
   {
     value: 'doctor',
     label: "I'm a Doctor",
-    description: 'A versatile account for contracted clinicians',
+    description: 'A versatile account for doctors',
   },
   {
     value: 'locum',
     label: "I'm a Locum Doctor",
-    description: 'A no-frills account for part-time clinicians',
+    description: 'A no-frills account for locums',
   },
   {
     value: 'clerk',

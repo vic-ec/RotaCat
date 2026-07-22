@@ -1,4 +1,4 @@
-import { useState } from 'react'
+emimport { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { isValidEmail } from '../lib/validateEmail'
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
               one — on wider phones it wraps to a single line, which would
               otherwise shrink the sheet below login/signup's height. */}
           <p className="mt-2 flex min-h-[40px] items-center justify-center text-center text-sm text-ink-light">
-            We'll send a password-reset link to your account email.
+            Enter your account email and we'll send a password-reset link.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
@@ -179,7 +179,7 @@ export default function ForgotPasswordPage() {
             <div className="mx-auto w-full max-w-sm">
               <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
               <p className="mt-2 text-base text-ink-light">
-                We'll send a password-reset link to your account email.
+                Enter your account email and we'll send a password-reset link.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">

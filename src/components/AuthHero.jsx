@@ -3,10 +3,13 @@ import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel — identical on login and signup by construction,
-// not by two people remembering to keep two copies in sync.
-export default function AuthHero() {
+// not by two people remembering to keep two copies in sync. `tall` widens
+// the mobile-only vertical padding so this panel can be height-matched
+// against a taller form panel (e.g. signup's role list) on pages that need it.
+export default function AuthHero({ tall = false }) {
+  const mobilePadding = tall ? 'pt-12 pb-14' : 'pt-4 pb-6'
   return (
-    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-4 pb-6 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20">
+    <div className={`flex flex-col items-center justify-center bg-canvas-raised px-6 ${mobilePadding} sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20`}>
       <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">
         <RotaCat />
       </h1>

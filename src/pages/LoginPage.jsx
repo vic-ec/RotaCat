@@ -228,7 +228,7 @@ export default function LoginPage() {
         <AuthHero />
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-20 md:px-[4.375rem]">
           <div className="mx-auto w-full max-w-sm">
 
             {/* Desktop: title + inline form, unchanged */}
@@ -247,12 +247,9 @@ export default function LoginPage() {
 
             {/* Mobile: two entry-point buttons, form lives in a modal */}
             <div className="md:hidden">
-              <p className="text-base font-semibold text-ink">Welcome back</p>
-              <p className="mt-1 text-sm text-ink-muted">
-                Sign in to view your shifts, or create a new account.
-              </p>
+              <p className="text-2xl font-semibold text-ink">Welcome</p>
 
-              <div className="mt-5 flex flex-col gap-3">
+              <div className="mt-6 flex flex-col gap-3">
                 <button
                   type="button"
                   onClick={() => setShowSignInModal(true)}

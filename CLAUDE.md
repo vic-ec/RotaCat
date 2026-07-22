@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RotaCat is a shift scheduling PWA for the VHW Emergency Centre medical team, replacing a manual PDF-based rostering process. This repo currently contains only the **frontend**; the Python scheduling backend lives in a separate service (see Architecture below).
 
+This repository is proprietary (see `LICENSE`) despite being public on GitHub — it is not open-source. Never replace `LICENSE` with an open-source license, remove the copyright notice, or add contribution/redistribution language implying otherwise, unless vic-ec explicitly asks for it.
+
 ## Commands
 
 ```bash

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import AuthHero from '../components/AuthHero'
+import AuthFooter from '../components/AuthFooter'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -70,7 +71,7 @@ export default function ResetPasswordPage() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-accent px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4">
         <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas-raised p-8 text-center shadow-raised">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
             <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,6 +89,7 @@ export default function ResetPasswordPage() {
             Continue
           </button>
         </div>
+        <AuthFooter />
       </div>
     )
   }
@@ -95,8 +97,9 @@ export default function ResetPasswordPage() {
   // Still resolving the recovery link from the URL
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-accent px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4">
         <p className="text-sm text-white">Verifying your reset link…</p>
+        <AuthFooter />
       </div>
     )
   }
@@ -104,7 +107,7 @@ export default function ResetPasswordPage() {
   // No session — the link was invalid, expired, or already used
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-accent px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4">
         <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas-raised p-8 text-center shadow-raised">
           <h2 className="font-display text-xl text-ink">Link expired</h2>
           <p className="mt-2 text-sm text-ink-muted">
@@ -117,12 +120,13 @@ export default function ResetPasswordPage() {
             Request a new link
           </Link>
         </div>
+        <AuthFooter />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
@@ -194,6 +198,8 @@ export default function ResetPasswordPage() {
           </div>
         </div>
       </div>
+
+      <AuthFooter />
     </div>
   )
 }

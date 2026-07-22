@@ -64,3 +64,9 @@ src/
 - [ ] Phase 7 — Shift swap workflow
 - [ ] Phase 8 — Notifications
 - [ ] Phase 9 — Excel re-upload + diff logic
+
+## License
+
+This repository is proprietary — see [`LICENSE`](./LICENSE). It is published
+on GitHub for visibility and collaboration, not as open-source software; no
+license to use, copy, modify, or redistribute the code is granted.

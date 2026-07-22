@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import AuthHero from '../components/AuthHero'
+import AuthFooter from '../components/AuthFooter'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -28,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-accent px-4">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4">
         <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas-raised p-8 text-center shadow-raised">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
             <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -47,12 +48,13 @@ export default function ForgotPasswordPage() {
             Back to sign in
           </Link>
         </div>
+        <AuthFooter />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
@@ -120,6 +122,8 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
       </div>
+
+      <AuthFooter />
     </div>
   )
 }

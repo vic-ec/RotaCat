@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AuthHero from '../components/AuthHero'
+import AuthFooter from '../components/AuthFooter'
 
 // Email + password sign-in form — shared by the desktop inline panel and
 // the mobile sign-in modal so the two surfaces can't drift apart.
@@ -223,7 +224,7 @@ export default function LoginPage() {
   const [showSignInModal, setShowSignInModal] = useState(false)
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
@@ -272,6 +273,8 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      <AuthFooter />
 
       {showSignInModal && <SignInModal onClose={() => setShowSignInModal(false)} />}
     </div>

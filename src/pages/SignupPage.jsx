@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import AuthHero from '../components/AuthHero'
+import AuthFooter from '../components/AuthFooter'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -344,7 +345,7 @@ export default function SignupPage() {
   const [selectedRole, setSelectedRole] = useState(null)
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-accent px-4 py-3 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero tall />
         <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-6 md:px-[4.375rem] md:py-20">
@@ -371,6 +372,8 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
+
+      <AuthFooter />
 
       {selectedRole && (
         <RoleModal role={selectedRole} onClose={() => setSelectedRole(null)} />

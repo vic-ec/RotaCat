@@ -254,7 +254,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <AuthFooter onLight topGap="mt-4" />
+          <AuthFooter onLight topGap="mt-4" compact />
         </div>
       </div>
 
@@ -279,7 +279,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <AuthFooter />
+        <AuthFooter compact />
       </div>
 
       {showSignInModal && <SignInModal onClose={() => setShowSignInModal(false)} />}

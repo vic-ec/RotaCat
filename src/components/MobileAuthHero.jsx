@@ -28,7 +28,7 @@ export default function MobileAuthHero() {
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[176px] w-auto select-none"
+          className="relative z-10 h-[189px] w-auto select-none"
           draggable="false"
         />
       </div>

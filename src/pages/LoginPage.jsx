@@ -227,12 +227,12 @@ export default function LoginPage() {
   return (
     <>
       {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="flex h-screen flex-col md:hidden">
+      <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-8">
-          <p className="text-2xl font-semibold text-ink">Welcome</p>
-          <p className="mt-2 text-sm text-ink-muted">Get started with your account</p>
+        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 py-8">
+          <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
+          <p className="mt-2 text-center text-sm text-ink-muted">Get started with your account</p>
 
           <div className="mt-6 flex flex-col gap-4">
             <button
@@ -254,7 +254,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <AuthFooter onLight />
+          <AuthFooter onLight topGap="mt-8" />
         </div>
       </div>
 

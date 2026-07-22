@@ -7,13 +7,13 @@ import RotaCat from './RotaCat'
 // the mobile-only vertical padding so this panel can be height-matched
 // against a taller form panel (e.g. signup's role list) on pages that need it.
 export default function AuthHero({ tall = false }) {
-  const mobilePadding = tall ? 'pt-12 pb-14' : 'pt-2 pb-3'
+  const mobilePadding = tall ? 'pt-12 pb-14' : 'pt-4 pb-5'
   return (
     <div className={`flex flex-col items-center justify-center bg-canvas-raised px-6 ${mobilePadding} sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20`}>
       <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">
         <RotaCat />
       </h1>
-      <p className="mt-[15px] whitespace-nowrap text-sm text-ink-muted sm:text-base md:text-lg lg:text-[22px]">
+      <p className="mt-4 whitespace-nowrap text-sm text-ink-muted sm:text-base md:text-lg lg:text-[22px] md:mt-[15px]">
         Smart ED scheduling, made{' '}
         <span className="relative inline-block">
           effortless
@@ -26,7 +26,7 @@ export default function AuthHero({ tall = false }) {
         </span>
       </p>
 
-      <div className="relative mt-3 md:mt-10">
+      <div className="relative mt-5 md:mt-10">
         <img
           src={robotLily}
           alt=""

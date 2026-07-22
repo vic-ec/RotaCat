@@ -345,13 +345,13 @@ export default function SignupPage() {
   const [selectedRole, setSelectedRole] = useState(null)
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-2 md:py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-3 md:py-10">
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-2 md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-0 md:px-[4.375rem] md:py-20">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-2xl font-semibold text-ink md:text-2xl lg:text-3xl">Create your account</p>
-            <div className="mt-2 space-y-0.5 md:mt-8 md:space-y-3">
+            <div className="mt-3 space-y-0.5 md:mt-8 md:space-y-3">
               {ROLE_OPTIONS.map(opt => (
                 <button
                   key={opt.value}

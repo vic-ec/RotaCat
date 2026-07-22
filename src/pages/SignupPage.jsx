@@ -14,17 +14,17 @@ const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowerc
 const ROLE_OPTIONS = [
   {
     value: 'doctor',
-    label: "I'm a Doctor",
+    label: "Full-Time Doctor",
     description: 'A versatile account for contracted clinicians',
   },
   {
     value: 'locum',
-    label: "I'm a Locum Doctor",
+    label: "Locum Doctor",
     description: 'A no-frills account for part-time clinicians',
   },
   {
     value: 'clerk',
-    label: "I'm a Clerk",
+    label: "Clerk",
     description: 'A basic account for read-only access',
   },
 ]

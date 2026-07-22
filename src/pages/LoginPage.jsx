@@ -1,20 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 
 // Email + password sign-in form — shared by the desktop inline panel and
 // the mobile sign-in modal so the two surfaces can't drift apart.
-function SignInForm() {
+// `autoFocus` is only set true from the modal context, so the desktop
+// inline panel doesn't grab focus away from the page on load.
+function SignInForm({ autoFocus = false }) {
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
+  const [emailTouched, setEmailTouched] = useState(false)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -62,16 +68,26 @@ function SignInForm() {
             type="email"
             required
             autoComplete="email"
+            inputMode="email"
+            autoFocus={autoFocus}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setEmailTouched(true)}
+            aria-invalid={emailInvalid}
             placeholder="you@example.com"
-            className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-4
+            className={`w-full rounded-lg border-2 bg-canvas-raised py-2 pl-12 pr-4
               text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:border-rose focus:bg-canvas-raised
-              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
-              md:py-3 md:text-lg"
+              transition-colors focus:bg-canvas-raised
+              focus:outline focus:outline-2 focus:outline-offset-2
+              md:py-3 md:text-lg
+              ${emailInvalid
+                ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
+                : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
           />
         </div>
+        {emailInvalid && (
+          <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+        )}
       </div>
 
       <div>
@@ -193,13 +209,20 @@ function SignInModal({ onClose }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  // Return focus to whatever triggered the modal (the "Sign in" button)
+  // once it closes.
+  useEffect(() => {
+    const trigger = document.activeElement
+    return () => trigger?.focus?.()
+  }, [])
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 md:hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm md:hidden"
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-sm p-5"
+        className="w-full max-w-sm rounded-xl border border-slate-line bg-canvas-raised p-5 shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
@@ -215,7 +238,7 @@ function SignInModal({ onClose }) {
             </svg>
           </button>
         </div>
-        <SignInForm />
+        <SignInForm autoFocus />
       </div>
     </div>
   )
@@ -230,9 +253,9 @@ export default function LoginPage() {
       <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 pt-8 pb-4">
+        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
-          <p className="mt-2 text-center text-sm text-ink-muted">Get started with your account</p>
+          <p className="mt-2 text-center text-sm text-ink-light">Get started with your account</p>
 
           <div className="mt-6 flex flex-col gap-4">
             <button
@@ -263,13 +286,13 @@ export default function LoginPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[4.375rem] py-20">
+          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-20">
             <div className="mx-auto w-full max-w-sm">
               <p className="text-2xl font-semibold text-ink lg:text-3xl">
                 Sign in to your account
               </p>
               <SignInForm />
-              <p className="mt-6 text-center text-base text-ink-muted">
+              <p className="mt-6 text-center text-base text-ink-light">
                 No account?{' '}
                 <Link to="/signup" className="text-rose hover:text-rose-dark hover:underline">
                   Register here

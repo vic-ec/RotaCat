@@ -1,15 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
+  const [emailTouched, setEmailTouched] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+
+  const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -35,14 +39,14 @@ export default function ForgotPasswordPage() {
         <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
           <MobileAuthHero />
 
-          <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 pt-8 pb-6 text-center">
+          <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-6 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
               <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <h2 className="font-display text-xl text-ink">Check your email</h2>
-            <p className="mt-2 text-sm text-ink-muted">
+            <p className="mt-2 text-sm text-ink-light">
               If an account exists for {email}, we've sent a link to reset your password.
               It'll expire after a while, so use it soon.
             </p>
@@ -89,10 +93,10 @@ export default function ForgotPasswordPage() {
       <div className="flex h-screen flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-light px-8 pt-4 pb-3">
+        <div className="relative -mt-[28px] flex min-h-[34vh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Reset your password</p>
-          <p className="mt-2 text-center text-sm text-ink-muted">
-            Enter the email address on your account and we'll send you a link to reset your password.
+          <p className="mt-2 text-center text-sm text-ink-light">
+            Enter your account email and we'll send a password-reset link.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
@@ -112,15 +116,25 @@ export default function ForgotPasswordPage() {
                   type="email"
                   required
                   autoComplete="email"
+                  inputMode="email"
+                  autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
+                  aria-invalid={emailInvalid}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-4
+                  className={`w-full rounded-lg border-2 bg-canvas-raised py-2 pl-12 pr-4
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    transition-colors focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2
+                    ${emailInvalid
+                      ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
+                      : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
                 />
               </div>
+              {emailInvalid && (
+                <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+              )}
             </div>
 
             {error && (
@@ -141,7 +155,7 @@ export default function ForgotPasswordPage() {
             </button>
           </form>
 
-          <p className="mt-1 text-center text-xs text-ink-muted">
+          <p className="mt-1 text-center text-xs text-ink-light">
             Remembered it after all?{' '}
             <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
               Sign in
@@ -157,11 +171,11 @@ export default function ForgotPasswordPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-light px-[4.375rem] py-20">
+          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-20">
             <div className="mx-auto w-full max-w-sm">
               <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
-              <p className="mt-2 text-base text-ink-muted">
-                Enter the email address on your account and we'll send you a link to reset your password.
+              <p className="mt-2 text-base text-ink-light">
+                Enter your account email and we'll send a password-reset link.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
@@ -181,15 +195,25 @@ export default function ForgotPasswordPage() {
                       type="email"
                       required
                       autoComplete="email"
+                      inputMode="email"
+                      autoFocus
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onBlur={() => setEmailTouched(true)}
+                      aria-invalid={emailInvalid}
                       placeholder="you@example.com"
-                      className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-3 pl-12 pr-4
+                      className={`w-full rounded-lg border-2 bg-canvas-raised py-3 pl-12 pr-4
                         text-lg text-ink placeholder:text-ink-muted
-                        transition-colors focus:border-rose focus:bg-canvas-raised
-                        focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                        transition-colors focus:bg-canvas-raised
+                        focus:outline focus:outline-2 focus:outline-offset-2
+                        ${emailInvalid
+                          ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
+                          : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
                     />
                   </div>
+                  {emailInvalid && (
+                    <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+                  )}
                 </div>
 
                 {error && (
@@ -210,7 +234,7 @@ export default function ForgotPasswordPage() {
                 </button>
               </form>
 
-              <p className="mt-6 text-center text-base text-ink-muted">
+              <p className="mt-6 text-center text-base text-ink-light">
                 Remembered it after all?{' '}
                 <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
                   Sign in

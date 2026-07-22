@@ -24,7 +24,11 @@ export default {
           DEFAULT: '#0E7C6B',
           dark: '#0A5F52',
           light: '#E3F0EC',
-          tint: '#F0F7F5'
+          tint: '#F0F7F5',
+          // Deeper, cooler mint for auth panels/sheets — same family as
+          // accent.light but with more presence against white and better
+          // contrast for the text sitting on it.
+          panel: '#D3E9E4'
         },
         // Secondary brand accent — warm pink from Lily's collar.
         // Used for links, highlights, and illustrative/marketing touches

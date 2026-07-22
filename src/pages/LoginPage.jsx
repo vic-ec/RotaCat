@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail } from '../lib/validateEmail'
@@ -13,6 +13,7 @@ import AuthFooter from '../components/AuthFooter'
 function SignInForm({ autoFocus = false }) {
   const { signIn } = useAuth()
   const navigate = useNavigate()
+  const emailRef = useRef(null)
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
   const [password, setPassword] = useState('')
@@ -21,6 +22,15 @@ function SignInForm({ autoFocus = false }) {
   const [submitting, setSubmitting] = useState(false)
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
+
+  // The modal that hosts this form on mobile stays mounted (just hidden)
+  // so password managers can discover the fields on page load, which
+  // means the native `autofocus` attribute — a one-time, mount-triggered
+  // effect — won't fire again on repeat opens. Focus imperatively instead,
+  // keyed off the `autoFocus` prop actually flipping to true.
+  useEffect(() => {
+    if (autoFocus) emailRef.current?.focus()
+  }, [autoFocus])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -65,11 +75,12 @@ function SignInForm({ autoFocus = false }) {
 
           <input
             id="email"
+            name="email"
             type="email"
             required
             autoComplete="email"
             inputMode="email"
-            autoFocus={autoFocus}
+            ref={emailRef}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setEmailTouched(true)}
@@ -123,6 +134,7 @@ function SignInForm({ autoFocus = false }) {
 
           <input
             id="password"
+            name="password"
             type={showPassword ? 'text' : 'password'}
             required
             autoComplete="current-password"
@@ -199,27 +211,34 @@ function SignInForm({ autoFocus = false }) {
 }
 
 // Full-screen backdrop + card carrying the sign-in form — mobile only,
-// triggered from the "Sign in" choice button below.
-function SignInModal({ onClose }) {
+// triggered from the "Sign in" choice button below. Stays mounted (just
+// hidden via `display:none`) rather than being conditionally rendered, so
+// the email/password fields exist in the DOM from page load — some
+// password managers only scan for fillable fields once at load and never
+// notice ones added later by a modal opening.
+function SignInModal({ isOpen, onClose, triggerRef }) {
   useEffect(() => {
+    if (!isOpen) return
     function handleKeyDown(e) {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [isOpen, onClose])
 
-  // Return focus to whatever triggered the modal (the "Sign in" button)
-  // once it closes.
+  // Return focus to whatever triggered the modal (the "Sign in" button,
+  // captured synchronously by the caller's click handler — not read here
+  // via document.activeElement, since that would race the sign-in form's
+  // own autofocus effect and end up capturing the email field instead).
   useEffect(() => {
-    const trigger = document.activeElement
-    return () => trigger?.focus?.()
-  }, [])
+    if (!isOpen) triggerRef.current?.focus?.()
+  }, [isOpen, triggerRef])
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm md:hidden"
+      className={`fixed inset-0 z-50 items-center justify-center bg-ink/65 p-4 backdrop-blur-sm md:hidden ${isOpen ? 'flex' : 'hidden'}`}
       onClick={onClose}
+      aria-hidden={!isOpen}
     >
       <div
         className="w-full max-w-sm rounded-xl border border-slate-line bg-canvas-raised p-5 shadow-raised"
@@ -238,7 +257,7 @@ function SignInModal({ onClose }) {
             </svg>
           </button>
         </div>
-        <SignInForm autoFocus />
+        <SignInForm autoFocus={isOpen} />
       </div>
     </div>
   )
@@ -246,6 +265,12 @@ function SignInModal({ onClose }) {
 
 export default function LoginPage() {
   const [showSignInModal, setShowSignInModal] = useState(false)
+  const signInTriggerRef = useRef(null)
+
+  function openSignInModal(e) {
+    signInTriggerRef.current = e.currentTarget
+    setShowSignInModal(true)
+  }
 
   return (
     <>
@@ -260,7 +285,7 @@ export default function LoginPage() {
           <div className="mt-6 flex flex-col gap-4">
             <button
               type="button"
-              onClick={() => setShowSignInModal(true)}
+              onClick={openSignInModal}
               className="w-full rounded-lg bg-accent py-6 text-base font-semibold text-white
                 transition-colors hover:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
@@ -305,7 +330,7 @@ export default function LoginPage() {
         <AuthFooter compact />
       </div>
 
-      {showSignInModal && <SignInModal onClose={() => setShowSignInModal(false)} />}
+      <SignInModal isOpen={showSignInModal} onClose={() => setShowSignInModal(false)} triggerRef={signInTriggerRef} />
     </>
   )
 }

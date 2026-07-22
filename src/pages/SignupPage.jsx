@@ -185,8 +185,10 @@ function RoleModal({ role, onClose }) {
                 </label>
                 <input
                   id="name"
+                  name="given-name"
                   type="text"
                   required
+                  autoComplete="given-name"
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -203,8 +205,10 @@ function RoleModal({ role, onClose }) {
                 </label>
                 <input
                   id="surname"
+                  name="family-name"
                   type="text"
                   required
+                  autoComplete="family-name"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
@@ -222,6 +226,7 @@ function RoleModal({ role, onClose }) {
                   </label>
                   <select
                     id="category"
+                    name="category"
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
@@ -246,7 +251,9 @@ function RoleModal({ role, onClose }) {
                   </label>
                   <input
                     id="agency"
+                    name="organization"
                     type="text"
+                    autoComplete="organization"
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
                     placeholder="Agency name"
@@ -271,6 +278,7 @@ function RoleModal({ role, onClose }) {
                   </span>
                   <input
                     id="email"
+                    name="email"
                     type="email"
                     required
                     autoComplete="email"
@@ -308,6 +316,7 @@ function RoleModal({ role, onClose }) {
                   </span>
                   <input
                     id="password"
+                    name="new-password"
                     type={showPassword ? 'text' : 'password'}
                     required
                     autoComplete="new-password"

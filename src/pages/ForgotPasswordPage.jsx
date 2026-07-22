@@ -116,6 +116,7 @@ export default function ForgotPasswordPage() {
                 </span>
                 <input
                   id="email"
+                  name="email"
                   type="email"
                   required
                   autoComplete="email"
@@ -195,6 +196,7 @@ export default function ForgotPasswordPage() {
                     </span>
                     <input
                       id="email-desktop"
+                      name="email"
                       type="email"
                       required
                       autoComplete="email"

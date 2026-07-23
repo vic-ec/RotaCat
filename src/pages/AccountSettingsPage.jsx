@@ -268,6 +268,7 @@ export default function AccountSettingsPage() {
   // Appearance: colour + pattern (own account only)
   const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternType: null })
   const [colorSaving, setColorSaving] = useState(false)
+  const [surprising, setSurprising] = useState(false)
   const [colorMsg, setColorMsg] = useState(null)
   const [appearanceOpen, setAppearanceOpen] = useState(false)
   const appearanceSectionRef = useRef(null)
@@ -531,33 +532,27 @@ export default function AccountSettingsPage() {
     return (data || []).length > 0
   }
 
-  async function saveColorForm(next) {
-    setColorForm(next)
-    setColorSaving(true)
-    setColorMsg(null)
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        color_code: next.colorCode,
-        pattern_type: next.patternType,
-      })
-      .eq('id', user.id)
-    setColorSaving(false)
-    if (error) {
-      setColorMsg({ type: 'error', text: error.message })
-      return
-    }
-    refreshProfile()
-    const taken = await checkComboTaken(next.colorCode, next.patternType)
+  // Picks only stage locally — nothing is written until Save changes is
+  // clicked. Each pick still runs a read-only collision preview so the
+  // warning stays current, but mashing Surprise me! no longer fires a wave
+  // of concurrent writes that can race/slow down/error.
+  async function previewCombo(colorCode, patternType) {
+    const taken = await checkComboTaken(colorCode, patternType)
     setColorMsg(taken ? { type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' } : null)
   }
   function pickColorSwatch(hex) {
-    saveColorForm({ ...colorForm, colorCode: hex })
+    const next = { ...colorForm, colorCode: hex }
+    setColorForm(next)
+    previewCombo(next.colorCode, next.patternType)
   }
   function pickPatternType(patternType) {
-    saveColorForm({ ...colorForm, patternType })
+    const next = { ...colorForm, patternType }
+    setColorForm(next)
+    previewCombo(next.colorCode, next.patternType)
   }
   async function surpriseMe() {
+    if (surprising) return
+    setSurprising(true)
     const { data: activeProfiles } = await supabase
       .from('profiles')
       .select('id, color_code, pattern_type')
@@ -573,7 +568,26 @@ export default function AccountSettingsPage() {
       patternType = randomPatternType()
       attempts += 1
     } while (taken.has(`${colorCode}|${patternType}`) && attempts < 30)
-    saveColorForm({ colorCode, patternType })
+    setColorForm({ colorCode, patternType })
+    setSurprising(false)
+    previewCombo(colorCode, patternType)
+  }
+  async function saveAppearance() {
+    setColorSaving(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ color_code: colorForm.colorCode, pattern_type: colorForm.patternType })
+      .eq('id', user.id)
+    setColorSaving(false)
+    if (error) {
+      setColorMsg({ type: 'error', text: error.message })
+      return
+    }
+    refreshProfile()
+    const taken = await checkComboTaken(colorForm.colorCode, colorForm.patternType)
+    setColorMsg(taken
+      ? { type: 'warning', text: 'Saved — another active staff member already has this exact colour + pattern.' }
+      : { type: 'success', text: 'Saved.' })
   }
 
   // ── Password (own account only) ──────────────────────────────
@@ -870,7 +884,6 @@ export default function AccountSettingsPage() {
               onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
               className="input-field"
             />
-            <p className="mt-1 text-xs text-ink-muted">Used to keep you off shift on your birthday.</p>
           </div>
           <div>
             <label className="label-text">Mobile number</label>
@@ -1303,9 +1316,12 @@ export default function AccountSettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={surpriseMe} className="btn-secondary">
-              Surprise me!
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={saveAppearance} disabled={colorSaving} className="btn-primary">
+              {colorSaving ? 'Saving…' : 'Save changes'}
+            </button>
+            <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary">
+              {surprising ? 'Picking…' : 'Surprise me!'}
             </button>
             {colorMsg && (
               <span className={`text-xs font-medium ${

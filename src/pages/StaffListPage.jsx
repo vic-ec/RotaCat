@@ -187,6 +187,7 @@ export default function StaffListPage() {
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
+  const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
   const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
@@ -221,7 +222,7 @@ export default function StaffListPage() {
     setLoading(true)
     setError('')
 
-    const [accountsRes, pendingRes, emailsRes, requestsRes] = await Promise.all([
+    const [accountsRes, pendingRes, emailsRes, requestsRes, leaveRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('*, approver:approved_by(name, surname)')
@@ -243,6 +244,7 @@ export default function StaffListPage() {
             .eq('status', 'pending')
             .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
+      supabase.rpc('get_current_leave_profile_ids'),
     ])
 
     if (accountsRes.error) {
@@ -251,6 +253,7 @@ export default function StaffListPage() {
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
     setAccountRequests(requestsRes.data || [])
+    setLeaveProfileIds(new Set((leaveRes.data || []).map(r => r.profile_id)))
 
     const emailMap = {}
     for (const row of emailsRes.data || []) emailMap[row.id] = row.email
@@ -611,7 +614,7 @@ export default function StaffListPage() {
                               <span className="truncate text-sm font-medium text-ink">
                                 {person.name ? `${person.name} ` : ''}{person.surname}
                               </span>
-                              <StatusBadge active={person.is_active} />
+                              <StatusBadge active={person.is_active} onLeave={leaveProfileIds.has(person.id)} />
                               {person.is_admin && (
                                 <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
                                   person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
@@ -753,28 +756,32 @@ export default function StaffListPage() {
                             <td className="px-2.5 py-1.5">
                               <div className="flex items-center gap-1.5">
                                 {isAdmin ? (
-                                  <button
-                                    onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
-                                    disabled={isToggling}
-                                    title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-                                      person.is_active ? 'bg-accent' : 'bg-slate-line'
-                                    }`}
-                                  >
-                                    <span
-                                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                        person.is_active ? 'translate-x-4' : 'translate-x-0'
+                                  <>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
+                                      disabled={isToggling}
+                                      title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
+                                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                                        person.is_active ? 'bg-accent' : 'bg-slate-line'
                                       }`}
-                                    />
-                                  </button>
+                                    >
+                                      <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                          person.is_active ? 'translate-x-4' : 'translate-x-0'
+                                        }`}
+                                      />
+                                    </button>
+                                    {person.is_active && leaveProfileIds.has(person.id) && (
+                                      <span title="On leave" aria-label="On leave" role="img" className="text-sm leading-none">🏖️</span>
+                                    )}
+                                  </>
                                 ) : (
-                                  <span
-                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${person.is_active ? 'bg-success' : 'bg-flagAmber'}`}
-                                    aria-hidden="true"
-                                  />
+                                  <StatusBadge active={person.is_active} onLeave={leaveProfileIds.has(person.id)} size={14} />
                                 )}
-                                <span className={`whitespace-nowrap text-[11px] font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
-                                  {person.is_active ? 'Active' : 'Inactive'}
+                                <span className={`whitespace-nowrap text-[11px] font-medium ${
+                                  !person.is_active ? 'text-flagRed' : leaveProfileIds.has(person.id) ? 'text-ink-muted' : 'text-success'
+                                }`}>
+                                  {!person.is_active ? 'Inactive' : leaveProfileIds.has(person.id) ? 'On leave' : 'Active'}
                                 </span>
                               </div>
                             </td>

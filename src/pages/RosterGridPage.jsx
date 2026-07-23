@@ -2,6 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { contrastTextColor } from '../lib/color'
+import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -75,7 +77,7 @@ export default function RosterGridPage() {
       const [rosterRes, entriesRes, profilesRes, shiftTypesRes, phRes] = await Promise.all([
         supabase.from('roster_months').select('*').eq('id', id).single(),
         supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position', { nullsFirst: true }),
-        supabase.from('profiles').select('id, name, surname, category, color_code, contract_type').eq('is_approved', true).neq('category', 'Consultant'),
+        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type').eq('is_approved', true).neq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
       ])
@@ -453,15 +455,18 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin }) {
 
   if (!profile) return null
 
+  const bgColor = profile.color_code || '#4A90D9'
+  const patternStyle = profile.pattern_type ? patternBackgroundStyle(profile.pattern_type, bgColor, 8) : null
+
   return (
     <div
       draggable={isAdmin}
       onDragStart={isAdmin ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${
+      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
         isAdmin ? 'cursor-pointer hover:opacity-85' : ''
       } ${entry.is_manual_override ? 'ring-1 ring-flagBlue ring-offset-1' : ''}`}
-      style={{ backgroundColor: profile.color_code || '#4A90D9' }}
+      style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       {profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}

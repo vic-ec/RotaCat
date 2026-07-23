@@ -5,17 +5,19 @@ const PATTERN_SHAPES = {
   hearts: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
   stars: '<path d="M12 2l2.6 6.2L21 9l-5 4.6L17.4 20 12 16.5 6.6 20 8 13.6 3 9l6.4-.8z"/>',
   diamonds: '<path d="M12 2l6 10-6 10-6-10z"/>',
-  clubs: '<circle cx="12" cy="8" r="3.2"/><circle cx="8.8" cy="12.5" r="3.2"/><circle cx="15.2" cy="12.5" r="3.2"/><path d="M10.3 15.5h3.4l1 5.5h-5.8z"/>',
-  butterflies: '<ellipse cx="7" cy="10" rx="5" ry="4" transform="rotate(-20 7 10)"/><ellipse cx="17" cy="10" rx="5" ry="4" transform="rotate(20 17 10)"/><ellipse cx="7" cy="15" rx="4" ry="3.2" transform="rotate(20 7 15)"/><ellipse cx="17" cy="15" rx="4" ry="3.2" transform="rotate(-20 17 15)"/><rect x="11" y="7" width="2" height="12" rx="1"/>',
+  squares: '<rect x="5" y="5" width="14" height="14" rx="2"/>',
+  // Two diagonal quadrants per tile — adjacent tiles' filled corners meet to
+  // form a continuous alternating checkerboard when repeated.
+  checkerboard: '<rect x="0" y="0" width="12" height="12"/><rect x="12" y="12" width="12" height="12"/>',
 }
 
 export const PATTERN_TYPES = [
   { key: 'dots', label: 'Dots' },
-  { key: 'butterflies', label: 'Butterflies' },
   { key: 'hearts', label: 'Hearts' },
-  { key: 'clubs', label: 'Clubs' },
   { key: 'stars', label: 'Stars' },
   { key: 'diamonds', label: 'Diamonds' },
+  { key: 'checkerboard', label: 'Checkerboard' },
+  { key: 'squares', label: 'Squares' },
 ]
 
 export function randomPatternType() {

@@ -184,7 +184,7 @@ export default function GenerationConfigPage() {
       <div className="mb-6">
         <button
           onClick={() => navigate('/roster')}
-          className="mb-4 flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
+          className="sticky top-14 md:top-0 z-[5] mb-4 flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
         >
           <ChevronLeftIcon className="h-4 w-4" /> Back to rosters
         </button>

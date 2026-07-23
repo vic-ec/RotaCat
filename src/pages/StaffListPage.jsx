@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ProfileAvatar from '../components/ProfileAvatar'
+import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
 import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
 import { STAFF_QUICK_ACTIONS } from '../lib/staffQuickActions'
 
@@ -595,12 +595,13 @@ export default function StaffListPage() {
                             isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
                           }`}
                         >
-                          <ProfileAvatar profile={person} size={40} showStatus />
+                          <ProfileAvatar profile={person} size={40} />
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="truncate text-sm font-medium text-ink">
                                 {person.name ? `${person.name} ` : ''}{person.surname}
                               </span>
+                              <StatusBadge active={person.is_active} />
                               {person.is_admin && (
                                 <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
                                   person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'

@@ -8,19 +8,37 @@ function CheckIcon(props) {
   )
 }
 
-function ClosedEyeIcon(props) {
+function XIcon(props) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" d="M4 12c2.5 3 5.2 4.5 8 4.5s5.5-1.5 8-4.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
 }
 
+// Small inline active/inactive indicator — green check or red cross in a
+// colour-filled circle. Meant to sit next to a name/surname, not on the avatar.
+export function StatusBadge({ active, size = 16, className = '' }) {
+  return (
+    <span
+      className={`inline-flex flex-shrink-0 items-center justify-center rounded-full ${active ? 'bg-success' : 'bg-flagRed'} ${className}`}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={active ? 'Active' : 'Inactive'}
+    >
+      {active ? (
+        <CheckIcon className="h-2.5 w-2.5 text-white" />
+      ) : (
+        <XIcon className="h-2.5 w-2.5 text-white" />
+      )}
+    </span>
+  )
+}
+
 // Renders a profile's photo (or colour-coded initials) with a ring in their
-// identity colour (profiles.color_code), and optionally a small active/inactive
-// status badge overlapping the top-right corner. Shared between the Staff list
-// rows and the Account Settings colour/pattern preview.
-export default function ProfileAvatar({ profile, size = 40, showStatus = false, className = '' }) {
+// identity colour (profiles.color_code). Shared between the Staff list rows
+// and the Account Settings colour/pattern preview.
+export default function ProfileAvatar({ profile, size = 40, className = '' }) {
   const initials = (profile?.name?.[0] || '') + (profile?.surname?.[0] || '')
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
   const dotSize = Math.max(6, Math.round(size / 5))
@@ -31,8 +49,6 @@ export default function ProfileAvatar({ profile, size = 40, showStatus = false, 
         backgroundSize: `${dotSize}px ${dotSize}px`,
       }
     : { backgroundColor: color }
-
-  const badgeSize = Math.max(14, Math.round(size * 0.4))
 
   return (
     <div className={`relative flex-shrink-0 ${className}`} style={{ width: size, height: size }}>
@@ -50,20 +66,6 @@ export default function ProfileAvatar({ profile, size = 40, showStatus = false, 
         >
           {initials}
         </div>
-      )}
-      {showStatus && (
-        <span
-          className={`absolute -top-0.5 -right-0.5 flex items-center justify-center rounded-full ring-2 ring-canvas-raised ${
-            profile?.is_active ? 'bg-success' : 'bg-flagAmber'
-          }`}
-          style={{ width: badgeSize, height: badgeSize }}
-        >
-          {profile?.is_active ? (
-            <CheckIcon className="h-2.5 w-2.5 text-white" />
-          ) : (
-            <ClosedEyeIcon className="h-2.5 w-2.5 text-white" />
-          )}
-        </span>
       )}
     </div>
   )

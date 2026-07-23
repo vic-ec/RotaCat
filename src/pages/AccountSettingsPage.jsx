@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef } from 'react'
 import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
@@ -139,13 +139,26 @@ function ChevronDownIcon(props) {
 }
 
 // Collapsible section — keeps the settings page scannable instead of one long scroll.
-function AccordionSection({ title, subtitle, defaultOpen = false, danger = false, children }) {
-  const [open, setOpen] = useState(defaultOpen)
+// Supports an optional externally-controlled open state (e.g. "Change appearance"
+// jumping straight to the Appearance section) alongside the default uncontrolled mode.
+const AccordionSection = forwardRef(function AccordionSection(
+  { title, subtitle, defaultOpen = false, danger = false, children, open: controlledOpen, onOpenChange },
+  ref
+) {
+  const [internalOpen, setInternalOpen] = useState(defaultOpen)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+
+  function toggle() {
+    if (isControlled) onOpenChange?.(!open)
+    else setInternalOpen(o => !o)
+  }
+
   return (
-    <section className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
+    <section ref={ref} className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
       >
@@ -153,7 +166,7 @@ function AccordionSection({ title, subtitle, defaultOpen = false, danger = false
           <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
             {title}
           </h2>
-          {subtitle && <p className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</p>}
+          {subtitle && <div className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</div>}
         </div>
         <ChevronDownIcon
           className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
@@ -162,7 +175,7 @@ function AccordionSection({ title, subtitle, defaultOpen = false, danger = false
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
     </section>
   )
-}
+})
 
 // ── Avatar crop modal ────────────────────────────────────────
 function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
@@ -252,10 +265,17 @@ export default function AccountSettingsPage() {
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
-  // Appearance: colour + dot pattern (own account only — purely cosmetic, no scheduling impact)
+  // Appearance: colour + pattern (own account only)
   const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternType: null })
   const [colorSaving, setColorSaving] = useState(false)
   const [colorMsg, setColorMsg] = useState(null)
+  const [appearanceOpen, setAppearanceOpen] = useState(false)
+  const appearanceSectionRef = useRef(null)
+
+  function jumpToAppearance() {
+    setAppearanceOpen(true)
+    appearanceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
@@ -730,30 +750,38 @@ export default function AccountSettingsPage() {
       )}
 
       {/* ── Profile ───────────────────────────────────────────── */}
-      <AccordionSection title="Profile" defaultOpen>
-        <div className="mb-5 flex items-center gap-4">
-          <div className="relative">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt=""
-                className="h-16 w-16 rounded-full object-cover ring-1 ring-slate-line"
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-light text-lg font-medium text-accent-dark ring-1 ring-slate-line">
-                {(profile.name?.[0] || '') + (profile.surname?.[0] || '')}
-              </div>
+      <AccordionSection
+        title="Profile"
+        defaultOpen
+        subtitle={
+          <span className="inline-flex items-center gap-1.5">
+            {profile.avatar_url && (
+              <img src={profile.avatar_url} alt="" className="h-4 w-4 flex-shrink-0 rounded-full object-cover" />
             )}
-          </div>
+            <ProfileAvatar profile={{ ...profile, avatar_url: null }} size={16} />
+          </span>
+        }
+      >
+        <div className="mb-5 flex items-center gap-4">
+          <ProfileAvatar profile={profile} size={64} />
           {isOwnAccount && (
             <div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="btn-secondary px-3 py-1.5 text-xs"
-              >
-                Change photo
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Change photo
+                </button>
+                <button
+                  type="button"
+                  onClick={jumpToAppearance}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Change appearance
+                </button>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1134,7 +1162,13 @@ export default function AccountSettingsPage() {
 
       {/* ── Appearance: colour + pattern (own account only) ────── */}
       {isOwnAccount && (
-        <AccordionSection title="Appearance" subtitle={colorSaving ? 'Saving…' : undefined}>
+        <AccordionSection
+          ref={appearanceSectionRef}
+          title="Appearance"
+          subtitle={colorSaving ? 'Saving…' : undefined}
+          open={appearanceOpen}
+          onOpenChange={setAppearanceOpen}
+        >
           <div className="mb-5 flex items-center gap-4">
             <ProfileAvatar
               profile={{
@@ -1148,7 +1182,6 @@ export default function AccountSettingsPage() {
             />
             <div>
               <p className="text-sm font-medium text-ink">Identity colour</p>
-              <p className="text-xs text-ink-muted">Shown on the roster grid and staff list — purely cosmetic.</p>
             </div>
           </div>
 

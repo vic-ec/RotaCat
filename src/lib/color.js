@@ -7,6 +7,10 @@ export const AVATAR_COLOR_PALETTE = [
   '#16A085', '#636E72', '#A29BFE', '#FF7675', '#55EFC4', '#FAB1A0',
   '#FD79A8', '#F9CA24', '#F0932B', '#EB4D4B', '#6AB04C', '#22A6B3',
   '#4834D4', '#7ED6DF',
+  '#F368E0', '#FF9F43', '#EE5A24', '#0FB9B1', '#10AC84', '#5F27CD',
+  '#341F97', '#C0392B', '#8E44AD', '#2C3E50', '#27AE60', '#2980B9',
+  '#D35400', '#FFC312', '#B33771', '#182C61', '#12CBC4', '#EA2027',
+  '#5758BB', '#009432',
 ]
 
 export const NEUTRAL_AVATAR_COLOR = '#CBD5E1'

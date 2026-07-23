@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
+import ProfileAvatar from '../components/ProfileAvatar'
 
 // ── Nav sets per role ──────────────────────────────────────
 // Each role sees a tailored nav — preserving the original
@@ -59,28 +60,15 @@ const ROLE_CATEGORY_LABEL = {
 // page can offer a "Back to X" link even on a fresh page load.
 export const LAST_PATH_KEY = 'rotacat:lastNonAccountPath'
 
-// Profile picture if set, otherwise initials in the doctor's roster colour.
-function UserAvatar({ profile, className }) {
+// Profile picture if set, otherwise initials — shown with the doctor's
+// identity colour + pattern (matches the Staff list / Account Settings avatar).
+function UserAvatar({ profile, size = 40 }) {
   if (!profile) return null
-  const initials = (profile.name?.[0] || '') + (profile.surname?.[0] || '')
-  return profile.avatar_url ? (
-    <img
-      src={profile.avatar_url}
-      alt=""
-      className={`flex-shrink-0 rounded-full object-cover ring-1 ring-slate-line ${className}`}
-    />
-  ) : (
-    <div
-      className={`flex flex-shrink-0 items-center justify-center rounded-full font-medium text-white ring-1 ring-slate-line ${className}`}
-      style={{ backgroundColor: profile.color_code || '#4A90D9' }}
-    >
-      {initials}
-    </div>
-  )
+  return <ProfileAvatar profile={profile} size={size} />
 }
 
 // Mobile top-bar avatar: hover shows a "Logged in as X" tooltip; tap toggles it (no hover on touch).
-function MobileAvatarWithTooltip({ profile, className }) {
+function MobileAvatarWithTooltip({ profile, size }) {
   const [show, setShow] = useState(false)
   if (!profile) return null
   return (
@@ -92,7 +80,7 @@ function MobileAvatarWithTooltip({ profile, className }) {
         aria-label={`Logged in as ${profile.name} ${profile.surname}`}
         className="block"
       >
-        <UserAvatar profile={profile} className={className} />
+        <UserAvatar profile={profile} size={size} />
       </button>
       <div
         className={`pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
@@ -155,7 +143,7 @@ export default function AppLayout() {
       <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
-            <UserAvatar profile={profile} className="h-10 w-10 text-sm" />
+            <UserAvatar profile={profile} size={40} />
             <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
@@ -207,7 +195,7 @@ export default function AppLayout() {
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
-          <MobileAvatarWithTooltip profile={profile} className="h-8 w-8 text-xs" />
+          <MobileAvatarWithTooltip profile={profile} size={32} />
           <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
         </div>
         <button

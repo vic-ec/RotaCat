@@ -9,7 +9,13 @@ const PATTERN_SHAPES = {
   // Two diagonal quadrants per tile — adjacent tiles' filled corners meet to
   // form a continuous alternating checkerboard when repeated.
   checkerboard: '<rect x="0" y="0" width="12" height="12"/><rect x="12" y="12" width="12" height="12"/>',
+  triangles: '<path d="M12 4l8 16H4z"/>',
+  // Stroked, not filled — see STROKE_PATTERNS below.
+  spirals: '<path d="M12 12.5c1 0 1.5-.8 1.5-1.7 0-1.4-1.2-2.6-2.8-2.6-2 0-3.7 1.7-3.7 3.9 0 2.6 2.2 4.7 5 4.7 3.2 0 5.8-2.6 5.8-6 0-3.9-3.3-7-7.4-7"/>',
 }
+
+// Shapes that read better as an outline than a filled silhouette.
+const STROKE_PATTERNS = new Set(['spirals'])
 
 export const PATTERN_TYPES = [
   { key: 'dots', label: 'Dots' },
@@ -18,6 +24,8 @@ export const PATTERN_TYPES = [
   { key: 'diamonds', label: 'Diamonds' },
   { key: 'checkerboard', label: 'Checkerboard' },
   { key: 'squares', label: 'Squares' },
+  { key: 'spirals', label: 'Spirals' },
+  { key: 'triangles', label: 'Triangles' },
 ]
 
 export function randomPatternType() {
@@ -76,7 +84,10 @@ export function patternBackgroundStyle(patternType, colorCode, tileSize = 16) {
   const shape = PATTERN_SHAPES[patternType]
   if (!shape) return null
   const tint = patternTintColor(colorCode)
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="${tint}" fill-opacity="0.45">${shape}</g></svg>`
+  const g = STROKE_PATTERNS.has(patternType)
+    ? `<g fill="none" stroke="${tint}" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round">${shape}</g>`
+    : `<g fill="${tint}" fill-opacity="0.45">${shape}</g>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${g}</svg>`
   return {
     backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
     backgroundSize: `${tileSize}px ${tileSize}px`,

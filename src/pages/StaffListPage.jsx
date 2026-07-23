@@ -449,7 +449,78 @@ export default function StaffListPage() {
               <p className="text-sm text-ink-muted">No accounts match these filters.</p>
             </div>
           ) : (
-            <div className="card overflow-x-auto">
+            <>
+            {/* Mobile: stacked rows. Desktop/tablet: full table (below). */}
+            <div className="card divide-y divide-slate-line overflow-hidden md:hidden">
+              {filteredAccounts.map(person => {
+                const isToggling = togglingId === person.id
+                const initials = (person.name?.[0] || '') + (person.surname?.[0] || '')
+                return (
+                  <div
+                    key={person.id}
+                    onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                    className={`flex items-center gap-3 px-4 py-3 ${!person.is_active ? 'opacity-50' : ''} ${
+                      isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
+                    }`}
+                  >
+                    {person.avatar_url ? (
+                      <img
+                        src={person.avatar_url}
+                        alt=""
+                        className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-1 ring-slate-line"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent-light text-xs font-medium text-accent-dark ring-1 ring-slate-line">
+                        {initials}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="truncate text-sm font-medium text-ink">
+                          {person.name ? `${person.name} ` : ''}{person.surname}
+                        </span>
+                        <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                          {ROLE_LABELS[person.role] || person.role}
+                        </span>
+                        {person.is_admin && (
+                          <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
+                            {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-xs">
+                        <span className="text-ink-muted">
+                          {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
+                        </span>
+                        <span className="text-slate-line" aria-hidden="true">·</span>
+                        <span className={`font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
+                          {person.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
+                        disabled={isToggling}
+                        title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
+                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                          person.is_active ? 'bg-accent' : 'bg-slate-line'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                            person.is_active ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    )}
+                    {isAdmin && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="card hidden overflow-x-auto md:block">
               <table className="w-full min-w-[920px] border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-line bg-canvas-sunken text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
@@ -565,6 +636,7 @@ export default function StaffListPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       )}
@@ -753,5 +825,13 @@ export default function StaffListPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function ChevronRightIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
   )
 }

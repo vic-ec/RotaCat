@@ -74,8 +74,8 @@ function hslToHex(h, s, l) {
 export function patternTintColor(hex) {
   if (!hex || hex.length < 7) return '#FFFFFF'
   const { h, s, l } = hexToHsl(hex)
-  const newL = l > 55 ? Math.max(5, l - 22) : Math.min(95, l + 22)
-  return hslToHex(h, Math.max(s, 25), newL)
+  const newL = l > 55 ? Math.max(5, l - 34) : Math.min(95, l + 34)
+  return hslToHex(h, Math.max(s, 35), newL)
 }
 
 // CSS background-* properties that tile the given pattern type over `colorCode`,
@@ -85,8 +85,8 @@ export function patternBackgroundStyle(patternType, colorCode, tileSize = 16) {
   if (!shape) return null
   const tint = patternTintColor(colorCode)
   const g = STROKE_PATTERNS.has(patternType)
-    ? `<g fill="none" stroke="${tint}" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round">${shape}</g>`
-    : `<g fill="${tint}" fill-opacity="0.45">${shape}</g>`
+    ? `<g fill="none" stroke="${tint}" stroke-opacity="0.85" stroke-width="2" stroke-linecap="round">${shape}</g>`
+    : `<g fill="${tint}" fill-opacity="0.75">${shape}</g>`
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${g}</svg>`
   return {
     backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,

@@ -68,12 +68,30 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
 // (at a smaller tile size, since the ring is a much narrower band) — a photo
 // covers the whole circle, so the ring is the only place identity colour and
 // pattern can still show through.
+// First name initial, plus one initial per word of the (possibly multi-part)
+// surname — "Liza van Zyl" -> "LVZ", "Carli Du Toit" -> "CDT".
+function computeInitials(profile) {
+  const first = profile?.name?.[0] || ''
+  const surnameInitials = (profile?.surname || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => word[0])
+    .join('')
+  return (first + surnameInitials).toUpperCase()
+}
+
 export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true }) {
-  const initials = (profile?.name?.[0] || '') + (profile?.surname?.[0] || '')
+  const initials = computeInitials(profile)
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
 
   if (profile?.avatar_url) {
-    const ringWidth = Math.max(3, Math.round(size * 0.12))
+    // Ring is 1px thinner than before, with the freed-up space going to a
+    // thin canvas-coloured border around the photo — keeps the outer size
+    // identical to the no-photo avatar while making the photo read clearly
+    // against its own ring instead of blending straight into it.
+    const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
+    const photoBorderWidth = Math.max(1, Math.round(size * 0.035))
     const patternStyle = profile?.pattern_type
       ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
       : null
@@ -82,7 +100,10 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
         className={`relative flex-shrink-0 rounded-full ${className}`}
         style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
       >
-        <div className="h-full w-full overflow-hidden rounded-full">
+        <div
+          className="h-full w-full overflow-hidden rounded-full border-canvas-raised"
+          style={{ borderWidth: photoBorderWidth }}
+        >
           <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
         </div>
       </div>
@@ -101,7 +122,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
         height: size,
         backgroundColor: color,
         color: contrastTextColor(color),
-        fontSize: Math.max(10, Math.round(size * 0.32)),
+        fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
         ...patternStyle,
       }}
     >

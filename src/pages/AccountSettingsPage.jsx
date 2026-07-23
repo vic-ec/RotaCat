@@ -86,6 +86,16 @@ const NOTIFICATION_ORDER = [
   'reminder', 'general',
 ]
 
+// Category-level grouping shown by default; individual events move under "Advanced".
+const NOTIFICATION_GROUPS = [
+  { key: 'roster',  label: 'Roster',            keys: ['roster_published'] },
+  { key: 'leave',   label: 'Leave',              keys: ['leave_approved', 'leave_rejected'] },
+  { key: 'swaps',   label: 'Swaps',              keys: ['swap_request', 'swap_accepted', 'swap_rejected', 'swap_admin_approved'] },
+  { key: 'shifts',  label: 'Open shifts',        keys: ['shift_claimed', 'shift_cancelled'] },
+  { key: 'account', label: 'Account',            keys: ['account_approved', 'account_rejected'] },
+  { key: 'general', label: 'Reminders & general', keys: ['reminder', 'general'] },
+]
+
 const REQUEST_STATUS_BADGE = {
   pending:  'bg-flagAmber-bg text-flagAmber',
   approved: 'bg-success-bg text-success',
@@ -114,6 +124,40 @@ function Toggle({ checked, onChange, disabled }) {
         }`}
       />
     </button>
+  )
+}
+
+function ChevronDownIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+// Collapsible section — keeps the settings page scannable instead of one long scroll.
+function AccordionSection({ title, subtitle, defaultOpen = false, danger = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <section className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <div className="min-w-0">
+          <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
+            {title}
+          </h2>
+          {subtitle && <p className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</p>}
+        </div>
+        <ChevronDownIcon
+          className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
+    </section>
   )
 }
 
@@ -203,6 +247,7 @@ export default function AccountSettingsPage() {
 
   const [prefs, setPrefs] = useState({})
   const [prefsSaving, setPrefsSaving] = useState(false)
+  const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
@@ -400,9 +445,12 @@ export default function AccountSettingsPage() {
   }
 
   // ── Notification preferences (own account only) ─────────────
-  async function togglePref(key, value) {
+  // Accepts a batch of keys so "all notifications" / category-level toggles
+  // can flip several at once in a single save.
+  async function togglePrefs(keys, value) {
     const prev = prefs
-    const next = { ...prefs, [key]: value }
+    const next = { ...prefs }
+    for (const key of keys) next[key] = value
     setPrefs(next)
     setPrefsSaving(true)
     const { error } = await supabase
@@ -583,6 +631,10 @@ export default function AccountSettingsPage() {
 
   const displayEmail = isOwnAccount ? user.email : targetEmail
 
+  const visibleNotificationKeys = NOTIFICATION_ORDER.filter(key => key in prefs)
+  const allNotificationsOn = visibleNotificationKeys.length > 0 &&
+    visibleNotificationKeys.every(key => prefs[key] !== false)
+
   return (
     <div className="mx-auto max-w-2xl pb-12">
       {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
@@ -612,9 +664,7 @@ export default function AccountSettingsPage() {
       )}
 
       {/* ── Profile ───────────────────────────────────────────── */}
-      <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Profile</h2>
-
+      <AccordionSection title="Profile" defaultOpen>
         <div className="mb-5 flex items-center gap-4">
           <div className="relative">
             {profile.avatar_url ? (
@@ -691,11 +741,10 @@ export default function AccountSettingsPage() {
             )}
           </div>
         </form>
-      </section>
+      </AccordionSection>
 
       {/* ── Email ───────────────────────────────────────────── */}
-      <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Email address</h2>
+      <AccordionSection title="Email address" subtitle={displayEmail || undefined}>
         {isOwnAccount ? (
           <form onSubmit={changeEmail} className="space-y-3">
             <div>
@@ -729,12 +778,10 @@ export default function AccountSettingsPage() {
             <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
           </div>
         )}
-      </section>
+      </AccordionSection>
 
       {/* ── Role, category & permissions ────────────────────── */}
-      <section className="card mb-6 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Role, category & permissions</h2>
-
+      <AccordionSection title="Role, category & permissions">
         {isAdmin ? (
           <div className="space-y-4">
             <div>
@@ -927,30 +974,57 @@ export default function AccountSettingsPage() {
             )}
           </div>
         )}
-      </section>
+      </AccordionSection>
 
       {/* ── Notification preferences (own account only) ─────── */}
       {isOwnAccount && (
-        <section className="card mb-6 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Notifications</h2>
-            {prefsSaving && <span className="text-xs text-ink-muted">Saving…</span>}
+        <AccordionSection title="Notifications" subtitle={prefsSaving ? 'Saving…' : undefined}>
+          <div className="flex items-center justify-between border-b border-slate-line pb-3">
+            <div>
+              <p className="text-sm font-medium text-ink">All notifications</p>
+              <p className="text-xs text-ink-muted">Turn every notification on or off at once.</p>
+            </div>
+            <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />
           </div>
+
           <div className="divide-y divide-slate-line">
-            {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
-              <div key={key} className="flex items-center justify-between py-2.5">
-                <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
-                <Toggle checked={prefs[key] !== false} onChange={v => togglePref(key, v)} />
-              </div>
-            ))}
+            {NOTIFICATION_GROUPS.map(group => {
+              const visibleKeys = group.keys.filter(key => key in prefs)
+              if (visibleKeys.length === 0) return null
+              const groupOn = visibleKeys.every(key => prefs[key] !== false)
+              return (
+                <div key={group.key} className="flex items-center justify-between py-3">
+                  <span className="text-sm text-ink">{group.label}</span>
+                  <Toggle checked={groupOn} onChange={v => togglePrefs(visibleKeys, v)} />
+                </div>
+              )
+            })}
           </div>
-        </section>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvancedNotifications(s => !s)}
+            className="mt-3 text-xs font-medium text-accent hover:text-accent-dark"
+          >
+            {showAdvancedNotifications ? 'Hide advanced settings' : 'Show advanced settings'}
+          </button>
+
+          {showAdvancedNotifications && (
+            <div className="mt-2 divide-y divide-slate-line border-t border-slate-line">
+              {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
+                <div key={key} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
+                  <Toggle checked={prefs[key] !== false} onChange={v => togglePrefs([key], v)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </AccordionSection>
       )}
 
       {/* ── Change password (own account only) ──────────────── */}
       {isOwnAccount && (
-        <section className="card mb-6 p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Change password</h2>
+        <AccordionSection title="Change password">
           <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
             {PASSWORD_HINT}
           </div>
@@ -996,13 +1070,12 @@ export default function AccountSettingsPage() {
               )}
             </div>
           </form>
-        </section>
+        </AccordionSection>
       )}
 
       {/* ── Request history (own account only) ───────────────── */}
       {isOwnAccount && myRequests.length > 0 && (
-        <section className="card mb-6 p-5">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">Your requests</h2>
+        <AccordionSection title="Your requests" subtitle={`${myRequests.length} submitted`}>
           <div className="divide-y divide-slate-line">
             {myRequests.map(r => (
               <div key={r.id} className="flex items-center justify-between py-2.5 text-sm">
@@ -1017,13 +1090,12 @@ export default function AccountSettingsPage() {
               </div>
             ))}
           </div>
-        </section>
+        </AccordionSection>
       )}
 
       {/* ── Danger zone (own account only) ───────────────────── */}
       {isOwnAccount && (
-        <section className="card border-flagRed/30 p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-flagRed">Danger zone</h2>
+        <AccordionSection title="Danger zone" danger>
           {pendingDeletion ? (
             <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
               Your account deletion request is pending admin review.
@@ -1054,7 +1126,7 @@ export default function AccountSettingsPage() {
               Request account deletion
             </button>
           )}
-        </section>
+        </AccordionSection>
       )}
     </div>
   )

@@ -931,12 +931,18 @@ export default function AccountSettingsPage() {
           </div>
           <div>
             <label className="label-text">Birthday</label>
-            <input
-              type="date"
-              value={form.birthday}
-              onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
-              className="input-field"
-            />
+            {/* iOS Safari can render the native date control wider than its box
+                regardless of CSS width — clip it inside a plain wrapper div
+                (which reliably obeys width/overflow) instead of styling the
+                native input's own box directly. */}
+            <div className="w-full overflow-hidden rounded border border-slate-line bg-canvas-raised focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
+              <input
+                type="date"
+                value={form.birthday}
+                onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
+                className="w-full max-w-full border-0 bg-transparent px-3 py-2.5 text-sm text-ink focus:outline-none"
+              />
+            </div>
           </div>
           <div>
             <label className="label-text">Mobile number</label>

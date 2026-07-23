@@ -453,8 +453,12 @@ export default function StaffListPage() {
             {/* Mobile: stacked rows. Desktop/tablet: full table (below). */}
             <div className="card divide-y divide-slate-line overflow-hidden md:hidden">
               {filteredAccounts.map(person => {
-                const isToggling = togglingId === person.id
                 const initials = (person.name?.[0] || '') + (person.surname?.[0] || '')
+                // Doctors show clinical category (role is implied); locums/clerks show role instead.
+                const secondaryLabel = person.role === 'doctor'
+                  ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                  : (ROLE_LABELS[person.role] || person.role)
+                const avatarRing = person.is_active ? 'ring-success' : 'ring-flagAmber'
                 return (
                   <div
                     key={person.id}
@@ -467,10 +471,10 @@ export default function StaffListPage() {
                       <img
                         src={person.avatar_url}
                         alt=""
-                        className="h-10 w-10 flex-shrink-0 rounded-full object-cover ring-1 ring-slate-line"
+                        className={`h-10 w-10 flex-shrink-0 rounded-full object-cover ring-2 ${avatarRing}`}
                       />
                     ) : (
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent-light text-xs font-medium text-accent-dark ring-1 ring-slate-line">
+                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent-light text-xs font-medium text-accent-dark ring-2 ${avatarRing}`}>
                         {initials}
                       </div>
                     )}
@@ -479,41 +483,20 @@ export default function StaffListPage() {
                         <span className="truncate text-sm font-medium text-ink">
                           {person.name ? `${person.name} ` : ''}{person.surname}
                         </span>
-                        <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                          {ROLE_LABELS[person.role] || person.role}
-                        </span>
                         {person.is_admin && (
-                          <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
+                          <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
+                            person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
+                          }`}>
                             {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                           </span>
                         )}
                       </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs">
-                        <span className="text-ink-muted">
-                          {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
-                        </span>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
+                        <span>{secondaryLabel}</span>
                         <span className="text-slate-line" aria-hidden="true">·</span>
-                        <span className={`font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
-                          {person.is_active ? 'Active' : 'Inactive'}
-                        </span>
+                        <span>{person.phone || '—'}</span>
                       </div>
                     </div>
-                    {isAdmin && (
-                      <button
-                        onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
-                        disabled={isToggling}
-                        title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-                          person.is_active ? 'bg-accent' : 'bg-slate-line'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                            person.is_active ? 'translate-x-4' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    )}
                     {isAdmin && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
                   </div>
                 )

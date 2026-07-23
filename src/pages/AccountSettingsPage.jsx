@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import { LAST_PATH_KEY } from '../components/AppLayout'
+import ProfileAvatar from '../components/ProfileAvatar'
+import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColorPair } from '../lib/color'
 
 // Maps a route path to the nav label shown for it, for the "Back to X" link
 function labelForPath(pathname) {
@@ -249,6 +251,11 @@ export default function AccountSettingsPage() {
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
+  // Appearance: colour + dot pattern (own account only — purely cosmetic, no scheduling impact)
+  const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternDotColor: AVATAR_COLOR_PALETTE[0], hasPattern: false })
+  const [colorSaving, setColorSaving] = useState(false)
+  const [colorMsg, setColorMsg] = useState(null)
+
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
@@ -314,6 +321,11 @@ export default function AccountSettingsPage() {
     setAdminCategory(profile.category || '')
     setAdminIsAdmin(profile.is_admin === true)
     setAdminIsActive(profile.is_active !== false)
+    setColorForm({
+      colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR,
+      patternDotColor: profile.pattern_dot_color || AVATAR_COLOR_PALETTE[0],
+      hasPattern: profile.has_pattern === true,
+    })
   }, [profile])
 
   useEffect(() => {
@@ -464,6 +476,37 @@ export default function AccountSettingsPage() {
       setPrefs(prev)
       alert('Could not save notification preference: ' + error.message)
     }
+  }
+
+  // ── Appearance: colour + dot pattern (own account only) ─────
+  async function saveColorForm(next) {
+    setColorForm(next)
+    setColorSaving(true)
+    setColorMsg(null)
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        color_code: next.colorCode,
+        pattern_dot_color: next.patternDotColor,
+        has_pattern: next.hasPattern,
+      })
+      .eq('id', user.id)
+    setColorSaving(false)
+    if (error) {
+      setColorMsg({ type: 'error', text: error.message })
+    } else {
+      refreshProfile()
+    }
+  }
+  function pickColorSwatch(hex) {
+    saveColorForm({ ...colorForm, colorCode: hex })
+  }
+  function toggleHasPattern(value) {
+    saveColorForm({ ...colorForm, hasPattern: value })
+  }
+  function generateColors() {
+    const { colorCode, patternDotColor } = randomAvatarColorPair()
+    saveColorForm({ ...colorForm, colorCode, patternDotColor })
   }
 
   // ── Password (own account only) ──────────────────────────────
@@ -745,6 +788,66 @@ export default function AccountSettingsPage() {
           </div>
         </form>
       </AccordionSection>
+
+      {/* ── Appearance: colour + dot pattern (own account only) ── */}
+      {isOwnAccount && (
+        <AccordionSection title="Appearance" subtitle={colorSaving ? 'Saving…' : undefined}>
+          <div className="mb-5 flex items-center gap-4">
+            <ProfileAvatar
+              profile={{
+                name: profile.name,
+                surname: profile.surname,
+                avatar_url: profile.avatar_url,
+                color_code: colorForm.colorCode,
+                pattern_dot_color: colorForm.patternDotColor,
+                has_pattern: colorForm.hasPattern,
+              }}
+              size={64}
+            />
+            <div>
+              <p className="text-sm font-medium text-ink">Identity colour</p>
+              <p className="text-xs text-ink-muted">Shown on the roster grid and staff list — purely cosmetic.</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="label-text">Colour</label>
+            <div className="flex flex-wrap gap-2">
+              {AVATAR_COLOR_PALETTE.map(hex => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => pickColorSwatch(hex)}
+                  aria-label={`Choose ${hex}`}
+                  className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
+                    colorForm.colorCode === hex ? 'ring-ink' : 'ring-transparent'
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-line bg-canvas-sunken p-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Dot pattern</p>
+              <p className="text-xs text-ink-muted">Off shows a plain solid colour instead.</p>
+            </div>
+            <Toggle checked={colorForm.hasPattern} onChange={toggleHasPattern} />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={generateColors} className="btn-secondary">
+              Generate
+            </button>
+            {colorMsg && (
+              <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                {colorMsg.text}
+              </span>
+            )}
+          </div>
+        </AccordionSection>
+      )}
 
       {/* ── Email ───────────────────────────────────────────── */}
       <AccordionSection title="Email address" subtitle={displayEmail || undefined}>

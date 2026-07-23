@@ -260,6 +260,17 @@ export default function AccountSettingsPage() {
   const [cropSrc, setCropSrc] = useState(null) // object URL while cropping
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
+  const photoMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!photoMenuOpen) return
+    function onClickOutside(e) {
+      if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setPhotoMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [photoMenuOpen])
 
   const [prefs, setPrefs] = useState({})
   const [prefsSaving, setPrefsSaving] = useState(false)
@@ -495,6 +506,22 @@ export default function AccountSettingsPage() {
     }
   }
 
+  async function deleteAvatar() {
+    setUploadingAvatar(true)
+    setAvatarError('')
+    await supabase.storage.from('avatars').remove([`${user.id}/avatar.jpg`])
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: null })
+      .eq('id', user.id)
+    setUploadingAvatar(false)
+    if (error) {
+      setAvatarError(error.message)
+      return
+    }
+    refreshProfile()
+  }
+
   // ── Notification preferences (own account only) ─────────────
   // Accepts a batch of keys so "all notifications" / category-level toggles
   // can flip several at once in a single save.
@@ -532,10 +559,10 @@ export default function AccountSettingsPage() {
     return (data || []).length > 0
   }
 
-  // Picks only stage locally — nothing is written until Save changes is
-  // clicked. Each pick still runs a read-only collision preview so the
-  // warning stays current, but mashing Surprise me! no longer fires a wave
-  // of concurrent writes that can race/slow down/error.
+  // Picks only stage locally — nothing is written until Update is clicked.
+  // Each pick still runs a read-only collision preview so the warning stays
+  // current, but mashing Surprise me! no longer fires a wave of concurrent
+  // writes that can race/slow down/error.
   async function previewCombo(colorCode, patternType) {
     const taken = await checkComboTaken(colorCode, patternType)
     setColorMsg(taken ? { type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' } : null)
@@ -817,7 +844,11 @@ export default function AccountSettingsPage() {
         subtitle={
           profile.avatar_url ? (
             <span className="inline-flex items-center gap-1.5">
-              <img src={profile.avatar_url} alt="" className="h-[18px] w-[18px] flex-shrink-0 rounded-full object-cover" />
+              <img
+                src={profile.avatar_url}
+                alt=""
+                className="h-[18px] w-[18px] flex-shrink-0 rounded-full border border-canvas-raised object-cover"
+              />
               <ProfileAvatar profile={{ ...profile, avatar_url: null }} size={18} showInitials={false} />
             </span>
           ) : (
@@ -830,13 +861,35 @@ export default function AccountSettingsPage() {
           {isOwnAccount && (
             <div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-secondary px-3 py-1.5 text-xs"
-                >
-                  Change photo
-                </button>
+                <div className="relative" ref={photoMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoMenuOpen(o => !o)}
+                    className="btn-secondary px-3 py-1.5 text-xs"
+                  >
+                    Change picture
+                  </button>
+                  {photoMenuOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                      <button
+                        type="button"
+                        onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
+                        className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-canvas-sunken"
+                      >
+                        Upload photo
+                      </button>
+                      {profile.avatar_url && (
+                        <button
+                          type="button"
+                          onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
+                          className="block w-full px-3 py-2 text-left text-xs text-flagRed hover:bg-flagRed-bg"
+                        >
+                          Delete photo
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={jumpToAppearance}
@@ -1265,7 +1318,7 @@ export default function AccountSettingsPage() {
               size={64}
             />
             <div>
-              <p className="text-sm font-medium text-ink">Identity colour</p>
+              <p className="text-sm font-medium text-ink">Profile pattern</p>
             </div>
           </div>
 
@@ -1318,7 +1371,7 @@ export default function AccountSettingsPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={saveAppearance} disabled={colorSaving} className="btn-primary">
-              {colorSaving ? 'Saving…' : 'Save changes'}
+              {colorSaving ? 'Saving…' : 'Update'}
             </button>
             <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary">
               {surprising ? 'Picking…' : 'Surprise me!'}

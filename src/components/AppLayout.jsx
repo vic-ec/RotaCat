@@ -219,7 +219,7 @@ export default function AppLayout() {
       </div>
 
       {/* Bottom nav — mobile, primary navigation only */}
-      <nav className="fixed inset-x-0 bottom-0 flex border-t border-accent/50 bg-canvas-raised md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

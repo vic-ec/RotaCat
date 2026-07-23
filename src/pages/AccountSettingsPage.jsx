@@ -249,7 +249,7 @@ export default function AccountSettingsPage() {
 
   const profile = isOwnAccount ? myProfile : targetProfile
 
-  const [form, setForm] = useState({ name: '', surname: '', phone: '' })
+  const [form, setForm] = useState({ name: '', surname: '', birthday: '', phone: '' })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
 
@@ -337,6 +337,7 @@ export default function AccountSettingsPage() {
     setForm({
       name: profile.name || '',
       surname: profile.surname || '',
+      birthday: profile.birthday || '',
       phone: profile.phone || '',
     })
     setPrefs(profile.notification_prefs || {})
@@ -391,7 +392,12 @@ export default function AccountSettingsPage() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ name: form.name.trim(), surname: form.surname.trim(), phone: form.phone.trim() || null })
+      .update({
+        name: form.name.trim(),
+        surname: form.surname.trim(),
+        birthday: form.birthday || null,
+        phone: form.phone.trim() || null,
+      })
       .eq('id', targetId)
 
     setSavingProfile(false)
@@ -501,6 +507,22 @@ export default function AccountSettingsPage() {
   }
 
   // ── Appearance: colour + pattern (own account only) ──────────
+  // Checks whether another *active* profile already has this exact combo —
+  // an inactive profile's combo is implicitly "recycled" since it's excluded
+  // here. Manual picks just get a heads-up (cosmetic, not blocking); Surprise
+  // me actively avoids collisions instead since there's no cost to retrying.
+  async function checkComboTaken(colorCode, patternType) {
+    let query = supabase
+      .from('profiles')
+      .select('id')
+      .eq('is_active', true)
+      .eq('color_code', colorCode)
+      .neq('id', user.id)
+    query = patternType ? query.eq('pattern_type', patternType) : query.is('pattern_type', null)
+    const { data } = await query
+    return (data || []).length > 0
+  }
+
   async function saveColorForm(next) {
     setColorForm(next)
     setColorSaving(true)
@@ -515,9 +537,11 @@ export default function AccountSettingsPage() {
     setColorSaving(false)
     if (error) {
       setColorMsg({ type: 'error', text: error.message })
-    } else {
-      refreshProfile()
+      return
     }
+    refreshProfile()
+    const taken = await checkComboTaken(next.colorCode, next.patternType)
+    setColorMsg(taken ? { type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' } : null)
   }
   function pickColorSwatch(hex) {
     saveColorForm({ ...colorForm, colorCode: hex })
@@ -525,8 +549,23 @@ export default function AccountSettingsPage() {
   function pickPatternType(patternType) {
     saveColorForm({ ...colorForm, patternType })
   }
-  function surpriseMe() {
-    saveColorForm({ colorCode: randomAvatarColor(), patternType: randomPatternType() })
+  async function surpriseMe() {
+    const { data: activeProfiles } = await supabase
+      .from('profiles')
+      .select('id, color_code, pattern_type')
+      .eq('is_active', true)
+    const taken = new Set(
+      (activeProfiles || [])
+        .filter(p => p.id !== user.id)
+        .map(p => `${p.color_code}|${p.pattern_type || ''}`)
+    )
+    let colorCode, patternType, attempts = 0
+    do {
+      colorCode = randomAvatarColor()
+      patternType = randomPatternType()
+      attempts += 1
+    } while (taken.has(`${colorCode}|${patternType}`) && attempts < 30)
+    saveColorForm({ colorCode, patternType })
   }
 
   // ── Password (own account only) ──────────────────────────────
@@ -754,12 +793,14 @@ export default function AccountSettingsPage() {
         title="Profile"
         defaultOpen
         subtitle={
-          <span className="inline-flex items-center gap-1.5">
-            {profile.avatar_url && (
-              <img src={profile.avatar_url} alt="" className="h-4 w-4 flex-shrink-0 rounded-full object-cover" />
-            )}
-            <ProfileAvatar profile={{ ...profile, avatar_url: null }} size={16} />
-          </span>
+          profile.avatar_url ? (
+            <span className="inline-flex items-center gap-1.5">
+              <img src={profile.avatar_url} alt="" className="h-[18px] w-[18px] flex-shrink-0 rounded-full object-cover" />
+              <ProfileAvatar profile={{ ...profile, avatar_url: null }} size={18} showInitials={false} />
+            </span>
+          ) : (
+            <ProfileAvatar profile={profile} size={18} />
+          )
         }
       >
         <div className="mb-5 flex items-center gap-4">
@@ -812,6 +853,16 @@ export default function AccountSettingsPage() {
               onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
               className="input-field"
             />
+          </div>
+          <div>
+            <label className="label-text">Birthday</label>
+            <input
+              type="date"
+              value={form.birthday}
+              onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
+              className="input-field"
+            />
+            <p className="mt-1 text-xs text-ink-muted">Used to keep you off shift on your birthday.</p>
           </div>
           <div>
             <label className="label-text">Mobile number</label>
@@ -1237,7 +1288,9 @@ export default function AccountSettingsPage() {
               Surprise me!
             </button>
             {colorMsg && (
-              <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+              <span className={`text-xs font-medium ${
+                colorMsg.type === 'error' ? 'text-flagRed' : colorMsg.type === 'warning' ? 'text-flagAmber' : 'text-success'
+              }`}>
                 {colorMsg.text}
               </span>
             )}

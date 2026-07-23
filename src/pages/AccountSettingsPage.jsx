@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import { LAST_PATH_KEY } from '../components/AppLayout'
-import ProfileAvatar from '../components/ProfileAvatar'
+import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColorPair } from '../lib/color'
 
 // Maps a route path to the nav label shown for it, for the "Back to X" link
@@ -32,7 +32,7 @@ function BackButton({ onClick, label }) {
   return (
     <button
       onClick={onClick}
-      className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+      className="sticky top-14 md:top-0 z-[5] mb-4 inline-flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm font-medium text-ink-light hover:text-ink"
     >
       <ArrowLeftIcon className="h-4 w-4" />
       Back to {label}
@@ -267,6 +267,8 @@ export default function AccountSettingsPage() {
   const [adminIsActive, setAdminIsActive] = useState(true)
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
+  const [statusSaving, setStatusSaving] = useState(false)
+  const [statusMsg, setStatusMsg] = useState(null)
 
   // Super-admin: transfer to another admin (own account only)
   const [otherAdmins, setOtherAdmins] = useState([])
@@ -573,7 +575,6 @@ export default function AccountSettingsPage() {
         role: adminRole,
         category: adminRole === 'clerk' ? null : (adminCategory || null),
         is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
-        is_active: adminIsActive,
       })
       .eq('id', targetId)
 
@@ -582,6 +583,27 @@ export default function AccountSettingsPage() {
       setAdminMsg({ type: 'error', text: error.message })
     } else {
       setAdminMsg({ type: 'success', text: 'Saved.' })
+      reloadTarget()
+    }
+  }
+
+  // ── Status: active/inactive (admin-editable, its own section) ──
+  async function saveActiveStatus(nextActive) {
+    const prevActive = adminIsActive
+    setAdminIsActive(nextActive)
+    setStatusSaving(true)
+    setStatusMsg(null)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: nextActive })
+      .eq('id', targetId)
+
+    setStatusSaving(false)
+    if (error) {
+      setAdminIsActive(prevActive)
+      setStatusMsg({ type: 'error', text: error.message })
+    } else {
       reloadTarget()
     }
   }
@@ -789,65 +811,37 @@ export default function AccountSettingsPage() {
         </form>
       </AccordionSection>
 
-      {/* ── Appearance: colour + dot pattern (own account only) ── */}
-      {isOwnAccount && (
-        <AccordionSection title="Appearance" subtitle={colorSaving ? 'Saving…' : undefined}>
-          <div className="mb-5 flex items-center gap-4">
-            <ProfileAvatar
-              profile={{
-                name: profile.name,
-                surname: profile.surname,
-                avatar_url: profile.avatar_url,
-                color_code: colorForm.colorCode,
-                pattern_dot_color: colorForm.patternDotColor,
-                has_pattern: colorForm.hasPattern,
-              }}
-              size={64}
-            />
+      {/* ── Status ────────────────────────────────────────────── */}
+      <AccordionSection
+        title="Status"
+        subtitle={
+          statusSaving
+            ? 'Saving…'
+            : <span className={adminIsActive ? 'font-medium text-success' : 'font-medium text-flagRed'}>{adminIsActive ? 'Active' : 'Inactive'}</span>
+        }
+      >
+        {isAdmin ? (
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-ink">Identity colour</p>
-              <p className="text-xs text-ink-muted">Shown on the roster grid and staff list — purely cosmetic.</p>
+              <p className="text-sm font-medium text-ink">Account active</p>
+              <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
             </div>
+            <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
           </div>
-
-          <div className="mb-4">
-            <label className="label-text">Colour</label>
-            <div className="flex flex-wrap gap-2">
-              {AVATAR_COLOR_PALETTE.map(hex => (
-                <button
-                  key={hex}
-                  type="button"
-                  onClick={() => pickColorSwatch(hex)}
-                  aria-label={`Choose ${hex}`}
-                  className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
-                    colorForm.colorCode === hex ? 'ring-ink' : 'ring-transparent'
-                  }`}
-                  style={{ backgroundColor: hex }}
-                />
-              ))}
-            </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <StatusBadge active={adminIsActive} size={18} />
+            <span className={`text-sm font-medium ${adminIsActive ? 'text-success' : 'text-flagRed'}`}>
+              {adminIsActive ? 'Active' : 'Inactive'}
+            </span>
           </div>
-
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-line bg-canvas-sunken p-3">
-            <div>
-              <p className="text-sm font-medium text-ink">Dot pattern</p>
-              <p className="text-xs text-ink-muted">Off shows a plain solid colour instead.</p>
-            </div>
-            <Toggle checked={colorForm.hasPattern} onChange={toggleHasPattern} />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={generateColors} className="btn-secondary">
-              Generate
-            </button>
-            {colorMsg && (
-              <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                {colorMsg.text}
-              </span>
-            )}
-          </div>
-        </AccordionSection>
-      )}
+        )}
+        {statusMsg && (
+          <span className={`mt-2 block text-xs font-medium ${statusMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+            {statusMsg.text}
+          </span>
+        )}
+      </AccordionSection>
 
       {/* ── Email ───────────────────────────────────────────── */}
       <AccordionSection title="Email address" subtitle={displayEmail || undefined}>
@@ -886,8 +880,8 @@ export default function AccountSettingsPage() {
         )}
       </AccordionSection>
 
-      {/* ── Role, category & permissions ────────────────────── */}
-      <AccordionSection title="Role, category & permissions">
+      {/* ── Category, Role & Permissions ─────────────────────── */}
+      <AccordionSection title="Category, Role & Permissions">
         {isAdmin ? (
           <div className="space-y-4">
             <div>
@@ -913,14 +907,6 @@ export default function AccountSettingsPage() {
                 </select>
               </div>
             )}
-
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-line bg-canvas-sunken p-3">
-              <div>
-                <p className="text-sm font-medium text-ink">Account active</p>
-                <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
-              </div>
-              <Toggle checked={adminIsActive} onChange={setAdminIsActive} />
-            </div>
 
             {adminRole !== 'clerk' && (
               <label className="flex items-center gap-2 text-sm text-ink">
@@ -1090,52 +1076,6 @@ export default function AccountSettingsPage() {
         )}
       </AccordionSection>
 
-      {/* ── Notification preferences (own account only) ─────── */}
-      {isOwnAccount && (
-        <AccordionSection title="Notifications" subtitle={prefsSaving ? 'Saving…' : undefined}>
-          <div className="flex items-center justify-between border-b border-slate-line pb-3">
-            <div>
-              <p className="text-sm font-medium text-ink">All notifications</p>
-              <p className="text-xs text-ink-muted">Turn every notification on or off at once.</p>
-            </div>
-            <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />
-          </div>
-
-          <div className="divide-y divide-slate-line">
-            {NOTIFICATION_GROUPS.map(group => {
-              const visibleKeys = group.keys.filter(key => key in prefs)
-              if (visibleKeys.length === 0) return null
-              const groupOn = visibleKeys.every(key => prefs[key] !== false)
-              return (
-                <div key={group.key} className="flex items-center justify-between py-3">
-                  <span className="text-sm text-ink">{group.label}</span>
-                  <Toggle checked={groupOn} onChange={v => togglePrefs(visibleKeys, v)} />
-                </div>
-              )
-            })}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowAdvancedNotifications(s => !s)}
-            className="mt-3 text-xs font-medium text-accent hover:text-accent-dark"
-          >
-            {showAdvancedNotifications ? 'Hide advanced settings' : 'Show advanced settings'}
-          </button>
-
-          {showAdvancedNotifications && (
-            <div className="mt-2 divide-y divide-slate-line border-t border-slate-line">
-              {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
-                <div key={key} className="flex items-center justify-between py-2.5">
-                  <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
-                  <Toggle checked={prefs[key] !== false} onChange={v => togglePrefs([key], v)} />
-                </div>
-              ))}
-            </div>
-          )}
-        </AccordionSection>
-      )}
-
       {/* ── Change password (own account only) ──────────────── */}
       {isOwnAccount && (
         <AccordionSection title="Change password">
@@ -1187,6 +1127,112 @@ export default function AccountSettingsPage() {
         </AccordionSection>
       )}
 
+      {/* ── Appearance: colour + dot pattern (own account only) ── */}
+      {isOwnAccount && (
+        <AccordionSection title="Appearance" subtitle={colorSaving ? 'Saving…' : undefined}>
+          <div className="mb-5 flex items-center gap-4">
+            <ProfileAvatar
+              profile={{
+                name: profile.name,
+                surname: profile.surname,
+                avatar_url: profile.avatar_url,
+                color_code: colorForm.colorCode,
+                pattern_dot_color: colorForm.patternDotColor,
+                has_pattern: colorForm.hasPattern,
+              }}
+              size={64}
+            />
+            <div>
+              <p className="text-sm font-medium text-ink">Identity colour</p>
+              <p className="text-xs text-ink-muted">Shown on the roster grid and staff list — purely cosmetic.</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="label-text">Colour</label>
+            <div className="flex flex-wrap gap-2">
+              {AVATAR_COLOR_PALETTE.map(hex => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => pickColorSwatch(hex)}
+                  aria-label={`Choose ${hex}`}
+                  className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
+                    colorForm.colorCode === hex ? 'ring-ink' : 'ring-transparent'
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-line bg-canvas-sunken p-3">
+            <div>
+              <p className="text-sm font-medium text-ink">Dot pattern</p>
+              <p className="text-xs text-ink-muted">Off shows a plain solid colour instead.</p>
+            </div>
+            <Toggle checked={colorForm.hasPattern} onChange={toggleHasPattern} />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={generateColors} className="btn-secondary">
+              Generate
+            </button>
+            {colorMsg && (
+              <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                {colorMsg.text}
+              </span>
+            )}
+          </div>
+        </AccordionSection>
+      )}
+
+      {/* ── Notification preferences (own account only) ─────── */}
+      {isOwnAccount && (
+        <AccordionSection title="Notifications" subtitle={prefsSaving ? 'Saving…' : undefined}>
+          <div className="flex items-center justify-between border-b border-slate-line pb-3">
+            <div>
+              <p className="text-sm font-medium text-ink">All notifications</p>
+              <p className="text-xs text-ink-muted">Turn every notification on or off at once.</p>
+            </div>
+            <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />
+          </div>
+
+          <div className="divide-y divide-slate-line">
+            {NOTIFICATION_GROUPS.map(group => {
+              const visibleKeys = group.keys.filter(key => key in prefs)
+              if (visibleKeys.length === 0) return null
+              const groupOn = visibleKeys.every(key => prefs[key] !== false)
+              return (
+                <div key={group.key} className="flex items-center justify-between py-3">
+                  <span className="text-sm text-ink">{group.label}</span>
+                  <Toggle checked={groupOn} onChange={v => togglePrefs(visibleKeys, v)} />
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvancedNotifications(s => !s)}
+            className="mt-3 text-xs font-medium text-accent hover:text-accent-dark"
+          >
+            {showAdvancedNotifications ? 'Hide advanced settings' : 'Show advanced settings'}
+          </button>
+
+          {showAdvancedNotifications && (
+            <div className="mt-2 divide-y divide-slate-line border-t border-slate-line">
+              {NOTIFICATION_ORDER.filter(key => key in prefs).map(key => (
+                <div key={key} className="flex items-center justify-between py-2.5">
+                  <span className="text-sm text-ink">{NOTIFICATION_LABELS[key] || key}</span>
+                  <Toggle checked={prefs[key] !== false} onChange={v => togglePrefs([key], v)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </AccordionSection>
+      )}
+
       {/* ── Request history (own account only) ───────────────── */}
       {isOwnAccount && myRequests.length > 0 && (
         <AccordionSection title="Your requests" subtitle={`${myRequests.length} submitted`}>
@@ -1207,9 +1253,9 @@ export default function AccountSettingsPage() {
         </AccordionSection>
       )}
 
-      {/* ── Danger zone (own account only) ───────────────────── */}
+      {/* ── Delete account (own account only) ────────────────── */}
       {isOwnAccount && (
-        <AccordionSection title="Danger zone" danger>
+        <AccordionSection title="Delete Account" danger>
           {pendingDeletion ? (
             <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
               Your account deletion request is pending admin review.

@@ -43,7 +43,7 @@ export function StatusBadge({ active, size = 16, className = '' }) {
 // (at a smaller tile size, since the ring is a much narrower band) — a photo
 // covers the whole circle, so the ring is the only place identity colour and
 // pattern can still show through.
-export default function ProfileAvatar({ profile, size = 40, className = '' }) {
+export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true }) {
   const initials = (profile?.name?.[0] || '') + (profile?.surname?.[0] || '')
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
 
@@ -80,7 +80,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '' }) {
         ...patternStyle,
       }}
     >
-      {initials}
+      {showInitials ? initials : null}
     </div>
   )
 }

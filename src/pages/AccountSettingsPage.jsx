@@ -257,6 +257,7 @@ export default function AccountSettingsPage() {
   const [adminRole, setAdminRole] = useState('')
   const [adminCategory, setAdminCategory] = useState('')
   const [adminIsAdmin, setAdminIsAdmin] = useState(false)
+  const [adminIsActive, setAdminIsActive] = useState(true)
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
 
@@ -312,6 +313,7 @@ export default function AccountSettingsPage() {
     setAdminRole(profile.role || '')
     setAdminCategory(profile.category || '')
     setAdminIsAdmin(profile.is_admin === true)
+    setAdminIsActive(profile.is_active !== false)
   }, [profile])
 
   useEffect(() => {
@@ -528,6 +530,7 @@ export default function AccountSettingsPage() {
         role: adminRole,
         category: adminRole === 'clerk' ? null : (adminCategory || null),
         is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
+        is_active: adminIsActive,
       })
       .eq('id', targetId)
 
@@ -807,6 +810,14 @@ export default function AccountSettingsPage() {
                 </select>
               </div>
             )}
+
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-line bg-canvas-sunken p-3">
+              <div>
+                <p className="text-sm font-medium text-ink">Account active</p>
+                <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
+              </div>
+              <Toggle checked={adminIsActive} onChange={setAdminIsActive} />
+            </div>
 
             {adminRole !== 'clerk' && (
               <label className="flex items-center gap-2 text-sm text-ink">

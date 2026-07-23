@@ -9,17 +9,42 @@ function CheckIcon(props) {
   )
 }
 
-// Small inline active/inactive indicator — green check, or a plain orange dot
-// for inactive. Meant to sit next to a name/surname, not on the avatar.
-export function StatusBadge({ active, size = 16, className = '' }) {
+function XIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
+// Small inline status indicator, meant to sit next to a name/surname (not on
+// the avatar itself) — green check (active), red circle with a white X
+// (inactive), or a beach emoji (active but currently on approved leave).
+// Inactive takes priority over on-leave since it's the more permanent state.
+export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   if (!active) {
     return (
       <span
-        className={`inline-flex flex-shrink-0 rounded-full bg-flagAmber ${className}`}
+        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-flagRed ${className}`}
         style={{ width: size, height: size }}
         role="img"
         aria-label="Inactive"
-      />
+      >
+        <XIcon className="h-2.5 w-2.5 text-white" />
+      </span>
+    )
+  }
+  if (onLeave) {
+    return (
+      <span
+        className={`inline-flex flex-shrink-0 items-center justify-center ${className}`}
+        style={{ width: size, height: size, fontSize: Math.round(size * 0.85), lineHeight: 1 }}
+        role="img"
+        aria-label="On leave"
+        title="On leave"
+      >
+        🏖️
+      </span>
     )
   }
   return (

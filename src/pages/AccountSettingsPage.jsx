@@ -290,6 +290,7 @@ export default function AccountSettingsPage() {
   const [adminMsg, setAdminMsg] = useState(null)
   const [statusSaving, setStatusSaving] = useState(false)
   const [statusMsg, setStatusMsg] = useState(null)
+  const [isOnLeave, setIsOnLeave] = useState(false)
 
   // Super-admin: transfer to another admin (own account only)
   const [otherAdmins, setOtherAdmins] = useState([])
@@ -369,6 +370,13 @@ export default function AccountSettingsPage() {
       .neq('id', user.id)
       .then(({ data }) => setOtherAdmins(data || []))
   }, [isSuperAdmin, user, isOwnAccount])
+
+  useEffect(() => {
+    if (!targetId) return
+    supabase.rpc('get_current_leave_profile_ids').then(({ data }) => {
+      setIsOnLeave((data || []).some(r => r.profile_id === targetId))
+    })
+  }, [targetId])
 
   async function loadMyRequests() {
     const { data, error } = await supabase
@@ -894,7 +902,9 @@ export default function AccountSettingsPage() {
         subtitle={
           statusSaving
             ? 'Saving…'
-            : <span className={adminIsActive ? 'font-medium text-success' : 'font-medium text-flagAmber'}>{adminIsActive ? 'Active' : 'Inactive'}</span>
+            : <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
+                {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
+              </span>
         }
       >
         {isAdmin ? (
@@ -902,14 +912,17 @@ export default function AccountSettingsPage() {
             <div>
               <p className="text-sm font-medium text-ink">Account active</p>
               <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
+              {adminIsActive && isOnLeave && (
+                <p className="mt-1 text-xs text-ink-muted">🏖️ Currently on approved leave.</p>
+              )}
             </div>
             <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <StatusBadge active={adminIsActive} size={18} />
-            <span className={`text-sm font-medium ${adminIsActive ? 'text-success' : 'text-flagAmber'}`}>
-              {adminIsActive ? 'Active' : 'Inactive'}
+            <StatusBadge active={adminIsActive} onLeave={isOnLeave} size={18} />
+            <span className={`text-sm font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
+              {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
             </span>
           </div>
         )}
@@ -961,9 +974,16 @@ export default function AccountSettingsPage() {
       <AccordionSection
         title="Category, Role & Permissions"
         subtitle={
-          profile.is_admin
-            ? <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
-            : undefined
+          <span className="inline-flex items-center gap-1.5">
+            <span>
+              {profile.role === 'doctor'
+                ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
+                : (ROLE_LABELS[profile.role] || profile.role)}
+            </span>
+            {profile.is_admin && (
+              <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
+            )}
+          </span>
         }
       >
         {isAdmin ? (

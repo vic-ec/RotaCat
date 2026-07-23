@@ -109,6 +109,27 @@ const REQUEST_STATUS_BADGE = {
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
 const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
 
+// Birthday only ever needs day + month (it's used to keep someone off shift
+// on their recurring birthday, not to compute an age) — stored as a date
+// with a fixed placeholder year so the column stays a plain `date`. 2000 is
+// a leap year so 29 February stays a selectable day for everyone.
+const BIRTHDAY_YEAR = 2000
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+function birthdayToDayMonth(iso) {
+  if (!iso) return { day: '', month: '' }
+  const [, month, day] = iso.split('-')
+  return { day: String(Number(day)), month: String(Number(month)) }
+}
+function dayMonthToBirthday(day, month) {
+  if (!day || !month) return ''
+  return `${BIRTHDAY_YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -405,6 +426,17 @@ export default function AccountSettingsPage() {
   )
 
   // ── Profile details ─────────────────────────────────────────
+  const { day: birthdayDay, month: birthdayMonth } = birthdayToDayMonth(form.birthday)
+  function setBirthdayPart(part, value) {
+    let day = part === 'day' ? value : birthdayDay
+    let month = part === 'month' ? value : birthdayMonth
+    if (day && month) {
+      const maxDay = DAYS_IN_MONTH[Number(month) - 1]
+      if (Number(day) > maxDay) day = String(maxDay)
+    }
+    setForm(f => ({ ...f, birthday: dayMonthToBirthday(day, month) }))
+  }
+
   async function saveProfile(e) {
     e.preventDefault()
     setSavingProfile(true)
@@ -616,6 +648,16 @@ export default function AccountSettingsPage() {
       ? { type: 'warning', text: 'Saved — another active staff member already has this exact colour + pattern.' }
       : { type: 'success', text: 'Saved.' })
   }
+  // Discards any unsaved local picks, reverting back to what's actually saved.
+  function cancelAppearance() {
+    setColorForm({
+      colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR,
+      patternType: profile.pattern_type || null,
+    })
+    setColorMsg(null)
+  }
+  const isColorDirty = colorForm.colorCode !== (profile.color_code || NEUTRAL_AVATAR_COLOR)
+    || colorForm.patternType !== (profile.pattern_type || null)
 
   // ── Password (own account only) ──────────────────────────────
   async function changePassword(e) {
@@ -876,7 +918,7 @@ export default function AccountSettingsPage() {
                         onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
                         className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-canvas-sunken"
                       >
-                        Upload photo
+                        Upload picture
                       </button>
                       {profile.avatar_url && (
                         <button
@@ -884,7 +926,7 @@ export default function AccountSettingsPage() {
                           onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
                           className="block w-full px-3 py-2 text-left text-xs text-flagRed hover:bg-flagRed-bg"
                         >
-                          Delete photo
+                          Delete picture
                         </button>
                       )}
                     </div>
@@ -931,17 +973,31 @@ export default function AccountSettingsPage() {
           </div>
           <div>
             <label className="label-text">Birthday</label>
-            {/* iOS Safari can render the native date control wider than its box
-                regardless of CSS width — clip it inside a plain wrapper div
-                (which reliably obeys width/overflow) instead of styling the
-                native input's own box directly. */}
-            <div className="w-full overflow-hidden rounded border border-slate-line bg-canvas-raised focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
-              <input
-                type="date"
-                value={form.birthday}
-                onChange={e => setForm(f => ({ ...f, birthday: e.target.value }))}
-                className="w-full max-w-full border-0 bg-transparent px-3 py-2.5 text-sm text-ink focus:outline-none"
-              />
+            {/* Day + month only — no year, since this only ever needs to
+                recur annually. Plain selects also sidestep the iOS Safari
+                bug where native date inputs can render wider than their box
+                regardless of CSS width. */}
+            <div className="flex gap-2">
+              <select
+                value={birthdayDay}
+                onChange={e => setBirthdayPart('day', e.target.value)}
+                className="input-field"
+              >
+                <option value="">Day</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              <select
+                value={birthdayMonth}
+                onChange={e => setBirthdayPart('month', e.target.value)}
+                className="input-field"
+              >
+                <option value="">Month</option>
+                {MONTH_NAMES.map((name, i) => (
+                  <option key={name} value={i + 1}>{name}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div>
@@ -1378,6 +1434,9 @@ export default function AccountSettingsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={saveAppearance} disabled={colorSaving} className="btn-primary">
               {colorSaving ? 'Saving…' : 'Update'}
+            </button>
+            <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary">
+              Cancel
             </button>
             <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary">
               {surprising ? 'Picking…' : 'Surprise me!'}

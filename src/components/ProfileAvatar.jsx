@@ -1,4 +1,4 @@
-import { contrastTextColor, NEUTRAL_AVATAR_COLOR } from '../lib/color'
+import { NEUTRAL_AVATAR_COLOR } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
 function CheckIcon(props) {
@@ -59,15 +59,6 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   )
 }
 
-// Renders a profile's photo (or colour-coded initials) using their identity
-// colour (profiles.color_code) and chosen pattern (profiles.pattern_type).
-//
-// With no photo, the pattern tiles across the whole circle behind the
-// initials — there's no photo competing for space, so it has room to repeat
-// cleanly. With a photo, the pattern instead tiles in a thick ring around it
-// (at a smaller tile size, since the ring is a much narrower band) — a photo
-// covers the whole circle, so the ring is the only place identity colour and
-// pattern can still show through.
 // First name initial, plus one initial per word of the (possibly multi-part)
 // surname — "Liza van Zyl" -> "LVZ", "Carli Du Toit" -> "CDT".
 function computeInitials(profile) {
@@ -81,52 +72,46 @@ function computeInitials(profile) {
   return (first + surnameInitials).toUpperCase()
 }
 
+// Renders a profile's photo, or a white circle with their initials when
+// there's no photo, ringed either way by their identity colour + pattern —
+// same ring geometry in both cases, so the two only differ in what sits at
+// the centre. The ring tiles the pattern at a narrow-band tile size (rather
+// than tiling across a whole fill) since it's always just a thin band now.
 export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true }) {
   const initials = computeInitials(profile)
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
+  const hasPhoto = Boolean(profile?.avatar_url)
 
-  if (profile?.avatar_url) {
-    // Ring is 1px thinner than before, with the freed-up space going to a
-    // thin canvas-coloured border around the photo — keeps the outer size
-    // identical to the no-photo avatar while making the photo read clearly
-    // against its own ring instead of blending straight into it.
-    const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
-    const photoBorderWidth = Math.max(1, Math.round(size * 0.035))
-    const patternStyle = profile?.pattern_type
-      ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
-      : null
-    return (
-      <div
-        className={`relative flex-shrink-0 rounded-full ${className}`}
-        style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
-      >
-        <div
-          className="h-full w-full overflow-hidden rounded-full border-canvas-raised"
-          style={{ borderWidth: photoBorderWidth }}
-        >
-          <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-        </div>
-      </div>
-    )
-  }
-
+  // Ring is 1px thinner than a full fill would need, with the freed-up space
+  // going to a thin canvas-coloured border around the inner circle — keeps
+  // the outer size identical whether there's a photo or just initials, and
+  // keeps the inner circle reading clearly against its own ring instead of
+  // blending straight into it.
+  const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
+  const innerBorderWidth = Math.max(0.5, Math.round(size * 0.035) - 0.5)
   const patternStyle = profile?.pattern_type
-    ? patternBackgroundStyle(profile.pattern_type, color, Math.max(8, Math.round(size / 4)))
+    ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
     : null
 
   return (
     <div
-      className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full font-medium ${className}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: color,
-        color: contrastTextColor(color),
-        fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
-        ...patternStyle,
-      }}
+      className={`relative flex-shrink-0 rounded-full ${className}`}
+      style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
     >
-      {showInitials ? initials : null}
+      <div
+        className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-canvas-raised bg-canvas-raised font-medium"
+        style={{
+          borderWidth: innerBorderWidth,
+          color: '#0F172A',
+          fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
+        }}
+      >
+        {hasPhoto ? (
+          <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          showInitials ? initials : null
+        )}
+      </div>
     </div>
   )
 }

@@ -203,6 +203,12 @@ export default function StaffListPage() {
     try { localStorage.setItem(SORT_MODE_KEY, sortMode) } catch { /* ignore */ }
   }, [sortMode])
 
+  // Collapsed state per group section (keyed by group.key), category/role modes only
+  const [collapsedGroups, setCollapsedGroups] = useState({})
+  function toggleGroupCollapsed(key) {
+    setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   // Per-row quick-action sheet (mobile, admin viewers)
   const [quickActionPerson, setQuickActionPerson] = useState(null)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
@@ -522,42 +528,36 @@ export default function StaffListPage() {
           </p>
 
           {/* Search + Filters + Sort/group */}
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="sm:max-w-xs sm:flex-1">
-                <label className="label-text">Search name</label>
-                <input
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={openFiltersSheet} className="btn-secondary whitespace-nowrap">
-                  Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
-                </button>
-                {accountFiltersActive && (
-                  <button onClick={clearAllFilters} className="btn-secondary whitespace-nowrap">
-                    Clear filters
-                  </button>
-                )}
-              </div>
+          <div className="mb-4 space-y-3">
+            <div>
+              <label className="label-text">Search name</label>
+              <input
+                type="text"
+                value={accountFilters.q}
+                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                placeholder="Surname or first name…"
+                className="input-field h-[42px]"
+              />
             </div>
 
-            <div className="inline-flex w-fit gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
-              {SORT_MODES.map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setSortMode(opt.key)}
-                  className={`rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                    sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2">
+              <div className="inline-flex h-[42px] gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
+                {SORT_MODES.map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setSortMode(opt.key)}
+                    className={`w-[4.5rem] rounded text-xs font-medium transition-colors ${
+                      sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={openFiltersSheet} className="btn-secondary h-[42px] whitespace-nowrap">
+                Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
+              </button>
             </div>
           </div>
 
@@ -567,7 +567,12 @@ export default function StaffListPage() {
             </div>
           ) : filteredAccounts.length === 0 ? (
             <div className="card p-10 text-center">
-              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
+              <p className="mb-3 text-sm text-ink-muted">No accounts match these filters.</p>
+              {accountFiltersActive && (
+                <button onClick={clearAllFilters} className="btn-secondary">
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -576,10 +581,15 @@ export default function StaffListPage() {
               {groups.map(group => (
                 <div key={group.key} className="mb-4 last:mb-0">
                   {group.label && (
-                    <div className="sticky top-14 z-[5] mb-2 rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                      {group.label} ({group.items.length})
-                    </div>
+                    <button
+                      onClick={() => toggleGroupCollapsed(group.key)}
+                      className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted"
+                    >
+                      <span>{group.label} ({group.items.length})</span>
+                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '-rotate-90' : ''}`} />
+                    </button>
                   )}
+                  {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
                       const secondaryLabel = person.role === 'doctor'
@@ -649,6 +659,7 @@ export default function StaffListPage() {
                       )
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -672,13 +683,19 @@ export default function StaffListPage() {
                   {groups.map(group => (
                     <Fragment key={group.key}>
                       {group.label && (
-                        <tr className="bg-canvas-sunken">
+                        <tr
+                          onClick={() => toggleGroupCollapsed(group.key)}
+                          className="cursor-pointer bg-canvas-sunken hover:bg-canvas-sunken/70"
+                        >
                           <td colSpan={9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                            {group.label} ({group.items.length})
+                            <div className="flex items-center justify-between">
+                              <span>{group.label} ({group.items.length})</span>
+                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '-rotate-90' : ''}`} />
+                            </div>
                           </td>
                         </tr>
                       )}
-                      {group.items.map(person => {
+                      {(!group.label || !collapsedGroups[group.key]) && group.items.map(person => {
                         const isToggling = togglingId === person.id
                         const formattedPhone = formatPhoneDisplay(person.phone)
                         const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
@@ -1112,6 +1129,14 @@ function CloseIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
     </svg>
   )
 }

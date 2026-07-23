@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import ProfileAvatar from '../components/ProfileAvatar'
+import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
+import { STAFF_QUICK_ACTIONS } from '../lib/staffQuickActions'
 
 // ── Display label maps ─────────────────────────────────────
 const CATEGORY_LABELS = {
@@ -42,6 +45,16 @@ const PERMISSION_BADGE = {
   admin: 'bg-accent text-white',
   super_admin: 'bg-accent text-white',
 }
+
+// Only five_eighths gets a tag — full and psych_overtime show nothing extra.
+const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
+
+const SORT_MODE_KEY = 'rotacat:staffSortMode'
+const SORT_MODES = [
+  { key: 'category', label: 'Category' },
+  { key: 'role', label: 'Role' },
+  { key: 'az', label: 'A–Z' },
+]
 
 // Category options for the approval edit panel
 // Doctor: full clinical set. Locum: MO/Registrar only (drives shift-claim eligibility). Clerk: none.
@@ -84,8 +97,85 @@ const DEFAULT_SWAP_GROUP = {
   Locum:       'locum',
 }
 
+// ── Sort/group ───────────────────────────────────────────────
+const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
+const ROLE_GROUP_ORDER = ['doctor', 'locum', 'clerk']
+
+function categoryGroupKey(person) {
+  if (person.role === 'locum') return 'Locum'
+  if (person.role === 'clerk') return 'Clerk'
+  return person.category || 'Other'
+}
+function categoryGroupLabel(key) {
+  if (key === 'Locum' || key === 'Clerk' || key === 'Other') return key
+  return CATEGORY_LABELS[key] || key
+}
+function roleGroupLabel(key) {
+  return ROLE_LABELS[key] || key
+}
+
+function buildGroups(people, sortMode) {
+  if (sortMode === 'az') {
+    return [{
+      key: 'all',
+      label: null,
+      items: [...people].sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
+    }]
+  }
+
+  const keyFn = sortMode === 'role' ? (p => p.role || 'Other') : categoryGroupKey
+  const labelFn = sortMode === 'role' ? roleGroupLabel : categoryGroupLabel
+  const order = sortMode === 'role' ? ROLE_GROUP_ORDER : CATEGORY_GROUP_ORDER
+
+  const buckets = new Map()
+  for (const person of people) {
+    const key = keyFn(person)
+    if (!buckets.has(key)) buckets.set(key, [])
+    buckets.get(key).push(person)
+  }
+  for (const items of buckets.values()) {
+    items.sort((a, b) => (a.surname || '').localeCompare(b.surname || ''))
+  }
+  const orderedKeys = [...buckets.keys()].sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b)
+    if (ia === -1 && ib === -1) return a.localeCompare(b)
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
+  return orderedKeys.map(key => ({ key, label: labelFn(key), items: buckets.get(key) }))
+}
+
+// ── Shared bottom-sheet / dialog wrapper ────────────────────
+function Sheet({ open, onClose, title, children }) {
+  if (!open) return null
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 md:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-canvas-raised p-5 shadow-raised md:rounded-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg text-ink">{title}</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function StaffListPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
@@ -100,6 +190,22 @@ export default function StaffListPage() {
   const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
+
+  // Filters sheet
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [draftFilters, setDraftFilters] = useState(accountFilters)
+
+  // Sort / group — persisted locally so it doesn't reset every visit
+  const [sortMode, setSortMode] = useState(() => {
+    try { return localStorage.getItem(SORT_MODE_KEY) || 'category' } catch { return 'category' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(SORT_MODE_KEY, sortMode) } catch { /* ignore */ }
+  }, [sortMode])
+
+  // Per-row quick-action sheet (mobile, admin viewers)
+  const [quickActionPerson, setQuickActionPerson] = useState(null)
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -269,6 +375,39 @@ export default function StaffListPage() {
     setRequestActioningId(null)
   }
 
+  // ── Quick-action sheet handlers ─────────────────────────────
+  function openQuickActions(person) {
+    setQuickActionPerson(person)
+    setConfirmDeactivate(false)
+  }
+  function closeQuickActions() {
+    setQuickActionPerson(null)
+    setConfirmDeactivate(false)
+  }
+  function handleQuickAction(key) {
+    if (!quickActionPerson) return
+    if (key === 'setStatus') {
+      if (quickActionPerson.is_active) {
+        setConfirmDeactivate(true)
+        return
+      }
+      toggleActive(quickActionPerson.id, false)
+      closeQuickActions()
+    } else if (key === 'setAdmin') {
+      if (quickActionPerson.is_super_admin) return
+      toggleAdmin(quickActionPerson)
+      closeQuickActions()
+    } else if (key === 'editProfile') {
+      navigate(`/account/${quickActionPerson.id}`)
+      closeQuickActions()
+    }
+  }
+  function confirmDeactivateNow() {
+    if (!quickActionPerson) return
+    toggleActive(quickActionPerson.id, true)
+    closeQuickActions()
+  }
+
   // ── Accounts grid: filter options derived from the loaded data ──
   const accountRoleOptions = [...new Set(activeAccounts.map(p => p.role).filter(Boolean))].sort()
   const accountCategoryOptions = [...new Set(activeAccounts.map(p => p.category).filter(Boolean))].sort()
@@ -294,6 +433,24 @@ export default function StaffListPage() {
 
   const accountFiltersActive = accountFilters.q || accountFilters.role !== 'all' ||
     accountFilters.category !== 'all' || accountFilters.status !== 'all' || accountFilters.isAdmin !== 'all'
+  const sheetFilterCount = ['role', 'category', 'status', 'isAdmin'].filter(k => accountFilters[k] !== 'all').length
+
+  const groups = buildGroups(filteredAccounts, sortMode)
+
+  function openFiltersSheet() {
+    setDraftFilters(accountFilters)
+    setFiltersOpen(true)
+  }
+  function applyFilters() {
+    setAccountFilters(draftFilters)
+    setFiltersOpen(false)
+  }
+  function clearSheetFilters() {
+    setDraftFilters(f => ({ ...f, role: 'all', category: 'all', status: 'all', isAdmin: 'all' }))
+  }
+  function clearAllFilters() {
+    setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
+  }
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -325,7 +482,7 @@ export default function StaffListPage() {
                 ? 'bg-accent text-white'
                 : pending.length > 0
                   ? 'text-flagAmber hover:text-ink'
-                  : 'text-ink-light hover:text-ink'
+                  : 'text-ink-muted opacity-50 hover:text-ink hover:opacity-100'
             }`}
           >
             Pending ({pending.length})
@@ -339,7 +496,7 @@ export default function StaffListPage() {
                 ? 'bg-accent text-white'
                 : accountRequests.length > 0
                   ? 'text-flagAmber hover:text-ink'
-                  : 'text-ink-light hover:text-ink'
+                  : 'text-ink-muted opacity-50 hover:text-ink hover:opacity-100'
             }`}
           >
             Account requests ({accountRequests.length})
@@ -364,80 +521,44 @@ export default function StaffListPage() {
               : 'Inactive doctors remain on record but are excluded from roster generation.'}
           </p>
 
-          {/* Filters */}
-          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-8">
-            <div className="md:col-span-4">
-              <label className="label-text">Search name</label>
-              <input
-                type="text"
-                value={accountFilters.q}
-                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                placeholder="Surname or first name…"
-                className="input-field"
-              />
-            </div>
-            <div className="grid grid-cols-4 gap-3 md:contents">
-              <div className="md:col-span-1">
-                <label className="label-text">Role</label>
-                <select
-                  value={accountFilters.role}
-                  onChange={e => setAccountFilters(f => ({ ...f, role: e.target.value }))}
+          {/* Search + Filters + Sort/group */}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="sm:max-w-xs sm:flex-1">
+                <label className="label-text">Search name</label>
+                <input
+                  type="text"
+                  value={accountFilters.q}
+                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                  placeholder="Surname or first name…"
                   className="input-field"
-                >
-                  <option value="all">All roles</option>
-                  {accountRoleOptions.map(r => (
-                    <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
-                  ))}
-                </select>
+                />
               </div>
-              <div className="md:col-span-1">
-                <label className="label-text">Category</label>
-                <select
-                  value={accountFilters.category}
-                  onChange={e => setAccountFilters(f => ({ ...f, category: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All categories</option>
-                  {accountCategoryOptions.map(c => (
-                    <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-1">
-                <label className="label-text">Status</label>
-                <select
-                  value={accountFilters.status}
-                  onChange={e => setAccountFilters(f => ({ ...f, status: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="md:col-span-1">
-                <label className="label-text">Is Admin</label>
-                <select
-                  value={accountFilters.isAdmin}
-                  onChange={e => setAccountFilters(f => ({ ...f, isAdmin: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
-            </div>
-            {accountFiltersActive && (
-              <div className="md:col-span-8">
-                <button
-                  onClick={() => setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })}
-                  className="btn-secondary"
-                >
-                  Clear filters
+              <div className="flex gap-2">
+                <button onClick={openFiltersSheet} className="btn-secondary whitespace-nowrap">
+                  Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
                 </button>
+                {accountFiltersActive && (
+                  <button onClick={clearAllFilters} className="btn-secondary whitespace-nowrap">
+                    Clear filters
+                  </button>
+                )}
               </div>
-            )}
+            </div>
+
+            <div className="inline-flex w-fit gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
+              {SORT_MODES.map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setSortMode(opt.key)}
+                  className={`rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                    sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {activeAccounts.length === 0 ? (
@@ -450,57 +571,85 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-            {/* Mobile: stacked rows. Desktop/tablet: full table (below). */}
-            <div className="card divide-y divide-slate-line overflow-hidden md:hidden">
-              {filteredAccounts.map(person => {
-                const initials = (person.name?.[0] || '') + (person.surname?.[0] || '')
-                // Doctors show clinical category (role is implied); locums/clerks show role instead.
-                const secondaryLabel = person.role === 'doctor'
-                  ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
-                  : (ROLE_LABELS[person.role] || person.role)
-                const avatarRing = person.is_active ? 'ring-success' : 'ring-flagAmber'
-                return (
-                  <div
-                    key={person.id}
-                    onClick={() => isAdmin && navigate(`/account/${person.id}`)}
-                    className={`flex items-center gap-3 px-4 py-3 ${!person.is_active ? 'opacity-50' : ''} ${
-                      isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
-                    }`}
-                  >
-                    {person.avatar_url ? (
-                      <img
-                        src={person.avatar_url}
-                        alt=""
-                        className={`h-10 w-10 flex-shrink-0 rounded-full object-cover ring-2 ${avatarRing}`}
-                      />
-                    ) : (
-                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent-light text-xs font-medium text-accent-dark ring-2 ${avatarRing}`}>
-                        {initials}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-ink">
-                          {person.name ? `${person.name} ` : ''}{person.surname}
-                        </span>
-                        {person.is_admin && (
-                          <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
-                            person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
-                          }`}>
-                            {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
-                        <span>{secondaryLabel}</span>
-                        <span className="text-slate-line" aria-hidden="true">·</span>
-                        <span>{person.phone || '—'}</span>
-                      </div>
+            {/* Mobile: stacked rows, grouped by sortMode. Desktop/tablet: full table (below). */}
+            <div className="md:hidden">
+              {groups.map(group => (
+                <div key={group.key} className="mb-4 last:mb-0">
+                  {group.label && (
+                    <div className="sticky top-14 z-[5] mb-2 rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                      {group.label} ({group.items.length})
                     </div>
-                    {isAdmin && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+                  )}
+                  <div className="card divide-y divide-slate-line overflow-hidden">
+                    {group.items.map(person => {
+                      const secondaryLabel = person.role === 'doctor'
+                        ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                        : (ROLE_LABELS[person.role] || person.role)
+                      const formattedPhone = formatPhoneDisplay(person.phone)
+                      const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                      return (
+                        <div
+                          key={person.id}
+                          onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                          className={`flex items-center gap-3 px-4 py-3 ${!person.is_active ? 'opacity-50' : ''} ${
+                            isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
+                          }`}
+                        >
+                          <ProfileAvatar profile={person} size={40} showStatus />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="truncate text-sm font-medium text-ink">
+                                {person.name ? `${person.name} ` : ''}{person.surname}
+                              </span>
+                              {person.is_admin && (
+                                <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
+                                  person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
+                                }`}>
+                                  {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
+                              <span>{secondaryLabel}</span>
+                              {contractTag && (
+                                <span
+                                  className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                  title="Part-time (⅝ contract)"
+                                >
+                                  {contractTag}
+                                </span>
+                              )}
+                              <span className="text-slate-line" aria-hidden="true">·</span>
+                              {formattedPhone ? (
+                                <a
+                                  href={phoneTelHref(person.phone)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-accent-dark hover:underline"
+                                >
+                                  {formattedPhone}
+                                </a>
+                              ) : (
+                                <span>—</span>
+                              )}
+                            </div>
+                          </div>
+                          {isAdmin && (
+                            <button
+                              onClick={e => { e.stopPropagation(); openQuickActions(person) }}
+                              aria-label="Quick actions"
+                              title="Quick actions"
+                              className="flex-shrink-0 rounded p-1.5 text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                            >
+                              <KebabIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                          {isAdmin && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
 
             <div className="card hidden overflow-x-auto md:block">
@@ -519,103 +668,125 @@ export default function StaffListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAccounts.map(person => {
-                    const isToggling = togglingId === person.id
-                    const initials = (person.name?.[0] || '') + (person.surname?.[0] || '')
-                    return (
-                      <tr
-                        key={person.id}
-                        onClick={() => isAdmin && navigate(`/account/${person.id}`)}
-                        title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
-                        className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''} ${
-                          isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
-                        }`}
-                      >
-                        <td className="px-2 py-1.5">
-                          {person.avatar_url ? (
-                            <img
-                              src={person.avatar_url}
-                              alt=""
-                              className="h-7 w-7 rounded-full object-cover ring-1 ring-slate-line"
-                            />
-                          ) : (
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-light text-[10px] font-medium text-accent-dark ring-1 ring-slate-line">
-                              {initials}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
-                        <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
-                        <td className="px-2.5 py-1.5">
-                          <div className="flex flex-wrap gap-1">
-                            <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                              {ROLE_LABELS[person.role] || person.role}
-                            </span>
-                            {person.is_admin && (
-                              <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
-                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                  {groups.map(group => (
+                    <Fragment key={group.key}>
+                      {group.label && (
+                        <tr className="bg-canvas-sunken">
+                          <td colSpan={9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                            {group.label} ({group.items.length})
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map(person => {
+                        const isToggling = togglingId === person.id
+                        const formattedPhone = formatPhoneDisplay(person.phone)
+                        const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                        return (
+                          <tr
+                            key={person.id}
+                            onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                            title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
+                            className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''} ${
+                              isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+                            }`}
+                          >
+                            <td className="px-2 py-1.5">
+                              <ProfileAvatar profile={person} size={28} />
+                            </td>
+                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
+                            <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
+                            <td className="px-2.5 py-1.5">
+                              <div className="flex flex-wrap gap-1">
+                                <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                                  {ROLE_LABELS[person.role] || person.role}
+                                </span>
+                                {person.is_admin && (
+                                  <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
+                                    {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1">
+                                {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
+                                {contractTag && (
+                                  <span
+                                    className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                    title="Part-time (⅝ contract)"
+                                  >
+                                    {contractTag}
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
-                          {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
-                        </td>
-                        <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">{person.phone || '—'}</td>
-                        <td className="px-2.5 py-1.5 text-ink-light">{emailById[person.id] || '—'}</td>
-                        <td className="px-2.5 py-1.5">
-                          <div className="flex items-center gap-1.5">
-                            {isAdmin ? (
-                              <button
-                                onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
-                                disabled={isToggling}
-                                title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
-                                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
-                                  person.is_active ? 'bg-accent' : 'bg-slate-line'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                    person.is_active ? 'translate-x-4' : 'translate-x-0'
+                            </td>
+                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
+                              {formattedPhone ? (
+                                <a
+                                  href={phoneTelHref(person.phone)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-accent-dark hover:underline"
+                                >
+                                  {formattedPhone}
+                                </a>
+                              ) : '—'}
+                            </td>
+                            <td className="px-2.5 py-1.5 text-ink-light">{emailById[person.id] || '—'}</td>
+                            <td className="px-2.5 py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                {isAdmin ? (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
+                                    disabled={isToggling}
+                                    title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
+                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
+                                      person.is_active ? 'bg-accent' : 'bg-slate-line'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                        person.is_active ? 'translate-x-4' : 'translate-x-0'
+                                      }`}
+                                    />
+                                  </button>
+                                ) : (
+                                  <span
+                                    className={`h-2 w-2 flex-shrink-0 rounded-full ${person.is_active ? 'bg-success' : 'bg-flagAmber'}`}
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <span className={`whitespace-nowrap text-[11px] font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
+                                  {person.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-2.5 py-1.5">
+                              {person.role === 'clerk' ? (
+                                <span className="text-[11px] text-ink-muted">—</span>
+                              ) : isAdmin ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); togglingAdminId !== person.id && toggleAdmin(person) }}
+                                  disabled={togglingAdminId === person.id || person.is_super_admin}
+                                  title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
+                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    person.is_admin ? 'bg-accent' : 'bg-slate-line'
                                   }`}
-                                />
-                              </button>
-                            ) : (
-                              <span
-                                className={`h-2 w-2 flex-shrink-0 rounded-full ${person.is_active ? 'bg-success' : 'bg-flagAmber'}`}
-                                aria-hidden="true"
-                              />
-                            )}
-                            <span className={`whitespace-nowrap text-[11px] font-medium ${person.is_active ? 'text-success' : 'text-flagAmber'}`}>
-                              {person.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-2.5 py-1.5">
-                          {person.role === 'clerk' ? (
-                            <span className="text-[11px] text-ink-muted">—</span>
-                          ) : isAdmin ? (
-                            <button
-                              onClick={e => { e.stopPropagation(); togglingAdminId !== person.id && toggleAdmin(person) }}
-                              disabled={togglingAdminId === person.id || person.is_super_admin}
-                              title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
-                              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                person.is_admin ? 'bg-accent' : 'bg-slate-line'
-                              }`}
-                            >
-                              <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                  person.is_admin ? 'translate-x-4' : 'translate-x-0'
-                                }`}
-                              />
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                                >
+                                  <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                      person.is_admin ? 'translate-x-4' : 'translate-x-0'
+                                    }`}
+                                  />
+                                </button>
+                              ) : (
+                                <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -807,6 +978,113 @@ export default function StaffListPage() {
           )}
         </div>
       )}
+
+      {/* ── Filters sheet ─────────────────────────────────────── */}
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+        <div className="space-y-4">
+          <div>
+            <label className="label-text">Role</label>
+            <select
+              value={draftFilters.role}
+              onChange={e => setDraftFilters(f => ({ ...f, role: e.target.value }))}
+              className="input-field"
+            >
+              <option value="all">All</option>
+              {accountRoleOptions.map(r => (
+                <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label-text">Category</label>
+            <select
+              value={draftFilters.category}
+              onChange={e => setDraftFilters(f => ({ ...f, category: e.target.value }))}
+              className="input-field"
+            >
+              <option value="all">All</option>
+              {accountCategoryOptions.map(c => (
+                <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label-text">Status</label>
+            <select
+              value={draftFilters.status}
+              onChange={e => setDraftFilters(f => ({ ...f, status: e.target.value }))}
+              className="input-field"
+            >
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div>
+            <label className="label-text">Is Admin</label>
+            <select
+              value={draftFilters.isAdmin}
+              onChange={e => setDraftFilters(f => ({ ...f, isAdmin: e.target.value }))}
+              className="input-field"
+            >
+              <option value="all">All</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button onClick={clearSheetFilters} className="btn-secondary flex-1">Clear all</button>
+          <button onClick={applyFilters} className="btn-primary flex-1">Apply</button>
+        </div>
+      </Sheet>
+
+      {/* ── Per-row quick-action sheet (mobile, admin viewers) ── */}
+      <Sheet
+        open={!!quickActionPerson}
+        onClose={closeQuickActions}
+        title={quickActionPerson ? `${quickActionPerson.name ? quickActionPerson.name + ' ' : ''}${quickActionPerson.surname}` : ''}
+      >
+        {quickActionPerson && (
+          confirmDeactivate ? (
+            <div>
+              <p className="mb-4 text-sm text-ink">
+                Inactive doctors remain on record but are excluded from roster generation. Deactivate this account?
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmDeactivate(false)} className="btn-secondary flex-1">Cancel</button>
+                <button
+                  onClick={confirmDeactivateNow}
+                  className="flex-1 rounded bg-flagAmber px-3 py-2.5 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Deactivate
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {STAFF_QUICK_ACTIONS.filter(a => !a.requiresSuperAdmin || isSuperAdmin).map(action => {
+                const disabled = action.key === 'setAdmin' && quickActionPerson.is_super_admin
+                return (
+                  <button
+                    key={action.key}
+                    onClick={() => !disabled && handleQuickAction(action.key)}
+                    disabled={disabled}
+                    title={disabled ? 'Super-admin — manage from their own Account page' : undefined}
+                    className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {action.key === 'setStatus'
+                      ? (quickActionPerson.is_active ? 'Set status · Deactivate' : 'Set status · Activate')
+                      : action.key === 'setAdmin'
+                        ? (quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant')
+                        : action.label}
+                  </button>
+                )
+              })}
+            </div>
+          )
+        )}
+      </Sheet>
     </div>
   )
 }
@@ -815,6 +1093,24 @@ function ChevronRightIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+function KebabIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="5" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  )
+}
+
+function CloseIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }

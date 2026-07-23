@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
 
 // ── Nav sets per role ──────────────────────────────────────
@@ -108,12 +109,29 @@ export default function AppLayout() {
   const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [staffBadgeCount, setStaffBadgeCount] = useState(0)
 
   useEffect(() => {
     if (!location.pathname.startsWith('/account')) {
       sessionStorage.setItem(LAST_PATH_KEY, location.pathname)
     }
   }, [location.pathname])
+
+  // Combined "needs admin attention" count for the Staff nav badge — new
+  // registrations awaiting approval, plus pending account change requests.
+  // Refetched on every navigation so it stays fresh after acting on either
+  // list from the Staff page itself.
+  useEffect(() => {
+    if (!isAdmin) { setStaffBadgeCount(0); return }
+    let cancelled = false
+    Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', false).eq('is_rejected', false),
+      supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]).then(([pendingRes, requestsRes]) => {
+      if (!cancelled) setStaffBadgeCount((pendingRes.count || 0) + (requestsRes.count || 0))
+    })
+    return () => { cancelled = true }
+  }, [isAdmin, location.pathname])
 
   const navItems = isAdmin  ? adminNav
                  : isLocum  ? locumNav
@@ -164,7 +182,12 @@ export default function AppLayout() {
                 }`
               }
             >
-              <item.icon className="h-[18px] w-[18px]" />
+              <span className="relative inline-flex">
+                <item.icon className="h-[18px] w-[18px]" />
+                {item.to === '/staff' && staffBadgeCount > 0 && (
+                  <NavBadge count={staffBadgeCount} />
+                )}
+              </span>
               {item.label}
             </NavLink>
           ))}
@@ -220,12 +243,29 @@ export default function AppLayout() {
               }`
             }
           >
-            <item.icon className="h-5 w-5" />
+            <span className="relative inline-flex">
+              <item.icon className="h-5 w-5" />
+              {item.to === '/staff' && staffBadgeCount > 0 && (
+                <NavBadge count={staffBadgeCount} />
+              )}
+            </span>
             {item.label}
           </NavLink>
         ))}
       </nav>
     </div>
+  )
+}
+
+// Small count badge overlapping the top-right corner of a nav icon.
+function NavBadge({ count }) {
+  return (
+    <span
+      className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-canvas-raised"
+      aria-label={`${count} pending`}
+    >
+      {count > 9 ? '9+' : count}
+    </span>
   )
 }
 

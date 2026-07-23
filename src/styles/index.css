@@ -38,18 +38,6 @@
     -webkit-text-fill-color: theme('colors.ink.DEFAULT');
     transition: background-color 5000s ease-in-out 0s;
   }
-
-  /* Mobile Safari sizes native date inputs to their spelled-out content
-     instead of the container, overflowing it, and centres the value —
-     force both back to matching every other input-field. */
-  input[type='date'] {
-    min-width: 0;
-    max-width: 100%;
-    text-align: left;
-  }
-  input[type='date']::-webkit-date-and-time-value {
-    text-align: left;
-  }
 }
 
 @layer components {

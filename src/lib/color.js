@@ -5,16 +5,14 @@
 export const AVATAR_COLOR_PALETTE = [
   '#E17055', '#00B894', '#6C5CE7', '#0984E3', '#FDCB6E', '#E84393',
   '#16A085', '#636E72', '#A29BFE', '#FF7675', '#55EFC4', '#FAB1A0',
+  '#FD79A8', '#F9CA24', '#F0932B', '#EB4D4B', '#6AB04C', '#22A6B3',
+  '#4834D4', '#7ED6DF',
 ]
 
 export const NEUTRAL_AVATAR_COLOR = '#CBD5E1'
 
-// Picks two different colours from the palette — background + pattern dot.
-export function randomAvatarColorPair() {
-  const i1 = Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)
-  let i2 = Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)
-  while (i2 === i1) i2 = Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)
-  return { colorCode: AVATAR_COLOR_PALETTE[i1], patternDotColor: AVATAR_COLOR_PALETTE[i2] }
+export function randomAvatarColor() {
+  return AVATAR_COLOR_PALETTE[Math.floor(Math.random() * AVATAR_COLOR_PALETTE.length)]
 }
 
 // Picks readable ink (dark) or white text against an arbitrary hex background —

@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import { LAST_PATH_KEY } from '../components/AppLayout'
 import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
-import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColorPair } from '../lib/color'
+import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
+import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 
 // Maps a route path to the nav label shown for it, for the "Back to X" link
 function labelForPath(pathname) {
@@ -252,7 +253,7 @@ export default function AccountSettingsPage() {
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
   // Appearance: colour + dot pattern (own account only — purely cosmetic, no scheduling impact)
-  const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternDotColor: AVATAR_COLOR_PALETTE[0], hasPattern: false })
+  const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternType: null })
   const [colorSaving, setColorSaving] = useState(false)
   const [colorMsg, setColorMsg] = useState(null)
 
@@ -325,8 +326,7 @@ export default function AccountSettingsPage() {
     setAdminIsActive(profile.is_active !== false)
     setColorForm({
       colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR,
-      patternDotColor: profile.pattern_dot_color || AVATAR_COLOR_PALETTE[0],
-      hasPattern: profile.has_pattern === true,
+      patternType: profile.pattern_type || null,
     })
   }, [profile])
 
@@ -480,7 +480,7 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Appearance: colour + dot pattern (own account only) ─────
+  // ── Appearance: colour + pattern (own account only) ──────────
   async function saveColorForm(next) {
     setColorForm(next)
     setColorSaving(true)
@@ -489,8 +489,7 @@ export default function AccountSettingsPage() {
       .from('profiles')
       .update({
         color_code: next.colorCode,
-        pattern_dot_color: next.patternDotColor,
-        has_pattern: next.hasPattern,
+        pattern_type: next.patternType,
       })
       .eq('id', user.id)
     setColorSaving(false)
@@ -503,12 +502,11 @@ export default function AccountSettingsPage() {
   function pickColorSwatch(hex) {
     saveColorForm({ ...colorForm, colorCode: hex })
   }
-  function toggleHasPattern(value) {
-    saveColorForm({ ...colorForm, hasPattern: value })
+  function pickPatternType(patternType) {
+    saveColorForm({ ...colorForm, patternType })
   }
-  function generateColors() {
-    const { colorCode, patternDotColor } = randomAvatarColorPair()
-    saveColorForm({ ...colorForm, colorCode, patternDotColor })
+  function surpriseMe() {
+    saveColorForm({ colorCode: randomAvatarColor(), patternType: randomPatternType() })
   }
 
   // ── Password (own account only) ──────────────────────────────
@@ -817,7 +815,7 @@ export default function AccountSettingsPage() {
         subtitle={
           statusSaving
             ? 'Saving…'
-            : <span className={adminIsActive ? 'font-medium text-success' : 'font-medium text-flagRed'}>{adminIsActive ? 'Active' : 'Inactive'}</span>
+            : <span className={adminIsActive ? 'font-medium text-success' : 'font-medium text-flagAmber'}>{adminIsActive ? 'Active' : 'Inactive'}</span>
         }
       >
         {isAdmin ? (
@@ -831,7 +829,7 @@ export default function AccountSettingsPage() {
         ) : (
           <div className="flex items-center gap-2">
             <StatusBadge active={adminIsActive} size={18} />
-            <span className={`text-sm font-medium ${adminIsActive ? 'text-success' : 'text-flagRed'}`}>
+            <span className={`text-sm font-medium ${adminIsActive ? 'text-success' : 'text-flagAmber'}`}>
               {adminIsActive ? 'Active' : 'Inactive'}
             </span>
           </div>
@@ -881,7 +879,14 @@ export default function AccountSettingsPage() {
       </AccordionSection>
 
       {/* ── Category, Role & Permissions ─────────────────────── */}
-      <AccordionSection title="Category, Role & Permissions">
+      <AccordionSection
+        title="Category, Role & Permissions"
+        subtitle={
+          profile.is_admin
+            ? <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
+            : undefined
+        }
+      >
         {isAdmin ? (
           <div className="space-y-4">
             <div>
@@ -1127,7 +1132,7 @@ export default function AccountSettingsPage() {
         </AccordionSection>
       )}
 
-      {/* ── Appearance: colour + dot pattern (own account only) ── */}
+      {/* ── Appearance: colour + pattern (own account only) ────── */}
       {isOwnAccount && (
         <AccordionSection title="Appearance" subtitle={colorSaving ? 'Saving…' : undefined}>
           <div className="mb-5 flex items-center gap-4">
@@ -1137,8 +1142,7 @@ export default function AccountSettingsPage() {
                 surname: profile.surname,
                 avatar_url: profile.avatar_url,
                 color_code: colorForm.colorCode,
-                pattern_dot_color: colorForm.patternDotColor,
-                has_pattern: colorForm.hasPattern,
+                pattern_type: colorForm.patternType,
               }}
               size={64}
             />
@@ -1166,17 +1170,38 @@ export default function AccountSettingsPage() {
             </div>
           </div>
 
-          <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-line bg-canvas-sunken p-3">
-            <div>
-              <p className="text-sm font-medium text-ink">Dot pattern</p>
-              <p className="text-xs text-ink-muted">Off shows a plain solid colour instead.</p>
+          <div className="mb-4">
+            <label className="label-text">Pattern</label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => pickPatternType(null)}
+                aria-label="No pattern"
+                title="None"
+                className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
+                  !colorForm.patternType ? 'ring-ink' : 'ring-transparent'
+                }`}
+                style={{ backgroundColor: colorForm.colorCode }}
+              />
+              {PATTERN_TYPES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => pickPatternType(key)}
+                  aria-label={label}
+                  title={label}
+                  className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
+                    colorForm.patternType === key ? 'ring-ink' : 'ring-transparent'
+                  }`}
+                  style={{ backgroundColor: colorForm.colorCode, ...patternBackgroundStyle(key, colorForm.colorCode, 10) }}
+                />
+              ))}
             </div>
-            <Toggle checked={colorForm.hasPattern} onChange={toggleHasPattern} />
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="button" onClick={generateColors} className="btn-secondary">
-              Generate
+            <button type="button" onClick={surpriseMe} className="btn-secondary">
+              Surprise me!
             </button>
             {colorMsg && (
               <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
@@ -1191,10 +1216,7 @@ export default function AccountSettingsPage() {
       {isOwnAccount && (
         <AccordionSection title="Notifications" subtitle={prefsSaving ? 'Saving…' : undefined}>
           <div className="flex items-center justify-between border-b border-slate-line pb-3">
-            <div>
-              <p className="text-sm font-medium text-ink">All notifications</p>
-              <p className="text-xs text-ink-muted">Turn every notification on or off at once.</p>
-            </div>
+            <p className="text-sm font-medium text-ink">All notifications</p>
             <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />
           </div>
 

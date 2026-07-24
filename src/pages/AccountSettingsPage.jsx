@@ -960,7 +960,7 @@ export default function AccountSettingsPage() {
                 <img
                   src={profile.avatar_url}
                   alt=""
-                  className="h-5 w-5 flex-shrink-0 rounded-full border border-canvas-raised object-cover"
+                  className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
                 />
                 <ProfileAvatar profile={profile} size={20} soloFill />
               </span>
@@ -969,7 +969,9 @@ export default function AccountSettingsPage() {
             )}
             <span className="flex min-w-0 flex-col leading-snug">
               <span className="truncate">{profile.name} {profile.surname}</span>
-              {formatBirthdayDisplay(profile.birthday) && <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>}
+              {!isOwnAccount && formatBirthdayDisplay(profile.birthday) && (
+                <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>
+              )}
             </span>
           </span>
         }
@@ -1123,6 +1125,30 @@ export default function AccountSettingsPage() {
         )}
       </AccordionSection>
 
+      {/* ── Mobile number ─────────────────────────────────────── */}
+      <AccordionSection title="Mobile number" subtitle={formatPhoneDisplay(profile.phone) || undefined}>
+        <form onSubmit={savePhone} className="space-y-3">
+          <div>
+            <label className="label-text">Mobile number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="e.g. 082 123 4567"
+              className="input-field"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
+              {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
+            </button>
+            {phoneMsg && (
+              <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
+            )}
+          </div>
+        </form>
+      </AccordionSection>
+
       {/* ── Email ───────────────────────────────────────────── */}
       <AccordionSection title="Email address" subtitle={displayEmail || undefined}>
         {isOwnAccount ? (
@@ -1158,30 +1184,6 @@ export default function AccountSettingsPage() {
             <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
           </div>
         )}
-      </AccordionSection>
-
-      {/* ── Mobile number ─────────────────────────────────────── */}
-      <AccordionSection title="Mobile number" subtitle={formatPhoneDisplay(profile.phone) || undefined}>
-        <form onSubmit={savePhone} className="space-y-3">
-          <div>
-            <label className="label-text">Mobile number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="e.g. 082 123 4567"
-              className="input-field"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
-              {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
-            </button>
-            {phoneMsg && (
-              <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
-            )}
-          </div>
-        </form>
       </AccordionSection>
 
       {/* ── Category, Role & Permissions ─────────────────────── */}

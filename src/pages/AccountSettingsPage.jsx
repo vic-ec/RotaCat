@@ -8,6 +8,7 @@ import { LAST_PATH_KEY } from '../components/AppLayout'
 import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
+import { formatPhoneDisplay } from '../lib/phone'
 
 // Maps a route path to the nav label shown for it, for the "Back to X" link
 function labelForPath(pathname) {
@@ -129,6 +130,11 @@ function dayMonthToBirthday(day, month) {
   if (!day || !month) return ''
   return `${BIRTHDAY_YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
+function formatBirthdayDisplay(iso) {
+  const { day, month } = birthdayToDayMonth(iso)
+  if (!day || !month) return null
+  return `${day} ${MONTH_NAMES[Number(month) - 1]}`
+}
 
 // Briefly shows "Saved." on an Update button in place of its normal label.
 const SAVED_FLASH_MS = 2500
@@ -170,7 +176,7 @@ function ChevronDownIcon(props) {
 // Supports an optional externally-controlled open state (e.g. "Change appearance"
 // jumping straight to the Appearance section) alongside the default uncontrolled mode.
 const AccordionSection = forwardRef(function AccordionSection(
-  { title, subtitle, defaultOpen = false, danger = false, children, open: controlledOpen, onOpenChange },
+  { title, subtitle, defaultOpen = false, danger = false, children, open: controlledOpen, onOpenChange, subtitleMultiline = false },
   ref
 ) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen)
@@ -194,7 +200,11 @@ const AccordionSection = forwardRef(function AccordionSection(
           <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
             {title}
           </h2>
-          {subtitle && <div className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</div>}
+          {subtitle && (
+            <div className={`mt-1 text-2xl text-ink-muted ${subtitleMultiline ? '' : 'truncate'}`}>
+              {subtitle}
+            </div>
+          )}
         </div>
         <ChevronDownIcon
           className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
@@ -915,20 +925,27 @@ export default function AccountSettingsPage() {
       {/* ── Profile ───────────────────────────────────────────── */}
       <AccordionSection
         title="Profile"
-        defaultOpen
+        subtitleMultiline
         subtitle={
-          profile.avatar_url ? (
-            <span className="inline-flex items-center gap-1.5">
-              <img
-                src={profile.avatar_url}
-                alt=""
-                className="h-[18px] w-[18px] flex-shrink-0 rounded-full border border-canvas-raised object-cover"
-              />
-              <ProfileAvatar profile={profile} size={18} soloFill />
+          <span className="inline-flex items-center gap-3">
+            {profile.avatar_url ? (
+              <span className="inline-flex flex-shrink-0 items-center gap-1.5">
+                <img
+                  src={profile.avatar_url}
+                  alt=""
+                  className="h-7 w-7 flex-shrink-0 rounded-full border border-canvas-raised object-cover"
+                />
+                <ProfileAvatar profile={profile} size={28} soloFill />
+              </span>
+            ) : (
+              <ProfileAvatar profile={profile} size={28} />
+            )}
+            <span className="flex min-w-0 flex-col leading-snug">
+              <span className="truncate font-semibold text-ink">{profile.name} {profile.surname}</span>
+              {formatPhoneDisplay(profile.phone) && <span className="truncate">{formatPhoneDisplay(profile.phone)}</span>}
+              {formatBirthdayDisplay(profile.birthday) && <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>}
             </span>
-          ) : (
-            <ProfileAvatar profile={profile} size={18} />
-          )
+          </span>
         }
       >
         <div className="mb-5 flex items-center gap-4">

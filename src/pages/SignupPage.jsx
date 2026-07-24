@@ -138,7 +138,7 @@ function RoleModal({ role, onClose }) {
         className="flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-7">
+        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-4">
           <p className="text-lg font-semibold text-ink">{label}</p>
           <button
             type="button"

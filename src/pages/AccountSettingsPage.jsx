@@ -1,46 +1,13 @@
 import { useEffect, useRef, useState, useCallback, forwardRef } from 'react'
-import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
+import { useParams, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
-import { LAST_PATH_KEY } from '../components/AppLayout'
 import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay } from '../lib/phone'
-
-// Maps a route path to the nav label shown for it, for the "Back to X" link
-function labelForPath(pathname) {
-  if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/roster')) return 'Roster'
-  if (pathname.startsWith('/staff')) return 'Staff list'
-  if (pathname.startsWith('/leave')) return 'Leave'
-  if (pathname.startsWith('/swaps')) return 'Swaps'
-  if (pathname.startsWith('/shifts')) return 'Open shifts'
-  if (pathname.startsWith('/settings')) return 'Settings'
-  return 'previous page'
-}
-
-function ArrowLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  )
-}
-
-function BackButton({ onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      className="sticky top-14 md:top-0 z-[5] mb-4 inline-flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm font-medium text-ink-light hover:text-ink"
-    >
-      <ArrowLeftIcon className="h-4 w-4" />
-      Back to {label}
-    </button>
-  )
-}
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -172,6 +139,100 @@ function ChevronDownIcon(props) {
   )
 }
 
+function PencilIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25l3 3" />
+    </svg>
+  )
+}
+
+function PhoneIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106a2.25 2.25 0 00-2.288.573l-.766.766a11.25 11.25 0 01-6.198-6.198l.766-.766a2.25 2.25 0 00.572-2.288L6.65 3.852a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 5.25v1.5z" />
+    </svg>
+  )
+}
+
+function EmailIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  )
+}
+
+function CameraIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C3.032 7.58 2.25 8.507 2.25 9.574v9.176c0 1.24 1.01 2.25 2.25 2.25h15c1.24 0 2.25-1.01 2.25-2.25V9.574c0-1.067-.782-1.994-1.802-2.169a48.09 48.09 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+    </svg>
+  )
+}
+
+// Small "Active"/"Inactive"/"On leave" pill shown next to the account holder's
+// name in the profile header — replaces the old standalone Status card.
+function AccountStatusBadge({ active, onLeave }) {
+  const label = !active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
+  const colorClasses = !active
+    ? 'bg-flagRed-bg text-flagRed'
+    : onLeave
+      ? 'bg-canvas-sunken text-ink-light'
+      : 'bg-success-bg text-success'
+  return (
+    <span className={`inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}>
+      <StatusBadge active={active} onLeave={onLeave} size={12} />
+      {label}
+    </span>
+  )
+}
+
+// Muted section label shown above a group of related cards/accordions
+// ("Contact", "Security & access", "Preferences").
+function GroupLabel({ children }) {
+  return (
+    <h2 className="mb-2 mt-8 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+      {children}
+    </h2>
+  )
+}
+
+// Single-value contact field shown as an icon + value row, with a pencil
+// button that reveals the existing edit form in place — replaces the old
+// accordion pattern for fields that only ever hold one value (no need to
+// "expand a section" just to see/change a phone number or email address).
+function ContactRow({ icon, label, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
+  return (
+    <div className="card mb-3 overflow-hidden">
+      <div className="flex items-center gap-3 px-5 py-3">
+        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">{label}</p>
+          <p className="truncate text-sm text-ink">{value || placeholder}</p>
+          {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+        </div>
+        {editable && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={editing}
+            aria-label={editLabel}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      {editable && editing && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
+    </div>
+  )
+}
+
 // Collapsible section — keeps the settings page scannable instead of one long scroll.
 // Supports an optional externally-controlled open state (e.g. "Change appearance"
 // jumping straight to the Appearance section) alongside the default uncontrolled mode.
@@ -274,7 +335,6 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
   const { id: routeId } = useParams()
-  const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   // Viewing someone else's account requires admin permission — enforced below via redirect.
@@ -295,11 +355,13 @@ export default function AccountSettingsPage() {
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailMsg, setEmailMsg] = useState(null)
+  const [emailEditing, setEmailEditing] = useState(false)
 
   const [phone, setPhone] = useState('')
   const [phoneSaving, setPhoneSaving] = useState(false)
   const [phoneJustSaved, setPhoneJustSaved] = useState(false)
   const [phoneMsg, setPhoneMsg] = useState(null)
+  const [phoneEditing, setPhoneEditing] = useState(false)
 
   const [cropSrc, setCropSrc] = useState(null) // object URL while cropping
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -898,13 +960,9 @@ export default function AccountSettingsPage() {
     return <Navigate to="/account" replace />
   }
 
-  const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
-  const backLabel = labelForPath(lastPath)
-
   if (!isOwnAccount && targetLoadError) {
     return (
       <div className="mx-auto max-w-2xl pb-12">
-        {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block px-3 py-1.5 text-xs">Back to Staff list</Link>
@@ -921,23 +979,89 @@ export default function AccountSettingsPage() {
   const allNotificationsOn = visibleNotificationKeys.length > 0 &&
     visibleNotificationKeys.every(key => prefs[key] !== false)
 
+  const roleCategoryLabel = profile.role === 'doctor'
+    ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
+    : (ROLE_LABELS[profile.role] || profile.role)
+  const permissionLabel = profile.is_admin ? (profile.is_super_admin ? 'Super-admin' : 'Admin') : null
+  const headerSubtitle = permissionLabel ? `${roleCategoryLabel} · ${permissionLabel}` : roleCategoryLabel
+
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
       <div className="mb-6">
         {!isOwnAccount && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
             <span>
               Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
             </span>
           </div>
         )}
-        <h1 className="font-display text-2xl text-ink">Account</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {isOwnAccount
-            ? 'Manage your profile, notifications, and account security.'
-            : "Manage this person's profile, role, and permissions."}
-        </p>
+
+        {/* ── Profile header: single avatar, name, status badge, role subtitle ── */}
+        <div className="flex items-start gap-4">
+          <div className="relative flex-shrink-0" ref={photoMenuRef}>
+            <button
+              type="button"
+              onClick={() => isOwnAccount && setPhotoMenuOpen(o => !o)}
+              aria-label={isOwnAccount ? 'Edit profile picture' : undefined}
+              aria-haspopup={isOwnAccount ? 'menu' : undefined}
+              aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
+              disabled={!isOwnAccount}
+              className={`relative flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                isOwnAccount ? 'cursor-pointer' : 'cursor-default'
+              }`}
+            >
+              <ProfileAvatar profile={profile} size={80} />
+              {isOwnAccount && (
+                <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white">
+                  <CameraIcon className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </button>
+            {isOwnAccount && photoMenuOpen && (
+              <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                <button
+                  type="button"
+                  onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
+                  className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+                >
+                  Upload picture
+                </button>
+                {profile.avatar_url && (
+                  <button
+                    type="button"
+                    onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
+                    className="block w-full px-3 py-2.5 text-left text-sm text-flagRed hover:bg-flagRed-bg"
+                  >
+                    Delete picture
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setPhotoMenuOpen(false); jumpToAppearance() }}
+                  className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+                >
+                  Change appearance
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarSelect}
+              className="hidden"
+            />
+          </div>
+
+          <div className="min-w-0 flex-1 pt-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h1 className="break-words font-display text-2xl text-ink">{profile.name} {profile.surname}</h1>
+              <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
+            </div>
+            <p className="mt-1 text-sm text-ink-muted">{headerSubtitle}</p>
+          </div>
+        </div>
+        {avatarError && <p className="mt-2 text-xs text-flagRed">{avatarError}</p>}
       </div>
 
       {cropSrc && (
@@ -949,87 +1073,11 @@ export default function AccountSettingsPage() {
         />
       )}
 
-      {/* ── Profile ───────────────────────────────────────────── */}
+      {/* ── Profile details ──────────────────────────────────── */}
       <AccordionSection
-        title="Profile"
-        subtitleMultiline
-        subtitle={
-          <span className="inline-flex items-center gap-2">
-            {profile.avatar_url ? (
-              <span className="inline-flex flex-shrink-0 items-center gap-1.5">
-                <img
-                  src={profile.avatar_url}
-                  alt=""
-                  className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
-                />
-                <ProfileAvatar profile={profile} size={20} soloFill />
-              </span>
-            ) : (
-              <ProfileAvatar profile={profile} size={20} />
-            )}
-            <span className="flex min-w-0 flex-col leading-snug">
-              <span className="truncate">{profile.name} {profile.surname}</span>
-              {!isOwnAccount && formatBirthdayDisplay(profile.birthday) && (
-                <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>
-              )}
-            </span>
-          </span>
-        }
+        title="Profile details"
+        subtitle={!isOwnAccount ? formatBirthdayDisplay(profile.birthday) || undefined : undefined}
       >
-        <div className="mb-5 flex items-center gap-4">
-          <ProfileAvatar profile={profile} size={64} />
-          {isOwnAccount && (
-            <div>
-              <div className="flex flex-wrap gap-2">
-                <div className="relative" ref={photoMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setPhotoMenuOpen(o => !o)}
-                    className="btn-secondary px-3 py-1.5 text-xs"
-                  >
-                    Change picture
-                  </button>
-                  {photoMenuOpen && (
-                    <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
-                      <button
-                        type="button"
-                        onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
-                        className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-canvas-sunken"
-                      >
-                        Upload picture
-                      </button>
-                      {profile.avatar_url && (
-                        <button
-                          type="button"
-                          onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
-                          className="block w-full px-3 py-2 text-left text-xs text-flagRed hover:bg-flagRed-bg"
-                        >
-                          Delete picture
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={jumpToAppearance}
-                  className="btn-secondary px-3 py-1.5 text-xs"
-                >
-                  Change appearance
-                </button>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarSelect}
-                className="hidden"
-              />
-              {avatarError && <p className="mt-1 text-xs text-flagRed">{avatarError}</p>}
-            </div>
-          )}
-        </div>
-
         <form onSubmit={saveProfile} className="space-y-4">
           <div>
             <label className="label-text">First name</label>
@@ -1090,43 +1138,17 @@ export default function AccountSettingsPage() {
         </form>
       </AccordionSection>
 
-      {/* ── Status ────────────────────────────────────────────── */}
-      <AccordionSection
-        title="Status"
-        subtitle={
-          <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-            {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-          </span>
-        }
-      >
-        {isAdmin ? (
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-ink">Account active</p>
-              <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
-              {adminIsActive && isOnLeave && (
-                <p className="mt-1 text-xs text-ink-muted">🏖️ Currently on approved leave.</p>
-              )}
-            </div>
-            <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <StatusBadge active={adminIsActive} onLeave={isOnLeave} size={18} />
-            <span className={`text-sm font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-              {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-            </span>
-          </div>
-        )}
-        {statusMsg && (
-          <span className={`mt-2 block text-xs font-medium ${statusMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-            {statusMsg.text}
-          </span>
-        )}
-      </AccordionSection>
+      {/* ── Contact ───────────────────────────────────────────── */}
+      <GroupLabel>Contact</GroupLabel>
 
-      {/* ── Mobile number ─────────────────────────────────────── */}
-      <AccordionSection title="Mobile number" subtitle={formatPhoneDisplay(profile.phone) || undefined}>
+      <ContactRow
+        icon={<PhoneIcon className="h-4 w-4" />}
+        label="Mobile number"
+        value={formatPhoneDisplay(profile.phone)}
+        editLabel="Edit mobile number"
+        editing={phoneEditing}
+        onToggle={() => setPhoneEditing(o => !o)}
+      >
         <form onSubmit={savePhone} className="space-y-3">
           <div>
             <label className="label-text">Mobile number</label>
@@ -1147,44 +1169,96 @@ export default function AccountSettingsPage() {
             )}
           </div>
         </form>
-      </AccordionSection>
+      </ContactRow>
 
-      {/* ── Email ───────────────────────────────────────────── */}
-      <AccordionSection title="Email address" subtitle={displayEmail || undefined}>
-        {isOwnAccount ? (
-          <form onSubmit={changeEmail} className="space-y-3">
+      <ContactRow
+        icon={<EmailIcon className="h-4 w-4" />}
+        label="Email address"
+        value={displayEmail}
+        editLabel="Edit email address"
+        editing={emailEditing}
+        onToggle={() => setEmailEditing(o => !o)}
+        editable={isOwnAccount}
+        note={!isOwnAccount ? 'Only the account holder can change their own email address.' : undefined}
+      >
+        <form onSubmit={changeEmail} className="space-y-3">
+          <div>
+            <label className="label-text">Email</label>
+            <input
+              type="email"
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value)}
+              className="input-field"
+            />
+          </div>
+          <p className="text-xs text-ink-muted">
+            This is also your login username. Changing it sends confirmation links to both your old and new address —
+            the change only takes effect once confirmed, so it won't lock you out.
+          </p>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
+              {emailSaving ? 'Sending…' : 'Update'}
+            </button>
+            {emailMsg && (
+              <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                {emailMsg.text}
+              </span>
+            )}
+          </div>
+        </form>
+      </ContactRow>
+
+      {/* ── Security & access ─────────────────────────────────── */}
+      <GroupLabel>Security &amp; access</GroupLabel>
+
+      {/* ── Change password (own account only) ──────────────── */}
+      {isOwnAccount && (
+        <AccordionSection title="Change password">
+          <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+            {PASSWORD_HINT}
+          </div>
+          <form onSubmit={changePassword} className="space-y-4">
             <div>
-              <label className="label-text">Email</label>
+              <label className="label-text">Current password</label>
               <input
-                type="email"
-                value={newEmail}
-                onChange={e => setNewEmail(e.target.value)}
+                type="password"
+                value={pwForm.current}
+                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
                 className="input-field"
+                autoComplete="current-password"
               />
             </div>
-            <p className="text-xs text-ink-muted">
-              This is also your login username. Changing it sends confirmation links to both your old and new address —
-              the change only takes effect once confirmed, so it won't lock you out.
-            </p>
+            <div>
+              <label className="label-text">New password</label>
+              <input
+                type="password"
+                value={pwForm.password}
+                onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                className="input-field"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="label-text">Confirm password</label>
+              <input
+                type="password"
+                value={pwForm.confirm}
+                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                className="input-field"
+                autoComplete="new-password"
+              />
+            </div>
             <div className="flex items-center gap-3">
-              <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
-                {emailSaving ? 'Sending…' : 'Update'}
+              <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
+                {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
               </button>
-              {emailMsg && (
-                <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                  {emailMsg.text}
-                </span>
+              {pwMsg && (
+                <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>
               )}
             </div>
           </form>
-        ) : (
-          <div>
-            <label className="label-text">Email</label>
-            <input type="email" value={displayEmail || '—'} disabled className="input-field cursor-not-allowed opacity-60" />
-            <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
-          </div>
-        )}
-      </AccordionSection>
+        </AccordionSection>
+      )}
 
       {/* ── Category, Role & Permissions ─────────────────────── */}
       <AccordionSection
@@ -1202,6 +1276,23 @@ export default function AccountSettingsPage() {
           </span>
         }
       >
+        {isAdmin && (
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-line pb-4">
+            <div>
+              <p className="text-sm font-medium text-ink">Account active</p>
+              <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
+              {adminIsActive && isOnLeave && (
+                <p className="mt-1 text-xs text-ink-muted">🏖️ Currently on approved leave.</p>
+              )}
+            </div>
+            <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
+          </div>
+        )}
+        {isAdmin && statusMsg && (
+          <span className={`mb-4 block text-xs font-medium ${statusMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+            {statusMsg.text}
+          </span>
+        )}
         {isAdmin ? (
           <div className="space-y-4">
             <div>
@@ -1394,54 +1485,8 @@ export default function AccountSettingsPage() {
         )}
       </AccordionSection>
 
-      {/* ── Change password (own account only) ──────────────── */}
-      {isOwnAccount && (
-        <AccordionSection title="Change password">
-          <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
-            {PASSWORD_HINT}
-          </div>
-          <form onSubmit={changePassword} className="space-y-4">
-            <div>
-              <label className="label-text">Current password</label>
-              <input
-                type="password"
-                value={pwForm.current}
-                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
-                className="input-field"
-                autoComplete="current-password"
-              />
-            </div>
-            <div>
-              <label className="label-text">New password</label>
-              <input
-                type="password"
-                value={pwForm.password}
-                onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
-                className="input-field"
-                autoComplete="new-password"
-              />
-            </div>
-            <div>
-              <label className="label-text">Confirm password</label>
-              <input
-                type="password"
-                value={pwForm.confirm}
-                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
-                className="input-field"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
-                {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
-              </button>
-              {pwMsg && (
-                <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>
-              )}
-            </div>
-          </form>
-        </AccordionSection>
-      )}
+      {/* ── Preferences ───────────────────────────────────────── */}
+      <GroupLabel>Preferences</GroupLabel>
 
       {/* ── Appearance: colour + pattern (own account only) ────── */}
       {isOwnAccount && (

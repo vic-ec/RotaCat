@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
-import ProfileAvatar from '../components/ProfileAvatar'
+import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 
 // ── Nav sets per role ──────────────────────────────────────
 // Each role sees a tailored nav — preserving the original
@@ -62,17 +62,32 @@ export const LAST_PATH_KEY = 'rotacat:lastNonAccountPath'
 
 // Profile picture if set, otherwise initials — shown with the doctor's
 // identity colour + pattern (matches the Staff list / Account Settings avatar).
-function UserAvatar({ profile, size = 40 }) {
+// The status badge in the corner is always the logged-in user's own here (the
+// sidebar only ever shows one's own profile), so it's always click-to-change.
+function UserAvatar({ profile, size = 40, onLeave = false, onSetActive }) {
   if (!profile) return null
-  return <ProfileAvatar profile={profile} size={size} />
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <ProfileAvatar profile={profile} size={size} />
+      <StatusPicker
+        active={profile.is_active !== false}
+        onLeave={onLeave}
+        size={Math.max(12, Math.round(size * 0.35))}
+        interactive
+        onSetActive={onSetActive}
+      />
+    </div>
+  )
 }
 
 // Mobile top-bar avatar: hover shows a "Logged in as X" tooltip; tap toggles it (no hover on touch).
-function MobileAvatarWithTooltip({ profile, size }) {
+// The status badge is a separate sibling (not nested in the tooltip button) so
+// the two don't end up as a button-inside-a-button.
+function MobileAvatarWithTooltip({ profile, size, onLeave, onSetActive }) {
   const [show, setShow] = useState(false)
   if (!profile) return null
   return (
-    <div className="group relative">
+    <div className="group relative" style={{ width: size, height: size }}>
       <button
         type="button"
         onClick={() => setShow(s => !s)}
@@ -80,8 +95,15 @@ function MobileAvatarWithTooltip({ profile, size }) {
         aria-label={`Logged in as ${profile.name} ${profile.surname}`}
         className="block"
       >
-        <UserAvatar profile={profile} size={size} />
+        <ProfileAvatar profile={profile} size={size} />
       </button>
+      <StatusPicker
+        active={profile.is_active !== false}
+        onLeave={onLeave}
+        size={Math.max(12, Math.round(size * 0.35))}
+        interactive
+        onSetActive={onSetActive}
+      />
       <div
         className={`pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
           show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -94,10 +116,23 @@ function MobileAvatarWithTooltip({ profile, size }) {
 }
 
 export default function AppLayout() {
-  const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
+  const { profile, signOut, isAdmin, isLocum, isClerk, setMyActiveStatus } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [staffBadgeCount, setStaffBadgeCount] = useState(0)
+  const [myOnLeave, setMyOnLeave] = useState(false)
+
+  // Own on-leave status, for the status badge shown on the sidebar/top-bar
+  // avatar — mirrors the same approved-leave lookup used on the Account and
+  // Staff list pages.
+  useEffect(() => {
+    if (!profile?.id) { setMyOnLeave(false); return }
+    let cancelled = false
+    supabase.rpc('get_current_leave_profile_ids').then(({ data }) => {
+      if (!cancelled) setMyOnLeave((data || []).some(r => r.profile_id === profile.id))
+    })
+    return () => { cancelled = true }
+  }, [profile?.id])
 
   useEffect(() => {
     if (!location.pathname.startsWith('/account')) {
@@ -143,7 +178,7 @@ export default function AppLayout() {
       <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
-            <UserAvatar profile={profile} size={40} />
+            <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
             <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
@@ -195,7 +230,7 @@ export default function AppLayout() {
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
         <div className="flex items-center gap-2">
-          <MobileAvatarWithTooltip profile={profile} size={32} />
+          <MobileAvatarWithTooltip profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
           <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
         </div>
         <button

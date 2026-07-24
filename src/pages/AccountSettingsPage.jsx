@@ -201,7 +201,7 @@ const AccordionSection = forwardRef(function AccordionSection(
             {title}
           </h2>
           {subtitle && (
-            <div className={`mt-1 text-2xl text-ink-muted ${subtitleMultiline ? '' : 'truncate'}`}>
+            <div className={`mt-1 text-sm text-ink ${subtitleMultiline ? '' : 'truncate'}`}>
               {subtitle}
             </div>
           )}
@@ -287,7 +287,7 @@ export default function AccountSettingsPage() {
 
   const profile = isOwnAccount ? myProfile : targetProfile
 
-  const [form, setForm] = useState({ name: '', surname: '', birthdayDay: '', birthdayMonth: '', phone: '' })
+  const [form, setForm] = useState({ name: '', surname: '', birthdayDay: '', birthdayMonth: '' })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileJustSaved, setProfileJustSaved] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
@@ -295,6 +295,11 @@ export default function AccountSettingsPage() {
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailMsg, setEmailMsg] = useState(null)
+
+  const [phone, setPhone] = useState('')
+  const [phoneSaving, setPhoneSaving] = useState(false)
+  const [phoneJustSaved, setPhoneJustSaved] = useState(false)
+  const [phoneMsg, setPhoneMsg] = useState(null)
 
   const [cropSrc, setCropSrc] = useState(null) // object URL while cropping
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -393,8 +398,8 @@ export default function AccountSettingsPage() {
       surname: profile.surname || '',
       birthdayDay: day,
       birthdayMonth: month,
-      phone: profile.phone || '',
     })
+    setPhone(profile.phone || '')
     setPrefs(profile.notification_prefs || {})
     setAdminRole(profile.role || '')
     setAdminCategory(profile.category || '')
@@ -470,8 +475,7 @@ export default function AccountSettingsPage() {
   const profileDirty =
     form.name.trim() !== (profile?.name || '') ||
     form.surname.trim() !== (profile?.surname || '') ||
-    (dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null) !== (profile?.birthday || null) ||
-    (form.phone.trim() || null) !== (profile?.phone || null)
+    (dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null) !== (profile?.birthday || null)
 
   async function saveProfile(e) {
     e.preventDefault()
@@ -484,7 +488,6 @@ export default function AccountSettingsPage() {
         name: form.name.trim(),
         surname: form.surname.trim(),
         birthday: dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null,
-        phone: form.phone.trim() || null,
       })
       .eq('id', targetId)
 
@@ -493,6 +496,30 @@ export default function AccountSettingsPage() {
       setProfileMsg({ type: 'error', text: error.message })
     } else {
       flashSaved(setProfileJustSaved)
+      reloadTarget()
+    }
+  }
+
+  // ── Mobile number ─────────────────────────────────────────
+  // A future round needs to gate a changed number behind an OTP
+  // confirmation before it's saved, to verify the new number is reachable.
+  const phoneDirty = (phone.trim() || null) !== (profile?.phone || null)
+
+  async function savePhone(e) {
+    e.preventDefault()
+    setPhoneSaving(true)
+    setPhoneMsg(null)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ phone: phone.trim() || null })
+      .eq('id', targetId)
+
+    setPhoneSaving(false)
+    if (error) {
+      setPhoneMsg({ type: 'error', text: error.message })
+    } else {
+      flashSaved(setPhoneJustSaved)
       reloadTarget()
     }
   }
@@ -927,22 +954,21 @@ export default function AccountSettingsPage() {
         title="Profile"
         subtitleMultiline
         subtitle={
-          <span className="inline-flex items-center gap-3">
+          <span className="inline-flex items-center gap-2">
             {profile.avatar_url ? (
               <span className="inline-flex flex-shrink-0 items-center gap-1.5">
                 <img
                   src={profile.avatar_url}
                   alt=""
-                  className="h-7 w-7 flex-shrink-0 rounded-full border border-canvas-raised object-cover"
+                  className="h-5 w-5 flex-shrink-0 rounded-full border border-canvas-raised object-cover"
                 />
-                <ProfileAvatar profile={profile} size={28} soloFill />
+                <ProfileAvatar profile={profile} size={20} soloFill />
               </span>
             ) : (
-              <ProfileAvatar profile={profile} size={28} />
+              <ProfileAvatar profile={profile} size={20} />
             )}
             <span className="flex min-w-0 flex-col leading-snug">
-              <span className="truncate font-semibold text-ink">{profile.name} {profile.surname}</span>
-              {formatPhoneDisplay(profile.phone) && <span className="truncate">{formatPhoneDisplay(profile.phone)}</span>}
+              <span className="truncate">{profile.name} {profile.surname}</span>
               {formatBirthdayDisplay(profile.birthday) && <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>}
             </span>
           </span>
@@ -1050,16 +1076,6 @@ export default function AccountSettingsPage() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="label-text">Mobile number</label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              placeholder="e.g. 082 123 4567"
-              className="input-field"
-            />
-          </div>
 
           <div className="flex items-center gap-3">
             <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
@@ -1142,6 +1158,30 @@ export default function AccountSettingsPage() {
             <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
           </div>
         )}
+      </AccordionSection>
+
+      {/* ── Mobile number ─────────────────────────────────────── */}
+      <AccordionSection title="Mobile number" subtitle={formatPhoneDisplay(profile.phone) || undefined}>
+        <form onSubmit={savePhone} className="space-y-3">
+          <div>
+            <label className="label-text">Mobile number</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="e.g. 082 123 4567"
+              className="input-field"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
+              {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
+            </button>
+            {phoneMsg && (
+              <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
+            )}
+          </div>
+        </form>
       </AccordionSection>
 
       {/* ── Category, Role & Permissions ─────────────────────── */}

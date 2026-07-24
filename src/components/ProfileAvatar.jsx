@@ -77,9 +77,27 @@ function computeInitials(profile) {
 // same ring geometry in both cases, so the two only differ in what sits at
 // the centre. The ring tiles the pattern at a narrow-band tile size (rather
 // than tiling across a whole fill) since it's always just a thin band now.
-export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true }) {
-  const initials = computeInitials(profile)
+//
+// `soloFill` skips all of that and renders a single circle fully filled with
+// colour + pattern instead — used only for the Profile section's tiny blank
+// identity marker shown next to a photo thumbnail, which wants a solid swatch
+// rather than a ring around mostly-white.
+export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true, soloFill = false }) {
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
+
+  if (soloFill) {
+    const patternStyle = profile?.pattern_type
+      ? patternBackgroundStyle(profile.pattern_type, color, Math.max(8, Math.round(size / 4)))
+      : null
+    return (
+      <div
+        className={`flex-shrink-0 rounded-full ${className}`}
+        style={{ width: size, height: size, backgroundColor: color, ...patternStyle }}
+      />
+    )
+  }
+
+  const initials = computeInitials(profile)
   const hasPhoto = Boolean(profile?.avatar_url)
 
   // Ring is 1px thinner than a full fill would need, with the freed-up space

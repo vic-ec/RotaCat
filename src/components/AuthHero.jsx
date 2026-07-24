@@ -8,7 +8,7 @@ import RotaCat from './RotaCat'
 // this component's whole desktop block hidden by an ancestor wrapper).
 export default function AuthHero() {
   return (
-    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-20">
+    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">
       <h1 className="font-display text-6xl font-medium leading-none text-ink md:text-[75px]">
         <RotaCat />
       </h1>

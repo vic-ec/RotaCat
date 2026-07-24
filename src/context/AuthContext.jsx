@@ -35,11 +35,22 @@ export function AuthProvider({ children }) {
       }
     })
 
-    // Listen for login/logout events
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for login/logout events. A fresh SIGNED_IN needs `loading` held
+    // true across the profile fetch too — otherwise `isApproved` reads as
+    // false for the instant the profile is still null (not yet "confirmed
+    // not approved", just unloaded), which briefly bounces an approved user
+    // through the pending-approval page before the real profile lands.
+    // Routine events (token refresh, etc.) already have a correct profile
+    // loaded, so they refresh it quietly in the background instead.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       if (session?.user) {
-        loadProfile(session.user.id)
+        if (event === 'SIGNED_IN') {
+          setLoading(true)
+          loadProfile(session.user.id).finally(() => setLoading(false))
+        } else {
+          loadProfile(session.user.id)
+        }
       } else {
         setProfile(null)
       }

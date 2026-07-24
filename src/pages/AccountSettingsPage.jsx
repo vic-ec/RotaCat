@@ -130,6 +130,13 @@ function dayMonthToBirthday(day, month) {
   return `${BIRTHDAY_YEAR}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+// Briefly shows "Saved." on an Update button in place of its normal label.
+const SAVED_FLASH_MS = 2500
+function flashSaved(setJustSaved) {
+  setJustSaved(true)
+  setTimeout(() => setJustSaved(false), SAVED_FLASH_MS)
+}
+
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -272,6 +279,7 @@ export default function AccountSettingsPage() {
 
   const [form, setForm] = useState({ name: '', surname: '', birthdayDay: '', birthdayMonth: '', phone: '' })
   const [savingProfile, setSavingProfile] = useState(false)
+  const [profileJustSaved, setProfileJustSaved] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
 
   const [newEmail, setNewEmail] = useState('')
@@ -299,6 +307,7 @@ export default function AccountSettingsPage() {
   // Appearance: colour + pattern (own account only)
   const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternType: null })
   const [colorSaving, setColorSaving] = useState(false)
+  const [colorJustSaved, setColorJustSaved] = useState(false)
   const [surprising, setSurprising] = useState(false)
   const [colorMsg, setColorMsg] = useState(null)
   const [appearanceOpen, setAppearanceOpen] = useState(false)
@@ -311,6 +320,7 @@ export default function AccountSettingsPage() {
 
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
+  const [pwJustSaved, setPwJustSaved] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
 
   // Admin: direct edit of role / category / admin flag for the account being viewed
@@ -319,8 +329,8 @@ export default function AccountSettingsPage() {
   const [adminIsAdmin, setAdminIsAdmin] = useState(false)
   const [adminIsActive, setAdminIsActive] = useState(true)
   const [adminSaving, setAdminSaving] = useState(false)
+  const [adminJustSaved, setAdminJustSaved] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
-  const [statusSaving, setStatusSaving] = useState(false)
   const [statusMsg, setStatusMsg] = useState(null)
   const [isOnLeave, setIsOnLeave] = useState(false)
 
@@ -443,6 +453,12 @@ export default function AccountSettingsPage() {
     })
   }
 
+  const profileDirty =
+    form.name.trim() !== (profile.name || '') ||
+    form.surname.trim() !== (profile.surname || '') ||
+    (dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null) !== (profile.birthday || null) ||
+    (form.phone.trim() || null) !== (profile.phone || null)
+
   async function saveProfile(e) {
     e.preventDefault()
     setSavingProfile(true)
@@ -462,12 +478,14 @@ export default function AccountSettingsPage() {
     if (error) {
       setProfileMsg({ type: 'error', text: error.message })
     } else {
-      setProfileMsg({ type: 'success', text: 'Saved.' })
+      flashSaved(setProfileJustSaved)
       reloadTarget()
     }
   }
 
   // ── Email (own account only — Supabase auth can only change the logged-in user's own email) ──
+  const emailDirty = Boolean(newEmail) && newEmail !== user.email
+
   async function changeEmail(e) {
     e.preventDefault()
     setEmailMsg(null)
@@ -637,6 +655,7 @@ export default function AccountSettingsPage() {
   }
   async function saveAppearance() {
     setColorSaving(true)
+    setColorMsg(null)
     const { error } = await supabase
       .from('profiles')
       .update({ color_code: colorForm.colorCode, pattern_type: colorForm.patternType })
@@ -647,10 +666,11 @@ export default function AccountSettingsPage() {
       return
     }
     refreshProfile()
+    flashSaved(setColorJustSaved)
     const taken = await checkComboTaken(colorForm.colorCode, colorForm.patternType)
-    setColorMsg(taken
-      ? { type: 'warning', text: 'Saved — another active staff member already has this exact colour + pattern.' }
-      : { type: 'success', text: 'Saved.' })
+    if (taken) {
+      setColorMsg({ type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' })
+    }
   }
   // Discards any unsaved local picks, reverting back to what's actually saved.
   function cancelAppearance() {
@@ -664,6 +684,8 @@ export default function AccountSettingsPage() {
     || colorForm.patternType !== (profile.pattern_type || null)
 
   // ── Password (own account only) ──────────────────────────────
+  const pwDirty = Boolean(pwForm.current || pwForm.password || pwForm.confirm)
+
   async function changePassword(e) {
     e.preventDefault()
     setPwMsg(null)
@@ -700,7 +722,7 @@ export default function AccountSettingsPage() {
     if (error) {
       setPwMsg({ type: 'error', text: error.message })
     } else {
-      setPwMsg({ type: 'success', text: 'Password updated.' })
+      flashSaved(setPwJustSaved)
       setPwForm({ current: '', password: '', confirm: '' })
     }
   }
@@ -710,6 +732,11 @@ export default function AccountSettingsPage() {
     setAdminRole(value)
     setAdminCategory('') // clear — the valid category set differs per role
   }
+
+  const adminFieldsDirty =
+    adminRole !== (profile.role || '') ||
+    adminCategory !== (profile.category || '') ||
+    adminIsAdmin !== (profile.is_admin === true)
 
   async function saveAdminAccountFields() {
     setAdminSaving(true)
@@ -734,7 +761,7 @@ export default function AccountSettingsPage() {
     if (error) {
       setAdminMsg({ type: 'error', text: error.message })
     } else {
-      setAdminMsg({ type: 'success', text: 'Saved.' })
+      flashSaved(setAdminJustSaved)
       reloadTarget()
     }
   }
@@ -743,7 +770,6 @@ export default function AccountSettingsPage() {
   async function saveActiveStatus(nextActive) {
     const prevActive = adminIsActive
     setAdminIsActive(nextActive)
-    setStatusSaving(true)
     setStatusMsg(null)
 
     const { error } = await supabase
@@ -751,7 +777,6 @@ export default function AccountSettingsPage() {
       .update({ is_active: nextActive })
       .eq('id', targetId)
 
-    setStatusSaving(false)
     if (error) {
       setAdminIsActive(prevActive)
       setStatusMsg({ type: 'error', text: error.message })
@@ -1016,13 +1041,11 @@ export default function AccountSettingsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={savingProfile} className="btn-primary">
-              {savingProfile ? 'Saving…' : 'Update'}
+            <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
+              {savingProfile ? 'Saving…' : profileJustSaved ? 'Saved.' : 'Update'}
             </button>
             {profileMsg && (
-              <span className={`text-xs font-medium ${profileMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                {profileMsg.text}
-              </span>
+              <span className="text-xs font-medium text-flagRed">{profileMsg.text}</span>
             )}
           </div>
         </form>
@@ -1032,11 +1055,9 @@ export default function AccountSettingsPage() {
       <AccordionSection
         title="Status"
         subtitle={
-          statusSaving
-            ? 'Saving…'
-            : <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-                {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-              </span>
+          <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
+            {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
+          </span>
         }
       >
         {isAdmin ? (
@@ -1083,7 +1104,7 @@ export default function AccountSettingsPage() {
               the change only takes effect once confirmed, so it won't lock you out.
             </p>
             <div className="flex items-center gap-3">
-              <button type="submit" disabled={emailSaving} className="btn-primary">
+              <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
                 {emailSaving ? 'Sending…' : 'Update'}
               </button>
               {emailMsg && (
@@ -1158,13 +1179,11 @@ export default function AccountSettingsPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <button onClick={saveAdminAccountFields} disabled={adminSaving} className="btn-primary">
-                {adminSaving ? 'Saving…' : 'Update'}
+              <button onClick={saveAdminAccountFields} disabled={adminSaving || !adminFieldsDirty} className="btn-primary">
+                {adminSaving ? 'Saving…' : adminJustSaved ? 'Saved.' : 'Update'}
               </button>
               {adminMsg && (
-                <span className={`text-xs font-medium ${adminMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                  {adminMsg.text}
-                </span>
+                <span className="text-xs font-medium text-flagRed">{adminMsg.text}</span>
               )}
             </div>
 
@@ -1350,13 +1369,11 @@ export default function AccountSettingsPage() {
               />
             </div>
             <div className="flex items-center gap-3">
-              <button type="submit" disabled={pwSaving} className="btn-primary">
-                {pwSaving ? 'Updating…' : 'Update'}
+              <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
+                {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
               </button>
               {pwMsg && (
-                <span className={`text-xs font-medium ${pwMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                  {pwMsg.text}
-                </span>
+                <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>
               )}
             </div>
           </form>
@@ -1368,7 +1385,6 @@ export default function AccountSettingsPage() {
         <AccordionSection
           ref={appearanceSectionRef}
           title="Appearance"
-          subtitle={colorSaving ? 'Saving…' : undefined}
           open={appearanceOpen}
           onOpenChange={setAppearanceOpen}
         >
@@ -1436,8 +1452,8 @@ export default function AccountSettingsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={saveAppearance} disabled={colorSaving} className="btn-primary">
-              {colorSaving ? 'Saving…' : 'Update'}
+            <button type="button" onClick={saveAppearance} disabled={colorSaving || !isColorDirty} className="btn-primary">
+              {colorSaving ? 'Saving…' : colorJustSaved ? 'Saved.' : 'Update'}
             </button>
             <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary">
               Cancel
@@ -1446,9 +1462,7 @@ export default function AccountSettingsPage() {
               {surprising ? 'Picking…' : 'Surprise me!'}
             </button>
             {colorMsg && (
-              <span className={`text-xs font-medium ${
-                colorMsg.type === 'error' ? 'text-flagRed' : colorMsg.type === 'warning' ? 'text-flagAmber' : 'text-success'
-              }`}>
+              <span className={`text-xs font-medium ${colorMsg.type === 'error' ? 'text-flagRed' : 'text-flagAmber'}`}>
                 {colorMsg.text}
               </span>
             )}

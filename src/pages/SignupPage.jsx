@@ -135,17 +135,16 @@ function RoleModal({ role, onClose }) {
       onClick={onClose}
     >
       <div
-        className={`flex w-full max-w-sm flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised
-          ${submitted ? 'max-h-[90vh]' : 'h-[471px] max-h-[90vh]'}`}
+        className="flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between p-5 pb-3">
-          <p className="text-base font-semibold text-ink">{label}</p>
+        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-4">
+          <p className="text-lg font-semibold text-ink">{label}</p>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-accent-light hover:text-ink"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -417,7 +416,7 @@ export default function SignupPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-20">
+          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
             <div className="mx-auto w-full max-w-sm">
               <p className="text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
               <div className="mt-8 space-y-3">

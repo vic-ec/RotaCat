@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
       <div className="flex w-full max-w-[80rem] flex-col overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 
-        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-20">
+        <div className="flex flex-1 flex-col justify-center bg-accent-light px-[3.125rem] py-5 md:px-[4.375rem] md:py-[5.75rem]">
           <div className="mx-auto w-full max-w-sm">
             <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">Set a new password</p>
             <p className="mt-2 text-sm text-ink-muted">Choose a new password for your account.</p>

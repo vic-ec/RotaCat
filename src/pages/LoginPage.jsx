@@ -210,12 +210,13 @@ function SignInForm({ autoFocus = false }) {
   )
 }
 
-// Full-screen backdrop + card carrying the sign-in form — mobile only,
-// triggered from the "Sign in" choice button below. Stays mounted (just
-// hidden via `display:none`) rather than being conditionally rendered, so
-// the email/password fields exist in the DOM from page load — some
-// password managers only scan for fillable fields once at load and never
-// notice ones added later by a modal opening.
+// Full-screen backdrop + card carrying the sign-in form — shared by the
+// mobile and desktop "Welcome" landings, both of which trigger it from a
+// "Sign in" choice button. Stays mounted (just hidden via `display:none`)
+// rather than being conditionally rendered, so the email/password fields
+// exist in the DOM from page load — some password managers only scan for
+// fillable fields once at load and never notice ones added later by a
+// modal opening.
 function SignInModal({ isOpen, onClose, triggerRef }) {
   useEffect(() => {
     if (!isOpen) return
@@ -236,7 +237,7 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 items-center justify-center bg-ink/65 p-4 backdrop-blur-sm md:hidden ${isOpen ? 'flex' : 'hidden'}`}
+      className={`fixed inset-0 z-50 items-center justify-center bg-ink/65 p-4 backdrop-blur-sm ${isOpen ? 'flex' : 'hidden'}`}
       onClick={onClose}
       aria-hidden={!isOpen}
     >
@@ -306,23 +307,35 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Desktop: split-screen card, unchanged */}
+      {/* Desktop: split-screen card, same Welcome landing as mobile */}
       <div className="hidden min-h-screen flex-col items-center justify-center bg-accent px-4 py-10 md:flex">
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-20">
-            <div className="mx-auto w-full max-w-sm">
-              <p className="text-2xl font-semibold text-ink lg:text-3xl">
-                Sign in to your account
-              </p>
-              <SignInForm />
-              <p className="mt-6 text-center text-base text-ink-light">
-                No account?{' '}
-                <Link to="/signup" className="text-rose hover:text-rose-dark hover:underline">
-                  Register here
+          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
+            <div className="mx-auto w-full max-w-sm text-center">
+              <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
+              <p className="mt-2 text-base text-ink-light">Get started with your account</p>
+
+              <div className="mt-8 flex flex-col gap-4">
+                <button
+                  type="button"
+                  onClick={openSignInModal}
+                  className="w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                    transition-colors hover:bg-accent-dark
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+                >
+                  Sign in
+                </button>
+
+                <Link
+                  to="/signup"
+                  className="w-full rounded-lg border border-accent bg-accent-tint py-3.5 text-center text-lg font-semibold text-accent
+                    transition-colors hover:bg-accent-light"
+                >
+                  Sign up
                 </Link>
-              </p>
+              </div>
             </div>
           </div>
         </div>

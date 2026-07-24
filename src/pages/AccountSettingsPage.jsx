@@ -267,7 +267,7 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-3 text-left"
+        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
       >
         <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">
@@ -323,13 +323,13 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
           />
         </div>
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onCancel} disabled={saving} className="btn-secondary px-3 py-1.5 text-xs">
+          <button onClick={onCancel} disabled={saving} className="btn-secondary">
             Cancel
           </button>
           <button
             onClick={() => onConfirm(croppedAreaPixels)}
             disabled={saving || !croppedAreaPixels}
-            className="btn-primary border border-transparent px-3 py-1.5 text-xs"
+            className="btn-primary"
           >
             {saving ? 'Saving…' : 'Save photo'}
           </button>
@@ -978,7 +978,7 @@ export default function AccountSettingsPage() {
       <div className="mx-auto max-w-2xl pb-12">
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
-          <Link to="/staff" className="btn-secondary mt-3 inline-block px-3 py-1.5 text-xs">Back to Staff list</Link>
+          <Link to="/staff" className="btn-secondary mt-3 inline-block">Back to Staff list</Link>
         </div>
       </div>
     )
@@ -1041,7 +1041,7 @@ export default function AccountSettingsPage() {
                     active={adminIsActive}
                     onLeave={isOnLeave}
                     size={14}
-                    className="absolute bottom-0 right-0 border-2 border-canvas"
+                    className="absolute bottom-0 right-0 border-[0.5px] border-white"
                   />
                 </button>
                 {isOwnAccount && photoMenuOpen && (
@@ -1152,7 +1152,7 @@ export default function AccountSettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+                  <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
                     {savingProfile ? 'Saving…' : profileJustSaved ? 'Saved.' : 'Update'}
                   </button>
                   {profileMsg && (
@@ -1181,13 +1181,13 @@ export default function AccountSettingsPage() {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field py-1"
+                  className="input-field"
                 />
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+                  <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
                     {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
                   </button>
-                  <button type="button" onClick={cancelPhoneEdit} className="btn-secondary px-3 py-1.5 text-xs">
+                  <button type="button" onClick={cancelPhoneEdit} className="btn-secondary">
                     Cancel
                   </button>
                   {phoneMsg && (
@@ -1210,17 +1210,17 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field py-1"
+                  className="input-field"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
                   the change only takes effect once confirmed, so it won't lock you out.
                 </p>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+                  <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
                     {emailSaving ? 'Sending…' : 'Update'}
                   </button>
-                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary px-3 py-1.5 text-xs">
+                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary">
                     Cancel
                   </button>
                   {emailMsg && (
@@ -1241,7 +1241,7 @@ export default function AccountSettingsPage() {
           {/* ── Change password (own account only) ──────────────── */}
           {isOwnAccount && (
             <SectionRow icon={<LockIcon className="h-5 w-5" />} title="Change password">
-              <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+              <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-1.5 text-xs text-flagBlue">
                 {PASSWORD_HINT}
               </div>
               <form onSubmit={changePassword} className="space-y-4">
@@ -1276,7 +1276,7 @@ export default function AccountSettingsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+                  <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
                     {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
                   </button>
                   {pwMsg && (
@@ -1349,7 +1349,7 @@ export default function AccountSettingsPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <button onClick={saveAdminAccountFields} disabled={adminSaving || !adminFieldsDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+              <button onClick={saveAdminAccountFields} disabled={adminSaving || !adminFieldsDirty} className="btn-primary">
                 {adminSaving ? 'Saving…' : adminJustSaved ? 'Saved.' : 'Update'}
               </button>
               {adminMsg && (
@@ -1373,11 +1373,11 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={transferSuperAdmin}
                         disabled={transferSaving}
-                        className="rounded border border-transparent bg-flagAmber px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-white hover:opacity-90"
                       >
                         {transferSaving ? 'Transferring…' : 'Confirm transfer'}
                       </button>
-                      <button onClick={() => setTransferConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
+                      <button onClick={() => setTransferConfirming(false)} className="btn-secondary">
                         Cancel
                       </button>
                     </div>
@@ -1397,7 +1397,7 @@ export default function AccountSettingsPage() {
                     <button
                       onClick={() => setTransferConfirming(true)}
                       disabled={!transferTargetId}
-                      className="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap"
+                      className="btn-secondary whitespace-nowrap"
                     >
                       Transfer
                     </button>
@@ -1486,7 +1486,7 @@ export default function AccountSettingsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={requestSaving} className="btn-secondary px-3 py-1.5 text-xs">
+                  <button type="submit" disabled={requestSaving} className="btn-secondary">
                     {requestSaving ? 'Submitting…' : 'Submit request'}
                   </button>
                   {requestMsg && (
@@ -1597,13 +1597,13 @@ export default function AccountSettingsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={saveAppearance} disabled={colorSaving || !isColorDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
+            <button type="button" onClick={saveAppearance} disabled={colorSaving || !isColorDirty} className="btn-primary">
               {colorSaving ? 'Saving…' : colorJustSaved ? 'Saved.' : 'Update'}
             </button>
-            <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary px-3 py-1.5 text-xs">
+            <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary">
               Cancel
             </button>
-            <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary px-3 py-1.5 text-xs">
+            <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary">
               {surprising ? 'Picking…' : 'Surprise me!'}
             </button>
             {colorMsg && (
@@ -1676,11 +1676,11 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={requestDeletion}
                         disabled={deleteSaving}
-                        className="rounded border border-transparent bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white hover:opacity-90"
                       >
                         {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
                       </button>
-                      <button onClick={() => setDeleteConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
+                      <button onClick={() => setDeleteConfirming(false)} className="btn-secondary">
                         Cancel
                       </button>
                     </div>
@@ -1688,7 +1688,7 @@ export default function AccountSettingsPage() {
                 ) : (
                   <button
                     onClick={() => setDeleteConfirming(true)}
-                    className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white hover:opacity-90"
                   >
                     Request account deletion
                   </button>

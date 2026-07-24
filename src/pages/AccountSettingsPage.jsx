@@ -270,7 +270,7 @@ export default function AccountSettingsPage() {
 
   const profile = isOwnAccount ? myProfile : targetProfile
 
-  const [form, setForm] = useState({ name: '', surname: '', birthday: '', phone: '' })
+  const [form, setForm] = useState({ name: '', surname: '', birthdayDay: '', birthdayMonth: '', phone: '' })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
 
@@ -294,7 +294,6 @@ export default function AccountSettingsPage() {
   }, [photoMenuOpen])
 
   const [prefs, setPrefs] = useState({})
-  const [prefsSaving, setPrefsSaving] = useState(false)
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
   // Appearance: colour + pattern (own account only)
@@ -368,10 +367,12 @@ export default function AccountSettingsPage() {
 
   useEffect(() => {
     if (!profile) return
+    const { day, month } = birthdayToDayMonth(profile.birthday)
     setForm({
       name: profile.name || '',
       surname: profile.surname || '',
-      birthday: profile.birthday || '',
+      birthdayDay: day,
+      birthdayMonth: month,
       phone: profile.phone || '',
     })
     setPrefs(profile.notification_prefs || {})
@@ -426,15 +427,20 @@ export default function AccountSettingsPage() {
   )
 
   // ── Profile details ─────────────────────────────────────────
-  const { day: birthdayDay, month: birthdayMonth } = birthdayToDayMonth(form.birthday)
+  // Day and month are kept as independent fields (not derived from a single
+  // combined date) so picking just one of them doesn't get discarded while
+  // waiting for the other — that was the earlier bug where a lone pick
+  // silently reverted back to the placeholder.
   function setBirthdayPart(part, value) {
-    let day = part === 'day' ? value : birthdayDay
-    let month = part === 'month' ? value : birthdayMonth
-    if (day && month) {
-      const maxDay = DAYS_IN_MONTH[Number(month) - 1]
-      if (Number(day) > maxDay) day = String(maxDay)
-    }
-    setForm(f => ({ ...f, birthday: dayMonthToBirthday(day, month) }))
+    setForm(f => {
+      let day = part === 'day' ? value : f.birthdayDay
+      let month = part === 'month' ? value : f.birthdayMonth
+      if (day && month) {
+        const maxDay = DAYS_IN_MONTH[Number(month) - 1]
+        if (Number(day) > maxDay) day = String(maxDay)
+      }
+      return { ...f, birthdayDay: day, birthdayMonth: month }
+    })
   }
 
   async function saveProfile(e) {
@@ -447,7 +453,7 @@ export default function AccountSettingsPage() {
       .update({
         name: form.name.trim(),
         surname: form.surname.trim(),
-        birthday: form.birthday || null,
+        birthday: dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null,
         phone: form.phone.trim() || null,
       })
       .eq('id', targetId)
@@ -562,12 +568,10 @@ export default function AccountSettingsPage() {
     const next = { ...prefs }
     for (const key of keys) next[key] = value
     setPrefs(next)
-    setPrefsSaving(true)
     const { error } = await supabase
       .from('profiles')
       .update({ notification_prefs: next })
       .eq('id', user.id)
-    setPrefsSaving(false)
     if (error) {
       setPrefs(prev)
       alert('Could not save notification preference: ' + error.message)
@@ -891,7 +895,7 @@ export default function AccountSettingsPage() {
                 alt=""
                 className="h-[18px] w-[18px] flex-shrink-0 rounded-full border border-canvas-raised object-cover"
               />
-              <ProfileAvatar profile={{ ...profile, avatar_url: null }} size={18} showInitials={false} />
+              <ProfileAvatar profile={profile} size={18} soloFill />
             </span>
           ) : (
             <ProfileAvatar profile={profile} size={18} />
@@ -979,7 +983,7 @@ export default function AccountSettingsPage() {
                 regardless of CSS width. */}
             <div className="flex gap-2">
               <select
-                value={birthdayDay}
+                value={form.birthdayDay}
                 onChange={e => setBirthdayPart('day', e.target.value)}
                 className="input-field"
               >
@@ -989,7 +993,7 @@ export default function AccountSettingsPage() {
                 ))}
               </select>
               <select
-                value={birthdayMonth}
+                value={form.birthdayMonth}
                 onChange={e => setBirthdayPart('month', e.target.value)}
                 className="input-field"
               >
@@ -1454,7 +1458,7 @@ export default function AccountSettingsPage() {
 
       {/* ── Notification preferences (own account only) ─────── */}
       {isOwnAccount && (
-        <AccordionSection title="Notifications" subtitle={prefsSaving ? 'Saving…' : undefined}>
+        <AccordionSection title="Notifications">
           <div className="flex items-center justify-between border-b border-slate-line pb-3">
             <p className="text-sm font-medium text-ink">All notifications</p>
             <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />

@@ -108,7 +108,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
   // keeps the inner circle reading clearly against its own ring instead of
   // blending straight into it.
   const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
-  const innerBorderWidth = Math.max(0.5, Math.round(size * 0.035) - 0.5)
+  const innerBorderWidth = 0.5
   const patternStyle = profile?.pattern_type
     ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
     : null

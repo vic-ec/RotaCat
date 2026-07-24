@@ -530,9 +530,9 @@ export default function StaffListPage() {
               : 'Inactive doctors remain on record but are excluded from roster generation.'}
           </p>
 
-          {/* Search + Filters + Sort/group */}
-          <div className="mb-4 space-y-3">
-            <div>
+          {/* Search + Filters + Sort/group — stacked on mobile, one row on desktop */}
+          <div className="mb-4 md:flex md:items-end md:gap-3">
+            <div className="md:w-64 md:flex-shrink-0">
               <label className="label-text">Search name</label>
               <input
                 type="text"
@@ -543,7 +543,7 @@ export default function StaffListPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between gap-2">
+            <div className="mt-3 flex items-center justify-between gap-2 md:mt-0 md:flex-1">
               <div className="inline-flex h-[42px] gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
                 {SORT_MODES.map(opt => (
                   <button
@@ -589,7 +589,7 @@ export default function StaffListPage() {
                       className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
                       <span>{group.label} ({group.items.length})</span>
-                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '-rotate-90' : ''}`} />
+                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                   )}
                   {(!group.label || !collapsedGroups[group.key]) && (
@@ -608,13 +608,20 @@ export default function StaffListPage() {
                             isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
                           }`}
                         >
-                          <ProfileAvatar profile={person} size={40} />
+                          <div className="relative flex-shrink-0">
+                            <ProfileAvatar profile={person} size={40} />
+                            <StatusBadge
+                              active={person.is_active}
+                              onLeave={leaveProfileIds.has(person.id)}
+                              size={14}
+                              className="absolute bottom-0 right-0 border-[0.5px] border-white"
+                            />
+                          </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="truncate text-sm font-medium text-ink">
                                 {person.name ? `${person.name} ` : ''}{person.surname}
                               </span>
-                              <StatusBadge active={person.is_active} onLeave={leaveProfileIds.has(person.id)} />
                               {person.is_admin && (
                                 <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
                                   person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
@@ -652,12 +659,16 @@ export default function StaffListPage() {
                               onClick={e => { e.stopPropagation(); openQuickActions(person) }}
                               aria-label="Quick actions"
                               title="Quick actions"
-                              className="flex-shrink-0 rounded p-1.5 text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                              className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken"
                             >
                               <KebabIcon className="h-4 w-4" />
                             </button>
                           )}
-                          {isAdmin && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+                          {isAdmin && (
+                            <span className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
+                              <ChevronRightIcon className="h-4 w-4" />
+                            </span>
+                          )}
                         </div>
                       )
                     })}
@@ -693,7 +704,7 @@ export default function StaffListPage() {
                           <td colSpan={9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} ({group.items.length})</span>
-                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '-rotate-90' : ''}`} />
+                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
                         </tr>

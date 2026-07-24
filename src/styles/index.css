@@ -41,11 +41,28 @@
     -webkit-text-fill-color: theme('colors.ink.DEFAULT');
     transition: background-color 5000s ease-in-out 0s;
   }
+
+  /* iOS Safari auto-zooms the page on focusing any text input smaller than
+     16px, then doesn't zoom back out on blur. Forcing 16px here (mobile
+     viewports only, so desktop keeps its smaller text-sm sizing) avoids
+     triggering the zoom in the first place, which is the standard fix —
+     more reliable than fighting the viewport meta tag after the fact. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {
+  /* Buttons and text inputs share a 30px target height app-wide: text-sm's
+     20px line-height + 8px vertical padding + a 2px border (real on
+     .btn-secondary/.input-field, transparent on .btn-primary so it lines up
+     with the bordered ones) = 30px. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded bg-accent px-4 py-2.5
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-accent px-4 py-1
            text-sm font-medium text-white shadow-sm transition-colors
            hover:bg-accent-dark active:bg-accent-dark
            disabled:cursor-not-allowed disabled:opacity-50;
@@ -53,8 +70,8 @@
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded border border-slate-line
-           bg-canvas-raised px-4 py-2.5 text-sm font-medium text-ink transition-colors
-           hover:bg-canvas-sunken
+           bg-canvas-raised px-4 py-1 text-sm font-medium text-ink transition-colors
+           hover:bg-canvas-sunken active:bg-canvas-sunken
            disabled:cursor-not-allowed disabled:opacity-50;
   }
 
@@ -63,7 +80,7 @@
   }
 
   .input-field {
-    @apply w-full rounded border border-slate-line bg-canvas-raised px-3 py-2.5
+    @apply w-full rounded border border-slate-line bg-canvas-raised px-3 py-1
            text-sm text-ink placeholder:text-ink-muted
            focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
   }

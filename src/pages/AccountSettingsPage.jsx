@@ -453,11 +453,15 @@ export default function AccountSettingsPage() {
     })
   }
 
+  // `profile` is briefly null right after navigating to someone else's
+  // account (or on first load) while it's still being fetched — these run
+  // on every render regardless, so they must tolerate that instead of
+  // crashing the whole app on a bare `profile.x` dereference.
   const profileDirty =
-    form.name.trim() !== (profile.name || '') ||
-    form.surname.trim() !== (profile.surname || '') ||
-    (dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null) !== (profile.birthday || null) ||
-    (form.phone.trim() || null) !== (profile.phone || null)
+    form.name.trim() !== (profile?.name || '') ||
+    form.surname.trim() !== (profile?.surname || '') ||
+    (dayMonthToBirthday(form.birthdayDay, form.birthdayMonth) || null) !== (profile?.birthday || null) ||
+    (form.phone.trim() || null) !== (profile?.phone || null)
 
   async function saveProfile(e) {
     e.preventDefault()
@@ -680,8 +684,8 @@ export default function AccountSettingsPage() {
     })
     setColorMsg(null)
   }
-  const isColorDirty = colorForm.colorCode !== (profile.color_code || NEUTRAL_AVATAR_COLOR)
-    || colorForm.patternType !== (profile.pattern_type || null)
+  const isColorDirty = colorForm.colorCode !== (profile?.color_code || NEUTRAL_AVATAR_COLOR)
+    || colorForm.patternType !== (profile?.pattern_type || null)
 
   // ── Password (own account only) ──────────────────────────────
   const pwDirty = Boolean(pwForm.current || pwForm.password || pwForm.confirm)
@@ -734,9 +738,9 @@ export default function AccountSettingsPage() {
   }
 
   const adminFieldsDirty =
-    adminRole !== (profile.role || '') ||
-    adminCategory !== (profile.category || '') ||
-    adminIsAdmin !== (profile.is_admin === true)
+    adminRole !== (profile?.role || '') ||
+    adminCategory !== (profile?.category || '') ||
+    adminIsAdmin !== (profile?.is_admin === true)
 
   async function saveAdminAccountFields() {
     setAdminSaving(true)

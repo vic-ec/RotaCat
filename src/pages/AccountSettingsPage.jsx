@@ -139,11 +139,10 @@ function ChevronDownIcon(props) {
   )
 }
 
-function PencilIcon(props) {
+function TriangleIcon(props) {
   return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25l3 3" />
+    <svg {...props} viewBox="0 0 12 8" fill="currentColor">
+      <path d="M6 0L12 8H0L6 0Z" />
     </svg>
   )
 }
@@ -216,8 +215,17 @@ function ClipboardIcon(props) {
   )
 }
 
+function TrashIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+    </svg>
+  )
+}
+
 // Small bordered square icon button — used for the header's "edit profile
-// details" trigger and for each Contact row's edit action.
+// details" trigger and for each Contact row's edit action. Triangle points
+// up while minimized, and flips to point down once its panel is open.
 function EditIconButton({ label, expanded, onClick }) {
   return (
     <button
@@ -227,7 +235,7 @@ function EditIconButton({ label, expanded, onClick }) {
       aria-expanded={expanded}
       className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-slate-line text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <PencilIcon className="h-4 w-4" />
+      <TriangleIcon className={`h-2.5 w-2.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
     </button>
   )
 }
@@ -249,28 +257,31 @@ function AccountStatusBadge({ active, onLeave }) {
   )
 }
 
-// Muted section label shown above a group of related rows within the single
-// continuous form card ("Contact", "Security & access", "Preferences").
+// All-caps muted label shown above (and outside) each group's bordered
+// panel — "CONTACT DETAILS", "SECURITY & ACCESS", "PREFERENCES", "DANGER ZONE".
 function GroupLabel({ children }) {
-  return <p className="px-5 pt-5 pb-1 text-xs text-ink-muted">{children}</p>
+  return <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{children}</p>
 }
 
-// Single-value contact field shown as an icon + value row, with a pencil
-// button that reveals the existing edit form in place — no accordion step
-// for fields that only ever hold one value (a phone number or email address).
-function ContactRow({ icon, label, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
+// Single-value contact field shown as an icon + value row, with a small
+// trigger that turns the value itself into an editable input in place —
+// no separate panel or duplicate label for fields that only ever hold one
+// value (a phone number or email address).
+function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
   return (
-    <div>
-      <div className="flex items-center gap-3 px-5 py-4">
+    <div className="px-5 py-4">
+      <div className="flex items-center gap-3">
         <span className="flex-shrink-0 text-ink-light">{icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-ink-muted">{label}</p>
-          <p className="truncate text-sm text-ink">{value || placeholder}</p>
-          {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+          {editing ? children : (
+            <>
+              <p className="truncate text-sm text-ink">{value || placeholder}</p>
+              {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+            </>
+          )}
         </div>
         {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} />}
       </div>
-      {editable && editing && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
     </div>
   )
 }
@@ -299,31 +310,6 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
       </button>
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
     </div>
-  )
-}
-
-// Standalone bordered card with a single collapsible section — kept only for
-// Delete Account, a rare destructive action deliberately set apart from the
-// rest of the form rather than folded into the continuous card above.
-function AccordionSection({ title, danger = false, children }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <section className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
-      >
-        <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
-          {title}
-        </h2>
-        <ChevronDownIcon
-          className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
-      {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
-    </section>
   )
 }
 
@@ -631,6 +617,12 @@ export default function AccountSettingsPage() {
     }
   }
 
+  function cancelPhoneEdit() {
+    setPhone(profile?.phone || '')
+    setPhoneMsg(null)
+    setPhoneEditing(false)
+  }
+
   // ── Email (own account only — Supabase auth can only change the logged-in user's own email) ──
   const emailDirty = Boolean(newEmail) && newEmail !== user.email
 
@@ -655,6 +647,12 @@ export default function AccountSettingsPage() {
         text: 'Check both your old and new inbox for confirmation links — the change only applies once confirmed.',
       })
     }
+  }
+
+  function cancelEmailEdit() {
+    setNewEmail(user?.email || '')
+    setEmailMsg(null)
+    setEmailEditing(false)
   }
 
   // ── Avatar (own account only) ────────────────────────────────
@@ -1028,7 +1026,6 @@ export default function AccountSettingsPage() {
     ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
     : (ROLE_LABELS[profile.role] || profile.role)
   const permissionLabel = profile.is_admin ? (profile.is_super_admin ? 'Super-admin' : 'Admin') : null
-  const headerSubtitle = permissionLabel ? `${roleCategoryLabel} · ${permissionLabel}` : roleCategoryLabel
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
@@ -1049,10 +1046,9 @@ export default function AccountSettingsPage() {
         />
       )}
 
-      {/* ── One continuous form: header, then Contact / Security & access / Preferences ── */}
-      <div className="card overflow-hidden">
-        {/* ── Profile header: single avatar, name, status badge, role subtitle ── */}
-        <div className="border-b border-slate-line px-5 py-5">
+      <div className="space-y-6">
+        {/* ── Profile header: its own panel — avatar, name, role/category, status + admin ── */}
+        <div className="card overflow-hidden px-5 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
               <div className="relative flex-shrink-0" ref={photoMenuRef}>
@@ -1104,11 +1100,16 @@ export default function AccountSettingsPage() {
               </div>
 
               <div className="min-w-0 flex-1 pt-1">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <h1 className="break-words font-display text-2xl text-ink">{profile.name} {profile.surname}</h1>
+                <h1 className="font-display text-2xl text-ink">{profile.name} {profile.surname}</h1>
+                <p className="mt-1 text-sm text-ink-muted">{roleCategoryLabel}</p>
+                <div className="mt-2 flex items-center gap-2">
                   <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
+                  {permissionLabel && (
+                    <span className="inline-flex flex-shrink-0 items-center rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">
+                      {permissionLabel}
+                    </span>
+                  )}
                 </div>
-                <p className="mt-1 text-sm text-ink-muted">{headerSubtitle}</p>
               </div>
             </div>
 
@@ -1187,80 +1188,82 @@ export default function AccountSettingsPage() {
           )}
         </div>
 
-        {/* ── Contact ───────────────────────────────────────────── */}
-        <GroupLabel>Contact</GroupLabel>
-        <div className="divide-y divide-slate-line">
-          <ContactRow
-            icon={<PhoneIcon className="h-5 w-5" />}
-            label="Mobile number"
-            value={formatPhoneDisplay(profile.phone)}
-            editLabel="Edit mobile number"
-            editing={phoneEditing}
-            onToggle={() => setPhoneEditing(o => !o)}
-          >
-            <form onSubmit={savePhone} className="space-y-3">
-              <div>
-                <label className="label-text">Mobile number</label>
+        {/* ── Contact details ───────────────────────────────────── */}
+        <div>
+          <GroupLabel>Contact Details</GroupLabel>
+          <div className="card overflow-hidden divide-y divide-slate-line">
+            <ContactRow
+              icon={<PhoneIcon className="h-5 w-5" />}
+              value={formatPhoneDisplay(profile.phone)}
+              editLabel="Edit mobile number"
+              editing={phoneEditing}
+              onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
+            >
+              <form onSubmit={savePhone} className="space-y-2">
                 <input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
                   className="input-field"
+                  autoFocus
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
-                  {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
-                </button>
-                {phoneMsg && (
-                  <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
-                )}
-              </div>
-            </form>
-          </ContactRow>
+                <div className="flex items-center gap-3">
+                  <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
+                    {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
+                  </button>
+                  <button type="button" onClick={cancelPhoneEdit} className="btn-secondary">
+                    Cancel
+                  </button>
+                  {phoneMsg && (
+                    <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
+                  )}
+                </div>
+              </form>
+            </ContactRow>
 
-          <ContactRow
-            icon={<EmailIcon className="h-5 w-5" />}
-            label="Email address"
-            value={displayEmail}
-            editLabel="Edit email address"
-            editing={emailEditing}
-            onToggle={() => setEmailEditing(o => !o)}
-            editable={isOwnAccount}
-            note={!isOwnAccount ? 'Only the account holder can change their own email address.' : undefined}
-          >
-            <form onSubmit={changeEmail} className="space-y-3">
-              <div>
-                <label className="label-text">Email</label>
+            <ContactRow
+              icon={<EmailIcon className="h-5 w-5" />}
+              value={displayEmail}
+              editLabel="Edit email address"
+              editing={emailEditing}
+              onToggle={() => (emailEditing ? cancelEmailEdit() : setEmailEditing(true))}
+              editable={isOwnAccount}
+            >
+              <form onSubmit={changeEmail} className="space-y-2">
                 <input
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
                   className="input-field"
+                  autoFocus
                 />
-              </div>
-              <p className="text-xs text-ink-muted">
-                This is also your login username. Changing it sends confirmation links to both your old and new address —
-                the change only takes effect once confirmed, so it won't lock you out.
-              </p>
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
-                  {emailSaving ? 'Sending…' : 'Update'}
-                </button>
-                {emailMsg && (
-                  <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                    {emailMsg.text}
-                  </span>
-                )}
-              </div>
-            </form>
-          </ContactRow>
+                <p className="text-xs text-ink-muted">
+                  This is also your login username. Changing it sends confirmation links to both your old and new address —
+                  the change only takes effect once confirmed, so it won't lock you out.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
+                    {emailSaving ? 'Sending…' : 'Update'}
+                  </button>
+                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary">
+                    Cancel
+                  </button>
+                  {emailMsg && (
+                    <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                      {emailMsg.text}
+                    </span>
+                  )}
+                </div>
+              </form>
+            </ContactRow>
+          </div>
         </div>
 
         {/* ── Security & access ─────────────────────────────────── */}
-        <GroupLabel>Security &amp; access</GroupLabel>
-        <div className="divide-y divide-slate-line">
+        <div>
+        <GroupLabel>Security &amp; Access</GroupLabel>
+        <div className="card overflow-hidden divide-y divide-slate-line">
           {/* ── Change password (own account only) ──────────────── */}
           {isOwnAccount && (
             <SectionRow icon={<LockIcon className="h-5 w-5" />} title="Change password">
@@ -1560,10 +1563,12 @@ export default function AccountSettingsPage() {
             </SectionRow>
           )}
         </div>
+        </div>
 
         {/* ── Preferences ───────────────────────────────────────── */}
+        <div>
         <GroupLabel>Preferences</GroupLabel>
-        <div className="divide-y divide-slate-line">
+        <div className="card overflow-hidden divide-y divide-slate-line">
           {/* ── Appearance: colour + pattern (own account only) ────── */}
           {isOwnAccount && (
             <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
@@ -1692,43 +1697,49 @@ export default function AccountSettingsPage() {
             </SectionRow>
           )}
         </div>
-      </div>
+        </div>
 
-      {/* ── Delete account (own account only) ────────────────── */}
-      {isOwnAccount && (
-        <AccordionSection title="Delete Account" danger>
-          {pendingDeletion ? (
-            <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
-              Your account deletion request is pending admin review.
+        {/* ── Danger zone ───────────────────────────────────────── */}
+        {isOwnAccount && (
+          <div>
+            <GroupLabel>Danger Zone</GroupLabel>
+            <div className="card overflow-hidden border-flagRed/30">
+              <SectionRow icon={<TrashIcon className="h-5 w-5" />} title="Delete Account" danger>
+                {pendingDeletion ? (
+                  <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
+                    Your account deletion request is pending admin review.
+                  </div>
+                ) : deleteConfirming ? (
+                  <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
+                    <p className="mb-3 text-sm text-flagRed">
+                      This sends an account deletion request to an admin for review. Continue?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={requestDeletion}
+                        disabled={deleteSaving}
+                        className="rounded bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      >
+                        {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
+                      </button>
+                      <button onClick={() => setDeleteConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirming(true)}
+                    className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+                  >
+                    Request account deletion
+                  </button>
+                )}
+              </SectionRow>
             </div>
-          ) : deleteConfirming ? (
-            <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
-              <p className="mb-3 text-sm text-flagRed">
-                This sends an account deletion request to an admin for review. Continue?
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={requestDeletion}
-                  disabled={deleteSaving}
-                  className="rounded bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-                >
-                  {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
-                </button>
-                <button onClick={() => setDeleteConfirming(false)} className="btn-secondary px-3 py-1.5 text-xs">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setDeleteConfirming(true)}
-              className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
-            >
-              Request account deletion
-            </button>
-          )}
-        </AccordionSection>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

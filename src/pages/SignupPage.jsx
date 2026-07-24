@@ -138,7 +138,7 @@ function RoleModal({ role, onClose }) {
         className="flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-7">
           <p className="text-lg font-semibold text-ink">{label}</p>
           <button
             type="button"
@@ -176,7 +176,7 @@ function RoleModal({ role, onClose }) {
             <form
               id="role-details-form"
               onSubmit={handleSubmit}
-              className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 pb-4"
+              className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-4"
             >
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">

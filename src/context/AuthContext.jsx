@@ -87,6 +87,19 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  // Lets the logged-in user flip their own Active/Inactive status from any
+  // clickable status badge in the app (top bar, sidebar, staff list row),
+  // without needing to visit the Account page's admin panel first.
+  async function setMyActiveStatus(nextActive) {
+    if (!session?.user) return
+    const { error } = await supabase.from('profiles').update({ is_active: nextActive }).eq('id', session.user.id)
+    if (error) {
+      console.error('Failed to update status:', error.message)
+      return
+    }
+    await loadProfile(session.user.id)
+  }
+
   // ── Role helpers (account type: doctor / locum / clerk) ────
   const role     = profile?.role ?? null
   const isDoctor = role === 'doctor'
@@ -130,6 +143,7 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
+    setMyActiveStatus,
     refreshProfile: () => session?.user && loadProfile(session.user.id)
   }
 

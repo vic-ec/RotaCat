@@ -2,9 +2,8 @@ import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
-import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
-import { STAFF_QUICK_ACTIONS } from '../lib/staffQuickActions'
+import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
+import { formatPhoneDisplay, phoneTelHref, phoneWhatsAppHref } from '../lib/phone'
 
 // ── Display label maps ─────────────────────────────────────
 const CATEGORY_LABELS = {
@@ -175,7 +174,7 @@ function Sheet({ open, onClose, title, children }) {
 }
 
 export default function StaffListPage() {
-  const { isAdmin, isSuperAdmin } = useAuth()
+  const { isAdmin, isSuperAdmin, user, setMyActiveStatus } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
@@ -212,7 +211,6 @@ export default function StaffListPage() {
 
   // Per-row quick-action sheet (mobile, admin viewers)
   const [quickActionPerson, setQuickActionPerson] = useState(null)
-  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -387,34 +385,12 @@ export default function StaffListPage() {
   // ── Quick-action sheet handlers ─────────────────────────────
   function openQuickActions(person) {
     setQuickActionPerson(person)
-    setConfirmDeactivate(false)
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
-    setConfirmDeactivate(false)
   }
-  function handleQuickAction(key) {
-    if (!quickActionPerson) return
-    if (key === 'setStatus') {
-      if (quickActionPerson.is_active) {
-        setConfirmDeactivate(true)
-        return
-      }
-      toggleActive(quickActionPerson.id, false)
-      closeQuickActions()
-    } else if (key === 'setAdmin') {
-      if (quickActionPerson.is_super_admin) return
-      toggleAdmin(quickActionPerson)
-      closeQuickActions()
-    } else if (key === 'editProfile') {
-      navigate(`/account/${quickActionPerson.id}`)
-      closeQuickActions()
-    }
-  }
-  function confirmDeactivateNow() {
-    if (!quickActionPerson) return
-    toggleActive(quickActionPerson.id, true)
-    closeQuickActions()
+  function contactMissing(firstName) {
+    alert(`Sorry, we don't have this contact detail for ${firstName} yet.`)
   }
 
   // ── Accounts grid: filter options derived from the loaded data ──
@@ -598,23 +574,24 @@ export default function StaffListPage() {
                       const secondaryLabel = person.role === 'doctor'
                         ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
                         : (ROLE_LABELS[person.role] || person.role)
-                      const formattedPhone = formatPhoneDisplay(person.phone)
                       const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                      const isMe = person.id === user?.id
                       return (
                         <div
                           key={person.id}
                           onClick={() => isAdmin && navigate(`/account/${person.id}`)}
-                          className={`flex items-center gap-3 px-4 py-3 ${!person.is_active ? 'opacity-50' : ''} ${
+                          className={`flex items-center gap-3 px-4 py-2 ${!person.is_active ? 'opacity-50' : ''} ${
                             isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
                           }`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
-                            <StatusBadge
+                            <StatusPicker
                               active={person.is_active}
                               onLeave={leaveProfileIds.has(person.id)}
                               size={14}
-                              className="absolute bottom-0 right-0 border-[0.5px] border-white"
+                              interactive={isMe}
+                              onSetActive={isMe ? setMyActiveStatus : undefined}
                             />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -630,7 +607,7 @@ export default function StaffListPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
+                            <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
                               <span>{secondaryLabel}</span>
                               {contractTag && (
                                 <span
@@ -639,18 +616,6 @@ export default function StaffListPage() {
                                 >
                                   {contractTag}
                                 </span>
-                              )}
-                              <span className="text-slate-line" aria-hidden="true">·</span>
-                              {formattedPhone ? (
-                                <a
-                                  href={phoneTelHref(person.phone)}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-accent-dark hover:underline"
-                                >
-                                  {formattedPhone}
-                                </a>
-                              ) : (
-                                <span>—</span>
                               )}
                             </div>
                           </div>
@@ -1075,51 +1040,67 @@ export default function StaffListPage() {
         </div>
       </Sheet>
 
-      {/* ── Per-row quick-action sheet (mobile, admin viewers) ── */}
-      <Sheet
-        open={!!quickActionPerson}
-        onClose={closeQuickActions}
-        title={quickActionPerson ? `${quickActionPerson.name ? quickActionPerson.name + ' ' : ''}${quickActionPerson.surname}` : ''}
-      >
-        {quickActionPerson && (
-          confirmDeactivate ? (
-            <div>
-              <p className="mb-4 text-sm text-ink">
-                Inactive doctors remain on record but are excluded from roster generation. Deactivate this account?
-              </p>
-              <div className="flex gap-2">
-                <button onClick={() => setConfirmDeactivate(false)} className="btn-secondary flex-1">Cancel</button>
-                <button
-                  onClick={confirmDeactivateNow}
-                  className="flex-1 rounded bg-flagAmber px-3 py-2.5 text-sm font-medium text-white hover:opacity-90"
-                >
-                  Deactivate
-                </button>
-              </div>
-            </div>
-          ) : (
+      {/* ── Per-row quick-action sheet (mobile, admin viewers) ──
+           Call / WhatsApp / Email the person directly, rather than the old
+           set-status / edit-profile / grant-admin list — status is now set
+           by tapping the status badge itself, and the row is already
+           tap-to-open for editing the profile. */}
+      <Sheet open={!!quickActionPerson} onClose={closeQuickActions}>
+        {quickActionPerson && (() => {
+          const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
+          const telHref = phoneTelHref(quickActionPerson.phone)
+          const waHref = phoneWhatsAppHref(quickActionPerson.phone)
+          const targetEmail = emailById[quickActionPerson.id]
+          const mailHref = targetEmail ? `mailto:${targetEmail}` : null
+          const rowClass = "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken"
+          return (
             <div className="space-y-1">
-              {STAFF_QUICK_ACTIONS.filter(a => !a.requiresSuperAdmin || isSuperAdmin).map(action => {
-                const disabled = action.key === 'setAdmin' && quickActionPerson.is_super_admin
-                return (
-                  <button
-                    key={action.key}
-                    onClick={() => !disabled && handleQuickAction(action.key)}
-                    disabled={disabled}
-                    title={disabled ? 'Super-admin — manage from their own Account page' : undefined}
-                    className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {action.key === 'setStatus'
-                      ? (quickActionPerson.is_active ? 'Set status · Deactivate' : 'Set status · Activate')
-                      : action.key === 'setAdmin'
-                        ? (quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant')
-                        : action.label}
-                  </button>
-                )
-              })}
+              {telHref ? (
+                <a href={telHref} onClick={closeQuickActions} className={rowClass}>
+                  <PhoneIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  Call {firstName}
+                </a>
+              ) : (
+                <button onClick={() => contactMissing(firstName)} className={rowClass}>
+                  <PhoneIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  Call {firstName}
+                </button>
+              )}
+              {waHref ? (
+                <a href={waHref} target="_blank" rel="noopener noreferrer" onClick={closeQuickActions} className={rowClass}>
+                  <WhatsAppIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  WhatsApp {firstName}
+                </a>
+              ) : (
+                <button onClick={() => contactMissing(firstName)} className={rowClass}>
+                  <WhatsAppIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  WhatsApp {firstName}
+                </button>
+              )}
+              {mailHref ? (
+                <a href={mailHref} onClick={closeQuickActions} className={rowClass}>
+                  <EmailIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  Email {firstName}
+                </a>
+              ) : (
+                <button onClick={() => contactMissing(firstName)} className={rowClass}>
+                  <EmailIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
+                  Email {firstName}
+                </button>
+              )}
+              {isSuperAdmin && quickActionPerson.role !== 'clerk' && (
+                <button
+                  onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
+                  disabled={quickActionPerson.is_super_admin}
+                  title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
+                  className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
+                </button>
+              )}
             </div>
           )
-        )}
+        })()}
       </Sheet>
     </div>
   )
@@ -1155,6 +1136,31 @@ function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function PhoneIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106a2.25 2.25 0 00-2.288.573l-.766.766a11.25 11.25 0 01-6.198-6.198l.766-.766a2.25 2.25 0 00.572-2.288L6.65 3.852a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 5.25v1.5z" />
+    </svg>
+  )
+}
+
+function WhatsAppIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M12.004 2c-5.523 0-10 4.477-10 10 0 1.771.462 3.489 1.34 5.003L2 22l5.11-1.34a9.958 9.958 0 004.894 1.288h.004c5.523 0 10-4.477 10-10s-4.477-10-10-10zm0 18.222h-.003a8.207 8.207 0 01-4.187-1.148l-.3-.178-3.115.817.833-3.037-.196-.312A8.19 8.19 0 013.778 12c0-4.535 3.69-8.222 8.226-8.222 2.197 0 4.26.857 5.815 2.413a8.166 8.166 0 012.408 5.815c0 4.535-3.69 8.216-8.223 8.216z" />
+    </svg>
+  )
+}
+
+function EmailIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
     </svg>
   )
 }

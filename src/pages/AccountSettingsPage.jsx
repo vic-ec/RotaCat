@@ -4,10 +4,10 @@ import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
-import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
+import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
-import { formatPhoneDisplay } from '../lib/phone'
+import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -237,15 +237,23 @@ function GroupLabel({ children }) {
 // no separate panel or duplicate label for fields that only ever hold one
 // value (a phone number or email address). Padding matches SectionRow's
 // exactly so a collapsed Contact row is the same height as the rows below it.
-function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
+function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, href, note, children }) {
   return (
     <div className="px-5 py-3">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex-shrink-0 text-ink-light">{icon}</span>
+      {/* Centered when just displaying the value (icon and single-line text
+          read as one unit); top-aligned only while editing, so the icon
+          stays pinned to the input's line instead of drifting to the middle
+          of the taller expanded block (input + Update/Cancel + notes). */}
+      <div className={`flex gap-3 ${editing ? 'items-start' : 'items-center'}`}>
+        <span className={`flex-shrink-0 text-ink-light ${editing ? 'mt-0.5' : ''}`}>{icon}</span>
         <div className="min-w-0 flex-1">
           {editing ? children : (
             <>
-              <p className="truncate text-sm text-ink">{value || placeholder}</p>
+              {value && href ? (
+                <a href={href} className="block truncate text-sm text-accent-dark hover:underline">{value}</a>
+              ) : (
+                <p className="truncate text-sm text-ink">{value || placeholder}</p>
+              )}
               {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
             </>
           )}
@@ -267,16 +275,16 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+        className="flex w-full items-center gap-3 px-5 py-3 text-left"
       >
         <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">
           <span className={`block text-sm font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{title}</span>
           {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
         </span>
-        <ChevronDownIcon
-          className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
-        />
+        <span className="flex-shrink-0 rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
       </button>
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
     </div>
@@ -1021,7 +1029,7 @@ export default function AccountSettingsPage() {
              No overflow-hidden here (unlike the row-group cards below): this card has no
              flush edge-to-edge children needing corner-clipping, and clipping it would cut
              off the avatar's photo-menu dropdown when the card is short. ── */}
-        <div className="card px-5 py-5">
+        <div className="card px-5 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="relative flex-shrink-0" ref={photoMenuRef}>
@@ -1037,13 +1045,14 @@ export default function AccountSettingsPage() {
                   }`}
                 >
                   <ProfileAvatar profile={profile} size={44} />
-                  <StatusBadge
-                    active={adminIsActive}
-                    onLeave={isOnLeave}
-                    size={14}
-                    className="absolute bottom-0 right-0 border-[0.5px] border-white"
-                  />
                 </button>
+                <StatusPicker
+                  active={adminIsActive}
+                  onLeave={isOnLeave}
+                  size={14}
+                  interactive={isOwnAccount}
+                  onSetActive={saveActiveStatus}
+                />
                 {isOwnAccount && photoMenuOpen && (
                   <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
                     <button
@@ -1080,7 +1089,7 @@ export default function AccountSettingsPage() {
                   {permissionLabel && (
                     <>
                       {' · '}
-                      <span className={`font-medium ${profile.is_super_admin ? 'text-ink' : 'text-accent'}`}>
+                      <span className={`font-medium ${profile.is_super_admin ? 'text-flagBlue' : 'text-accent'}`}>
                         {permissionLabel}
                       </span>
                     </>
@@ -1171,17 +1180,22 @@ export default function AccountSettingsPage() {
             <ContactRow
               icon={<PhoneIcon className="h-5 w-5" />}
               value={formatPhoneDisplay(profile.phone)}
+              href={!isOwnAccount ? phoneTelHref(profile.phone) : null}
               editLabel="Edit mobile number"
               editing={phoneEditing}
               onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
             >
               <form onSubmit={savePhone} className="space-y-2">
+                {/* Negative margin equal to the input's own border+padding
+                    (1px + 12px horizontal, 1px + 4px vertical) so the box
+                    wraps around the number in place instead of shifting it
+                    down and to the right when the row switches into editing. */}
                 <input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field"
+                  className="input-field -ml-[13px] -mt-[5px] w-[calc(100%+13px)]"
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
@@ -1200,6 +1214,7 @@ export default function AccountSettingsPage() {
             <ContactRow
               icon={<EmailIcon className="h-5 w-5" />}
               value={displayEmail}
+              href={!isOwnAccount && displayEmail ? `mailto:${displayEmail}` : null}
               editLabel="Edit email address"
               editing={emailEditing}
               onToggle={() => (emailEditing ? cancelEmailEdit() : setEmailEditing(true))}
@@ -1210,7 +1225,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field"
+                  className="input-field -ml-[13px] -mt-[5px] w-[calc(100%+13px)]"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —

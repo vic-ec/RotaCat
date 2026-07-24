@@ -15,3 +15,13 @@ export function phoneTelHref(phone) {
   const digits = phone.replace(/\D/g, '')
   return `tel:${digits || phone}`
 }
+
+// WhatsApp's click-to-chat API needs a full international number with no
+// leading zero — stored numbers are local SA format (leading 0), so swap it
+// for the country code rather than requiring a separate international field.
+export function phoneWhatsAppHref(phone) {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  const intl = digits.startsWith('0') ? `27${digits.slice(1)}` : digits
+  return `https://wa.me/${intl}`
+}

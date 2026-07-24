@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { NEUTRAL_AVATAR_COLOR } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
@@ -58,6 +59,70 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
     >
       <CheckIcon className="h-2.5 w-2.5 text-white" />
     </span>
+  )
+}
+
+// Corner status badge for an avatar, with an optional click-to-change menu.
+// `interactive` is only ever true for the logged-in user's own avatar — every
+// other instance (viewing someone else) renders the plain, non-clickable
+// StatusBadge. Only Active/Inactive are settable here; "Taking a break" is
+// derived from actual approved leave records, not a simple flag, so it isn't
+// offered as a pickable option.
+export function StatusPicker({ active, onLeave, size = 16, interactive = false, onSetActive }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  const badge = <StatusBadge active={active} onLeave={onLeave} size={size} className="border-[0.5px] border-white" />
+
+  if (!interactive || !onSetActive) {
+    return <span className="absolute bottom-0 right-0">{badge}</span>
+  }
+
+  return (
+    <div ref={ref} className="absolute bottom-0 right-0">
+      <button
+        type="button"
+        onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Change your status"
+        className="block rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        {badge}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={e => { e.stopPropagation(); onSetActive(true); setOpen(false) }}
+            className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-canvas-sunken ${active ? 'font-semibold text-success' : 'text-ink'}`}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={e => { e.stopPropagation(); onSetActive(false); setOpen(false) }}
+            className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-canvas-sunken ${!active ? 'font-semibold text-flagRed' : 'text-ink'}`}
+          >
+            Inactive
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 

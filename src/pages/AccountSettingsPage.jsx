@@ -209,7 +209,9 @@ function TrashIcon(props) {
 // Small icon button — used for the header's "edit profile details" trigger
 // and for each Contact row's edit action. Bare chevron (no border/box), the
 // same icon and down-when-closed/up-when-open rotation as the SectionRow
-// accordions elsewhere on the page, for a visually consistent affordance.
+// accordions elsewhere on the page. Sized to a 24x24 hit area (WCAG 2.5.8's
+// AA minimum) rather than a full 44px target, so it doesn't force these
+// rows taller than the plain-text SectionRow rows below them.
 function EditIconButton({ label, expanded, onClick }) {
   return (
     <button
@@ -217,7 +219,7 @@ function EditIconButton({ label, expanded, onClick }) {
       onClick={onClick}
       aria-label={label}
       aria-expanded={expanded}
-      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       <ChevronDownIcon className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
     </button>
@@ -233,18 +235,19 @@ function GroupLabel({ children }) {
 // Single-value contact field shown as an icon + value row, with a small
 // trigger that turns the value itself into an editable input in place —
 // no separate panel or duplicate label for fields that only ever hold one
-// value (a phone number or email address).
+// value (a phone number or email address). Padding matches SectionRow's
+// exactly so a collapsed Contact row is the same height as the rows below it.
 function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
   return (
     <div className="px-5 py-3">
       <div className="flex items-start gap-3">
-        <span className="mt-1.5 flex-shrink-0 text-ink-light">{icon}</span>
+        <span className="mt-0.5 flex-shrink-0 text-ink-light">{icon}</span>
         <div className="min-w-0 flex-1">
           {editing ? children : (
-            <div className="py-2">
+            <>
               <p className="truncate text-sm text-ink">{value || placeholder}</p>
               {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
-            </div>
+            </>
           )}
         </div>
         {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} />}
@@ -1178,7 +1181,7 @@ export default function AccountSettingsPage() {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field py-1.5"
+                  className="input-field py-1"
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
@@ -1207,7 +1210,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field py-1.5"
+                  className="input-field py-1"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —

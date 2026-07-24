@@ -772,7 +772,7 @@ export default function StaffListPage() {
                                       />
                                     </button>
                                     {person.is_active && leaveProfileIds.has(person.id) && (
-                                      <span title="On leave" aria-label="On leave" role="img" className="text-sm leading-none">🏖️</span>
+                                      <span title="Taking a break" aria-label="Taking a break" role="img" className="text-sm leading-none">🏖️</span>
                                     )}
                                   </>
                                 ) : (

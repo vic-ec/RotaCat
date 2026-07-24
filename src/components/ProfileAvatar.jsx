@@ -29,6 +29,7 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
         style={{ width: size, height: size }}
         role="img"
         aria-label="Inactive"
+        title="Inactive"
       >
         <XIcon className="h-2.5 w-2.5 text-white" />
       </span>
@@ -40,8 +41,8 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
         className={`inline-flex flex-shrink-0 items-center justify-center ${className}`}
         style={{ width: size, height: size, fontSize: Math.round(size * 0.85), lineHeight: 1 }}
         role="img"
-        aria-label="On leave"
-        title="On leave"
+        aria-label="Taking a break"
+        title="Taking a break"
       >
         🏖️
       </span>
@@ -53,6 +54,7 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
       style={{ width: size, height: size }}
       role="img"
       aria-label="Active"
+      title="Active"
     >
       <CheckIcon className="h-2.5 w-2.5 text-white" />
     </span>

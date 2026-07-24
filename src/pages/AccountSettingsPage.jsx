@@ -155,15 +155,6 @@ function EmailIcon(props) {
   )
 }
 
-function CameraIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C3.032 7.58 2.25 8.507 2.25 9.574v9.176c0 1.24 1.01 2.25 2.25 2.25h15c1.24 0 2.25-1.01 2.25-2.25V9.574c0-1.067-.782-1.994-1.802-2.169a48.09 48.09 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-    </svg>
-  )
-}
-
 function LockIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -215,10 +206,10 @@ function TrashIcon(props) {
   )
 }
 
-// Small bordered square icon button — used for the header's "edit profile
-// details" trigger and for each Contact row's edit action. Uses the same
-// chevron, and the same down-when-closed/up-when-open rotation, as the
-// SectionRow accordions elsewhere on the page, for a consistent affordance.
+// Small icon button — used for the header's "edit profile details" trigger
+// and for each Contact row's edit action. Bare chevron (no border/box), the
+// same icon and down-when-closed/up-when-open rotation as the SectionRow
+// accordions elsewhere on the page, for a visually consistent affordance.
 function EditIconButton({ label, expanded, onClick }) {
   return (
     <button
@@ -226,27 +217,10 @@ function EditIconButton({ label, expanded, onClick }) {
       onClick={onClick}
       aria-label={label}
       aria-expanded={expanded}
-      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-slate-line text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       <ChevronDownIcon className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
     </button>
-  )
-}
-
-// Small "Active"/"Inactive"/"On leave" pill shown next to the account holder's
-// name in the profile header — replaces the old standalone Status card.
-function AccountStatusBadge({ active, onLeave }) {
-  const label = !active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
-  const colorClasses = !active
-    ? 'bg-flagRed-bg text-flagRed'
-    : onLeave
-      ? 'bg-canvas-sunken text-ink-light'
-      : 'bg-success-bg text-success'
-  return (
-    <span className={`inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}>
-      <StatusBadge active={active} onLeave={onLeave} size={12} />
-      {label}
-    </span>
   )
 }
 
@@ -267,7 +241,7 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
         <span className="mt-1.5 flex-shrink-0 text-ink-light">{icon}</span>
         <div className="min-w-0 flex-1">
           {editing ? children : (
-            <div className="py-1">
+            <div className="py-2">
               <p className="truncate text-sm text-ink">{value || placeholder}</p>
               {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
             </div>
@@ -352,7 +326,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
           <button
             onClick={() => onConfirm(croppedAreaPixels)}
             disabled={saving || !croppedAreaPixels}
-            className="btn-primary px-3 py-1.5 text-xs"
+            className="btn-primary border border-transparent px-3 py-1.5 text-xs"
           >
             {saving ? 'Saving…' : 'Save photo'}
           </button>
@@ -1040,10 +1014,13 @@ export default function AccountSettingsPage() {
       )}
 
       <div className="space-y-6">
-        {/* ── Profile header: its own panel — avatar, name, role/category, status + admin ── */}
-        <div className="card overflow-hidden px-5 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
+        {/* ── Profile header: its own panel — avatar, name, role/category, status + admin ──
+             No overflow-hidden here (unlike the row-group cards below): this card has no
+             flush edge-to-edge children needing corner-clipping, and clipping it would cut
+             off the avatar's photo-menu dropdown when the card is short. ── */}
+        <div className="card px-5 py-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
               <div className="relative flex-shrink-0" ref={photoMenuRef}>
                 <button
                   type="button"
@@ -1052,16 +1029,17 @@ export default function AccountSettingsPage() {
                   aria-haspopup={isOwnAccount ? 'menu' : undefined}
                   aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
                   disabled={!isOwnAccount}
-                  className={`relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                  className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
                     isOwnAccount ? 'cursor-pointer' : 'cursor-default'
                   }`}
                 >
-                  <ProfileAvatar profile={profile} size={56} />
-                  {isOwnAccount && (
-                    <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white">
-                      <CameraIcon className="h-2.5 w-2.5" />
-                    </span>
-                  )}
+                  <ProfileAvatar profile={profile} size={44} />
+                  <StatusBadge
+                    active={adminIsActive}
+                    onLeave={isOnLeave}
+                    size={14}
+                    className="absolute bottom-0 right-0 border-2 border-canvas"
+                  />
                 </button>
                 {isOwnAccount && photoMenuOpen && (
                   <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
@@ -1105,9 +1083,6 @@ export default function AccountSettingsPage() {
                     </>
                   )}
                 </p>
-                <div className="mt-1.5">
-                  <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
-                </div>
               </div>
             </div>
 
@@ -1174,7 +1149,7 @@ export default function AccountSettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
+                  <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
                     {savingProfile ? 'Saving…' : profileJustSaved ? 'Saved.' : 'Update'}
                   </button>
                   {profileMsg && (
@@ -1203,13 +1178,13 @@ export default function AccountSettingsPage() {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field"
+                  className="input-field py-1.5"
                 />
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
+                  <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
                     {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
                   </button>
-                  <button type="button" onClick={cancelPhoneEdit} className="btn-secondary">
+                  <button type="button" onClick={cancelPhoneEdit} className="btn-secondary px-3 py-1.5 text-xs">
                     Cancel
                   </button>
                   {phoneMsg && (
@@ -1232,17 +1207,17 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field"
+                  className="input-field py-1.5"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
                   the change only takes effect once confirmed, so it won't lock you out.
                 </p>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
+                  <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
                     {emailSaving ? 'Sending…' : 'Update'}
                   </button>
-                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary">
+                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary px-3 py-1.5 text-xs">
                     Cancel
                   </button>
                   {emailMsg && (
@@ -1298,7 +1273,7 @@ export default function AccountSettingsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
+                  <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
                     {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
                   </button>
                   {pwMsg && (
@@ -1371,7 +1346,7 @@ export default function AccountSettingsPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <button onClick={saveAdminAccountFields} disabled={adminSaving || !adminFieldsDirty} className="btn-primary">
+              <button onClick={saveAdminAccountFields} disabled={adminSaving || !adminFieldsDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
                 {adminSaving ? 'Saving…' : adminJustSaved ? 'Saved.' : 'Update'}
               </button>
               {adminMsg && (
@@ -1395,7 +1370,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={transferSuperAdmin}
                         disabled={transferSaving}
-                        className="rounded bg-flagAmber px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagAmber px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
                       >
                         {transferSaving ? 'Transferring…' : 'Confirm transfer'}
                       </button>
@@ -1508,7 +1483,7 @@ export default function AccountSettingsPage() {
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="submit" disabled={requestSaving} className="btn-secondary text-xs">
+                  <button type="submit" disabled={requestSaving} className="btn-secondary px-3 py-1.5 text-xs">
                     {requestSaving ? 'Submitting…' : 'Submit request'}
                   </button>
                   {requestMsg && (
@@ -1619,13 +1594,13 @@ export default function AccountSettingsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={saveAppearance} disabled={colorSaving || !isColorDirty} className="btn-primary">
+            <button type="button" onClick={saveAppearance} disabled={colorSaving || !isColorDirty} className="btn-primary border border-transparent px-3 py-1.5 text-xs">
               {colorSaving ? 'Saving…' : colorJustSaved ? 'Saved.' : 'Update'}
             </button>
-            <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary">
+            <button type="button" onClick={cancelAppearance} disabled={!isColorDirty || colorSaving} className="btn-secondary px-3 py-1.5 text-xs">
               Cancel
             </button>
-            <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary">
+            <button type="button" onClick={surpriseMe} disabled={surprising} className="btn-secondary px-3 py-1.5 text-xs">
               {surprising ? 'Picking…' : 'Surprise me!'}
             </button>
             {colorMsg && (
@@ -1698,7 +1673,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={requestDeletion}
                         disabled={deleteSaving}
-                        className="rounded bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagRed px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
                       >
                         {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
                       </button>

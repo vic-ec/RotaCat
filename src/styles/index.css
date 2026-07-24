@@ -5,6 +5,9 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Reserve the scrollbar's width at all times so a panel expanding into
+       scrollable territory doesn't shift the whole page sideways. */
+    scrollbar-gutter: stable;
   }
 
   body {

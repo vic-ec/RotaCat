@@ -139,14 +139,6 @@ function ChevronDownIcon(props) {
   )
 }
 
-function TriangleIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 12 8" fill="currentColor">
-      <path d="M6 0L12 8H0L6 0Z" />
-    </svg>
-  )
-}
-
 function PhoneIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -224,8 +216,9 @@ function TrashIcon(props) {
 }
 
 // Small bordered square icon button — used for the header's "edit profile
-// details" trigger and for each Contact row's edit action. Triangle points
-// up while minimized, and flips to point down once its panel is open.
+// details" trigger and for each Contact row's edit action. Uses the same
+// chevron, and the same down-when-closed/up-when-open rotation, as the
+// SectionRow accordions elsewhere on the page, for a consistent affordance.
 function EditIconButton({ label, expanded, onClick }) {
   return (
     <button
@@ -235,7 +228,7 @@ function EditIconButton({ label, expanded, onClick }) {
       aria-expanded={expanded}
       className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-slate-line text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <TriangleIcon className={`h-2.5 w-2.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      <ChevronDownIcon className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
     </button>
   )
 }
@@ -269,15 +262,15 @@ function GroupLabel({ children }) {
 // value (a phone number or email address).
 function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
   return (
-    <div className="px-5 py-4">
-      <div className="flex items-center gap-3">
-        <span className="flex-shrink-0 text-ink-light">{icon}</span>
+    <div className="px-5 py-3">
+      <div className="flex items-start gap-3">
+        <span className="mt-1.5 flex-shrink-0 text-ink-light">{icon}</span>
         <div className="min-w-0 flex-1">
           {editing ? children : (
-            <>
+            <div className="py-1">
               <p className="truncate text-sm text-ink">{value || placeholder}</p>
               {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
-            </>
+            </div>
           )}
         </div>
         {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} />}
@@ -297,7 +290,7 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left"
+        className="flex w-full items-center gap-3 px-5 py-3 text-left"
       >
         <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">
@@ -1059,14 +1052,14 @@ export default function AccountSettingsPage() {
                   aria-haspopup={isOwnAccount ? 'menu' : undefined}
                   aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
                   disabled={!isOwnAccount}
-                  className={`relative flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                  className={`relative flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
                     isOwnAccount ? 'cursor-pointer' : 'cursor-default'
                   }`}
                 >
-                  <ProfileAvatar profile={profile} size={80} />
+                  <ProfileAvatar profile={profile} size={56} />
                   {isOwnAccount && (
-                    <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white">
-                      <CameraIcon className="h-3.5 w-3.5" />
+                    <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white">
+                      <CameraIcon className="h-2.5 w-2.5" />
                     </span>
                   )}
                 </button>
@@ -1099,16 +1092,21 @@ export default function AccountSettingsPage() {
                 />
               </div>
 
-              <div className="min-w-0 flex-1 pt-1">
-                <h1 className="font-display text-2xl text-ink">{profile.name} {profile.surname}</h1>
-                <p className="mt-1 text-sm text-ink-muted">{roleCategoryLabel}</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
+              <div className="min-w-0 flex-1">
+                <h1 className="font-display text-lg leading-tight text-ink">{profile.name} {profile.surname}</h1>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {roleCategoryLabel}
                   {permissionLabel && (
-                    <span className="inline-flex flex-shrink-0 items-center rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">
-                      {permissionLabel}
-                    </span>
+                    <>
+                      {' · '}
+                      <span className={`font-medium ${profile.is_super_admin ? 'text-ink' : 'text-accent'}`}>
+                        {permissionLabel}
+                      </span>
+                    </>
                   )}
+                </p>
+                <div className="mt-1.5">
+                  <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
                 </div>
               </div>
             </div>
@@ -1206,7 +1204,6 @@ export default function AccountSettingsPage() {
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
                   className="input-field"
-                  autoFocus
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
@@ -1236,7 +1233,6 @@ export default function AccountSettingsPage() {
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
                   className="input-field"
-                  autoFocus
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
@@ -1317,18 +1313,6 @@ export default function AccountSettingsPage() {
           <SectionRow
             icon={<ShieldIcon className="h-5 w-5" />}
             title="Category, role and permissions"
-            subtitle={
-              <span className="inline-flex items-center gap-1.5">
-                <span>
-                  {profile.role === 'doctor'
-                    ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
-                    : (ROLE_LABELS[profile.role] || profile.role)}
-                </span>
-                {profile.is_admin && (
-                  <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
-                )}
-              </span>
-            }
           >
             {isAdmin && (
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-line pb-4">
@@ -1565,12 +1549,11 @@ export default function AccountSettingsPage() {
         </div>
         </div>
 
-        {/* ── Preferences ───────────────────────────────────────── */}
+        {/* ── Preferences (own account only — nothing here for an admin viewing someone else) ── */}
+        {isOwnAccount && (
         <div>
         <GroupLabel>Preferences</GroupLabel>
         <div className="card overflow-hidden divide-y divide-slate-line">
-          {/* ── Appearance: colour + pattern (own account only) ────── */}
-          {isOwnAccount && (
             <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
           <div className="mb-5 flex items-center gap-4">
             <ProfileAvatar
@@ -1652,10 +1635,7 @@ export default function AccountSettingsPage() {
             )}
           </div>
             </SectionRow>
-          )}
 
-          {/* ── Notification preferences (own account only) ─────── */}
-          {isOwnAccount && (
             <SectionRow icon={<BellIcon className="h-5 w-5" />} title="Notifications">
           <div className="flex items-center justify-between border-b border-slate-line pb-3">
             <p className="text-sm font-medium text-ink">All notifications</p>
@@ -1695,9 +1675,9 @@ export default function AccountSettingsPage() {
             </div>
           )}
             </SectionRow>
-          )}
         </div>
         </div>
+        )}
 
         {/* ── Danger zone ───────────────────────────────────────── */}
         {isOwnAccount && (

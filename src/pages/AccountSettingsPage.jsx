@@ -1,46 +1,13 @@
-import { useEffect, useRef, useState, useCallback, forwardRef } from 'react'
-import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useParams, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
-import { LAST_PATH_KEY } from '../components/AppLayout'
 import ProfileAvatar, { StatusBadge } from '../components/ProfileAvatar'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay } from '../lib/phone'
-
-// Maps a route path to the nav label shown for it, for the "Back to X" link
-function labelForPath(pathname) {
-  if (pathname === '/') return 'Dashboard'
-  if (pathname.startsWith('/roster')) return 'Roster'
-  if (pathname.startsWith('/staff')) return 'Staff list'
-  if (pathname.startsWith('/leave')) return 'Leave'
-  if (pathname.startsWith('/swaps')) return 'Swaps'
-  if (pathname.startsWith('/shifts')) return 'Open shifts'
-  if (pathname.startsWith('/settings')) return 'Settings'
-  return 'previous page'
-}
-
-function ArrowLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  )
-}
-
-function BackButton({ onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      className="sticky top-14 md:top-0 z-[5] mb-4 inline-flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm font-medium text-ink-light hover:text-ink"
-    >
-      <ArrowLeftIcon className="h-4 w-4" />
-      Back to {label}
-    </button>
-  )
-}
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -172,40 +139,185 @@ function ChevronDownIcon(props) {
   )
 }
 
-// Collapsible section — keeps the settings page scannable instead of one long scroll.
-// Supports an optional externally-controlled open state (e.g. "Change appearance"
-// jumping straight to the Appearance section) alongside the default uncontrolled mode.
-const AccordionSection = forwardRef(function AccordionSection(
-  { title, subtitle, defaultOpen = false, danger = false, children, open: controlledOpen, onOpenChange, subtitleMultiline = false },
-  ref
-) {
-  const [internalOpen, setInternalOpen] = useState(defaultOpen)
-  const isControlled = controlledOpen !== undefined
-  const open = isControlled ? controlledOpen : internalOpen
-
-  function toggle() {
-    if (isControlled) onOpenChange?.(!open)
-    else setInternalOpen(o => !o)
-  }
-
+function PencilIcon(props) {
   return (
-    <section ref={ref} className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25l3 3" />
+    </svg>
+  )
+}
+
+function PhoneIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106a2.25 2.25 0 00-2.288.573l-.766.766a11.25 11.25 0 01-6.198-6.198l.766-.766a2.25 2.25 0 00.572-2.288L6.65 3.852a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 5.25v1.5z" />
+    </svg>
+  )
+}
+
+function EmailIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  )
+}
+
+function CameraIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C3.032 7.58 2.25 8.507 2.25 9.574v9.176c0 1.24 1.01 2.25 2.25 2.25h15c1.24 0 2.25-1.01 2.25-2.25V9.574c0-1.067-.782-1.994-1.802-2.169a48.09 48.09 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+    </svg>
+  )
+}
+
+function LockIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  )
+}
+
+function ShieldIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75l2.25 2.25L15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286z" />
+    </svg>
+  )
+}
+
+function PaletteIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 110-18 8 8 0 018 8c0 1.5-.5 3-2.5 3H15a2 2 0 00-2 2c0 .8.3 1.3.6 1.8.3.5.4.9.4 1.2 0 1-1 2-2 2z" />
+      <circle cx="7.5" cy="10.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10.5" cy="7" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="7.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function BellIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  )
+}
+
+function ClipboardIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  )
+}
+
+// Small bordered square icon button — used for the header's "edit profile
+// details" trigger and for each Contact row's edit action.
+function EditIconButton({ label, expanded, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-expanded={expanded}
+      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border border-slate-line text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+    >
+      <PencilIcon className="h-4 w-4" />
+    </button>
+  )
+}
+
+// Small "Active"/"Inactive"/"On leave" pill shown next to the account holder's
+// name in the profile header — replaces the old standalone Status card.
+function AccountStatusBadge({ active, onLeave }) {
+  const label = !active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
+  const colorClasses = !active
+    ? 'bg-flagRed-bg text-flagRed'
+    : onLeave
+      ? 'bg-canvas-sunken text-ink-light'
+      : 'bg-success-bg text-success'
+  return (
+    <span className={`inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${colorClasses}`}>
+      <StatusBadge active={active} onLeave={onLeave} size={12} />
+      {label}
+    </span>
+  )
+}
+
+// Muted section label shown above a group of related rows within the single
+// continuous form card ("Contact", "Security & access", "Preferences").
+function GroupLabel({ children }) {
+  return <p className="px-5 pt-5 pb-1 text-xs text-ink-muted">{children}</p>
+}
+
+// Single-value contact field shown as an icon + value row, with a pencil
+// button that reveals the existing edit form in place — no accordion step
+// for fields that only ever hold one value (a phone number or email address).
+function ContactRow({ icon, label, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, note, children }) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 px-5 py-4">
+        <span className="flex-shrink-0 text-ink-light">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-ink-muted">{label}</p>
+          <p className="truncate text-sm text-ink">{value || placeholder}</p>
+          {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+        </div>
+        {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} />}
+      </div>
+      {editable && editing && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
+    </div>
+  )
+}
+
+// Plain expandable row (icon + title + chevron) used for the multi-field
+// sections inside the single continuous form card — same expand/collapse
+// behaviour as before, just without its own bordered card per section.
+function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-5 py-4 text-left"
+      >
+        <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className={`block text-sm font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{title}</span>
+          {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
+        </span>
+        <ChevronDownIcon
+          className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
+    </div>
+  )
+}
+
+// Standalone bordered card with a single collapsible section — kept only for
+// Delete Account, a rare destructive action deliberately set apart from the
+// rest of the form rather than folded into the continuous card above.
+function AccordionSection({ title, danger = false, children }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className={`card mb-4 overflow-hidden ${danger ? 'border-flagRed/30' : ''}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
       >
-        <div className="min-w-0">
-          <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
-            {title}
-          </h2>
-          {subtitle && (
-            <div className={`mt-1 text-sm text-ink ${subtitleMultiline ? '' : 'truncate'}`}>
-              {subtitle}
-            </div>
-          )}
-        </div>
+        <h2 className={`text-sm font-semibold uppercase tracking-wide ${danger ? 'text-flagRed' : 'text-ink-muted'}`}>
+          {title}
+        </h2>
         <ChevronDownIcon
           className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`}
         />
@@ -213,7 +325,7 @@ const AccordionSection = forwardRef(function AccordionSection(
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
     </section>
   )
-})
+}
 
 // ── Avatar crop modal ────────────────────────────────────────
 function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
@@ -274,7 +386,6 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
   const { id: routeId } = useParams()
-  const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   // Viewing someone else's account requires admin permission — enforced below via redirect.
@@ -291,15 +402,18 @@ export default function AccountSettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileJustSaved, setProfileJustSaved] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
+  const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
 
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailMsg, setEmailMsg] = useState(null)
+  const [emailEditing, setEmailEditing] = useState(false)
 
   const [phone, setPhone] = useState('')
   const [phoneSaving, setPhoneSaving] = useState(false)
   const [phoneJustSaved, setPhoneJustSaved] = useState(false)
   const [phoneMsg, setPhoneMsg] = useState(null)
+  const [phoneEditing, setPhoneEditing] = useState(false)
 
   const [cropSrc, setCropSrc] = useState(null) // object URL while cropping
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -325,13 +439,6 @@ export default function AccountSettingsPage() {
   const [colorJustSaved, setColorJustSaved] = useState(false)
   const [surprising, setSurprising] = useState(false)
   const [colorMsg, setColorMsg] = useState(null)
-  const [appearanceOpen, setAppearanceOpen] = useState(false)
-  const appearanceSectionRef = useRef(null)
-
-  function jumpToAppearance() {
-    setAppearanceOpen(true)
-    appearanceSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
@@ -898,13 +1005,9 @@ export default function AccountSettingsPage() {
     return <Navigate to="/account" replace />
   }
 
-  const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
-  const backLabel = labelForPath(lastPath)
-
   if (!isOwnAccount && targetLoadError) {
     return (
       <div className="mx-auto max-w-2xl pb-12">
-        {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block px-3 py-1.5 text-xs">Back to Staff list</Link>
@@ -921,24 +1024,21 @@ export default function AccountSettingsPage() {
   const allNotificationsOn = visibleNotificationKeys.length > 0 &&
     visibleNotificationKeys.every(key => prefs[key] !== false)
 
+  const roleCategoryLabel = profile.role === 'doctor'
+    ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
+    : (ROLE_LABELS[profile.role] || profile.role)
+  const permissionLabel = profile.is_admin ? (profile.is_super_admin ? 'Super-admin' : 'Admin') : null
+  const headerSubtitle = permissionLabel ? `${roleCategoryLabel} · ${permissionLabel}` : roleCategoryLabel
+
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      {isAdmin && <BackButton onClick={() => navigate(lastPath)} label={backLabel} />}
-      <div className="mb-6">
-        {!isOwnAccount && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
-            <span>
-              Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
-            </span>
-          </div>
-        )}
-        <h1 className="font-display text-2xl text-ink">Account</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {isOwnAccount
-            ? 'Manage your profile, notifications, and account security.'
-            : "Manage this person's profile, role, and permissions."}
-        </p>
-      </div>
+      {!isOwnAccount && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
+          <span>
+            Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
+          </span>
+        </div>
+      )}
 
       {cropSrc && (
         <AvatarCropModal
@@ -949,158 +1049,286 @@ export default function AccountSettingsPage() {
         />
       )}
 
-      {/* ── Profile ───────────────────────────────────────────── */}
-      <AccordionSection
-        title="Profile"
-        subtitleMultiline
-        subtitle={
-          <span className="inline-flex items-center gap-2">
-            {profile.avatar_url ? (
-              <span className="inline-flex flex-shrink-0 items-center gap-1.5">
-                <img
-                  src={profile.avatar_url}
-                  alt=""
-                  className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
-                />
-                <ProfileAvatar profile={profile} size={20} soloFill />
-              </span>
-            ) : (
-              <ProfileAvatar profile={profile} size={20} />
-            )}
-            <span className="flex min-w-0 flex-col leading-snug">
-              <span className="truncate">{profile.name} {profile.surname}</span>
-              {!isOwnAccount && formatBirthdayDisplay(profile.birthday) && (
-                <span className="truncate">{formatBirthdayDisplay(profile.birthday)}</span>
-              )}
-            </span>
-          </span>
-        }
-      >
-        <div className="mb-5 flex items-center gap-4">
-          <ProfileAvatar profile={profile} size={64} />
-          {isOwnAccount && (
-            <div>
-              <div className="flex flex-wrap gap-2">
-                <div className="relative" ref={photoMenuRef}>
-                  <button
-                    type="button"
-                    onClick={() => setPhotoMenuOpen(o => !o)}
-                    className="btn-secondary px-3 py-1.5 text-xs"
-                  >
-                    Change picture
-                  </button>
-                  {photoMenuOpen && (
-                    <div className="absolute left-0 top-full z-20 mt-1 w-36 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
-                      <button
-                        type="button"
-                        onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
-                        className="block w-full px-3 py-2 text-left text-xs text-ink hover:bg-canvas-sunken"
-                      >
-                        Upload picture
-                      </button>
-                      {profile.avatar_url && (
-                        <button
-                          type="button"
-                          onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
-                          className="block w-full px-3 py-2 text-left text-xs text-flagRed hover:bg-flagRed-bg"
-                        >
-                          Delete picture
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+      {/* ── One continuous form: header, then Contact / Security & access / Preferences ── */}
+      <div className="card overflow-hidden">
+        {/* ── Profile header: single avatar, name, status badge, role subtitle ── */}
+        <div className="border-b border-slate-line px-5 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="relative flex-shrink-0" ref={photoMenuRef}>
                 <button
                   type="button"
-                  onClick={jumpToAppearance}
-                  className="btn-secondary px-3 py-1.5 text-xs"
+                  onClick={() => isOwnAccount && setPhotoMenuOpen(o => !o)}
+                  aria-label={isOwnAccount ? 'Edit profile picture' : undefined}
+                  aria-haspopup={isOwnAccount ? 'menu' : undefined}
+                  aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
+                  disabled={!isOwnAccount}
+                  className={`relative flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                    isOwnAccount ? 'cursor-pointer' : 'cursor-default'
+                  }`}
                 >
-                  Change appearance
+                  <ProfileAvatar profile={profile} size={80} />
+                  {isOwnAccount && (
+                    <span className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas bg-accent text-white">
+                      <CameraIcon className="h-3.5 w-3.5" />
+                    </span>
+                  )}
                 </button>
+                {isOwnAccount && photoMenuOpen && (
+                  <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                    <button
+                      type="button"
+                      onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
+                      className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+                    >
+                      Upload picture
+                    </button>
+                    {profile.avatar_url && (
+                      <button
+                        type="button"
+                        onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
+                        className="block w-full px-3 py-2.5 text-left text-sm text-flagRed hover:bg-flagRed-bg"
+                      >
+                        Delete picture
+                      </button>
+                    )}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarSelect}
+                  className="hidden"
+                />
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarSelect}
-                className="hidden"
-              />
-              {avatarError && <p className="mt-1 text-xs text-flagRed">{avatarError}</p>}
+
+              <div className="min-w-0 flex-1 pt-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h1 className="break-words font-display text-2xl text-ink">{profile.name} {profile.surname}</h1>
+                  <AccountStatusBadge active={adminIsActive} onLeave={isOnLeave} />
+                </div>
+                <p className="mt-1 text-sm text-ink-muted">{headerSubtitle}</p>
+              </div>
+            </div>
+
+            <EditIconButton
+              label="Edit profile details"
+              expanded={profileDetailsOpen}
+              onClick={() => setProfileDetailsOpen(o => !o)}
+            />
+          </div>
+          {avatarError && <p className="mt-2 text-xs text-flagRed">{avatarError}</p>}
+
+          {profileDetailsOpen && (
+            <div className="mt-4 border-t border-slate-line pt-4">
+              <form onSubmit={saveProfile} className="space-y-4">
+                <div>
+                  <label className="label-text">First name</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="label-text">Surname</label>
+                  <input
+                    type="text"
+                    value={form.surname}
+                    onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="label-text">Birthday</label>
+                  {/* Day + month only — no year, since this only ever needs to
+                      recur annually. Plain selects also sidestep the iOS Safari
+                      bug where native date inputs can render wider than their box
+                      regardless of CSS width. */}
+                  <div className="flex gap-2">
+                    <select
+                      value={form.birthdayDay}
+                      onChange={e => setBirthdayPart('day', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="">Day</option>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={form.birthdayMonth}
+                      onChange={e => setBirthdayPart('month', e.target.value)}
+                      className="input-field"
+                    >
+                      <option value="">Month</option>
+                      {MONTH_NAMES.map((name, i) => (
+                        <option key={name} value={i + 1}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {!isOwnAccount && formatBirthdayDisplay(profile.birthday) && (
+                    <p className="mt-1 text-xs text-ink-muted">Currently: {formatBirthdayDisplay(profile.birthday)}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
+                    {savingProfile ? 'Saving…' : profileJustSaved ? 'Saved.' : 'Update'}
+                  </button>
+                  {profileMsg && (
+                    <span className="text-xs font-medium text-flagRed">{profileMsg.text}</span>
+                  )}
+                </div>
+              </form>
             </div>
           )}
         </div>
 
-        <form onSubmit={saveProfile} className="space-y-4">
-          <div>
-            <label className="label-text">First name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="label-text">Surname</label>
-            <input
-              type="text"
-              value={form.surname}
-              onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="label-text">Birthday</label>
-            {/* Day + month only — no year, since this only ever needs to
-                recur annually. Plain selects also sidestep the iOS Safari
-                bug where native date inputs can render wider than their box
-                regardless of CSS width. */}
-            <div className="flex gap-2">
-              <select
-                value={form.birthdayDay}
-                onChange={e => setBirthdayPart('day', e.target.value)}
-                className="input-field"
-              >
-                <option value="">Day</option>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-              <select
-                value={form.birthdayMonth}
-                onChange={e => setBirthdayPart('month', e.target.value)}
-                className="input-field"
-              >
-                <option value="">Month</option>
-                {MONTH_NAMES.map((name, i) => (
-                  <option key={name} value={i + 1}>{name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {/* ── Contact ───────────────────────────────────────────── */}
+        <GroupLabel>Contact</GroupLabel>
+        <div className="divide-y divide-slate-line">
+          <ContactRow
+            icon={<PhoneIcon className="h-5 w-5" />}
+            label="Mobile number"
+            value={formatPhoneDisplay(profile.phone)}
+            editLabel="Edit mobile number"
+            editing={phoneEditing}
+            onToggle={() => setPhoneEditing(o => !o)}
+          >
+            <form onSubmit={savePhone} className="space-y-3">
+              <div>
+                <label className="label-text">Mobile number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="e.g. 082 123 4567"
+                  className="input-field"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
+                  {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
+                </button>
+                {phoneMsg && (
+                  <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
+                )}
+              </div>
+            </form>
+          </ContactRow>
 
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={savingProfile || !profileDirty} className="btn-primary">
-              {savingProfile ? 'Saving…' : profileJustSaved ? 'Saved.' : 'Update'}
-            </button>
-            {profileMsg && (
-              <span className="text-xs font-medium text-flagRed">{profileMsg.text}</span>
-            )}
-          </div>
-        </form>
-      </AccordionSection>
+          <ContactRow
+            icon={<EmailIcon className="h-5 w-5" />}
+            label="Email address"
+            value={displayEmail}
+            editLabel="Edit email address"
+            editing={emailEditing}
+            onToggle={() => setEmailEditing(o => !o)}
+            editable={isOwnAccount}
+            note={!isOwnAccount ? 'Only the account holder can change their own email address.' : undefined}
+          >
+            <form onSubmit={changeEmail} className="space-y-3">
+              <div>
+                <label className="label-text">Email</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <p className="text-xs text-ink-muted">
+                This is also your login username. Changing it sends confirmation links to both your old and new address —
+                the change only takes effect once confirmed, so it won't lock you out.
+              </p>
+              <div className="flex items-center gap-3">
+                <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
+                  {emailSaving ? 'Sending…' : 'Update'}
+                </button>
+                {emailMsg && (
+                  <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+                    {emailMsg.text}
+                  </span>
+                )}
+              </div>
+            </form>
+          </ContactRow>
+        </div>
 
-      {/* ── Status ────────────────────────────────────────────── */}
-      <AccordionSection
-        title="Status"
-        subtitle={
-          <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-            {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-          </span>
-        }
-      >
-        {isAdmin ? (
-          <div className="flex items-center justify-between gap-3">
+        {/* ── Security & access ─────────────────────────────────── */}
+        <GroupLabel>Security &amp; access</GroupLabel>
+        <div className="divide-y divide-slate-line">
+          {/* ── Change password (own account only) ──────────────── */}
+          {isOwnAccount && (
+            <SectionRow icon={<LockIcon className="h-5 w-5" />} title="Change password">
+              <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
+                {PASSWORD_HINT}
+              </div>
+              <form onSubmit={changePassword} className="space-y-4">
+                <div>
+                  <label className="label-text">Current password</label>
+                  <input
+                    type="password"
+                    value={pwForm.current}
+                    onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                    className="input-field"
+                    autoComplete="current-password"
+                  />
+                </div>
+                <div>
+                  <label className="label-text">New password</label>
+                  <input
+                    type="password"
+                    value={pwForm.password}
+                    onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                    className="input-field"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="label-text">Confirm password</label>
+                  <input
+                    type="password"
+                    value={pwForm.confirm}
+                    onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                    className="input-field"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
+                    {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
+                  </button>
+                  {pwMsg && (
+                    <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>
+                  )}
+                </div>
+              </form>
+            </SectionRow>
+          )}
+
+          {/* ── Category, Role & Permissions ─────────────────────── */}
+          <SectionRow
+            icon={<ShieldIcon className="h-5 w-5" />}
+            title="Category, role and permissions"
+            subtitle={
+              <span className="inline-flex items-center gap-1.5">
+                <span>
+                  {profile.role === 'doctor'
+                    ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
+                    : (ROLE_LABELS[profile.role] || profile.role)}
+                </span>
+                {profile.is_admin && (
+                  <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
+                )}
+              </span>
+            }
+          >
+            {isAdmin && (
+          <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-line pb-4">
             <div>
               <p className="text-sm font-medium text-ink">Account active</p>
               <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
@@ -1110,98 +1338,12 @@ export default function AccountSettingsPage() {
             </div>
             <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <StatusBadge active={adminIsActive} onLeave={isOnLeave} size={18} />
-            <span className={`text-sm font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-              {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-            </span>
-          </div>
         )}
-        {statusMsg && (
-          <span className={`mt-2 block text-xs font-medium ${statusMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
+        {isAdmin && statusMsg && (
+          <span className={`mb-4 block text-xs font-medium ${statusMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
             {statusMsg.text}
           </span>
         )}
-      </AccordionSection>
-
-      {/* ── Mobile number ─────────────────────────────────────── */}
-      <AccordionSection title="Mobile number" subtitle={formatPhoneDisplay(profile.phone) || undefined}>
-        <form onSubmit={savePhone} className="space-y-3">
-          <div>
-            <label className="label-text">Mobile number</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              placeholder="e.g. 082 123 4567"
-              className="input-field"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
-              {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
-            </button>
-            {phoneMsg && (
-              <span className="text-xs font-medium text-flagRed">{phoneMsg.text}</span>
-            )}
-          </div>
-        </form>
-      </AccordionSection>
-
-      {/* ── Email ───────────────────────────────────────────── */}
-      <AccordionSection title="Email address" subtitle={displayEmail || undefined}>
-        {isOwnAccount ? (
-          <form onSubmit={changeEmail} className="space-y-3">
-            <div>
-              <label className="label-text">Email</label>
-              <input
-                type="email"
-                value={newEmail}
-                onChange={e => setNewEmail(e.target.value)}
-                className="input-field"
-              />
-            </div>
-            <p className="text-xs text-ink-muted">
-              This is also your login username. Changing it sends confirmation links to both your old and new address —
-              the change only takes effect once confirmed, so it won't lock you out.
-            </p>
-            <div className="flex items-center gap-3">
-              <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
-                {emailSaving ? 'Sending…' : 'Update'}
-              </button>
-              {emailMsg && (
-                <span className={`text-xs font-medium ${emailMsg.type === 'error' ? 'text-flagRed' : 'text-success'}`}>
-                  {emailMsg.text}
-                </span>
-              )}
-            </div>
-          </form>
-        ) : (
-          <div>
-            <label className="label-text">Email</label>
-            <input type="email" value={displayEmail || '—'} disabled className="input-field cursor-not-allowed opacity-60" />
-            <p className="mt-1 text-xs text-ink-muted">Only the account holder can change their own email address.</p>
-          </div>
-        )}
-      </AccordionSection>
-
-      {/* ── Category, Role & Permissions ─────────────────────── */}
-      <AccordionSection
-        title="Category, Role & Permissions"
-        subtitle={
-          <span className="inline-flex items-center gap-1.5">
-            <span>
-              {profile.role === 'doctor'
-                ? (CATEGORY_LABELS[profile.category] || profile.category || '—')
-                : (ROLE_LABELS[profile.role] || profile.role)}
-            </span>
-            {profile.is_admin && (
-              <span className="font-medium text-accent">{profile.is_super_admin ? 'Super-admin' : 'Admin'}</span>
-            )}
-          </span>
-        }
-      >
         {isAdmin ? (
           <div className="space-y-4">
             <div>
@@ -1392,65 +1534,39 @@ export default function AccountSettingsPage() {
             )}
           </div>
         )}
-      </AccordionSection>
+          </SectionRow>
 
-      {/* ── Change password (own account only) ──────────────── */}
-      {isOwnAccount && (
-        <AccordionSection title="Change password">
-          <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
-            {PASSWORD_HINT}
-          </div>
-          <form onSubmit={changePassword} className="space-y-4">
-            <div>
-              <label className="label-text">Current password</label>
-              <input
-                type="password"
-                value={pwForm.current}
-                onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
-                className="input-field"
-                autoComplete="current-password"
-              />
-            </div>
-            <div>
-              <label className="label-text">New password</label>
-              <input
-                type="password"
-                value={pwForm.password}
-                onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
-                className="input-field"
-                autoComplete="new-password"
-              />
-            </div>
-            <div>
-              <label className="label-text">Confirm password</label>
-              <input
-                type="password"
-                value={pwForm.confirm}
-                onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
-                className="input-field"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
-                {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
-              </button>
-              {pwMsg && (
-                <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>
-              )}
-            </div>
-          </form>
-        </AccordionSection>
-      )}
+          {/* ── Request history (own account only) ───────────────── */}
+          {isOwnAccount && myRequests.length > 0 && (
+            <SectionRow
+              icon={<ClipboardIcon className="h-5 w-5" />}
+              title="Your requests"
+              subtitle={`${myRequests.length} submitted`}
+            >
+              <div className="divide-y divide-slate-line">
+                {myRequests.map(r => (
+                  <div key={r.id} className="flex items-center justify-between py-2.5 text-sm">
+                    <div>
+                      <span className="font-medium text-ink capitalize">{r.request_type}</span>
+                      {r.requested_value && <span className="text-ink-muted"> → {r.requested_value}</span>}
+                      <p className="text-xs text-ink-muted">{new Date(r.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REQUEST_STATUS_BADGE[r.status]}`}>
+                      {r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </SectionRow>
+          )}
+        </div>
 
-      {/* ── Appearance: colour + pattern (own account only) ────── */}
-      {isOwnAccount && (
-        <AccordionSection
-          ref={appearanceSectionRef}
-          title="Appearance"
-          open={appearanceOpen}
-          onOpenChange={setAppearanceOpen}
-        >
+        {/* ── Preferences ───────────────────────────────────────── */}
+        <GroupLabel>Preferences</GroupLabel>
+        <div className="divide-y divide-slate-line">
+          {/* ── Appearance: colour + pattern (own account only) ────── */}
+          {isOwnAccount && (
+            <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
           <div className="mb-5 flex items-center gap-4">
             <ProfileAvatar
               profile={{
@@ -1530,12 +1646,12 @@ export default function AccountSettingsPage() {
               </span>
             )}
           </div>
-        </AccordionSection>
-      )}
+            </SectionRow>
+          )}
 
-      {/* ── Notification preferences (own account only) ─────── */}
-      {isOwnAccount && (
-        <AccordionSection title="Notifications">
+          {/* ── Notification preferences (own account only) ─────── */}
+          {isOwnAccount && (
+            <SectionRow icon={<BellIcon className="h-5 w-5" />} title="Notifications">
           <div className="flex items-center justify-between border-b border-slate-line pb-3">
             <p className="text-sm font-medium text-ink">All notifications</p>
             <Toggle checked={allNotificationsOn} onChange={v => togglePrefs(visibleNotificationKeys, v)} />
@@ -1573,28 +1689,10 @@ export default function AccountSettingsPage() {
               ))}
             </div>
           )}
-        </AccordionSection>
-      )}
-
-      {/* ── Request history (own account only) ───────────────── */}
-      {isOwnAccount && myRequests.length > 0 && (
-        <AccordionSection title="Your requests" subtitle={`${myRequests.length} submitted`}>
-          <div className="divide-y divide-slate-line">
-            {myRequests.map(r => (
-              <div key={r.id} className="flex items-center justify-between py-2.5 text-sm">
-                <div>
-                  <span className="font-medium text-ink capitalize">{r.request_type}</span>
-                  {r.requested_value && <span className="text-ink-muted"> → {r.requested_value}</span>}
-                  <p className="text-xs text-ink-muted">{new Date(r.created_at).toLocaleDateString()}</p>
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REQUEST_STATUS_BADGE[r.status]}`}>
-                  {r.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </AccordionSection>
-      )}
+            </SectionRow>
+          )}
+        </div>
+      </div>
 
       {/* ── Delete account (own account only) ────────────────── */}
       {isOwnAccount && (

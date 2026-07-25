@@ -59,16 +59,19 @@
     }
   }
 
-  /* Exempts a specific field from the 16px rule above — used only where the
-     field replaces plain text-sm display text in place (the Account page's
-     mobile-number/email inline edit), so the input's text doesn't visibly
-     jump in size relative to what it just replaced, dragging the row's icon
-     out of line with it. Trades back some of the iOS auto-zoom prevention
-     for these specific fields; a class selector's specificity is what wins
-     the tie against the rule above (both `!important`, so specificity is
-     the next tie-breaker, and a class beats that rule's bare element). */
+  /* Exempts the app's shared input/select style from the 16px rule above,
+     so every field built on `.input-field` reads at the same 14px
+     (`text-sm`) on mobile as its surrounding text — matching the size the
+     Account page's phone/email fields already use once editing. This is
+     everything in the authenticated app (search boxes, Category/Role
+     selects, roster inputs, etc); the onboarding/auth pages (Signup,
+     Login, …) intentionally use their own larger, non-`.input-field`
+     styling and keep the 16px zoom-safe default above. A class selector's
+     specificity is what wins the tie against the rule above (both
+     `!important`, so specificity is the next tie-breaker, and a class
+     beats that rule's bare element). */
   @media (max-width: 767px) {
-    .input-field-compact {
+    .input-field {
       font-size: 0.875rem !important;
     }
   }

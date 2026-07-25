@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { contrastTextColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
+import ClearableInput from '../components/ClearableInput'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -546,12 +547,13 @@ function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, 
           <p className="text-xs font-medium text-ink-muted mb-1.5">
             Assign doctor — {shiftCode} on {date}
           </p>
-          <input
+          <ClearableInput
             autoFocus
             value={search}
             onChange={e => onSearchChange(e.target.value)}
             placeholder="Search by name…"
             className="input-field text-sm py-1.5"
+            clearLabel="Clear search"
           />
         </div>
         <div className="max-h-64 overflow-y-auto">

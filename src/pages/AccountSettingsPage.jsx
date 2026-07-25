@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
+import ClearableInput from '../components/ClearableInput'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
@@ -223,26 +224,6 @@ function EditIconButton({ label, expanded, onClick }) {
       className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       <ChevronDownIcon className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-    </button>
-  )
-}
-
-// Small grey "clear field" button that sits inside the right edge of a text
-// input — the iOS Contacts-style circular (x), not a full button. Parent
-// must be `relative` and give the input enough right padding (`pr-8`) to
-// clear it.
-function ClearFieldButton({ onClick, label }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      tabIndex={-1}
-      className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-white hover:bg-ink-muted/70"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="h-2.5 w-2.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-      </svg>
     </button>
   )
 }
@@ -1139,20 +1120,22 @@ export default function AccountSettingsPage() {
               <form onSubmit={saveProfile} className="space-y-4">
                 <div>
                   <label className="label-text">First name</label>
-                  <input
+                  <ClearableInput
                     type="text"
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     className="input-field"
+                    clearLabel="Clear first name"
                   />
                 </div>
                 <div>
                   <label className="label-text">Surname</label>
-                  <input
+                  <ClearableInput
                     type="text"
                     value={form.surname}
                     onChange={e => setForm(f => ({ ...f, surname: e.target.value }))}
                     className="input-field"
+                    clearLabel="Clear surname"
                   />
                 </div>
                 <div>
@@ -1214,16 +1197,15 @@ export default function AccountSettingsPage() {
               onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
             >
               <form onSubmit={savePhone} className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={formatPhoneProgressive(phone)}
-                    onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    placeholder="e.g. (082) 123 4567"
-                    className="input-field pr-8"
-                  />
-                  {phone && <ClearFieldButton label="Clear mobile number" onClick={() => setPhone('')} />}
-                </div>
+                <ClearableInput
+                  type="tel"
+                  value={formatPhoneProgressive(phone)}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  onClear={() => setPhone('')}
+                  placeholder="e.g. (082) 123 4567"
+                  className="input-field"
+                  clearLabel="Clear mobile number"
+                />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
                     {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
@@ -1248,15 +1230,13 @@ export default function AccountSettingsPage() {
               editable={isOwnAccount}
             >
               <form onSubmit={changeEmail} className="space-y-2">
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={newEmail}
-                    onChange={e => setNewEmail(e.target.value)}
-                    className="input-field pr-8"
-                  />
-                  {newEmail && <ClearFieldButton label="Clear email address" onClick={() => setNewEmail('')} />}
-                </div>
+                <ClearableInput
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="input-field"
+                  clearLabel="Clear email address"
+                />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
                   the change only takes effect once confirmed, so it won't lock you out.
@@ -1292,32 +1272,35 @@ export default function AccountSettingsPage() {
               <form onSubmit={changePassword} className="space-y-4">
                 <div>
                   <label className="label-text">Current password</label>
-                  <input
+                  <ClearableInput
                     type="password"
                     value={pwForm.current}
                     onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
                     className="input-field"
                     autoComplete="current-password"
+                    clearLabel="Clear current password"
                   />
                 </div>
                 <div>
                   <label className="label-text">New password</label>
-                  <input
+                  <ClearableInput
                     type="password"
                     value={pwForm.password}
                     onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
                     className="input-field"
                     autoComplete="new-password"
+                    clearLabel="Clear new password"
                   />
                 </div>
                 <div>
                   <label className="label-text">Confirm password</label>
-                  <input
+                  <ClearableInput
                     type="password"
                     value={pwForm.confirm}
                     onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
                     className="input-field"
                     autoComplete="new-password"
+                    clearLabel="Clear confirm password"
                   />
                 </div>
                 <div className="flex items-center gap-3">

@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- maximum-scale=1.0 caps iOS Safari's auto-zoom-on-input-focus at 100%
+         (it can't zoom past the viewport's max), so the page no longer jumps
+         in and stays zoomed after tapping a form field. Pinch-zoom out is
+         still available; this only stops the unwanted zoom-in. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0F172A" />
     <meta name="description" content="RotaCat — Smart ED scheduling, made effortless" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />

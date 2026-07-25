@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import ClearableInput from '../components/ClearableInput'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -205,12 +206,13 @@ export default function RosterDashboardPage() {
       {isAdmin && tab === 'archive' && (
         <>
           <div className="card mb-4 flex flex-wrap items-center gap-3 p-4">
-            <input
+            <ClearableInput
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by month or year…"
               className="input-field max-w-xs"
+              clearLabel="Clear search"
             />
             <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="input-field w-auto">
               <option value="">All months</option>

@@ -701,7 +701,10 @@ export default function StaffListPage() {
                 {SORT_MODES.map(opt => (
                   <button
                     key={opt.key}
-                    onClick={e => opt.key === 'az' ? setSortDirectionAnchor(e.currentTarget.getBoundingClientRect()) : setSortMode(opt.key)}
+                    onClick={e => {
+                      setSortMode(opt.key)
+                      if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
+                    }}
                     className={`w-[4.5rem] rounded text-xs font-medium transition-colors ${
                       sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
                     }`}
@@ -774,9 +777,7 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (isAdmin) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 ${!person.is_active ? 'opacity-50' : ''} ${
-                            isAdmin ? 'cursor-pointer active:bg-canvas-sunken no-callout' : ''
-                          }`}
+                          className={`flex items-center gap-3 px-4 py-2 ${isAdmin ? 'cursor-pointer no-callout' : ''}`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -937,7 +938,7 @@ export default function StaffListPage() {
                                       />
                                     </button>
                                     {person.is_active && leaveProfileIds.has(person.id) && (
-                                      <span title="Taking a break" aria-label="Taking a break" role="img" className="text-sm leading-none">🏖️</span>
+                                      <StatusBadge active onLeave size={14} />
                                     )}
                                   </>
                                 ) : (

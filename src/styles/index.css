@@ -58,6 +58,17 @@
       font-size: 16px !important;
     }
   }
+
+  /* For rows with a long-press affordance (opens a context menu on hold):
+     without this, holding a finger down also triggers the browser's own
+     text-selection/callout — iOS's copy/lookup bubble competing with our
+     own menu for the same gesture. Native apps don't have this conflict
+     since they aren't rendering selectable text in a webview. */
+  .no-callout {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 @layer components {

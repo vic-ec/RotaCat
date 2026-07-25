@@ -4,7 +4,7 @@ import Cropper from 'react-easy-crop'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
-import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
+import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
@@ -1193,7 +1193,7 @@ export default function AccountSettingsPage() {
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field"
+                  className="input-field input-field-compact"
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
@@ -1223,7 +1223,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field"
+                  className="input-field input-field-compact"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
@@ -1311,7 +1311,9 @@ export default function AccountSettingsPage() {
               <p className="text-sm font-medium text-ink">Account active</p>
               <p className="text-xs text-ink-muted">Inactive accounts remain on record but are excluded from roster generation.</p>
               {adminIsActive && isOnLeave && (
-                <p className="mt-1 text-xs text-ink-muted">🏖️ Currently on approved leave.</p>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
+                  <StatusBadge active onLeave size={14} /> Currently on approved leave.
+                </p>
               )}
             </div>
             <Toggle checked={adminIsActive} onChange={saveActiveStatus} />

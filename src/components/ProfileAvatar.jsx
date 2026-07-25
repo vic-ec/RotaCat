@@ -18,10 +18,20 @@ function XIcon(props) {
   )
 }
 
+function LeaveIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a7 7 0 0 1 7 7c0 .34-.02.67-.06 1H5.06A7.03 7.03 0 0 1 5 10a7 7 0 0 1 7-7z" />
+      <path strokeLinecap="round" d="M12 11v10M9 21h6" />
+    </svg>
+  )
+}
+
 // Small inline status indicator, meant to sit next to a name/surname (not on
 // the avatar itself) — green check (active), red circle with a white X
-// (inactive), or a beach emoji (active but currently on approved leave).
-// Inactive takes priority over on-leave since it's the more permanent state.
+// (inactive), or an accent-colored circle with a beach-umbrella icon (active
+// but currently on approved leave). Inactive takes priority over on-leave
+// since it's the more permanent state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   if (!active) {
     return (
@@ -39,13 +49,13 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   if (onLeave) {
     return (
       <span
-        className={`inline-flex flex-shrink-0 items-center justify-center ${className}`}
-        style={{ width: size, height: size, fontSize: Math.round(size * 0.85), lineHeight: 1 }}
+        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-accent ${className}`}
+        style={{ width: size, height: size }}
         role="img"
         aria-label="Taking a break"
         title="Taking a break"
       >
-        🏖️
+        <LeaveIcon className="h-2.5 w-2.5 text-white" />
       </span>
     )
   }

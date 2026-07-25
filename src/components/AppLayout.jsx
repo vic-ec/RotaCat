@@ -80,23 +80,14 @@ function UserAvatar({ profile, size = 40, onLeave = false, onSetActive }) {
   )
 }
 
-// Mobile top-bar avatar: hover shows a "Logged in as X" tooltip; tap toggles it (no hover on touch).
-// The status badge is a separate sibling (not nested in the tooltip button) so
-// the two don't end up as a button-inside-a-button.
-function MobileAvatarWithTooltip({ profile, size, onLeave, onSetActive }) {
-  const [show, setShow] = useState(false)
+// Mobile top-bar avatar — just the photo/initials plus its status badge; the
+// header's own "Welcome, X" text already identifies who's logged in, so this
+// no longer needs its own tooltip.
+function MobileAvatar({ profile, size, onLeave, onSetActive }) {
   if (!profile) return null
   return (
-    <div className="group relative" style={{ width: size, height: size }}>
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        title={`Logged in as ${profile.name} ${profile.surname}`}
-        aria-label={`Logged in as ${profile.name} ${profile.surname}`}
-        className="block"
-      >
-        <ProfileAvatar profile={profile} size={size} />
-      </button>
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <ProfileAvatar profile={profile} size={size} />
       <StatusPicker
         active={profile.is_active !== false}
         onLeave={onLeave}
@@ -104,17 +95,6 @@ function MobileAvatarWithTooltip({ profile, size, onLeave, onSetActive }) {
         interactive
         onSetActive={onSetActive}
       />
-      {/* `fixed` (not `absolute`) so this centers on the viewport/header width
-          rather than on this small avatar wrapper, which sits at the header's
-          left edge — an absolute position here would hug that same left edge
-          and collide with the status picker's dropdown right next to it. */}
-      <div
-        className={`pointer-events-none fixed left-1/2 top-[53px] z-20 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
-          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        Logged in as {profile.name} {profile.surname}
-      </div>
     </div>
   )
 }
@@ -233,21 +213,28 @@ export default function AppLayout() {
 
       {/* Top bar — mobile only */}
       <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
-        <div className="flex items-center gap-2">
-          <MobileAvatarWithTooltip profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
           <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
         </div>
-        <button
-          onClick={handleSignOut}
-          title="Sign out"
-          aria-label="Sign out"
-          className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
-        >
-          <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
-          <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">
-            Sign out
-          </span>
-        </button>
+        <div className="flex min-w-0 items-center gap-3">
+          {profile && (
+            <span className="min-w-0 truncate text-xs text-ink-muted">
+              Welcome, {profile.name} {profile.surname}
+            </span>
+          )}
+          <button
+            onClick={handleSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
+          >
+            <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">
+              Sign out
+            </span>
+          </button>
+        </div>
       </header>
 
       {/* Main content */}

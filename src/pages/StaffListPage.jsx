@@ -162,31 +162,53 @@ function computeAnchoredPosition(anchorRect, width) {
     : { left, bottom: vh - anchorRect.top + 6 }
 }
 
+// Same horizontal clamping as computeAnchoredPosition, but always rolls
+// down — for the Message/Call flyout, which should stay predictable
+// (always growing downward from the row you tapped) rather than flipping
+// direction depending on where that row happens to sit in the quick-action
+// menu itself.
+function computeFlyoutPosition(anchorRect, width) {
+  const vw = window.innerWidth
+  const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
+  return { left, top: anchorRect.bottom + 6 }
+}
+
 // Closes an anchored popover on an outside click or Escape — shared by the
 // quick-action, filters, and sort-direction popovers so each doesn't
-// reimplement the same listener wiring. `excludeRef` (optional) is the
-// trigger button that opens/toggles the popover: without excluding it, this
-// listener's `mousedown` fires and closes the popover *before* the button's
-// own `click` handler runs, so a second press meant to toggle it closed
-// instead looks like "outside click closes it, then the click reopens it."
-function useDismissablePopover(active, onDismiss, ref, excludeRef) {
+// reimplement the same listener wiring.
+//
+// `excludeRefs` (a ref, or array of refs) are elements that shouldn't count
+// as "outside" — the trigger button that opens/toggles the popover (without
+// excluding it, a second press meant to toggle the popover closed would
+// instead look like "outside click closes it, then the click reopens it"),
+// and, where relevant, a second popover nested off this one.
+//
+// The outside click is swallowed (capture-phase `stopPropagation` +
+// `preventDefault`) rather than just observed: without this, dismissing the
+// popover this way *also* lets the click fall through to whatever was
+// underneath it (e.g. a staff row, triggering navigation) — one tap should
+// only ever close the popover, never both close it and act on what's below.
+function useDismissablePopover(active, onDismiss, ref, excludeRefs) {
   useEffect(() => {
     if (!active) return
+    const excludeList = excludeRefs ? (Array.isArray(excludeRefs) ? excludeRefs : [excludeRefs]) : []
     function onClickOutside(e) {
       if (ref.current && ref.current.contains(e.target)) return
-      if (excludeRef?.current && excludeRef.current.contains(e.target)) return
+      if (excludeList.some(r => r?.current && r.current.contains(e.target))) return
+      e.stopPropagation()
+      e.preventDefault()
       onDismiss()
     }
     function onKeyDown(e) {
       if (e.key === 'Escape') onDismiss()
     }
-    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('click', onClickOutside, true)
     document.addEventListener('keydown', onKeyDown)
     return () => {
-      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('click', onClickOutside, true)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [active, onDismiss, ref, excludeRef])
+  }, [active, onDismiss, ref, excludeRefs])
 }
 
 // One row of the quick-action popover — a link when `href` is set (opens
@@ -196,8 +218,10 @@ function useDismissablePopover(active, onDismiss, ref, excludeRef) {
 // sub-items. `expandable` rows get a chevron matching the Account page's
 // convention — down when closed, rotated to point up when `expanded` — and
 // go bold while their section is open.
-function QuickActionRow({ icon, label, href, external, indent, expandable, expanded, disabled, title, onClick }) {
-  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${indent ? 'pl-11' : ''} ${expanded ? 'font-semibold' : 'font-medium'} text-ink`
+function QuickActionRow({ icon, label, href, external, muted, expandable, expanded, disabled, title, onClick }) {
+  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
+    muted ? 'font-normal text-ink-light' : expanded ? 'font-semibold text-ink' : 'font-medium text-ink'
+  }`
   const content = (
     <>
       {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
@@ -276,14 +300,17 @@ export default function StaffListPage() {
   // Per-row quick-action popover (mobile, admin viewers) — anchored to
   // wherever the kebab button was actually pressed, iOS-Contacts-style,
   // rather than a bottom sheet unrelated to the tapped row's position.
-  // `expandedSection` drives an in-place accordion (Message/Call expand
-  // downward to reveal Mobile/WhatsApp) rather than swapping the whole
-  // popover's content out for a "back" screen.
+  // Message/Call open a second, separate flyout popover (`secondaryFor`)
+  // cascading below whichever of those two rows was tapped, rather than
+  // expanding in place — it always rolls down and its options render in a
+  // lighter color than the root menu's.
   const [quickActionPerson, setQuickActionPerson] = useState(null)
   const [quickActionAnchor, setQuickActionAnchor] = useState(null)
-  const [expandedSection, setExpandedSection] = useState(null) // null | 'message' | 'call'
+  const [secondaryFor, setSecondaryFor] = useState(null) // null | 'message' | 'call'
+  const [secondaryAnchor, setSecondaryAnchor] = useState(null)
   const quickActionMenuRef = useRef(null)
   const quickActionTriggerRef = useRef(null) // the kebab/row currently driving the open menu
+  const secondaryMenuRef = useRef(null)
 
   // A small in-app toast for the missing-contact-detail message — a plain
   // `alert()` triggers the browser's native dialog, which after a couple of
@@ -296,7 +323,7 @@ export default function StaffListPage() {
     return () => clearTimeout(t)
   }, [toast])
 
-  useDismissablePopover(!!quickActionPerson, () => closeQuickActions(), quickActionMenuRef, quickActionTriggerRef)
+  useDismissablePopover(!!quickActionPerson, () => closeQuickActions(), quickActionMenuRef, [quickActionTriggerRef, secondaryMenuRef])
 
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
@@ -500,13 +527,15 @@ export default function StaffListPage() {
   function openQuickActions(person, anchorEl) {
     setQuickActionPerson(person)
     setQuickActionAnchor(anchorEl.getBoundingClientRect())
-    setExpandedSection(null)
+    setSecondaryFor(null)
+    setSecondaryAnchor(null)
     quickActionTriggerRef.current = anchorEl
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
     setQuickActionAnchor(null)
-    setExpandedSection(null)
+    setSecondaryFor(null)
+    setSecondaryAnchor(null)
     quickActionTriggerRef.current = null
   }
   // Pressing the kebab (or long-pressing the row) for the person whose menu
@@ -514,6 +543,15 @@ export default function StaffListPage() {
   function toggleQuickActions(person, anchorEl) {
     if (quickActionPerson?.id === person.id) closeQuickActions()
     else openQuickActions(person, anchorEl)
+  }
+  // Message/Call open a flyout cascading below that specific row; tapping
+  // the same one again closes it, tapping the other swaps to it.
+  function toggleSecondary(section, anchorEl) {
+    setSecondaryFor(s => {
+      if (s === section) { setSecondaryAnchor(null); return null }
+      setSecondaryAnchor(anchorEl.getBoundingClientRect())
+      return section
+    })
   }
   function contactMissing(firstName) {
     setToast(`Sorry, we don't have this contact detail for ${firstName} yet.`)
@@ -638,10 +676,11 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          <p className="mb-3 text-xs text-ink-muted">
-            {isAdmin
-              ? 'Active (✅) users can participate in scheduling — inactive (❌) users and users on leave (🏖️) will be excluded. Admins: change user status by selecting user profiles below.'
-              : 'Active (✅) users can participate in scheduling — inactive (❌) users and users on leave (🏖️) will be excluded.'}
+          <p className="mb-3 text-xs leading-5 text-ink-muted">
+            <StatusBadge active size={14} className="mx-0.5 align-text-bottom" /> Active users can participate in scheduling —{' '}
+            <StatusBadge active={false} size={14} className="mx-0.5 align-text-bottom" /> inactive users and{' '}
+            <StatusBadge active onLeave size={14} className="mx-0.5 align-text-bottom" /> users on leave will be excluded.
+            {isAdmin && ' Admins: change user status by selecting user profiles below.'}
           </p>
 
           {/* Search + Filters + Sort/group — stacked on mobile, one row on desktop */}
@@ -736,7 +775,7 @@ export default function StaffListPage() {
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (isAdmin) e.preventDefault() }}
                           className={`flex items-center gap-3 px-4 py-2 ${!person.is_active ? 'opacity-50' : ''} ${
-                            isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
+                            isAdmin ? 'cursor-pointer active:bg-canvas-sunken no-callout' : ''
                           }`}
                         >
                           <div className="relative flex-shrink-0">
@@ -1235,16 +1274,11 @@ export default function StaffListPage() {
       {/* ── Per-row quick-action popover (mobile, admin viewers) ──
            iOS Contacts-style: anchored to wherever the kebab was pressed
            (rolling down from a row in the top/middle of the screen, up from
-           one near the bottom). Message/Call expand in place — an accordion
-           within the same popover, chevron rotating down→up — rather than
-           swapping to a separate "back" screen. Mail goes straight to the
-           mail client. Status is set via the status badge itself, so it's
-           not duplicated here. */}
+           one near the bottom). Message/Call open a second, separate flyout
+           popover cascading below that row (see below) rather than expanding
+           in place. Mail goes straight to the mail client. Status is set via
+           the status badge itself, so it's not duplicated here. */}
       {quickActionPerson && quickActionAnchor && (() => {
-        const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
-        const telHref = phoneTelHref(quickActionPerson.phone)
-        const smsHref = phoneSmsHref(quickActionPerson.phone)
-        const waHref = phoneWhatsAppHref(quickActionPerson.phone)
         const targetEmail = emailById[quickActionPerson.id]
         const mailHref = targetEmail ? `mailto:${targetEmail}` : null
         const canGrantAdmin = isSuperAdmin && quickActionPerson.role !== 'clerk'
@@ -1253,10 +1287,7 @@ export default function StaffListPage() {
         const positionStyle = computeAnchoredPosition(quickActionAnchor, menuWidth)
 
         function missing(label) {
-          return () => { contactMissing(firstName); closeQuickActions() }
-        }
-        function toggleSection(section) {
-          setExpandedSection(s => s === section ? null : section)
+          return () => { contactMissing(quickActionPerson.name || quickActionPerson.surname || 'this person'); closeQuickActions() }
         }
 
         return (
@@ -1270,28 +1301,16 @@ export default function StaffListPage() {
               icon={<MessageIcon className="h-5 w-5" />}
               label="Message"
               expandable
-              expanded={expandedSection === 'message'}
-              onClick={() => toggleSection('message')}
+              expanded={secondaryFor === 'message'}
+              onClick={e => toggleSecondary('message', e.currentTarget)}
             />
-            {expandedSection === 'message' && (
-              <>
-                <QuickActionRow label="Mobile" indent href={smsHref} onClick={smsHref ? closeQuickActions : missing('Mobile')} />
-                <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
-              </>
-            )}
             <QuickActionRow
               icon={<PhoneIcon className="h-5 w-5" />}
               label="Call"
               expandable
-              expanded={expandedSection === 'call'}
-              onClick={() => toggleSection('call')}
+              expanded={secondaryFor === 'call'}
+              onClick={e => toggleSecondary('call', e.currentTarget)}
             />
-            {expandedSection === 'call' && (
-              <>
-                <QuickActionRow label="Mobile" indent href={telHref} onClick={telHref ? closeQuickActions : missing('Mobile')} />
-                <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
-              </>
-            )}
             <QuickActionRow
               icon={<EmailIcon className="h-5 w-5" />}
               label="Mail"
@@ -1306,6 +1325,36 @@ export default function StaffListPage() {
                 onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
               />
             )}
+          </div>
+        )
+      })()}
+
+      {/* ── Message/Call flyout — a separate popover cascading below
+           whichever row was tapped, always rolling down, its two options in
+           a lighter color than the root menu's. ── */}
+      {quickActionPerson && secondaryFor && secondaryAnchor && (() => {
+        const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
+        const telHref = phoneTelHref(quickActionPerson.phone)
+        const smsHref = phoneSmsHref(quickActionPerson.phone)
+        const waHref = phoneWhatsAppHref(quickActionPerson.phone)
+        const mobileHref = secondaryFor === 'message' ? smsHref : telHref
+
+        function missing(label) {
+          return () => { contactMissing(firstName); closeQuickActions() }
+        }
+
+        const menuWidth = 176
+        const positionStyle = computeFlyoutPosition(secondaryAnchor, menuWidth)
+
+        return (
+          <div
+            ref={secondaryMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing('Mobile')} />
+            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
           </div>
         )
       })()}

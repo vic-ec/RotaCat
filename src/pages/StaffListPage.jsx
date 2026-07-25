@@ -49,6 +49,7 @@ const PERMISSION_BADGE = {
 const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
 
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
+const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 const SORT_MODES = [
   { key: 'category', label: 'Category' },
   { key: 'role', label: 'Role' },
@@ -113,12 +114,13 @@ function roleGroupLabel(key) {
   return ROLE_LABELS[key] || key
 }
 
-function buildGroups(people, sortMode) {
+function buildGroups(people, sortMode, azDirection = 'asc') {
   if (sortMode === 'az') {
+    const dir = azDirection === 'desc' ? -1 : 1
     return [{
       key: 'all',
       label: null,
-      items: [...people].sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
+      items: [...people].sort((a, b) => dir * (a.surname || '').localeCompare(b.surname || '')),
     }]
   }
 
@@ -145,45 +147,64 @@ function buildGroups(people, sortMode) {
   return orderedKeys.map(key => ({ key, label: labelFn(key), items: buckets.get(key) }))
 }
 
-// ── Shared bottom-sheet / dialog wrapper ────────────────────
-function Sheet({ open, onClose, title, children }) {
-  if (!open) return null
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 md:items-center"
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-canvas-raised p-5 shadow-raised md:rounded-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg text-ink">{title}</h2>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink"
-          >
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
+// Shared placement math for every anchored popover on this page (quick
+// actions, filters, sort direction) — rolls down from an anchor in the top
+// or middle third of the screen, up from one in the bottom third, and clamps
+// horizontally so the popover never runs off either edge of the viewport.
+function computeAnchoredPosition(anchorRect, width) {
+  const vh = window.innerHeight
+  const vw = window.innerWidth
+  const anchorMid = (anchorRect.top + anchorRect.bottom) / 2
+  const rollsDown = anchorMid < (vh * 2) / 3
+  const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
+  return rollsDown
+    ? { left, top: anchorRect.bottom + 6 }
+    : { left, bottom: vh - anchorRect.top + 6 }
+}
+
+// Closes an anchored popover on an outside click or Escape — shared by the
+// quick-action, filters, and sort-direction popovers so each doesn't
+// reimplement the same listener wiring. `excludeRef` (optional) is the
+// trigger button that opens/toggles the popover: without excluding it, this
+// listener's `mousedown` fires and closes the popover *before* the button's
+// own `click` handler runs, so a second press meant to toggle it closed
+// instead looks like "outside click closes it, then the click reopens it."
+function useDismissablePopover(active, onDismiss, ref, excludeRef) {
+  useEffect(() => {
+    if (!active) return
+    function onClickOutside(e) {
+      if (ref.current && ref.current.contains(e.target)) return
+      if (excludeRef?.current && excludeRef.current.contains(e.target)) return
+      onDismiss()
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') onDismiss()
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [active, onDismiss, ref, excludeRef])
 }
 
 // One row of the quick-action popover — a link when `href` is set (opens
-// the relevant app directly), otherwise a button (drill into a submenu, or
-// show the missing-contact-detail alert). `indent` pushes Mobile/WhatsApp
-// rows in under their Message/Call submenu header to read as sub-items.
-function QuickActionRow({ icon, label, href, external, indent, hasChevron, disabled, title, onClick }) {
-  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${indent ? 'pl-11' : ''}`
+// the relevant app directly), otherwise a button (toggle an accordion
+// section, or show the missing-contact-detail toast). `indent` pushes
+// Mobile/WhatsApp rows in under their Message/Call header to read as
+// sub-items. `expandable` rows get a chevron matching the Account page's
+// convention — down when closed, rotated to point up when `expanded` — and
+// go bold while their section is open.
+function QuickActionRow({ icon, label, href, external, indent, expandable, expanded, disabled, title, onClick }) {
+  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${indent ? 'pl-11' : ''} ${expanded ? 'font-semibold' : 'font-medium'} text-ink`
   const content = (
     <>
       {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
       <span className="flex-1">{label}</span>
-      {hasChevron && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+      {expandable && (
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      )}
     </>
   )
   if (href) {
@@ -218,9 +239,13 @@ export default function StaffListPage() {
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
 
-  // Filters sheet
+  // Filters popover — anchored to the Filters button itself, same as the
+  // other popovers on this page, instead of a bottom sheet.
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filtersAnchor, setFiltersAnchor] = useState(null)
   const [draftFilters, setDraftFilters] = useState(accountFilters)
+  const filtersMenuRef = useRef(null)
+  useDismissablePopover(filtersOpen, () => closeFiltersSheet(), filtersMenuRef)
 
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
@@ -229,6 +254,18 @@ export default function StaffListPage() {
   useEffect(() => {
     try { localStorage.setItem(SORT_MODE_KEY, sortMode) } catch { /* ignore */ }
   }, [sortMode])
+
+  // A-Z sort direction — its own small popover (ascending/descending) opened
+  // from the "A–Z" toggle instead of switching straight to that mode.
+  const [azDirection, setAzDirection] = useState(() => {
+    try { return localStorage.getItem(AZ_DIRECTION_KEY) || 'asc' } catch { return 'asc' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(AZ_DIRECTION_KEY, azDirection) } catch { /* ignore */ }
+  }, [azDirection])
+  const [sortDirectionAnchor, setSortDirectionAnchor] = useState(null)
+  const sortDirectionMenuRef = useRef(null)
+  useDismissablePopover(!!sortDirectionAnchor, () => setSortDirectionAnchor(null), sortDirectionMenuRef)
 
   // Collapsed state per group section (keyed by group.key), category/role modes only
   const [collapsedGroups, setCollapsedGroups] = useState({})
@@ -239,26 +276,55 @@ export default function StaffListPage() {
   // Per-row quick-action popover (mobile, admin viewers) — anchored to
   // wherever the kebab button was actually pressed, iOS-Contacts-style,
   // rather than a bottom sheet unrelated to the tapped row's position.
+  // `expandedSection` drives an in-place accordion (Message/Call expand
+  // downward to reveal Mobile/WhatsApp) rather than swapping the whole
+  // popover's content out for a "back" screen.
   const [quickActionPerson, setQuickActionPerson] = useState(null)
   const [quickActionAnchor, setQuickActionAnchor] = useState(null)
-  const [quickActionView, setQuickActionView] = useState('root') // 'root' | 'message' | 'call'
+  const [expandedSection, setExpandedSection] = useState(null) // null | 'message' | 'call'
   const quickActionMenuRef = useRef(null)
+  const quickActionTriggerRef = useRef(null) // the kebab/row currently driving the open menu
 
+  // A small in-app toast for the missing-contact-detail message — a plain
+  // `alert()` triggers the browser's native dialog, which after a couple of
+  // repeats offers a "Prevent this page from creating additional dialogs"
+  // checkbox; a dismissable in-DOM banner sidesteps that entirely.
+  const [toast, setToast] = useState(null)
   useEffect(() => {
-    if (!quickActionPerson) return
-    function onClickOutside(e) {
-      if (quickActionMenuRef.current && !quickActionMenuRef.current.contains(e.target)) closeQuickActions()
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  useDismissablePopover(!!quickActionPerson, () => closeQuickActions(), quickActionMenuRef, quickActionTriggerRef)
+
+  // Long-press (touch and hold) on a row also opens the quick-action menu,
+  // alongside the existing kebab tap. `longPressFiredRef` suppresses the
+  // click-to-navigate that would otherwise fire on release.
+  const longPressTimerRef = useRef(null)
+  const longPressFiredRef = useRef(false)
+  function handleRowPointerDown(e, person) {
+    if (!isAdmin || e.pointerType !== 'touch') return
+    const target = e.currentTarget
+    longPressFiredRef.current = false
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true
+      toggleQuickActions(person, target)
+    }, 550)
+  }
+  function cancelLongPress() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
     }
-    function onKeyDown(e) {
-      if (e.key === 'Escape') closeQuickActions()
+  }
+  function handleRowClick(person) {
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false
+      return
     }
-    document.addEventListener('mousedown', onClickOutside)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', onClickOutside)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [quickActionPerson])
+    if (isAdmin) navigate(`/account/${person.id}`)
+  }
 
   useEffect(() => {
     loadAll()
@@ -434,15 +500,23 @@ export default function StaffListPage() {
   function openQuickActions(person, anchorEl) {
     setQuickActionPerson(person)
     setQuickActionAnchor(anchorEl.getBoundingClientRect())
-    setQuickActionView('root')
+    setExpandedSection(null)
+    quickActionTriggerRef.current = anchorEl
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
     setQuickActionAnchor(null)
-    setQuickActionView('root')
+    setExpandedSection(null)
+    quickActionTriggerRef.current = null
+  }
+  // Pressing the kebab (or long-pressing the row) for the person whose menu
+  // is already open closes it, rather than just re-anchoring the same menu.
+  function toggleQuickActions(person, anchorEl) {
+    if (quickActionPerson?.id === person.id) closeQuickActions()
+    else openQuickActions(person, anchorEl)
   }
   function contactMissing(firstName) {
-    alert(`Sorry, we don't have this contact detail for ${firstName} yet.`)
+    setToast(`Sorry, we don't have this contact detail for ${firstName} yet.`)
   }
 
   // ── Accounts grid: filter options derived from the loaded data ──
@@ -472,21 +546,33 @@ export default function StaffListPage() {
     accountFilters.category !== 'all' || accountFilters.status !== 'all' || accountFilters.isAdmin !== 'all'
   const sheetFilterCount = ['role', 'category', 'status', 'isAdmin'].filter(k => accountFilters[k] !== 'all').length
 
-  const groups = buildGroups(filteredAccounts, sortMode)
+  const groups = buildGroups(filteredAccounts, sortMode, azDirection)
 
-  function openFiltersSheet() {
+  function openFiltersSheet(anchorEl) {
     setDraftFilters(accountFilters)
+    setFiltersAnchor(anchorEl.getBoundingClientRect())
     setFiltersOpen(true)
+  }
+  function closeFiltersSheet() {
+    setFiltersOpen(false)
+    setFiltersAnchor(null)
   }
   function applyFilters() {
     setAccountFilters(draftFilters)
-    setFiltersOpen(false)
+    closeFiltersSheet()
   }
   function clearSheetFilters() {
     setDraftFilters(f => ({ ...f, role: 'all', category: 'all', status: 'all', isAdmin: 'all' }))
   }
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
+  }
+  // The reset icon next to the Filters button — clears everything (search
+  // included) without opening the popover first, unlike "Clear all" inside
+  // it which only resets the dropdown filters.
+  function resetFiltersNow() {
+    clearAllFilters()
+    setDraftFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   }
 
   return (
@@ -554,8 +640,8 @@ export default function StaffListPage() {
         <div>
           <p className="mb-3 text-xs text-ink-muted">
             {isAdmin
-              ? 'Inactive doctors remain on record but are excluded from roster generation. Toggle the switch to activate or deactivate an account.'
-              : 'Inactive doctors remain on record but are excluded from roster generation.'}
+              ? 'Active (✅) users can participate in scheduling — inactive (❌) users and users on leave (🏖️) will be excluded. Admins: change user status by selecting user profiles below.'
+              : 'Active (✅) users can participate in scheduling — inactive (❌) users and users on leave (🏖️) will be excluded.'}
           </p>
 
           {/* Search + Filters + Sort/group — stacked on mobile, one row on desktop */}
@@ -576,19 +662,31 @@ export default function StaffListPage() {
                 {SORT_MODES.map(opt => (
                   <button
                     key={opt.key}
-                    onClick={() => setSortMode(opt.key)}
+                    onClick={e => opt.key === 'az' ? setSortDirectionAnchor(e.currentTarget.getBoundingClientRect()) : setSortMode(opt.key)}
                     className={`w-[4.5rem] rounded text-xs font-medium transition-colors ${
                       sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
                     }`}
                   >
-                    {opt.label}
+                    {opt.key === 'az' && sortMode === 'az' && azDirection === 'desc' ? 'Z–A' : opt.label}
                   </button>
                 ))}
               </div>
 
-              <button onClick={openFiltersSheet} className="btn-secondary h-[42px] whitespace-nowrap">
-                Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button onClick={e => openFiltersSheet(e.currentTarget)} className="btn-secondary h-[42px] whitespace-nowrap">
+                  Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={resetFiltersNow}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+                  >
+                    <ResetIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -631,7 +729,12 @@ export default function StaffListPage() {
                       return (
                         <div
                           key={person.id}
-                          onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                          onClick={() => handleRowClick(person)}
+                          onPointerDown={e => handleRowPointerDown(e, person)}
+                          onPointerUp={cancelLongPress}
+                          onPointerLeave={cancelLongPress}
+                          onPointerCancel={cancelLongPress}
+                          onContextMenu={e => { if (isAdmin) e.preventDefault() }}
                           className={`flex items-center gap-3 px-4 py-2 ${!person.is_active ? 'opacity-50' : ''} ${
                             isAdmin ? 'cursor-pointer active:bg-canvas-sunken' : ''
                           }`}
@@ -673,18 +776,13 @@ export default function StaffListPage() {
                           </div>
                           {isAdmin && (
                             <button
-                              onClick={e => { e.stopPropagation(); openQuickActions(person, e.currentTarget) }}
+                              onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
                               title="Quick actions"
                               className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken"
                             >
                               <KebabIcon className="h-4 w-4" />
                             </button>
-                          )}
-                          {isAdmin && (
-                            <span className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
-                              <ChevronRightIcon className="h-4 w-4" />
-                            </span>
                           )}
                         </div>
                       )
@@ -1032,72 +1130,116 @@ export default function StaffListPage() {
         </div>
       )}
 
-      {/* ── Filters sheet ─────────────────────────────────────── */}
-      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
-        <div className="space-y-4">
-          <div>
-            <label className="label-text">Role</label>
-            <select
-              value={draftFilters.role}
-              onChange={e => setDraftFilters(f => ({ ...f, role: e.target.value }))}
-              className="input-field"
-            >
-              <option value="all">All</option>
-              {accountRoleOptions.map(r => (
-                <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
-              ))}
-            </select>
+      {/* ── Filters popover — anchored to the Filters button ────── */}
+      {filtersOpen && filtersAnchor && (() => {
+        const menuWidth = 288
+        const positionStyle = computeAnchoredPosition(filtersAnchor, menuWidth)
+        return (
+          <div
+            ref={filtersMenuRef}
+            role="dialog"
+            aria-label="Filters"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="label-text">Role</label>
+                <select
+                  value={draftFilters.role}
+                  onChange={e => setDraftFilters(f => ({ ...f, role: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  {accountRoleOptions.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label-text">Category</label>
+                <select
+                  value={draftFilters.category}
+                  onChange={e => setDraftFilters(f => ({ ...f, category: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  {accountCategoryOptions.map(c => (
+                    <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label-text">Status</label>
+                <select
+                  value={draftFilters.status}
+                  onChange={e => setDraftFilters(f => ({ ...f, status: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div>
+                <label className="label-text">Is Admin</label>
+                <select
+                  value={draftFilters.isAdmin}
+                  onChange={e => setDraftFilters(f => ({ ...f, isAdmin: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="all">All</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={clearSheetFilters} className="btn-secondary flex-1">Clear all</button>
+              <button onClick={applyFilters} className="btn-primary flex-1">Apply</button>
+            </div>
           </div>
-          <div>
-            <label className="label-text">Category</label>
-            <select
-              value={draftFilters.category}
-              onChange={e => setDraftFilters(f => ({ ...f, category: e.target.value }))}
-              className="input-field"
-            >
-              <option value="all">All</option>
-              {accountCategoryOptions.map(c => (
-                <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
-              ))}
-            </select>
+        )
+      })()}
+
+      {/* ── A–Z sort direction popover ───────────────────────────── */}
+      {sortDirectionAnchor && (() => {
+        const menuWidth = 160
+        const positionStyle = computeAnchoredPosition(sortDirectionAnchor, menuWidth)
+        function pick(direction) {
+          setSortMode('az')
+          setAzDirection(direction)
+          setSortDirectionAnchor(null)
+        }
+        return (
+          <div
+            ref={sortDirectionMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <QuickActionRow
+              label="A–Z ascending"
+              expanded={sortMode === 'az' && azDirection === 'asc'}
+              onClick={() => pick('asc')}
+            />
+            <QuickActionRow
+              label="Z–A descending"
+              expanded={sortMode === 'az' && azDirection === 'desc'}
+              onClick={() => pick('desc')}
+            />
           </div>
-          <div>
-            <label className="label-text">Status</label>
-            <select
-              value={draftFilters.status}
-              onChange={e => setDraftFilters(f => ({ ...f, status: e.target.value }))}
-              className="input-field"
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-          <div>
-            <label className="label-text">Is Admin</label>
-            <select
-              value={draftFilters.isAdmin}
-              onChange={e => setDraftFilters(f => ({ ...f, isAdmin: e.target.value }))}
-              className="input-field"
-            >
-              <option value="all">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </div>
-        </div>
-        <div className="mt-5 flex gap-2">
-          <button onClick={clearSheetFilters} className="btn-secondary flex-1">Clear all</button>
-          <button onClick={applyFilters} className="btn-primary flex-1">Apply</button>
-        </div>
-      </Sheet>
+        )
+      })()}
 
       {/* ── Per-row quick-action popover (mobile, admin viewers) ──
            iOS Contacts-style: anchored to wherever the kebab was pressed
            (rolling down from a row in the top/middle of the screen, up from
-           one near the bottom), Message/Call drill down into Mobile vs
-           WhatsApp, Mail goes straight to the mail client. Status is set via
-           the status badge itself now, so it's not duplicated here. */}
+           one near the bottom). Message/Call expand in place — an accordion
+           within the same popover, chevron rotating down→up — rather than
+           swapping to a separate "back" screen. Mail goes straight to the
+           mail client. Status is set via the status badge itself, so it's
+           not duplicated here. */}
       {quickActionPerson && quickActionAnchor && (() => {
         const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
         const telHref = phoneTelHref(quickActionPerson.phone)
@@ -1108,17 +1250,13 @@ export default function StaffListPage() {
         const canGrantAdmin = isSuperAdmin && quickActionPerson.role !== 'clerk'
 
         const menuWidth = 224
-        const vh = window.innerHeight
-        const vw = window.innerWidth
-        const anchorMid = (quickActionAnchor.top + quickActionAnchor.bottom) / 2
-        const rollsDown = anchorMid < (vh * 2) / 3 // top or middle third of the screen
-        const left = Math.min(Math.max(8, quickActionAnchor.right - menuWidth), vw - menuWidth - 8)
-        const positionStyle = rollsDown
-          ? { left, top: quickActionAnchor.bottom + 6 }
-          : { left, bottom: vh - quickActionAnchor.top + 6 }
+        const positionStyle = computeAnchoredPosition(quickActionAnchor, menuWidth)
 
         function missing(label) {
           return () => { contactMissing(firstName); closeQuickActions() }
+        }
+        function toggleSection(section) {
+          setExpandedSection(s => s === section ? null : section)
         }
 
         return (
@@ -1128,54 +1266,60 @@ export default function StaffListPage() {
             style={{ ...positionStyle, width: menuWidth }}
             className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
           >
-            {quickActionView === 'root' && (
+            <QuickActionRow
+              icon={<MessageIcon className="h-5 w-5" />}
+              label="Message"
+              expandable
+              expanded={expandedSection === 'message'}
+              onClick={() => toggleSection('message')}
+            />
+            {expandedSection === 'message' && (
               <>
-                <QuickActionRow icon={<MessageIcon className="h-5 w-5" />} label="Message" hasChevron onClick={() => setQuickActionView('message')} />
-                <QuickActionRow icon={<PhoneIcon className="h-5 w-5" />} label="Call" hasChevron onClick={() => setQuickActionView('call')} />
-                <QuickActionRow
-                  icon={<EmailIcon className="h-5 w-5" />}
-                  label="Mail"
-                  href={mailHref}
-                  onClick={mailHref ? closeQuickActions : missing('Mail')}
-                />
-                {canGrantAdmin && (
-                  <QuickActionRow
-                    label={quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
-                    disabled={quickActionPerson.is_super_admin}
-                    title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
-                    onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
-                  />
-                )}
-              </>
-            )}
-            {quickActionView === 'message' && (
-              <>
-                <QuickActionRow icon={<ChevronLeftIcon className="h-4 w-4" />} label="Message" onClick={() => setQuickActionView('root')} />
                 <QuickActionRow label="Mobile" indent href={smsHref} onClick={smsHref ? closeQuickActions : missing('Mobile')} />
                 <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
               </>
             )}
-            {quickActionView === 'call' && (
+            <QuickActionRow
+              icon={<PhoneIcon className="h-5 w-5" />}
+              label="Call"
+              expandable
+              expanded={expandedSection === 'call'}
+              onClick={() => toggleSection('call')}
+            />
+            {expandedSection === 'call' && (
               <>
-                <QuickActionRow icon={<ChevronLeftIcon className="h-4 w-4" />} label="Call" onClick={() => setQuickActionView('root')} />
                 <QuickActionRow label="Mobile" indent href={telHref} onClick={telHref ? closeQuickActions : missing('Mobile')} />
                 <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
               </>
             )}
+            <QuickActionRow
+              icon={<EmailIcon className="h-5 w-5" />}
+              label="Mail"
+              href={mailHref}
+              onClick={mailHref ? closeQuickActions : missing('Mail')}
+            />
+            {canGrantAdmin && (
+              <QuickActionRow
+                label={quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
+                disabled={quickActionPerson.is_super_admin}
+                title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
+                onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
+              />
+            )}
           </div>
         )
       })()}
+
+      {/* ── Missing-contact toast ──────────────────────────────── */}
+      {toast && (
+        <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 md:bottom-6">
+          <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
+        </div>
+      )}
     </div>
   )
 }
 
-function ChevronRightIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-    </svg>
-  )
-}
 
 function KebabIcon(props) {
   return (
@@ -1187,13 +1331,14 @@ function KebabIcon(props) {
   )
 }
 
-function CloseIcon(props) {
+function ResetIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1013.06-5.03M4.5 12V6m0 6h6" />
     </svg>
   )
 }
+
 
 function ChevronDownIcon(props) {
   return (
@@ -1236,10 +1381,3 @@ function MessageIcon(props) {
   )
 }
 
-function ChevronLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-  )
-}

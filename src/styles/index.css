@@ -46,12 +46,16 @@
      16px, then doesn't zoom back out on blur. Forcing 16px here (mobile
      viewports only, so desktop keeps its smaller text-sm sizing) avoids
      triggering the zoom in the first place, which is the standard fix —
-     more reliable than fighting the viewport meta tag after the fact. */
+     more reliable than fighting the viewport meta tag after the fact.
+     `!important`: a bare element selector in @layer base is lower-specificity
+     than any Tailwind utility class (e.g. `text-sm`, which every styled
+     input/select carries), so without it this rule silently lost to the
+     utility and never actually applied — the zoom kept happening everywhere. */
   @media (max-width: 767px) {
     input,
     select,
     textarea {
-      font-size: 16px;
+      font-size: 16px !important;
     }
   }
 }

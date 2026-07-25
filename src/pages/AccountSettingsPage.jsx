@@ -8,7 +8,7 @@ import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileA
 import BackButton from '../components/BackButton'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
-import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
+import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -227,6 +227,26 @@ function EditIconButton({ label, expanded, onClick }) {
   )
 }
 
+// Small grey "clear field" button that sits inside the right edge of a text
+// input — the iOS Contacts-style circular (x), not a full button. Parent
+// must be `relative` and give the input enough right padding (`pr-8`) to
+// clear it.
+function ClearFieldButton({ onClick, label }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      tabIndex={-1}
+      className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-white hover:bg-ink-muted/70"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="h-2.5 w-2.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+      </svg>
+    </button>
+  )
+}
+
 // All-caps muted label shown above (and outside) each group's bordered
 // panel — "CONTACT DETAILS", "SECURITY & ACCESS", "PREFERENCES", "DANGER ZONE".
 function GroupLabel({ children }) {
@@ -246,7 +266,13 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
           stays pinned to the input's line instead of drifting to the middle
           of the taller expanded block (input + Update/Cancel + notes). */}
       <div className={`flex gap-3 ${editing ? 'items-start' : 'items-center'}`}>
-        <span className={`flex-shrink-0 text-ink-light ${editing ? 'mt-0.5' : ''}`}>{icon}</span>
+        {/* mt-[5px] while editing = the input's own border(1px)+padding-top(4px),
+            so the icon's top lines up with the input's text-content top exactly
+            (same vertical center as the input's text) regardless of how tall
+            the expanded block gets once Update/Cancel/notes appear below it.
+            mt-0.5 (2px) undershot this by 3px, which read as the icon
+            "jumping up" when entering edit mode. */}
+        <span className={`flex-shrink-0 text-ink-light ${editing ? 'mt-[5px]' : ''}`}>{icon}</span>
         <div className="min-w-0 flex-1">
           {editing ? children : (
             <>
@@ -1188,13 +1214,16 @@ export default function AccountSettingsPage() {
               onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
             >
               <form onSubmit={savePhone} className="space-y-2">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="e.g. 082 123 4567"
-                  className="input-field input-field-compact"
-                />
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={formatPhoneProgressive(phone)}
+                    onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="e.g. (082) 123 4567"
+                    className="input-field pr-8"
+                  />
+                  {phone && <ClearFieldButton label="Clear mobile number" onClick={() => setPhone('')} />}
+                </div>
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
                     {phoneSaving ? 'Saving…' : phoneJustSaved ? 'Saved.' : 'Update'}
@@ -1219,12 +1248,15 @@ export default function AccountSettingsPage() {
               editable={isOwnAccount}
             >
               <form onSubmit={changeEmail} className="space-y-2">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={e => setNewEmail(e.target.value)}
-                  className="input-field input-field-compact"
-                />
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    className="input-field pr-8"
+                  />
+                  {newEmail && <ClearFieldButton label="Clear email address" onClick={() => setNewEmail('')} />}
+                </div>
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
                   the change only takes effect once confirmed, so it won't lock you out.

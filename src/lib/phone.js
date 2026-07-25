@@ -8,6 +8,17 @@ export function formatPhoneDisplay(phone) {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
 }
 
+// Formats raw digits as the user types, so a number in progress reads as
+// (082) 553-6646 the whole way through rather than jumping from plain
+// digits to the final format only once all 10 are in. Mirrors iOS Contacts'
+// own live-formatting behaviour for phone fields.
+export function formatPhoneProgressive(digits) {
+  if (!digits) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`
+}
+
 // Raw digit string for use in a tel: href — tel: links ignore formatting
 // punctuation anyway, but stripping keeps it consistent everywhere.
 export function phoneTelHref(phone) {

@@ -1057,7 +1057,7 @@ export default function StaffListPage() {
                                 ...prev,
                                 [person.id]: { ...prev[person.id], role: e.target.value }
                               }))}
-                              className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
+                              className="input-field"
                             >
                               <option value="doctor">Doctor</option>
                               <option value="locum">Locum</option>
@@ -1073,7 +1073,7 @@ export default function StaffListPage() {
                                   ...prev,
                                   [person.id]: { ...prev[person.id], category: e.target.value || null }
                                 }))}
-                                className="w-full rounded-lg border border-accent/50 bg-canvas-raised px-3 py-2 text-sm text-ink"
+                                className="input-field"
                               >
                                 <option value="">{currentRole === 'locum' ? 'None' : 'Select…'}</option>
                                 {categoryOptionsForRole(currentRole).map(({ value, label }) => (

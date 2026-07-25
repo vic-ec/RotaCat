@@ -8,8 +8,8 @@ import { useNavigate } from 'react-router-dom'
 //     page content scrolls underneath it, not travel with the page.
 //   - 36x36 circle, centered chevron-left glyph (not a full arrow).
 //   - Thin 0.2px white border (`border-[0.2px] border-white/80`).
-//   - A genuine frosted-glass blur, not a flat tinted chip: 50% opacity fill
-//     (`bg-ink/50`) over `backdrop-blur-md`, so it reads as "blurring
+//   - A genuine frosted-glass blur, not a flat tinted chip: 25% opacity fill
+//     (`bg-ink/25`) over `backdrop-blur-md`, so it reads as "blurring
 //     whatever's behind it" rather than sitting on top as its own solid
 //     background. The fill stays dark (not fully transparent) so the white
 //     chevron keeps enough contrast regardless of what's scrolling under it
@@ -23,7 +23,7 @@ export default function BackButton({ onClick, className = '' }) {
       type="button"
       onClick={onClick || (() => navigate(-1))}
       aria-label="Back"
-      className={`fixed z-20 flex h-9 w-9 items-center justify-center rounded-full border-[0.2px] border-white/80 bg-ink/50 text-white backdrop-blur-md transition-colors hover:bg-ink/65 ${
+      className={`fixed z-20 flex h-9 w-9 items-center justify-center rounded-full border-[0.2px] border-white/80 bg-ink/25 text-white backdrop-blur-md transition-colors hover:bg-ink/40 ${
         className || 'left-4 top-[60px] md:left-64 md:top-6'
       }`}
     >

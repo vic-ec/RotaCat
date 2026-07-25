@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail } from '../lib/validateEmail'
@@ -74,6 +74,7 @@ function PasswordRequirementsInfo() {
 // hunting for it at the bottom of a tall form.
 function RoleModal({ role, onClose }) {
   const { signUp } = useAuth()
+  const nameRef = useRef(null)
   const [category, setCategory] = useState('')
   const [name, setName] = useState('')
   const [surname, setSurname] = useState('')
@@ -100,6 +101,17 @@ function RoleModal({ role, onClose }) {
   useEffect(() => {
     const trigger = document.activeElement
     return () => trigger?.focus?.()
+  }, [])
+
+  // Focus the first field imperatively, after mount, instead of the native
+  // `autofocus` attribute — `autofocus` fires synchronously as the browser
+  // is still laying out this freshly-mounted modal, which on mobile Safari
+  // raced the focus-triggered zoom against that layout pass and showed up
+  // as a select-then-immediately-deselect zoom flicker. Focusing from an
+  // effect (after mount/paint) gives the zoom a settled layout to animate
+  // into, same fix already used for the sign-in modal.
+  useEffect(() => {
+    nameRef.current?.focus()
   }, [])
 
   const label = ROLE_OPTIONS.find(r => r.value === role)?.label
@@ -183,12 +195,12 @@ function RoleModal({ role, onClose }) {
                   First name
                 </label>
                 <input
+                  ref={nameRef}
                   id="name"
                   name="given-name"
                   type="text"
                   required
                   autoComplete="given-name"
-                  autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2

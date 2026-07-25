@@ -29,9 +29,10 @@ function LeaveIcon(props) {
 
 // Small inline status indicator, meant to sit next to a name/surname (not on
 // the avatar itself) — green check (active), red circle with a white X
-// (inactive), or an accent-colored circle with a beach-umbrella icon (active
-// but currently on approved leave). Inactive takes priority over on-leave
-// since it's the more permanent state.
+// (inactive), or an amber circle with a beach-umbrella icon (active but
+// currently on approved leave — amber rather than the teal accent so it
+// doesn't read as another shade of the green "active" badge). Inactive
+// takes priority over on-leave since it's the more permanent state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   if (!active) {
     return (
@@ -49,7 +50,7 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   if (onLeave) {
     return (
       <span
-        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-accent ${className}`}
+        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-flagAmber ${className}`}
         style={{ width: size, height: size }}
         role="img"
         aria-label="Taking a break"

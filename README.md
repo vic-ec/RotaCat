@@ -65,6 +65,9 @@ src/
 - [ ] Phase 8 — Notifications
 - [ ] Phase 9 — Excel re-upload + diff logic
 
+See [`FUTURE_IDEAS.md`](./FUTURE_IDEAS.md) for unscoped feature ideas not yet
+tied to a build phase.
+
 ## License
 
 This repository is proprietary — see [`LICENSE`](./LICENSE). It is published

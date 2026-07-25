@@ -16,6 +16,14 @@ export function phoneTelHref(phone) {
   return `tel:${digits || phone}`
 }
 
+// sms: is the standard scheme for opening the device's default messaging
+// app with a recipient pre-filled — same digit-stripping as tel:.
+export function phoneSmsHref(phone) {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  return `sms:${digits || phone}`
+}
+
 // WhatsApp's click-to-chat API needs a full international number with no
 // leading zero — stored numbers are local SA format (leading 0), so swap it
 // for the country code rather than requiring a separate international field.

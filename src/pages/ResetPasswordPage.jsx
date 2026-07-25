@@ -151,8 +151,8 @@ export default function ResetPasswordPage() {
                   placeholder="Enter new password"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                     md:py-3"
                 />
               </div>
@@ -171,8 +171,8 @@ export default function ResetPasswordPage() {
                   placeholder="Re-enter new password"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                     md:py-3"
                 />
               </div>

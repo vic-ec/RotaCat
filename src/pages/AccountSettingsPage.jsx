@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
+import BackButton from '../components/BackButton'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
@@ -249,12 +250,19 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
         <div className="min-w-0 flex-1">
           {editing ? children : (
             <>
+              {/* Same border+padding box as .input-field, just with a
+                  transparent border/background — so switching into edit mode
+                  swaps only the border/background colour, never the geometry.
+                  (A negative-margin trick was tried here before to cancel out
+                  the input's own padding, but that shifted the input's left
+                  edge back over the icon; matching box models outright avoids
+                  needing any offset math at all.) */}
               {value && href ? (
-                <a href={href} className="block truncate text-sm text-accent-dark hover:underline">{value}</a>
+                <a href={href} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-accent-dark hover:underline">{value}</a>
               ) : (
-                <p className="truncate text-sm text-ink">{value || placeholder}</p>
+                <p className="truncate rounded border border-transparent px-3 py-1 text-sm text-ink">{value || placeholder}</p>
               )}
-              {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+              {note && <p className="mt-0.5 px-3 text-xs text-ink-muted">{note}</p>}
             </>
           )}
         </div>
@@ -1007,13 +1015,7 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      {!isOwnAccount && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
-          <span>
-            Viewing account settings for <strong>{profile.name} {profile.surname}</strong> as an admin.
-          </span>
-        </div>
-      )}
+      {!isOwnAccount && <BackButton />}
 
       {cropSrc && (
         <AvatarCropModal
@@ -1186,16 +1188,12 @@ export default function AccountSettingsPage() {
               onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
             >
               <form onSubmit={savePhone} className="space-y-2">
-                {/* Negative margin equal to the input's own border+padding
-                    (1px + 12px horizontal, 1px + 4px vertical) so the box
-                    wraps around the number in place instead of shifting it
-                    down and to the right when the row switches into editing. */}
                 <input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
                   placeholder="e.g. 082 123 4567"
-                  className="input-field -ml-[13px] -mt-[5px] w-[calc(100%+13px)]"
+                  className="input-field"
                 />
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={phoneSaving || !phoneDirty} className="btn-primary">
@@ -1225,7 +1223,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field -ml-[13px] -mt-[5px] w-[calc(100%+13px)]"
+                  className="input-field"
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —

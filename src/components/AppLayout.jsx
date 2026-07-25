@@ -104,8 +104,12 @@ function MobileAvatarWithTooltip({ profile, size, onLeave, onSetActive }) {
         interactive
         onSetActive={onSetActive}
       />
+      {/* `fixed` (not `absolute`) so this centers on the viewport/header width
+          rather than on this small avatar wrapper, which sits at the header's
+          left edge — an absolute position here would hug that same left edge
+          and collide with the status picker's dropdown right next to it. */}
       <div
-        className={`pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
+        className={`pointer-events-none fixed left-1/2 top-[53px] z-20 -translate-x-1/2 whitespace-nowrap rounded bg-ink px-2 py-1 text-[11px] text-white shadow-card transition-opacity ${
           show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
@@ -228,7 +232,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Top bar — mobile only */}
-      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-3 md:hidden">
+      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
         <div className="flex items-center gap-2">
           <MobileAvatarWithTooltip profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
           <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
@@ -247,7 +251,7 @@ export default function AppLayout() {
       </header>
 
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col pb-16 pt-14 md:pb-0 md:pt-0">
+      <div className="flex min-w-0 flex-1 flex-col pb-[54px] pt-[49px] md:pb-0 md:pt-0">
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>
@@ -261,7 +265,7 @@ export default function AppLayout() {
             to={item.to}
             end={item.end ?? false}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${
+              `flex flex-1 flex-col items-center gap-1 py-1.5 text-[11px] font-medium ${
                 isActive ? 'text-accent-dark' : 'text-ink-muted'
               }`
             }

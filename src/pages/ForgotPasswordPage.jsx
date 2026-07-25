@@ -133,7 +133,7 @@ export default function ForgotPasswordPage() {
                     focus:outline focus:outline-2 focus:outline-offset-2
                     ${emailInvalid
                       ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                      : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
+                      : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
                 />
               </div>
               {emailInvalid && (
@@ -213,7 +213,7 @@ export default function ForgotPasswordPage() {
                         focus:outline focus:outline-2 focus:outline-offset-2
                         ${emailInvalid
                           ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                          : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
+                          : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
                     />
                   </div>
                   {emailInvalid && (

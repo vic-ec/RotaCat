@@ -93,7 +93,7 @@ function SignInForm({ autoFocus = false }) {
               md:py-3 md:text-lg
               ${emailInvalid
                 ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
+                : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
           />
         </div>
         {emailInvalid && (
@@ -143,8 +143,8 @@ function SignInForm({ autoFocus = false }) {
             placeholder="••••••••"
             className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
               text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:border-rose focus:bg-canvas-raised
-              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25
+              transition-colors focus:border-accent focus:bg-canvas-raised
+              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
               md:py-3 md:text-lg"
           />
 

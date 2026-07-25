@@ -83,26 +83,31 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
 
   const badge = <StatusBadge active={active} onLeave={onLeave} size={size} className="border-[0.5px] border-white" />
 
+  // `flex` (not the default inline/block) on every wrapper here: a plain
+  // span/button around an inline-flex child sizes to its *line box*, not the
+  // child's actual box — with this button's inherited line-height that added
+  // ~24px of invisible height around a 12-14px badge, pushing the visible
+  // dot up and away from the true bottom-right corner it's meant to hug.
   if (!interactive || !onSetActive) {
-    return <span className="absolute bottom-0 right-0">{badge}</span>
+    return <span className="absolute bottom-0 right-0 flex">{badge}</span>
   }
 
   return (
-    <div ref={ref} className="absolute bottom-0 right-0">
+    <div ref={ref} className="absolute bottom-0 right-0 flex">
       <button
         type="button"
         onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Change your status"
-        className="block rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+        className="flex rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
       >
         {badge}
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="absolute left-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
         >
           <button
             type="button"

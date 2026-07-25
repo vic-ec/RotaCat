@@ -193,8 +193,8 @@ function RoleModal({ role, onClose }) {
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                 />
               </div>
 
@@ -212,8 +212,8 @@ function RoleModal({ role, onClose }) {
                   onChange={(e) => setSurname(e.target.value)}
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-rose focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                 />
               </div>
 
@@ -231,8 +231,8 @@ function RoleModal({ role, onClose }) {
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                       text-base text-ink transition-colors
-                      focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      focus:border-accent focus:bg-canvas-raised
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   >
                     <option value="">Select category…</option>
                     {CATEGORY_OPTIONS.map(opt => (
@@ -258,8 +258,8 @@ function RoleModal({ role, onClose }) {
                     placeholder="Agency name"
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   />
                 </div>
               )}
@@ -293,7 +293,7 @@ function RoleModal({ role, onClose }) {
                       focus:outline focus:outline-2 focus:outline-offset-2
                       ${emailInvalid
                         ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                        : 'border-accent/50 focus:border-rose focus:outline-rose/25'}`}
+                        : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
                   />
                 </div>
                 {emailInvalid && (
@@ -324,8 +324,8 @@ function RoleModal({ role, onClose }) {
                     placeholder="Enter password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-rose focus:bg-canvas-raised
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-rose/25"
+                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   />
                   <button
                     type="button"

@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
-import { formatPhoneDisplay, phoneTelHref, phoneWhatsAppHref } from '../lib/phone'
+import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 
 // ── Display label maps ─────────────────────────────────────
 const CATEGORY_LABELS = {
@@ -173,6 +173,33 @@ function Sheet({ open, onClose, title, children }) {
   )
 }
 
+// One row of the quick-action popover — a link when `href` is set (opens
+// the relevant app directly), otherwise a button (drill into a submenu, or
+// show the missing-contact-detail alert). `indent` pushes Mobile/WhatsApp
+// rows in under their Message/Call submenu header to read as sub-items.
+function QuickActionRow({ icon, label, href, external, indent, hasChevron, disabled, title, onClick }) {
+  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${indent ? 'pl-11' : ''}`
+  const content = (
+    <>
+      {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
+      <span className="flex-1">{label}</span>
+      {hasChevron && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+    </>
+  )
+  if (href) {
+    return (
+      <a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined} onClick={onClick} className={className}>
+        {content}
+      </a>
+    )
+  }
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
+      {content}
+    </button>
+  )
+}
+
 export default function StaffListPage() {
   const { isAdmin, isSuperAdmin, user, setMyActiveStatus } = useAuth()
   const navigate = useNavigate()
@@ -209,8 +236,29 @@ export default function StaffListPage() {
     setCollapsedGroups(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // Per-row quick-action sheet (mobile, admin viewers)
+  // Per-row quick-action popover (mobile, admin viewers) — anchored to
+  // wherever the kebab button was actually pressed, iOS-Contacts-style,
+  // rather than a bottom sheet unrelated to the tapped row's position.
   const [quickActionPerson, setQuickActionPerson] = useState(null)
+  const [quickActionAnchor, setQuickActionAnchor] = useState(null)
+  const [quickActionView, setQuickActionView] = useState('root') // 'root' | 'message' | 'call'
+  const quickActionMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!quickActionPerson) return
+    function onClickOutside(e) {
+      if (quickActionMenuRef.current && !quickActionMenuRef.current.contains(e.target)) closeQuickActions()
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') closeQuickActions()
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [quickActionPerson])
 
   useEffect(() => {
     loadAll()
@@ -382,12 +430,16 @@ export default function StaffListPage() {
     setRequestActioningId(null)
   }
 
-  // ── Quick-action sheet handlers ─────────────────────────────
-  function openQuickActions(person) {
+  // ── Quick-action popover handlers ────────────────────────────
+  function openQuickActions(person, anchorEl) {
     setQuickActionPerson(person)
+    setQuickActionAnchor(anchorEl.getBoundingClientRect())
+    setQuickActionView('root')
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
+    setQuickActionAnchor(null)
+    setQuickActionView('root')
   }
   function contactMissing(firstName) {
     alert(`Sorry, we don't have this contact detail for ${firstName} yet.`)
@@ -621,7 +673,7 @@ export default function StaffListPage() {
                           </div>
                           {isAdmin && (
                             <button
-                              onClick={e => { e.stopPropagation(); openQuickActions(person) }}
+                              onClick={e => { e.stopPropagation(); openQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
                               title="Quick actions"
                               className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken"
@@ -1040,68 +1092,79 @@ export default function StaffListPage() {
         </div>
       </Sheet>
 
-      {/* ── Per-row quick-action sheet (mobile, admin viewers) ──
-           Call / WhatsApp / Email the person directly, rather than the old
-           set-status / edit-profile / grant-admin list — status is now set
-           by tapping the status badge itself, and the row is already
-           tap-to-open for editing the profile. */}
-      <Sheet open={!!quickActionPerson} onClose={closeQuickActions}>
-        {quickActionPerson && (() => {
-          const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
-          const telHref = phoneTelHref(quickActionPerson.phone)
-          const waHref = phoneWhatsAppHref(quickActionPerson.phone)
-          const targetEmail = emailById[quickActionPerson.id]
-          const mailHref = targetEmail ? `mailto:${targetEmail}` : null
-          const rowClass = "flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken"
-          return (
-            <div className="space-y-1">
-              {telHref ? (
-                <a href={telHref} onClick={closeQuickActions} className={rowClass}>
-                  <PhoneIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  Call {firstName}
-                </a>
-              ) : (
-                <button onClick={() => contactMissing(firstName)} className={rowClass}>
-                  <PhoneIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  Call {firstName}
-                </button>
-              )}
-              {waHref ? (
-                <a href={waHref} target="_blank" rel="noopener noreferrer" onClick={closeQuickActions} className={rowClass}>
-                  <WhatsAppIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  WhatsApp {firstName}
-                </a>
-              ) : (
-                <button onClick={() => contactMissing(firstName)} className={rowClass}>
-                  <WhatsAppIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  WhatsApp {firstName}
-                </button>
-              )}
-              {mailHref ? (
-                <a href={mailHref} onClick={closeQuickActions} className={rowClass}>
-                  <EmailIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  Email {firstName}
-                </a>
-              ) : (
-                <button onClick={() => contactMissing(firstName)} className={rowClass}>
-                  <EmailIcon className="h-5 w-5 flex-shrink-0 text-ink-muted" />
-                  Email {firstName}
-                </button>
-              )}
-              {isSuperAdmin && quickActionPerson.role !== 'clerk' && (
-                <button
-                  onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
-                  disabled={quickActionPerson.is_super_admin}
-                  title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
-                  className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-left text-sm font-medium text-ink hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
-                </button>
-              )}
-            </div>
-          )
-        })()}
-      </Sheet>
+      {/* ── Per-row quick-action popover (mobile, admin viewers) ──
+           iOS Contacts-style: anchored to wherever the kebab was pressed
+           (rolling down from a row in the top/middle of the screen, up from
+           one near the bottom), Message/Call drill down into Mobile vs
+           WhatsApp, Mail goes straight to the mail client. Status is set via
+           the status badge itself now, so it's not duplicated here. */}
+      {quickActionPerson && quickActionAnchor && (() => {
+        const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
+        const telHref = phoneTelHref(quickActionPerson.phone)
+        const smsHref = phoneSmsHref(quickActionPerson.phone)
+        const waHref = phoneWhatsAppHref(quickActionPerson.phone)
+        const targetEmail = emailById[quickActionPerson.id]
+        const mailHref = targetEmail ? `mailto:${targetEmail}` : null
+        const canGrantAdmin = isSuperAdmin && quickActionPerson.role !== 'clerk'
+
+        const menuWidth = 224
+        const vh = window.innerHeight
+        const vw = window.innerWidth
+        const anchorMid = (quickActionAnchor.top + quickActionAnchor.bottom) / 2
+        const rollsDown = anchorMid < (vh * 2) / 3 // top or middle third of the screen
+        const left = Math.min(Math.max(8, quickActionAnchor.right - menuWidth), vw - menuWidth - 8)
+        const positionStyle = rollsDown
+          ? { left, top: quickActionAnchor.bottom + 6 }
+          : { left, bottom: vh - quickActionAnchor.top + 6 }
+
+        function missing(label) {
+          return () => { contactMissing(firstName); closeQuickActions() }
+        }
+
+        return (
+          <div
+            ref={quickActionMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            {quickActionView === 'root' && (
+              <>
+                <QuickActionRow icon={<MessageIcon className="h-5 w-5" />} label="Message" hasChevron onClick={() => setQuickActionView('message')} />
+                <QuickActionRow icon={<PhoneIcon className="h-5 w-5" />} label="Call" hasChevron onClick={() => setQuickActionView('call')} />
+                <QuickActionRow
+                  icon={<EmailIcon className="h-5 w-5" />}
+                  label="Mail"
+                  href={mailHref}
+                  onClick={mailHref ? closeQuickActions : missing('Mail')}
+                />
+                {canGrantAdmin && (
+                  <QuickActionRow
+                    label={quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
+                    disabled={quickActionPerson.is_super_admin}
+                    title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
+                    onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
+                  />
+                )}
+              </>
+            )}
+            {quickActionView === 'message' && (
+              <>
+                <QuickActionRow icon={<ChevronLeftIcon className="h-4 w-4" />} label="Message" onClick={() => setQuickActionView('root')} />
+                <QuickActionRow label="Mobile" indent href={smsHref} onClick={smsHref ? closeQuickActions : missing('Mobile')} />
+                <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
+              </>
+            )}
+            {quickActionView === 'call' && (
+              <>
+                <QuickActionRow icon={<ChevronLeftIcon className="h-4 w-4" />} label="Call" onClick={() => setQuickActionView('root')} />
+                <QuickActionRow label="Mobile" indent href={telHref} onClick={telHref ? closeQuickActions : missing('Mobile')} />
+                <QuickActionRow label="WhatsApp" indent href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
+              </>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -1161,6 +1224,22 @@ function EmailIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  )
+}
+
+function MessageIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
     </svg>
   )
 }

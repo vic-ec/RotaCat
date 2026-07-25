@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
+import ClearableInput from '../components/ClearableInput'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 
 // ── Display label maps ─────────────────────────────────────
@@ -687,12 +688,13 @@ export default function StaffListPage() {
           <div className="mb-4 md:flex md:items-end md:gap-3">
             <div className="md:w-64 md:flex-shrink-0">
               <label className="label-text">Search name</label>
-              <input
+              <ClearableInput
                 type="text"
                 value={accountFilters.q}
                 onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
                 placeholder="Surname or first name…"
                 className="input-field h-[42px]"
+                clearLabel="Clear search"
               />
             </div>
 

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import ClearableInput from '../components/ClearableInput'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 
 // ── Display label maps ─────────────────────────────────────
@@ -43,7 +44,7 @@ const ROLE_BADGE = {
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
 const PERMISSION_BADGE = {
   admin: 'bg-accent text-white',
-  super_admin: 'bg-accent text-white',
+  super_admin: 'bg-flagBlue text-white',
 }
 
 // Only five_eighths gets a tag — full and psych_overtime show nothing extra.
@@ -174,43 +175,6 @@ function computeFlyoutPosition(anchorRect, width) {
   return { left, top: anchorRect.bottom + 6 }
 }
 
-// Closes an anchored popover on an outside click or Escape — shared by the
-// quick-action, filters, and sort-direction popovers so each doesn't
-// reimplement the same listener wiring.
-//
-// `excludeRefs` (a ref, or array of refs) are elements that shouldn't count
-// as "outside" — the trigger button that opens/toggles the popover (without
-// excluding it, a second press meant to toggle the popover closed would
-// instead look like "outside click closes it, then the click reopens it"),
-// and, where relevant, a second popover nested off this one.
-//
-// The outside click is swallowed (capture-phase `stopPropagation` +
-// `preventDefault`) rather than just observed: without this, dismissing the
-// popover this way *also* lets the click fall through to whatever was
-// underneath it (e.g. a staff row, triggering navigation) — one tap should
-// only ever close the popover, never both close it and act on what's below.
-function useDismissablePopover(active, onDismiss, ref, excludeRefs) {
-  useEffect(() => {
-    if (!active) return
-    const excludeList = excludeRefs ? (Array.isArray(excludeRefs) ? excludeRefs : [excludeRefs]) : []
-    function onClickOutside(e) {
-      if (ref.current && ref.current.contains(e.target)) return
-      if (excludeList.some(r => r?.current && r.current.contains(e.target))) return
-      e.stopPropagation()
-      e.preventDefault()
-      onDismiss()
-    }
-    function onKeyDown(e) {
-      if (e.key === 'Escape') onDismiss()
-    }
-    document.addEventListener('click', onClickOutside, true)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('click', onClickOutside, true)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [active, onDismiss, ref, excludeRefs])
-}
 
 // One row of the quick-action popover — a link when `href` is set (opens
 // the relevant app directly), otherwise a button (toggle an accordion
@@ -243,6 +207,120 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
     <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
       {content}
     </button>
+  )
+}
+
+// One row of the Pending-approval list, with its own Role/Category edit
+// panel. Pulled out into its own component (rather than inlined in the
+// `.map()` above) so it can call useDismissablePopover — a click anywhere
+// outside this row while its edit panel is open closes the panel, the same
+// as every other expandable surface in the app.
+function PendingApprovalRow({ person, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
+  const rowRef = useRef(null)
+  const currentRole     = editEntry.role     ?? person.role     ?? 'doctor'
+  const currentCategory = editEntry.category ?? person.category ?? ''
+  const currentIsAdmin  = editEntry.isAdmin  ?? person.is_admin ?? false
+
+  useDismissablePopover(isEditing, () => setEditingId(null), rowRef)
+
+  return (
+    <div ref={rowRef} className="px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-medium text-ink text-sm">
+              {person.name ? `${person.name} ` : ''}{person.surname}
+            </p>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+              {ROLE_LABELS[person.role] || person.role}
+            </span>
+            {person.category && (
+              <span className="text-xs text-ink-muted">
+                {CATEGORY_LABELS[person.category] || person.category}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            Registered {person.created_at?.slice(0, 10)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setEditingId(isEditing ? null : person.id)}
+            className="rounded border border-accent/50 px-2.5 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
+          >
+            {isEditing ? 'Cancel' : 'Edit role'}
+          </button>
+          <button
+            onClick={() => approveAccount(person)}
+            className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-80"
+          >
+            Approve
+          </button>
+          <button
+            onClick={() => rejectAccount(person.id)}
+            className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+
+      {/* Edit panel */}
+      {isEditing && (
+        <div className="mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
+              <select
+                value={currentRole}
+                onChange={e => setEditData(prev => ({
+                  ...prev,
+                  [person.id]: { ...prev[person.id], role: e.target.value }
+                }))}
+                className="input-field"
+              >
+                <option value="doctor">Doctor</option>
+                <option value="locum">Locum</option>
+                <option value="clerk">Clerk</option>
+              </select>
+            </div>
+            {currentRole !== 'clerk' && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
+                <select
+                  value={currentCategory}
+                  onChange={e => setEditData(prev => ({
+                    ...prev,
+                    [person.id]: { ...prev[person.id], category: e.target.value || null }
+                  }))}
+                  className="input-field"
+                >
+                  <option value="">{currentRole === 'locum' ? 'None' : 'Select…'}</option>
+                  {categoryOptionsForRole(currentRole).map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {currentRole !== 'clerk' && (
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={currentIsAdmin}
+                  onChange={e => setEditData(prev => ({
+                    ...prev,
+                    [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
+                  }))}
+                  className="h-4 w-4 rounded border-slate-line accent-accent"
+                />
+                Admin
+              </label>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -838,7 +916,7 @@ export default function StaffListPage() {
             <div className="card hidden overflow-x-auto md:block">
               <table className="w-full min-w-[920px] border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-line bg-canvas-sunken text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                  <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                     <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
                     <th className="px-2.5 py-2">Surname</th>
                     <th className="px-2.5 py-2">First name</th>
@@ -848,6 +926,7 @@ export default function StaffListPage() {
                     <th className="px-2.5 py-2">Email</th>
                     <th className="px-2.5 py-2">Status</th>
                     <th className="px-2.5 py-2">Is Admin</th>
+                    {isAdmin && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -858,7 +937,7 @@ export default function StaffListPage() {
                           onClick={() => toggleGroupCollapsed(group.key)}
                           className="cursor-pointer bg-canvas-sunken hover:bg-canvas-sunken/70"
                         >
-                          <td colSpan={9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                          <td colSpan={isAdmin ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} ({group.items.length})</span>
                               <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -890,7 +969,7 @@ export default function StaffListPage() {
                                   {ROLE_LABELS[person.role] || person.role}
                                 </span>
                                 {person.is_admin && (
-                                  <span className={PERMISSION_BADGE.admin + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
+                                  <span className={(person.is_super_admin ? PERMISSION_BADGE.super_admin : PERMISSION_BADGE.admin) + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
                                     {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                                   </span>
                                 )}
@@ -914,7 +993,7 @@ export default function StaffListPage() {
                                 <a
                                   href={phoneTelHref(person.phone)}
                                   onClick={e => e.stopPropagation()}
-                                  className="text-accent-dark hover:underline"
+                                  className="text-ink-light hover:underline"
                                 >
                                   {formattedPhone}
                                 </a>
@@ -975,6 +1054,18 @@ export default function StaffListPage() {
                                 <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
                               )}
                             </td>
+                            {isAdmin && (
+                              <td className="px-2.5 py-1.5 text-right">
+                                <button
+                                  onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
+                                  aria-label="Quick actions"
+                                  title="Quick actions"
+                                  className="rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+                                >
+                                  <KebabIcon className="h-4 w-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         )
                       })}
@@ -997,113 +1088,18 @@ export default function StaffListPage() {
             </div>
           ) : (
             <div className="card overflow-hidden divide-y divide-slate-line">
-              {pending.map((person) => {
-                const isEditing = editingId === person.id
-                const ed = editData[person.id] || {}
-                const currentRole     = ed.role     ?? person.role     ?? 'doctor'
-                const currentCategory = ed.category ?? person.category ?? ''
-                const currentIsAdmin = ed.isAdmin ?? person.is_admin ?? false
-
-                return (
-                  <div key={person.id} className="px-5 py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-ink text-sm">
-                            {person.name ? `${person.name} ` : ''}{person.surname}
-                          </p>
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                            {ROLE_LABELS[person.role] || person.role}
-                          </span>
-                          {person.category && (
-                            <span className="text-xs text-ink-muted">
-                              {CATEGORY_LABELS[person.category] || person.category}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs text-ink-muted">
-                          Registered {person.created_at?.slice(0, 10)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={() => setEditingId(isEditing ? null : person.id)}
-                          className="rounded border border-accent/50 px-2.5 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
-                        >
-                          {isEditing ? 'Cancel' : 'Edit role'}
-                        </button>
-                        <button
-                          onClick={() => approveAccount(person)}
-                          className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-80"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => rejectAccount(person.id)}
-                          className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Edit panel */}
-                    {isEditing && (
-                      <div className="mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
-                            <select
-                              value={currentRole}
-                              onChange={e => setEditData(prev => ({
-                                ...prev,
-                                [person.id]: { ...prev[person.id], role: e.target.value }
-                              }))}
-                              className="input-field"
-                            >
-                              <option value="doctor">Doctor</option>
-                              <option value="locum">Locum</option>
-                              <option value="clerk">Clerk</option>
-                            </select>
-                          </div>
-                          {currentRole !== 'clerk' && (
-                            <div>
-                              <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
-                              <select
-                                value={currentCategory}
-                                onChange={e => setEditData(prev => ({
-                                  ...prev,
-                                  [person.id]: { ...prev[person.id], category: e.target.value || null }
-                                }))}
-                                className="input-field"
-                              >
-                                <option value="">{currentRole === 'locum' ? 'None' : 'Select…'}</option>
-                                {categoryOptionsForRole(currentRole).map(({ value, label }) => (
-                                  <option key={value} value={value}>{label}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                          {currentRole !== 'clerk' && (
-                            <label className="flex items-center gap-2 text-sm text-ink">
-                              <input
-                                type="checkbox"
-                                checked={currentIsAdmin}
-                                onChange={e => setEditData(prev => ({
-                                  ...prev,
-                                  [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
-                                }))}
-                                className="h-4 w-4 rounded border-slate-line accent-accent"
-                              />
-                              Admin
-                            </label>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              {pending.map((person) => (
+                <PendingApprovalRow
+                  key={person.id}
+                  person={person}
+                  isEditing={editingId === person.id}
+                  editEntry={editData[person.id] || {}}
+                  setEditingId={setEditingId}
+                  setEditData={setEditData}
+                  approveAccount={approveAccount}
+                  rejectAccount={rejectAccount}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -1385,8 +1381,9 @@ function KebabIcon(props) {
 
 function ResetIcon(props) {
   return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12a7.5 7.5 0 1013.06-5.03M4.5 12V6m0 6h6" />
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round">
+      <circle cx="12" cy="13" r="8.5" strokeDasharray="45.25 8.16" strokeDashoffset="-13.3" />
+      <polygon points="4.6,5.9 9.9,3.2 9.0,8.7" fill="currentColor" stroke="none" />
     </svg>
   )
 }

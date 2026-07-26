@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import AuthHero from '../components/AuthHero'
 import AuthFooter from '../components/AuthFooter'
+import CapsLockNotice from '../components/CapsLockNotice'
+import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -44,6 +46,7 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const capsLock = useCapsLockWarning()
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -148,6 +151,9 @@ export default function ResetPasswordPage() {
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={capsLock.onKeyDown}
+                  onKeyUp={capsLock.onKeyUp}
+                  onBlur={capsLock.onBlur}
                   placeholder="Enter new password"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
@@ -168,6 +174,9 @@ export default function ResetPasswordPage() {
                   autoComplete="new-password"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
+                  onKeyDown={capsLock.onKeyDown}
+                  onKeyUp={capsLock.onKeyUp}
+                  onBlur={capsLock.onBlur}
                   placeholder="Re-enter new password"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
@@ -175,6 +184,7 @@ export default function ResetPasswordPage() {
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                     md:py-3"
                 />
+                <CapsLockNotice show={capsLock.capsOn} />
               </div>
 
               {error && (

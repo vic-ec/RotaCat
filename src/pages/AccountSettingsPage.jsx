@@ -7,6 +7,9 @@ import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import ClearableInput from '../components/ClearableInput'
+import CapsLockNotice from '../components/CapsLockNotice'
+import { useCapsLockWarning } from '../lib/useCapsLockWarning'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
@@ -240,8 +243,13 @@ function GroupLabel({ children }) {
 // value (a phone number or email address). Padding matches SectionRow's
 // exactly so a collapsed Contact row is the same height as the rows below it.
 function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, href, note, children }) {
+  const rowRef = useRef(null)
+  // Dismissing here calls the same onToggle the Cancel/pencil button uses,
+  // which resets the field and closes it while editing=true — an outside
+  // click behaves exactly like tapping Cancel.
+  useDismissablePopover(editing, onToggle, rowRef)
   return (
-    <div className="px-5 py-3">
+    <div ref={rowRef} className="px-5 py-3">
       {/* Centered when just displaying the value (icon and single-line text
           read as one unit); top-aligned only while editing, so the icon
           stays pinned to the input's line instead of drifting to the middle
@@ -284,8 +292,10 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
 // behaviour as before, just without its own bordered card per section.
 function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen)
+  const rowRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), rowRef)
   return (
-    <div>
+    <div ref={rowRef}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -382,6 +392,8 @@ export default function AccountSettingsPage() {
   const [profileJustSaved, setProfileJustSaved] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
+  const profileHeaderRef = useRef(null)
+  useDismissablePopover(profileDetailsOpen, () => setProfileDetailsOpen(false), profileHeaderRef)
 
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
@@ -399,15 +411,7 @@ export default function AccountSettingsPage() {
   const [avatarError, setAvatarError] = useState('')
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false)
   const photoMenuRef = useRef(null)
-
-  useEffect(() => {
-    if (!photoMenuOpen) return
-    function onClickOutside(e) {
-      if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setPhotoMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [photoMenuOpen])
+  useDismissablePopover(photoMenuOpen, () => setPhotoMenuOpen(false), photoMenuRef)
 
   const [prefs, setPrefs] = useState({})
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
@@ -420,6 +424,7 @@ export default function AccountSettingsPage() {
   const [colorMsg, setColorMsg] = useState(null)
 
   const [pwForm, setPwForm] = useState({ current: '', password: '', confirm: '' })
+  const pwCapsLock = useCapsLockWarning()
   const [pwSaving, setPwSaving] = useState(false)
   const [pwJustSaved, setPwJustSaved] = useState(false)
   const [pwMsg, setPwMsg] = useState(null)
@@ -1038,7 +1043,7 @@ export default function AccountSettingsPage() {
              No overflow-hidden here (unlike the row-group cards below): this card has no
              flush edge-to-edge children needing corner-clipping, and clipping it would cut
              off the avatar's photo-menu dropdown when the card is short. ── */}
-        <div className="card px-5 py-3">
+        <div className="card px-5 py-3" ref={profileHeaderRef}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="relative flex-shrink-0" ref={photoMenuRef}>
@@ -1276,6 +1281,9 @@ export default function AccountSettingsPage() {
                     type="password"
                     value={pwForm.current}
                     onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
+                    onKeyDown={pwCapsLock.onKeyDown}
+                    onKeyUp={pwCapsLock.onKeyUp}
+                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="current-password"
                     clearLabel="Clear current password"
@@ -1287,6 +1295,9 @@ export default function AccountSettingsPage() {
                     type="password"
                     value={pwForm.password}
                     onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
+                    onKeyDown={pwCapsLock.onKeyDown}
+                    onKeyUp={pwCapsLock.onKeyUp}
+                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="new-password"
                     clearLabel="Clear new password"
@@ -1298,10 +1309,14 @@ export default function AccountSettingsPage() {
                     type="password"
                     value={pwForm.confirm}
                     onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
+                    onKeyDown={pwCapsLock.onKeyDown}
+                    onKeyUp={pwCapsLock.onKeyUp}
+                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="new-password"
                     clearLabel="Clear confirm password"
                   />
+                  <CapsLockNotice show={pwCapsLock.capsOn} />
                 </div>
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">

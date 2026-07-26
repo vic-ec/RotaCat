@@ -5,6 +5,8 @@ import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
+import CapsLockNotice from '../components/CapsLockNotice'
+import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
 // Email + password sign-in form — shared by the desktop inline panel and
 // the mobile sign-in modal so the two surfaces can't drift apart.
@@ -20,6 +22,7 @@ function SignInForm({ autoFocus = false }) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const capsLock = useCapsLockWarning()
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
 
@@ -140,6 +143,9 @@ function SignInForm({ autoFocus = false }) {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={capsLock.onKeyDown}
+            onKeyUp={capsLock.onKeyUp}
+            onBlur={capsLock.onBlur}
             placeholder="••••••••"
             className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
               text-base text-ink placeholder:text-ink-muted
@@ -187,6 +193,7 @@ function SignInForm({ autoFocus = false }) {
             )}
           </button>
         </div>
+        <CapsLockNotice show={capsLock.capsOn} />
       </div>
 
       {error && (
@@ -318,10 +325,15 @@ export default function LoginPage() {
               <p className="mt-2 text-base text-ink-light">Get started with your account</p>
 
               <div className="mt-8 flex flex-col gap-4">
+                {/* border-2 (transparent here, accent on Sign up) + py-[25px]
+                    on both buttons matches their total height exactly to the
+                    Signup page's role cards (border-2 + p-4 + two lines of
+                    text = 82px) — same border+padding-match approach used for
+                    the Account page's ghost-box inputs. */}
                 <button
                   type="button"
                   onClick={openSignInModal}
-                  className="w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                  className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-lg font-semibold text-white
                     transition-colors hover:bg-accent-dark
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
                 >
@@ -330,7 +342,7 @@ export default function LoginPage() {
 
                 <Link
                   to="/signup"
-                  className="w-full rounded-lg border border-accent bg-accent-tint py-3.5 text-center text-lg font-semibold text-accent
+                  className="w-full rounded-lg border-2 border-accent bg-accent-tint py-[25px] text-center text-lg font-semibold text-accent
                     transition-colors hover:bg-accent-light"
                 >
                   Sign up

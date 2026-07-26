@@ -5,6 +5,8 @@ import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
+import CapsLockNotice from '../components/CapsLockNotice'
+import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -86,6 +88,7 @@ function RoleModal({ role, onClose }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const capsLock = useCapsLockWarning()
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -333,6 +336,9 @@ function RoleModal({ role, onClose }) {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={capsLock.onKeyDown}
+                    onKeyUp={capsLock.onKeyUp}
+                    onBlur={capsLock.onBlur}
                     placeholder="Enter password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
@@ -360,6 +366,7 @@ function RoleModal({ role, onClose }) {
                     )}
                   </button>
                 </div>
+                <CapsLockNotice show={capsLock.capsOn} />
               </div>
 
               {error && (

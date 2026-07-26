@@ -157,21 +157,21 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-accent-light">
+    <div className="flex min-h-dvh bg-accent-light">
       {/* Sidebar — desktop */}
-      <aside className="sticky top-0 hidden h-screen w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
             <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
             <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
           </div>
           {profile && (
-            <p className="mt-3 text-xs text-ink-muted">
+            <p className="mt-3 text-center text-xs text-ink-muted">
               {profile.name} {profile.surname} · {subtitle}
             </p>
           )}
           {!profile?.is_approved && (
-            <p className="mt-1 text-xs text-flagAmber">Pending approval</p>
+            <p className="mt-1 text-center text-xs text-flagAmber">Pending approval</p>
           )}
         </div>
 

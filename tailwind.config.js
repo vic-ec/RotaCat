@@ -62,7 +62,10 @@ export default {
       fontFamily: {
         display: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace']
+        mono: ['JetBrains Mono', 'monospace'],
+        // Serif wordmark treatment reserved for the landing page's "RotaCat"
+        // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.
+        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif']
       },
       borderRadius: {
         sm: '4px',

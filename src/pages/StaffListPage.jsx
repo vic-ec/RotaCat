@@ -6,6 +6,7 @@ import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileA
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 
 // ── Display label maps ─────────────────────────────────────
@@ -148,21 +149,6 @@ function buildGroups(people, sortMode, azDirection = 'asc') {
     return ia - ib
   })
   return orderedKeys.map(key => ({ key, label: labelFn(key), items: buckets.get(key) }))
-}
-
-// Shared placement math for every anchored popover on this page (quick
-// actions, filters, sort direction) — rolls down from an anchor in the top
-// or middle third of the screen, up from one in the bottom third, and clamps
-// horizontally so the popover never runs off either edge of the viewport.
-function computeAnchoredPosition(anchorRect, width) {
-  const vh = window.innerHeight
-  const vw = window.innerWidth
-  const anchorMid = (anchorRect.top + anchorRect.bottom) / 2
-  const rollsDown = anchorMid < (vh * 2) / 3
-  const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
-  return rollsDown
-    ? { left, top: anchorRect.bottom + 6 }
-    : { left, bottom: vh - anchorRect.top + 6 }
 }
 
 // Same horizontal clamping as computeAnchoredPosition, but always rolls
@@ -732,7 +718,7 @@ export default function StaffListPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
-        <h1 className="font-display text-[1.8rem] font-bold text-ink">Staff</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <span className="text-sm text-ink-muted">
             {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
@@ -746,7 +732,7 @@ export default function StaffListPage() {
                 }`}
               >
                 <BellIcon className="h-3.5 w-3.5" />
-                {pending.length} pending
+                {pending.length} pending approval{pending.length === 1 ? '' : 's'}
               </button>
               <button
                 onClick={() => setTab('requests')}
@@ -755,7 +741,7 @@ export default function StaffListPage() {
                 }`}
               >
                 <MailQuestionMarkIcon className="h-3.5 w-3.5" />
-                {accountRequests.length} requests
+                {accountRequests.length} user request{accountRequests.length === 1 ? '' : 's'}
               </button>
             </>
           )}
@@ -773,10 +759,9 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Search + Filters + Sort/group — stacked on mobile, one row on desktop */}
+          {/* Search + Sort/group/Filters — stacked on mobile, one row on desktop */}
           <div className="mb-4 md:flex md:items-end md:gap-3">
             <div className="md:w-64 md:flex-shrink-0">
-              <label className="label-text">Search name</label>
               <ClearableInput
                 type="text"
                 value={accountFilters.q}
@@ -784,11 +769,12 @@ export default function StaffListPage() {
                 placeholder="Surname or first name…"
                 className="input-field h-[42px]"
                 clearLabel="Clear search"
+                icon={<SearchIcon className="h-4 w-4" />}
               />
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-2 md:mt-0 md:flex-1">
-              <div className="inline-flex h-[42px] gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 md:mt-0 md:flex-1">
+              <div className="flex h-[42px] w-full gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 md:w-auto md:flex-1">
                 {SORT_MODES.map(opt => {
                   const isDesc = opt.key === 'az' && sortMode === 'az' && azDirection === 'desc'
                   return (
@@ -798,7 +784,7 @@ export default function StaffListPage() {
                         setSortMode(opt.key)
                         if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
                       }}
-                      className={`inline-flex items-center justify-center gap-1 whitespace-nowrap rounded px-2.5 text-xs font-medium transition-colors ${
+                      className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
                         sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
                       }`}
                     >
@@ -807,23 +793,25 @@ export default function StaffListPage() {
                     </button>
                   )
                 })}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button onClick={e => openFiltersSheet(e.currentTarget)} className="btn-secondary h-[42px] whitespace-nowrap">
+                <button
+                  onClick={e => openFiltersSheet(e.currentTarget)}
+                  className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium text-ink-light transition-colors hover:text-ink md:flex-none md:px-2.5"
+                >
+                  <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
                   Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
                 </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={resetFiltersNow}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
-                  >
-                    <ResetIcon className="h-4 w-4" />
-                  </button>
-                )}
               </div>
+
+              {sheetFilterCount > 0 && (
+                <button
+                  onClick={resetFiltersNow}
+                  aria-label="Reset filters"
+                  title="Reset filters"
+                  className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+                >
+                  <ResetIcon className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1475,6 +1463,23 @@ function ResetIcon(props) {
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
+    </svg>
+  )
+}
+
+function SearchIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+
+function ListFilterIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M7 12h10M10 18h4" />
     </svg>
   )
 }

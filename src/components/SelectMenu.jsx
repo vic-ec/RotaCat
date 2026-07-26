@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 
 function ChevronDownIcon(props) {
   return (
@@ -16,22 +17,40 @@ function ChevronDownIcon(props) {
 // desktop), which is why Role/Category and friends used to look visually
 // out of step with the rest of the app's custom quick-menu popovers.
 //
+// The option list is `fixed`-positioned (anchored to the trigger button's
+// own rect, same math as every other popover in the app) rather than
+// `absolute` inside the trigger — a plain absolute child gets clipped by
+// any `overflow-hidden` ancestor (e.g. the rounded-card row groups on the
+// Account page), which cut the list off before this fix.
+//
 // `options` is an array of `{ value, label }`. `onChange` receives the
 // plain new value (not an event), matching how every caller here already
 // treats these as plain string state, not native <select> change handlers.
 export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '' }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-  useDismissablePopover(open, () => setOpen(false), ref)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), menuRef, [triggerRef])
 
   const selected = options.find(o => o.value === value)
 
+  function toggle() {
+    if (open) { setOpen(false); return }
+    setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+
+  const menuWidth = anchorRect ? Math.max(anchorRect.width, 160) : 160
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth) : null
+
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         className="input-field flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
@@ -39,10 +58,12 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>{selected ? selected.label : placeholder}</span>
         <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
+      {open && positionStyle && (
         <div
+          ref={menuRef}
           role="listbox"
-          className="absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          style={{ ...positionStyle, width: menuWidth }}
+          className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
         >
           {options.map(opt => (
             <button

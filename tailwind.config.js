@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
@@ -78,5 +80,19 @@ export default {
       }
     }
   },
-  plugins: []
+  plugins: [
+    // Gate `hover:` behind a real hover-capable pointer. Without this, a tap
+    // on a touchscreen fires the same synthetic hover a mouse would — and
+    // since it never gets a "mouseout" to clear it, the style just sticks
+    // until the next tap anywhere else. That's normally just a cosmetic
+    // papercut, but it breaks outright across a same-frame client-side
+    // route change: tapping "Sign up" on the Login page lands on the
+    // Signup page, and the tap's hover resolves against whatever element
+    // the new page renders at those same screen coordinates — the "Clerk"
+    // role card, since the two pages' bottom sheets place it right where
+    // that link used to be — leaving it permanently highlighted.
+    plugin(({ addVariant }) => {
+      addVariant('hover', '@media (hover: hover) and (pointer: fine) { &:hover }')
+    })
+  ]
 }

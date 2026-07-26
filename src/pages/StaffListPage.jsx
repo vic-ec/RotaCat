@@ -1379,11 +1379,13 @@ function KebabIcon(props) {
   )
 }
 
+// Lucide's "rotate-ccw" icon (ISC license, lucide.dev) — used as-is rather
+// than a hand-drawn approximation, per lucide-icons/lucide.
 function ResetIcon(props) {
   return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round">
-      <circle cx="12" cy="13" r="8.5" strokeDasharray="45.25 8.16" strokeDashoffset="-13.3" />
-      <polygon points="4.6,5.9 9.9,3.2 9.0,8.7" fill="currentColor" stroke="none" />
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
     </svg>
   )
 }

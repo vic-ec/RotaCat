@@ -83,6 +83,21 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
+  // Confirms a signup using the 6-digit code from the "Confirm signup" email
+  // instead of following its link — sidesteps email providers/relays that
+  // prefetch links (which silently burns the link's single-use token before
+  // the person ever clicks it, see Supabase's own OTP-verification-failures
+  // troubleshooting doc).
+  async function verifySignupOtp(email, token) {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+    return { error }
+  }
+
+  async function resendSignupOtp(email) {
+    const { error } = await supabase.auth.resend({ type: 'signup', email })
+    return { error }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -142,6 +157,8 @@ export function AuthProvider({ children }) {
     // Auth actions
     signIn,
     signUp,
+    verifySignupOtp,
+    resendSignupOtp,
     signOut,
     setMyActiveStatus,
     refreshProfile: () => session?.user && loadProfile(session.user.id)

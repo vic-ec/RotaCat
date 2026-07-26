@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
@@ -75,7 +75,8 @@ function PasswordRequirementsInfo() {
 // them scrolls, so the primary action is always reachable without
 // hunting for it at the bottom of a tall form.
 function RoleModal({ role, onClose }) {
-  const { signUp } = useAuth()
+  const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
+  const navigate = useNavigate()
   const nameRef = useRef(null)
   const [category, setCategory] = useState('')
   const [name, setName] = useState('')
@@ -88,6 +89,11 @@ function RoleModal({ role, onClose }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [otp, setOtp] = useState('')
+  const [otpError, setOtpError] = useState('')
+  const [verifying, setVerifying] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
   const capsLock = useCapsLockWarning()
 
   useEffect(() => {
@@ -144,6 +150,28 @@ function RoleModal({ role, onClose }) {
     setSubmitted(true)
   }
 
+  async function handleVerifyOtp(e) {
+    e.preventDefault()
+    setOtpError('')
+    setVerifying(true)
+    const { error } = await verifySignupOtp(email, otp)
+    setVerifying(false)
+
+    if (error) {
+      setOtpError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
+      return
+    }
+    navigate('/')
+  }
+
+  async function handleResendOtp() {
+    setResending(true)
+    setResent(false)
+    const { error } = await resendSignupOtp(email)
+    setResending(false)
+    if (!error) setResent(true)
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm"
@@ -174,14 +202,63 @@ function RoleModal({ role, onClose }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display text-xl text-ink">Registration received</h2>
+            <h2 className="font-display text-xl text-ink">Check your email</h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Check your email to confirm your address. Once confirmed, an admin will
-              review and approve your account. You will get a notification when your account is active.
+              We sent a 6-digit code to <span className="font-medium text-ink">{email}</span>.
+              Enter it below to confirm your address.
             </p>
+
+            <form onSubmit={handleVerifyOtp} className="mt-4 text-left">
+              <label htmlFor="otp" className="mb-1.5 block text-sm font-semibold text-ink">
+                Confirmation code
+              </label>
+              <input
+                id="otp"
+                name="otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                  text-center text-lg tracking-[0.3em] text-ink placeholder:tracking-normal placeholder:text-ink-muted
+                  transition-colors focus:border-accent focus:bg-canvas-raised
+                  focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+              />
+
+              {otpError && (
+                <div className="mt-2 rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                  {otpError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={verifying || otp.length !== 6}
+                className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
+                  transition-colors hover:bg-accent-dark
+                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
+                  disabled:opacity-60"
+              >
+                {verifying ? 'Confirming…' : 'Confirm email'}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resending}
+              className="mt-3 text-sm font-medium text-rose transition-colors hover:text-rose-dark hover:underline disabled:opacity-60"
+            >
+              {resending ? 'Resending…' : resent ? 'Code resent — check your email' : "Didn't get a code? Resend"}
+            </button>
+
             <Link
               to="/login"
-              className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light"
+              className="mt-6 block text-sm font-medium text-ink-muted transition-colors hover:text-ink"
             >
               Back to sign in
             </Link>

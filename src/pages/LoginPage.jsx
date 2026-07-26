@@ -30,9 +30,15 @@ function SignInForm({ autoFocus = false }) {
   // so password managers can discover the fields on page load, which
   // means the native `autofocus` attribute — a one-time, mount-triggered
   // effect — won't fire again on repeat opens. Focus imperatively instead,
-  // keyed off the `autoFocus` prop actually flipping to true.
+  // keyed off the `autoFocus` prop actually flipping to true. Also reset
+  // the reveal-password toggle here — since the form never unmounts, it'd
+  // otherwise stay revealed from a previous open (e.g. after closing the
+  // modal by clicking outside it) rather than defaulting back to hidden.
   useEffect(() => {
-    if (autoFocus) emailRef.current?.focus()
+    if (autoFocus) {
+      emailRef.current?.focus()
+      setShowPassword(false)
+    }
   }, [autoFocus])
 
   async function handleSubmit(e) {

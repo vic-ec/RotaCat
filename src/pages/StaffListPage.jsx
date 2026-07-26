@@ -229,7 +229,7 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
   const secondaryLabel = person.role === 'doctor'
     ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
     : (ROLE_LABELS[person.role] || person.role)
-  const registeredDate = person.created_at?.slice(0, 10)
+  const registeredDate = person.created_at?.slice(0, 10).split('-').reverse().join('-')
   const registeredTime = person.created_at?.slice(11, 16)
 
   return (
@@ -262,7 +262,8 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
 
           {/* Line 2 (both breakpoints) */}
           <p className="mt-0.5 text-xs text-ink-muted">
-            Registered {registeredDate} at {registeredTime} with email {email || '—'}
+            Registered {registeredDate} at {registeredTime}{' '}
+            <span className="font-medium text-accent">{email || '—'}</span>
           </p>
         </div>
 
@@ -296,7 +297,7 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[currentRole] || 'bg-canvas-sunken text-ink-muted'}`}>
               {ROLE_LABELS[currentRole] || currentRole}
             </span>
-            {currentCategory && (
+            {currentRole === 'doctor' && currentCategory && (
               <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
                 {CATEGORY_LABELS[currentCategory] || currentCategory}
               </span>
@@ -318,7 +319,7 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
                 <option value="clerk">Clerk</option>
               </select>
             </div>
-            {currentRole !== 'clerk' && (
+            {currentRole === 'doctor' && (
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
                 <select
@@ -329,14 +330,14 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
                   }))}
                   className="input-field"
                 >
-                  <option value="">{currentRole === 'locum' ? 'None' : 'Select…'}</option>
+                  <option value="">Select…</option>
                   {categoryOptionsForRole(currentRole).map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
               </div>
             )}
-            {currentRole !== 'clerk' && (
+            {currentRole === 'doctor' && (
               <label className="flex items-center gap-2 text-sm text-ink">
                 <input
                   type="checkbox"
@@ -540,7 +541,10 @@ export default function StaffListPage() {
       role === 'doctor' ? rawCategory :
       role === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
       null
-    const isAdminFlag = role === 'clerk' ? false : (ed.isAdmin ?? profile.is_admin ?? false)
+    // Locums can't have admin privileges (same rule as clerks) — the edit
+    // panel only exposes the checkbox for doctor, but enforce it here too
+    // in case editData carries a stale isAdmin from before switching roles.
+    const isAdminFlag = role === 'doctor' ? (ed.isAdmin ?? profile.is_admin ?? false) : false
 
     const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'

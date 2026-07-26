@@ -294,7 +294,7 @@ export default function LoginPage() {
       <div className="flex h-dvh flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
+        <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-[34px] pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
           <p className="mt-2 text-center text-[14.7px] text-ink-light">Get started with your account</p>
 

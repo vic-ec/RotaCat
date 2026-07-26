@@ -187,7 +187,7 @@ function RoleModal({ role, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-accent-light hover:text-ink"
+            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-accent-light hover:text-ink active:bg-accent-light active:text-ink"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -239,7 +239,7 @@ function RoleModal({ role, onClose }) {
                 type="submit"
                 disabled={verifying || otp.length !== 6}
                 className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-                  transition-colors hover:bg-accent-dark
+                  transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
               >
@@ -459,7 +459,7 @@ function RoleModal({ role, onClose }) {
                 form="role-details-form"
                 disabled={submitting}
                 className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-                  transition-colors hover:bg-accent-dark
+                  transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
               >
@@ -489,7 +489,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-tint"
+                className="w-full rounded-xl border-2 border-accent/50 bg-accent-tint p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-light active:border-accent active:bg-accent-light"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -520,7 +520,7 @@ export default function SignupPage() {
                   <button
                     key={opt.value}
                     onClick={() => setSelectedRole(opt.value)}
-                    className="w-full rounded-xl border-2 border-accent/50 bg-canvas-raised p-4 text-left transition-colors hover:border-accent hover:bg-accent-tint"
+                    className="w-full rounded-xl border-2 border-accent/50 bg-accent-tint p-4 text-left transition-colors hover:border-accent hover:bg-accent-light active:border-accent active:bg-accent-light"
                   >
                     <p className="text-base font-semibold text-ink">{opt.label}</p>
                     <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>

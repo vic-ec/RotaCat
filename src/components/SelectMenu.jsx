@@ -72,8 +72,10 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
               role="option"
               aria-selected={opt.value === value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
-              className={`block w-full px-3 py-2 text-left text-sm hover:bg-canvas-sunken ${
-                opt.value === value ? 'font-semibold text-accent' : 'text-ink'
+              className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+                opt.value === value
+                  ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                  : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               {opt.label}

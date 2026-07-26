@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
           </p>
           <button
             onClick={() => navigate('/')}
-            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light"
+            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
           >
             Continue
           </button>
@@ -118,7 +118,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             to="/forgot-password"
-            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light"
+            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
           >
             Request a new link
           </Link>
@@ -197,7 +197,7 @@ export default function ResetPasswordPage() {
                 type="submit"
                 disabled={submitting}
                 className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-                  transition-colors hover:bg-accent-dark
+                  transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60
                   md:py-3.5 md:text-lg"

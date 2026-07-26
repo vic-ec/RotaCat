@@ -235,7 +235,7 @@ export default function AppLayout() {
               onClick={handleSignOut}
               title="Sign out"
               aria-label="Sign out"
-              className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
+              className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light transition-colors hover:bg-accent-light active:bg-accent-light"
             >
               <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">

@@ -23,7 +23,7 @@ export default function BackButton({ onClick, className = '' }) {
       type="button"
       onClick={onClick || (() => navigate(-1))}
       aria-label="Back"
-      className={`fixed z-20 flex h-9 w-9 items-center justify-center rounded-full border-[0.2px] border-white/80 bg-ink/25 text-white backdrop-blur-md transition-colors hover:bg-ink/40 ${
+      className={`fixed z-20 flex h-9 w-9 items-center justify-center rounded-full border-[0.2px] border-white/80 bg-ink/25 text-white backdrop-blur-md transition-colors hover:bg-ink/40 active:bg-ink/40 ${
         className || 'left-4 top-[60px] md:left-64 md:top-6'
       }`}
     >

@@ -162,7 +162,7 @@ export default function RosterDashboardPage() {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors md:flex-none ${
-                  tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+                  tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
                 }`}
               >
                 {t.label}
@@ -385,7 +385,7 @@ function RosterFlatList({ rosters, navigate }) {
         <button
           key={roster.id}
           onClick={() => navigate(`/roster/${roster.id}`)}
-          className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-canvas-sunken"
+          className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
         >
           <div>
             <p className="text-sm font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
@@ -451,7 +451,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
       </div>
       <div className="card divide-y divide-slate-line overflow-hidden">
         {rosters.map(roster => (
-          <div key={roster.id} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken">
+          <div key={roster.id} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
             <input
               type="checkbox"
               checked={selected.has(roster.id)}

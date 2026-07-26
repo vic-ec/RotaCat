@@ -171,7 +171,7 @@ function computeFlyoutPosition(anchorRect, width) {
 // convention — down when closed, rotated to point up when `expanded` — and
 // go bold while their section is open.
 function QuickActionRow({ icon, label, href, external, muted, expandable, expanded, disabled, title, onClick }) {
-  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
+  const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
     muted ? 'font-normal text-ink-light' : expanded ? 'font-semibold text-ink' : 'font-medium text-ink'
   }`
   const content = (
@@ -264,19 +264,19 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
         <div className="mt-3 flex items-center gap-2 flex-shrink-0 md:mt-0">
           <button
             onClick={() => approveAccount(person)}
-            className={`${actionButtonClass} bg-success text-white hover:opacity-80`}
+            className={`${actionButtonClass} bg-success text-white transition-opacity hover:opacity-80 active:opacity-80`}
           >
             Approve
           </button>
           <button
             onClick={() => rejectAccount(person.id)}
-            className={`${actionButtonClass} border border-flagRed text-flagRed hover:bg-flagRed-bg`}
+            className={`${actionButtonClass} border border-flagRed text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg`}
           >
             Reject
           </button>
           <button
             onClick={() => setEditingId(isEditing ? null : person.id)}
-            className={`${actionButtonClass} border border-accent/50 text-ink-light hover:bg-accent-light`}
+            className={`${actionButtonClass} border border-accent/50 text-ink-light transition-colors hover:bg-accent-light active:bg-accent-light`}
           >
             {isEditing ? 'Cancel' : 'Edit'}
           </button>
@@ -727,7 +727,7 @@ export default function StaffListPage() {
             <>
               <button
                 onClick={() => setTab('pending')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
                   pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
                 }`}
               >
@@ -736,7 +736,7 @@ export default function StaffListPage() {
               </button>
               <button
                 onClick={() => setTab('requests')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
                   accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
                 }`}
               >
@@ -785,7 +785,9 @@ export default function StaffListPage() {
                         if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
                       }}
                       className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
-                        sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                        sortMode === opt.key
+                          ? 'bg-accent text-white'
+                          : 'text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
                       }`}
                     >
                       <opt.Icon {...(opt.key === 'az' ? { flipped: isDesc } : {})} className="h-3.5 w-3.5 flex-shrink-0" />
@@ -796,7 +798,9 @@ export default function StaffListPage() {
                 <button
                   onClick={e => openFiltersSheet(e.currentTarget)}
                   className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
-                    filtersOpen || sheetFilterCount > 0 ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                    filtersOpen || sheetFilterCount > 0
+                      ? 'bg-accent text-white'
+                      : 'text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
                   }`}
                 >
                   <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -809,7 +813,7 @@ export default function StaffListPage() {
                   onClick={resetFiltersNow}
                   aria-label="Reset filters"
                   title="Reset filters"
-                  className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+                  className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
                 >
                   <ResetIcon className="h-4 w-4" />
                 </button>
@@ -841,7 +845,7 @@ export default function StaffListPage() {
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
-                      className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted"
+                      className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
                     >
                       <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -905,7 +909,7 @@ export default function StaffListPage() {
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
                               title="Quick actions"
-                              className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken"
+                              className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
                             >
                               <KebabIcon className="h-4 w-4" />
                             </button>
@@ -943,7 +947,7 @@ export default function StaffListPage() {
                         return (
                         <tr
                           onClick={() => toggleGroupCollapsed(group.key)}
-                          className="cursor-pointer bg-canvas-sunken hover:bg-canvas-sunken/70"
+                          className="cursor-pointer bg-canvas-sunken transition-colors hover:bg-slate-line active:bg-slate-line"
                         >
                           <td colSpan={isAdmin ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
@@ -1069,7 +1073,7 @@ export default function StaffListPage() {
                                   onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                                   aria-label="Quick actions"
                                   title="Quick actions"
-                                  className="rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+                                  className="rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
                                 >
                                   <KebabIcon className="h-4 w-4" />
                                 </button>
@@ -1171,14 +1175,14 @@ export default function StaffListPage() {
                         <button
                           disabled={isActioning}
                           onClick={() => approveRequest(r)}
-                          className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-80 disabled:opacity-50"
+                          className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-80 active:opacity-80 disabled:opacity-50"
                         >
                           Approve
                         </button>
                         <button
                           disabled={isActioning}
                           onClick={() => rejectRequest(r)}
-                          className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg disabled:opacity-50"
+                          className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:opacity-50"
                         >
                           Reject
                         </button>

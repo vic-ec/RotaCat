@@ -213,11 +213,15 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // One row of the Pending-approval list, with its own Role/Category edit
 // panel. Unlike the app's other expandable surfaces (which just close on an
 // outside click via useDismissablePopover), this one is modal-like: while
-// open, a full-viewport scrim sits behind it so an outside click both closes
-// it AND is swallowed by the scrim rather than also landing on whatever
-// button happened to be underneath — the template to follow for any future
-// expandable panel that should fully block the rest of the page while open,
-// as opposed to a lightweight popover/accordion.
+// open, a full-viewport invisible click-catcher sits behind it so an
+// outside click both closes it AND is swallowed by the catcher rather than
+// also landing on whatever button happened to be underneath — the template
+// to follow for any future expandable panel that should fully block the
+// rest of the page while open, as opposed to a lightweight popover/
+// accordion. Deliberately no visible scrim tint here (unlike a centered
+// dialog's backdrop) — the panel stays in its normal in-flow position right
+// under the row, so a dimmed background would just read as the whole page
+// going dull rather than as a focused dialog.
 function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
   const currentRole     = editEntry.role     ?? person.role     ?? 'doctor'
   const currentCategory = editEntry.category ?? person.category ?? ''
@@ -292,13 +296,15 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
         </div>
       </div>
 
-      {/* Edit panel — modal-like: a full-viewport scrim (below, z-40) closes
-          it on any outside click and blocks that click from also reaching
-          whatever it landed on, while the panel itself (z-50) stays in its
-          normal in-flow position rather than becoming a centered dialog. */}
+      {/* Edit panel — modal-like: a full-viewport, invisible click-catcher
+          (below, z-40) closes it on any outside click and blocks that click
+          from also reaching whatever it landed on, while the panel itself
+          (z-50) stays in its normal in-flow position rather than becoming a
+          centered dialog. No background tint on the catcher — see the
+          component doc comment above for why. */}
       {isEditing && (
         <>
-          <div className="fixed inset-0 z-40 bg-ink/10" onClick={() => setEditingId(null)} />
+          <div className="fixed inset-0 z-40" onClick={() => setEditingId(null)} />
           <div className="relative z-50 mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
               <div>

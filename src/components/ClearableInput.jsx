@@ -37,21 +37,39 @@ import { useState } from 'react'
 //   - Never show the clear button on value alone — always gate on focus
 //     too (built into this component), so pre-filled fields don't show a
 //     clear button before the user has actually tapped in.
-export default function ClearableInput({ value, onChange, onClear, onFocus, onBlur, className = '', clearLabel = 'Clear field', ...props }) {
+// type="password" additionally gets a reveal-password eye toggle (to the
+// left of the clear button, both fit within `pr-14` so neither ever
+// overlaps or shifts the field's width as the clear button appears/hides).
+export default function ClearableInput({ value, onChange, onClear, onFocus, onBlur, className = '', clearLabel = 'Clear field', type, ...props }) {
   const [focused, setFocused] = useState(false)
+  const [revealed, setRevealed] = useState(false)
   const handleClear = onClear || (() => onChange({ target: { value: '' } }))
   const showClear = focused && value
+  const isPassword = type === 'password'
 
   return (
     <div className="relative">
       <input
+        type={isPassword ? (revealed ? 'text' : 'password') : type}
         value={value}
         onChange={onChange}
         onFocus={e => { setFocused(true); onFocus?.(e) }}
         onBlur={e => { setFocused(false); onBlur?.(e) }}
-        className={`${className} pr-8`}
+        className={`${className} ${isPassword ? 'pr-14' : 'pr-8'}`}
         {...props}
       />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setRevealed(r => !r)}
+          onMouseDown={e => e.preventDefault()}
+          aria-label={revealed ? 'Hide password' : 'Show password'}
+          tabIndex={-1}
+          className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center text-ink-muted hover:text-ink"
+        >
+          {revealed ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+      )}
       {showClear && (
         <button
           type="button"
@@ -59,7 +77,7 @@ export default function ClearableInput({ value, onChange, onClear, onFocus, onBl
           onMouseDown={e => e.preventDefault()}
           aria-label={clearLabel}
           tabIndex={-1}
-          className="absolute right-2 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-white hover:bg-ink-muted/70"
+          className={`absolute top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-white hover:bg-ink-muted/70 ${isPassword ? 'right-7' : 'right-2'}`}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="h-2.5 w-2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
@@ -67,5 +85,25 @@ export default function ClearableInput({ value, onChange, onClear, onFocus, onBl
         </button>
       )}
     </div>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M17.94 17.94A10.94 10.94 0 0112 20C7 20 2.73 16.89 1 12c.73-2.06 2-3.85 3.6-5.22" />
+      <path d="M10.58 10.58A2 2 0 0012 14a2 2 0 001.42-.58" />
+      <path d="M1 1l22 22" />
+      <path d="M9.88 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-4.24 5.18" />
+    </svg>
   )
 }

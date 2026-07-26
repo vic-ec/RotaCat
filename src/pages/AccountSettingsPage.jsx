@@ -290,15 +290,25 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
 // Plain expandable row (icon + title + chevron) used for the multi-field
 // sections inside the single continuous form card — same expand/collapse
 // behaviour as before, just without its own bordered card per section.
-function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false, children }) {
+function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false, onClose, children }) {
   const [open, setOpen] = useState(defaultOpen)
   const rowRef = useRef(null)
-  useDismissablePopover(open, () => setOpen(false), rowRef)
+
+  function close() {
+    setOpen(false)
+    onClose?.()
+  }
+  function toggle() {
+    if (open) close()
+    else setOpen(true)
+  }
+
+  useDismissablePopover(open, close, rowRef)
   return (
     <div ref={rowRef}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-5 py-3 text-left"
       >
@@ -871,6 +881,11 @@ export default function AccountSettingsPage() {
     }
   }
 
+  function resetPasswordForm() {
+    setPwForm({ current: '', password: '', confirm: '' })
+    setPwMsg(null)
+  }
+
   // ── Admin: direct role/category/admin-flag edit ─────────────
   function handleAdminRoleChange(value) {
     setAdminRole(value)
@@ -1270,7 +1285,7 @@ export default function AccountSettingsPage() {
         <div className="card overflow-hidden divide-y divide-slate-line">
           {/* ── Change password (own account only) ──────────────── */}
           {isOwnAccount && (
-            <SectionRow icon={<LockIcon className="h-5 w-5" />} title="Change password">
+            <SectionRow icon={<LockIcon className="h-5 w-5" />} title="Change password" onClose={resetPasswordForm}>
               <div className="mb-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-1.5 text-xs text-flagBlue">
                 {PASSWORD_HINT}
               </div>
@@ -1321,6 +1336,9 @@ export default function AccountSettingsPage() {
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={pwSaving || !pwDirty} className="btn-primary">
                     {pwSaving ? 'Updating…' : pwJustSaved ? 'Saved.' : 'Update'}
+                  </button>
+                  <button type="button" onClick={resetPasswordForm} disabled={pwSaving || !pwDirty} className="btn-secondary">
+                    Cancel
                   </button>
                   {pwMsg && (
                     <span className="text-xs font-medium text-flagRed">{pwMsg.text}</span>

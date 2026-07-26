@@ -215,7 +215,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // `.map()` above) so it can call useDismissablePopover — a click anywhere
 // outside this row while its edit panel is open closes the panel, the same
 // as every other expandable surface in the app.
-function PendingApprovalRow({ person, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
+function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
   const rowRef = useRef(null)
   const currentRole     = editEntry.role     ?? person.role     ?? 'doctor'
   const currentCategory = editEntry.category ?? person.category ?? ''
@@ -223,28 +223,51 @@ function PendingApprovalRow({ person, isEditing, editEntry, setEditingId, setEdi
 
   useDismissablePopover(isEditing, () => setEditingId(null), rowRef)
 
+  // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
+  // role badge — locum/clerk have no meaningful category, so they keep the
+  // role badge instead.
+  const secondaryLabel = person.role === 'doctor'
+    ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+    : (ROLE_LABELS[person.role] || person.role)
+  const registeredDate = person.created_at?.slice(0, 10)
+  const registeredTime = person.created_at?.slice(11, 16)
+
   return (
     <div ref={rowRef} className="px-5 py-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="md:flex md:items-start md:justify-between md:gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Mobile: name · category/role, plain text (line 1) */}
+          <p className="text-sm font-medium text-ink md:hidden">
+            {person.name ? `${person.name} ` : ''}{person.surname}
+            <span className="font-normal text-ink-muted"> · {secondaryLabel}</span>
+          </p>
+
+          {/* Desktop: name + pillbox badge */}
+          <div className="hidden items-center gap-2 flex-wrap md:flex">
             <p className="font-medium text-ink text-sm">
               {person.name ? `${person.name} ` : ''}{person.surname}
             </p>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-              {ROLE_LABELS[person.role] || person.role}
-            </span>
-            {person.category && (
-              <span className="text-xs text-ink-muted">
-                {CATEGORY_LABELS[person.category] || person.category}
+            {person.role === 'doctor' ? (
+              person.category && (
+                <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
+                  {CATEGORY_LABELS[person.category] || person.category}
+                </span>
+              )
+            ) : (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                {ROLE_LABELS[person.role] || person.role}
               </span>
             )}
           </div>
+
+          {/* Line 2 (both breakpoints) */}
           <p className="mt-0.5 text-xs text-ink-muted">
-            Registered {person.created_at?.slice(0, 10)}
+            Registered {registeredDate} at {registeredTime} with email {email || '—'}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+
+        {/* Line 3 on mobile, right-aligned column on desktop */}
+        <div className="mt-3 flex items-center gap-2 flex-shrink-0 md:mt-0">
           <button
             onClick={() => setEditingId(isEditing ? null : person.id)}
             className="rounded border border-accent/50 px-2.5 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
@@ -269,6 +292,16 @@ function PendingApprovalRow({ person, isEditing, editEntry, setEditingId, setEdi
       {/* Edit panel */}
       {isEditing && (
         <div className="mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
+          <div className="mb-3 flex items-center gap-2 flex-wrap">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[currentRole] || 'bg-canvas-sunken text-ink-muted'}`}>
+              {ROLE_LABELS[currentRole] || currentRole}
+            </span>
+            {currentCategory && (
+              <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
+                {CATEGORY_LABELS[currentCategory] || currentCategory}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
@@ -1092,6 +1125,7 @@ export default function StaffListPage() {
                 <PendingApprovalRow
                   key={person.id}
                   person={person}
+                  email={emailById[person.id]}
                   isEditing={editingId === person.id}
                   editEntry={editData[person.id] || {}}
                   setEditingId={setEditingId}

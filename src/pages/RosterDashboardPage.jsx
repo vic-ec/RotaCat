@@ -56,10 +56,9 @@ export default function RosterDashboardPage() {
   const [search, setSearch] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [filterYear, setFilterYear] = useState('')
-  const [archiveFiltersOpen, setArchiveFiltersOpen] = useState(false)
-  const [archiveFiltersAnchor, setArchiveFiltersAnchor] = useState(null)
-  const archiveFiltersRef = useRef(null)
-  useDismissablePopover(archiveFiltersOpen, () => setArchiveFiltersOpen(false), archiveFiltersRef)
+  const [binSearch, setBinSearch] = useState('')
+  const [binFilterMonth, setBinFilterMonth] = useState('')
+  const [binFilterYear, setBinFilterYear] = useState('')
 
   useEffect(() => {
     loadRosters()
@@ -140,6 +139,14 @@ export default function RosterDashboardPage() {
     return true
   })
 
+  const binYears = [...new Set(binned.map(r => r.year))].sort((a, b) => b - a)
+  const filteredBinned = binned.filter(r => {
+    if (binFilterMonth && r.month !== Number(binFilterMonth)) return false
+    if (binFilterYear && r.year !== Number(binFilterYear)) return false
+    if (binSearch && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(binSearch.toLowerCase())) return false
+    return true
+  })
+
   return (
     <div className="mx-auto max-w-4xl">
       {/* Header */}
@@ -163,8 +170,19 @@ export default function RosterDashboardPage() {
             ))}
           </div>
         )}
-        {tab === 'active' && (
-          <button onClick={() => navigate('/roster/generate')} className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto">
+        {isAdmin && (
+          // Always rendered (even off the Active tab) so the tab selector's
+          // `flex-1` share of the row is computed against the same layout on
+          // every tab — hiding it via `tab !== 'active'` conditional
+          // rendering instead would let the selector expand to fill the
+          // whole row on Archive/Bin, making it a different width there
+          // than on Active.
+          <button
+            onClick={() => navigate('/roster/generate')}
+            aria-hidden={tab !== 'active'}
+            tabIndex={tab !== 'active' ? -1 : undefined}
+            className={`btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto ${tab !== 'active' ? 'invisible' : ''}`}
+          >
             <PencilSparklesIcon className="h-4 w-4" />
             Create roster
           </button>
@@ -209,60 +227,16 @@ export default function RosterDashboardPage() {
 
       {isAdmin && tab === 'archive' && (
         <>
-          <div className="mb-4 flex items-center gap-2">
-            <ClearableInput
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by month or year…"
-              className="input-field"
-              clearLabel="Clear search"
-              icon={<SearchIcon className="h-4 w-4" />}
-            />
-            <button
-              onClick={e => {
-                setArchiveFiltersAnchor(e.currentTarget.getBoundingClientRect())
-                setArchiveFiltersOpen(o => !o)
-              }}
-              className="btn-secondary flex-shrink-0 whitespace-nowrap"
-            >
-              <ListFilterIcon className="h-4 w-4" />
-              Filter{[filterMonth, filterYear].filter(Boolean).length > 0 ? ` · ${[filterMonth, filterYear].filter(Boolean).length}` : ''}
-            </button>
-          </div>
-
-          {archiveFiltersOpen && archiveFiltersAnchor && (() => {
-            const menuWidth = 220
-            const positionStyle = computeAnchoredPosition(archiveFiltersAnchor, menuWidth)
-            return (
-              <div
-                ref={archiveFiltersRef}
-                role="dialog"
-                aria-label="Filter archived rosters"
-                style={{ ...positionStyle, width: menuWidth }}
-                className="fixed z-50 space-y-3 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
-              >
-                <div>
-                  <label className="label-text">Month</label>
-                  <SelectMenu
-                    value={filterMonth}
-                    onChange={setFilterMonth}
-                    placeholder="All months"
-                    options={MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))}
-                  />
-                </div>
-                <div>
-                  <label className="label-text">Year</label>
-                  <SelectMenu
-                    value={filterYear}
-                    onChange={setFilterYear}
-                    placeholder="All years"
-                    options={years.map(y => ({ value: String(y), label: String(y) }))}
-                  />
-                </div>
-              </div>
-            )
-          })()}
+          <RosterSearchFilter
+            search={search}
+            onSearchChange={setSearch}
+            filterMonth={filterMonth}
+            onFilterMonthChange={setFilterMonth}
+            filterYear={filterYear}
+            onFilterYearChange={setFilterYear}
+            years={years}
+            ariaLabel="Filter archived rosters"
+          />
           <RosterSection
             title="Archived"
             rosters={filteredArchived}
@@ -277,21 +251,111 @@ export default function RosterDashboardPage() {
       )}
 
       {isAdmin && tab === 'bin' && (
-        <RosterSection
-          title="Bin"
-          rosters={binned}
-          selected={binSel}
-          setSelected={setBinSel}
-          navigate={navigate}
-          metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
-          actions={[
-            { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
-            { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
-          ]}
-          emptyText="Bin is empty."
-        />
+        <>
+          <RosterSearchFilter
+            search={binSearch}
+            onSearchChange={setBinSearch}
+            filterMonth={binFilterMonth}
+            onFilterMonthChange={setBinFilterMonth}
+            filterYear={binFilterYear}
+            onFilterYearChange={setBinFilterYear}
+            years={binYears}
+            ariaLabel="Filter bin"
+          />
+          <RosterSection
+            title="Bin"
+            rosters={filteredBinned}
+            selected={binSel}
+            setSelected={setBinSel}
+            navigate={navigate}
+            metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
+            actions={[
+              { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
+              { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
+            ]}
+            emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
+          />
+        </>
       )}
     </div>
+  )
+}
+
+// Search + Filter row shared by the Archive and Bin tabs — the search box
+// takes 75% of the row's width and the Filter button the other 25%
+// (mobile only; desktop keeps them content-sized via the row's max-w-4xl
+// cap already being narrow enough that the split barely shows). The Month/
+// Year popover itself is local state, since only one of these rows is ever
+// mounted at a time — the search/filter *values* stay lifted so each tab
+// keeps its own independent filters.
+function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years, ariaLabel }) {
+  const [open, setOpen] = useState(false)
+  const [anchor, setAnchor] = useState(null)
+  const ref = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), ref)
+  const activeCount = [filterMonth, filterYear].filter(Boolean).length
+
+  return (
+    <>
+      <div className="mb-4 flex items-center gap-2">
+        <div className="w-3/4 md:w-auto md:flex-1">
+          <ClearableInput
+            type="text"
+            value={search}
+            onChange={e => onSearchChange(e.target.value)}
+            placeholder="Search by month or year…"
+            className="input-field"
+            clearLabel="Clear search"
+            icon={<SearchIcon className="h-4 w-4" />}
+          />
+        </div>
+        <button
+          onClick={e => {
+            setAnchor(e.currentTarget.getBoundingClientRect())
+            setOpen(o => !o)
+          }}
+          className="btn-secondary w-1/4 flex-shrink-0 justify-center whitespace-nowrap md:w-auto"
+        >
+          <ListFilterIcon className="h-4 w-4" />
+          Filter{activeCount > 0 ? ` · ${activeCount}` : ''}
+        </button>
+      </div>
+
+      {open && anchor && (() => {
+        const menuWidth = 220
+        const positionStyle = computeAnchoredPosition(anchor, menuWidth)
+        return (
+          <div
+            ref={ref}
+            role="dialog"
+            aria-label={ariaLabel}
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 space-y-3 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
+          >
+            <div>
+              <label className="label-text">Month</label>
+              <SelectMenu
+                value={filterMonth}
+                onChange={onFilterMonthChange}
+                placeholder="All months"
+                options={MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))}
+                alwaysDown
+              />
+            </div>
+            <div>
+              <label className="label-text">Year</label>
+              <SelectMenu
+                value={filterYear}
+                onChange={onFilterYearChange}
+                placeholder="All years"
+                options={years.map(y => ({ value: String(y), label: String(y) }))}
+                alwaysDown
+              />
+            </div>
+          </div>
+        )
+      })()}
+    </>
   )
 }
 
@@ -416,15 +480,19 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
   )
 }
 
-// Pencil with a couple of small sparkle accents (Lucide's "pencil-sparkles")
-// — a "create/generate" pencil rather than a plain add icon.
+// Lucide's "pencil-sparkles" icon (exact path data) — a "create/generate"
+// pencil rather than a plain add icon.
 function PencilSparklesIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12.174 14.812a1 1 0 0 0-3.986-3.987L2.842 17.174a2 2 0 0 0-.5.83l-.822 2.861a.5.5 0 0 0 .615.615l2.86-.822a2 2 0 0 0 .83-.497z" />
-      <path d="m9 8 2 2" />
-      <path d="M17 3v4M15 5h4" />
-      <path d="M19.5 12v3M18 13.5h3" />
+      <path d="M10 3H8" />
+      <path d="m15.007 5.008 3.987 3.986" />
+      <path d="M20 15v4" />
+      <path d="M21.174 6.813a2.82 2.82 0 0 0-3.986-3.987L3.842 16.175a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+      <path d="M22 17h-4" />
+      <path d="M4 5v4" />
+      <path d="M6 7H2" />
+      <path d="M9 2v2" />
     </svg>
   )
 }

@@ -65,7 +65,7 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.
-        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif']
+        serif: ['Fraunces-Medium', 'ui-serif', 'Georgia', 'serif']
       },
       borderRadius: {
         sm: '4px',

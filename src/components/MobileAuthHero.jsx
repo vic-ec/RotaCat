@@ -8,7 +8,7 @@ import RotaCat from './RotaCat'
 export default function MobileAuthHero() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-canvas-raised px-6">
-      <h1 className="font-serif text-6xl font-bold leading-none text-ink">
+      <h1 className="font-serif text-6xl leading-none text-ink">
         <RotaCat />
       </h1>
       <p className="mt-4 whitespace-nowrap text-[14.7px] text-ink-muted">

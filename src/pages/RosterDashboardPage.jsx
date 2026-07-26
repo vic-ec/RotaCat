@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ClearableInput from '../components/ClearableInput'
+import SelectMenu from '../components/SelectMenu'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -53,6 +56,10 @@ export default function RosterDashboardPage() {
   const [search, setSearch] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [filterYear, setFilterYear] = useState('')
+  const [archiveFiltersOpen, setArchiveFiltersOpen] = useState(false)
+  const [archiveFiltersAnchor, setArchiveFiltersAnchor] = useState(null)
+  const archiveFiltersRef = useRef(null)
+  useDismissablePopover(archiveFiltersOpen, () => setArchiveFiltersOpen(false), archiveFiltersRef)
 
   useEffect(() => {
     loadRosters()
@@ -136,36 +143,33 @@ export default function RosterDashboardPage() {
   return (
     <div className="mx-auto max-w-4xl">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-[1.8rem] font-bold text-ink">Rosters</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Generate, edit, and publish monthly shift rosters
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="font-display text-2xl font-bold text-ink">Rosters</h1>
+      </div>
+
+      <div className="mb-5 flex items-center gap-2">
+        {isAdmin && (
+          <div className="flex flex-1 gap-1 rounded-lg border border-slate-line bg-canvas-raised p-1 md:w-fit md:flex-none">
+            {TABS.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors md:flex-none ${
+                  tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
         {tab === 'active' && (
-          <button onClick={() => navigate('/roster/generate')} className="btn-primary">
-            <PlusIcon className="h-4 w-4" />
-            Generate new roster
+          <button onClick={() => navigate('/roster/generate')} className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto">
+            <PencilSparklesIcon className="h-4 w-4" />
+            Create roster
           </button>
         )}
       </div>
-
-      {isAdmin && (
-        <div className="mb-5 flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-1 w-fit">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {actionError && (
         <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
@@ -205,26 +209,60 @@ export default function RosterDashboardPage() {
 
       {isAdmin && tab === 'archive' && (
         <>
-          <div className="card mb-4 flex flex-wrap items-center gap-3 p-4">
+          <div className="mb-4 flex items-center gap-2">
             <ClearableInput
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by month or year…"
-              className="input-field max-w-xs"
+              className="input-field"
               clearLabel="Clear search"
+              icon={<SearchIcon className="h-4 w-4" />}
             />
-            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="input-field w-auto">
-              <option value="">All months</option>
-              {MONTH_NAMES.slice(1).map((name, i) => (
-                <option key={name} value={i + 1}>{name}</option>
-              ))}
-            </select>
-            <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="input-field w-auto">
-              <option value="">All years</option>
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <button
+              onClick={e => {
+                setArchiveFiltersAnchor(e.currentTarget.getBoundingClientRect())
+                setArchiveFiltersOpen(o => !o)
+              }}
+              className="btn-secondary flex-shrink-0 whitespace-nowrap"
+            >
+              <ListFilterIcon className="h-4 w-4" />
+              Filter{[filterMonth, filterYear].filter(Boolean).length > 0 ? ` · ${[filterMonth, filterYear].filter(Boolean).length}` : ''}
+            </button>
           </div>
+
+          {archiveFiltersOpen && archiveFiltersAnchor && (() => {
+            const menuWidth = 220
+            const positionStyle = computeAnchoredPosition(archiveFiltersAnchor, menuWidth)
+            return (
+              <div
+                ref={archiveFiltersRef}
+                role="dialog"
+                aria-label="Filter archived rosters"
+                style={{ ...positionStyle, width: menuWidth }}
+                className="fixed z-50 space-y-3 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
+              >
+                <div>
+                  <label className="label-text">Month</label>
+                  <SelectMenu
+                    value={filterMonth}
+                    onChange={setFilterMonth}
+                    placeholder="All months"
+                    options={MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))}
+                  />
+                </div>
+                <div>
+                  <label className="label-text">Year</label>
+                  <SelectMenu
+                    value={filterYear}
+                    onChange={setFilterYear}
+                    placeholder="All years"
+                    options={years.map(y => ({ value: String(y), label: String(y) }))}
+                  />
+                </div>
+              </div>
+            )
+          })()}
           <RosterSection
             title="Archived"
             rosters={filteredArchived}
@@ -263,10 +301,11 @@ function EmptyState({ navigate }) {
       <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
       <p className="font-medium text-ink">No rosters yet</p>
       <p className="mt-1 text-sm text-ink-muted">
-        Click "Generate new roster" to create your first one.
+        Click "Create roster" to create your first one.
       </p>
       <button onClick={() => navigate('/roster/generate')} className="btn-primary mx-auto mt-5">
-        Generate new roster
+        <PencilSparklesIcon className="h-4 w-4" />
+        Create roster
       </button>
     </div>
   )
@@ -282,10 +321,10 @@ function RosterFlatList({ rosters, navigate }) {
         <button
           key={roster.id}
           onClick={() => navigate(`/roster/${roster.id}`)}
-          className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-canvas-sunken"
+          className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-canvas-sunken"
         >
           <div>
-            <p className="font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
+            <p className="text-sm font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
             <p className="mt-0.5 text-xs text-ink-muted">Created {formatDate(roster.created_at)}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -348,7 +387,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
       </div>
       <div className="card divide-y divide-slate-line overflow-hidden">
         {rosters.map(roster => (
-          <div key={roster.id} className="flex items-center gap-3 px-5 py-4 transition-colors hover:bg-canvas-sunken">
+          <div key={roster.id} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken">
             <input
               type="checkbox"
               checked={selected.has(roster.id)}
@@ -360,7 +399,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               className="flex flex-1 items-center justify-between text-left"
             >
               <div>
-                <p className="font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
+                <p className="text-sm font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
                 <p className="mt-0.5 text-xs text-ink-muted">{metaFn(roster)}</p>
               </div>
               <div className="flex items-center gap-3">
@@ -377,10 +416,15 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
   )
 }
 
-function PlusIcon(props) {
+// Pencil with a couple of small sparkle accents (Lucide's "pencil-sparkles")
+// — a "create/generate" pencil rather than a plain add icon.
+function PencilSparklesIcon(props) {
   return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12.174 14.812a1 1 0 0 0-3.986-3.987L2.842 17.174a2 2 0 0 0-.5.83l-.822 2.861a.5.5 0 0 0 .615.615l2.86-.822a2 2 0 0 0 .83-.497z" />
+      <path d="m9 8 2 2" />
+      <path d="M17 3v4M15 5h4" />
+      <path d="M19.5 12v3M18 13.5h3" />
     </svg>
   )
 }
@@ -389,6 +433,21 @@ function CalendarIcon(props) {
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  )
+}
+function SearchIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+function ListFilterIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M7 12h10M10 18h4" />
     </svg>
   )
 }

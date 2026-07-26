@@ -147,6 +147,15 @@ function ChevronDownIcon(props) {
   )
 }
 
+function PencilIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .622.622l4.353-1.321a2 2 0 0 0 .83-.497z" />
+      <path d="m15 5 4 4" />
+    </svg>
+  )
+}
+
 function PhoneIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -215,12 +224,15 @@ function TrashIcon(props) {
 }
 
 // Small icon button — used for the header's "edit profile details" trigger
-// and for each Contact row's edit action. Bare chevron (no border/box), the
-// same icon and down-when-closed/up-when-open rotation as the SectionRow
-// accordions elsewhere on the page. Sized to a 24x24 hit area (WCAG 2.5.8's
-// AA minimum) rather than a full 44px target, so it doesn't force these
-// rows taller than the plain-text SectionRow rows below them.
-function EditIconButton({ label, expanded, onClick }) {
+// (chevron, down-when-closed/up-when-open, matching the SectionRow
+// accordions elsewhere on the page) and for each Contact row's edit action
+// (a static pencil — editing a single value rather than expanding a
+// section, so it doesn't need the open/closed rotation). Sized to a 24x24
+// hit area (WCAG 2.5.8's AA minimum) rather than a full 44px target, so it
+// doesn't force these rows taller than the plain-text SectionRow rows below
+// them.
+function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon }) {
+  const isChevron = Icon === ChevronDownIcon
   return (
     <button
       type="button"
@@ -229,7 +241,7 @@ function EditIconButton({ label, expanded, onClick }) {
       aria-expanded={expanded}
       className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <ChevronDownIcon className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? 'rotate-180' : ''}` : ''}`} />
     </button>
   )
 }
@@ -284,7 +296,7 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
             </>
           )}
         </div>
-        {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} />}
+        {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} icon={PencilIcon} />}
       </div>
     </div>
   )
@@ -1064,20 +1076,48 @@ export default function AccountSettingsPage() {
         <div className="card px-5 py-3" ref={profileHeaderRef}>
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="relative flex-shrink-0" ref={photoMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => isOwnAccount && setPhotoMenuOpen(o => !o)}
-                  aria-label={isOwnAccount ? 'Edit profile picture' : undefined}
-                  aria-haspopup={isOwnAccount ? 'menu' : undefined}
-                  aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
-                  disabled={!isOwnAccount}
-                  className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
-                    isOwnAccount ? 'cursor-pointer' : 'cursor-default'
-                  }`}
-                >
-                  <ProfileAvatar profile={profile} size={44} />
-                </button>
+              <div className="relative flex-shrink-0">
+                {/* Scoped to just the avatar button + its own dropdown — not the
+                    StatusPicker below, which needs to be a DOM sibling (not a
+                    descendant) of this ref so clicking it counts as an "outside"
+                    click that closes this menu, instead of being swallowed as
+                    "inside" it. Without that split, the photo menu and the status
+                    menu could both end up open at once. */}
+                <div ref={photoMenuRef} className="contents">
+                  <button
+                    type="button"
+                    onClick={() => isOwnAccount && setPhotoMenuOpen(o => !o)}
+                    aria-label={isOwnAccount ? 'Edit profile picture' : undefined}
+                    aria-haspopup={isOwnAccount ? 'menu' : undefined}
+                    aria-expanded={isOwnAccount ? photoMenuOpen : undefined}
+                    disabled={!isOwnAccount}
+                    className={`relative flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+                      isOwnAccount ? 'cursor-pointer' : 'cursor-default'
+                    }`}
+                  >
+                    <ProfileAvatar profile={profile} size={44} />
+                  </button>
+                  {isOwnAccount && photoMenuOpen && (
+                    <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                      <button
+                        type="button"
+                        onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
+                        className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+                      >
+                        Upload picture
+                      </button>
+                      {profile.avatar_url && (
+                        <button
+                          type="button"
+                          onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
+                          className="block w-full px-3 py-2.5 text-left text-sm text-flagRed hover:bg-flagRed-bg"
+                        >
+                          Delete picture
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <StatusPicker
                   active={adminIsActive}
                   onLeave={isOnLeave}
@@ -1085,26 +1125,6 @@ export default function AccountSettingsPage() {
                   interactive={isOwnAccount}
                   onSetActive={saveActiveStatus}
                 />
-                {isOwnAccount && photoMenuOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
-                    <button
-                      type="button"
-                      onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
-                      className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
-                    >
-                      Upload picture
-                    </button>
-                    {profile.avatar_url && (
-                      <button
-                        type="button"
-                        onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
-                        className="block w-full px-3 py-2.5 text-left text-sm text-flagRed hover:bg-flagRed-bg"
-                      >
-                        Delete picture
-                      </button>
-                    )}
-                  </div>
-                )}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1347,7 +1367,7 @@ export default function AccountSettingsPage() {
           {/* ── Category, Role & Permissions ─────────────────────── */}
           <SectionRow
             icon={<ShieldIcon className="h-5 w-5" />}
-            title="Category, role and permissions"
+            title="Roles & Permissions"
           >
             {isAdmin && (
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-line pb-4">
@@ -1585,7 +1605,6 @@ export default function AccountSettingsPage() {
               profile={{
                 name: profile.name,
                 surname: profile.surname,
-                avatar_url: profile.avatar_url,
                 color_code: colorForm.colorCode,
                 pattern_type: colorForm.patternType,
               }}

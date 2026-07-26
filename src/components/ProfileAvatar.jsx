@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NEUTRAL_AVATAR_COLOR, mutedAvatarColor } from '../lib/color'
+import { NEUTRAL_AVATAR_COLOR, mutedAvatarColor, placeholderAvatarColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
 // Small inline status indicator, meant to sit next to a name/surname (not on
@@ -162,7 +162,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
       style={{
         width: size,
         height: size,
-        backgroundColor: mutedAvatarColor(color),
+        backgroundColor: hasPhoto ? mutedAvatarColor(color) : placeholderAvatarColor(profile?.id),
         fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
       }}
     >

@@ -40,7 +40,7 @@ import { useState } from 'react'
 // type="password" additionally gets a reveal-password eye toggle (to the
 // left of the clear button, both fit within `pr-14` so neither ever
 // overlaps or shifts the field's width as the clear button appears/hides).
-export default function ClearableInput({ value, onChange, onClear, onFocus, onBlur, className = '', clearLabel = 'Clear field', type, ...props }) {
+export default function ClearableInput({ value, onChange, onClear, onFocus, onBlur, className = '', clearLabel = 'Clear field', type, icon, ...props }) {
   const [focused, setFocused] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const handleClear = onClear || (() => onChange({ target: { value: '' } }))
@@ -49,13 +49,18 @@ export default function ClearableInput({ value, onChange, onClear, onFocus, onBl
 
   return (
     <div className="relative">
+      {icon && (
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
+          {icon}
+        </span>
+      )}
       <input
         type={isPassword ? (revealed ? 'text' : 'password') : type}
         value={value}
         onChange={onChange}
         onFocus={e => { setFocused(true); onFocus?.(e) }}
         onBlur={e => { setFocused(false); onBlur?.(e) }}
-        className={`${className} ${isPassword ? 'pr-14' : 'pr-8'}`}
+        className={`${className} ${icon ? 'pl-9' : ''} ${isPassword ? 'pr-14' : 'pr-8'}`}
         {...props}
       />
       {isPassword && (

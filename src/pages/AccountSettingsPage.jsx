@@ -1112,7 +1112,7 @@ export default function AccountSettingsPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <h1 className="font-display text-lg leading-tight text-ink">{profile.name} {profile.surname}</h1>
+                <h1 className="font-display text-lg font-bold leading-tight text-ink">{profile.name} {profile.surname}</h1>
                 <p className="mt-1 text-xs text-ink-muted">
                   {roleCategoryLabel}
                   {permissionLabel && (
@@ -1606,6 +1606,7 @@ export default function AccountSettingsPage() {
                 pattern_type: colorForm.patternType,
               }}
               size={64}
+              ring
             />
             <div>
               <p className="text-sm font-medium text-ink">Profile pattern</p>

@@ -231,7 +231,7 @@ export default function RosterGridPage() {
           >
             <ChevronLeftIcon className="h-4 w-4" /> Rosters
           </button>
-          <h1 className="font-display text-2xl text-ink">
+          <h1 className="font-display text-2xl font-bold text-ink">
             {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
           </h1>
           <div className="mt-1 flex items-center gap-2">

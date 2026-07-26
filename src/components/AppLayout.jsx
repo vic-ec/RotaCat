@@ -163,7 +163,7 @@ export default function AppLayout() {
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
             <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-            <h1 className="font-display text-2xl font-medium text-ink"><RotaCat /></h1>
+            <h1 className="font-display text-2xl font-bold text-ink"><RotaCat /></h1>
           </div>
           {profile && (
             <p className="mt-3 text-center text-xs text-ink-muted">
@@ -223,7 +223,7 @@ export default function AppLayout() {
         <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
           <div className="flex flex-shrink-0 items-center gap-2">
             <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-            <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
+            <span className="font-display text-xl font-bold text-ink"><RotaCat /></span>
           </div>
           <div className="flex min-w-0 items-center gap-3">
             {profile && (
@@ -258,18 +258,26 @@ export default function AppLayout() {
             to={item.to}
             end={item.end ?? false}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center gap-1 py-1.5 text-[11px] font-medium ${
-                isActive ? 'text-accent-dark' : 'text-ink-muted'
+              `flex flex-1 flex-col items-center gap-1 py-1.5 text-[11px] transition-colors ${
+                isActive ? 'font-semibold text-accent' : 'font-medium text-ink-muted'
               }`
             }
           >
-            <span className="relative inline-flex">
-              <item.icon className="h-5 w-5" />
-              {item.to === '/staff' && staffBadgeCount > 0 && (
-                <NavBadge count={staffBadgeCount} />
-              )}
-            </span>
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span
+                  className={`relative inline-flex h-7 w-9 items-center justify-center rounded-full transition-colors ${
+                    isActive ? 'bg-accent-light' : ''
+                  }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.to === '/staff' && staffBadgeCount > 0 && (
+                    <NavBadge count={staffBadgeCount} />
+                  )}
+                </span>
+                {item.label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

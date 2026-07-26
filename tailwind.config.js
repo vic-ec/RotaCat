@@ -4,31 +4,32 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Base palette — calm, clinical, low-glare for early-morning use
+        // Base palette — clinical-operations UI: high-legibility text on a
+        // cool mint-teal ground (RotaCat v2 tokens).
         ink: {
-          DEFAULT: '#0F172A',   // primary text, near-black navy
-          light: '#334155',     // secondary text
-          muted: '#64748B'      // tertiary / placeholder text
+          DEFAULT: '#1F2937',   // primary text
+          light: '#4B5563',     // secondary text
+          muted: '#6B7280'      // tertiary / placeholder text
         },
         canvas: {
-          DEFAULT: '#F7F6F3',   // app background — warm off-white, not stark white
+          DEFAULT: '#EAF5F1',   // app background
           raised: '#FFFFFF',    // cards, panels
-          sunken: '#EFEDE7',     // input backgrounds, table stripes
-          cool: '#F4F6F6'
+          sunken: '#DCEEE7',    // input backgrounds, table stripes
+          cool: '#F1F8F5'
         },
         slate: {
-          line: '#E4E1D8'       // hairline borders
+          line: '#D7E3DF'       // hairline borders
         },
-        // Single confident accent — muted teal, not generic "medical blue"
+        // Single confident accent — teal-blue, not generic "medical blue"
         accent: {
-          DEFAULT: '#0E7C6B',
-          dark: '#0A5F52',
-          light: '#E3F0EC',
-          tint: '#F0F7F5',
+          DEFAULT: '#0F766E',
+          dark: '#115E59',
+          light: '#D7EEE8',
+          tint: '#E6F5F1',
           // Deeper, cooler mint for auth panels/sheets — same family as
           // accent.light but with more presence against white and better
           // contrast for the text sitting on it.
-          panel: '#D3E9E4'
+          panel: '#C7E8E0'
         },
         // Secondary brand accent — warm pink from Lily's collar.
         // Used for links, highlights, and illustrative/marketing touches
@@ -46,21 +47,21 @@ export default {
           bg: '#FBEAE8'
         },
         flagAmber: {
-          DEFAULT: '#B8762E',
-          bg: '#FBF1E3'
+          DEFAULT: '#B7791F',
+          bg: '#FBF1E1'
         },
         flagBlue: {
           DEFAULT: '#3457A6',
           bg: '#EAEEF8'
         },
         success: {
-          DEFAULT: '#2E7D4F',
-          bg: '#E9F4ED'
+          DEFAULT: '#22A06B',
+          bg: '#E3F5EC'
         }
       },
       fontFamily: {
-        display: ['Fraunces', 'serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace']
       },
       borderRadius: {

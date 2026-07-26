@@ -737,11 +737,19 @@ export default function StaffListPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl text-ink">Staff</h1>
+          <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            {activeAccounts.length} staff members on record
-            {isAdmin && pending.length > 0 && ` · ${pending.length} pending approval`}
+            {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
           </p>
+          {isAdmin && pending.length > 0 && (
+            <button
+              onClick={() => setTab('pending')}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success-bg px-3 py-1 text-xs font-medium text-success transition-opacity hover:opacity-80"
+            >
+              <BellIcon className="h-3.5 w-3.5" />
+              {pending.length} pending approval{pending.length === 1 ? '' : 's'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -872,15 +880,18 @@ export default function StaffListPage() {
             <div className="md:hidden">
               {groups.map(group => (
                 <div key={group.key} className="mb-4 last:mb-0">
-                  {group.label && (
+                  {group.label && (() => {
+                    const activeCount = group.items.filter(p => p.is_active).length
+                    return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
                       className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
-                      <span>{group.label} ({group.items.length})</span>
+                      <span>{group.label} <span className="normal-case font-normal">{group.items.length} · {activeCount} active</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
-                  )}
+                    )
+                  })()}
                   {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
@@ -911,18 +922,9 @@ export default function StaffListPage() {
                             />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-sm font-medium text-ink">
-                                {person.name ? `${person.name} ` : ''}{person.surname}
-                              </span>
-                              {person.is_admin && (
-                                <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium text-white ${
-                                  person.is_super_admin ? 'bg-flagBlue' : 'bg-accent'
-                                }`}>
-                                  {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                                </span>
-                              )}
-                            </div>
+                            <span className="block truncate text-sm font-medium text-ink">
+                              {person.name ? `${person.name} ` : ''}{person.surname}
+                            </span>
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
                               <span>{secondaryLabel}</span>
                               {contractTag && (
@@ -935,6 +937,13 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
+                          {person.is_admin && (
+                            <span className={`flex-shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                              person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
+                            }`}>
+                              {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                            </span>
+                          )}
                           {isAdmin && (
                             <button
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
@@ -973,19 +982,22 @@ export default function StaffListPage() {
                 <tbody>
                   {groups.map(group => (
                     <Fragment key={group.key}>
-                      {group.label && (
+                      {group.label && (() => {
+                        const activeCount = group.items.filter(p => p.is_active).length
+                        return (
                         <tr
                           onClick={() => toggleGroupCollapsed(group.key)}
                           className="cursor-pointer bg-canvas-sunken hover:bg-canvas-sunken/70"
                         >
                           <td colSpan={isAdmin ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
-                              <span>{group.label} ({group.items.length})</span>
+                              <span>{group.label} <span className="normal-case font-normal">{group.items.length} · {activeCount} active</span></span>
                               <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
                         </tr>
-                      )}
+                        )
+                      })()}
                       {(!group.label || !collapsedGroups[group.key]) && group.items.map(person => {
                         const isToggling = togglingId === person.id
                         const formattedPhone = formatPhoneDisplay(person.phone)
@@ -1410,6 +1422,15 @@ export default function StaffListPage() {
   )
 }
 
+
+function BellIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8a6 6 0 1 1 12 0c0 4.5 1.5 6 1.5 6h-15S6 12.5 6 8z" />
+      <path strokeLinecap="round" d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  )
+}
 
 function KebabIcon(props) {
   return (

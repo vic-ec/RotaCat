@@ -202,7 +202,7 @@ function RoleModal({ role, onClose }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display text-xl text-ink">Check your email</h2>
+            <h2 className="font-display text-xl font-bold text-ink">Check your email</h2>
             <p className="mt-2 text-sm text-ink-muted">
               We sent a 6-digit code to <span className="font-medium text-ink">{email}</span>.
               Enter it below to confirm your address.

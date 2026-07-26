@@ -12,7 +12,7 @@ export default function PendingApprovalPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="font-display text-xl text-ink">
+          <h2 className="font-display text-xl font-bold text-ink">
             Hi {profile?.name || 'there'}, your account is awaiting approval
           </h2>
           <p className="mt-2 text-sm text-ink-muted">

@@ -1,75 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
-import { NEUTRAL_AVATAR_COLOR } from '../lib/color'
+import { NEUTRAL_AVATAR_COLOR, mutedAvatarColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
-function CheckIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  )
-}
-
-function XIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  )
-}
-
-function LeaveIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a7 7 0 0 1 7 7c0 .34-.02.67-.06 1H5.06A7.03 7.03 0 0 1 5 10a7 7 0 0 1 7-7z" />
-      <path strokeLinecap="round" d="M12 11v10M9 21h6" />
-    </svg>
-  )
-}
-
 // Small inline status indicator, meant to sit next to a name/surname (not on
-// the avatar itself) — green check (active), red circle with a white X
-// (inactive), or an amber circle with a beach-umbrella icon (active but
-// currently on approved leave — amber rather than the teal accent so it
-// doesn't read as another shade of the green "active" badge). Inactive
-// takes priority over on-leave since it's the more permanent state.
+// the avatar itself) — a plain colored dot: green (active), red (inactive),
+// or amber (active but currently on approved leave — amber rather than the
+// teal accent so it doesn't read as another shade of the green "active"
+// dot). Inactive takes priority over on-leave since it's the more permanent
+// state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
-  if (!active) {
-    return (
-      <span
-        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-flagRed ${className}`}
-        style={{ width: size, height: size }}
-        role="img"
-        aria-label="Inactive"
-        title="Inactive"
-      >
-        <XIcon className="h-2.5 w-2.5 text-white" />
-      </span>
-    )
-  }
-  if (onLeave) {
-    return (
-      <span
-        className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-flagAmber ${className}`}
-        style={{ width: size, height: size }}
-        role="img"
-        aria-label="Taking a break"
-        title="Taking a break"
-      >
-        <LeaveIcon className="h-2.5 w-2.5 text-white" />
-      </span>
-    )
-  }
+  const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-flagAmber' : 'bg-success'
+  const label = !active ? 'Inactive' : onLeave ? 'Taking a break' : 'Active'
   return (
     <span
-      className={`inline-flex flex-shrink-0 items-center justify-center rounded-full bg-success ${className}`}
+      className={`inline-flex flex-shrink-0 rounded-full ${colorClass} ${className}`}
       style={{ width: size, height: size }}
       role="img"
-      aria-label="Active"
-      title="Active"
-    >
-      <CheckIcon className="h-2.5 w-2.5 text-white" />
-    </span>
+      aria-label={label}
+      title={label}
+    />
   )
 }
 
@@ -92,7 +41,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
 
-  const badge = <StatusBadge active={active} onLeave={onLeave} size={size} className="border-[0.5px] border-white" />
+  const badge = <StatusBadge active={active} onLeave={onLeave} size={size} className="border-[1.5px] border-white" />
 
   // `flex` (not the default inline/block) on every wrapper here: a plain
   // span/button around an inline-flex child sizes to its *line box*, not the
@@ -156,63 +105,68 @@ function computeInitials(profile) {
 }
 
 // Renders a profile's photo, or a white circle with their initials when
-// there's no photo, ringed either way by their identity colour + pattern —
-// same ring geometry in both cases, so the two only differ in what sits at
-// the centre. The ring tiles the pattern at a narrow-band tile size (rather
-// than tiling across a whole fill) since it's always just a thin band now.
+// there's no photo — filled with a muted (desaturated) tone derived from
+// their identity colour, initials in white on top. A photo simply fills the
+// circle instead.
 //
-// `soloFill` skips all of that and renders a single circle fully filled with
-// colour + pattern instead — used only for the Profile section's tiny blank
-// identity marker shown next to a photo thumbnail, which wants a solid swatch
-// rather than a ring around mostly-white.
-export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true, soloFill = false }) {
+// `ring` restores the old thin colour+pattern ring around a white centre —
+// used only by the Account Settings "Appearance" picker, where the vivid,
+// un-muted colour/pattern needs to stay visible as the thing being edited.
+export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true, ring = false }) {
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
-
-  if (soloFill) {
-    const patternStyle = profile?.pattern_type
-      ? patternBackgroundStyle(profile.pattern_type, color, Math.max(8, Math.round(size / 4)))
-      : null
-    return (
-      <div
-        className={`flex-shrink-0 rounded-full ${className}`}
-        style={{ width: size, height: size, backgroundColor: color, ...patternStyle }}
-      />
-    )
-  }
-
   const initials = computeInitials(profile)
   const hasPhoto = Boolean(profile?.avatar_url)
 
-  // Ring is 1px thinner than a full fill would need, with the freed-up space
-  // going to a thin canvas-coloured border around the inner circle — keeps
-  // the outer size identical whether there's a photo or just initials, and
-  // keeps the inner circle reading clearly against its own ring instead of
-  // blending straight into it.
-  const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
-  const innerBorderWidth = 0.5
-  const patternStyle = profile?.pattern_type
-    ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
-    : null
+  if (ring) {
+    // Ring is 1px thinner than a full fill would need, with the freed-up space
+    // going to a thin canvas-coloured border around the inner circle — keeps
+    // the outer size identical whether there's a photo or just initials, and
+    // keeps the inner circle reading clearly against its own ring instead of
+    // blending straight into it.
+    const ringWidth = Math.max(2, Math.round(size * 0.12) - 1)
+    const innerBorderWidth = 0.5
+    const patternStyle = profile?.pattern_type
+      ? patternBackgroundStyle(profile.pattern_type, color, Math.max(6, Math.round(size / 8)))
+      : null
+
+    return (
+      <div
+        className={`relative flex-shrink-0 rounded-full ${className}`}
+        style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
+      >
+        <div
+          className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-canvas-raised bg-canvas-raised font-medium"
+          style={{
+            borderWidth: innerBorderWidth,
+            color: '#0F172A',
+            fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
+          }}
+        >
+          {hasPhoto ? (
+            <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            showInitials ? initials : null
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
-      className={`relative flex-shrink-0 rounded-full ${className}`}
-      style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
+      className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full font-medium text-white ${className}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: mutedAvatarColor(color),
+        fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
+      }}
     >
-      <div
-        className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-canvas-raised bg-canvas-raised font-medium"
-        style={{
-          borderWidth: innerBorderWidth,
-          color: '#0F172A',
-          fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
-        }}
-      >
-        {hasPhoto ? (
-          <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-        ) : (
-          showInitials ? initials : null
-        )}
-      </div>
+      {hasPhoto ? (
+        <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        showInitials ? initials : null
+      )}
     </div>
   )
 }

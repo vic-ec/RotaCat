@@ -81,7 +81,7 @@ export default function ResetPasswordPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="font-display text-xl text-ink">Password updated</h2>
+          <h2 className="font-display text-xl font-bold text-ink">Password updated</h2>
           <p className="mt-2 text-sm text-ink-muted">
             Your password has been reset. You're signed in — continue to your account.
           </p>
@@ -112,7 +112,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4">
         <div className="w-full max-w-sm rounded-xl border border-accent/50 bg-canvas-raised p-8 text-center shadow-raised">
-          <h2 className="font-display text-xl text-ink">Link expired</h2>
+          <h2 className="font-display text-xl font-bold text-ink">Link expired</h2>
           <p className="mt-2 text-sm text-ink-muted">
             This password reset link is invalid or has expired. Request a new one to continue.
           </p>

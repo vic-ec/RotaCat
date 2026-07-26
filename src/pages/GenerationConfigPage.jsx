@@ -188,7 +188,7 @@ export default function GenerationConfigPage() {
         >
           <ChevronLeftIcon className="h-4 w-4" /> Back to rosters
         </button>
-        <h1 className="font-display text-2xl text-ink">Generate roster</h1>
+        <h1 className="font-display text-2xl font-bold text-ink">Generate roster</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Configure options, review leave, then generate your draft roster.
         </p>

@@ -296,13 +296,13 @@ export default function LoginPage() {
 
         <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
-          <p className="mt-2 text-center text-sm text-ink-light">Get started with your account</p>
+          <p className="mt-2 text-center text-[14.7px] text-ink-light">Get started with your account</p>
 
           <div className="mt-6 flex flex-col gap-4">
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full rounded-lg bg-accent py-6 text-base font-semibold text-white
+              className="w-full rounded-lg bg-accent py-6 text-[14.7px] font-semibold text-white
                 transition-colors hover:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
             >
@@ -311,7 +311,7 @@ export default function LoginPage() {
 
             <Link
               to="/signup"
-              className="w-full rounded-lg border border-accent bg-accent-tint py-6 text-center text-base font-semibold text-accent
+              className="w-full rounded-lg border border-accent bg-accent-tint py-6 text-center text-[14.7px] font-semibold text-accent
                 transition-colors hover:bg-accent-light"
             >
               Sign up
@@ -330,7 +330,7 @@ export default function LoginPage() {
           <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
             <div className="mx-auto w-full max-w-sm text-center">
               <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-              <p className="mt-2 text-base text-ink-light">Get started with your account</p>
+              <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Get started with your account</p>
 
               <div className="mt-8 flex flex-col gap-4">
                 {/* border-2 (transparent here, accent on Sign up) + py-[25px]
@@ -341,17 +341,19 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={openSignInModal}
-                  className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-lg font-semibold text-white
+                  className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-semibold text-white
                     transition-colors hover:bg-accent-dark
-                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
+                    lg:text-[23.1px]"
                 >
                   Sign in
                 </button>
 
                 <Link
                   to="/signup"
-                  className="w-full rounded-lg border-2 border-accent bg-accent-tint py-[25px] text-center text-lg font-semibold text-accent
-                    transition-colors hover:bg-accent-light"
+                  className="w-full rounded-lg border-2 border-accent bg-accent-tint py-[25px] text-center text-[18.9px] font-semibold text-accent
+                    transition-colors hover:bg-accent-light
+                    lg:text-[23.1px]"
                 >
                   Sign up
                 </Link>

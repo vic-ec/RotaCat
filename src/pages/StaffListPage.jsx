@@ -767,7 +767,7 @@ export default function StaffListPage() {
                 value={accountFilters.q}
                 onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
                 placeholder="Surname or first name…"
-                className="input-field h-[42px]"
+                className="input-field"
                 clearLabel="Clear search"
                 icon={<SearchIcon className="h-4 w-4" />}
               />
@@ -795,7 +795,9 @@ export default function StaffListPage() {
                 })}
                 <button
                   onClick={e => openFiltersSheet(e.currentTarget)}
-                  className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium text-ink-light transition-colors hover:text-ink md:flex-none md:px-2.5"
+                  className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
+                    filtersOpen || sheetFilterCount > 0 ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                  }`}
                 >
                   <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
                   Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
@@ -1209,6 +1211,7 @@ export default function StaffListPage() {
                   value={draftFilters.role}
                   onChange={v => setDraftFilters(f => ({ ...f, role: v }))}
                   options={[{ value: 'all', label: 'All' }, ...accountRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+                  alwaysDown
                 />
               </div>
               <div>
@@ -1217,6 +1220,7 @@ export default function StaffListPage() {
                   value={draftFilters.category}
                   onChange={v => setDraftFilters(f => ({ ...f, category: v }))}
                   options={[{ value: 'all', label: 'All' }, ...accountCategoryOptions.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))]}
+                  alwaysDown
                 />
               </div>
               <div>
@@ -1229,6 +1233,7 @@ export default function StaffListPage() {
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
                   ]}
+                  alwaysDown
                 />
               </div>
               <div>
@@ -1241,6 +1246,7 @@ export default function StaffListPage() {
                     { value: 'yes', label: 'Yes' },
                     { value: 'no', label: 'No' },
                   ]}
+                  alwaysDown
                 />
               </div>
             </div>

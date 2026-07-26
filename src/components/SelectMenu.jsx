@@ -26,7 +26,7 @@ function ChevronDownIcon(props) {
 // `options` is an array of `{ value, label }`. `onChange` receives the
 // plain new value (not an event), matching how every caller here already
 // treats these as plain string state, not native <select> change handlers.
-export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '' }) {
+export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '', alwaysDown = false }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -42,7 +42,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
   }
 
   const menuWidth = anchorRect ? Math.max(anchorRect.width, 160) : 160
-  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth) : null
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { forceDown: alwaysDown }) : null
 
   return (
     <div className={`relative ${className}`}>

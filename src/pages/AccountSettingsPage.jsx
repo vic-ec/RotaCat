@@ -1223,6 +1223,13 @@ export default function AccountSettingsPage() {
         {/* ── Contact details ───────────────────────────────────── */}
         <div>
           <GroupLabel>Contact Details</GroupLabel>
+          {/* pt-[3px] pb-[5px] on the phone/email inputs below (same 8px
+              total as the display <p>'s py-1, just redistributed) nudges
+              their text up ~1px — browsers vertically center text inside an
+              <input> using the font's own internal form-control metrics
+              rather than the plain CSS line-height box a <p> uses, so even
+              with an identical border+padding box the two can render the
+              text a hair off from each other. */}
           <div className="card overflow-hidden divide-y divide-slate-line">
             <ContactRow
               icon={<PhoneIcon className="h-5 w-5" />}
@@ -1239,7 +1246,7 @@ export default function AccountSettingsPage() {
                   onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   onClear={() => setPhone('')}
                   placeholder="e.g. (082) 123 4567"
-                  className="input-field"
+                  className="input-field pt-[3px] pb-[5px]"
                   clearLabel="Clear mobile number"
                 />
                 <div className="flex items-center gap-3">
@@ -1270,7 +1277,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field"
+                  className="input-field pt-[3px] pb-[5px]"
                   clearLabel="Clear email address"
                 />
                 <p className="text-xs text-ink-muted">

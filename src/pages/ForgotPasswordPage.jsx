@@ -151,7 +151,7 @@ export default function ForgotPasswordPage() {
               type="submit"
               disabled={submitting}
               className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-                transition-colors hover:bg-accent-dark
+                transition-colors hover:bg-accent-dark active:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                 disabled:opacity-60"
             >
@@ -231,7 +231,7 @@ export default function ForgotPasswordPage() {
                   type="submit"
                   disabled={submitting}
                   className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
-                    transition-colors hover:bg-accent-dark
+                    transition-colors hover:bg-accent-dark active:bg-accent-dark
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                     disabled:opacity-60"
                 >

@@ -239,7 +239,7 @@ function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon
       onClick={onClick}
       aria-label={label}
       aria-expanded={expanded}
-      className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted hover:bg-canvas-sunken hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? 'rotate-180' : ''}` : ''}`} />
     </button>
@@ -325,14 +325,14 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-3 text-left"
+        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
       >
         <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">
           <span className={`block text-sm font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{title}</span>
           {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
         </span>
-        <span className="flex-shrink-0 rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
+        <span className="flex-shrink-0 rounded p-1 text-ink-muted">
           <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
         </span>
       </button>
@@ -1102,7 +1102,7 @@ export default function AccountSettingsPage() {
                       <button
                         type="button"
                         onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}
-                        className="block w-full px-3 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+                        className="block w-full px-3 py-2.5 text-left text-sm text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
                       >
                         Upload picture
                       </button>
@@ -1110,7 +1110,7 @@ export default function AccountSettingsPage() {
                         <button
                           type="button"
                           onClick={() => { setPhotoMenuOpen(false); deleteAvatar() }}
-                          className="block w-full px-3 py-2.5 text-left text-sm text-flagRed hover:bg-flagRed-bg"
+                          className="block w-full px-3 py-2.5 text-left text-sm text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
                         >
                           Delete picture
                         </button>
@@ -1455,7 +1455,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={transferSuperAdmin}
                         disabled={transferSaving}
-                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
                       >
                         {transferSaving ? 'Transferring…' : 'Confirm transfer'}
                       </button>
@@ -1750,7 +1750,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={requestDeletion}
                         disabled={deleteSaving}
-                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white hover:opacity-90"
+                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
                       >
                         {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
                       </button>
@@ -1762,7 +1762,7 @@ export default function AccountSettingsPage() {
                 ) : (
                   <button
                     onClick={() => setDeleteConfirming(true)}
-                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white hover:opacity-90"
+                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
                   >
                     Request account deletion
                   </button>

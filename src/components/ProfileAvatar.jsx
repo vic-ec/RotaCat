@@ -77,7 +77,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
             type="button"
             role="menuitem"
             onClick={e => { e.stopPropagation(); onSetActive(true); setOpen(false) }}
-            className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-canvas-sunken ${active ? 'font-semibold text-success' : 'text-ink'}`}
+            className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken ${active ? 'font-semibold text-success' : 'text-ink'}`}
           >
             Active
           </button>
@@ -85,7 +85,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
             type="button"
             role="menuitem"
             onClick={e => { e.stopPropagation(); onSetActive(false); setOpen(false) }}
-            className={`block w-full px-3 py-1.5 text-left text-xs hover:bg-canvas-sunken ${!active ? 'font-semibold text-flagRed' : 'text-ink'}`}
+            className={`block w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken ${!active ? 'font-semibold text-flagRed' : 'text-ink'}`}
           >
             Inactive
           </button>

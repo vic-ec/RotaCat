@@ -257,7 +257,7 @@ export default function RosterGridPage() {
             <button
               onClick={() => setViewMode('month')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'month' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+                viewMode === 'month' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               Month
@@ -265,7 +265,7 @@ export default function RosterGridPage() {
             <button
               onClick={() => setViewMode('week')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'week' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+                viewMode === 'week' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               Week
@@ -564,7 +564,7 @@ function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, 
             <button
               key={p.id}
               onClick={() => onSelect(p.id)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-canvas-sunken"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
               <span
                 className="h-3 w-3 flex-shrink-0 rounded-full"
@@ -579,7 +579,7 @@ function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, 
           <div className="border-t border-slate-line px-3 py-2">
             <button
               onClick={onRemove}
-              className="w-full rounded py-1.5 text-sm text-flagRed hover:bg-flagRed-bg"
+              className="w-full rounded py-1.5 text-sm text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
             >
               Remove from this slot
             </button>

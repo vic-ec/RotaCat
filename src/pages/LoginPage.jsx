@@ -214,7 +214,7 @@ function SignInForm({ autoFocus = false }) {
         type="submit"
         disabled={submitting}
         className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
-          transition-colors hover:bg-accent-dark
+          transition-colors hover:bg-accent-dark active:bg-accent-dark
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
           disabled:opacity-60
           md:py-3.5 md:text-lg"
@@ -266,7 +266,7 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -303,7 +303,7 @@ export default function LoginPage() {
               type="button"
               onClick={openSignInModal}
               className="w-full rounded-lg bg-accent py-6 text-[14.7px] font-semibold text-white
-                transition-colors hover:bg-accent-dark
+                transition-colors hover:bg-accent-dark active:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
             >
               Sign in
@@ -312,7 +312,7 @@ export default function LoginPage() {
             <Link
               to="/signup"
               className="w-full rounded-lg border border-accent bg-accent-tint py-6 text-center text-[14.7px] font-semibold text-accent
-                transition-colors hover:bg-accent-light"
+                transition-colors hover:bg-accent-light active:bg-accent-light"
             >
               Sign up
             </Link>
@@ -342,7 +342,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={openSignInModal}
                   className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-semibold text-white
-                    transition-colors hover:bg-accent-dark
+                    transition-colors hover:bg-accent-dark active:bg-accent-dark
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                     lg:text-[23.1px]"
                 >
@@ -352,7 +352,7 @@ export default function LoginPage() {
                 <Link
                   to="/signup"
                   className="w-full rounded-lg border-2 border-accent bg-accent-tint py-[25px] text-center text-[18.9px] font-semibold text-accent
-                    transition-colors hover:bg-accent-light
+                    transition-colors hover:bg-accent-light active:bg-accent-light
                     lg:text-[23.1px]"
                 >
                   Sign up

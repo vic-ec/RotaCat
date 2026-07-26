@@ -264,7 +264,7 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
 
           {/* Line 2 (both breakpoints) */}
           <p className="mt-0.5 text-xs text-ink-muted">
-            Registered {registeredDate} at {registeredTime}{' '}
+            Registered {registeredDate} at {registeredTime} with{' '}
             <span className="font-medium text-accent">{email || '—'}</span>
           </p>
         </div>
@@ -287,7 +287,7 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
             onClick={() => setEditingId(isEditing ? null : person.id)}
             className={`${actionButtonClass} border border-accent/50 text-ink-light hover:bg-accent-light`}
           >
-            {isEditing ? 'Cancel' : 'Edit role'}
+            {isEditing ? 'Cancel' : 'Edit'}
           </button>
         </div>
       </div>
@@ -1116,7 +1116,7 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div className="md:max-w-2xl">
+        <div className="md:mx-auto md:max-w-2xl">
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>

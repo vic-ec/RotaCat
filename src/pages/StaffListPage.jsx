@@ -53,9 +53,9 @@ const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 const SORT_MODES = [
-  { key: 'category', label: 'Category' },
-  { key: 'role', label: 'Role' },
-  { key: 'az', label: 'A–Z' },
+  { key: 'category', label: 'Category', Icon: CategoryIcon },
+  { key: 'role', label: 'Role', Icon: RoleIcon },
+  { key: 'az', label: 'A–Z', Icon: AZIcon },
 ]
 
 // Category options for the approval edit panel
@@ -735,61 +735,33 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
-          </p>
-          {isAdmin && pending.length > 0 && (
+      <div className="mb-6">
+        <h1 className="font-display text-[1.8rem] font-bold text-ink">Staff</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
+        </p>
+        {isAdmin && (
+          <div className="mt-2 flex items-center gap-2">
             <button
               onClick={() => setTab('pending')}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success-bg px-3 py-1 text-xs font-medium text-success transition-opacity hover:opacity-80"
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
+              }`}
             >
               <BellIcon className="h-3.5 w-3.5" />
-              {pending.length} pending approval{pending.length === 1 ? '' : 's'}
+              {pending.length} pending request{pending.length === 1 ? '' : 's'}
             </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="mb-5 flex gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 w-fit">
-        <button
-          onClick={() => setTab('accounts')}
-          className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-            tab === 'accounts' ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
-          }`}
-        >
-          All Staff ({activeAccounts.length})
-        </button>
-        {isAdmin && (
-          <button
-            onClick={() => setTab('pending')}
-            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'pending'
-                ? 'bg-accent text-white'
-                : pending.length > 0
-                  ? 'text-flagAmber hover:text-ink'
-                  : 'text-ink-muted opacity-50 hover:text-ink hover:opacity-100'
-            }`}
-          >
-            Pending ({pending.length})
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            onClick={() => setTab('requests')}
-            className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === 'requests'
-                ? 'bg-accent text-white'
-                : accountRequests.length > 0
-                  ? 'text-flagAmber hover:text-ink'
-                  : 'text-ink-muted opacity-50 hover:text-ink hover:opacity-100'
-            }`}
-          >
-            Account requests ({accountRequests.length})
-          </button>
+            <span className="text-ink-muted" aria-hidden="true">•</span>
+            <button
+              onClick={() => setTab('requests')}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
+              }`}
+            >
+              <DoubleExclamationIcon className="h-3.5 w-3.5" />
+              {accountRequests.length} user request{accountRequests.length === 1 ? '' : 's'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -804,13 +776,6 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          <p className="mb-3 text-xs leading-5 text-ink-muted">
-            <StatusBadge active size={14} className="mx-0.5 align-text-bottom" /> Active users can participate in scheduling —{' '}
-            <StatusBadge active={false} size={14} className="mx-0.5 align-text-bottom" /> inactive users and{' '}
-            <StatusBadge active onLeave size={14} className="mx-0.5 align-text-bottom" /> users on leave will be excluded.
-            {isAdmin && ' Admins: change user status by selecting user profiles below.'}
-          </p>
-
           {/* Search + Filters + Sort/group — stacked on mobile, one row on desktop */}
           <div className="mb-4 md:flex md:items-end md:gap-3">
             <div className="md:w-64 md:flex-shrink-0">
@@ -827,20 +792,24 @@ export default function StaffListPage() {
 
             <div className="mt-3 flex items-center justify-between gap-2 md:mt-0 md:flex-1">
               <div className="inline-flex h-[42px] gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1">
-                {SORT_MODES.map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={e => {
-                      setSortMode(opt.key)
-                      if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
-                    }}
-                    className={`w-[4.5rem] rounded text-xs font-medium transition-colors ${
-                      sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
-                    }`}
-                  >
-                    {opt.key === 'az' && sortMode === 'az' && azDirection === 'desc' ? 'Z–A' : opt.label}
-                  </button>
-                ))}
+                {SORT_MODES.map(opt => {
+                  const isDesc = opt.key === 'az' && sortMode === 'az' && azDirection === 'desc'
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={e => {
+                        setSortMode(opt.key)
+                        if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
+                      }}
+                      className={`inline-flex items-center justify-center gap-1 whitespace-nowrap rounded px-2.5 text-xs font-medium transition-colors ${
+                        sortMode === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:text-ink'
+                      }`}
+                    >
+                      <opt.Icon {...(opt.key === 'az' ? { flipped: isDesc } : {})} className="h-3.5 w-3.5 flex-shrink-0" />
+                      {isDesc ? 'Z–A' : opt.label}
+                    </button>
+                  )
+                })}
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1135,6 +1104,13 @@ export default function StaffListPage() {
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
         <div className="md:mx-auto md:max-w-2xl">
+          <button
+            onClick={() => setTab('accounts')}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            All staff
+          </button>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
@@ -1161,7 +1137,14 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
-        <div>
+        <div className="md:mx-auto md:max-w-2xl">
+          <button
+            onClick={() => setTab('accounts')}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            All staff
+          </button>
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No account requests pending review.</p>
@@ -1438,6 +1421,61 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  )
+}
+
+// Two stacked exclamation marks — the "user requests" pillbox's urgency marker.
+function DoubleExclamationIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
+      <rect x="4.5" y="3" width="3" height="12" rx="1.5" />
+      <circle cx="6" cy="19" r="1.75" />
+      <rect x="12.5" y="3" width="3" height="12" rx="1.5" />
+      <circle cx="14" cy="19" r="1.75" />
+    </svg>
+  )
+}
+
+function ArrowLeftIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  )
+}
+
+// Price-tag shape — the "group by category" sort icon.
+function CategoryIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.5 3H5a2 2 0 00-2 2v6.5a2 2 0 00.586 1.414l8.5 8.5a2 2 0 002.828 0l6.086-6.086a2 2 0 000-2.828l-8.5-8.5A2 2 0 0011.5 3z" />
+      <circle cx="8" cy="8" r="1.3" />
+    </svg>
+  )
+}
+
+// Same two-person mark as the bottom-nav Staff icon — the "group by role" sort icon.
+function RoleIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <circle cx="9" cy="8" r="3" />
+      <path strokeLinecap="round" d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 8a3 3 0 100-6M16.5 14c2.5.2 4.5 2.6 4.5 6" />
+    </svg>
+  )
+}
+
+// Small boxed "A/Z" mark — the alphabetical sort icon (flips to Z/A via `flipped`).
+function AZIcon({ flipped, ...props }) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <rect x="3" y="3" width="18" height="18" rx="4" />
+      <text x="12" y="10.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
+        {flipped ? 'Z' : 'A'}
+      </text>
+      <text x="12" y="19" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
+        {flipped ? 'A' : 'Z'}
+      </text>
     </svg>
   )
 }

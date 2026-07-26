@@ -26,3 +26,6 @@ build phase (see `README.md`).
    to active staff and locums. Delivery mechanism is still undecided —
    per-user notification, email, push, or a dedicated in-app messaging
    system — and needs a decision before this can be designed.
+
+6. **First time login** - Account setup should be the landing page for new
+   users signing in for the first time.

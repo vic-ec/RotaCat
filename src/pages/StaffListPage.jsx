@@ -211,17 +211,17 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 }
 
 // One row of the Pending-approval list, with its own Role/Category edit
-// panel. Pulled out into its own component (rather than inlined in the
-// `.map()` above) so it can call useDismissablePopover — a click anywhere
-// outside this row while its edit panel is open closes the panel, the same
-// as every other expandable surface in the app.
+// panel. Unlike the app's other expandable surfaces (which just close on an
+// outside click via useDismissablePopover), this one is modal-like: while
+// open, a full-viewport scrim sits behind it so an outside click both closes
+// it AND is swallowed by the scrim rather than also landing on whatever
+// button happened to be underneath — the template to follow for any future
+// expandable panel that should fully block the rest of the page while open,
+// as opposed to a lightweight popover/accordion.
 function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
-  const rowRef = useRef(null)
   const currentRole     = editEntry.role     ?? person.role     ?? 'doctor'
   const currentCategory = editEntry.category ?? person.category ?? ''
   const currentIsAdmin  = editEntry.isAdmin  ?? person.is_admin ?? false
-
-  useDismissablePopover(isEditing, () => setEditingId(null), rowRef)
 
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
@@ -232,8 +232,10 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
   const registeredDate = person.created_at?.slice(0, 10).split('-').reverse().join('-')
   const registeredTime = person.created_at?.slice(11, 16)
 
+  const actionButtonClass = 'w-[4.5rem] py-1.5 text-center text-xs font-medium rounded'
+
   return (
-    <div ref={rowRef} className="px-5 py-4">
+    <div className="px-5 py-4">
       <div className="md:flex md:items-start md:justify-between md:gap-4">
         <div className="min-w-0 flex-1">
           {/* Mobile: name · category/role, plain text (line 1) */}
@@ -270,89 +272,85 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
         {/* Line 3 on mobile, right-aligned column on desktop */}
         <div className="mt-3 flex items-center gap-2 flex-shrink-0 md:mt-0">
           <button
-            onClick={() => setEditingId(isEditing ? null : person.id)}
-            className="rounded border border-accent/50 px-2.5 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
-          >
-            {isEditing ? 'Cancel' : 'Edit role'}
-          </button>
-          <button
             onClick={() => approveAccount(person)}
-            className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-80"
+            className={`${actionButtonClass} bg-success text-white hover:opacity-80`}
           >
             Approve
           </button>
           <button
             onClick={() => rejectAccount(person.id)}
-            className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed hover:bg-flagRed-bg"
+            className={`${actionButtonClass} border border-flagRed text-flagRed hover:bg-flagRed-bg`}
           >
             Reject
+          </button>
+          <button
+            onClick={() => setEditingId(isEditing ? null : person.id)}
+            className={`${actionButtonClass} border border-accent/50 text-ink-light hover:bg-accent-light`}
+          >
+            {isEditing ? 'Cancel' : 'Edit role'}
           </button>
         </div>
       </div>
 
-      {/* Edit panel */}
+      {/* Edit panel — modal-like: a full-viewport scrim (below, z-40) closes
+          it on any outside click and blocks that click from also reaching
+          whatever it landed on, while the panel itself (z-50) stays in its
+          normal in-flow position rather than becoming a centered dialog. */}
       {isEditing && (
-        <div className="mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
-          <div className="mb-3 flex items-center gap-2 flex-wrap">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[currentRole] || 'bg-canvas-sunken text-ink-muted'}`}>
-              {ROLE_LABELS[currentRole] || currentRole}
-            </span>
-            {currentRole === 'doctor' && currentCategory && (
-              <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
-                {CATEGORY_LABELS[currentCategory] || currentCategory}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
-              <select
-                value={currentRole}
-                onChange={e => setEditData(prev => ({
-                  ...prev,
-                  [person.id]: { ...prev[person.id], role: e.target.value }
-                }))}
-                className="input-field"
-              >
-                <option value="doctor">Doctor</option>
-                <option value="locum">Locum</option>
-                <option value="clerk">Clerk</option>
-              </select>
-            </div>
-            {currentRole === 'doctor' && (
+        <>
+          <div className="fixed inset-0 z-40 bg-ink/10" onClick={() => setEditingId(null)} />
+          <div className="relative z-50 mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
+                <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
                 <select
-                  value={currentCategory}
+                  value={currentRole}
                   onChange={e => setEditData(prev => ({
                     ...prev,
-                    [person.id]: { ...prev[person.id], category: e.target.value || null }
+                    [person.id]: { ...prev[person.id], role: e.target.value }
                   }))}
                   className="input-field"
                 >
-                  <option value="">Select…</option>
-                  {categoryOptionsForRole(currentRole).map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
+                  <option value="doctor">Doctor</option>
+                  <option value="locum">Locum</option>
+                  <option value="clerk">Clerk</option>
                 </select>
               </div>
-            )}
-            {currentRole === 'doctor' && (
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={currentIsAdmin}
-                  onChange={e => setEditData(prev => ({
-                    ...prev,
-                    [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
-                  }))}
-                  className="h-4 w-4 rounded border-slate-line accent-accent"
-                />
-                Admin
-              </label>
-            )}
+              {currentRole === 'doctor' && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
+                  <select
+                    value={currentCategory}
+                    onChange={e => setEditData(prev => ({
+                      ...prev,
+                      [person.id]: { ...prev[person.id], category: e.target.value || null }
+                    }))}
+                    className="input-field"
+                  >
+                    <option value="">Select…</option>
+                    {categoryOptionsForRole(currentRole).map(({ value, label }) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {currentRole === 'doctor' && (
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={currentIsAdmin}
+                    onChange={e => setEditData(prev => ({
+                      ...prev,
+                      [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
+                    }))}
+                    className="h-4 w-4 rounded border-slate-line accent-accent"
+                  />
+                  Admin
+                </label>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
@@ -1118,7 +1116,7 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div>
+        <div className="md:max-w-2xl">
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>

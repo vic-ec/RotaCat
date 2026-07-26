@@ -211,34 +211,40 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* Top bar — mobile only */}
-      <header className="fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-          <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
-        </div>
-        <div className="flex min-w-0 items-center gap-3">
-          {profile && (
-            <span className="min-w-0 truncate text-xs text-ink-muted">
-              Welcome, {profile.name} {profile.surname}
-            </span>
-          )}
-          <button
-            onClick={handleSignOut}
-            title="Sign out"
-            aria-label="Sign out"
-            className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
-          >
-            <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">
-              Sign out
-            </span>
-          </button>
-        </div>
-      </header>
-
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col pb-[54px] pt-[49px] md:pb-0 md:pt-0">
+      <div className="flex min-w-0 flex-1 flex-col pb-[54px] md:pb-0">
+        {/* Top bar — mobile only. `sticky` (in-flow), not `fixed`: a fixed
+            header is positioned against the *layout* viewport, which iOS
+            Safari can desync from the *visual* viewport when the on-screen
+            keyboard opens and the browser auto-scrolls the focused input
+            into view — the header would visually detach/jump as a result.
+            Sticky keeps it anchored within the normal scroll flow instead,
+            which tracks the visual viewport correctly through that. */}
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
+          <div className="flex flex-shrink-0 items-center gap-2">
+            <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
+            <span className="font-display text-xl font-medium text-ink"><RotaCat /></span>
+          </div>
+          <div className="flex min-w-0 items-center gap-3">
+            {profile && (
+              <span className="min-w-0 truncate text-xs text-ink-muted">
+                Welcome, {profile.name} {profile.surname}
+              </span>
+            )}
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              aria-label="Sign out"
+              className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light hover:bg-accent-light"
+            >
+              <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">
+                Sign out
+              </span>
+            </button>
+          </div>
+        </header>
+
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
           <Outlet />
         </main>

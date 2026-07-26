@@ -44,9 +44,11 @@ function SignInForm({ autoFocus = false }) {
 
     setSubmitting(false)
     if (error) {
-      setError(error.message === 'Invalid login credentials'
-        ? 'Incorrect email or password.'
-        : error.message)
+      if (error.message === 'Invalid login credentials') {
+        setError('Incorrect email or password.')
+      } else {
+        setError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
+      }
       return
     }
     navigate('/')

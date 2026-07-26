@@ -138,7 +138,7 @@ function RoleModal({ role, onClose }) {
     setSubmitting(false)
 
     if (error) {
-      setError(error.message)
+      setError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
       return
     }
     setSubmitted(true)

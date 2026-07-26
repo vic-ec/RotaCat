@@ -42,6 +42,15 @@
     transition: background-color 5000s ease-in-out 0s;
   }
 
+  /* Chromium-based Edge injects its own "reveal password" eye icon inside
+     every password field, which stacks with our own custom show/hide
+     button (Login/Signup forms) on top of it. Hide the native one so only
+     ours shows. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
   /* iOS Safari auto-zooms the page on focusing any text input smaller than
      16px, then doesn't zoom back out on blur. Forcing 16px here (mobile
      viewports only, so desktop keeps its smaller text-sm sizing) avoids

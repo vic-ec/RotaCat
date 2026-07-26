@@ -67,7 +67,14 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.
-        serif: ['Fraunces-SemiBold', 'ui-serif', 'Georgia', 'serif']
+        // Google Fonts serves Fraunces as one variable family (wght 400–700),
+        // not a separately-named "SemiBold" static — `Fraunces-SemiBold`
+        // doesn't match anything the <link> in index.html actually loads,
+        // so it silently fell through to the ui-serif/Georgia fallback
+        // instead. The semibold look comes from pairing this family name
+        // with `font-semibold` (font-weight: 600) on each usage, not from
+        // the family name itself.
+        serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif']
       },
       borderRadius: {
         sm: '4px',

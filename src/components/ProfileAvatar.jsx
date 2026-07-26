@@ -41,6 +41,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
 
+  const offset = -Math.round(size * 0.15)
   const badge = <StatusBadge active={active} onLeave={onLeave} size={size} className="border-[1.5px] border-white" />
 
   // `flex` (not the default inline/block) on every wrapper here: a plain
@@ -48,12 +49,15 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
   // child's actual box — with this button's inherited line-height that added
   // ~24px of invisible height around a 12-14px badge, pushing the visible
   // dot up and away from the true bottom-right corner it's meant to hug.
+  // The negative offset lets the badge hang slightly outside the avatar's
+  // edge (like Teams/Outlook's presence badge) rather than sitting flush
+  // inside the corner.
   if (!interactive || !onSetActive) {
-    return <span className="absolute bottom-0 right-0 flex">{badge}</span>
+    return <span className="absolute flex" style={{ bottom: offset, right: offset }}>{badge}</span>
   }
 
   return (
-    <div ref={ref} className="absolute bottom-0 right-0 flex">
+    <div ref={ref} className="absolute flex" style={{ bottom: offset, right: offset }}>
       <button
         type="button"
         onClick={e => { e.stopPropagation(); setOpen(o => !o) }}

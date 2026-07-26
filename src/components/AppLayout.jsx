@@ -163,7 +163,7 @@ export default function AppLayout() {
         <div className="px-5 py-6">
           <div className="flex items-center gap-2">
             <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-            <h1 className="font-display text-2xl font-bold text-ink"><RotaCat /></h1>
+            <h1 className="font-serif text-2xl font-bold text-ink"><RotaCat /></h1>
           </div>
           {profile && (
             <p className="mt-3 text-center text-xs text-ink-muted">
@@ -223,7 +223,7 @@ export default function AppLayout() {
         <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
           <div className="flex flex-shrink-0 items-center gap-2">
             <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-            <span className="font-display text-xl font-bold text-ink"><RotaCat /></span>
+            <span className="font-serif text-xl font-bold text-ink"><RotaCat /></span>
           </div>
           <div className="flex min-w-0 items-center gap-3">
             {profile && (
@@ -245,7 +245,7 @@ export default function AppLayout() {
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main className="min-w-0 flex-1 px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-5">
           <Outlet />
         </main>
       </div>

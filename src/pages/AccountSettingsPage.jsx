@@ -7,6 +7,7 @@ import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import ClearableInput from '../components/ClearableInput'
+import SelectMenu from '../components/SelectMenu'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -92,6 +93,8 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
+const MONTH_OPTIONS = MONTH_NAMES.map((name, i) => ({ value: String(i + 1), label: name }))
 
 function birthdayToDayMonth(iso) {
   if (!iso) return { day: '', month: '' }
@@ -273,7 +276,7 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
                   edge back over the icon; matching box models outright avoids
                   needing any offset math at all.) */}
               {value && href ? (
-                <a href={href} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-accent-dark hover:underline">{value}</a>
+                <a href={href} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">{value}</a>
               ) : (
                 <p className="truncate rounded border border-transparent px-3 py-1 text-sm text-ink">{value || placeholder}</p>
               )}
@@ -1161,30 +1164,23 @@ export default function AccountSettingsPage() {
                 <div>
                   <label className="label-text">Birthday</label>
                   {/* Day + month only — no year, since this only ever needs to
-                      recur annually. Plain selects also sidestep the iOS Safari
-                      bug where native date inputs can render wider than their box
-                      regardless of CSS width. */}
+                      recur annually. SelectMenu (not a native date input)
+                      also sidesteps the iOS Safari bug where native date
+                      inputs can render wider than their box regardless of
+                      CSS width. */}
                   <div className="flex gap-2">
-                    <select
+                    <SelectMenu
                       value={form.birthdayDay}
-                      onChange={e => setBirthdayPart('day', e.target.value)}
-                      className="input-field"
-                    >
-                      <option value="">Day</option>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                    <select
+                      onChange={v => setBirthdayPart('day', v)}
+                      placeholder="Day"
+                      options={DAY_OPTIONS}
+                    />
+                    <SelectMenu
                       value={form.birthdayMonth}
-                      onChange={e => setBirthdayPart('month', e.target.value)}
-                      className="input-field"
-                    >
-                      <option value="">Month</option>
-                      {MONTH_NAMES.map((name, i) => (
-                        <option key={name} value={i + 1}>{name}</option>
-                      ))}
-                    </select>
+                      onChange={v => setBirthdayPart('month', v)}
+                      placeholder="Month"
+                      options={MONTH_OPTIONS}
+                    />
                   </div>
                   {!isOwnAccount && formatBirthdayDisplay(profile.birthday) && (
                     <p className="mt-1 text-xs text-ink-muted">Currently: {formatBirthdayDisplay(profile.birthday)}</p>
@@ -1376,25 +1372,21 @@ export default function AccountSettingsPage() {
           <div className="space-y-4">
             <div>
               <label className="label-text">Role</label>
-              <select
+              <SelectMenu
                 value={adminRole}
-                onChange={e => handleAdminRoleChange(e.target.value)}
-                className="input-field"
-              >
-                {ROLE_OPTIONS.map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+                onChange={handleAdminRoleChange}
+                options={ROLE_OPTIONS}
+              />
             </div>
             {adminRole !== 'clerk' && (
               <div>
                 <label className="label-text">Category</label>
-                <select value={adminCategory} onChange={e => setAdminCategory(e.target.value)} className="input-field">
-                  <option value="">{adminRole === 'locum' ? 'None' : 'Select…'}</option>
-                  {categoryOptionsForRole(adminRole).map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
+                <SelectMenu
+                  value={adminCategory}
+                  onChange={setAdminCategory}
+                  placeholder={adminRole === 'locum' ? 'None' : 'Select…'}
+                  options={categoryOptionsForRole(adminRole)}
+                />
               </div>
             )}
 
@@ -1447,16 +1439,13 @@ export default function AccountSettingsPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <select
+                    <SelectMenu
                       value={transferTargetId}
-                      onChange={e => setTransferTargetId(e.target.value)}
-                      className="input-field w-auto flex-1"
-                    >
-                      <option value="">Transfer to…</option>
-                      {otherAdmins.map(a => (
-                        <option key={a.id} value={a.id}>{a.name} {a.surname}</option>
-                      ))}
-                    </select>
+                      onChange={setTransferTargetId}
+                      placeholder="Transfer to…"
+                      options={otherAdmins.map(a => ({ value: a.id, label: `${a.name} ${a.surname}` }))}
+                      className="flex-1"
+                    />
                     <button
                       onClick={() => setTransferConfirming(true)}
                       disabled={!transferTargetId}
@@ -1511,27 +1500,22 @@ export default function AccountSettingsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="label-text">Change</label>
-                    <select
+                    <SelectMenu
                       value={requestForm.type}
-                      onChange={e => setRequestForm(f => ({ ...f, type: e.target.value, value: '' }))}
-                      className="input-field"
-                    >
-                      <option value="role">Role</option>
-                      {(profile.role === 'doctor' || profile.role === 'locum') && <option value="category">Category</option>}
-                    </select>
+                      onChange={v => setRequestForm(f => ({ ...f, type: v, value: '' }))}
+                      options={[
+                        { value: 'role', label: 'Role' },
+                        ...(profile.role === 'doctor' || profile.role === 'locum' ? [{ value: 'category', label: 'Category' }] : []),
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="label-text">New value</label>
-                    <select
+                    <SelectMenu
                       value={requestForm.value}
-                      onChange={e => setRequestForm(f => ({ ...f, value: e.target.value }))}
-                      className="input-field"
-                    >
-                      <option value="">Select…</option>
-                      {(requestForm.type === 'role' ? ROLE_OPTIONS : categoryOptionsForRole(profile.role)).map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
+                      onChange={v => setRequestForm(f => ({ ...f, value: v }))}
+                      options={requestForm.type === 'role' ? ROLE_OPTIONS : categoryOptionsForRole(profile.role)}
+                    />
                   </div>
                 </div>
                 {requestForm.type === 'role' && profile.role !== 'doctor' && requestForm.value === 'doctor' && (

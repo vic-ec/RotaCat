@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import ClearableInput from '../components/ClearableInput'
+import SelectMenu from '../components/SelectMenu'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 
@@ -309,35 +310,30 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
             <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
-                <select
+                <SelectMenu
                   value={currentRole}
-                  onChange={e => setEditData(prev => ({
+                  onChange={v => setEditData(prev => ({
                     ...prev,
-                    [person.id]: { ...prev[person.id], role: e.target.value }
+                    [person.id]: { ...prev[person.id], role: v }
                   }))}
-                  className="input-field"
-                >
-                  <option value="doctor">Doctor</option>
-                  <option value="locum">Locum</option>
-                  <option value="clerk">Clerk</option>
-                </select>
+                  options={[
+                    { value: 'doctor', label: 'Doctor' },
+                    { value: 'locum', label: 'Locum' },
+                    { value: 'clerk', label: 'Clerk' },
+                  ]}
+                />
               </div>
               {currentRole === 'doctor' && (
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
-                  <select
+                  <SelectMenu
                     value={currentCategory}
-                    onChange={e => setEditData(prev => ({
+                    onChange={v => setEditData(prev => ({
                       ...prev,
-                      [person.id]: { ...prev[person.id], category: e.target.value || null }
+                      [person.id]: { ...prev[person.id], category: v || null }
                     }))}
-                    className="input-field"
-                  >
-                    <option value="">Select…</option>
-                    {categoryOptionsForRole(currentRole).map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
+                    options={categoryOptionsForRole(currentRole)}
+                  />
                 </div>
               )}
               {currentRole === 'doctor' && (
@@ -737,32 +733,33 @@ export default function StaffListPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
         <h1 className="font-display text-[1.8rem] font-bold text-ink">Staff</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
-        </p>
-        {isAdmin && (
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              onClick={() => setTab('pending')}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
-                pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
-              }`}
-            >
-              <BellIcon className="h-3.5 w-3.5" />
-              {pending.length} pending request{pending.length === 1 ? '' : 's'}
-            </button>
-            <span className="text-ink-muted" aria-hidden="true">•</span>
-            <button
-              onClick={() => setTab('requests')}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
-                accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
-              }`}
-            >
-              <DoubleExclamationIcon className="h-3.5 w-3.5" />
-              {accountRequests.length} user request{accountRequests.length === 1 ? '' : 's'}
-            </button>
-          </div>
-        )}
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span className="text-sm text-ink-muted">
+            {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
+          </span>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => setTab('pending')}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                  pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
+                }`}
+              >
+                <BellIcon className="h-3.5 w-3.5" />
+                {pending.length} pending
+              </button>
+              <button
+                onClick={() => setTab('requests')}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 ${
+                  accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
+                }`}
+              >
+                <MailQuestionMarkIcon className="h-3.5 w-3.5" />
+                {accountRequests.length} requests
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {loading && <p className="text-sm text-ink-muted">Loading…</p>}
@@ -856,7 +853,7 @@ export default function StaffListPage() {
                       onClick={() => toggleGroupCollapsed(group.key)}
                       className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted"
                     >
-                      <span>{group.label} <span className="normal-case font-normal">{group.items.length} · {activeCount} active</span></span>
+                      <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
@@ -907,7 +904,7 @@ export default function StaffListPage() {
                             </div>
                           </div>
                           {person.is_admin && (
-                            <span className={`flex-shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                            <span className={`flex flex-shrink-0 items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
                               person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
                             }`}>
                               {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
@@ -960,7 +957,7 @@ export default function StaffListPage() {
                         >
                           <td colSpan={isAdmin ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
-                              <span>{group.label} <span className="normal-case font-normal">{group.items.length} · {activeCount} active</span></span>
+                              <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                               <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
@@ -1220,53 +1217,43 @@ export default function StaffListPage() {
             <div className="space-y-4">
               <div>
                 <label className="label-text">Role</label>
-                <select
+                <SelectMenu
                   value={draftFilters.role}
-                  onChange={e => setDraftFilters(f => ({ ...f, role: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  {accountRoleOptions.map(r => (
-                    <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
-                  ))}
-                </select>
+                  onChange={v => setDraftFilters(f => ({ ...f, role: v }))}
+                  options={[{ value: 'all', label: 'All' }, ...accountRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+                />
               </div>
               <div>
                 <label className="label-text">Category</label>
-                <select
+                <SelectMenu
                   value={draftFilters.category}
-                  onChange={e => setDraftFilters(f => ({ ...f, category: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  {accountCategoryOptions.map(c => (
-                    <option key={c} value={c}>{CATEGORY_LABELS[c] || c}</option>
-                  ))}
-                </select>
+                  onChange={v => setDraftFilters(f => ({ ...f, category: v }))}
+                  options={[{ value: 'all', label: 'All' }, ...accountCategoryOptions.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))]}
+                />
               </div>
               <div>
                 <label className="label-text">Status</label>
-                <select
+                <SelectMenu
                   value={draftFilters.status}
-                  onChange={e => setDraftFilters(f => ({ ...f, status: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                  onChange={v => setDraftFilters(f => ({ ...f, status: v }))}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="label-text">Is Admin</label>
-                <select
+                <SelectMenu
                   value={draftFilters.isAdmin}
-                  onChange={e => setDraftFilters(f => ({ ...f, isAdmin: e.target.value }))}
-                  className="input-field"
-                >
-                  <option value="all">All</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
+                  onChange={v => setDraftFilters(f => ({ ...f, isAdmin: v }))}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' },
+                  ]}
+                />
               </div>
             </div>
             <div className="mt-5 flex gap-2">
@@ -1425,14 +1412,15 @@ function KebabIcon(props) {
   )
 }
 
-// Two stacked exclamation marks — the "user requests" pillbox's urgency marker.
-function DoubleExclamationIcon(props) {
+// Envelope with a "?" badge (Lucide's "mail-question-mark") — the "user
+// requests" pillbox's marker, replacing the earlier double-exclamation mark.
+function MailQuestionMarkIcon(props) {
   return (
-    <svg {...props} viewBox="0 0 24 24" fill="currentColor">
-      <rect x="4.5" y="3" width="3" height="12" rx="1.5" />
-      <circle cx="6" cy="19" r="1.75" />
-      <rect x="12.5" y="3" width="3" height="12" rx="1.5" />
-      <circle cx="14" cy="19" r="1.75" />
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5h-13.5a2.25 2.25 0 00-2.25 2.25v7.5a2.25 2.25 0 002.25 2.25h6.75" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5a2.25 2.25 0 012.25 2.25v2.318M19.5 4.5L13.06 9.12a2.25 2.25 0 01-2.62 0L3.75 4.5" />
+      <circle cx="18.5" cy="18" r="4.5" fill="currentColor" stroke="none" />
+      <text x="18.5" y="20.2" textAnchor="middle" fontSize="6.5" fontWeight="700" fill="white" stroke="none">?</text>
     </svg>
   )
 }

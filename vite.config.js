@@ -16,7 +16,7 @@ export default defineConfig({
         short_name: 'RotaCat',
         description: 'Smart ED shift scheduling app',
         theme_color: '#0F766E',
-        background_color: '#EAF5F1',
+        background_color: '#F3F8F7',
         display: 'standalone',
         orientation: 'portrait-primary',
         scope: '/',

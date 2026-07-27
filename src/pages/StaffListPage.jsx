@@ -856,7 +856,7 @@ export default function StaffListPage() {
               to well under half the grid's own width (matching the table's
               min-w below, not the wider page container), split equally
               between the three. */}
-          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[440px]">
+          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[528px]">
             <div ref={searchWrapRef} className="flex-1">
               {searchOpen ? (
                 <ClearableInput
@@ -865,14 +865,14 @@ export default function StaffListPage() {
                   value={accountFilters.q}
                   onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
                   placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
+                  className="input-field h-[36px] py-1"
                   clearLabel="Clear search"
                   icon={<SearchIcon className="h-4 w-4" />}
                 />
               ) : (
                 <button
                   onClick={() => setSearchOpen(true)}
-                  className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  className={`flex h-[36px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                     accountFilters.q
                       ? 'bg-accent text-white'
                       : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -889,7 +889,7 @@ export default function StaffListPage() {
                 onClick={e => openDesktopSort(e.currentTarget)}
                 aria-haspopup="menu"
                 aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                className={`flex h-[36px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopSortOpen
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -907,7 +907,7 @@ export default function StaffListPage() {
                   whether or not the icon is showing, instead of shifting
                   as the trigger's available width changes. */}
               <div
-                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                className={`relative flex h-[36px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopFilterOpen || sheetFilterCount > 0
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'

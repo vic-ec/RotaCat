@@ -853,12 +853,11 @@ export default function StaffListPage() {
           </div>
 
           {/* Desktop selector switch — Search / Quick Sort / Filter. Capped
-              to the grid's own width (matching the table's min-w below),
-              not the wider page container — Search takes half the row,
-              Quick Sort and Filter split the rest evenly (flex-grow ratios,
-              not fixed %, so they stay proportional at any width). */}
-          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[920px]">
-            <div ref={searchWrapRef} className="flex-[2]">
+              to well under half the grid's own width (matching the table's
+              min-w below, not the wider page container), split equally
+              between the three. */}
+          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[440px]">
+            <div ref={searchWrapRef} className="flex-1">
               {searchOpen ? (
                 <ClearableInput
                   autoFocus
@@ -903,8 +902,12 @@ export default function StaffListPage() {
             </div>
 
             <div className="flex-1">
+              {/* Reset icon is absolutely positioned over the trigger,
+                  not a flex sibling — so "Filter" stays perfectly centered
+                  whether or not the icon is showing, instead of shifting
+                  as the trigger's available width changes. */}
               <div
-                className={`flex h-[30px] w-full items-center justify-between rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopFilterOpen || sheetFilterCount > 0
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -914,24 +917,21 @@ export default function StaffListPage() {
                   onClick={e => openDesktopFilter(e.currentTarget)}
                   aria-haspopup="menu"
                   aria-expanded={desktopFilterOpen}
-                  className="flex h-full flex-1 items-center justify-center gap-1.5 px-2"
+                  className="flex h-full w-full items-center justify-center gap-1.5 px-2"
                 >
                   <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
                   Filter
                   <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {sheetFilterCount > 0 && (
-                  <div className="flex flex-shrink-0 items-center gap-1 pr-1.5">
-                    <span aria-hidden="true" className="opacity-60">·</span>
-                    <button
-                      onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                      aria-label="Reset filters"
-                      title="Reset filters"
-                      className="flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                    >
-                      <ResetIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
+                  >
+                    <ResetIcon className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             </div>

@@ -53,6 +53,9 @@ export default function RosterDashboardPage() {
   const [archiveSel, setArchiveSel] = useState(new Set())
   const [binSel, setBinSel] = useState(new Set())
 
+  const [activeSearch, setActiveSearch] = useState('')
+  const [activeFilterMonth, setActiveFilterMonth] = useState('')
+  const [activeFilterYear, setActiveFilterYear] = useState('')
   const [search, setSearch] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [filterYear, setFilterYear] = useState('')
@@ -131,6 +134,16 @@ export default function RosterDashboardPage() {
   const archived = rosters.filter(r => r.status === 'archived' && !r.deleted_at)
   const binned = [...rosters.filter(r => r.deleted_at)].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at))
 
+  function matchesActiveFilters(r) {
+    if (activeFilterMonth && r.month !== Number(activeFilterMonth)) return false
+    if (activeFilterYear && r.year !== Number(activeFilterYear)) return false
+    if (activeSearch && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(activeSearch.toLowerCase())) return false
+    return true
+  }
+  const activeYears = [...new Set([...drafts, ...published].map(r => r.year))].sort((a, b) => b - a)
+  const filteredDrafts = drafts.filter(matchesActiveFilters)
+  const filteredPublished = published.filter(matchesActiveFilters)
+
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
   const filteredArchived = archived.filter(r => {
     if (filterMonth && r.month !== Number(filterMonth)) return false
@@ -201,23 +214,37 @@ export default function RosterDashboardPage() {
 
       {isAdmin && tab === 'active' && (
         <>
+          {(drafts.length > 0 || published.length > 0) && (
+            <RosterSearchFilter
+              search={activeSearch}
+              onSearchChange={setActiveSearch}
+              filterMonth={activeFilterMonth}
+              onFilterMonthChange={setActiveFilterMonth}
+              filterYear={activeFilterYear}
+              onFilterYearChange={setActiveFilterYear}
+              years={activeYears}
+              ariaLabel="Filter active rosters"
+            />
+          )}
           <RosterSection
             title="Drafts"
-            rosters={drafts}
+            rosters={filteredDrafts}
             selected={draftSel}
             setSelected={setDraftSel}
             navigate={navigate}
             metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
             actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
+            emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
           />
           <RosterSection
             title="Published"
-            rosters={published}
+            rosters={filteredPublished}
             selected={pubSel}
             setSelected={setPubSel}
             navigate={navigate}
             metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
             actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
+            emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
           />
           {drafts.length === 0 && published.length === 0 && (
             <EmptyState navigate={navigate} />

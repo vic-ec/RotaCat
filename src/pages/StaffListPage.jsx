@@ -932,8 +932,8 @@ export default function StaffListPage() {
                 <thead>
                   <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                     <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
-                    <th className="px-2.5 py-2">Surname</th>
                     <th className="px-2.5 py-2">First name</th>
+                    <th className="px-2.5 py-2">Surname</th>
                     <th className="px-2.5 py-2">Role</th>
                     <th className="px-2.5 py-2">Category</th>
                     <th className="px-2.5 py-2">Mobile</th>
@@ -978,8 +978,8 @@ export default function StaffListPage() {
                             <td className="px-2 py-1.5">
                               <ProfileAvatar profile={person} size={28} />
                             </td>
-                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
+                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5">
                               <div className="flex flex-wrap gap-1">
                                 <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>

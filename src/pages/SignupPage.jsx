@@ -489,7 +489,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-accent-tint p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-light active:border-accent active:bg-accent-light"
+                className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-2.5 text-center transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -520,7 +520,7 @@ export default function SignupPage() {
                   <button
                     key={opt.value}
                     onClick={() => setSelectedRole(opt.value)}
-                    className="w-full rounded-xl border-2 border-accent/50 bg-accent-tint p-4 text-left transition-colors hover:border-accent hover:bg-accent-light active:border-accent active:bg-accent-light"
+                    className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-4 text-left transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
                   >
                     <p className="text-base font-semibold text-ink">{opt.label}</p>
                     <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>

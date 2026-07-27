@@ -227,11 +227,18 @@ function SignInForm({ autoFocus = false }) {
 
 // Full-screen backdrop + card carrying the sign-in form — shared by the
 // mobile and desktop "Welcome" landings, both of which trigger it from a
-// "Sign in" choice button. Stays mounted (just hidden via `display:none`)
-// rather than being conditionally rendered, so the email/password fields
-// exist in the DOM from page load — some password managers only scan for
-// fillable fields once at load and never notice ones added later by a
-// modal opening.
+// "Sign in" choice button. Stays mounted rather than being conditionally
+// rendered, so the email/password fields exist in the DOM from page load
+// — some password managers only scan for fillable fields once at load and
+// never notice ones added later by a modal opening. Hidden via
+// opacity/pointer-events instead of `display:none` (`hidden`): a
+// display:none subtree reads as absent to a number of autofill engines —
+// `offsetParent` is null, same as if the fields didn't exist — which
+// defeated the whole point of keeping it mounted for at least one
+// password manager reported not picking up the fields anymore.
+// opacity-0 keeps it laid out and "visible" enough to be discovered,
+// while pointer-events-none stops the invisible backdrop from eating
+// clicks meant for the page underneath.
 function SignInModal({ isOpen, onClose, triggerRef }) {
   useEffect(() => {
     if (!isOpen) return
@@ -252,7 +259,9 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 items-center justify-center bg-ink/65 p-4 backdrop-blur-sm ${isOpen ? 'flex' : 'hidden'}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm ${
+        isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
       onClick={onClose}
       aria-hidden={!isOpen}
     >
@@ -311,8 +320,8 @@ export default function LoginPage() {
 
             <Link
               to="/signup"
-              className="w-full rounded-lg border border-accent bg-accent-tint py-6 text-center text-[14.7px] font-semibold text-accent
-                transition-colors hover:bg-accent-light active:bg-accent-light"
+              className="w-full rounded-lg border border-accent bg-canvas py-6 text-center text-[14.7px] font-semibold text-accent
+                transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
               Sign up
             </Link>
@@ -351,8 +360,8 @@ export default function LoginPage() {
 
                 <Link
                   to="/signup"
-                  className="w-full rounded-lg border-2 border-accent bg-accent-tint py-[25px] text-center text-[18.9px] font-semibold text-accent
-                    transition-colors hover:bg-accent-light active:bg-accent-light
+                  className="w-full rounded-lg border-2 border-accent bg-canvas py-[25px] text-center text-[18.9px] font-semibold text-accent
+                    transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken
                     lg:text-[23.1px]"
                 >
                   Sign up

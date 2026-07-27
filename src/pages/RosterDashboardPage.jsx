@@ -334,7 +334,7 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
   return (
     <>
       <div className="mb-4 flex items-center gap-2">
-        <div className="w-3/4 md:w-auto md:flex-1">
+        <div className="min-w-0 flex-1">
           <ClearableInput
             type="text"
             value={search}
@@ -349,9 +349,13 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
             the pill wide enough to wrap), and the reset icon sits inside
             the pill itself — as a sibling button, not nested inside the
             "Filter" trigger — in the count's old spot, white against the
-            teal active background, once a filter is applied. */}
+            teal active background, once a filter is applied. Sized to its
+            own content (flex-shrink-0, no fixed width fraction) rather than
+            a rigid w-1/4 — a hard fraction left no room for the reset icon
+            once a filter was active, so it spilled out past the row's right
+            edge instead of the pill just growing to fit it. */}
         <div
-          className={`flex w-1/4 flex-shrink-0 items-center gap-1 whitespace-nowrap rounded border text-sm font-medium transition-colors md:w-auto ${
+          className={`flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded border text-sm font-medium transition-colors ${
             filterActive
               ? 'border-transparent bg-accent text-white'
               : 'border-slate-line bg-canvas-raised text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
@@ -362,7 +366,7 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
               setAnchor(e.currentTarget.getBoundingClientRect())
               setOpen(o => !o)
             }}
-            className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap px-4 py-1 md:flex-none"
+            className="flex items-center justify-center gap-1 whitespace-nowrap px-4 py-1"
           >
             <ListFilterIcon className="h-4 w-4" />
             Filter

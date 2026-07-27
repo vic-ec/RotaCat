@@ -14,6 +14,7 @@ import RosterDashboardPage from './pages/RosterDashboardPage'
 import GenerationConfigPage from './pages/GenerationConfigPage'
 import RosterGridPage from './pages/RosterGridPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
+import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 function PendingRoute() {
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="roster/:id" element={<RosterGridPage />} />
 
             <Route path="staff" element={<StaffListPage />} />
+            <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
             <Route path="account" element={<AccountSettingsPage />} />
             <Route path="account/:id" element={<AccountSettingsPage />} />
             <Route

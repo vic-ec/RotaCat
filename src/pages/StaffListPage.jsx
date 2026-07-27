@@ -60,26 +60,6 @@ const SORT_MODES = [
   { key: 'az', label: 'A–Z', Icon: AZIcon },
 ]
 
-// Category options for the approval edit panel
-// Doctor: full clinical set. Locum: MO/Registrar only (drives shift-claim eligibility). Clerk: none.
-const CATEGORY_OPTIONS = [
-  { value: 'MO',         label: 'Medical Officer' },
-  { value: 'Registrar',  label: 'Registrar' },
-  { value: 'COSMO',      label: 'COSMO' },
-  { value: 'COSMOPsych', label: 'COSMO (Psych)' },
-  { value: 'Intern',     label: 'Intern' },
-  { value: 'Consultant', label: 'Consultant' },
-]
-const LOCUM_CATEGORY_OPTIONS = [
-  { value: 'MO',        label: 'Medical Officer' },
-  { value: 'Registrar', label: 'Registrar' },
-]
-function categoryOptionsForRole(role) {
-  if (role === 'doctor') return CATEGORY_OPTIONS
-  if (role === 'locum') return LOCUM_CATEGORY_OPTIONS
-  return []
-}
-
 // Default hours targets per category (admin can override per individual)
 const DEFAULT_HOURS = {
   MO:          { min: 210, max: 246 },
@@ -197,23 +177,12 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
   )
 }
 
-// One row of the Pending-approval list, with its own Role/Category edit
-// panel. Unlike the app's other expandable surfaces (which just close on an
-// outside click via useDismissablePopover), this one is modal-like: while
-// open, a full-viewport invisible click-catcher sits behind it so an
-// outside click both closes it AND is swallowed by the catcher rather than
-// also landing on whatever button happened to be underneath — the template
-// to follow for any future expandable panel that should fully block the
-// rest of the page while open, as opposed to a lightweight popover/
-// accordion. Deliberately no visible scrim tint here (unlike a centered
-// dialog's backdrop) — the panel stays in its normal in-flow position right
-// under the row, so a dimmed background would just read as the whole page
-// going dull rather than as a focused dialog.
-function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId, setEditData, approveAccount, rejectAccount }) {
-  const currentRole     = editEntry.role     ?? person.role     ?? 'doctor'
-  const currentCategory = editEntry.category ?? person.category ?? ''
-  const currentIsAdmin  = editEntry.isAdmin  ?? person.is_admin ?? false
-
+// One row of the Pending-approval list. Selection checkbox feeds the bulk
+// action bar above the list; the kebab opens a single-item menu ("Edit")
+// that navigates to the dedicated review page rather than expanding an
+// inline panel — editing a pending registration's role/category/admin flag
+// now happens on that page, not here.
+function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, menuOpen, onToggleMenu, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
   // role badge instead.
@@ -223,123 +192,90 @@ function PendingApprovalRow({ person, email, isEditing, editEntry, setEditingId,
   const registeredDate = person.created_at?.slice(0, 10).split('-').reverse().join('-')
   const registeredTime = person.created_at?.slice(11, 16)
 
-  const actionButtonClass = 'w-[4.5rem] py-1.5 text-center text-xs font-medium rounded'
-
   return (
     <div className="px-5 py-4">
-      <div className="md:flex md:items-start md:justify-between md:gap-4">
-        <div className="min-w-0 flex-1">
-          {/* Mobile: name · category/role, plain text (line 1) */}
-          <p className="text-sm font-medium text-ink md:hidden">
-            {person.name ? `${person.name} ` : ''}{person.surname}
-            <span className="font-normal text-ink-muted"> · {secondaryLabel}</span>
-          </p>
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggleCheck}
+          aria-label={`Select ${person.name || ''} ${person.surname}`.trim()}
+          className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent md:mt-1"
+        />
+        <ProfileAvatar profile={person} size={32} className="mt-0.5 flex-shrink-0" />
 
-          {/* Desktop: name + pillbox badge */}
-          <div className="hidden items-center gap-2 flex-wrap md:flex">
-            <p className="font-medium text-ink text-sm">
+        <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
+          <div className="min-w-0 flex-1">
+            {/* Mobile: name · category/role, plain text (line 1) */}
+            <p className="text-sm font-medium text-ink md:hidden">
               {person.name ? `${person.name} ` : ''}{person.surname}
+              <span className="font-normal text-ink-muted"> · {secondaryLabel}</span>
             </p>
-            {person.role === 'doctor' ? (
-              person.category && (
-                <span className="rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent">
-                  {CATEGORY_LABELS[person.category] || person.category}
+
+            {/* Desktop: name + pillbox badge */}
+            <div className="hidden items-center gap-2 flex-wrap md:flex">
+              <p className="font-medium text-ink text-sm">
+                {person.name ? `${person.name} ` : ''}{person.surname}
+              </p>
+              {person.role === 'doctor' ? (
+                person.category && (
+                  <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
+                    {CATEGORY_LABELS[person.category] || person.category}
+                  </span>
+                )
+              ) : (
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
+                  {ROLE_LABELS[person.role] || person.role}
                 </span>
-              )
-            ) : (
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                {ROLE_LABELS[person.role] || person.role}
-              </span>
-            )}
-          </div>
-
-          {/* Line 2 (both breakpoints) */}
-          <p className="mt-0.5 text-xs text-ink-muted">
-            Registered {registeredDate} at {registeredTime} with{' '}
-            <span className="font-medium text-accent">{email || '—'}</span>
-          </p>
-        </div>
-
-        {/* Line 3 on mobile, right-aligned column on desktop */}
-        <div className="mt-3 flex items-center gap-2 flex-shrink-0 md:mt-0">
-          <button
-            onClick={() => approveAccount(person)}
-            className={`${actionButtonClass} bg-success text-white transition-opacity hover:opacity-80 active:opacity-80`}
-          >
-            Approve
-          </button>
-          <button
-            onClick={() => rejectAccount(person.id)}
-            className={`${actionButtonClass} border border-flagRed text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg`}
-          >
-            Reject
-          </button>
-          <button
-            onClick={() => setEditingId(isEditing ? null : person.id)}
-            className={`${actionButtonClass} border border-accent/50 text-ink-light transition-colors hover:bg-accent-light active:bg-accent-light`}
-          >
-            {isEditing ? 'Cancel' : 'Edit'}
-          </button>
-        </div>
-      </div>
-
-      {/* Edit panel — modal-like: a full-viewport, invisible click-catcher
-          (below, z-40) closes it on any outside click and blocks that click
-          from also reaching whatever it landed on, while the panel itself
-          (z-50) stays in its normal in-flow position rather than becoming a
-          centered dialog. No background tint on the catcher — see the
-          component doc comment above for why. */}
-      {isEditing && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setEditingId(null)} />
-          <div className="relative z-50 mt-4 rounded-lg border border-accent/25 bg-canvas-sunken p-4">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-muted">Role</label>
-                <SelectMenu
-                  value={currentRole}
-                  onChange={v => setEditData(prev => ({
-                    ...prev,
-                    [person.id]: { ...prev[person.id], role: v }
-                  }))}
-                  options={[
-                    { value: 'doctor', label: 'Doctor' },
-                    { value: 'locum', label: 'Locum' },
-                    { value: 'clerk', label: 'Clerk' },
-                  ]}
-                />
-              </div>
-              {currentRole === 'doctor' && (
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-ink-muted">Category</label>
-                  <SelectMenu
-                    value={currentCategory}
-                    onChange={v => setEditData(prev => ({
-                      ...prev,
-                      [person.id]: { ...prev[person.id], category: v || null }
-                    }))}
-                    options={categoryOptionsForRole(currentRole)}
-                  />
-                </div>
-              )}
-              {currentRole === 'doctor' && (
-                <label className="flex items-center gap-2 text-sm text-ink">
-                  <input
-                    type="checkbox"
-                    checked={currentIsAdmin}
-                    onChange={e => setEditData(prev => ({
-                      ...prev,
-                      [person.id]: { ...prev[person.id], isAdmin: e.target.checked }
-                    }))}
-                    className="h-4 w-4 rounded border-slate-line accent-accent"
-                  />
-                  Admin
-                </label>
               )}
             </div>
+
+            {/* Line 2 (both breakpoints) */}
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Registered {registeredDate} at {registeredTime} with{' '}
+              <span className="font-medium text-accent">{email || '—'}</span>
+            </p>
           </div>
-        </>
-      )}
+
+          {/* Line 3 on mobile, right-aligned column on desktop */}
+          <div className="relative mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
+            <button
+              onClick={() => approveAccount(person)}
+              title="Approve"
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-success text-white transition-opacity hover:opacity-80 active:opacity-80"
+            >
+              <CheckIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => rejectAccount(person.id)}
+              title="Reject"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-flagRed text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
+            >
+              <CloseIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onToggleMenu}
+              title="More"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-line text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            >
+              <KebabIcon className="h-4 w-4" />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={onToggleMenu} />
+                <div className="absolute right-0 top-8 z-50 min-w-[100px] overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                  <button
+                    onClick={onEdit}
+                    className="block w-full px-3.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -352,8 +288,8 @@ export default function StaffListPage() {
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [editingId, setEditingId] = useState(null)
-  const [editData, setEditData] = useState({})
+  const [selectedPendingIds, setSelectedPendingIds] = useState(new Set())
+  const [pendingMenuOpenId, setPendingMenuOpenId] = useState(null)
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
@@ -520,18 +456,18 @@ export default function StaffListPage() {
     setTogglingAdminId(null)
   }
 
-  async function approveAccount(profile) {
-    const ed = editData[profile.id] || {}
-    const role = ed.role ?? profile.role ?? 'doctor'
-    const rawCategory = ed.category ?? profile.category ?? null
+  // Role/category/admin-flag edits now happen on the dedicated pending-review
+  // page (Kebab → Edit) and persist straight to the profiles row, so approval
+  // itself just finalizes whatever is already saved there — no local
+  // editData override to reconcile here anymore.
+  async function approveOne(profile) {
+    const role = profile.role || 'doctor'
+    const rawCategory = profile.category || null
     const category =
       role === 'doctor' ? rawCategory :
       role === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
       null
-    // Locums can't have admin privileges (same rule as clerks) — the edit
-    // panel only exposes the checkbox for doctor, but enforce it here too
-    // in case editData carries a stale isAdmin from before switching roles.
-    const isAdminFlag = role === 'doctor' ? (ed.isAdmin ?? profile.is_admin ?? false) : false
+    const isAdminFlag = role === 'doctor' ? (profile.is_admin ?? false) : false
 
     const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
@@ -554,27 +490,61 @@ export default function StaffListPage() {
     if (error) {
       console.error('Approval failed:', error.message)
       alert('Could not approve account: ' + error.message)
-      return
+      return false
     }
+    return true
+  }
 
-    setEditingId(null)
-    loadAll()
+  async function approveAccount(profile) {
+    if (await approveOne(profile)) loadAll()
+  }
+
+  async function rejectOne(profileId) {
+    const { error } = await supabase.from('profiles').update({
+      is_approved: false,
+      is_active: false,
+      is_rejected: true,
+    }).eq('id', profileId)
+
+    if (error) {
+      console.error('Reject failed:', error.message)
+      alert('Could not reject account: ' + error.message)
+      return false
+    }
+    return true
   }
 
   async function rejectAccount(profileId) {
-  const { error } = await supabase.from('profiles').update({
-    is_approved: false,
-    is_active: false,
-    is_rejected: true,
-  }).eq('id', profileId)
-
-  if (error) {
-    console.error('Reject failed:', error.message)
-    alert('Could not reject account: ' + error.message)
-    return
+    if (await rejectOne(profileId)) loadAll()
   }
-  loadAll()
-}
+
+  function togglePendingSelected(id) {
+    setSelectedPendingIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllPending() {
+    setSelectedPendingIds(prev =>
+      prev.size === pending.length ? new Set() : new Set(pending.map(p => p.id))
+    )
+  }
+
+  async function bulkApprovePending() {
+    const targets = pending.filter(p => selectedPendingIds.has(p.id))
+    setSelectedPendingIds(new Set())
+    await Promise.all(targets.map(approveOne))
+    loadAll()
+  }
+
+  async function bulkRejectPending() {
+    const ids = Array.from(selectedPendingIds)
+    setSelectedPendingIds(new Set())
+    await Promise.all(ids.map(rejectOne))
+    loadAll()
+  }
 
   async function approveRequest(request) {
     setRequestActioningId(request.id)
@@ -932,8 +902,8 @@ export default function StaffListPage() {
                 <thead>
                   <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                     <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
-                    <th className="px-2.5 py-2">Surname</th>
                     <th className="px-2.5 py-2">First name</th>
+                    <th className="px-2.5 py-2">Surname</th>
                     <th className="px-2.5 py-2">Role</th>
                     <th className="px-2.5 py-2">Category</th>
                     <th className="px-2.5 py-2">Mobile</th>
@@ -978,8 +948,8 @@ export default function StaffListPage() {
                             <td className="px-2 py-1.5">
                               <ProfileAvatar profile={person} size={28} />
                             </td>
-                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
+                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5">
                               <div className="flex flex-wrap gap-1">
                                 <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
@@ -1111,21 +1081,58 @@ export default function StaffListPage() {
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
             </div>
           ) : (
-            <div className="card overflow-hidden divide-y divide-slate-line">
-              {pending.map((person) => (
-                <PendingApprovalRow
-                  key={person.id}
-                  person={person}
-                  email={emailById[person.id]}
-                  isEditing={editingId === person.id}
-                  editEntry={editData[person.id] || {}}
-                  setEditingId={setEditingId}
-                  setEditData={setEditData}
-                  approveAccount={approveAccount}
-                  rejectAccount={rejectAccount}
-                />
-              ))}
-            </div>
+            <>
+              {selectedPendingIds.size > 0 && (
+                <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
+                  <span className="flex-1">{selectedPendingIds.size} selected</span>
+                  <button
+                    onClick={bulkApprovePending}
+                    className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85"
+                  >
+                    Approve selected
+                  </button>
+                  <button
+                    onClick={bulkRejectPending}
+                    className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10"
+                  >
+                    Reject selected
+                  </button>
+                  <button
+                    onClick={() => setSelectedPendingIds(new Set())}
+                    className="text-xs font-medium text-white/60 hover:text-white/90"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              <div className="card overflow-hidden divide-y divide-slate-line">
+                <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedPendingIds.size === pending.length}
+                    onChange={toggleSelectAllPending}
+                    aria-label="Select all pending accounts"
+                    className="h-4 w-4 rounded border-slate-line accent-accent"
+                  />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+                </div>
+                {pending.map((person) => (
+                  <PendingApprovalRow
+                    key={person.id}
+                    person={person}
+                    email={emailById[person.id]}
+                    checked={selectedPendingIds.has(person.id)}
+                    onToggleCheck={() => togglePendingSelected(person.id)}
+                    approveAccount={approveAccount}
+                    rejectAccount={rejectAccount}
+                    menuOpen={pendingMenuOpenId === person.id}
+                    onToggleMenu={() => setPendingMenuOpenId(id => (id === person.id ? null : person.id))}
+                    onEdit={() => { setPendingMenuOpenId(null); navigate(`/staff/pending/${person.id}`) }}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1406,6 +1413,22 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
+    </svg>
+  )
+}
+
+function CheckIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12l5 5L19 7" />
+    </svg>
+  )
+}
+
+function CloseIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
 }

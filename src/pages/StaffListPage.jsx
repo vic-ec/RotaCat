@@ -182,7 +182,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // that navigates to the dedicated review page rather than expanding an
 // inline panel — editing a pending registration's role/category/admin flag
 // now happens on that page, not here.
-function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, menuOpen, onToggleMenu, onEdit }) {
+function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, menuOpen, onToggleMenu }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
   // role badge instead.
@@ -238,7 +238,7 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
           </div>
 
           {/* Line 3 on mobile, right-aligned column on desktop */}
-          <div className="relative mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
+          <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
             <button
               onClick={() => approveAccount(person)}
               title="Approve"
@@ -254,25 +254,16 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
               <CloseIcon className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={onToggleMenu}
+              onClick={e => onToggleMenu(e.currentTarget)}
               title="More"
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-line text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+              className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                menuOpen
+                  ? 'border-transparent bg-canvas-sunken text-ink'
+                  : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+              }`}
             >
               <KebabIcon className="h-4 w-4" />
             </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={onToggleMenu} />
-                <div className="absolute right-0 top-8 z-50 min-w-[100px] overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
-                  <button
-                    onClick={onEdit}
-                    className="block w-full px-3.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-                  >
-                    Edit
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -290,6 +281,9 @@ export default function StaffListPage() {
   const [error, setError] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set())
   const [pendingMenuOpenId, setPendingMenuOpenId] = useState(null)
+  const [pendingMenuAnchor, setPendingMenuAnchor] = useState(null)
+  const pendingMenuRef = useRef(null)
+  useDismissablePopover(!!pendingMenuOpenId, () => setPendingMenuOpenId(null), pendingMenuRef)
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
@@ -1127,8 +1121,14 @@ export default function StaffListPage() {
                     approveAccount={approveAccount}
                     rejectAccount={rejectAccount}
                     menuOpen={pendingMenuOpenId === person.id}
-                    onToggleMenu={() => setPendingMenuOpenId(id => (id === person.id ? null : person.id))}
-                    onEdit={() => { setPendingMenuOpenId(null); navigate(`/staff/pending/${person.id}`) }}
+                    onToggleMenu={anchorEl => {
+                      if (pendingMenuOpenId === person.id) {
+                        setPendingMenuOpenId(null)
+                      } else {
+                        setPendingMenuAnchor(anchorEl.getBoundingClientRect())
+                        setPendingMenuOpenId(person.id)
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -1295,6 +1295,32 @@ export default function StaffListPage() {
               expanded={sortMode === 'az' && azDirection === 'desc'}
               onClick={() => pick('desc')}
             />
+          </div>
+        )
+      })()}
+
+      {/* ── Pending-approval row kebab menu — rendered here (fixed,
+           viewport-anchored) rather than inside the row itself: the
+           Pending-approvals list card uses overflow-hidden for its rounded
+           corners/dividers, which clipped an in-row absolutely-positioned
+           dropdown for any row near the card's bottom edge. Same escape as
+           the quick-action popover below. ── */}
+      {pendingMenuOpenId && pendingMenuAnchor && (() => {
+        const menuWidth = 110
+        const positionStyle = computeAnchoredPosition(pendingMenuAnchor, menuWidth)
+        return (
+          <div
+            ref={pendingMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <button
+              onClick={() => { const id = pendingMenuOpenId; setPendingMenuOpenId(null); navigate(`/staff/pending/${id}`) }}
+              className="block w-full px-3.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            >
+              Edit
+            </button>
           </div>
         )
       })()}

@@ -60,11 +60,6 @@ const SORT_MODES = [
   { key: 'az', label: 'A–Z', Icon: AZIcon },
 ]
 
-// Desktop-only selector switch (Search / Quick Sort / Filter) — each
-// switch's width as a fraction of the page, not the full row; single
-// spot to tweak if 20-25% ever needs adjusting.
-const SWITCH_WIDTH_CLASS = 'md:w-[22%]'
-
 // Default hours targets per category (admin can override per individual)
 const DEFAULT_HOURS = {
   MO:          { min: 210, max: 246 },
@@ -369,6 +364,13 @@ export default function StaffListPage() {
   function closeDesktopFilter() {
     setDesktopFilterOpen(false)
     setDesktopFilterAnchor(null)
+    setFilterSecondaryFor(null)
+    setFilterSecondaryAnchor(null)
+  }
+  // Reset icon on the desktop Filter switch itself — clears every filter
+  // and, in case its options flyout happened to be open, closes that too.
+  function resetDesktopFilters() {
+    clearAllFilters()
     setFilterSecondaryFor(null)
     setFilterSecondaryAnchor(null)
   }
@@ -850,11 +852,13 @@ export default function StaffListPage() {
             </div>
           </div>
 
-          {/* Desktop selector switch — Search / Quick Sort / Filter, each
-              sized via SWITCH_WIDTH_CLASS rather than stretched to fill the
-              row. */}
-          <div className="mb-4 hidden items-center gap-3 md:flex">
-            <div ref={searchWrapRef} className={SWITCH_WIDTH_CLASS}>
+          {/* Desktop selector switch — Search / Quick Sort / Filter. Capped
+              to the grid's own width (matching the table's min-w below),
+              not the wider page container — Search takes half the row,
+              Quick Sort and Filter split the rest evenly (flex-grow ratios,
+              not fixed %, so they stay proportional at any width). */}
+          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[920px]">
+            <div ref={searchWrapRef} className="flex-[2]">
               {searchOpen ? (
                 <ClearableInput
                   autoFocus
@@ -862,14 +866,14 @@ export default function StaffListPage() {
                   value={accountFilters.q}
                   onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
                   placeholder="Surname or first name…"
-                  className="input-field h-[42px]"
+                  className="input-field h-[30px] py-1"
                   clearLabel="Clear search"
                   icon={<SearchIcon className="h-4 w-4" />}
                 />
               ) : (
                 <button
                   onClick={() => setSearchOpen(true)}
-                  className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                     accountFilters.q
                       ? 'bg-accent text-white'
                       : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -881,12 +885,12 @@ export default function StaffListPage() {
               )}
             </div>
 
-            <div className={SWITCH_WIDTH_CLASS}>
+            <div className="flex-1">
               <button
                 onClick={e => openDesktopSort(e.currentTarget)}
                 aria-haspopup="menu"
                 aria-expanded={desktopSortOpen}
-                className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopSortOpen
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -898,21 +902,38 @@ export default function StaffListPage() {
               </button>
             </div>
 
-            <div className={SWITCH_WIDTH_CLASS}>
-              <button
-                onClick={e => openDesktopFilter(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopFilterOpen}
-                className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+            <div className="flex-1">
+              <div
+                className={`flex h-[30px] w-full items-center justify-between rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopFilterOpen || sheetFilterCount > 0
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
-                <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                Filter{sheetFilterCount > 0 ? ` (${sheetFilterCount})` : ''}
-                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
-              </button>
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  className="flex h-full flex-1 items-center justify-center gap-1.5 px-2"
+                >
+                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                  Filter
+                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {sheetFilterCount > 0 && (
+                  <div className="flex flex-shrink-0 items-center gap-1 pr-1.5">
+                    <span aria-hidden="true" className="opacity-60">·</span>
+                    <button
+                      onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                      aria-label="Reset filters"
+                      title="Reset filters"
+                      className="flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
+                    >
+                      <ResetIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

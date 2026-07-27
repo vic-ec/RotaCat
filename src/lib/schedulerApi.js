@@ -30,7 +30,7 @@ export async function generateRoster({ year, month, useCarryForward, adminProfil
       month,
       use_carry_forward: useCarryForward,
       created_by: adminProfileId,
-      time_limit_seconds: 60,
+      time_limit_seconds: 180,
     }),
   })
 

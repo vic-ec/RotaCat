@@ -363,10 +363,11 @@ export default function StaffListPage() {
   const [requestActioningId, setRequestActioningId] = useState(null)
 
   // Filters popover — anchored to the Filters button itself, same as the
-  // other popovers on this page, instead of a bottom sheet.
+  // other popovers on this page, instead of a bottom sheet. Saves live
+  // (straight into accountFilters) as each dropdown is picked, matching
+  // the Roster page's filter popovers — no separate Apply/Clear-all step.
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filtersAnchor, setFiltersAnchor] = useState(null)
-  const [draftFilters, setDraftFilters] = useState(accountFilters)
   const filtersMenuRef = useRef(null)
   useDismissablePopover(filtersOpen, () => closeFiltersSheet(), filtersMenuRef)
 
@@ -689,7 +690,6 @@ export default function StaffListPage() {
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
 
   function openFiltersSheet(anchorEl) {
-    setDraftFilters(accountFilters)
     setFiltersAnchor(anchorEl.getBoundingClientRect())
     setFiltersOpen(true)
   }
@@ -697,22 +697,14 @@ export default function StaffListPage() {
     setFiltersOpen(false)
     setFiltersAnchor(null)
   }
-  function applyFilters() {
-    setAccountFilters(draftFilters)
-    closeFiltersSheet()
-  }
-  function clearSheetFilters() {
-    setDraftFilters(f => ({ ...f, role: 'all', category: 'all', status: 'all', isAdmin: 'all' }))
-  }
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   }
-  // The reset icon next to the Filters button — clears everything (search
-  // included) without opening the popover first, unlike "Clear all" inside
-  // it which only resets the dropdown filters.
+  // The reset icon inside the Filters pill — clears everything, search
+  // included (the "Clear filters" button in the no-results empty state
+  // below does the same, just reachable from there instead).
   function resetFiltersNow() {
     clearAllFilters()
-    setDraftFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   }
 
   return (
@@ -1224,8 +1216,8 @@ export default function StaffListPage() {
               <div>
                 <label className="label-text">Role</label>
                 <SelectMenu
-                  value={draftFilters.role}
-                  onChange={v => setDraftFilters(f => ({ ...f, role: v }))}
+                  value={accountFilters.role}
+                  onChange={v => setAccountFilters(f => ({ ...f, role: v }))}
                   options={[{ value: 'all', label: 'All' }, ...accountRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
                   alwaysDown
                 />
@@ -1233,8 +1225,8 @@ export default function StaffListPage() {
               <div>
                 <label className="label-text">Category</label>
                 <SelectMenu
-                  value={draftFilters.category}
-                  onChange={v => setDraftFilters(f => ({ ...f, category: v }))}
+                  value={accountFilters.category}
+                  onChange={v => setAccountFilters(f => ({ ...f, category: v }))}
                   options={[{ value: 'all', label: 'All' }, ...accountCategoryOptions.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))]}
                   alwaysDown
                 />
@@ -1242,8 +1234,8 @@ export default function StaffListPage() {
               <div>
                 <label className="label-text">Status</label>
                 <SelectMenu
-                  value={draftFilters.status}
-                  onChange={v => setDraftFilters(f => ({ ...f, status: v }))}
+                  value={accountFilters.status}
+                  onChange={v => setAccountFilters(f => ({ ...f, status: v }))}
                   options={[
                     { value: 'all', label: 'All' },
                     { value: 'active', label: 'Active' },
@@ -1255,8 +1247,8 @@ export default function StaffListPage() {
               <div>
                 <label className="label-text">Is Admin</label>
                 <SelectMenu
-                  value={draftFilters.isAdmin}
-                  onChange={v => setDraftFilters(f => ({ ...f, isAdmin: v }))}
+                  value={accountFilters.isAdmin}
+                  onChange={v => setAccountFilters(f => ({ ...f, isAdmin: v }))}
                   options={[
                     { value: 'all', label: 'All' },
                     { value: 'yes', label: 'Yes' },
@@ -1265,10 +1257,6 @@ export default function StaffListPage() {
                   alwaysDown
                 />
               </div>
-            </div>
-            <div className="mt-5 flex gap-2">
-              <button onClick={clearSheetFilters} className="btn-secondary flex-1">Clear all</button>
-              <button onClick={applyFilters} className="btn-primary flex-1">Apply</button>
             </div>
           </div>
         )

@@ -321,6 +321,15 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
   const ref = useRef(null)
   useDismissablePopover(open, () => setOpen(false), ref)
   const activeCount = [filterMonth, filterYear].filter(Boolean).length
+  const filterActive = open || activeCount > 0
+
+  // Clears search + both dropdown filters in one go — the reset icon
+  // embedded in the pill below is a full reset, same as the Staff page's.
+  function resetAll() {
+    onSearchChange('')
+    onFilterMonthChange('')
+    onFilterYearChange('')
+  }
 
   return (
     <>
@@ -336,16 +345,39 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
             icon={<SearchIcon className="h-4 w-4" />}
           />
         </div>
-        <button
-          onClick={e => {
-            setAnchor(e.currentTarget.getBoundingClientRect())
-            setOpen(o => !o)
-          }}
-          className="btn-secondary w-1/4 flex-shrink-0 justify-center whitespace-nowrap md:w-auto"
+        {/* Matches the Staff page's Filters pill: no "· N" count (it made
+            the pill wide enough to wrap), and the reset icon sits inside
+            the pill itself — as a sibling button, not nested inside the
+            "Filter" trigger — in the count's old spot, white against the
+            teal active background, once a filter is applied. */}
+        <div
+          className={`flex w-1/4 flex-shrink-0 items-center gap-1 whitespace-nowrap rounded border text-sm font-medium transition-colors md:w-auto ${
+            filterActive
+              ? 'border-transparent bg-accent text-white'
+              : 'border-slate-line bg-canvas-raised text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+          }`}
         >
-          <ListFilterIcon className="h-4 w-4" />
-          Filter{activeCount > 0 ? ` · ${activeCount}` : ''}
-        </button>
+          <button
+            onClick={e => {
+              setAnchor(e.currentTarget.getBoundingClientRect())
+              setOpen(o => !o)
+            }}
+            className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap px-4 py-1 md:flex-none"
+          >
+            <ListFilterIcon className="h-4 w-4" />
+            Filter
+          </button>
+          {activeCount > 0 && (
+            <button
+              onClick={e => { e.stopPropagation(); resetAll() }}
+              aria-label="Reset filters"
+              title="Reset filters"
+              className="mr-1 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
+            >
+              <ResetIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {open && anchor && (() => {
@@ -543,6 +575,14 @@ function ListFilterIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h18M7 12h10M10 18h4" />
+    </svg>
+  )
+}
+function ResetIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
     </svg>
   )
 }

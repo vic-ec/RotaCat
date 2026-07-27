@@ -759,21 +759,10 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Search + Sort/group/Filters — stacked on mobile, one row on desktop */}
+          {/* Sort/group/Filters + Search — stacked on mobile (selector on
+              top, search below), one row on desktop */}
           <div className="mb-4 md:flex md:items-end md:gap-3">
-            <div className="md:w-64 md:flex-shrink-0">
-              <ClearableInput
-                type="text"
-                value={accountFilters.q}
-                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                placeholder="Surname or first name…"
-                className="input-field"
-                clearLabel="Clear search"
-                icon={<SearchIcon className="h-4 w-4" />}
-              />
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 md:mt-0 md:flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 md:flex-1">
               <div className="flex h-[42px] w-full gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 md:w-auto md:flex-1">
                 {SORT_MODES.map(opt => {
                   const isDesc = opt.key === 'az' && sortMode === 'az' && azDirection === 'desc'
@@ -795,29 +784,52 @@ export default function StaffListPage() {
                     </button>
                   )
                 })}
-                <button
-                  onClick={e => openFiltersSheet(e.currentTarget)}
-                  className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
+                {/* The reset icon replaces the "· N" count text (rather than
+                    sitting beside it as its own separate button) — with the
+                    count text, this pill outgrew the row's fixed h-[42px]
+                    band width on mobile and wrapped the whole row onto two
+                    lines. It's a sibling button, not nested inside the
+                    "Filters" trigger — a button-in-a-button isn't valid
+                    HTML, and stopPropagation keeps its own tap from also
+                    toggling the sheet. */}
+                <div
+                  className={`flex flex-1 items-center gap-1 whitespace-nowrap rounded text-xs font-medium transition-colors md:flex-none ${
                     filtersOpen || sheetFilterCount > 0
                       ? 'bg-accent text-white'
                       : 'text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
                   }`}
                 >
-                  <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                  Filters{sheetFilterCount > 0 ? ` · ${sheetFilterCount}` : ''}
-                </button>
+                  <button
+                    onClick={e => openFiltersSheet(e.currentTarget)}
+                    className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap px-1 md:flex-none md:px-2.5"
+                  >
+                    <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                    Filters
+                  </button>
+                  {sheetFilterCount > 0 && (
+                    <button
+                      onClick={e => { e.stopPropagation(); resetFiltersNow() }}
+                      aria-label="Reset filters"
+                      title="Reset filters"
+                      className="flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
+                    >
+                      <ResetIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
+            </div>
 
-              {sheetFilterCount > 0 && (
-                <button
-                  onClick={resetFiltersNow}
-                  aria-label="Reset filters"
-                  title="Reset filters"
-                  className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-lg border border-slate-line bg-canvas-raised text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
-                >
-                  <ResetIcon className="h-4 w-4" />
-                </button>
-              )}
+            <div className="mt-3 md:mt-0 md:w-64 md:flex-shrink-0">
+              <ClearableInput
+                type="text"
+                value={accountFilters.q}
+                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                placeholder="Surname or first name…"
+                className="input-field"
+                clearLabel="Clear search"
+                icon={<SearchIcon className="h-4 w-4" />}
+              />
             </div>
           </div>
 

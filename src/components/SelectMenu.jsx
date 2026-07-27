@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -21,7 +22,17 @@ function ChevronDownIcon(props) {
 // own rect, same math as every other popover in the app) rather than
 // `absolute` inside the trigger — a plain absolute child gets clipped by
 // any `overflow-hidden` ancestor (e.g. the rounded-card row groups on the
-// Account page), which cut the list off before this fix.
+// Account page), which cut the list off before this fix. It's also
+// rendered through a portal straight onto <body>, rather than in place in
+// the component tree — `position: fixed` is only guaranteed to escape
+// ancestor clipping/stacking as long as no ancestor establishes its own
+// containing block (a `transform`, `filter`, etc. anywhere above it), and
+// on Edge/Opera specifically this list was reported rendering clipped by
+// a sibling row's edit panel in the Staff page's pending-approvals list
+// — invisible in a full-page screenshot (which reflows/recomposites the
+// whole page), but visible live. A portal sidesteps the question of what
+// exactly in the ancestor chain triggered it, since <body> has no such
+// ancestors to begin with.
 //
 // `options` is an array of `{ value, label }`. `onChange` receives the
 // plain new value (not an event), matching how every caller here already
@@ -58,7 +69,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>{selected ? selected.label : placeholder}</span>
         <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && positionStyle && (
+      {open && positionStyle && createPortal(
         <div
           ref={menuRef}
           role="listbox"
@@ -81,7 +92,8 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
               {opt.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

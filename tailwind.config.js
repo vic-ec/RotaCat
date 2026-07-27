@@ -14,7 +14,7 @@ export default {
           muted: '#6B7280'      // tertiary / placeholder text
         },
         canvas: {
-          DEFAULT: '#E4EEF0',   // app background
+          DEFAULT: '#EAF3F2',   // app background
           raised: '#FFFFFF',    // cards, panels
           sunken: '#DCEEE7',    // input backgrounds, table stripes
           cool: '#F1F8F5'

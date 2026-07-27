@@ -60,6 +60,11 @@ const SORT_MODES = [
   { key: 'az', label: 'A–Z', Icon: AZIcon },
 ]
 
+// Desktop-only selector switch (Search / Quick Sort / Filter) — each
+// switch's width as a fraction of the page, not the full row; single
+// spot to tweak if 20-25% ever needs adjusting.
+const SWITCH_WIDTH_CLASS = 'md:w-[22%]'
+
 // Default hours targets per category (admin can override per individual)
 const DEFAULT_HOURS = {
   MO:          { min: 210, max: 246 },
@@ -319,7 +324,63 @@ export default function StaffListPage() {
   }, [azDirection])
   const [sortDirectionAnchor, setSortDirectionAnchor] = useState(null)
   const sortDirectionMenuRef = useRef(null)
-  useDismissablePopover(!!sortDirectionAnchor, () => setSortDirectionAnchor(null), sortDirectionMenuRef)
+
+  // ── Desktop-only selector switch: Search / Quick Sort / Filter ──
+  // Entirely separate from the mobile sort pills + search bar above (kept
+  // as-is, now md:hidden) — a compact popover-driven trio replacing them
+  // on wider screens. Quick Sort reads/writes the same sortMode/azDirection
+  // state as mobile and reuses the A–Z direction popover above as its own
+  // cascading secondary; Filter reads/writes the same accountFilters state
+  // as the mobile Filters sheet, just via a different (cascading) UI.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchWrapRef = useRef(null)
+  useDismissablePopover(searchOpen, () => setSearchOpen(false), searchWrapRef)
+
+  const [desktopSortOpen, setDesktopSortOpen] = useState(false)
+  const [desktopSortAnchor, setDesktopSortAnchor] = useState(null)
+  const desktopSortMenuRef = useRef(null)
+  useDismissablePopover(desktopSortOpen, () => closeDesktopSort(), desktopSortMenuRef, [sortDirectionMenuRef])
+  // Exclude the desktop Quick Sort popover too, so clicking a different row
+  // there while the direction popover happens to be open doesn't get
+  // swallowed as an "outside" click on the direction popover first.
+  useDismissablePopover(!!sortDirectionAnchor, () => setSortDirectionAnchor(null), sortDirectionMenuRef, [desktopSortMenuRef])
+
+  const [desktopFilterOpen, setDesktopFilterOpen] = useState(false)
+  const [desktopFilterAnchor, setDesktopFilterAnchor] = useState(null)
+  const desktopFilterMenuRef = useRef(null)
+  const [filterSecondaryFor, setFilterSecondaryFor] = useState(null) // null | 'role' | 'category' | 'status' | 'isAdmin'
+  const [filterSecondaryAnchor, setFilterSecondaryAnchor] = useState(null)
+  const filterSecondaryMenuRef = useRef(null)
+  useDismissablePopover(desktopFilterOpen, () => closeDesktopFilter(), desktopFilterMenuRef, [filterSecondaryMenuRef])
+
+  function openDesktopSort(anchorEl) {
+    setDesktopSortAnchor(anchorEl.getBoundingClientRect())
+    setDesktopSortOpen(true)
+  }
+  function closeDesktopSort() {
+    setDesktopSortOpen(false)
+    setDesktopSortAnchor(null)
+    setSortDirectionAnchor(null)
+  }
+  function openDesktopFilter(anchorEl) {
+    setDesktopFilterAnchor(anchorEl.getBoundingClientRect())
+    setDesktopFilterOpen(true)
+  }
+  function closeDesktopFilter() {
+    setDesktopFilterOpen(false)
+    setDesktopFilterAnchor(null)
+    setFilterSecondaryFor(null)
+    setFilterSecondaryAnchor(null)
+  }
+  // Picking the same filter dimension again closes its options flyout;
+  // picking the other one swaps to it — same cascade as Message/Call below.
+  function toggleFilterSecondary(key, anchorEl) {
+    setFilterSecondaryFor(s => {
+      if (s === key) { setFilterSecondaryAnchor(null); return null }
+      setFilterSecondaryAnchor(anchorEl.getBoundingClientRect())
+      return key
+    })
+  }
 
   // Collapsed state per group section (keyed by group.key), category/role modes only
   const [collapsedGroups, setCollapsedGroups] = useState({})
@@ -715,9 +776,9 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Sort/group/Filters + Search — stacked on mobile (selector on
-              top, search below), one row on desktop */}
-          <div className="mb-4 md:flex md:items-end md:gap-3">
+          {/* Sort/group/Filters + Search — mobile only now; desktop uses
+              the Search/Quick Sort/Filter selector switch below instead. */}
+          <div className="mb-4 md:hidden">
             <div className="flex flex-wrap items-center gap-1.5 md:flex-1">
               <div className="flex h-[42px] w-full gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 md:w-auto md:flex-1">
                 {SORT_MODES.map(opt => {
@@ -786,6 +847,72 @@ export default function StaffListPage() {
                 clearLabel="Clear search"
                 icon={<SearchIcon className="h-4 w-4" />}
               />
+            </div>
+          </div>
+
+          {/* Desktop selector switch — Search / Quick Sort / Filter, each
+              sized via SWITCH_WIDTH_CLASS rather than stretched to fill the
+              row. */}
+          <div className="mb-4 hidden items-center gap-3 md:flex">
+            <div ref={searchWrapRef} className={SWITCH_WIDTH_CLASS}>
+              {searchOpen ? (
+                <ClearableInput
+                  autoFocus
+                  type="text"
+                  value={accountFilters.q}
+                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                  placeholder="Surname or first name…"
+                  className="input-field h-[42px]"
+                  clearLabel="Clear search"
+                  icon={<SearchIcon className="h-4 w-4" />}
+                />
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                    accountFilters.q
+                      ? 'bg-accent text-white'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                  }`}
+                >
+                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                  Search
+                </button>
+              )}
+            </div>
+
+            <div className={SWITCH_WIDTH_CLASS}>
+              <button
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ZapIcon className="h-4 w-4 flex-shrink-0" />
+                Quick Sort
+                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            <div className={SWITCH_WIDTH_CLASS}>
+              <button
+                onClick={e => openDesktopFilter(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopFilterOpen}
+                className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopFilterOpen || sheetFilterCount > 0
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                Filter{sheetFilterCount > 0 ? ` (${sheetFilterCount})` : ''}
+                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
+              </button>
             </div>
           </div>
 
@@ -1277,6 +1404,7 @@ export default function StaffListPage() {
           setSortMode('az')
           setAzDirection(direction)
           setSortDirectionAnchor(null)
+          setDesktopSortOpen(false) // no-op when opened from the mobile pill row
         }
         return (
           <div
@@ -1295,6 +1423,146 @@ export default function StaffListPage() {
               expanded={sortMode === 'az' && azDirection === 'desc'}
               onClick={() => pick('desc')}
             />
+          </div>
+        )
+      })()}
+
+      {/* ── Desktop Quick Sort popover (primary) — Category/Role select
+           instantly and close, same as the mobile pills; A–Z instead opens
+           the direction popover above as a secondary cascading on top,
+           leaving this primary menu open behind it. ── */}
+      {desktopSortOpen && desktopSortAnchor && (() => {
+        const menuWidth = 200
+        const positionStyle = computeAnchoredPosition(desktopSortAnchor, menuWidth)
+        const isDesc = sortMode === 'az' && azDirection === 'desc'
+        return (
+          <div
+            ref={desktopSortMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <QuickActionRow
+              icon={<CategoryIcon className="h-5 w-5" />}
+              label="Category"
+              expanded={sortMode === 'category'}
+              onClick={() => { setSortMode('category'); closeDesktopSort() }}
+            />
+            <QuickActionRow
+              icon={<RoleIcon className="h-5 w-5" />}
+              label="Role"
+              expanded={sortMode === 'role'}
+              onClick={() => { setSortMode('role'); closeDesktopSort() }}
+            />
+            <QuickActionRow
+              icon={<AZIcon flipped={isDesc} className="h-5 w-5" />}
+              label={isDesc ? 'Z–A' : 'A–Z'}
+              expandable
+              expanded={!!sortDirectionAnchor}
+              onClick={e => { setSortMode('az'); setSortDirectionAnchor(e.currentTarget.getBoundingClientRect()) }}
+            />
+          </div>
+        )
+      })()}
+
+      {/* ── Desktop Filter popover (primary) — Role/Category/Status/Is Admin,
+           each opening its own options flyout below as a secondary cascading
+           on top of this menu (same pattern as the quick-action Message/Call
+           flyout further down). Independent of the mobile Filters sheet
+           above — both just read/write the same accountFilters state. ── */}
+      {desktopFilterOpen && desktopFilterAnchor && (() => {
+        const menuWidth = 220
+        const positionStyle = computeAnchoredPosition(desktopFilterAnchor, menuWidth)
+        const roleLabel = accountFilters.role === 'all' ? 'All' : (ROLE_LABELS[accountFilters.role] || accountFilters.role)
+        const categoryLabel = accountFilters.category === 'all' ? 'All' : (CATEGORY_LABELS[accountFilters.category] || accountFilters.category)
+        const statusLabel = accountFilters.status === 'all' ? 'All' : accountFilters.status === 'active' ? 'Active' : 'Inactive'
+        const isAdminLabel = accountFilters.isAdmin === 'all' ? 'All' : accountFilters.isAdmin === 'yes' ? 'Yes' : 'No'
+        return (
+          <div
+            ref={desktopFilterMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <QuickActionRow
+              icon={<RoleIcon className="h-5 w-5" />}
+              label={`Role · ${roleLabel}`}
+              expandable
+              expanded={filterSecondaryFor === 'role'}
+              onClick={e => toggleFilterSecondary('role', e.currentTarget)}
+            />
+            <QuickActionRow
+              icon={<CategoryIcon className="h-5 w-5" />}
+              label={`Category · ${categoryLabel}`}
+              expandable
+              expanded={filterSecondaryFor === 'category'}
+              onClick={e => toggleFilterSecondary('category', e.currentTarget)}
+            />
+            <QuickActionRow
+              icon={<UserSearchIcon className="h-5 w-5" />}
+              label={`Status · ${statusLabel}`}
+              expandable
+              expanded={filterSecondaryFor === 'status'}
+              onClick={e => toggleFilterSecondary('status', e.currentTarget)}
+            />
+            <QuickActionRow
+              icon={<UserStarIcon className="h-5 w-5" />}
+              label={`Is Admin · ${isAdminLabel}`}
+              expandable
+              expanded={filterSecondaryFor === 'isAdmin'}
+              onClick={e => toggleFilterSecondary('isAdmin', e.currentTarget)}
+            />
+            {sheetFilterCount > 0 && (
+              <div className="mt-1 border-t border-slate-line px-4 pt-2">
+                <button
+                  onClick={() => { clearAllFilters(); setFilterSecondaryFor(null) }}
+                  className="flex items-center gap-1.5 py-1 text-xs font-medium text-ink-light hover:text-ink"
+                >
+                  <ResetIcon className="h-3.5 w-3.5" />
+                  Reset filters
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Desktop Filter secondary flyout — cascades beside whichever
+           dimension row was tapped, listing its actual values (Category can
+           run long, so it scrolls; the other three are short). ── */}
+      {desktopFilterOpen && filterSecondaryFor && filterSecondaryAnchor && (() => {
+        const menuWidth = 200
+        const positionStyle = computeFlyoutPosition(filterSecondaryAnchor, menuWidth)
+        const optionSets = {
+          role: [{ value: 'all', label: 'All' }, ...accountRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
+          category: [{ value: 'all', label: 'All' }, ...accountCategoryOptions.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))],
+          status: [{ value: 'all', label: 'All' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }],
+          isAdmin: [{ value: 'all', label: 'All' }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
+        }
+        const options = optionSets[filterSecondaryFor]
+        return (
+          <div
+            ref={filterSecondaryMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            {options.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  setAccountFilters(f => ({ ...f, [filterSecondaryFor]: opt.value }))
+                  setFilterSecondaryFor(null)
+                }}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === accountFilters[filterSecondaryFor]
+                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         )
       })()}
@@ -1539,6 +1807,38 @@ function ListFilterIcon(props) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h18M7 12h10M10 18h4" />
+    </svg>
+  )
+}
+
+// Lightning bolt — the Quick Sort switch's icon.
+function ZapIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+    </svg>
+  )
+}
+
+// Person + magnifying glass — the Filter menu's "Status" row icon.
+function UserSearchIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="7" r="3.5" />
+      <path d="M3 20c0-3.6 3-6.5 7-6.5.9 0 1.77.15 2.57.43" />
+      <circle cx="17" cy="17" r="3" />
+      <path d="M19.5 19.5 22 22" />
+    </svg>
+  )
+}
+
+// Person + star badge — the Filter menu's "Is Admin" row icon.
+function UserStarIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" />
+      <path d="M18.5 12.5l1.05 2.13 2.35.34-1.7 1.66.4 2.34-2.1-1.1-2.1 1.1.4-2.34-1.7-1.66 2.35-.34z" fill="currentColor" stroke="none" />
     </svg>
   )
 }

@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import ClearableInput from '../components/ClearableInput'
-import SelectMenu from '../components/SelectMenu'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
@@ -54,11 +53,6 @@ const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
 
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
-const SORT_MODES = [
-  { key: 'category', label: 'Category', Icon: CategoryIcon },
-  { key: 'role', label: 'Role', Icon: RoleIcon },
-  { key: 'az', label: 'A–Z', Icon: AZIcon },
-]
 
 // Default hours targets per category (admin can override per individual)
 const DEFAULT_HOURS = {
@@ -292,15 +286,6 @@ export default function StaffListPage() {
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
 
-  // Filters popover — anchored to the Filters button itself, same as the
-  // other popovers on this page, instead of a bottom sheet. Saves live
-  // (straight into accountFilters) as each dropdown is picked, matching
-  // the Roster page's filter popovers — no separate Apply/Clear-all step.
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [filtersAnchor, setFiltersAnchor] = useState(null)
-  const filtersMenuRef = useRef(null)
-  useDismissablePopover(filtersOpen, () => closeFiltersSheet(), filtersMenuRef)
-
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
     try { return localStorage.getItem(SORT_MODE_KEY) || 'category' } catch { return 'category' }
@@ -320,16 +305,20 @@ export default function StaffListPage() {
   const [sortDirectionAnchor, setSortDirectionAnchor] = useState(null)
   const sortDirectionMenuRef = useRef(null)
 
-  // ── Desktop-only selector switch: Search / Quick Sort / Filter ──
-  // Entirely separate from the mobile sort pills + search bar above (kept
-  // as-is, now md:hidden) — a compact popover-driven trio replacing them
-  // on wider screens. Quick Sort reads/writes the same sortMode/azDirection
-  // state as mobile and reuses the A–Z direction popover above as its own
-  // cascading secondary; Filter reads/writes the same accountFilters state
-  // as the mobile Filters sheet, just via a different (cascading) UI.
+  // ── Selector switch: Search / Quick Sort / Filter ──
+  // One shared set of state/popovers for both breakpoints — mobile and
+  // desktop each render their own copy of the trigger buttons (shown/hidden
+  // via CSS, not conditional rendering, so both exist in the DOM at once,
+  // but only one is ever visible/interactive). Quick Sort reads/writes the
+  // same sortMode/azDirection state used by buildGroups() and reuses the
+  // A–Z direction popover as its own cascading secondary; Filter reads/
+  // writes the same accountFilters state the grid itself filters on.
+  // Only the Search wrapper needs its own ref per breakpoint, since a
+  // single ref can't track two simultaneously-mounted DOM nodes.
   const [searchOpen, setSearchOpen] = useState(false)
   const searchWrapRef = useRef(null)
-  useDismissablePopover(searchOpen, () => setSearchOpen(false), searchWrapRef)
+  const mobileSearchWrapRef = useRef(null)
+  useDismissablePopover(searchOpen, () => setSearchOpen(false), searchWrapRef, [mobileSearchWrapRef])
 
   const [desktopSortOpen, setDesktopSortOpen] = useState(false)
   const [desktopSortAnchor, setDesktopSortAnchor] = useState(null)
@@ -716,22 +705,8 @@ export default function StaffListPage() {
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
 
-  function openFiltersSheet(anchorEl) {
-    setFiltersAnchor(anchorEl.getBoundingClientRect())
-    setFiltersOpen(true)
-  }
-  function closeFiltersSheet() {
-    setFiltersOpen(false)
-    setFiltersAnchor(null)
-  }
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
-  }
-  // The reset icon inside the Filters pill — clears everything, search
-  // included (the "Clear filters" button in the no-results empty state
-  // below does the same, just reachable from there instead).
-  function resetFiltersNow() {
-    clearAllFilters()
   }
 
   return (
@@ -778,77 +753,87 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Sort/group/Filters + Search — mobile only now; desktop uses
-              the Search/Quick Sort/Filter selector switch below instead. */}
-          <div className="mb-4 md:hidden">
-            <div className="flex flex-wrap items-center gap-1.5 md:flex-1">
-              <div className="flex h-[42px] w-full gap-1 rounded-lg border border-accent/25 bg-canvas-raised p-1 md:w-auto md:flex-1">
-                {SORT_MODES.map(opt => {
-                  const isDesc = opt.key === 'az' && sortMode === 'az' && azDirection === 'desc'
-                  return (
-                    <button
-                      key={opt.key}
-                      onClick={e => {
-                        setSortMode(opt.key)
-                        if (opt.key === 'az') setSortDirectionAnchor(e.currentTarget.getBoundingClientRect())
-                      }}
-                      className={`flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded px-1 text-xs font-medium transition-colors md:flex-none md:px-2.5 ${
-                        sortMode === opt.key
-                          ? 'bg-accent text-white'
-                          : 'text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
-                      }`}
-                    >
-                      <opt.Icon {...(opt.key === 'az' ? { flipped: isDesc } : {})} className="h-3.5 w-3.5 flex-shrink-0" />
-                      {isDesc ? 'Z–A' : opt.label}
-                    </button>
-                  )
-                })}
-                {/* The reset icon replaces the "· N" count text (rather than
-                    sitting beside it as its own separate button) — with the
-                    count text, this pill outgrew the row's fixed h-[42px]
-                    band width on mobile and wrapped the whole row onto two
-                    lines. It's a sibling button, not nested inside the
-                    "Filters" trigger — a button-in-a-button isn't valid
-                    HTML, and stopPropagation keeps its own tap from also
-                    toggling the sheet. */}
-                <div
-                  className={`flex flex-1 items-center gap-1 whitespace-nowrap rounded text-xs font-medium transition-colors md:flex-none ${
-                    filtersOpen || sheetFilterCount > 0
+          {/* Mobile selector switch — Search / Quick Sort / Filter, each a
+              third of the screen width. Shares state/popovers with the
+              desktop switch below (only the visible copy is ever
+              interactive), so picking anything here behaves identically. */}
+          <div className="mb-4 flex items-center gap-2 md:hidden">
+            <div ref={mobileSearchWrapRef} className="w-1/3">
+              {searchOpen ? (
+                <ClearableInput
+                  autoFocus
+                  type="text"
+                  value={accountFilters.q}
+                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                  placeholder="Surname or first name…"
+                  className="input-field h-[30px] py-1"
+                  clearLabel="Clear search"
+                  icon={<SearchIcon className="h-4 w-4" />}
+                />
+              ) : (
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                    accountFilters.q
                       ? 'bg-accent text-white'
-                      : 'text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                   }`}
                 >
-                  <button
-                    onClick={e => openFiltersSheet(e.currentTarget)}
-                    className="flex flex-1 items-center justify-center gap-1 whitespace-nowrap px-1 md:flex-none md:px-2.5"
-                  >
-                    <ListFilterIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                    Filters
-                  </button>
-                  {sheetFilterCount > 0 && (
-                    <button
-                      onClick={e => { e.stopPropagation(); resetFiltersNow() }}
-                      aria-label="Reset filters"
-                      title="Reset filters"
-                      className="flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                    >
-                      <ResetIcon className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                  Search
+                </button>
+              )}
             </div>
 
-            <div className="mt-3 md:mt-0 md:w-64 md:flex-shrink-0">
-              <ClearableInput
-                type="text"
-                value={accountFilters.q}
-                onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                placeholder="Surname or first name…"
-                className="input-field"
-                clearLabel="Clear search"
-                icon={<SearchIcon className="h-4 w-4" />}
-              />
+            <div className="w-1/3">
+              <button
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                className={`flex h-[30px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ZapIcon className="h-4 w-4 flex-shrink-0" />
+                Quick Sort
+                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            <div className="w-1/3">
+              {/* Same fixed-position technique as the desktop Filter switch:
+                  reset icon is absolutely positioned over the trigger, not a
+                  flex sibling, so "Filter" never shifts when it appears. */}
+              <div
+                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopFilterOpen || sheetFilterCount > 0
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  className="flex h-full w-full items-center justify-center gap-1 px-1"
+                >
+                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                  Filter
+                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
+                  >
+                    <ResetIcon className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1355,68 +1340,6 @@ export default function StaffListPage() {
         </div>
       )}
 
-      {/* ── Filters popover — anchored to the Filters button ────── */}
-      {filtersOpen && filtersAnchor && (() => {
-        const menuWidth = 288
-        const positionStyle = computeAnchoredPosition(filtersAnchor, menuWidth)
-        return (
-          <div
-            ref={filtersMenuRef}
-            role="dialog"
-            aria-label="Filters"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="label-text">Role</label>
-                <SelectMenu
-                  value={accountFilters.role}
-                  onChange={v => setAccountFilters(f => ({ ...f, role: v }))}
-                  options={[{ value: 'all', label: 'All' }, ...accountRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
-                  alwaysDown
-                />
-              </div>
-              <div>
-                <label className="label-text">Category</label>
-                <SelectMenu
-                  value={accountFilters.category}
-                  onChange={v => setAccountFilters(f => ({ ...f, category: v }))}
-                  options={[{ value: 'all', label: 'All' }, ...accountCategoryOptions.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))]}
-                  alwaysDown
-                />
-              </div>
-              <div>
-                <label className="label-text">Status</label>
-                <SelectMenu
-                  value={accountFilters.status}
-                  onChange={v => setAccountFilters(f => ({ ...f, status: v }))}
-                  options={[
-                    { value: 'all', label: 'All' },
-                    { value: 'active', label: 'Active' },
-                    { value: 'inactive', label: 'Inactive' },
-                  ]}
-                  alwaysDown
-                />
-              </div>
-              <div>
-                <label className="label-text">Is Admin</label>
-                <SelectMenu
-                  value={accountFilters.isAdmin}
-                  onChange={v => setAccountFilters(f => ({ ...f, isAdmin: v }))}
-                  options={[
-                    { value: 'all', label: 'All' },
-                    { value: 'yes', label: 'Yes' },
-                    { value: 'no', label: 'No' },
-                  ]}
-                  alwaysDown
-                />
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
       {/* ── A–Z sort direction popover ───────────────────────────── */}
       {sortDirectionAnchor && (() => {
         const menuWidth = 160
@@ -1425,7 +1348,7 @@ export default function StaffListPage() {
           setSortMode('az')
           setAzDirection(direction)
           setSortDirectionAnchor(null)
-          setDesktopSortOpen(false) // no-op when opened from the mobile pill row
+          setDesktopSortOpen(false)
         }
         return (
           <div

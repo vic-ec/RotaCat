@@ -29,7 +29,7 @@ export default function LeaveApprovalQueue() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles(name, surname, category, contract_type)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
     if (err) { setError(err.message); setLoading(false); return }

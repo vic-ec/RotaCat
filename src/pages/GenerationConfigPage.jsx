@@ -105,7 +105,7 @@ export default function GenerationConfigPage() {
 
     const { data } = await supabase
       .from('leave_requests')
-      .select('profile_id, date_from, date_to, leave_type, profiles(surname, name)')
+      .select('profile_id, date_from, date_to, leave_type, profiles!leave_requests_profile_id_fkey(surname, name)')
       .eq('status', 'approved')
       .lte('date_from', lastDay)
       .gte('date_to', firstDay)

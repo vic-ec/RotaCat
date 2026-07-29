@@ -46,3 +46,23 @@ export function projectWorkingWeekends(pattern, { fromDate, throughDate }) {
 export function overlapsRosteredWeekend(pattern, dateFrom, dateTo) {
   return projectWorkingWeekends(pattern, { fromDate: dateFrom, throughDate: dateTo }).length > 0
 }
+
+// Team-wide view for the Weekend Planner: projects every doctor's pattern
+// row and groups the results by weekend, splitting each into who's on days
+// vs nights. `patternRows` is [{ profile_id, name, surname,
+// last_worked_weekend, next_weekend_type, ... }] — projectWorkingWeekends
+// only reads the three pattern fields it needs, so the full weekend_patterns
+// + profiles join row can be passed straight through.
+export function projectTeamWeekends(patternRows, { fromDate, throughDate }) {
+  const byWeekend = new Map()
+  for (const row of patternRows) {
+    const weekends = projectWorkingWeekends(row, { fromDate, throughDate })
+    for (const w of weekends) {
+      if (!byWeekend.has(w.saturday)) {
+        byWeekend.set(w.saturday, { saturday: w.saturday, sunday: w.sunday, days: [], nights: [] })
+      }
+      byWeekend.get(w.saturday)[w.type].push({ profileId: row.profile_id, name: row.name, surname: row.surname })
+    }
+  }
+  return [...byWeekend.values()].sort((a, b) => a.saturday.localeCompare(b.saturday))
+}

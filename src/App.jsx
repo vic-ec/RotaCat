@@ -16,6 +16,7 @@ import RosterGridPage from './pages/RosterGridPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
 import LeavePlannerPage from './pages/LeavePlannerPage'
+import WeekendPlannerPage from './pages/WeekendPlannerPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 function PendingRoute() {
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="account" element={<AccountSettingsPage />} />
             <Route path="account/:id" element={<AccountSettingsPage />} />
             <Route path="leave" element={<LeavePlannerPage />} />
+            <Route path="weekend" element={<WeekendPlannerPage />} />
             <Route
               path="swaps"
               element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}

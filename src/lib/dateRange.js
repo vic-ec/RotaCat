@@ -40,3 +40,16 @@ export function rangesOverlap(aFrom, aTo, bFrom, bTo) {
 export function dayOfWeek(dateStr) {
   return parseLocalDate(dateStr).getDay() // 0=Sun … 6=Sat
 }
+
+// First/last "YYYY-MM-DD" of a calendar month (1-indexed month).
+export function monthBounds(year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  return { start, end }
+}
+
+export function todayStr() {
+  const n = new Date()
+  return formatLocalDate(n)
+}

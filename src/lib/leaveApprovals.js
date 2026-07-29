@@ -11,7 +11,7 @@
 //     doesn't itself change already-rostered hours; it's surfaced here
 //     because this is when the admin is looking at this doctor's month.
 import { supabase } from './supabase'
-import { datesInRange } from './dateRange'
+import { datesInRange, monthBounds } from './dateRange'
 
 export function findSupervisionBreaches({ profileCategory, minSupervision, assignedSupervisionShifts }) {
   if (profileCategory !== 'MO' && profileCategory !== 'Registrar') return []
@@ -34,13 +34,6 @@ export function checkAnnualBalance({ daysAllotted, daysAlreadyApproved, daysRequ
 export function checkFiveEighthsCeiling({ contractType, alreadyRosteredHours, maxHours }) {
   if (contractType !== 'five_eighths') return { flagged: false }
   return { flagged: alreadyRosteredHours >= maxHours, alreadyRosteredHours, maxHours }
-}
-
-function monthBounds(year, month) {
-  const start = `${year}-${String(month).padStart(2, '0')}-01`
-  const lastDay = new Date(year, month, 0).getDate()
-  const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-  return { start, end }
 }
 
 function distinctYearMonths(dateFrom, dateTo) {

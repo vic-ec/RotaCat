@@ -11,6 +11,7 @@ import { monthBounds } from '../lib/dateRange'
 import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
+import { findSameDayConflict } from '../lib/rosterVacancy'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -277,6 +278,15 @@ export default function RosterGridPage() {
     const stId = Object.entries(shiftTypes).find(([, code]) => code === targetShiftCode)?.[0]
     if (!stId) return
 
+    // Refuse a move that would double-book this doctor elsewhere that same
+    // day — dropping onto a date where they already have a different entry.
+    if (findSameDayConflict({
+      entries, date: targetDate, profileId: dragSource.profileId, excludeEntryId: dragSource.entryId,
+    })) {
+      setDragSource(null)
+      return
+    }
+
     // Move: update the entry's date and shift
     await supabase.from('roster_entries').update({
       date: targetDate,
@@ -529,7 +539,7 @@ export default function RosterGridPage() {
                         date={day.dateStr}
                         rosterMonthId={id}
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
-                        onRefresh={loadAll}
+                        onRefresh={refreshEntries}
                       />
                     </div>
                   </td>
@@ -591,7 +601,9 @@ export default function RosterGridPage() {
       {/* Dropdown */}
       {openDropdown && (
         <DoctorDropdown
-          profiles={profiles}
+          profiles={profiles.filter(p => !findSameDayConflict({
+            entries, date: openDropdown.date, profileId: p.id, excludeEntryId: openDropdown.entryId,
+          }))}
           search={dropdownSearch}
           onSearchChange={setDropdownSearch}
           onSelect={profileId => assignDoctor(profileId, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}

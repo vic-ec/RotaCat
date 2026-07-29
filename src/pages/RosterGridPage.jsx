@@ -145,6 +145,30 @@ export default function RosterGridPage() {
     setLoading(false)
   }
 
+  // Re-fetches just this month's entries (and, for a draft, the planner
+  // drift derived from them) after a single-cell edit — unlike loadAll,
+  // this never toggles `loading`, so the grid stays mounted and the
+  // update lands as a quiet re-render instead of a full-page reload.
+  async function refreshEntries() {
+    const { data } = await supabase
+      .from('roster_entries')
+      .select('*')
+      .eq('roster_month_id', id)
+      .order('date').order('position', { nullsFirst: true })
+    const normalisedEntries = (data || []).map(e => ({ ...e, date: e.date?.slice(0, 10) }))
+    setEntries(normalisedEntries)
+
+    if (rosterMonth?.status === 'draft') {
+      const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
+      const { data: plannerData } = await supabase
+        .from('weekend_planner_entries')
+        .select('weekend_saturday, profile_id')
+        .gte('weekend_saturday', start)
+        .lte('weekend_saturday', end)
+      setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes))
+    }
+  }
+
   // Build calendar days for this month
   const calendarDays = rosterMonth ? buildCalendarDays(rosterMonth.year, rosterMonth.month, publicHolidays) : []
   const weeks = buildWeeks(calendarDays)
@@ -204,13 +228,13 @@ export default function RosterGridPage() {
         position: 99,
       })
     }
-    await loadAll()
+    await refreshEntries()
   }
 
   async function removeEntry(entryId) {
     setOpenDropdown(null)
     await supabase.from('roster_entries').delete().eq('id', entryId)
-    await loadAll()
+    await refreshEntries()
   }
 
   // Drag and drop
@@ -231,7 +255,7 @@ export default function RosterGridPage() {
     }).eq('id', dragSource.entryId)
 
     setDragSource(null)
-    await loadAll()
+    await refreshEntries()
   }
 
   async function handlePublish() {
@@ -536,7 +560,7 @@ export default function RosterGridPage() {
           entries={entries}
           shiftTypes={shiftTypes}
           profiles={profiles}
-          onDone={() => { setActiveVacancy(null); loadAll() }}
+          onDone={() => { setActiveVacancy(null); refreshEntries() }}
         />
       )}
     </div>

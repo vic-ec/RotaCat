@@ -58,20 +58,25 @@ export default function WeekendPlannerPage() {
     return new Set(Object.values(bySaturday).flat().map(e => e.profile_id))
   }
 
+  // Both handlers patch local state directly from the write's own result
+  // rather than reloading — load() flips `loading` back to true, which
+  // unmounts the whole grid for a "Loading…" placeholder. A single
+  // weekend_planner_entries row is simple enough to update in place
+  // without a round trip back through the full query.
   async function addEntry(saturday, groupKey, profileId) {
     const doctor = doctorById.get(profileId)
     if (!doctor) return
     setSaving(true)
-    const { error: err } = await supabase.from('weekend_planner_entries').insert({
+    const { data, error: err } = await supabase.from('weekend_planner_entries').insert({
       weekend_saturday: saturday,
       profile_id: profileId,
       category: doctor.category,
       created_by: profile?.id ?? null,
-    })
+    }).select().single()
     setSaving(false)
     if (err) { setError(err.message); return }
     setOpenPicker(null)
-    await load()
+    setEntries(prev => [...prev, data])
   }
 
   async function removeEntry(entryId) {
@@ -79,7 +84,7 @@ export default function WeekendPlannerPage() {
     const { error: err } = await supabase.from('weekend_planner_entries').delete().eq('id', entryId)
     setSaving(false)
     if (err) { setError(err.message); return }
-    await load()
+    setEntries(prev => prev.filter(e => e.id !== entryId))
   }
 
   // Locums can't see the weekend grid (canViewWeekendGrid excludes them) —

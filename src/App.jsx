@@ -66,6 +66,10 @@ export default function App() {
               element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}
             />
             <Route
+              path="shifts"
+              element={<PlaceholderPage title="Open shifts" description="Locum shift marketplace coming in a later phase." />}
+            />
+            <Route
               path="settings"
               element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
             />

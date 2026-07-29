@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -59,6 +59,7 @@ export default function RosterGridPage() {
   const [rosterMonth, setRosterMonth] = useState(null)
   const [entries, setEntries] = useState([])    // all roster_entries for this month
   const [profiles, setProfiles] = useState([])   // all schedulable doctors
+  const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -99,10 +100,11 @@ export default function RosterGridPage() {
     setLoading(true)
     setError('')
     try {
-      const [rosterRes, entriesRes, profilesRes, shiftTypesRes, phRes] = await Promise.all([
+      const [rosterRes, entriesRes, profilesRes, consultantProfilesRes, shiftTypesRes, phRes] = await Promise.all([
         supabase.from('roster_months').select('*').eq('id', id).single(),
         supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position', { nullsFirst: true }),
         supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type').eq('is_approved', true).neq('category', 'Consultant'),
+        supabase.from('profiles').select('id, name, surname, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
       ])
@@ -118,6 +120,7 @@ export default function RosterGridPage() {
       }))
       setEntries(normalisedEntries)
       setProfiles(profilesRes.data || [])
+      setConsultantProfiles(consultantProfilesRes.data || [])
 
       const stMap = {}
       for (const st of (shiftTypesRes.data || [])) stMap[st.id] = st.code
@@ -486,7 +489,16 @@ export default function RosterGridPage() {
 
       {/* Grid — horizontally scrollable */}
       <div className="overflow-x-auto rounded-lg border border-slate-line">
-        <table className="w-full min-w-[700px] border-collapse text-xs">
+        <table className="w-full min-w-[700px] table-fixed border-collapse text-xs">
+          {/* Fixed date width; Consultant + up to 4 shift columns share the rest equally */}
+          <colgroup>
+            <col className="w-16" />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+          </colgroup>
           <tbody>
             {visibleDays.map((day, dayIdx) => {
               const shifts = getShiftsForDay(day.dayType)
@@ -510,7 +522,7 @@ export default function RosterGridPage() {
                   } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
-                  <td className={`w-20 border-r border-slate-line px-2 py-1.5 font-medium ${
+                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${
                     isWeekend ? 'text-accent-dark' : 'text-ink'
                   }`}>
                     {(() => {
@@ -521,14 +533,14 @@ export default function RosterGridPage() {
                         <>
                           <span className="block text-[10px] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
                           <span>{d}</span>
-                          {day.phName && <span className="block text-[9px] text-flagAmber truncate">{day.phName}</span>}
+                          {day.phName && <span className="block break-words text-[9px] text-flagAmber">{day.phName}</span>}
                         </>
                       )
                     })()}
                   </td>
 
                   {/* Consultant column */}
-                  <td className="w-24 border-r border-slate-line align-top p-0">
+                  <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
                       <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
                         Consultant
@@ -539,6 +551,8 @@ export default function RosterGridPage() {
                         date={day.dateStr}
                         rosterMonthId={id}
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
+                        consultantProfiles={consultantProfiles}
+                        isAdmin={isAdmin}
                         onRefresh={refreshEntries}
                       />
                     </div>
@@ -638,7 +652,7 @@ export default function RosterGridPage() {
   )
 }
 
-// ── DoctorChip ────────────────────────────────────────────────────────
+// ── DoctorChip ─────────────────────────────────────────────────────────────
 function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = true }) {
   if (entry.is_locum) {
     return (
@@ -676,28 +690,31 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = t
   )
 }
 
-// ── ConsultantCell ────────────────────────────────────────────────────
-function ConsultantCell({ date, rosterMonthId, existing, onRefresh }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(existing?.consultant_name || '')
-  const inputRef = useRef()
+// ── ConsultantCell ───────────────────────────────────────────────────────────
+// Consultants pick from consultantProfiles via the same DoctorDropdown used
+// for shift assignment, storing consultant_profile_id (colour-coded,
+// disambiguated) rather than free text. consultant_name is only read here
+// as a fallback for any pre-existing free-text rows -- clicking one still
+// opens the dropdown, replacing it with a real profile on next save.
+// isAdmin-gated like every other edit affordance in the grid (DoctorChip,
+// the shift-cell "+" button) -- RLS already blocks the write for a
+// non-admin, but the cell shouldn't offer a dropdown that just fails.
+function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isAdmin, onRefresh }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    if (editing) inputRef.current?.focus()
-  }, [editing])
-
-  async function save() {
-    setEditing(false)
+  async function assign(profileId) {
+    setOpen(false)
     if (existing) {
-      await supabase.from('roster_entries').update({ consultant_name: value }).eq('id', existing.id)
-    } else if (value.trim()) {
+      await supabase.from('roster_entries').update({ consultant_profile_id: profileId, consultant_name: null }).eq('id', existing.id)
+    } else {
       const { data: stData } = await supabase.from('shift_types').select('id').eq('code', 'WD_08').single()
       if (stData) {
         await supabase.from('roster_entries').insert({
           roster_month_id: rosterMonthId,
           date,
           shift_type_id: stData.id,
-          consultant_name: value,
+          consultant_profile_id: profileId,
           position: 0,
         })
       }
@@ -705,31 +722,59 @@ function ConsultantCell({ date, rosterMonthId, existing, onRefresh }) {
     onRefresh()
   }
 
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        onBlur={save}
-        onKeyDown={e => e.key === 'Enter' && save()}
-        className="w-full rounded border border-accent px-1 py-0.5 text-[10px] outline-none"
-        placeholder="Consultant"
-      />
-    )
+  async function remove() {
+    setOpen(false)
+    if (existing) await supabase.from('roster_entries').delete().eq('id', existing.id)
+    onRefresh()
   }
 
+  const consultant = existing?.consultant_profile_id
+    ? consultantProfiles.find(p => p.id === existing.consultant_profile_id)
+    : null
+  const bgColor = consultant?.color_code || '#4A90D9'
+  const patternStyle = consultant?.pattern_type ? patternBackgroundStyle(consultant.pattern_type, bgColor, 8) : null
+
   return (
-    <div
-      onClick={() => setEditing(true)}
-      className="min-h-[20px] cursor-pointer rounded px-1 py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken"
-    >
-      {existing?.consultant_name || <span className="opacity-40">+</span>}
-    </div>
+    <>
+      <div onClick={isAdmin ? () => setOpen(true) : undefined} className={isAdmin ? 'cursor-pointer' : ''}>
+        {consultant ? (
+          <div
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isAdmin ? 'hover:opacity-85' : ''}`}
+            style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
+            title={`${consultant.name} ${consultant.surname}`}
+          >
+            {consultant.surname}
+          </div>
+        ) : existing?.consultant_name ? (
+          <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>
+            {existing.consultant_name}
+          </div>
+        ) : isAdmin ? (
+          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
+            +
+          </div>
+        ) : (
+          <div className="min-h-[20px] px-1 py-0.5 text-[10px] text-ink-muted">—</div>
+        )}
+      </div>
+
+      {isAdmin && open && (
+        <DoctorDropdown
+          profiles={consultantProfiles}
+          search={search}
+          onSearchChange={setSearch}
+          onSelect={assign}
+          onRemove={existing ? remove : null}
+          onClose={() => setOpen(false)}
+          date={date}
+          shiftCode="Consultant"
+        />
+      )}
+    </>
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────
 
 function buildCalendarDays(year, month, publicHolidays = {}) {
   const days = []
@@ -786,7 +831,7 @@ function buildWeeks(days) {
 function buildEntryMap(entries, shiftTypes) {
   const map = {}
   for (const entry of entries) {
-    const code = entry.consultant_name ? 'CONSULTANT' : (shiftTypes[entry.shift_type_id] || 'UNKNOWN')
+    const code = (entry.consultant_name || entry.consultant_profile_id) ? 'CONSULTANT' : (shiftTypes[entry.shift_type_id] || 'UNKNOWN')
     const key = `${entry.date}|${code}`
     if (!map[key]) map[key] = []
     map[key].push(entry)

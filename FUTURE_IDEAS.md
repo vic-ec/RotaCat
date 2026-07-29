@@ -25,7 +25,24 @@ build phase (see `README.md`).
 5. **Advertise open shifts** — let admins broadcast unfilled roster shifts
    to active staff and locums. Delivery mechanism is still undecided —
    per-user notification, email, push, or a dedicated in-app messaging
-   system — and needs a decision before this can be designed.
+   system — and needs a decision before this can be designed. From the
+   draft roster specifically: flag unfilled slots and advertise them to the
+   locum pool — open question on notification channel (in-app, push,
+   WhatsApp?).
 
 6. **First time login** - Account setup should be the landing page for new
    users signing in for the first time.
+
+7. **Locum timesheets** — let locums submit timesheets through the app,
+   scoped to their agency. Once an admin approves the hours, an
+   electronically signed timesheet is emailed to the agency (locum CC'd),
+   with the app retaining both the document and a transmission record.
+
+8. **Roster/OT translator** — build in (or link to) a roster translator so
+   users can process overtime.
+
+9. **Auto-generated leave paperwork (Z1(a))** — on leave request approval,
+   autofill and send an electronically signed Z1(a) to the requesting
+   user, with the app retaining both the document and a transmission
+   record. Needs a decision on PDF generation (in-app generator vs. an
+   external service) and file delivery/download.

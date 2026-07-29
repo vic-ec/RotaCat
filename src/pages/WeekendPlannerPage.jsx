@@ -176,7 +176,7 @@ export default function WeekendPlannerPage() {
                                       className="text-ink-muted hover:text-flagRed"
                                       aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
                                     >
-                                      ×
+                                      <XIcon className="h-3 w-3" />
                                     </button>
                                   )}
                                 </li>
@@ -207,9 +207,9 @@ export default function WeekendPlannerPage() {
                               type="button"
                               onClick={() => setOpenPicker(pickerKey)}
                               disabled={saving || availableDoctors.length === 0}
-                              className="mt-1 text-sm text-accent hover:underline disabled:text-ink-muted disabled:no-underline"
+                              className="mt-1 flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink disabled:opacity-40"
                             >
-                              + add
+                              +
                             </button>
                           )
                         )}
@@ -225,5 +225,13 @@ export default function WeekendPlannerPage() {
 
       {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}
     </div>
+  )
+}
+
+function XIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   )
 }

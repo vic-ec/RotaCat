@@ -12,6 +12,7 @@ import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 const adminNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/weekend', label: 'Weekends',   icon: WeekendIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Leave',       icon: ClipboardIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
@@ -21,6 +22,7 @@ const adminNav = [
 const doctorNav = [
   { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Full roster', icon: CalendarIcon },
+  { to: '/weekend', label: 'Weekends',   icon: WeekendIcon },
   { to: '/leave',  label: 'My leave',    icon: ClipboardIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
@@ -40,6 +42,7 @@ const locumNav = [
 const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/weekend', label: 'Weekends',   icon: WeekendIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
@@ -344,6 +347,14 @@ function SwapIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h13l-3-3M20 17H7l3 3" />
+    </svg>
+  )
+}
+function WeekendIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <circle cx="8" cy="12" r="4.5" />
+      <path strokeLinecap="round" d="M18.5 8.5v7M15 12h7" />
     </svg>
   )
 }

@@ -62,5 +62,17 @@ export default defineConfig({
   ],
   server: {
     port: 5173
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    globals: true,
+    // supabase.js throws at import time if these are unset — dummy values
+    // are enough since unit/component tests mock supabase calls rather than
+    // hitting the network.
+    env: {
+      VITE_SUPABASE_URL: 'https://test.supabase.co',
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'test-publishable-key'
+    }
   }
 })

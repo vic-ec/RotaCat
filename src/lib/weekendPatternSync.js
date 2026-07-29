@@ -1,8 +1,10 @@
-// Keeps weekend_patterns in sync with what actually got published — the
-// Weekend Planner (see weekendProjection.js) can only project forward from
-// last_worked_weekend, and nothing was updating that column after a roster
-// publish. Called from RosterGridPage's handlePublish with that roster's
-// already-loaded entries + shift type code map.
+// Keeps weekend_patterns in sync with what actually got published. The
+// scheduler backend still reads last_worked_weekend/next_weekend_type off
+// this table for shift-type (days/nights) continuity, and weekend_offset
+// parity for ⅝-contract doctors who sit outside the Weekend Planner's
+// rotation groups — see loader.py. Called from RosterGridPage's
+// handlePublish with that roster's already-loaded entries + shift type
+// code map.
 import { supabase } from './supabase'
 import { addDays, dayOfWeek } from './dateRange'
 

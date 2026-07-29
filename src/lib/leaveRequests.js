@@ -2,7 +2,7 @@
 // Supabase) plus the async submission flow that wires them together.
 import { supabase } from './supabase'
 import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from './dateRange'
-import { overlapsRosteredWeekend } from './weekendProjection'
+import { overlapsPlannedWeekend } from './weekendPlanner'
 
 export const LEAVE_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual leave' },
@@ -34,7 +34,7 @@ export function computeIncludesPublicHoliday(dateFrom, dateTo, publicHolidayDate
   return datesInRange(dateFrom, dateTo).some(d => phSet.has(d))
 }
 
-export { overlapsRosteredWeekend as computeOverlapsRosteredWeekend }
+export { overlapsPlannedWeekend as computeOverlapsRosteredWeekend }
 
 // Tier-1 (block at submission): double-booking against existing
 // pending/approved leave_requests and assigned roster_entries for the same
@@ -79,11 +79,14 @@ export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFr
     }
   }
 
-  const [leaveRes, entriesRes, phRes, patternRes] = await Promise.all([
+  // A weekend's Sunday can fall on dateFrom without its Saturday doing so,
+  // so widen the lower bound by a day to still catch that planner entry.
+  const [leaveRes, entriesRes, phRes, plannerRes] = await Promise.all([
     supabase.from('leave_requests').select('date_from, date_to, status').eq('profile_id', profileId),
     supabase.from('roster_entries').select('date').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo),
     supabase.from('public_holidays').select('date').gte('date', dateFrom).lte('date', dateTo),
-    supabase.from('weekend_patterns').select('last_worked_weekend, last_weekend_type, next_weekend_type').eq('profile_id', profileId).maybeSingle(),
+    supabase.from('weekend_planner_entries').select('weekend_saturday').eq('profile_id', profileId)
+      .gte('weekend_saturday', addDays(dateFrom, -1)).lte('weekend_saturday', dateTo),
   ])
 
   const { hasConflict, leaveConflicts, rosterConflicts } = findDoubleBookingConflicts({
@@ -100,7 +103,7 @@ export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFr
   }
 
   const includesPublicHoliday = computeIncludesPublicHoliday(dateFrom, dateTo, (phRes.data || []).map(p => p.date?.slice(0, 10)))
-  const overlapsWeekend = overlapsRosteredWeekend(patternRes.data, dateFrom, dateTo)
+  const overlapsWeekend = overlapsPlannedWeekend(plannerRes.data || [], dateFrom, dateTo)
 
   const { error } = await supabase.from('leave_requests').insert({
     profile_id: profileId,

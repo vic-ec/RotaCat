@@ -1,7 +1,7 @@
 // Shared helpers for the Weekend Planner (weekend_planner_entries) — a
 // flat, admin-populated calendar of who works which weekend, replacing
-// the old computed weekend_offset projection (see weekendProjection.js,
-// still used independently for the Leave submission overlap hint).
+// the old computed weekend_offset projection formerly used for both the
+// planner UI and the Leave submission overlap hint.
 import { addDays, dayOfWeek } from './dateRange'
 
 // Column groupings for the planner grid. The scheduler backend only
@@ -88,6 +88,19 @@ export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftT
     }
   }
   return drifted.sort((a, b) => a.saturday.localeCompare(b.saturday))
+}
+
+// True if [dateFrom, dateTo] covers the Saturday or Sunday of any of this
+// doctor's weekend_planner_entries rows. `entries` is that profile's rows
+// already narrowed to the relevant window (see leaveRequests.js) —
+// { weekend_saturday }. Replaces the old weekend_offset-projected
+// overlapsRosteredWeekend so the Leave submission hint agrees with what
+// the scheduler backend actually reads off the planner.
+export function overlapsPlannedWeekend(entries, dateFrom, dateTo) {
+  return entries.some(({ weekend_saturday: saturday }) => {
+    const sunday = addDays(saturday, 1)
+    return sunday >= dateFrom && saturday <= dateTo
+  })
 }
 
 // Groups raw weekend_planner_entries rows into

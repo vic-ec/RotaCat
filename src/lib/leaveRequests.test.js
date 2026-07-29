@@ -5,7 +5,7 @@ import {
   computeIncludesPublicHoliday,
   findDoubleBookingConflicts,
 } from './leaveRequests'
-import { overlapsRosteredWeekend } from './weekendProjection'
+import { overlapsPlannedWeekend } from './weekendPlanner'
 
 describe('findDoubleBookingConflicts', () => {
   it('normal annual request with no existing bookings passes clean', () => {
@@ -97,19 +97,23 @@ describe('computeIncludesPublicHoliday', () => {
   })
 })
 
-describe('overlapsRosteredWeekend', () => {
-  it('flags a leave range covering a projected working weekend', () => {
-    const pattern = { last_worked_weekend: '2026-08-01', last_weekend_type: 'days', next_weekend_type: 'nights' }
-    // next working weekend projects to 2026-08-15/16
-    expect(overlapsRosteredWeekend(pattern, '2026-08-14', '2026-08-17')).toBe(true)
+describe('overlapsPlannedWeekend', () => {
+  it('flags a leave range covering a planned weekend (Saturday in range)', () => {
+    const entries = [{ weekend_saturday: '2026-08-15' }]
+    expect(overlapsPlannedWeekend(entries, '2026-08-14', '2026-08-17')).toBe(true)
   })
 
-  it('does not flag a leave range that misses every working weekend', () => {
-    const pattern = { last_worked_weekend: '2026-08-01', last_weekend_type: 'days', next_weekend_type: 'nights' }
-    expect(overlapsRosteredWeekend(pattern, '2026-08-19', '2026-08-21')).toBe(false)
+  it('flags a leave range covering only the Sunday of a planned weekend', () => {
+    const entries = [{ weekend_saturday: '2026-08-15' }]
+    expect(overlapsPlannedWeekend(entries, '2026-08-16', '2026-08-18')).toBe(true)
   })
 
-  it('returns false gracefully when the doctor has no tracked weekend history yet', () => {
-    expect(overlapsRosteredWeekend(null, '2026-08-14', '2026-08-17')).toBe(false)
+  it('does not flag a leave range that misses every planned weekend', () => {
+    const entries = [{ weekend_saturday: '2026-08-15' }]
+    expect(overlapsPlannedWeekend(entries, '2026-08-19', '2026-08-21')).toBe(false)
+  })
+
+  it('returns false gracefully when the doctor has no planner entries in range', () => {
+    expect(overlapsPlannedWeekend([], '2026-08-14', '2026-08-17')).toBe(false)
   })
 })

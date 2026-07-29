@@ -7,6 +7,7 @@ import ClearableInput from '../components/ClearableInput'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
+import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 
 // ── Display label maps ─────────────────────────────────────
 const CATEGORY_LABELS = {
@@ -53,27 +54,6 @@ const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
 
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
-
-// Default hours targets per category (admin can override per individual)
-const DEFAULT_HOURS = {
-  MO:          { min: 210, max: 246 },
-  Registrar:   { min: 210, max: 246 },
-  EC_COSMO:    { min: 210, max: 246 },
-  OT_COSMO:    { min: 64,  max: 72  },
-  COSMO_Psych: { min: 64,  max: 72  },
-  Consultant:  { min: 0,   max: 0   },
-  Locum:       { min: 0,   max: 0   },
-}
-
-const DEFAULT_SWAP_GROUP = {
-  MO:          'senior',
-  Registrar:   'senior',
-  EC_COSMO:    'junior',
-  OT_COSMO:    'junior',
-  COSMO_Psych: 'junior',
-  Consultant:  'senior',
-  Locum:       'locum',
-}
 
 // ── Sort/group ───────────────────────────────────────────────
 const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
@@ -515,7 +495,7 @@ export default function StaffListPage() {
       null
     const isAdminFlag = role === 'doctor' ? (profile.is_admin ?? false) : false
 
-    const hours    = DEFAULT_HOURS[category]    || { min: 210, max: 246 }
+    const hours    = DEFAULT_HOURS[category]    || { min: 220, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -537,6 +517,14 @@ export default function StaffListPage() {
       console.error('Approval failed:', error.message)
       alert('Could not approve account: ' + error.message)
       return false
+    }
+
+    const leaveDays = annualLeaveDaysForCategory(category)
+    if (leaveDays !== null) {
+      await supabase.from('annual_leave_balances').upsert(
+        { profile_id: profile.id, year: new Date().getFullYear(), days_allotted: leaveDays },
+        { onConflict: 'profile_id,year' }
+      )
     }
     return true
   }

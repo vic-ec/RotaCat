@@ -47,8 +47,8 @@ export default function ForgotPasswordPage() {
             </div>
             <h2 className="font-display text-xl font-bold text-ink">Check your email</h2>
             <p className="mt-2 text-sm text-ink-light">
-              If an account exists for {email}, we've sent a link to reset your password.
-              It'll expire after a while, so use it soon.
+              If an account exists for {email}, we&apos;ve sent a link to reset your password.
+              It&apos;ll expire after a while, so use it soon.
             </p>
             <Link
               to="/login"
@@ -71,8 +71,8 @@ export default function ForgotPasswordPage() {
             </div>
             <h2 className="font-display text-xl font-bold text-ink">Check your email</h2>
             <p className="mt-2 text-sm text-ink-muted">
-              If an account exists for {email}, we've sent a link to reset your password.
-              It'll expire after a while, so use it soon.
+              If an account exists for {email}, we&apos;ve sent a link to reset your password.
+              It&apos;ll expire after a while, so use it soon.
             </p>
             <Link
               to="/login"
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
               one — on wider phones it wraps to a single line, which would
               otherwise shrink the sheet below login/signup's height. */}
           <p className="mt-2 flex min-h-[40px] items-center justify-center text-center text-sm text-ink-light">
-            Enter your account email and we'll send a password-reset link.
+            Enter your account email and we&apos;ll send a password-reset link.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
@@ -179,7 +179,7 @@ export default function ForgotPasswordPage() {
             <div className="mx-auto w-full max-w-sm">
               <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
               <p className="mt-2 text-base text-ink-light">
-                Enter your account email and we'll send a password-reset link.
+                Enter your account email and we&apos;ll send a password-reset link.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">

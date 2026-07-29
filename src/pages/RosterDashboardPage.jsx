@@ -428,7 +428,7 @@ function EmptyState({ navigate }) {
       <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
       <p className="font-medium text-ink">No rosters yet</p>
       <p className="mt-1 text-sm text-ink-muted">
-        Click "Create roster" to create your first one.
+        Click &quot;Create roster&quot; to create your first one.
       </p>
       <button onClick={() => navigate('/roster/generate')} className="btn-primary mx-auto mt-5">
         <PencilSparklesIcon className="h-4 w-4" />

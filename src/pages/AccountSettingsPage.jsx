@@ -545,6 +545,7 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     if (!user) return
     loadMyRequests()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMyRequests is redefined every render; including it would refetch in a loop
   }, [user])
 
   useEffect(() => {
@@ -1086,7 +1087,7 @@ export default function AccountSettingsPage() {
     return (
       <div className="mx-auto max-w-2xl pb-12">
         <div className="card border-flagRed bg-flagRed-bg p-4">
-          <p className="text-sm text-flagRed">Couldn't load this account: {targetLoadError}</p>
+          <p className="text-sm text-flagRed">Couldn&apos;t load this account: {targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block">Back to Staff list</Link>
         </div>
       </div>
@@ -1333,7 +1334,7 @@ export default function AccountSettingsPage() {
                 />
                 <p className="text-xs text-ink-muted">
                   This is also your login username. Changing it sends confirmation links to both your old and new address —
-                  the change only takes effect once confirmed, so it won't lock you out.
+                  the change only takes effect once confirmed, so it won&apos;t lock you out.
                 </p>
                 <div className="flex items-center gap-3">
                   <button type="submit" disabled={emailSaving || !emailDirty} className="btn-primary">
@@ -1477,7 +1478,7 @@ export default function AccountSettingsPage() {
                   className="h-4 w-4 rounded border-slate-line accent-accent"
                 />
                 Has admin permissions
-                {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can't be removed here)</span>}
+                {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can&apos;t be removed here)</span>}
               </label>
             )}
 
@@ -1527,7 +1528,7 @@ export default function AccountSettingsPage() {
                 ) : transferConfirming ? (
                   <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3">
                     <p className="mb-2 text-xs text-flagAmber">
-                      This immediately hands off super-admin — you won't be able to take it back yourself.
+                      This immediately hands off super-admin — you won&apos;t be able to take it back yourself.
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -1598,7 +1599,7 @@ export default function AccountSettingsPage() {
 
             {pendingRoleOrCategory ? (
               <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
-                A {pendingRoleOrCategory.request_type} change to "{pendingRoleOrCategory.requested_value}" is pending admin review.
+                A {pendingRoleOrCategory.request_type} change to &quot;{pendingRoleOrCategory.requested_value}&quot; is pending admin review.
               </div>
             ) : (
               <form onSubmit={submitChangeRequest} className="space-y-3 rounded-lg border border-slate-line bg-canvas-sunken p-4">
@@ -1625,7 +1626,7 @@ export default function AccountSettingsPage() {
                 </div>
                 {requestForm.type === 'role' && profile.role !== 'doctor' && requestForm.value === 'doctor' && (
                   <p className="text-xs text-ink-muted">
-                    Once this is approved, you'll be able to submit a separate request to set your clinical category.
+                    Once this is approved, you&apos;ll be able to submit a separate request to set your clinical category.
                   </p>
                 )}
                 <div>

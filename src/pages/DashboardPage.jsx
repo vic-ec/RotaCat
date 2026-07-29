@@ -25,6 +25,7 @@ export default function DashboardPage() {
     if (!profile?.id) return
     if (isAdmin) loadAdminWidgets()
     else loadDoctorWidgets()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAdminWidgets/loadDoctorWidgets are redefined every render; including them would refetch in a loop
   }, [profile?.id, isAdmin])
 
   // Doctor sees own leave only — an intentional narrower scope than the

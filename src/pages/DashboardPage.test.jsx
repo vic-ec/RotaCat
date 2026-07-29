@@ -80,6 +80,21 @@ describe('DashboardPage', () => {
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)
   })
 
+  it('locum: shows own upcoming shifts, no leave widget', async () => {
+    mockAuth = { profile: { id: 'locum-1', name: 'Loc' }, isAdmin: false, isClerk: false, isLocum: true }
+    const today = todayStr()
+    mockResponses['roster_entries:select'] = {
+      data: [{ date: today, shift_type: { code: 'WD_08', label: 'Day shift', start_time: '08:00:00', end_time: '18:00:00' } }],
+      error: null,
+    }
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText(new RegExp(`${today} — Day shift`))).toBeInTheDocument()
+    expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
+    expect(eqCalls).toContainEqual(['roster_entries', 'profile_id', 'locum-1'])
+  })
+
   it('clerk: shows live team status (on shift, next 24h, on leave), no personal-leave widget', async () => {
     mockAuth = { profile: { id: 'clerk-1', name: 'Clerky' }, isAdmin: false, isClerk: true }
     const today = todayStr()

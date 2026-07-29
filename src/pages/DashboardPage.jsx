@@ -16,8 +16,9 @@ const STATUS_BADGE = {
 }
 
 export default function DashboardPage() {
-  const { profile, isAdmin, isClerk } = useAuth()
+  const { profile, isAdmin, isClerk, isLocum } = useAuth()
   const [myLeave, setMyLeave] = useState([])
+  const [myShifts, setMyShifts] = useState([])
   const [onLeaveNow, setOnLeaveNow] = useState([])
   const [onLeaveNext, setOnLeaveNext] = useState([])
   const [hoursWarnings, setHoursWarnings] = useState([])
@@ -29,22 +30,52 @@ export default function DashboardPage() {
     if (!profile?.id) return
     if (isAdmin) loadAdminWidgets()
     else if (isClerk) loadClerkWidgets()
+    else if (isLocum) loadLocumWidgets()
     else loadDoctorWidgets()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAdminWidgets/loadClerkWidgets/loadDoctorWidgets are redefined every render; including them would refetch in a loop
-  }, [profile?.id, isAdmin, isClerk])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAdminWidgets/loadClerkWidgets/loadLocumWidgets/loadDoctorWidgets are redefined every render; including them would refetch in a loop
+  }, [profile?.id, isAdmin, isClerk, isLocum])
+
+  // roster_entries RLS restricts non-admins to published-roster rows only
+  // (roster_entries_select: rm.status = 'published' OR is_admin()), so this
+  // own-shifts query is published-only by construction, not just by app
+  // convention -- a draft assignment never comes back here even if the
+  // profile_id matches.
+  async function loadOwnUpcomingShifts() {
+    const { data } = await supabase
+      .from('roster_entries')
+      .select('date, shift_type:shift_types(code, label, start_time, end_time)')
+      .eq('profile_id', profile.id)
+      .gte('date', todayStr())
+      .order('date', { ascending: true })
+      .limit(10)
+    return data || []
+  }
 
   // Doctor sees own leave only — an intentional narrower scope than the
   // Leave Planner's "Team leave" list, which relies on RLS for the full
   // per-role view. This dashboard widget always self-filters on top of it.
   async function loadDoctorWidgets() {
     setLoading(true)
-    const { data } = await supabase
-      .from('leave_requests')
-      .select('*')
-      .eq('profile_id', profile.id)
-      .order('date_from', { ascending: false })
-      .limit(10)
-    setMyLeave(data || [])
+    const [leaveRes, shifts] = await Promise.all([
+      supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('date_from', { ascending: false })
+        .limit(10),
+      loadOwnUpcomingShifts(),
+    ])
+    setMyLeave(leaveRes.data || [])
+    setMyShifts(shifts)
+    setLoading(false)
+  }
+
+  // Locums can't submit leave (leave_requests RLS excludes them entirely),
+  // so there's no leave widget for this role -- just their own upcoming
+  // shifts on the published roster.
+  async function loadLocumWidgets() {
+    setLoading(true)
+    setMyShifts(await loadOwnUpcomingShifts())
     setLoading(false)
   }
 
@@ -126,28 +157,49 @@ export default function DashboardPage() {
           ? 'Leave and hours overview for the team.'
           : isClerk
             ? 'Live team status — who\'s on shift, who\'s up next, who\'s on leave.'
-            : 'Your upcoming shifts will appear here once the roster module is connected.'}
+            : isLocum
+              ? 'Your upcoming shifts on the published roster.'
+              : 'Your upcoming shifts and leave.'}
       </p>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
       {!loading && !isAdmin && !isClerk && (
-        <div className="card mt-6 p-6">
-          <h2 className="text-sm font-semibold text-ink">Your leave</h2>
-          {myLeave.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">No leave requests on record.</p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {myLeave.map(lr => (
-                <div key={lr.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-ink">
-                    {LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                    {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
-                  </span>
+        <div className="mt-6 space-y-4">
+          <div className="card p-6">
+            <h2 className="text-sm font-semibold text-ink">Your upcoming shifts</h2>
+            {myShifts.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-muted">No upcoming shifts on the published roster.</p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-ink-light">
+                {myShifts.map(e => (
+                  <li key={`${e.date}-${e.shift_type?.code}`}>
+                    {e.date} — {e.shift_type?.label}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {!isLocum && (
+            <div className="card p-6">
+              <h2 className="text-sm font-semibold text-ink">Your leave</h2>
+              {myLeave.length === 0 ? (
+                <p className="mt-2 text-sm text-ink-muted">No leave requests on record.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {myLeave.map(lr => (
+                    <div key={lr.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-ink">
+                        {LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
+                        {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

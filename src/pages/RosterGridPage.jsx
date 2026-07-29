@@ -6,6 +6,7 @@ import { contrastTextColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
+import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -212,6 +213,7 @@ export default function RosterGridPage() {
       status: 'published',
       published_at: new Date().toISOString(),
     }).eq('id', id)
+    await syncWeekendPatternsFromEntries(entries, shiftTypes)
     await loadAll()
     setPublishing(false)
   }

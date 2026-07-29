@@ -6,6 +6,7 @@ import ProfileAvatar from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import SelectMenu from '../components/SelectMenu'
 import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
+import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
@@ -19,27 +20,6 @@ const CATEGORY_LABELS = {
   Consultant: 'Consultant',
 }
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-
-// Default hours/swap-group targets per category, applied on Approve — same
-// defaults StaffListPage's own approval flow uses.
-const DEFAULT_HOURS = {
-  MO:          { min: 210, max: 246 },
-  Registrar:   { min: 210, max: 246 },
-  EC_COSMO:    { min: 210, max: 246 },
-  OT_COSMO:    { min: 64,  max: 72  },
-  COSMO_Psych: { min: 64,  max: 72  },
-  Consultant:  { min: 0,   max: 0   },
-  Locum:       { min: 0,   max: 0   },
-}
-const DEFAULT_SWAP_GROUP = {
-  MO:          'senior',
-  Registrar:   'senior',
-  EC_COSMO:    'junior',
-  OT_COSMO:    'junior',
-  COSMO_Psych: 'junior',
-  Consultant:  'senior',
-  Locum:       'locum',
-}
 
 const SAVED_FLASH_MS = 2500
 
@@ -177,7 +157,7 @@ export default function PendingApprovalReviewPage() {
       finalRole === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
       null
     const isAdminFlag = finalRole === 'doctor' ? (profile.is_admin ?? false) : false
-    const hours = DEFAULT_HOURS[finalCategory] || { min: 210, max: 246 }
+    const hours = DEFAULT_HOURS[finalCategory] || { min: 220, max: 246 }
     const swapGroup = DEFAULT_SWAP_GROUP[finalCategory] || 'junior'
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -199,6 +179,15 @@ export default function PendingApprovalReviewPage() {
       alert('Could not approve account: ' + error.message)
       return
     }
+
+    const leaveDays = annualLeaveDaysForCategory(finalCategory)
+    if (leaveDays !== null) {
+      await supabase.from('annual_leave_balances').upsert(
+        { profile_id: id, year: new Date().getFullYear(), days_allotted: leaveDays },
+        { onConflict: 'profile_id,year' }
+      )
+    }
+
     navigate('/staff')
   }
 

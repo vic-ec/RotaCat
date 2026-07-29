@@ -15,6 +15,7 @@ import GenerationConfigPage from './pages/GenerationConfigPage'
 import RosterGridPage from './pages/RosterGridPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
+import LeavePlannerPage from './pages/LeavePlannerPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 function PendingRoute() {
@@ -57,10 +58,7 @@ export default function App() {
             <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
             <Route path="account" element={<AccountSettingsPage />} />
             <Route path="account/:id" element={<AccountSettingsPage />} />
-            <Route
-              path="leave"
-              element={<PlaceholderPage title="Leave Requests" description="Leave submission and approval workflow coming in a later phase." />}
-            />
+            <Route path="leave" element={<LeavePlannerPage />} />
             <Route
               path="swaps"
               element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}

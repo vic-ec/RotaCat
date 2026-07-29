@@ -246,7 +246,13 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
 }
 
 export default function StaffListPage() {
-  const { isAdmin, isSuperAdmin, user, setMyActiveStatus } = useAuth()
+  const { isAdmin, isClerk, isSuperAdmin, user, setMyActiveStatus } = useAuth()
+  // Clerks are read-only for account management, but the mobile Quick
+  // Actions menu (Message/Call/Mail) is pure contact info -- clerks need
+  // that same access (see AppLayout's clerkNav: "Roster, weekend grid,
+  // contact list only"). Account-settings navigation and admin-granting
+  // stay isAdmin/isSuperAdmin only, unaffected by this.
+  const canContact = isAdmin || isClerk
   const navigate = useNavigate()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
@@ -393,7 +399,7 @@ export default function StaffListPage() {
   const longPressTimerRef = useRef(null)
   const longPressFiredRef = useRef(false)
   function handleRowPointerDown(e, person) {
-    if (!isAdmin || e.pointerType !== 'touch') return
+    if (!canContact || e.pointerType !== 'touch') return
     const target = e.currentTarget
     longPressFiredRef.current = false
     longPressTimerRef.current = setTimeout(() => {
@@ -958,8 +964,8 @@ export default function StaffListPage() {
                           onPointerUp={cancelLongPress}
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
-                          onContextMenu={e => { if (isAdmin) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 ${isAdmin ? 'cursor-pointer no-callout' : ''}`}
+                          onContextMenu={e => { if (canContact) e.preventDefault() }}
+                          className={`flex items-center gap-3 px-4 py-2 ${canContact ? 'cursor-pointer no-callout' : ''}`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -994,7 +1000,7 @@ export default function StaffListPage() {
                               {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                             </span>
                           )}
-                          {isAdmin && (
+                          {canContact && (
                             <button
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"

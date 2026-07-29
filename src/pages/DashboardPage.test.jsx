@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import DashboardPage from './DashboardPage'
+import { todayStr, addDays } from '../lib/dateRange'
 
 let mockAuth = {}
 vi.mock('../context/AuthContext', () => ({
@@ -21,6 +23,8 @@ vi.mock('../lib/supabase', () => ({
         select() { method = 'select'; return builder },
         eq(col, val) { eqCalls.push([table, col, val]); return builder },
         gte() { return builder },
+        lte() { return builder },
+        not() { return builder },
         neq() { return builder },
         order() { return builder },
         limit() { return builder },
@@ -74,5 +78,39 @@ describe('DashboardPage', () => {
     expect(await screen.findByText(/Eveline Baerends — 122h rostered \(ceiling: 118h\)/)).toBeInTheDocument()
     // No client-side profile_id scoping for the admin's team-wide widgets
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)
+  })
+
+  it('clerk: shows live team status (on shift, next 24h, on leave), no personal-leave widget', async () => {
+    mockAuth = { profile: { id: 'clerk-1', name: 'Clerky' }, isAdmin: false, isClerk: true }
+    const today = todayStr()
+    const tomorrow = addDays(today, 1)
+    mockResponses['roster_entries:select'] = {
+      data: [
+        {
+          date: today, profile_id: 'p1',
+          shift_type: { code: 'ALL_DAY', label: 'All day', start_time: '00:00:00', end_time: '23:59:00' },
+          profile: { name: 'Onno', surname: 'Now' },
+        },
+        {
+          date: tomorrow, profile_id: 'p2',
+          shift_type: { code: 'EARLY', label: 'Early shift', start_time: '00:00:01', end_time: '10:00:00' },
+          profile: { name: 'Sona', surname: 'Soon' },
+        },
+      ],
+      error: null,
+    }
+    mockResponses['leave_requests:select'] = {
+      data: [{ id: 'lv1', date_from: today, date_to: today, profiles: { name: 'Lea', surname: 'Vantly' } }],
+      error: null,
+    }
+
+    render(<DashboardPage />, { wrapper: MemoryRouter })
+
+    expect(await screen.findByText(/Onno Now — All day/)).toBeInTheDocument()
+    expect(await screen.findByText(/Sona Soon — Early shift/)).toBeInTheDocument()
+    expect(await screen.findByText(/Lea Vantly — until/)).toBeInTheDocument()
+    expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Roster' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Staff' })).toBeInTheDocument()
   })
 })

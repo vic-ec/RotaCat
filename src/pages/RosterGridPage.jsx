@@ -9,6 +9,8 @@ import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 import { monthBounds } from '../lib/dateRange'
 import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
+import { logRosterEntryChange } from '../lib/changeLog'
+import RosterChangeLogModal from '../components/RosterChangeLogModal'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -51,7 +53,7 @@ function getShiftsForDay(dayType) {
 export default function RosterGridPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
 
   const [rosterMonth, setRosterMonth] = useState(null)
   const [entries, setEntries] = useState([])    // all roster_entries for this month
@@ -83,6 +85,9 @@ export default function RosterGridPage() {
 
   // Drag state
   const [dragSource, setDragSource] = useState(null) // {entryId, profileId, date, shiftCode}
+
+  // Review log (audit trail of manual edits to this roster)
+  const [showChangeLog, setShowChangeLog] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -206,6 +211,8 @@ export default function RosterGridPage() {
     const stId = Object.entries(shiftTypes).find(([, code]) => code === shiftCode)?.[0]
     if (!stId) return
 
+    const priorEntry = entryId ? entries.find(e => e.id === entryId) : null
+
     if (entryId) {
       // Update existing entry
       await supabase.from('roster_entries').update({
@@ -228,12 +235,35 @@ export default function RosterGridPage() {
         position: 99,
       })
     }
+    await logRosterEntryChange({
+      rosterMonthId: id,
+      rosterEntryId: entryId || null,
+      entryDate: date,
+      shiftCode,
+      action: 'assign',
+      profileIdBefore: priorEntry?.profile_id ?? null,
+      profileIdAfter: profileId,
+      changedBy: user.id,
+    })
     await refreshEntries()
   }
 
   async function removeEntry(entryId) {
     setOpenDropdown(null)
+    const priorEntry = entries.find(e => e.id === entryId)
     await supabase.from('roster_entries').delete().eq('id', entryId)
+    if (priorEntry) {
+      await logRosterEntryChange({
+        rosterMonthId: id,
+        rosterEntryId: entryId,
+        entryDate: priorEntry.date,
+        shiftCode: shiftTypes[priorEntry.shift_type_id] || 'UNKNOWN',
+        action: 'remove',
+        profileIdBefore: priorEntry.profile_id,
+        profileIdAfter: null,
+        changedBy: user.id,
+      })
+    }
     await refreshEntries()
   }
 
@@ -253,6 +283,19 @@ export default function RosterGridPage() {
       shift_type_id: stId,
       is_manual_override: true,
     }).eq('id', dragSource.entryId)
+
+    await logRosterEntryChange({
+      rosterMonthId: id,
+      rosterEntryId: dragSource.entryId,
+      entryDate: targetDate,
+      shiftCode: targetShiftCode,
+      action: 'move',
+      profileIdBefore: dragSource.profileId,
+      profileIdAfter: dragSource.profileId,
+      dateBefore: dragSource.date,
+      shiftCodeBefore: dragSource.shiftCode,
+      changedBy: user.id,
+    })
 
     setDragSource(null)
     await refreshEntries()
@@ -344,6 +387,13 @@ export default function RosterGridPage() {
               Week
             </button>
           </div>
+
+          {/* Review log */}
+          {isAdmin && (
+            <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
+              Review log
+            </button>
+          )}
 
           {/* Publish */}
           {isAdmin && rosterMonth.status === 'draft' && (
@@ -560,7 +610,16 @@ export default function RosterGridPage() {
           entries={entries}
           shiftTypes={shiftTypes}
           profiles={profiles}
+          rosterMonthId={id}
           onDone={() => { setActiveVacancy(null); refreshEntries() }}
+        />
+      )}
+
+      {showChangeLog && (
+        <RosterChangeLogModal
+          rosterMonthId={id}
+          monthLabel={`${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}`}
+          onClose={() => setShowChangeLog(false)}
         />
       )}
     </div>

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from './DoctorDropdown'
 import { findSameDayConflict } from '../lib/rosterVacancy'
+import { logRosterEntryChange } from '../lib/changeLog'
 
 function applyEntryPatch(entries, entryId, patch) {
   return entries.map(e => (e.id === entryId ? { ...e, ...patch } : e))
@@ -24,7 +25,7 @@ const VACATE_PATCH = {
 // currentProfileId }. `entries` is the manager's current working copy of
 // the roster month's entries, used only for the same-day conflict check —
 // this component doesn't own or refetch that list.
-export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, onResolved, onClose }) {
+export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, rosterMonthId, onResolved, onClose }) {
   const { user } = useAuth()
   const [step, setStep] = useState('choose') // 'choose' | 'swap'
   const [search, setSearch] = useState('')
@@ -46,6 +47,11 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     })
     if (adErr) { setError(adErr.message); setSaving(false); return }
 
+    await logRosterEntryChange({
+      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
+      action: 'unassign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: null,
+      advertised: true, changedBy: user.id,
+    })
     onResolved(null, applyEntryPatch(entries, vacancy.entryId, VACATE_PATCH))
   }
 
@@ -55,6 +61,11 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     const { error: updateErr } = await supabase.from('roster_entries').update(VACATE_PATCH).eq('id', vacancy.entryId)
     if (updateErr) { setError(updateErr.message); setSaving(false); return }
 
+    await logRosterEntryChange({
+      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
+      action: 'unassign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: null,
+      advertised: false, changedBy: user.id,
+    })
     onResolved(null, applyEntryPatch(entries, vacancy.entryId, VACATE_PATCH))
   }
 
@@ -64,6 +75,12 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     const patch = { profile_id: newProfileId, is_locum: false, locum_name: null, is_manual_override: true, is_flagged: false, flag_type: null, flag_reason: null }
     const { error: updateErr } = await supabase.from('roster_entries').update(patch).eq('id', vacancy.entryId)
     if (updateErr) { setError(updateErr.message); setSaving(false); return }
+
+    await logRosterEntryChange({
+      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
+      action: 'assign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: newProfileId,
+      changedBy: user.id,
+    })
 
     const updatedEntries = applyEntryPatch(entries, vacancy.entryId, patch)
     const conflict = findSameDayConflict({

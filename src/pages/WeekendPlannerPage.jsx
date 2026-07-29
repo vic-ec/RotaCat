@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays } from '../lib/dateRange'
 import { CATEGORY_GROUPS, groupForCategory, saturdaysInRange, groupEntriesByWeekend } from '../lib/weekendPlanner'
+import { logWeekendPlannerChange } from '../lib/changeLog'
+import WeekendPlannerChangeLogModal from '../components/WeekendPlannerChangeLogModal'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 
@@ -15,6 +17,7 @@ export default function WeekendPlannerPage() {
   const [error, setError] = useState('')
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
+  const [showChangeLog, setShowChangeLog] = useState(false)
 
   useEffect(() => {
     if (isLocum) return
@@ -77,14 +80,25 @@ export default function WeekendPlannerPage() {
     if (err) { setError(err.message); return }
     setOpenPicker(null)
     setEntries(prev => [...prev, data])
+    await logWeekendPlannerChange({
+      weekendSaturday: saturday, category: doctor.category, action: 'add',
+      profileId, changedBy: profile?.id ?? null,
+    })
   }
 
   async function removeEntry(entryId) {
     setSaving(true)
+    const removed = entries.find(e => e.id === entryId)
     const { error: err } = await supabase.from('weekend_planner_entries').delete().eq('id', entryId)
     setSaving(false)
     if (err) { setError(err.message); return }
     setEntries(prev => prev.filter(e => e.id !== entryId))
+    if (removed) {
+      await logWeekendPlannerChange({
+        weekendSaturday: removed.weekend_saturday, category: removed.category, action: 'remove',
+        profileId: removed.profile_id, changedBy: profile?.id ?? null,
+      })
+    }
   }
 
   // Locums can't see the weekend grid (canViewWeekendGrid excludes them) —
@@ -93,12 +107,21 @@ export default function WeekendPlannerPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <h1 className="font-display text-2xl font-bold text-ink">Weekend planner</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        {isAdmin
-          ? 'Who works which weekend — the scheduler reads this directly when generating a roster. Every weekend must be filled in before its month can be generated.'
-          : 'Who works which weekend, as planned by admin.'}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-ink">Weekend planner</h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            {isAdmin
+              ? 'Who works which weekend — the scheduler reads this directly when generating a roster. Every weekend must be filled in before its month can be generated.'
+              : 'Who works which weekend, as planned by admin.'}
+          </p>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
+            Review log
+          </button>
+        )}
+      </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
@@ -199,6 +222,8 @@ export default function WeekendPlannerPage() {
           })}
         </div>
       )}
+
+      {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}
     </div>
   )
 }

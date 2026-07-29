@@ -552,6 +552,7 @@ export default function RosterGridPage() {
                         rosterMonthId={id}
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
                         consultantProfiles={consultantProfiles}
+                        isAdmin={isAdmin}
                         onRefresh={refreshEntries}
                       />
                     </div>
@@ -695,7 +696,10 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = t
 // disambiguated) rather than free text. consultant_name is only read here
 // as a fallback for any pre-existing free-text rows -- clicking one still
 // opens the dropdown, replacing it with a real profile on next save.
-function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, onRefresh }) {
+// isAdmin-gated like every other edit affordance in the grid (DoctorChip,
+// the shift-cell "+" button) -- RLS already blocks the write for a
+// non-admin, but the cell shouldn't offer a dropdown that just fails.
+function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isAdmin, onRefresh }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -732,27 +736,29 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, onR
 
   return (
     <>
-      <div onClick={() => setOpen(true)} className="cursor-pointer">
+      <div onClick={isAdmin ? () => setOpen(true) : undefined} className={isAdmin ? 'cursor-pointer' : ''}>
         {consultant ? (
           <div
-            className="rounded px-1.5 py-0.5 text-[10px] font-medium hover:opacity-85"
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isAdmin ? 'hover:opacity-85' : ''}`}
             style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
             title={`${consultant.name} ${consultant.surname}`}
           >
             {consultant.surname}
           </div>
         ) : existing?.consultant_name ? (
-          <div className="min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken">
+          <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>
             {existing.consultant_name}
           </div>
-        ) : (
+        ) : isAdmin ? (
           <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
             +
           </div>
+        ) : (
+          <div className="min-h-[20px] px-1 py-0.5 text-[10px] text-ink-muted">—</div>
         )}
       </div>
 
-      {open && (
+      {isAdmin && open && (
         <DoctorDropdown
           profiles={consultantProfiles}
           search={search}

@@ -49,7 +49,7 @@ export default function DashboardPage() {
     const [leaveRes, profilesRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('*, profiles(name, surname)')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
         .eq('status', 'approved')
         .gte('date_to', today)
         .order('date_from', { ascending: true })

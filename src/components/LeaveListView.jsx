@@ -28,7 +28,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])

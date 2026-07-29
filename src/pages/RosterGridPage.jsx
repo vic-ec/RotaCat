@@ -7,6 +7,8 @@ import { patternBackgroundStyle } from '../lib/avatarPatterns'
 import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
+import { monthBounds } from '../lib/dateRange'
+import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -62,6 +64,13 @@ export default function RosterGridPage() {
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
 
+  // Draft-reopen check (§2.6): has the Weekend Planner changed since this
+  // draft was generated? See computeWeekendPlannerDrift. Only computed
+  // for a draft roster — reset (dismissedDrift too) on every id change
+  // via loadAll, not persisted, so it re-surfaces on next visit.
+  const [plannerDrift, setPlannerDrift] = useState([])
+  const [dismissedDrift, setDismissedDrift] = useState(false)
+
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
   const [dropdownSearch, setDropdownSearch] = useState('')
@@ -96,15 +105,32 @@ export default function RosterGridPage() {
       // Normalise date strings — Supabase may return "2026-08-01T00:00:00"
       // or "2026-08-01" depending on column type. Slice to "YYYY-MM-DD" to
       // guarantee consistent keys throughout the component.
-      setEntries((entriesRes.data || []).map(e => ({
+      const normalisedEntries = (entriesRes.data || []).map(e => ({
         ...e,
         date: e.date?.slice(0, 10),
-      })))
+      }))
+      setEntries(normalisedEntries)
       setProfiles(profilesRes.data || [])
 
       const stMap = {}
       for (const st of (shiftTypesRes.data || [])) stMap[st.id] = st.code
       setShiftTypes(stMap)
+
+      // Draft-reopen check (§2.6): only meaningful for a still-editable
+      // draft — a published roster is the historical record, not
+      // something to compare forward against the planner's current state.
+      setDismissedDrift(false)
+      if (rosterRes.data.status === 'draft') {
+        const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
+        const { data: plannerData } = await supabase
+          .from('weekend_planner_entries')
+          .select('weekend_saturday, profile_id')
+          .gte('weekend_saturday', start)
+          .lte('weekend_saturday', end)
+        setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap))
+      } else {
+        setPlannerDrift([])
+      }
 
       // Build PH lookup keyed by "YYYY-MM-DD"
       const phMap = {}
@@ -306,6 +332,49 @@ export default function RosterGridPage() {
           )}
         </div>
       </div>
+
+      {/* Weekend Planner drift warning (§2.6) — the planner changed after
+          this draft was generated. Dismiss is local-only (not persisted),
+          so it re-surfaces on next visit rather than being silently lost. */}
+      {plannerDrift.length > 0 && !dismissedDrift && (
+        <div className="mb-4 rounded-lg border border-flagAmber bg-flagAmber-bg p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-flagAmber">
+                The Weekend Planner has changed since this draft was generated
+              </p>
+              <ul className="mt-2 space-y-1 text-sm text-flagAmber">
+                {plannerDrift.map(({ saturday, added, removed }) => (
+                  <li key={saturday}>
+                    <span className="font-medium">{saturday}:</span>{' '}
+                    {added.length > 0 && (
+                      <span>now planned: {added.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
+                    )}
+                    {added.length > 0 && removed.length > 0 && ' — '}
+                    {removed.length > 0 && (
+                      <span>no longer planned: {removed.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setDismissedDrift(true)}
+              className="flex-shrink-0 text-sm text-flagAmber hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/roster/generate')}
+              className="btn-secondary mt-3 text-sm"
+            >
+              Regenerate roster
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Week navigation (week view only) */}
       {viewMode === 'week' && (

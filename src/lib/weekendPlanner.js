@@ -1,0 +1,110 @@
+// Shared helpers for the Weekend Planner (weekend_planner_entries) — a
+// flat, admin-populated calendar of who works which weekend, replacing
+// the old computed weekend_offset projection (see weekendProjection.js,
+// still used independently for the Leave submission overlap hint).
+import { addDays, dayOfWeek } from './dateRange'
+
+// Column groupings for the planner grid. The scheduler backend only
+// distinguishes 5 categories for weekend eligibility (MO, Registrar,
+// COSMO, COSMOPsych, Consultant) — EC_COSMO/EC_COSMO_Intern/Intern all
+// behave as COSMO, OT_COSMO/OT_COSMO_Intern behave as COSMOPsych, so the
+// grid groups the finer staff_category enum values down to match.
+// Consultant/Locum never appear (not part of weekend rotation).
+export const CATEGORY_GROUPS = [
+  { key: 'MO', label: 'MO', categories: ['MO'] },
+  { key: 'Registrar', label: 'Registrar', categories: ['Registrar'] },
+  { key: 'COSMO', label: 'EC COSMO / Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'] },
+  { key: 'COSMOPsych', label: 'OT COSMO / Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'] },
+]
+
+const GROUP_BY_CATEGORY = new Map(
+  CATEGORY_GROUPS.flatMap(g => g.categories.map(c => [c, g.key]))
+)
+
+// Returns the grid column key for a staff_category value, or null for a
+// category that doesn't participate in weekend rotation (Consultant,
+// Locum) or isn't recognised.
+export function groupForCategory(category) {
+  return GROUP_BY_CATEGORY.get(category) ?? null
+}
+
+// Every Saturday "YYYY-MM-DD" from fromDate through throughDate
+// (inclusive of any Saturday whose date falls in range).
+export function saturdaysInRange(fromDate, throughDate) {
+  const saturdays = []
+  let cursor = fromDate
+  const offsetToSaturday = (6 - dayOfWeek(cursor) + 7) % 7
+  cursor = addDays(cursor, offsetToSaturday)
+  while (cursor <= throughDate) {
+    saturdays.push(cursor)
+    cursor = addDays(cursor, 7)
+  }
+  return saturdays
+}
+
+// Shift codes that land on the Saturday/Sunday of a real weekend — used
+// to derive "who actually worked this weekend" from a draft roster's own
+// roster_entries, for comparison against the Weekend Planner.
+const WEEKEND_DAY_CODES = new Set(['WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 'PH_20'])
+
+// Compares a DRAFT roster's actual weekend assignments (rosterEntries,
+// raw roster_entries rows) against the Weekend Planner's CURRENT state
+// (plannerEntries, raw weekend_planner_entries rows) to detect drift —
+// the planner was edited after this draft was generated, so the draft no
+// longer reflects it. Only meaningful for a draft; a published roster is
+// the historical record of what actually happened, not something to
+// compare forward against.
+//
+// Returns [{ saturday, added, removed }] sorted chronologically — added/
+// removed are arrays of profile_id no longer matching between the two
+// (added = now in the planner but not in the draft, removed = in the
+// draft but no longer in the planner). Empty when nothing has drifted.
+export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes) {
+  const actualBySaturday = new Map()
+  for (const entry of rosterEntries) {
+    if (!entry.profile_id) continue
+    const code = shiftTypeCodes[entry.shift_type_id]
+    if (!WEEKEND_DAY_CODES.has(code)) continue
+    const saturday = dayOfWeek(entry.date) === 0 ? addDays(entry.date, -1) : entry.date
+    if (!actualBySaturday.has(saturday)) actualBySaturday.set(saturday, new Set())
+    actualBySaturday.get(saturday).add(entry.profile_id)
+  }
+
+  const plannedBySaturday = new Map()
+  for (const entry of plannerEntries) {
+    if (!plannedBySaturday.has(entry.weekend_saturday)) plannedBySaturday.set(entry.weekend_saturday, new Set())
+    plannedBySaturday.get(entry.weekend_saturday).add(entry.profile_id)
+  }
+
+  const allSaturdays = new Set([...actualBySaturday.keys(), ...plannedBySaturday.keys()])
+  const drifted = []
+  for (const saturday of allSaturdays) {
+    const actual = actualBySaturday.get(saturday) || new Set()
+    const planned = plannedBySaturday.get(saturday) || new Set()
+    const added = [...planned].filter(id => !actual.has(id))
+    const removed = [...actual].filter(id => !planned.has(id))
+    if (added.length > 0 || removed.length > 0) {
+      drifted.push({ saturday, added, removed })
+    }
+  }
+  return drifted.sort((a, b) => a.saturday.localeCompare(b.saturday))
+}
+
+// Groups raw weekend_planner_entries rows into
+// { [saturday]: { [groupKey]: [entry, ...] } } for the grid to render.
+// Entries are grouped by their OWN category (not the doctor's profile
+// category) since an entry can be a deliberate override (e.g. a
+// Registrar covering a COSMO slot) — see the column comment on
+// weekend_planner_entries.category in the migration.
+export function groupEntriesByWeekend(entries) {
+  const byWeekend = new Map()
+  for (const entry of entries) {
+    const groupKey = groupForCategory(entry.category)
+    if (!groupKey) continue
+    if (!byWeekend.has(entry.weekend_saturday)) byWeekend.set(entry.weekend_saturday, {})
+    const bySaturday = byWeekend.get(entry.weekend_saturday)
+    if (!bySaturday[groupKey]) bySaturday[groupKey] = []
+    bySaturday[groupKey].push(entry)
+  }
+  return byWeekend
+}

@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { contrastTextColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
-import ClearableInput from '../components/ClearableInput'
+import DoctorDropdown from '../components/DoctorDropdown'
+import RosterVacancyManager from '../components/RosterVacancyManager'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -63,6 +64,12 @@ export default function RosterGridPage() {
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
   const [dropdownSearch, setDropdownSearch] = useState('')
+
+  // Published-roster removal/reassignment workflow (§2.5) — set instead of
+  // opening the plain dropdown whenever an occupied slot on a PUBLISHED
+  // roster is clicked. RosterVacancyManager owns the recursive swap-conflict
+  // chain from here; onDone() just closes it and reloads.
+  const [activeVacancy, setActiveVacancy] = useState(null)
 
   // Drag state
   const [dragSource, setDragSource] = useState(null) // {entryId, profileId, date, shiftCode}
@@ -123,6 +130,19 @@ export default function RosterGridPage() {
 
   async function handleCellClick(date, shiftCode, existingEntry) {
     if (!isAdmin) return
+    // Occupied slot on a published roster: route through the removal/
+    // reassignment workflow instead of the plain assign-or-remove dropdown —
+    // an empty slot, a locum placeholder, or anything on a draft roster
+    // stays freely editable via the dropdown as before.
+    if (existingEntry?.profile_id && rosterMonth.status === 'published') {
+      setActiveVacancy({
+        entryId: existingEntry.id,
+        date,
+        shiftCode,
+        currentProfileId: existingEntry.profile_id,
+      })
+      return
+    }
     setOpenDropdown({ date, shiftCode, entryId: existingEntry?.id || null })
     setDropdownSearch('')
   }
@@ -398,6 +418,7 @@ export default function RosterGridPage() {
                               onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
                               isAdmin={isAdmin}
+                              canDrag={rosterMonth.status !== 'published'}
                             />
                           ))}
                           {/* Add slot if admin */}
@@ -434,12 +455,24 @@ export default function RosterGridPage() {
           shiftCode={openDropdown.shiftCode}
         />
       )}
+
+      {/* Published-roster removal/reassignment workflow (§2.5) */}
+      {activeVacancy && (
+        <RosterVacancyManager
+          key={activeVacancy.entryId}
+          vacancy={activeVacancy}
+          entries={entries}
+          shiftTypes={shiftTypes}
+          profiles={profiles}
+          onDone={() => { setActiveVacancy(null); loadAll() }}
+        />
+      )}
     </div>
   )
 }
 
 // ── DoctorChip ────────────────────────────────────────────────────────
-function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin }) {
+function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = true }) {
   if (entry.is_locum) {
     return (
       <div
@@ -458,11 +491,12 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin }) {
 
   const bgColor = profile.color_code || '#4A90D9'
   const patternStyle = profile.pattern_type ? patternBackgroundStyle(profile.pattern_type, bgColor, 8) : null
+  const draggableNow = isAdmin && canDrag
 
   return (
     <div
-      draggable={isAdmin}
-      onDragStart={isAdmin ? onDragStart : undefined}
+      draggable={draggableNow}
+      onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
       className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
         isAdmin ? 'cursor-pointer hover:opacity-85' : ''
@@ -524,68 +558,6 @@ function ConsultantCell({ date, rosterMonthId, existing, onRefresh }) {
       className="min-h-[20px] cursor-pointer rounded px-1 py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken"
     >
       {existing?.consultant_name || <span className="opacity-40">+</span>}
-    </div>
-  )
-}
-
-// ── DoctorDropdown ────────────────────────────────────────────────────
-function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode }) {
-  const filtered = profiles.filter(p =>
-    `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
-  )
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4"
-      onClick={onClose}
-    >
-      <div
-        className="card w-full max-w-xs p-0 shadow-raised overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="border-b border-slate-line px-3 py-2.5">
-          <p className="text-xs font-medium text-ink-muted mb-1.5">
-            Assign doctor — {shiftCode} on {date}
-          </p>
-          <ClearableInput
-            autoFocus
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search by name…"
-            className="input-field text-sm py-1.5"
-            clearLabel="Clear search"
-          />
-        </div>
-        <div className="max-h-64 overflow-y-auto">
-          {filtered.length === 0 && (
-            <p className="px-3 py-3 text-sm text-ink-muted">No doctors found.</p>
-          )}
-          {filtered.map(p => (
-            <button
-              key={p.id}
-              onClick={() => onSelect(p.id)}
-              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-            >
-              <span
-                className="h-3 w-3 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: p.color_code }}
-              />
-              <span className="font-medium text-ink">{p.surname}</span>
-              <span className="text-xs text-ink-muted capitalize">{p.category}</span>
-            </button>
-          ))}
-        </div>
-        {onRemove && (
-          <div className="border-t border-slate-line px-3 py-2">
-            <button
-              onClick={onRemove}
-              className="w-full rounded py-1.5 text-sm text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
-            >
-              Remove from this slot
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

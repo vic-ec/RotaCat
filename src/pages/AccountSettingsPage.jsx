@@ -465,6 +465,17 @@ export default function AccountSettingsPage() {
   const [statusMsg, setStatusMsg] = useState(null)
   const [isOnLeave, setIsOnLeave] = useState(false)
 
+  // Admin: this year's annual leave day allotment (annual_leave_balances,
+  // a separate table from profiles — its own load/save, not part of
+  // saveAdminAccountFields). Plain per-doctor override, no default-by-
+  // category logic — days_allotted stays null/blank until an admin sets it.
+  const currentYear = new Date().getFullYear()
+  const [annualLeaveDays, setAnnualLeaveDays] = useState('')
+  const [annualLeaveDaysLoaded, setAnnualLeaveDaysLoaded] = useState('')
+  const [annualLeaveDaysSaving, setAnnualLeaveDaysSaving] = useState(false)
+  const [annualLeaveDaysJustSaved, setAnnualLeaveDaysJustSaved] = useState(false)
+  const [annualLeaveDaysMsg, setAnnualLeaveDaysMsg] = useState(null)
+
   // Super-admin: transfer to another admin (own account only)
   const [otherAdmins, setOtherAdmins] = useState([])
   const [transferTargetId, setTransferTargetId] = useState('')
@@ -552,6 +563,46 @@ export default function AccountSettingsPage() {
       setIsOnLeave((data || []).some(r => r.profile_id === targetId))
     })
   }, [targetId])
+
+  useEffect(() => {
+    if (!targetId || !isAdmin) return
+    setAnnualLeaveDaysMsg(null)
+    supabase
+      .from('annual_leave_balances')
+      .select('days_allotted')
+      .eq('profile_id', targetId)
+      .eq('year', currentYear)
+      .maybeSingle()
+      .then(({ data }) => {
+        const value = data?.days_allotted ?? ''
+        setAnnualLeaveDays(String(value))
+        setAnnualLeaveDaysLoaded(String(value))
+      })
+  }, [targetId, isAdmin, currentYear])
+
+  async function saveAnnualLeaveDays() {
+    setAnnualLeaveDaysSaving(true)
+    setAnnualLeaveDaysMsg(null)
+
+    const parsed = annualLeaveDays === '' ? null : Number(annualLeaveDays)
+    if (parsed !== null && (Number.isNaN(parsed) || parsed < 0)) {
+      setAnnualLeaveDaysSaving(false)
+      setAnnualLeaveDaysMsg({ type: 'error', text: 'Enter a non-negative number of days.' })
+      return
+    }
+
+    const { error } = await supabase
+      .from('annual_leave_balances')
+      .upsert({ profile_id: targetId, year: currentYear, days_allotted: parsed }, { onConflict: 'profile_id,year' })
+
+    setAnnualLeaveDaysSaving(false)
+    if (error) {
+      setAnnualLeaveDaysMsg({ type: 'error', text: error.message })
+    } else {
+      setAnnualLeaveDaysLoaded(annualLeaveDays)
+      flashSaved(setAnnualLeaveDaysJustSaved)
+    }
+  }
 
   async function loadMyRequests() {
     const { data, error } = await supabase
@@ -1438,6 +1489,33 @@ export default function AccountSettingsPage() {
                 <span className="text-xs font-medium text-flagRed">{adminMsg.text}</span>
               )}
             </div>
+
+            {adminRole === 'doctor' && (
+              <div className="border-t border-slate-line pt-4">
+                <label className="label-text">Annual leave days ({currentYear})</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={annualLeaveDays}
+                    onChange={e => setAnnualLeaveDays(e.target.value)}
+                    placeholder="Not set"
+                    className="input-field w-24"
+                  />
+                  <button
+                    onClick={saveAnnualLeaveDays}
+                    disabled={annualLeaveDaysSaving || annualLeaveDays === annualLeaveDaysLoaded}
+                    className="btn-secondary"
+                  >
+                    {annualLeaveDaysSaving ? 'Saving…' : annualLeaveDaysJustSaved ? 'Saved.' : 'Save'}
+                  </button>
+                </div>
+                {annualLeaveDaysMsg && (
+                  <span className="mt-1 block text-xs font-medium text-flagRed">{annualLeaveDaysMsg.text}</span>
+                )}
+              </div>
+            )}
 
             {isOwnAccount && isSuperAdmin && (
               <div className="mt-2 border-t border-slate-line pt-4">

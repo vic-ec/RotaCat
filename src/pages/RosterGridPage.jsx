@@ -581,7 +581,7 @@ export default function RosterGridPage() {
                           {isAdmin && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
-                              className="flex w-full items-center justify-center rounded py-0.5 text-[10px] text-ink-muted opacity-0 hover:bg-canvas-sunken hover:opacity-100 transition-opacity group-hover:opacity-100"
+                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
                               title="Add doctor"
                             >
                               +

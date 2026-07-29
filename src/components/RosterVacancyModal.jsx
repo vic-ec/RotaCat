@@ -115,7 +115,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
             Open & advertise
           </button>
           <button onClick={handleOpenNoAdvertise} disabled={saving} className="btn-secondary w-full">
-            Open, don't advertise
+            Open, don&apos;t advertise
           </button>
           <button onClick={() => setStep('swap')} disabled={saving} className="btn-secondary w-full">
             Swap with another doctor

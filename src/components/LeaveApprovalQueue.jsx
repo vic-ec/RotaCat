@@ -108,7 +108,7 @@ export default function LeaveApprovalQueue() {
               <span className="ml-2 text-xs font-normal text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]}</span>
             </p>
             <p className="text-xs text-ink-muted">{request.date_from} → {request.date_to}</p>
-            {request.notes && <p className="mt-1 text-xs italic text-ink-light">"{request.notes}"</p>}
+            {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
 
             {w === undefined ? (
               <p className="mt-2 text-xs text-ink-muted">Checking for conflicts…</p>

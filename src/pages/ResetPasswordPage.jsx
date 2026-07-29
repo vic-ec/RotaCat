@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
           </div>
           <h2 className="font-display text-xl font-bold text-ink">Password updated</h2>
           <p className="mt-2 text-sm text-ink-muted">
-            Your password has been reset. You're signed in — continue to your account.
+            Your password has been reset. You&apos;re signed in — continue to your account.
           </p>
           <button
             onClick={() => navigate('/')}

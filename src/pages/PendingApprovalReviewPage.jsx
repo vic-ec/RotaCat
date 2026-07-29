@@ -49,6 +49,7 @@ export default function PendingApprovalReviewPage() {
   useEffect(() => {
     if (!isAdmin) return
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load is redefined every render; including it would refetch in a loop
   }, [id, isAdmin])
 
   async function load() {
@@ -79,7 +80,7 @@ export default function PendingApprovalReviewPage() {
     return (
       <div className="mx-auto max-w-2xl pb-12">
         <div className="card border-flagRed bg-flagRed-bg p-4">
-          <p className="text-sm text-flagRed">Couldn't load this registration: {loadError}</p>
+          <p className="text-sm text-flagRed">Couldn&apos;t load this registration: {loadError}</p>
           <button onClick={() => navigate('/staff')} className="btn-secondary mt-3">Back to Staff list</button>
         </div>
       </div>

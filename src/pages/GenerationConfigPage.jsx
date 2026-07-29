@@ -70,6 +70,7 @@ export default function GenerationConfigPage() {
   useEffect(() => {
     loadLeaveSummary()
     checkExistingRoster()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLeaveSummary/checkExistingRoster are redefined every render; including them would refetch in a loop
   }, [year, month])
 
   useEffect(() => {
@@ -402,7 +403,7 @@ export default function GenerationConfigPage() {
               {PROGRESS_MESSAGES[progressIdx]}
             </p>
             <p className="mt-1.5 text-xs text-ink-muted">
-              Please don't close this tab — generation can take up to 2 minutes.
+              Please don&apos;t close this tab — generation can take up to 2 minutes.
             </p>
           </div>
         ) : (

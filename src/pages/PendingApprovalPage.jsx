@@ -17,8 +17,8 @@ export default function PendingApprovalPage() {
           </h2>
           <p className="mt-2 text-sm text-ink-muted">
             An admin needs to approve your account and link it to your staff record
-            before you can access the roster. You'll receive a notification once
-            that's done.
+            before you can access the roster. You&apos;ll receive a notification once
+            that&apos;s done.
           </p>
           <button onClick={signOut} className="btn-secondary mt-6">
             Sign out

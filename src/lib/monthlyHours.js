@@ -27,7 +27,7 @@ export async function getMonthlyHoursByProfile(year, month) {
   const { start, end } = monthBounds(year, month)
   const { data } = await supabase
     .from('roster_entries')
-    .select('profile_id, counts_toward_contract_hours, shift_types(duration_hours)')
+    .select('profile_id, counts_toward_contract_hours, extra_hours, shift_types(duration_hours)')
     .gte('date', start)
     .lte('date', end)
     .not('profile_id', 'is', null)
@@ -36,7 +36,8 @@ export async function getMonthlyHoursByProfile(year, month) {
   for (const entry of data || []) {
     if (!entry.counts_toward_contract_hours) continue
     const prev = hoursByProfile.get(entry.profile_id) || 0
-    hoursByProfile.set(entry.profile_id, prev + Number(entry.shift_types?.duration_hours || 0))
+    const entryHours = Number(entry.shift_types?.duration_hours || 0) + Number(entry.extra_hours || 0)
+    hoursByProfile.set(entry.profile_id, prev + entryHours)
   }
   return hoursByProfile
 }

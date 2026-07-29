@@ -113,13 +113,13 @@ export async function getApprovalWarnings(leaveRequest) {
       const { start, end } = monthBounds(year, month)
       const { data: monthEntries } = await supabase
         .from('roster_entries')
-        .select('counts_toward_contract_hours, shift_types(duration_hours)')
+        .select('counts_toward_contract_hours, extra_hours, shift_types(duration_hours)')
         .eq('profile_id', profileId)
         .gte('date', start)
         .lte('date', end)
       const alreadyRosteredHours = (monthEntries || [])
         .filter(e => e.counts_toward_contract_hours)
-        .reduce((sum, e) => sum + Number(e.shift_types?.duration_hours || 0), 0)
+        .reduce((sum, e) => sum + Number(e.shift_types?.duration_hours || 0) + Number(e.extra_hours || 0), 0)
 
       const result = checkFiveEighthsCeiling({
         contractType: profile.contract_type,

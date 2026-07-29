@@ -28,7 +28,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])
@@ -46,6 +46,11 @@ export default function LeaveListView() {
           <div>
             <p className="font-medium text-ink">{lr.profiles?.name} {lr.profiles?.surname}</p>
             <p className="text-xs text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}</p>
+            {lr.status !== 'pending' && lr.reviewed_at && (
+              <p className="text-xs text-ink-muted">
+                {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {new Date(lr.reviewed_at).toLocaleDateString()}
+              </p>
+            )}
           </div>
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
             {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}

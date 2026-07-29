@@ -608,7 +608,7 @@ export default function AccountSettingsPage() {
   async function loadMyRequests() {
     const { data, error } = await supabase
       .from('account_change_requests')
-      .select('*')
+      .select('*, reviewer:profiles!account_change_requests_reviewed_by_fkey(name, surname)')
       .eq('profile_id', user.id)
       .order('created_at', { ascending: false })
     if (!error) setMyRequests(data || [])
@@ -1668,6 +1668,11 @@ export default function AccountSettingsPage() {
                       <span className="font-medium text-ink capitalize">{r.request_type}</span>
                       {r.requested_value && <span className="text-ink-muted"> → {r.requested_value}</span>}
                       <p className="text-xs text-ink-muted">{new Date(r.created_at).toLocaleDateString()}</p>
+                      {r.status !== 'pending' && r.reviewed_at && (
+                        <p className="text-xs text-ink-muted">
+                          {r.status === 'approved' ? 'Approved' : 'Rejected'} by {r.reviewer ? `${r.reviewer.name} ${r.reviewer.surname}` : 'an admin'} on {new Date(r.reviewed_at).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REQUEST_STATUS_BADGE[r.status]}`}>
                       {r.status}

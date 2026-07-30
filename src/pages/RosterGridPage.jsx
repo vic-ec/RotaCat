@@ -442,54 +442,47 @@ export default function RosterGridPage() {
       </div>
 
       {/* Weekend Planner drift warning (§2.6) — the planner changed after
-          this draft was generated. Kept to a single collapsed line with the
-          full per-weekend breakdown behind the Details popup, rather than
-          dumping the whole list into the banner itself. Dismiss is
-          local-only (not persisted), so it re-surfaces on next visit unless
-          "don't show this message again" was also checked. */}
+          this draft was generated. A compact inline alert: a subdued
+          amber-on-white surface (not a filled amber block) with one
+          primary decision (Regenerate roster, the only filled button) and
+          "View changes" as an equally-shaped secondary button opening the
+          full per-weekend breakdown in a modal. Dismiss is a low-emphasis
+          × in the corner rather than competing visually with resolving the
+          stale draft. "Don't show this message again" lives inside the
+          View changes modal, not beside the primary action. */}
       {plannerDrift.length > 0 && !dismissedDrift && (
-        <div className="mb-4 rounded-lg border border-flagAmber bg-flagAmber-bg p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-medium text-flagAmber">
-              The Weekend Planner has changed since this draft was generated
-            </p>
-            <button
-              onClick={() => setShowDriftDetails(true)}
-              className="rounded-full border border-flagAmber px-3 py-1 text-xs font-medium text-flagAmber hover:bg-flagAmber/10"
-            >
-              (i) Details
-            </button>
+        <div className="relative mb-4 rounded-lg border border-flagAmber/40 bg-canvas-raised p-4 shadow-card">
+          <button
+            onClick={() => setDismissedDrift(true)}
+            aria-label="Dismiss"
+            className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+          >
+            ×
+          </button>
+          <div className="flex items-start gap-2 pr-6">
+            <WarningIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-flagAmber" />
+            <div>
+              <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
+              <p className="mt-0.5 text-sm text-ink-light">
+                Changed since this draft was generated — regenerate to apply the latest plan.
+              </p>
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setDismissedDrift(true)}
-              className="rounded-full border border-flagAmber px-3 py-1 text-xs font-medium text-flagAmber hover:bg-flagAmber/10"
-            >
-              Dismiss
-            </button>
-            <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-flagAmber">
-              <input
-                type="checkbox"
-                checked={isDriftMuted(id, plannerDrift)}
-                onChange={e => {
-                  if (e.target.checked) {
-                    sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
-                    setDismissedDrift(true)
-                  } else {
-                    sessionStorage.removeItem(driftStorageKey(id))
-                  }
-                }}
-              />
-              Don&apos;t show this message again
-            </label>
+          <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
             {isAdmin && (
               <button
                 onClick={() => navigate('/roster/generate')}
-                className="btn-secondary text-sm"
+                className="btn-primary text-sm"
               >
                 Regenerate roster
               </button>
             )}
+            <button
+              onClick={() => setShowDriftDetails(true)}
+              className="btn-secondary text-sm"
+            >
+              View changes
+            </button>
           </div>
         </div>
       )}
@@ -498,6 +491,15 @@ export default function RosterGridPage() {
         <WeekendDriftDetailsModal
           drift={plannerDrift}
           profileMap={profileMap}
+          driftMuted={isDriftMuted(id, plannerDrift)}
+          onToggleMute={muted => {
+            if (muted) {
+              sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
+              setDismissedDrift(true)
+            } else {
+              sessionStorage.removeItem(driftStorageKey(id))
+            }
+          }}
           onClose={() => setShowDriftDetails(false)}
         />
       )}
@@ -877,6 +879,13 @@ function buildEntryMap(entries, shiftTypes) {
   return map
 }
 
+function WarningIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004.18 21h15.64a2 2 0 001.87-2.96L13.71 3.86a2 2 0 00-3.42 0z" />
+    </svg>
+  )
+}
 function ChevronLeftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

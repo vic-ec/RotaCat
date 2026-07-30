@@ -1,8 +1,10 @@
-// Full detail list behind the roster grid's collapsed "Weekend Planner has
-// changed" warning — every drifted Saturday and who's now/no-longer
-// planned, kept out of the banner itself so the banner stays a single line
-// regardless of how many weekends have drifted.
-export default function WeekendDriftDetailsModal({ drift, profileMap, onClose }) {
+// Full detail list behind the roster grid's collapsed "Weekend Planner
+// updated" alert — every drifted Saturday and who's now/no-longer planned,
+// kept out of the banner itself so the banner stays a single line
+// regardless of how many weekends have drifted. Also hosts "don't show
+// this message again" as a low-emphasis control down here rather than
+// beside the banner's primary action, where it competed for attention.
+export default function WeekendDriftDetailsModal({ drift, profileMap, driftMuted, onToggleMute, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
       <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
@@ -24,6 +26,10 @@ export default function WeekendDriftDetailsModal({ drift, profileMap, onClose })
             </li>
           ))}
         </ul>
+        <label className="mt-4 flex items-center gap-1.5 border-t border-slate-line pt-3 text-xs text-ink-muted">
+          <input type="checkbox" checked={driftMuted} onChange={e => onToggleMute(e.target.checked)} />
+          Don&apos;t show this message again
+        </label>
       </div>
     </div>
   )

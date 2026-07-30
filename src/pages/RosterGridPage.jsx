@@ -11,6 +11,7 @@ import { monthBounds } from '../lib/dateRange'
 import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
+import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 
 const MONTH_NAMES = [
@@ -88,6 +89,7 @@ export default function RosterGridPage() {
   // changes again rather than needing to be manually re-armed.
   const [plannerDrift, setPlannerDrift] = useState([])
   const [dismissedDrift, setDismissedDrift] = useState(false)
+  const [showDriftDetails, setShowDriftDetails] = useState(false)
 
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
@@ -440,63 +442,64 @@ export default function RosterGridPage() {
       </div>
 
       {/* Weekend Planner drift warning (§2.6) — the planner changed after
-          this draft was generated. Dismiss is local-only (not persisted),
-          so it re-surfaces on next visit rather than being silently lost. */}
+          this draft was generated. Kept to a single collapsed line with the
+          full per-weekend breakdown behind the Details popup, rather than
+          dumping the whole list into the banner itself. Dismiss is
+          local-only (not persisted), so it re-surfaces on next visit unless
+          "don't show this message again" was also checked. */}
       {plannerDrift.length > 0 && !dismissedDrift && (
         <div className="mb-4 rounded-lg border border-flagAmber bg-flagAmber-bg p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-flagAmber">
-                The Weekend Planner has changed since this draft was generated
-              </p>
-              <ul className="mt-2 space-y-1 text-sm text-flagAmber">
-                {plannerDrift.map(({ saturday, added, removed }) => (
-                  <li key={saturday}>
-                    <span className="font-medium">{saturday}:</span>{' '}
-                    {added.length > 0 && (
-                      <span>now planned: {added.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
-                    )}
-                    {added.length > 0 && removed.length > 0 && ' — '}
-                    {removed.length > 0 && (
-                      <span>no longer planned: {removed.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="flex flex-shrink-0 flex-col items-end gap-2">
-              <button
-                onClick={() => setDismissedDrift(true)}
-                className="text-sm text-flagAmber hover:underline"
-              >
-                Dismiss
-              </button>
-              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-flagAmber">
-                <input
-                  type="checkbox"
-                  checked={isDriftMuted(id, plannerDrift)}
-                  onChange={e => {
-                    if (e.target.checked) {
-                      sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
-                      setDismissedDrift(true)
-                    } else {
-                      sessionStorage.removeItem(driftStorageKey(id))
-                    }
-                  }}
-                />
-                Don&apos;t show again until this changes
-              </label>
-            </div>
-          </div>
-          {isAdmin && (
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-flagAmber">
+              The Weekend Planner has changed since this draft was generated
+            </p>
             <button
-              onClick={() => navigate('/roster/generate')}
-              className="btn-secondary mt-3 text-sm"
+              onClick={() => setShowDriftDetails(true)}
+              className="rounded-full border border-flagAmber px-3 py-1 text-xs font-medium text-flagAmber hover:bg-flagAmber/10"
             >
-              Regenerate roster
+              (i) Details
             </button>
-          )}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setDismissedDrift(true)}
+              className="rounded-full border border-flagAmber px-3 py-1 text-xs font-medium text-flagAmber hover:bg-flagAmber/10"
+            >
+              Dismiss
+            </button>
+            <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-flagAmber">
+              <input
+                type="checkbox"
+                checked={isDriftMuted(id, plannerDrift)}
+                onChange={e => {
+                  if (e.target.checked) {
+                    sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
+                    setDismissedDrift(true)
+                  } else {
+                    sessionStorage.removeItem(driftStorageKey(id))
+                  }
+                }}
+              />
+              Don&apos;t show this message again
+            </label>
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/roster/generate')}
+                className="btn-secondary text-sm"
+              >
+                Regenerate roster
+              </button>
+            )}
+          </div>
         </div>
+      )}
+
+      {showDriftDetails && (
+        <WeekendDriftDetailsModal
+          drift={plannerDrift}
+          profileMap={profileMap}
+          onClose={() => setShowDriftDetails(false)}
+        />
       )}
 
       {/* Week navigation (week view only) */}

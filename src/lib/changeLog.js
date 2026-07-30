@@ -76,9 +76,15 @@ export async function fetchDoctorOptions() {
   return (data || []).map(p => ({
     value: p.id,
     label: p.role === 'locum' ? `${p.name} ${p.surname} (Locum)` : `${p.name} ${p.surname}`,
-    isLocum: p.role === 'locum',
+    role: p.role,
   }))
 }
+
+export const ROLE_FILTER_OPTIONS = [
+  { value: '', label: 'All roles' },
+  { value: 'doctor', label: 'Doctors only' },
+  { value: 'locum', label: 'Locums only' },
+]
 
 export const ROSTER_ACTION_OPTIONS = [
   { value: '', label: 'All change types' },
@@ -94,10 +100,15 @@ export const WEEKEND_ACTION_OPTIONS = [
   { value: 'remove', label: 'Removed' },
 ]
 
+// A profile id that can never match a real row — used to force an empty
+// result set when a role filter is active but no profile has that role
+// (e.g. no locums on staff), instead of falling through to "no filter".
+const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000'
+
 // Builds a filtered, server-side query against roster_entry_changes.
-// doctorId takes precedence over locumOnly — filtering to one specific
-// doctor already answers whether locums are involved.
-export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, doctorId, action, locumOnly, locumIds = [] }) {
+// doctorId takes precedence over role — filtering to one specific doctor
+// already answers whether a locum is involved.
+export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, doctorId, action, role, roleIds = [] }) {
   let query = supabase.from('roster_entry_changes').select('*').eq('roster_month_id', rosterMonthId)
   if (dateFrom) query = query.gte('entry_date', dateFrom)
   if (dateTo) query = query.lte('entry_date', dateTo)
@@ -105,15 +116,15 @@ export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, d
   if (action) query = query.eq('action', action)
   if (doctorId) {
     query = query.or(`profile_id_before.eq.${doctorId},profile_id_after.eq.${doctorId}`)
-  } else if (locumOnly && locumIds.length > 0) {
-    const list = locumIds.join(',')
+  } else if (role) {
+    const list = (roleIds.length > 0 ? roleIds : [NO_MATCH_ID]).join(',')
     query = query.or(`profile_id_before.in.(${list}),profile_id_after.in.(${list})`)
   }
   return query.order('changed_at', { ascending: false }).limit(500)
 }
 
 // Builds a filtered, server-side query against weekend_planner_changes.
-export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, locumOnly, locumIds = [], limit = 300 }) {
+export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, role, roleIds = [], limit = 300 }) {
   let query = supabase.from('weekend_planner_changes').select('*')
   if (dateFrom) query = query.gte('weekend_saturday', dateFrom)
   if (dateTo) query = query.lte('weekend_saturday', dateTo)
@@ -121,8 +132,8 @@ export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId
   if (action) query = query.eq('action', action)
   if (doctorId) {
     query = query.eq('profile_id', doctorId)
-  } else if (locumOnly && locumIds.length > 0) {
-    query = query.in('profile_id', locumIds)
+  } else if (role) {
+    query = query.in('profile_id', roleIds.length > 0 ? roleIds : [NO_MATCH_ID])
   }
   return query.order('changed_at', { ascending: false }).limit(limit)
 }

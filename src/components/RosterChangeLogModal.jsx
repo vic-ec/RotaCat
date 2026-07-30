@@ -3,10 +3,12 @@ import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
   nameMapFromProfiles, queryRosterChanges, rosterChangeDetail, ROSTER_ACTION_OPTIONS,
 } from '../lib/changeLog'
-import SelectMenu from './SelectMenu'
+import CompactDateField from './CompactDateField'
+import ChangeLogFilterMenu from './ChangeLogFilterMenu'
+import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
-const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '' }
+const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', role: '' }
 
 function formatTimestampParts(iso) {
   const d = new Date(iso)
@@ -21,7 +23,7 @@ function DoctorCell({ change, profilesById }) {
 
   if (before && after && before.id !== after.id) {
     return (
-      <span className="whitespace-nowrap">
+      <span>
         {before.name} {before.surname}{before.role === 'locum' && <LocumBadge />}
         {' → '}
         {after.name} {after.surname}{after.role === 'locum' && <LocumBadge />}
@@ -30,7 +32,7 @@ function DoctorCell({ change, profilesById }) {
   }
   const person = after || before
   if (!person) return <span className="text-ink-muted">—</span>
-  return <span className="whitespace-nowrap">{person.name} {person.surname}{person.role === 'locum' && <LocumBadge />}</span>
+  return <span>{person.name} {person.surname}{person.role === 'locum' && <LocumBadge />}</span>
 }
 
 // Searchable, filterable audit trail for one roster_month_id — every manual
@@ -39,7 +41,6 @@ function DoctorCell({ change, profilesById }) {
 // nothing in the generation flow writes to roster_entry_changes.
 export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClose }) {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
-  const [locumOnly, setLocumOnly] = useState(false)
   const [changes, setChanges] = useState([])
   const [profilesById, setProfilesById] = useState(new Map())
   const [adminOptions, setAdminOptions] = useState([])
@@ -54,14 +55,14 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load closes over filters/locumOnly/rosterMonthId; refetch whenever any of those change
-  }, [rosterMonthId, filters, locumOnly])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load closes over filters/rosterMonthId; refetch whenever either changes
+  }, [rosterMonthId, filters])
 
   async function load() {
     setLoading(true)
     setError('')
-    const locumIds = doctorOptions.filter(o => o.isLocum).map(o => o.value)
-    const { data, error: err } = await queryRosterChanges({ rosterMonthId, ...filters, locumOnly, locumIds })
+    const roleIds = filters.role ? doctorOptions.filter(o => o.role === filters.role).map(o => o.value) : []
+    const { data, error: err } = await queryRosterChanges({ rosterMonthId, ...filters, roleIds })
     if (err) { setError(err.message); setLoading(false); return }
 
     const ids = (data || []).flatMap(c => [c.changed_by, c.profile_id_before, c.profile_id_after])
@@ -70,7 +71,8 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
     setLoading(false)
   }
 
-  const filtersActive = Object.values(filters).some(Boolean) || locumOnly
+  const filtersActive = Object.values(filters).some(Boolean)
+  const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.role].filter(Boolean).length
   const nameById = nameMapFromProfiles(profilesById)
 
   return (
@@ -81,53 +83,30 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close review log">×</button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <div>
-            <label className="label-text">From</label>
-            <input type="date" className="input-field" value={filters.dateFrom}
-              onChange={e => setFilters(f => ({ ...f, dateFrom: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label-text">To</label>
-            <input type="date" className="input-field" value={filters.dateTo}
-              onChange={e => setFilters(f => ({ ...f, dateTo: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label-text">Admin</label>
-            <SelectMenu
-              value={filters.adminId}
-              onChange={v => setFilters(f => ({ ...f, adminId: v }))}
-              options={[{ value: '', label: 'All admins' }, ...adminOptions]}
-            />
-          </div>
-          <div>
-            <label className="label-text">Doctor</label>
-            <SelectMenu
-              value={filters.doctorId}
-              onChange={v => setFilters(f => ({ ...f, doctorId: v }))}
-              options={[{ value: '', label: 'All doctors' }, ...doctorOptions]}
-            />
-          </div>
-          <div>
-            <label className="label-text">Change type</label>
-            <SelectMenu
-              value={filters.action}
-              onChange={v => setFilters(f => ({ ...f, action: v }))}
-              options={ROSTER_ACTION_OPTIONS}
-            />
-          </div>
-          <div className="flex items-end gap-3 pb-1">
-            <label className="flex items-center gap-1.5 text-sm text-ink-light">
-              <input type="checkbox" checked={locumOnly} onChange={e => setLocumOnly(e.target.checked)} disabled={!!filters.doctorId} />
-              Locums only
-            </label>
-            {filtersActive && (
-              <button type="button" className="text-sm text-accent hover:underline"
-                onClick={() => { setFilters(EMPTY_FILTERS); setLocumOnly(false) }}>
-                Clear
-              </button>
-            )}
-          </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <CompactDateField label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
+            onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
+          <CompactDateField label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
+            onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
+          <ChangeLogFilterMenu
+            adminOptions={adminOptions}
+            doctorOptions={doctorOptions}
+            actionOptions={ROSTER_ACTION_OPTIONS}
+            adminId={filters.adminId}
+            doctorId={filters.doctorId}
+            action={filters.action}
+            role={filters.role}
+            onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
+            onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
+            onActionChange={v => setFilters(f => ({ ...f, action: v }))}
+            onRoleChange={v => setFilters(f => ({ ...f, role: v }))}
+            activeCount={activeCount}
+          />
+          {filtersActive && (
+            <button type="button" className="text-sm text-accent hover:underline" onClick={() => setFilters(EMPTY_FILTERS)}>
+              Clear
+            </button>
+          )}
         </div>
 
         {loading && <p className="mt-4 text-sm text-ink-muted">Loading…</p>}
@@ -145,7 +124,7 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
                   <th className="whitespace-nowrap py-2 pr-4">Date</th>
                   <th className="whitespace-nowrap py-2 pr-4">Time</th>
                   <th className="whitespace-nowrap py-2 pr-4">Admin</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Doctor</th>
+                  <th className="py-2 pr-4">Doctor</th>
                   <th className="whitespace-nowrap py-2 pr-4">Type</th>
                   <th className="py-2">Details</th>
                 </tr>
@@ -154,14 +133,20 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
                 {changes.map(c => {
                   const { date, time } = formatTimestampParts(c.changed_at)
                   const admin = profilesById.get(c.changed_by)
+                  const detail = rosterChangeDetail(c, nameById)
                   return (
-                    <tr key={c.id} className="border-t border-slate-line align-top">
-                      <td className="whitespace-nowrap py-2 pr-4">{date}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 text-ink-muted">{time}</td>
-                      <td className="whitespace-nowrap py-2 pr-4">{admin ? `${admin.name} ${admin.surname}` : 'Unknown'}</td>
-                      <td className="py-2 pr-4"><DoctorCell change={c} profilesById={profilesById} /></td>
-                      <td className="whitespace-nowrap py-2 pr-4 capitalize">{c.action}</td>
-                      <td className="py-2 text-ink-muted">{rosterChangeDetail(c, nameById)}</td>
+                    <tr key={c.id} className="border-t border-slate-line">
+                      <td className="whitespace-nowrap py-2 pr-4 align-top">{date}</td>
+                      <td className="whitespace-nowrap py-2 pr-4 align-top text-ink-muted">{time}</td>
+                      <td className="whitespace-nowrap py-2 pr-4 align-top">{admin ? `${admin.name} ${admin.surname}` : 'Unknown'}</td>
+                      <td className="max-w-[10rem] py-2 pr-4 align-top"><DoctorCell change={c} profilesById={profilesById} /></td>
+                      <td className="whitespace-nowrap py-2 pr-4 align-top capitalize">{c.action}</td>
+                      <td className="max-w-[12rem] py-2 align-top">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 flex-1 truncate text-ink-muted">{detail}</span>
+                          <DetailInfoButton text={detail} />
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}

@@ -18,6 +18,17 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
+// "Don't show again until this changes" for the weekend-planner drift
+// warning — persisted in sessionStorage against a snapshot of the drift
+// itself (not just a bare on/off flag), so muting self-invalidates the
+// moment the planner changes again instead of needing to be re-armed.
+function driftStorageKey(rosterMonthId) {
+  return `rotacat:weekendDriftMuted:${rosterMonthId}`
+}
+function isDriftMuted(rosterMonthId, drift) {
+  return drift.length > 0 && sessionStorage.getItem(driftStorageKey(rosterMonthId)) === JSON.stringify(drift)
+}
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 // Shift display headers matching the PDF layout
@@ -69,9 +80,12 @@ export default function RosterGridPage() {
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
 
   // Draft-reopen check (§2.6): has the Weekend Planner changed since this
-  // draft was generated? See computeWeekendPlannerDrift. Only computed
-  // for a draft roster — reset (dismissedDrift too) on every id change
-  // via loadAll, not persisted, so it re-surfaces on next visit.
+  // draft was generated? See computeWeekendPlannerDrift. Only computed for
+  // a draft roster. dismissedDrift itself resets on every id change (never
+  // persisted); "don't show again" is a separate opt-in (see
+  // driftMutedInSession) that persists in sessionStorage keyed to the
+  // drift's own content, so it self-invalidates the moment the planner
+  // changes again rather than needing to be manually re-armed.
   const [plannerDrift, setPlannerDrift] = useState([])
   const [dismissedDrift, setDismissedDrift] = useState(false)
 
@@ -129,7 +143,6 @@ export default function RosterGridPage() {
       // Draft-reopen check (§2.6): only meaningful for a still-editable
       // draft — a published roster is the historical record, not
       // something to compare forward against the planner's current state.
-      setDismissedDrift(false)
       if (rosterRes.data.status === 'draft') {
         const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
         const { data: plannerData } = await supabase
@@ -137,9 +150,12 @@ export default function RosterGridPage() {
           .select('weekend_saturday, profile_id')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
-        setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap))
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap)
+        setPlannerDrift(newDrift)
+        setDismissedDrift(isDriftMuted(id, newDrift))
       } else {
         setPlannerDrift([])
+        setDismissedDrift(false)
       }
 
       // Build PH lookup keyed by "YYYY-MM-DD"
@@ -174,7 +190,9 @@ export default function RosterGridPage() {
         .select('weekend_saturday, profile_id')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
-      setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes))
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes)
+      setPlannerDrift(newDrift)
+      setDismissedDrift(isDriftMuted(id, newDrift))
     }
   }
 
@@ -446,12 +464,29 @@ export default function RosterGridPage() {
                 ))}
               </ul>
             </div>
-            <button
-              onClick={() => setDismissedDrift(true)}
-              className="flex-shrink-0 text-sm text-flagAmber hover:underline"
-            >
-              Dismiss
-            </button>
+            <div className="flex flex-shrink-0 flex-col items-end gap-2">
+              <button
+                onClick={() => setDismissedDrift(true)}
+                className="text-sm text-flagAmber hover:underline"
+              >
+                Dismiss
+              </button>
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-flagAmber">
+                <input
+                  type="checkbox"
+                  checked={isDriftMuted(id, plannerDrift)}
+                  onChange={e => {
+                    if (e.target.checked) {
+                      sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
+                      setDismissedDrift(true)
+                    } else {
+                      sessionStorage.removeItem(driftStorageKey(id))
+                    }
+                  }}
+                />
+                Don&apos;t show again until this changes
+              </label>
+            </div>
           </div>
           {isAdmin && (
             <button

@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import { ROLE_FILTER_OPTIONS } from '../lib/changeLog'
 import SelectMenu from './SelectMenu'
 
 function FilterIcon(props) {
@@ -13,14 +12,18 @@ function FilterIcon(props) {
   )
 }
 
-// Collapses the Admin/Doctor/Change-type/Role filters into a single icon
-// button opening an anchored popover — the four full-width dropdowns they
-// replace didn't fit a mobile-width review-log modal without wrapping to
-// several rows.
+// Collapses the Admin/Doctor/Change-type/(Role or Category) filters into a
+// single icon button opening an anchored popover — the four full-width
+// dropdowns they replace didn't fit a mobile-width review-log modal
+// without wrapping to several rows. `extraFilter` is the 4th, caller-
+// specific dropdown: { label, options, value, onChange, disabled? } — the
+// roster log uses it for a Role filter, the weekend planner log for a
+// Category filter, since only one of those applies to either table.
 export default function ChangeLogFilterMenu({
   adminOptions, doctorOptions, actionOptions,
-  adminId, doctorId, action, role,
-  onAdminChange, onDoctorChange, onActionChange, onRoleChange,
+  adminId, doctorId, action,
+  onAdminChange, onDoctorChange, onActionChange,
+  extraFilter,
   activeCount,
 }) {
   const [open, setOpen] = useState(false)
@@ -76,10 +79,18 @@ export default function ChangeLogFilterMenu({
             <label className="label-text">Change type</label>
             <SelectMenu alwaysDown value={action} onChange={onActionChange} options={actionOptions} />
           </div>
-          <div>
-            <label className="label-text">Role</label>
-            <SelectMenu alwaysDown value={role} onChange={onRoleChange} options={ROLE_FILTER_OPTIONS} disabled={!!doctorId} />
-          </div>
+          {extraFilter && (
+            <div>
+              <label className="label-text">{extraFilter.label}</label>
+              <SelectMenu
+                alwaysDown
+                value={extraFilter.value}
+                onChange={extraFilter.onChange}
+                options={extraFilter.options}
+                disabled={!!extraFilter.disabled}
+              />
+            </div>
+          )}
         </div>,
         document.body
       )}

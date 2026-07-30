@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
-  nameMapFromProfiles, queryRosterChanges, rosterChangeDetail, ROSTER_ACTION_OPTIONS,
+  nameMapFromProfiles, queryRosterChanges, rosterChangeDetail, ROSTER_ACTION_OPTIONS, ROLE_FILTER_OPTIONS,
 } from '../lib/changeLog'
 import CompactDateField from './CompactDateField'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
@@ -95,11 +95,16 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
             adminId={filters.adminId}
             doctorId={filters.doctorId}
             action={filters.action}
-            role={filters.role}
             onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
             onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
             onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-            onRoleChange={v => setFilters(f => ({ ...f, role: v }))}
+            extraFilter={{
+              label: 'Role',
+              options: ROLE_FILTER_OPTIONS,
+              value: filters.role,
+              onChange: v => setFilters(f => ({ ...f, role: v })),
+              disabled: !!filters.doctorId,
+            }}
             activeCount={activeCount}
           />
           {filtersActive && (

@@ -26,6 +26,8 @@ vi.mock('../lib/supabase', () => ({
         lte() { return builder },
         not() { return builder },
         neq() { return builder },
+        or() { return builder },
+        in() { return builder },
         order() { return builder },
         limit() { return builder },
         then(resolve, reject) {
@@ -84,14 +86,15 @@ describe('DashboardPage', () => {
     mockAuth = { profile: { id: 'locum-1', name: 'Loc' }, isAdmin: false, isClerk: false, isLocum: true }
     const today = todayStr()
     mockResponses['roster_entries:select'] = {
-      data: [{ date: today, shift_type: { code: 'WD_08', label: 'Day shift', start_time: '08:00:00', end_time: '18:00:00' } }],
+      data: [{ date: today, shift_type: { code: 'WD_08', label: 'Day shift', start_time: '08:00:00', end_time: '18:00:00', day_type: 'weekday' } }],
       error: null,
     }
 
     render(<DashboardPage />)
 
-    expect(await screen.findByText(new RegExp(`${today} — Day shift`))).toBeInTheDocument()
+    expect(await screen.findByText(/- 08:00 - 18:00/)).toBeInTheDocument()
     expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
+    expect(screen.getByText('Your Shift Swaps')).toBeInTheDocument()
     expect(eqCalls).toContainEqual(['roster_entries', 'profile_id', 'locum-1'])
   })
 

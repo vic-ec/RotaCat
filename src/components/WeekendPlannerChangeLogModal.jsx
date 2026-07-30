@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
-  nameMapFromProfiles, queryWeekendPlannerChanges, weekendChangeDetail, WEEKEND_ACTION_OPTIONS,
+  nameMapFromProfiles, queryWeekendPlannerChanges, weekendChangeDetail, WEEKEND_ACTION_OPTIONS, WEEKEND_CATEGORY_FILTER_OPTIONS,
 } from '../lib/changeLog'
 import CompactDateField from './CompactDateField'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
@@ -9,7 +9,7 @@ import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
 const RECENT_LIMIT = 300
-const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', role: '' }
+const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', categoryGroup: '' }
 
 function formatTimestampParts(iso) {
   const d = new Date(iso)
@@ -44,8 +44,7 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
   async function load() {
     setLoading(true)
     setError('')
-    const roleIds = filters.role ? doctorOptions.filter(o => o.role === filters.role).map(o => o.value) : []
-    const { data, error: err } = await queryWeekendPlannerChanges({ ...filters, roleIds, limit: RECENT_LIMIT })
+    const { data, error: err } = await queryWeekendPlannerChanges({ ...filters, limit: RECENT_LIMIT })
     if (err) { setError(err.message); setLoading(false); return }
 
     const ids = (data || []).flatMap(c => [c.changed_by, c.profile_id])
@@ -55,7 +54,7 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
   }
 
   const filtersActive = Object.values(filters).some(Boolean)
-  const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.role].filter(Boolean).length
+  const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.categoryGroup].filter(Boolean).length
   const nameById = nameMapFromProfiles(profilesById)
 
   return (
@@ -79,11 +78,15 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
             adminId={filters.adminId}
             doctorId={filters.doctorId}
             action={filters.action}
-            role={filters.role}
             onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
             onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
             onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-            onRoleChange={v => setFilters(f => ({ ...f, role: v }))}
+            extraFilter={{
+              label: 'Category',
+              options: WEEKEND_CATEGORY_FILTER_OPTIONS,
+              value: filters.categoryGroup,
+              onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
+            }}
             activeCount={activeCount}
           />
           {filtersActive && (

@@ -8,6 +8,7 @@
 // actual edit it's recording.
 import { supabase } from './supabase'
 import { parseLocalDate } from './dateRange'
+import { CATEGORY_GROUPS } from './weekendPlanner'
 
 export async function logRosterEntryChange({
   rosterMonthId, rosterEntryId = null, entryDate, shiftCode, action,
@@ -100,6 +101,15 @@ export const WEEKEND_ACTION_OPTIONS = [
   { value: 'remove', label: 'Removed' },
 ]
 
+// Same grouping the Weekend Planner grid itself uses (see CATEGORY_GROUPS
+// in lib/weekendPlanner.js) — filtering by the grid's own columns rather
+// than the raw staff_category enum, so "EC COSMO / Intern" matches every
+// underlying category that group actually covers.
+export const WEEKEND_CATEGORY_FILTER_OPTIONS = [
+  { value: '', label: 'All categories' },
+  ...CATEGORY_GROUPS.map(g => ({ value: g.key, label: g.label })),
+]
+
 // A profile id that can never match a real row — used to force an empty
 // result set when a role filter is active but no profile has that role
 // (e.g. no locums on staff), instead of falling through to "no filter".
@@ -124,16 +134,19 @@ export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, d
 }
 
 // Builds a filtered, server-side query against weekend_planner_changes.
-export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, role, roleIds = [], limit = 300 }) {
+// categoryGroup is one of CATEGORY_GROUPS' keys (MO/Registrar/COSMO/
+// COSMOPsych) — matched against every underlying staff_category value that
+// group covers, not just the literal enum value.
+export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, categoryGroup, limit = 300 }) {
   let query = supabase.from('weekend_planner_changes').select('*')
   if (dateFrom) query = query.gte('weekend_saturday', dateFrom)
   if (dateTo) query = query.lte('weekend_saturday', dateTo)
   if (adminId) query = query.eq('changed_by', adminId)
   if (action) query = query.eq('action', action)
-  if (doctorId) {
-    query = query.eq('profile_id', doctorId)
-  } else if (role) {
-    query = query.in('profile_id', roleIds.length > 0 ? roleIds : [NO_MATCH_ID])
+  if (doctorId) query = query.eq('profile_id', doctorId)
+  if (categoryGroup) {
+    const group = CATEGORY_GROUPS.find(g => g.key === categoryGroup)
+    query = query.in('category', group ? group.categories : [categoryGroup])
   }
   return query.order('changed_at', { ascending: false }).limit(limit)
 }

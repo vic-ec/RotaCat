@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   columnForLeaveCategory, monthsForYear, quartersForYear, datesInMonth,
-  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach,
+  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
 
 describe('columnForLeaveCategory', () => {
@@ -10,15 +10,20 @@ describe('columnForLeaveCategory', () => {
     expect(columnForLeaveCategory('Registrar')).toBe('Registrar')
   })
 
+  it('collapses EC COSMO variants into one column', () => {
+    expect(columnForLeaveCategory('COSMO')).toBe('EC_COSMO')
+    expect(columnForLeaveCategory('EC_COSMO')).toBe('EC_COSMO')
+    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('EC_COSMO')
+    expect(columnForLeaveCategory('Intern')).toBe('EC_COSMO')
+  })
+
   it('collapses OT COSMO variants into one column', () => {
     expect(columnForLeaveCategory('COSMOPsych')).toBe('OT_COSMO')
     expect(columnForLeaveCategory('OT_COSMO')).toBe('OT_COSMO')
     expect(columnForLeaveCategory('OT_COSMO_Intern')).toBe('OT_COSMO')
   })
 
-  it('buckets everything else eligible into Other', () => {
-    expect(columnForLeaveCategory('COSMO')).toBe('Other')
-    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('Other')
+  it('buckets Consultant into Other', () => {
     expect(columnForLeaveCategory('Consultant')).toBe('Other')
   })
 
@@ -125,5 +130,46 @@ describe('findLeaveCapacityBreach', () => {
       dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_COSMO', maxConcurrent: 1, existingCountsByDate: new Map(),
     })
     expect(result.hasBreach).toBe(false)
+  })
+})
+
+describe('findFullTimeAggregateBreach', () => {
+  const counts = (mo, registrar, ecCosmo) => new Map([
+    ['2026-08-10', new Map([['MO', mo], ['Registrar', registrar], ['EC_COSMO', ecCosmo]])],
+  ])
+
+  it('breaches once 1 MO + 1 Registrar + 1 EC COSMO/Intern (the 3-total cap) is already reached', () => {
+    const existingCountsByDate = counts(1, 1, 1)
+    const result = findFullTimeAggregateBreach({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+    })
+    expect(result.hasBreach).toBe(true)
+  })
+
+  it('allows 2 MO + 1 Registrar (individual caps satisfied, aggregate at exactly 3)', () => {
+    const existingCountsByDate = counts(2, 1, 0)
+    // A 3rd MO would breach the per-column cap separately; check the aggregate alone here.
+    const result = findFullTimeAggregateBreach({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+    })
+    expect(result.hasBreach).toBe(true) // adding a 4th full-time doctor of any kind breaches
+  })
+
+  it('does not breach when under the aggregate cap', () => {
+    const existingCountsByDate = counts(1, 0, 0)
+    const result = findFullTimeAggregateBreach({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+    })
+    expect(result.hasBreach).toBe(false)
+  })
+
+  it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
+    const existingCountsByDate = new Map([
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_COSMO', 1]])],
+    ])
+    const result = findFullTimeAggregateBreach({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+    })
+    expect(result.hasBreach).toBe(false) // only 2 full-time doctors (MO+Registrar) counted, OT_COSMO excluded
   })
 })

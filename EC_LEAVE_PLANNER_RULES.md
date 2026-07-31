@@ -42,20 +42,35 @@ Interns, and Overtime Interns:
 
 **How the app enforces the capacity limit:** the sheet's "no more than one
 person per slot" rule is applied to the Annual Leave grid as a hard cap per
-category column — checked automatically when a doctor submits an annual
-leave request, not just displayed after the fact:
+category column, plus a combined cap across the three "full-time doctor"
+columns together — both checked automatically when a doctor submits an
+annual leave request, not just displayed after the fact:
 
 | Column | Categories | Max concurrent |
 | --- | --- | --- |
 | MO | MO | 2 |
-| Registrar | Registrar | 2 |
+| Registrar | Registrar | 1 |
+| EC COSMO / Intern | COSMO, EC_COSMO, EC_COSMO_Intern, Intern | 1 |
 | OT COSMO / Intern | COSMOPsych, OT_COSMO, OT_COSMO_Intern | 1 |
 
-EC COSMO/Intern and Consultant doctors are still shown on the grid (an
-uncapped "Other" column) so their leave isn't hidden, but no concurrency
-cap applies to that group. These numbers are configurable in Supabase
-(`constraints` table: `leave_max_concurrent_mo` / `_registrar` /
-`_ot_cosmo`) without a redeploy, in case the real caps change.
+**Combined cap — no more than 3 full-time doctors (MO + Registrar + EC
+COSMO/Intern combined) on leave at once.** OT COSMO/Intern is a separate
+stream and isn't part of this combined cap. Valid combinations at the
+3-doctor ceiling:
+
+- 1 MO + 1 Registrar + 1 EC COSMO/Intern
+- 2 MO + 1 Registrar
+- 2 MO + 1 EC COSMO/Intern
+
+Never more than 1 Registrar or more than 1 EC COSMO/Intern concurrently
+(each already capped at 1 above), and never more than 3 full-time doctors
+combined even if each individual column is still under its own cap.
+
+Consultant doctors are still shown on the grid (an uncapped "Other"
+column) so their leave isn't hidden, but no concurrency cap applies to
+them. These numbers are configurable in Supabase (`constraints` table:
+`leave_max_concurrent_mo` / `_registrar` / `_ec_cosmo` / `_ot_cosmo` /
+`_fulltime`) without a redeploy, in case the real caps change.
 
 ## Special / Single-day / Course leave rules
 

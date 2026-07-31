@@ -3,7 +3,10 @@
 import { supabase } from './supabase'
 import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from './dateRange'
 import { overlapsPlannedWeekend } from './weekendPlanner'
-import { LEAVE_CAPACITY_COLUMNS, columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach } from './leaveYearGrid'
+import {
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
+  columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+} from './leaveYearGrid'
 
 export const LEAVE_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual leave' },
@@ -55,16 +58,19 @@ export function findDoubleBookingConflicts({ dateFrom, dateTo, existingLeaveRequ
 }
 
 // Tier-1 (block at submission): the Annual Leave planner caps how many
-// doctors from the same capacity column (MO / Registrar / OT COSMO+Intern)
-// can be on leave at once — mirrors the physical Google Sheet's "only N
-// doctors in this category allowed leave at a time" rule. Checked against
-// every other pending or approved annual-leave request (rejected/withdrawn
-// never count, same as the double-booking check above). No-op for any
-// other leave type, or for a category with no capacity column (Other).
+// doctors from the same capacity column (MO / Registrar / EC COSMO+Intern /
+// OT COSMO+Intern) can be on leave at once, and — for the three "full-time
+// doctor" columns only (MO/Registrar/EC COSMO+Intern) — a combined cap
+// across all three together (e.g. 1 MO + 1 Registrar + 1 EC COSMO/Intern is
+// fine, but 2 MO + 1 Registrar + 1 EC COSMO/Intern is not, even though each
+// individual column is still within its own limit). Checked against every
+// other pending or approved annual-leave request (rejected/withdrawn never
+// count, same as the double-booking check above). No-op for any other leave
+// type, or for a category with no capacity column (Other).
 async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
   const [profileRes, constraintsRes, overlappingRes] = await Promise.all([
     supabase.from('profiles').select('category').eq('id', profileId).single(),
-    supabase.from('constraints').select('key, value').in('key', LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey)),
+    supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
     supabase.from('leave_requests')
       .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
       .eq('leave_type', 'annual')
@@ -85,10 +91,19 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
     yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
   })
   const countsByDate = countByColumnPerDate(byDate, e => e.profiles?.category)
+
   const { hasBreach, breachDates } = findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate: countsByDate })
   if (hasBreach) {
     const plural = maxConcurrent === 1 ? 'doctor is' : 'doctors are'
     throw new Error(`Only ${maxConcurrent} ${columnDef.label} ${plural} allowed on leave at once, and that's already reached on ${breachDates[0]}. Adjust the dates and try again.`)
+  }
+
+  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
+    const maxTotal = maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX
+    const { hasBreach: fullTimeBreach, breachDates: fullTimeDates } = findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existingCountsByDate: countsByDate })
+    if (fullTimeBreach) {
+      throw new Error(`No more than ${maxTotal} full-time doctors (MO/Registrar/EC COSMO/Intern combined) may be on leave at once, and that's already reached on ${fullTimeDates[0]}. Adjust the dates and try again.`)
+    }
   }
 }
 

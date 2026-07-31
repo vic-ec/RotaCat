@@ -1,20 +1,24 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { LEAVE_CAPACITY_COLUMNS, buildLeaveByDate } from '../lib/leaveYearGrid'
+import {
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX, buildLeaveByDate,
+} from '../lib/leaveYearGrid'
 import LeaveYearGrid from './LeaveYearGrid'
 
 // Annual Leave planner: approved annual leave only, for every leave-eligible
 // doctor (clerks/locums never appear — RLS blocks them from ever having a
 // leave_requests row of their own). Mirrors the physical Google Sheet: a
 // year at a glance, with a hard cap on how many doctors from the same
-// capacity column (MO / Registrar / OT COSMO+Intern) can be off at once —
-// enforced at submission time in leaveRequests.js, just surfaced here as a
-// read-only reference.
+// capacity column (MO / Registrar / EC COSMO+Intern / OT COSMO+Intern) can
+// be off at once, plus a combined cap across the first three ("full-time
+// doctors") — enforced at submission time in leaveRequests.js, just
+// surfaced here as a read-only reference.
 export default function AnnualLeavePlanner() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
   const [maxByColumnKey, setMaxByColumnKey] = useState({})
+  const [maxFullTime, setMaxFullTime] = useState(LEAVE_FULL_TIME_DEFAULT_MAX)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -35,7 +39,7 @@ export default function AnnualLeavePlanner() {
         .lte('date_from', yearEnd)
         .gte('date_to', yearStart),
       supabase.from('public_holidays').select('date, name').gte('date', yearStart).lte('date', yearEnd),
-      supabase.from('constraints').select('key, value').in('key', LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey)),
+      supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
     ])
     if (leaveRes.error) { setError(leaveRes.error.message); setLoading(false); return }
     if (phRes.error) { setError(phRes.error.message); setLoading(false); return }
@@ -54,6 +58,7 @@ export default function AnnualLeavePlanner() {
     setMaxByColumnKey(Object.fromEntries(
       LEAVE_CAPACITY_COLUMNS.map(col => [col.key, maxByConstraintKey[col.constraintKey] ?? col.defaultMax])
     ))
+    setMaxFullTime(maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX)
     setLoading(false)
   }
 
@@ -65,7 +70,8 @@ export default function AnnualLeavePlanner() {
           <li>Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.</li>
           <li>An Annual Leave form must be submitted and approved. 22 days annual leave are available per yearly cycle.</li>
           <li>Shows <strong>approved</strong> leave only — pending requests appear on the Special Leave tab instead.</li>
-          <li>At most {maxByColumnKey.MO ?? 2} MO, {maxByColumnKey.Registrar ?? 2} Registrar, and {maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor{(maxByColumnKey.OT_COSMO ?? 1) === 1 ? '' : 's'} may be on leave at the same time — enforced automatically when a request is submitted (no more than one person per slot).</li>
+          <li>At most {maxByColumnKey.MO ?? 2} MO, {maxByColumnKey.Registrar ?? 1} Registrar, {maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and {maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor may be on leave at the same time (no more than one person per slot).</li>
+          <li>On top of that, no more than {maxFullTime} full-time doctors (MO + Registrar + EC COSMO/Intern combined) may be on leave at once — e.g. 1 MO + 1 Registrar + 1 EC COSMO/Intern, or 2 MO + 1 of either, but never 2 Registrar or 2 EC COSMO/Intern. Enforced automatically when a request is submitted.</li>
           <li>Taking 5 days&rsquo; leave: you may take the weekend on either side, but &ldquo;on&rdquo; weekend hours must be made up elsewhere.</li>
           <li>Taking 10 days&rsquo; leave (2 weeks): if the middle weekend is an &ldquo;on&rdquo; weekend, those hours don&rsquo;t need to be made up — included in the leave.</li>
           <li>Leave spanning a public holiday: the PH counts as a shift/leave day, or the hours are made up elsewhere.</li>

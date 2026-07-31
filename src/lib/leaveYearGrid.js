@@ -9,22 +9,32 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-// Capacity-capped columns for the Annual Leave planner. Registrar and MO
-// stay separate (matching how the physical sheet splits them), OT COSMO and
-// its Intern variant share one column and one cap — the finer
-// staff_category values collapse down the same way WeekendPlanner's
-// CATEGORY_GROUPS do. Consultant/Locum never appear (not part of the
-// leave-eligible doctor roster); everything else eligible for leave but not
-// one of these three groups (COSMO, EC_COSMO, EC_COSMO_Intern, Intern,
-// Consultant) falls into a 4th, uncapped "Other" column so nobody's leave
-// silently disappears off the grid.
+// Capacity-capped columns for the Annual Leave planner. MO, Registrar, and
+// EC COSMO/Intern (COSMO/EC_COSMO/EC_COSMO_Intern/Intern collapsed into one
+// column, same grouping WeekendPlanner uses) are the "full-time doctor"
+// columns — each has its own per-column cap AND, combined, may never exceed
+// LEAVE_FULL_TIME_MAX at once (see findFullTimeAggregateBreach below). OT
+// COSMO/Intern is a separate pool with its own independent cap, not part of
+// that aggregate. Consultant/Locum never appear (not part of the
+// leave-eligible doctor roster); Consultant alone falls into an uncapped
+// "Other" column so their leave isn't hidden off the grid.
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
-  { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 2 },
+  { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
+  { key: 'EC_COSMO', label: 'EC COSMO / Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_cosmo', defaultMax: 1 },
   { key: 'OT_COSMO', label: 'OT COSMO / Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_cosmo', defaultMax: 1 },
 ]
 
-export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Other', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern', 'Consultant'] }
+export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Other', categories: ['Consultant'] }
+
+// The "no more than 3 full-time doctors on leave at once" rule spans MO,
+// Registrar, and EC COSMO/Intern combined — e.g. 1 MO + 1 Registrar + 1 EC
+// COSMO/Intern, or 2 MO + 1 of either (never 2 Registrar or 2 EC
+// COSMO/Intern — each already capped at 1 above). OT COSMO/Intern is a
+// separate stream and isn't part of this aggregate.
+export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO']
+export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
+export const LEAVE_FULL_TIME_DEFAULT_MAX = 3
 
 const COLUMN_BY_CATEGORY = new Map(
   [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.key]))
@@ -106,6 +116,21 @@ export function findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcur
   for (const date of datesInRange(dateFrom, dateTo)) {
     const current = existingCountsByDate.get(date)?.get(columnKey) || 0
     if (current + 1 > maxConcurrent) breachDates.push(date)
+  }
+  return { hasBreach: breachDates.length > 0, breachDates }
+}
+
+// Would adding one more doctor (from MO/Registrar/EC COSMO/Intern) push a
+// day's combined full-time-doctor count over maxTotal? Checked in addition
+// to (not instead of) each column's own findLeaveCapacityBreach — e.g. 2 MO
+// + 1 Registrar already satisfies each individual cap but would still
+// breach a maxTotal of 3 if a 3rd of any of those three columns were added.
+export function findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existingCountsByDate }) {
+  const breachDates = []
+  for (const date of datesInRange(dateFrom, dateTo)) {
+    const perColumn = existingCountsByDate.get(date)
+    const total = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (perColumn?.get(key) || 0), 0)
+    if (total + 1 > maxTotal) breachDates.push(date)
   }
   return { hasBreach: breachDates.length > 0, breachDates }
 }

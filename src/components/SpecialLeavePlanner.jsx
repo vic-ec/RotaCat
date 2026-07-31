@@ -52,10 +52,15 @@ export default function SpecialLeavePlanner() {
       <div className="card bg-canvas-sunken p-4 text-sm text-ink-light">
         <p className="font-semibold text-ink">Rules</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>Shows every non-annual leave type (single day, special leave, course/CPD, sick, weekend exception) at any status, plus any <em>pending</em> request of any type — including pending annual leave not yet approved.</li>
+          <li>Covers single days off, courses/CPD, and special leave requests — these do <strong>not</strong> count against the 22-day annual leave allowance.</li>
+          <li>The requested day/shift is made up elsewhere, unless it&rsquo;s flagged as a &ldquo;special leave day.&rdquo;</li>
+          <li>Shows every non-annual leave type at any status, plus any <em>pending</em> request of any type — including pending annual leave not yet approved onto the Annual Leave tab.</li>
           <li className="italic text-ink-muted">Italicised entries are pending admin approval.</li>
           <li>No concurrent-leave limit applies here — that cap only covers approved annual leave (see the Annual Leave tab).</li>
         </ul>
+        <p className="mt-2 text-xs text-ink-muted">
+          Full rules: <a href="https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md" target="_blank" rel="noreferrer" className="underline hover:text-ink">EC_LEAVE_PLANNER_RULES.md</a>
+        </p>
       </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}

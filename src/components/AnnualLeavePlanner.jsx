@@ -62,10 +62,18 @@ export default function AnnualLeavePlanner() {
       <div className="card bg-canvas-sunken p-4 text-sm text-ink-light">
         <p className="font-semibold text-ink">Rules</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>Shows <strong>approved</strong> annual leave only — pending requests appear on the Special Leave tab instead.</li>
-          <li>At most {maxByColumnKey.MO ?? 2} MO, {maxByColumnKey.Registrar ?? 2} Registrar, and {maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor{(maxByColumnKey.OT_COSMO ?? 1) === 1 ? '' : 's'} may be on leave at the same time — enforced when a request is submitted.</li>
-          <li>Public holidays are highlighted; tap or hover the date to see the name.</li>
+          <li>Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.</li>
+          <li>An Annual Leave form must be submitted and approved. 22 days annual leave are available per yearly cycle.</li>
+          <li>Shows <strong>approved</strong> leave only — pending requests appear on the Special Leave tab instead.</li>
+          <li>At most {maxByColumnKey.MO ?? 2} MO, {maxByColumnKey.Registrar ?? 2} Registrar, and {maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor{(maxByColumnKey.OT_COSMO ?? 1) === 1 ? '' : 's'} may be on leave at the same time — enforced automatically when a request is submitted (no more than one person per slot).</li>
+          <li>Taking 5 days&rsquo; leave: you may take the weekend on either side, but &ldquo;on&rdquo; weekend hours must be made up elsewhere.</li>
+          <li>Taking 10 days&rsquo; leave (2 weeks): if the middle weekend is an &ldquo;on&rdquo; weekend, those hours don&rsquo;t need to be made up — included in the leave.</li>
+          <li>Leave spanning a public holiday: the PH counts as a shift/leave day, or the hours are made up elsewhere.</li>
+          <li>Public holidays are highlighted on the grid; tap or hover the date to see the name.</li>
         </ul>
+        <p className="mt-2 text-xs text-ink-muted">
+          Full rules: <a href="https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md" target="_blank" rel="noreferrer" className="underline hover:text-ink">EC_LEAVE_PLANNER_RULES.md</a>
+        </p>
       </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}

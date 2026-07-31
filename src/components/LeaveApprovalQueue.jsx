@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getApprovalWarnings } from '../lib/leaveApprovals'
 import { createNotification } from '../lib/notifications'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -108,6 +108,7 @@ export default function LeaveApprovalQueue() {
               <span className="ml-2 text-xs font-normal text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]}</span>
             </p>
             <p className="text-xs text-ink-muted">{request.date_from} → {request.date_to}</p>
+            {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
             {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
 
             {w === undefined ? (

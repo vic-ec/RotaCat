@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import LeaveDashboard from './LeaveDashboard'
 
 let mockAuth = { profile: { id: 'doctor-1' } }
@@ -51,6 +52,10 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     const allowanceHeading = await screen.findByText('Your allowance')
     expect(allowanceHeading.closest('.card').textContent).toMatch(/17\s*days remaining.*5\s*approved.*1\s*pending/s) // 22 - 5 approved
     expect(await screen.findByText(/Annual leave — 2026-08-10 → 2026-08-14/)).toBeInTheDocument()
+
+    // The form is collapsed behind a button until requested
+    expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Request leave' }))
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
   })
 

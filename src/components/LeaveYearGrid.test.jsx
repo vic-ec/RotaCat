@@ -71,6 +71,26 @@ describe('LeaveYearGrid', () => {
     vi.useRealTimers()
   })
 
+  it('day-detail sheet shows the total-vs-annual days summary when a padding weekend is involved', async () => {
+    vi.setSystemTime(new Date('2026-08-01T00:00:00'))
+    const leaveByDate = new Map([
+      ['2026-08-10', [{
+        profileId: 'doc-1', surname: 'Exford', category: 'MO', status: 'approved',
+        dateFrom: '2026-08-08', dateTo: '2026-08-14', leaveType: 'annual', annualLeaveDays: 5,
+      }]],
+    ])
+    const { container } = render(
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={leaveByDate} publicHolidaysByDate={new Map()} />
+    )
+    const grid = mobileDayGrid(container)
+    await userEvent.click(within(grid).getByText('10').closest('button'))
+
+    const heading = await screen.findByText(/Monday, 2026-08-10/)
+    const sheet = heading.closest('.card')
+    expect(within(sheet).getByText('7 total days (5 annual leave)')).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
   it('"My leave" filter hides entries for other profiles', async () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'))
     const { container } = render(

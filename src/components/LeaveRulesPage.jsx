@@ -46,6 +46,9 @@ export default function LeaveRulesPage() {
         <p>
           A hard cap on how many doctors from each category (MO, Registrar, EC COSMO/Intern, OT COSMO/Intern) can be on approved or pending annual leave at once is enforced automatically at submission — plus a combined cap across MO+Registrar+EC COSMO/Intern together. See the Annual Leave tab for the current numbers.
         </p>
+        <p>
+          <strong>Total days vs. annual leave days:</strong> you&rsquo;re unavailable for rostering for the whole date range you enter, but you separately state how many of those days actually count as annual leave — since that depends on the padding-weekend rules above and needs a human judgement call, not something derived automatically. E.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 don&rsquo;t reduce your balance but still need their hours made up elsewhere. Every list of leave requests shows both numbers when they differ.
+        </p>
       </Section>
 
       <Section title="Special / Single-day / Course leave">

@@ -12,6 +12,7 @@
 //     because this is when the admin is looking at this doctor's month.
 import { supabase } from './supabase'
 import { datesInRange, monthBounds } from './dateRange'
+import { annualDaysUsedInYear } from './leaveDashboard'
 
 export function findSupervisionBreaches({ profileCategory, minSupervision, assignedSupervisionShifts }) {
   if (profileCategory !== 'MO' && profileCategory !== 'Registrar') return []
@@ -48,7 +49,7 @@ function distinctYearMonths(dateFrom, dateTo) {
 // Fetches everything needed and runs all three checks for one leave_requests
 // row. Returns { supervisionBreaches, balanceWarnings, hourCeilingWarning }.
 export async function getApprovalWarnings(leaveRequest) {
-  const { profile_id: profileId, date_from: dateFrom, date_to: dateTo, leave_type: leaveType } = leaveRequest
+  const { profile_id: profileId, date_from: dateFrom, date_to: dateTo, leave_type: leaveType, annual_leave_days: annualLeaveDays } = leaveRequest
 
   const [profileRes, constraintRes] = await Promise.all([
     supabase.from('profiles').select('category, contract_type, max_hours').eq('id', profileId).single(),
@@ -81,29 +82,29 @@ export async function getApprovalWarnings(leaveRequest) {
   })
 
   // ── 2. Annual leave balance ──
+  // annual_leave_days is a single count for the whole request (not
+  // attributable to specific days), so — same as annualDaysUsedInYear —
+  // it's attributed entirely to the year the request starts in rather
+  // than split across a year boundary. Legacy rows without it (either this
+  // request under review, or a historical approved one) fall back to the
+  // full date-range day count.
   const balanceWarnings = []
   if (leaveType === 'annual') {
-    const daysByYear = new Map()
-    for (const d of datesInRange(dateFrom, dateTo)) {
-      const year = Number(d.slice(0, 4))
-      daysByYear.set(year, (daysByYear.get(year) || 0) + 1)
-    }
-    for (const [year, daysRequested] of daysByYear) {
-      const [balanceRes, approvedRes] = await Promise.all([
-        supabase.from('annual_leave_balances').select('days_allotted').eq('profile_id', profileId).eq('year', year).maybeSingle(),
-        supabase.from('leave_requests').select('date_from, date_to').eq('profile_id', profileId).eq('leave_type', 'annual').eq('status', 'approved'),
-      ])
-      const daysAlreadyApproved = (approvedRes.data || [])
-        .flatMap(lr => datesInRange(lr.date_from, lr.date_to))
-        .filter(d => d.slice(0, 4) === String(year)).length
+    const year = Number(dateFrom.slice(0, 4))
+    const daysRequested = annualLeaveDays != null ? Number(annualLeaveDays) : datesInRange(dateFrom, dateTo).length
 
-      const result = checkAnnualBalance({
-        daysAllotted: balanceRes.data?.days_allotted ?? null,
-        daysAlreadyApproved,
-        daysRequested,
-      })
-      if (!result.skipped && result.wouldGoNegative) balanceWarnings.push({ year, ...result })
-    }
+    const [balanceRes, approvedRes] = await Promise.all([
+      supabase.from('annual_leave_balances').select('days_allotted').eq('profile_id', profileId).eq('year', year).maybeSingle(),
+      supabase.from('leave_requests').select('date_from, date_to, annual_leave_days').eq('profile_id', profileId).eq('leave_type', 'annual').eq('status', 'approved'),
+    ])
+    const daysAlreadyApproved = annualDaysUsedInYear(approvedRes.data || [], year)
+
+    const result = checkAnnualBalance({
+      daysAllotted: balanceRes.data?.days_allotted ?? null,
+      daysAlreadyApproved,
+      daysRequested,
+    })
+    if (!result.skipped && result.wouldGoNegative) balanceWarnings.push({ year, ...result })
   }
 
   // ── 3. Five-eighths hour ceiling ──

@@ -1,20 +1,33 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
+import { datesInRange } from '../lib/dateRange'
 import { LEAVE_TYPE_OPTIONS, submitLeaveRequest } from '../lib/leaveRequests'
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
+
+function CalendarIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <rect x="3" y="5" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v4M16 3v4M3 10h18" />
+    </svg>
+  )
+}
 
 export default function LeaveRequestForm({ onSubmitted }) {
   const { profile, isAdmin } = useAuth()
   const [leaveType, setLeaveType] = useState('annual')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [annualLeaveDays, setAnnualLeaveDays] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState(null) // { type: 'error' | 'success', text }
 
   const isWeekendException = leaveType === 'weekend_exception'
+  const isAnnual = leaveType === 'annual'
+  const totalDays = dateFrom && dateTo && dateFrom <= dateTo ? datesInRange(dateFrom, dateTo).length : null
 
   function handleWeekendSaturdayChange(value) {
     setDateFrom(value)
@@ -38,11 +51,18 @@ export default function LeaveRequestForm({ onSubmitted }) {
         leaveType,
         dateFrom,
         dateTo,
+        annualLeaveDays: isAnnual ? Number(annualLeaveDays) : null,
         notes,
       })
-      setMsg({ type: 'success', text: 'Leave request submitted — pending admin approval.' })
+      setMsg({
+        type: 'success',
+        text: isAnnual
+          ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.`
+          : 'Leave request submitted — pending admin approval.',
+      })
       setDateFrom('')
       setDateTo('')
+      setAnnualLeaveDays('')
       setNotes('')
       onSubmitted?.()
     } catch (err) {
@@ -57,7 +77,7 @@ export default function LeaveRequestForm({ onSubmitted }) {
         <label className="label-text">Leave type</label>
         <SelectMenu
           value={leaveType}
-          onChange={v => { setLeaveType(v); setDateFrom(''); setDateTo('') }}
+          onChange={v => { setLeaveType(v); setDateFrom(''); setDateTo(''); setAnnualLeaveDays('') }}
           options={LEAVE_TYPE_OPTIONS}
         />
       </div>
@@ -78,7 +98,9 @@ export default function LeaveRequestForm({ onSubmitted }) {
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="leave-date-from" className="label-text">From</label>
+            <label htmlFor="leave-date-from" className="label-text flex items-center gap-1">
+              <CalendarIcon className="h-3.5 w-3.5" /> From
+            </label>
             <input
               id="leave-date-from"
               type="date"
@@ -89,7 +111,9 @@ export default function LeaveRequestForm({ onSubmitted }) {
             />
           </div>
           <div>
-            <label htmlFor="leave-date-to" className="label-text">To</label>
+            <label htmlFor="leave-date-to" className="label-text flex items-center gap-1">
+              <CalendarIcon className="h-3.5 w-3.5" /> To
+            </label>
             <input
               id="leave-date-to"
               type="date"
@@ -103,6 +127,28 @@ export default function LeaveRequestForm({ onSubmitted }) {
         </div>
       )}
 
+      {isAnnual && (
+        <div>
+          <label htmlFor="leave-annual-days" className="label-text">How many days will be taken as annual leave?</label>
+          <input
+            id="leave-annual-days"
+            type="number"
+            min="1"
+            step="1"
+            max={totalDays || undefined}
+            required
+            value={annualLeaveDays}
+            onChange={e => setAnnualLeaveDays(e.target.value)}
+            className="input-field w-full"
+          />
+          <p className="mt-1 text-xs text-ink-muted">
+            {totalDays
+              ? `Total days requested: ${totalDays}. If this span includes a padding weekend that doesn't count as annual leave (see Rules), enter only the days that do.`
+              : "Pick From/To first — if the span includes a padding weekend that doesn't count as annual leave (see Rules), enter only the days that do."}
+          </p>
+        </div>
+      )}
+
       {leaveType === 'sick' && (
         <p className="text-xs text-ink-muted">
           Sick leave can be backdated within the admin-configured window. Older dates need an admin to log them.
@@ -110,14 +156,14 @@ export default function LeaveRequestForm({ onSubmitted }) {
       )}
 
       <div>
-        <label htmlFor="leave-notes" className="label-text">Notes (optional)</label>
+        <label htmlFor="leave-notes" className="label-text">Motivations — see Rules for details</label>
         <textarea
           id="leave-notes"
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={3}
           className="input-field w-full"
-          placeholder="Any context for the admin reviewing this request…"
+          placeholder="Explain your reasoning for the admin reviewing this request…"
         />
       </div>
 

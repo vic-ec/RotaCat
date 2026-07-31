@@ -25,6 +25,7 @@ describe('LeaveRequestForm', () => {
 
     await user.type(screen.getByLabelText('From'), '2026-08-10')
     await user.type(screen.getByLabelText('To'), '2026-08-14')
+    await user.type(screen.getByLabelText('How many days will be taken as annual leave?'), '5')
     await user.click(screen.getByRole('button', { name: /submit request/i }))
 
     await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(
@@ -34,9 +35,10 @@ describe('LeaveRequestForm', () => {
         leaveType: 'annual',
         dateFrom: '2026-08-10',
         dateTo: '2026-08-14',
+        annualLeaveDays: 5,
       })
     ))
-    expect(await screen.findByText(/submitted/i)).toBeInTheDocument()
+    expect(await screen.findByText(/5 total days \(5 annual leave\)/i)).toBeInTheDocument()
   })
 
   it('shows the block error inline when submission is rejected (e.g. double-booking)', async () => {
@@ -46,6 +48,7 @@ describe('LeaveRequestForm', () => {
 
     await user.type(screen.getByLabelText('From'), '2026-08-10')
     await user.type(screen.getByLabelText('To'), '2026-08-14')
+    await user.type(screen.getByLabelText('How many days will be taken as annual leave?'), '5')
     await user.click(screen.getByRole('button', { name: /submit request/i }))
 
     expect(await screen.findByText(/overlaps an existing leave request/i)).toBeInTheDocument()

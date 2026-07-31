@@ -11,12 +11,24 @@ import { monthBounds } from '../lib/dateRange'
 import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
+import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
+
+// "Don't show again until this changes" for the weekend-planner drift
+// warning — persisted in sessionStorage against a snapshot of the drift
+// itself (not just a bare on/off flag), so muting self-invalidates the
+// moment the planner changes again instead of needing to be re-armed.
+function driftStorageKey(rosterMonthId) {
+  return `rotacat:weekendDriftMuted:${rosterMonthId}`
+}
+function isDriftMuted(rosterMonthId, drift) {
+  return drift.length > 0 && sessionStorage.getItem(driftStorageKey(rosterMonthId)) === JSON.stringify(drift)
+}
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -69,11 +81,15 @@ export default function RosterGridPage() {
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
 
   // Draft-reopen check (§2.6): has the Weekend Planner changed since this
-  // draft was generated? See computeWeekendPlannerDrift. Only computed
-  // for a draft roster — reset (dismissedDrift too) on every id change
-  // via loadAll, not persisted, so it re-surfaces on next visit.
+  // draft was generated? See computeWeekendPlannerDrift. Only computed for
+  // a draft roster. dismissedDrift itself resets on every id change (never
+  // persisted); "don't show again" is a separate opt-in (see
+  // driftMutedInSession) that persists in sessionStorage keyed to the
+  // drift's own content, so it self-invalidates the moment the planner
+  // changes again rather than needing to be manually re-armed.
   const [plannerDrift, setPlannerDrift] = useState([])
   const [dismissedDrift, setDismissedDrift] = useState(false)
+  const [showDriftDetails, setShowDriftDetails] = useState(false)
 
   // Dropdown state
   const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
@@ -129,7 +145,6 @@ export default function RosterGridPage() {
       // Draft-reopen check (§2.6): only meaningful for a still-editable
       // draft — a published roster is the historical record, not
       // something to compare forward against the planner's current state.
-      setDismissedDrift(false)
       if (rosterRes.data.status === 'draft') {
         const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
         const { data: plannerData } = await supabase
@@ -137,9 +152,12 @@ export default function RosterGridPage() {
           .select('weekend_saturday, profile_id')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
-        setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap))
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap)
+        setPlannerDrift(newDrift)
+        setDismissedDrift(isDriftMuted(id, newDrift))
       } else {
         setPlannerDrift([])
+        setDismissedDrift(false)
       }
 
       // Build PH lookup keyed by "YYYY-MM-DD"
@@ -174,7 +192,9 @@ export default function RosterGridPage() {
         .select('weekend_saturday, profile_id')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
-      setPlannerDrift(computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes))
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes)
+      setPlannerDrift(newDrift)
+      setDismissedDrift(isDriftMuted(id, newDrift))
     }
   }
 
@@ -422,46 +442,66 @@ export default function RosterGridPage() {
       </div>
 
       {/* Weekend Planner drift warning (§2.6) — the planner changed after
-          this draft was generated. Dismiss is local-only (not persisted),
-          so it re-surfaces on next visit rather than being silently lost. */}
+          this draft was generated. A compact inline alert: a subdued
+          amber-on-white surface (not a filled amber block) with one
+          primary decision (Regenerate roster, the only filled button) and
+          "View changes" as an equally-shaped secondary button opening the
+          full per-weekend breakdown in a modal. Dismiss is a low-emphasis
+          × in the corner rather than competing visually with resolving the
+          stale draft. "Don't show this message again" lives inside the
+          View changes modal, not beside the primary action. */}
       {plannerDrift.length > 0 && !dismissedDrift && (
-        <div className="mb-4 rounded-lg border border-flagAmber bg-flagAmber-bg p-4">
-          <div className="flex items-start justify-between gap-3">
+        <div className="relative mb-4 rounded-lg border border-flagAmber/40 bg-canvas-raised p-4 shadow-card">
+          <button
+            onClick={() => setDismissedDrift(true)}
+            aria-label="Dismiss"
+            className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+          >
+            ×
+          </button>
+          <div className="flex items-start gap-2 pr-6">
+            <WarningIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-flagAmber" />
             <div>
-              <p className="text-sm font-medium text-flagAmber">
-                The Weekend Planner has changed since this draft was generated
+              <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
+              <p className="mt-0.5 text-sm text-ink-light">
+                Changed since this draft was generated — regenerate to apply the latest plan.
               </p>
-              <ul className="mt-2 space-y-1 text-sm text-flagAmber">
-                {plannerDrift.map(({ saturday, added, removed }) => (
-                  <li key={saturday}>
-                    <span className="font-medium">{saturday}:</span>{' '}
-                    {added.length > 0 && (
-                      <span>now planned: {added.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
-                    )}
-                    {added.length > 0 && removed.length > 0 && ' — '}
-                    {removed.length > 0 && (
-                      <span>no longer planned: {removed.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/roster/generate')}
+                className="btn-primary text-sm"
+              >
+                Regenerate roster
+              </button>
+            )}
             <button
-              onClick={() => setDismissedDrift(true)}
-              className="flex-shrink-0 text-sm text-flagAmber hover:underline"
+              onClick={() => setShowDriftDetails(true)}
+              className="btn-secondary text-sm"
             >
-              Dismiss
+              View changes
             </button>
           </div>
-          {isAdmin && (
-            <button
-              onClick={() => navigate('/roster/generate')}
-              className="btn-secondary mt-3 text-sm"
-            >
-              Regenerate roster
-            </button>
-          )}
         </div>
+      )}
+
+      {showDriftDetails && (
+        <WeekendDriftDetailsModal
+          drift={plannerDrift}
+          profileMap={profileMap}
+          driftMuted={isDriftMuted(id, plannerDrift)}
+          onToggleMute={muted => {
+            if (muted) {
+              sessionStorage.setItem(driftStorageKey(id), JSON.stringify(plannerDrift))
+              setDismissedDrift(true)
+            } else {
+              sessionStorage.removeItem(driftStorageKey(id))
+            }
+          }}
+          onClose={() => setShowDriftDetails(false)}
+        />
       )}
 
       {/* Week navigation (week view only) */}
@@ -652,7 +692,7 @@ export default function RosterGridPage() {
   )
 }
 
-// ── DoctorChip ────────────────────────────────────────────────────────
+// ── DoctorChip ─────────────────────────────────────────────────────────────
 function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = true }) {
   if (entry.is_locum) {
     return (
@@ -690,7 +730,7 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = t
   )
 }
 
-// ── ConsultantCell ────────────────────────────────────────────────────
+// ── ConsultantCell ───────────────────────────────────────────────────────────
 // Consultants pick from consultantProfiles via the same DoctorDropdown used
 // for shift assignment, storing consultant_profile_id (colour-coded,
 // disambiguated) rather than free text. consultant_name is only read here
@@ -774,7 +814,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isA
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────
 
 function buildCalendarDays(year, month, publicHolidays = {}) {
   const days = []
@@ -839,6 +879,13 @@ function buildEntryMap(entries, shiftTypes) {
   return map
 }
 
+function WarningIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004.18 21h15.64a2 2 0 001.87-2.96L13.71 3.86a2 2 0 00-3.42 0z" />
+    </svg>
+  )
+}
 function ChevronLeftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

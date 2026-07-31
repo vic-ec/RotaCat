@@ -9,7 +9,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 
-// ── Display label maps ─────────────────────────────────────
+// ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
   MO:             'Medical Officer',
   Registrar:      'Registrar',
@@ -55,7 +55,7 @@ const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 
-// ── Sort/group ───────────────────────────────────────────────
+// ── Sort/group ───────────────────────────
 const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
 const ROLE_GROUP_ORDER = ['doctor', 'locum', 'clerk']
 
@@ -603,7 +603,23 @@ export default function StaffListPage() {
       }
       await supabase.from('profiles').update(patch).eq('id', request.profile_id)
     } else if (request.request_type === 'category') {
-      await supabase.from('profiles').update({ category: request.requested_value }).eq('id', request.profile_id)
+      const patch = { category: request.requested_value }
+      // A locum's category is normally just an MO/Registrar eligibility tag
+      // (drives which advertised shifts they can claim) and doesn't by
+      // itself mean they're becoming a full doctor — but approving one
+      // often *does* mean exactly that (e.g. someone who's finished
+      // locuming and joined the roster properly), so ask rather than
+      // silently leaving them a Locum or silently promoting every locum
+      // category tag to Doctor.
+      const { data: current } = await supabase.from('profiles').select('role').eq('id', request.profile_id).single()
+      if (current?.role === 'locum') {
+        const name = `${request.requester?.name || ''} ${request.requester?.surname || ''}`.trim() || 'this account'
+        const promote = window.confirm(
+          `Also change ${name}'s role from Locum to Doctor?\n\nOK = promote to Doctor with category ${request.requested_value}.\nCancel = keep them a Locum, just tagged eligible for ${request.requested_value} shifts.`
+        )
+        if (promote) patch.role = 'doctor'
+      }
+      await supabase.from('profiles').update(patch).eq('id', request.profile_id)
     } else if (request.request_type === 'deletion') {
       // Client-side keys can't delete an auth user directly (needs service role).
       // Deactivate the account now; remove the auth user manually in Supabase if required.
@@ -637,7 +653,7 @@ export default function StaffListPage() {
     setRequestActioningId(null)
   }
 
-  // ── Quick-action popover handlers ────────────────────────────
+  // ── Quick-action popover handlers ────────────────────
   function openQuickActions(person, anchorEl) {
     setQuickActionPerson(person)
     setQuickActionAnchor(anchorEl.getBoundingClientRect())
@@ -1335,7 +1351,7 @@ export default function StaffListPage() {
         </div>
       )}
 
-      {/* ── A–Z sort direction popover ───────────────────────────── */}
+      {/* ── A–Z sort direction popover ──────────────────────── */}
       {sortDirectionAnchor && (() => {
         const menuWidth = 160
         const positionStyle = computeAnchoredPosition(sortDirectionAnchor, menuWidth)
@@ -1620,7 +1636,7 @@ export default function StaffListPage() {
         )
       })()}
 
-      {/* ── Missing-contact toast ──────────────────────────────── */}
+      {/* ── Missing-contact toast ────────────────────── */}
       {toast && (
         <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 md:bottom-6">
           <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
@@ -1814,4 +1830,3 @@ function MessageIcon(props) {
     </svg>
   )
 }
-

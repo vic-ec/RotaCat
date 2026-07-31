@@ -8,6 +8,7 @@
 // actual edit it's recording.
 import { supabase } from './supabase'
 import { parseLocalDate } from './dateRange'
+import { CATEGORY_GROUPS } from './weekendPlanner'
 
 export async function logRosterEntryChange({
   rosterMonthId, rosterEntryId = null, entryDate, shiftCode, action,
@@ -42,17 +43,112 @@ export async function logWeekendPlannerChange({ weekendSaturday, category, actio
   if (error) console.error('Failed to log weekend planner change:', error.message)
 }
 
-// Resolves a set of profile ids to "Name Surname" for display in a log —
-// a plain map lookup (fetched fresh per log view) rather than baking
+// Resolves a set of profile ids to { name, surname, role } for display in a
+// log — a plain map lookup (fetched fresh per log view) rather than baking
 // names into each logged row, so a later name change or reactivation
-// doesn't leave the log showing a stale/wrong name.
-export async function fetchProfileNames(ids) {
+// doesn't leave the log showing a stale/wrong name. Carrying `role` lets the
+// log flag locum-involving edits without a schema change: a locum edit is
+// just one whose profile_id happens to resolve to role === 'locum'.
+export async function fetchProfilesById(ids) {
   const map = new Map()
   const uniqueIds = [...new Set([...ids].filter(Boolean))]
   if (uniqueIds.length === 0) return map
-  const { data } = await supabase.from('profiles').select('id, name, surname').in('id', uniqueIds)
-  for (const p of (data || [])) map.set(p.id, `${p.name} ${p.surname}`)
+  const { data } = await supabase.from('profiles').select('id, name, surname, role').in('id', uniqueIds)
+  for (const p of (data || [])) map.set(p.id, p)
   return map
+}
+
+export function nameMapFromProfiles(profilesById) {
+  const map = new Map()
+  for (const [id, p] of profilesById) map.set(id, `${p.name} ${p.surname}`)
+  return map
+}
+
+// Options for the admin/doctor filter dropdowns — fetched once per modal
+// open rather than derived from the loaded page of changes, so the filter
+// list stays complete even before any filter narrows the result set.
+export async function fetchAdminOptions() {
+  const { data } = await supabase.from('profiles').select('id, name, surname').eq('is_admin', true).order('name')
+  return (data || []).map(p => ({ value: p.id, label: `${p.name} ${p.surname}` }))
+}
+
+export async function fetchDoctorOptions() {
+  const { data } = await supabase.from('profiles').select('id, name, surname, role').order('name')
+  return (data || []).map(p => ({
+    value: p.id,
+    label: p.role === 'locum' ? `${p.name} ${p.surname} (Locum)` : `${p.name} ${p.surname}`,
+    role: p.role,
+  }))
+}
+
+export const ROLE_FILTER_OPTIONS = [
+  { value: '', label: 'All roles' },
+  { value: 'doctor', label: 'Doctors only' },
+  { value: 'locum', label: 'Locums only' },
+]
+
+export const ROSTER_ACTION_OPTIONS = [
+  { value: '', label: 'All change types' },
+  { value: 'assign', label: 'Assigned' },
+  { value: 'unassign', label: 'Unassigned' },
+  { value: 'remove', label: 'Removed' },
+  { value: 'move', label: 'Moved' },
+]
+
+export const WEEKEND_ACTION_OPTIONS = [
+  { value: '', label: 'All change types' },
+  { value: 'add', label: 'Added' },
+  { value: 'remove', label: 'Removed' },
+]
+
+// Same grouping the Weekend Planner grid itself uses (see CATEGORY_GROUPS
+// in lib/weekendPlanner.js) — filtering by the grid's own columns rather
+// than the raw staff_category enum, so "EC COSMO / Intern" matches every
+// underlying category that group actually covers.
+export const WEEKEND_CATEGORY_FILTER_OPTIONS = [
+  { value: '', label: 'All categories' },
+  ...CATEGORY_GROUPS.map(g => ({ value: g.key, label: g.label })),
+]
+
+// A profile id that can never match a real row — used to force an empty
+// result set when a role filter is active but no profile has that role
+// (e.g. no locums on staff), instead of falling through to "no filter".
+const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000'
+
+// Builds a filtered, server-side query against roster_entry_changes.
+// doctorId takes precedence over role — filtering to one specific doctor
+// already answers whether a locum is involved.
+export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, doctorId, action, role, roleIds = [] }) {
+  let query = supabase.from('roster_entry_changes').select('*').eq('roster_month_id', rosterMonthId)
+  if (dateFrom) query = query.gte('entry_date', dateFrom)
+  if (dateTo) query = query.lte('entry_date', dateTo)
+  if (adminId) query = query.eq('changed_by', adminId)
+  if (action) query = query.eq('action', action)
+  if (doctorId) {
+    query = query.or(`profile_id_before.eq.${doctorId},profile_id_after.eq.${doctorId}`)
+  } else if (role) {
+    const list = (roleIds.length > 0 ? roleIds : [NO_MATCH_ID]).join(',')
+    query = query.or(`profile_id_before.in.(${list}),profile_id_after.in.(${list})`)
+  }
+  return query.order('changed_at', { ascending: false }).limit(500)
+}
+
+// Builds a filtered, server-side query against weekend_planner_changes.
+// categoryGroup is one of CATEGORY_GROUPS' keys (MO/Registrar/COSMO/
+// COSMOPsych) — matched against every underlying staff_category value that
+// group covers, not just the literal enum value.
+export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, categoryGroup, limit = 300 }) {
+  let query = supabase.from('weekend_planner_changes').select('*')
+  if (dateFrom) query = query.gte('weekend_saturday', dateFrom)
+  if (dateTo) query = query.lte('weekend_saturday', dateTo)
+  if (adminId) query = query.eq('changed_by', adminId)
+  if (action) query = query.eq('action', action)
+  if (doctorId) query = query.eq('profile_id', doctorId)
+  if (categoryGroup) {
+    const group = CATEGORY_GROUPS.find(g => g.key === categoryGroup)
+    query = query.in('category', group ? group.categories : [categoryGroup])
+  }
+  return query.order('changed_at', { ascending: false }).limit(limit)
 }
 
 function formatTimestamp(iso) {
@@ -70,36 +166,47 @@ function formatDisplayDate(dateStr) {
   return `${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })} ${d.getFullYear()}`
 }
 
-// One human-readable line per roster_entry_changes row, e.g.:
-// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Exford → Venter"
-export function formatRosterChangeLine(change, nameById, monthLabel) {
-  const actor = nameById.get(change.changed_by) || 'Unknown'
+// The detail phrase for one roster_entry_changes row (no actor/timestamp
+// prefix) — shared by the full-line formatter below and by the "Details"
+// column of the searchable review-log table.
+export function rosterChangeDetail(change, nameById) {
   const dateFmt = formatDisplayDate(change.entry_date)
   const before = nameById.get(change.profile_id_before) || null
   const after = nameById.get(change.profile_id_after) || null
 
-  let detail
   if (change.action === 'move') {
-    detail = `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${change.shift_code_before} to ${dateFmt} ${change.shift_code}`
-  } else if (change.action === 'remove') {
-    detail = `removed ${before ?? '(unassigned)'} from ${dateFmt} ${change.shift_code}`
-  } else if (change.action === 'unassign') {
-    detail = `vacated ${dateFmt} ${change.shift_code} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
-  } else if (before) {
-    detail = `${dateFmt} ${change.shift_code} ${before} → ${after ?? '(unassigned)'}`
-  } else {
-    detail = `assigned ${after ?? '(unassigned)'} to ${dateFmt} ${change.shift_code}`
+    return `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${change.shift_code_before} to ${dateFmt} ${change.shift_code}`
   }
+  if (change.action === 'remove') {
+    return `removed ${before ?? '(unassigned)'} from ${dateFmt} ${change.shift_code}`
+  }
+  if (change.action === 'unassign') {
+    return `vacated ${dateFmt} ${change.shift_code} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
+  }
+  if (before) return `${dateFmt} ${change.shift_code} ${before} → ${after ?? '(unassigned)'}`
+  return `assigned ${after ?? '(unassigned)'} to ${dateFmt} ${change.shift_code}`
+}
 
-  return `[${formatTimestamp(change.changed_at)}] ${actor} edited ${monthLabel} roster: ${detail}`
+// One human-readable line per roster_entry_changes row, e.g.:
+// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Exford → Venter"
+export function formatRosterChangeLine(change, nameById, monthLabel) {
+  const actor = nameById.get(change.changed_by) || 'Unknown'
+  return `[${formatTimestamp(change.changed_at)}] ${actor} edited ${monthLabel} roster: ${rosterChangeDetail(change, nameById)}`
+}
+
+// The detail phrase for one weekend_planner_changes row (no actor/timestamp
+// prefix) — shared by the full-line formatter below and by the "Details"
+// column of the searchable review-log table.
+export function weekendChangeDetail(change, nameById) {
+  const subject = nameById.get(change.profile_id) || 'Unknown'
+  const satFmt = formatDisplayDate(change.weekend_saturday)
+  const verb = change.action === 'add' ? 'added' : 'removed'
+  const prep = change.action === 'add' ? 'to' : 'from'
+  return `${verb} ${subject} ${prep} ${change.category} for the ${satFmt} weekend`
 }
 
 // One human-readable line per weekend_planner_changes row.
 export function formatWeekendPlannerChangeLine(change, nameById) {
   const actor = nameById.get(change.changed_by) || 'Unknown'
-  const subject = nameById.get(change.profile_id) || 'Unknown'
-  const satFmt = formatDisplayDate(change.weekend_saturday)
-  const verb = change.action === 'add' ? 'added' : 'removed'
-  const prep = change.action === 'add' ? 'to' : 'from'
-  return `[${formatTimestamp(change.changed_at)}] ${actor} ${verb} ${subject} ${prep} ${change.category} for the ${satFmt} weekend`
+  return `[${formatTimestamp(change.changed_at)}] ${actor} ${weekendChangeDetail(change, nameById)}`
 }

@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-import { todayStr, addDays } from '../lib/dateRange'
+import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import PublicHolidayButton from '../components/PublicHolidayButton'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -15,10 +16,32 @@ const STATUS_BADGE = {
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 
+// Swap requests aren't finalized (still awaiting the other doctor and/or
+// admin) for these two statuses — accepted/rejected/admin_approved/
+// cancelled swaps have already resolved and don't belong on the dashboard.
+const OPEN_SWAP_STATUSES = ['pending', 'accepted']
+const SWAP_STATUS_LABELS = { pending: 'Pending', accepted: 'Awaiting admin' }
+const SWAP_STATUS_BADGE = {
+  pending: 'bg-flagAmber-bg text-flagAmber',
+  accepted: 'bg-flagBlue-bg text-flagBlue',
+}
+
+// "Mon, 3 Aug 2026 - 08:00 - 18:00"
+function formatShiftDateTime(dateStr, startTime, endTime) {
+  const date = parseLocalDate(dateStr)
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' })
+  const day = date.getDate()
+  const month = date.toLocaleDateString('en-GB', { month: 'short' })
+  const year = date.getFullYear()
+  return `${weekday}, ${day} ${month} ${year} - ${startTime?.slice(0, 5)} - ${endTime?.slice(0, 5)}`
+}
+
 export default function DashboardPage() {
   const { profile, isAdmin, isClerk, isLocum } = useAuth()
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
+  const [phByDate, setPhByDate] = useState({})
+  const [mySwaps, setMySwaps] = useState([])
   const [onLeaveNow, setOnLeaveNow] = useState([])
   const [onLeaveNext, setOnLeaveNext] = useState([])
   const [hoursWarnings, setHoursWarnings] = useState([])
@@ -39,15 +62,49 @@ export default function DashboardPage() {
   // (roster_entries_select: rm.status = 'published' OR is_admin()), so this
   // own-shifts query is published-only by construction, not just by app
   // convention -- a draft assignment never comes back here even if the
-  // profile_id matches.
+  // profile_id matches. Scoped to the week ahead (today through +6 days)
+  // rather than "next 10 shifts", per the dashboard's own framing.
   async function loadOwnUpcomingShifts() {
     const { data } = await supabase
       .from('roster_entries')
-      .select('date, shift_type:shift_types(code, label, start_time, end_time)')
+      .select('date, shift_type:shift_types(code, label, start_time, end_time, day_type)')
       .eq('profile_id', profile.id)
       .gte('date', todayStr())
+      .lte('date', addDays(todayStr(), 6))
       .order('date', { ascending: true })
-      .limit(10)
+    return data || []
+  }
+
+  // PH/PH_weekday shift rows get a calendar-icon button showing the actual
+  // holiday name — fetched over the same 7-day window as the shifts above.
+  async function loadPublicHolidaysThisWeek() {
+    const { data } = await supabase
+      .from('public_holidays')
+      .select('date, name')
+      .gte('date', todayStr())
+      .lte('date', addDays(todayStr(), 6))
+    const map = {}
+    for (const ph of data || []) map[ph.date?.slice(0, 10)] = ph.name
+    return map
+  }
+
+  // Swap requests this doctor/locum is party to (either side) that haven't
+  // resolved yet. The Swaps page itself is still a placeholder (no request
+  // workflow shipped yet), so this reads as empty today — wired up ahead of
+  // that phase rather than after it.
+  async function loadMySwaps() {
+    const { data } = await supabase
+      .from('swap_requests')
+      .select(`
+        id, status, requester_id, target_id,
+        requester:profiles!swap_requests_requester_id_fkey(name, surname),
+        target:profiles!swap_requests_target_id_fkey(name, surname),
+        requester_entry:roster_entries!swap_requests_requester_entry_id_fkey(date, shift_type:shift_types(label)),
+        target_entry:roster_entries!swap_requests_target_entry_id_fkey(date, shift_type:shift_types(label))
+      `)
+      .or(`requester_id.eq.${profile.id},target_id.eq.${profile.id}`)
+      .in('status', OPEN_SWAP_STATUSES)
+      .order('created_at', { ascending: false })
     return data || []
   }
 
@@ -56,7 +113,7 @@ export default function DashboardPage() {
   // per-role view. This dashboard widget always self-filters on top of it.
   async function loadDoctorWidgets() {
     setLoading(true)
-    const [leaveRes, shifts] = await Promise.all([
+    const [leaveRes, shifts, ph, swaps] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('*')
@@ -64,18 +121,29 @@ export default function DashboardPage() {
         .order('date_from', { ascending: false })
         .limit(10),
       loadOwnUpcomingShifts(),
+      loadPublicHolidaysThisWeek(),
+      loadMySwaps(),
     ])
     setMyLeave(leaveRes.data || [])
     setMyShifts(shifts)
+    setPhByDate(ph)
+    setMySwaps(swaps)
     setLoading(false)
   }
 
   // Locums can't submit leave (leave_requests RLS excludes them entirely),
   // so there's no leave widget for this role -- just their own upcoming
-  // shifts on the published roster.
+  // shifts on the published roster (plus swaps, which locums can do too).
   async function loadLocumWidgets() {
     setLoading(true)
-    setMyShifts(await loadOwnUpcomingShifts())
+    const [shifts, ph, swaps] = await Promise.all([
+      loadOwnUpcomingShifts(),
+      loadPublicHolidaysThisWeek(),
+      loadMySwaps(),
+    ])
+    setMyShifts(shifts)
+    setPhByDate(ph)
+    setMySwaps(swaps)
     setLoading(false)
   }
 
@@ -167,16 +235,20 @@ export default function DashboardPage() {
       {!loading && !isAdmin && !isClerk && (
         <div className="mt-6 space-y-4">
           <div className="card p-6">
-            <h2 className="text-sm font-semibold text-ink">Your upcoming shifts</h2>
+            <h2 className="text-sm font-semibold text-ink">Your upcoming shifts for the week ahead</h2>
             {myShifts.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">No upcoming shifts on the published roster.</p>
+              <p className="mt-2 text-sm text-ink-muted">No upcoming shifts in the next 7 days.</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-sm text-ink-light">
-                {myShifts.map(e => (
-                  <li key={`${e.date}-${e.shift_type?.code}`}>
-                    {e.date} — {e.shift_type?.label}
-                  </li>
-                ))}
+              <ul className="mt-2 space-y-1 text-sm">
+                {myShifts.map(e => {
+                  const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
+                  return (
+                    <li key={`${e.date}-${e.shift_type?.code}`} className={`flex items-center ${isPH ? 'text-rose' : 'text-ink-light'}`}>
+                      {formatShiftDateTime(e.date, e.shift_type?.start_time, e.shift_type?.end_time)}
+                      {isPH && <PublicHolidayButton name={phByDate[e.date]} />}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>
@@ -202,6 +274,32 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          <div className="card p-6">
+            <h2 className="text-sm font-semibold text-ink">Your Shift Swaps</h2>
+            {mySwaps.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-muted">No pending swap requests.</p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {mySwaps.map(sw => {
+                  const isRequester = sw.requester_id === profile.id
+                  const counterpart = isRequester ? sw.target : sw.requester
+                  const yourEntry = isRequester ? sw.requester_entry : sw.target_entry
+                  const theirEntry = isRequester ? sw.target_entry : sw.requester_entry
+                  return (
+                    <div key={sw.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="text-ink">
+                        Your {yourEntry?.date} {yourEntry?.shift_type?.label} ↔ {counterpart?.name} {counterpart?.surname}&apos;s {theirEntry?.date} {theirEntry?.shift_type?.label}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${SWAP_STATUS_BADGE[sw.status]}`}>
+                        {SWAP_STATUS_LABELS[sw.status]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

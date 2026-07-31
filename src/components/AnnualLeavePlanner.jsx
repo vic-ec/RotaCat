@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX, buildLeaveByDate,
 } from '../lib/leaveYearGrid'
 import LeaveYearGrid from './LeaveYearGrid'
+import InlineRuleHint from './InlineRuleHint'
 
 // Annual Leave planner: approved annual leave only, for every leave-eligible
 // doctor (clerks/locums never appear — RLS blocks them from ever having a
@@ -14,6 +16,7 @@ import LeaveYearGrid from './LeaveYearGrid'
 // doctors") — enforced at submission time in leaveRequests.js, just
 // surfaced here as a read-only reference.
 export default function AnnualLeavePlanner() {
+  const { profile } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
@@ -64,23 +67,20 @@ export default function AnnualLeavePlanner() {
 
   return (
     <div>
-      <div className="card bg-canvas-sunken p-4 text-sm text-ink-light">
-        <p className="font-semibold text-ink">Rules</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.</li>
-          <li>An Annual Leave form must be submitted and approved. 22 days annual leave are available per yearly cycle.</li>
-          <li>Shows <strong>approved</strong> leave only — pending requests appear on the Special Leave tab instead.</li>
-          <li>At most {maxByColumnKey.MO ?? 2} MO, {maxByColumnKey.Registrar ?? 1} Registrar, {maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and {maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor may be on leave at the same time (no more than one person per slot).</li>
-          <li>On top of that, no more than {maxFullTime} full-time doctors (MO + Registrar + EC COSMO/Intern combined) may be on leave at once — e.g. 1 MO + 1 Registrar + 1 EC COSMO/Intern, or 2 MO + 1 of either, but never 2 Registrar or 2 EC COSMO/Intern. Enforced automatically when a request is submitted.</li>
-          <li>Taking 5 days&rsquo; leave: you may take the weekend on either side, but &ldquo;on&rdquo; weekend hours must be made up elsewhere.</li>
-          <li>Taking 10 days&rsquo; leave (2 weeks): if the middle weekend is an &ldquo;on&rdquo; weekend, those hours don&rsquo;t need to be made up — included in the leave.</li>
-          <li>Leave spanning a public holiday: the PH counts as a shift/leave day, or the hours are made up elsewhere.</li>
-          <li>Public holidays are highlighted on the grid; tap or hover the date to see the name.</li>
-        </ul>
-        <p className="mt-2 text-xs text-ink-muted">
-          Full rules: <a href="https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md" target="_blank" rel="noreferrer" className="underline hover:text-ink">EC_LEAVE_PLANNER_RULES.md</a>
-        </p>
-      </div>
+      <InlineRuleHint
+        inline={`Shows approved leave only. At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern may be on leave at once — never more than ${maxFullTime} full-time doctors combined.`}
+        bullets={[
+          'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
+          'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
+          `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor may be on leave at once (no more than one person per slot).`,
+          `No more than ${maxFullTime} full-time doctors (MO + Registrar + EC COSMO/Intern combined) at once — e.g. 1 of each, or 2 MO + 1 of either, but never 2 Registrar or 2 EC COSMO/Intern. Enforced automatically at submission.`,
+          "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",
+          "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
+          'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',
+          'Public holidays are highlighted on the grid; tap or hover the date to see the name.',
+          'Pending requests appear on the Special Leave tab instead, not here.',
+        ]}
+      />
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
@@ -91,6 +91,7 @@ export default function AnnualLeavePlanner() {
           leaveByDate={leaveByDate}
           publicHolidaysByDate={publicHolidaysByDate}
           maxByColumnKey={maxByColumnKey}
+          myProfileId={profile?.id}
         />
       )}
     </div>

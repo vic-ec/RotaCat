@@ -1,21 +1,20 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import LeaveListView from '../components/LeaveListView'
 import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
 
-function defaultTab({ isAdmin, canSubmitLeave }) {
-  if (isAdmin) return 'queue'
-  if (canSubmitLeave) return 'submit'
-  return 'team'
-}
-
 export default function LeavePlannerPage() {
   const { canSubmitLeave, isAdmin, isLocum } = useAuth()
-  const [tab, setTab] = useState(() => defaultTab({ isAdmin, canSubmitLeave }))
+  // "Leave" (the dashboard) is everyone's landing tab now — a compact
+  // allowance/upcoming/team-today summary in place of dropping straight
+  // into a request form or a big grid, per the mobile-first review this
+  // replaced. The other tabs are still one tap away underneath it.
+  const [tab, setTab] = useState('dashboard')
 
   // Locums can't submit or see leave at all (leave_select RLS returns
   // nothing for them) — redirect rather than render restricted content
@@ -29,6 +28,7 @@ export default function LeavePlannerPage() {
   // misleadingly-blank planner.
   const canViewYearPlanners = isAdmin || canSubmitLeave
   const tabs = [
+    { key: 'dashboard', label: 'Leave' },
     ...(isAdmin ? [{ key: 'queue', label: 'Approval queue' }] : []),
     ...(canSubmitLeave ? [{ key: 'submit', label: 'My leave' }] : []),
     { key: 'team', label: 'Team leave' },
@@ -44,7 +44,7 @@ export default function LeavePlannerPage() {
     <div className={`mx-auto ${isYearGridTab ? 'max-w-6xl' : 'max-w-2xl'}`}>
       <h1 className="font-display text-2xl font-bold text-ink">Leave</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        {isAdmin ? 'Review pending requests, or submit your own.' : "Submit a leave request — an admin reviews it before it's approved."}
+        {isAdmin ? 'Your allowance, upcoming leave, and the team at a glance.' : canSubmitLeave ? 'Your allowance and upcoming leave at a glance.' : 'The team at a glance.'}
       </p>
 
       {tabs.length > 1 && (
@@ -64,6 +64,7 @@ export default function LeavePlannerPage() {
       )}
 
       <div className="mt-6">
+        {tab === 'dashboard' && <LeaveDashboard onNavigate={setTab} />}
         {tab === 'queue' && isAdmin && <LeaveApprovalQueue />}
         {tab === 'submit' && canSubmitLeave && <LeaveRequestForm />}
         {tab === 'team' && <LeaveListView />}

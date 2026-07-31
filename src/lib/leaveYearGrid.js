@@ -2,7 +2,7 @@
 // laid out as 4 quarters of 3 months each, mirroring the team's existing
 // Google Sheet. Kept separate from the display components so the date math
 // and capacity rule are unit-testable without Supabase or React.
-import { datesInRange, monthBounds } from './dateRange'
+import { datesInRange, monthBounds, dayOfWeek } from './dateRange'
 
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -65,6 +65,24 @@ export function quartersForYear(year) {
 export function datesInMonth(year, month) {
   const { start, end } = monthBounds(year, month)
   return datesInRange(start, end)
+}
+
+// Sunday-start weeks covering a month, padded with null on either end so
+// every week is exactly 7 cells — for the mobile month-glance calendar
+// grid (a standard Sun-Sat layout, unlike the day-row table the desktop
+// quarters view uses).
+export function weeksForMonth(year, month) {
+  const dates = datesInMonth(year, month)
+  const leadingBlanks = dayOfWeek(dates[0])
+  const trailingBlanks = 6 - dayOfWeek(dates[dates.length - 1])
+  const cells = [
+    ...Array(leadingBlanks).fill(null),
+    ...dates,
+    ...Array(trailingBlanks).fill(null),
+  ]
+  const weeks = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+  return weeks
 }
 
 // Flattens leave_requests rows (each spanning date_from..date_to) into one

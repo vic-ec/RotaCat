@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import LeaveYearGrid from './LeaveYearGrid'
+import InlineRuleHint from './InlineRuleHint'
 
 // Special Leave planner: every non-annual leave type (single day, special
 // leave, course/CPD, sick, weekend exception) at any status, PLUS any
@@ -9,6 +11,7 @@ import LeaveYearGrid from './LeaveYearGrid'
 // which doesn't show on the Annual Leave tab until approved. No concurrency
 // cap applies here (that rule only covers annual leave).
 export default function SpecialLeavePlanner() {
+  const { profile } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
@@ -49,19 +52,16 @@ export default function SpecialLeavePlanner() {
 
   return (
     <div>
-      <div className="card bg-canvas-sunken p-4 text-sm text-ink-light">
-        <p className="font-semibold text-ink">Rules</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>Covers single days off, courses/CPD, and special leave requests — these do <strong>not</strong> count against the 22-day annual leave allowance.</li>
-          <li>The requested day/shift is made up elsewhere, unless it&rsquo;s flagged as a &ldquo;special leave day.&rdquo;</li>
-          <li>Shows every non-annual leave type at any status, plus any <em>pending</em> request of any type — including pending annual leave not yet approved onto the Annual Leave tab.</li>
-          <li className="italic text-ink-muted">Italicised entries are pending admin approval.</li>
-          <li>No concurrent-leave limit applies here — that cap only covers approved annual leave (see the Annual Leave tab).</li>
-        </ul>
-        <p className="mt-2 text-xs text-ink-muted">
-          Full rules: <a href="https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md" target="_blank" rel="noreferrer" className="underline hover:text-ink">EC_LEAVE_PLANNER_RULES.md</a>
-        </p>
-      </div>
+      <InlineRuleHint
+        inline="Single days off, courses/CPD, and special leave don't count against the 22-day annual leave allowance. Shows every status, plus any pending request of any type."
+        bullets={[
+          "Covers single days off, courses/CPD, and special leave requests — these do not count against the 22-day annual leave allowance.",
+          "The requested day/shift is made up elsewhere, unless it's flagged as a \"special leave day.\"",
+          'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
+          'Italicised entries are pending admin approval.',
+          'No concurrent-leave limit applies here — that cap only covers approved annual leave (see the Annual Leave tab).',
+        ]}
+      />
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
@@ -71,6 +71,7 @@ export default function SpecialLeavePlanner() {
           onYearChange={setYear}
           leaveByDate={leaveByDate}
           publicHolidaysByDate={publicHolidaysByDate}
+          myProfileId={profile?.id}
         />
       )}
     </div>

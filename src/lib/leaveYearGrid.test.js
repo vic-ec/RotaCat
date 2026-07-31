@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  columnForLeaveCategory, monthsForYear, quartersForYear, datesInMonth,
+  columnForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
 
@@ -56,6 +56,30 @@ describe('datesInMonth', () => {
     expect(datesInMonth(2026, 8)).toHaveLength(31)
     expect(datesInMonth(2026, 8)[0]).toBe('2026-08-01')
     expect(datesInMonth(2026, 8).at(-1)).toBe('2026-08-31')
+  })
+})
+
+describe('weeksForMonth', () => {
+  it('pads the first week so day 1 lands on its real weekday', () => {
+    // 2026-08-01 is a Saturday
+    const weeks = weeksForMonth(2026, 8)
+    expect(weeks[0]).toEqual([null, null, null, null, null, null, '2026-08-01'])
+  })
+
+  it('pads the last week with trailing nulls to stay 7 wide', () => {
+    // 2026-08-31 is a Monday
+    const weeks = weeksForMonth(2026, 8)
+    const lastWeek = weeks.at(-1)
+    expect(lastWeek).toHaveLength(7)
+    expect(lastWeek[1]).toBe('2026-08-31')
+    expect(lastWeek.slice(2)).toEqual([null, null, null, null, null])
+  })
+
+  it('every week is exactly 7 cells and every real date appears exactly once', () => {
+    const weeks = weeksForMonth(2026, 2)
+    expect(weeks.every(w => w.length === 7)).toBe(true)
+    const flat = weeks.flat().filter(Boolean)
+    expect(flat).toEqual(datesInMonth(2026, 2))
   })
 })
 

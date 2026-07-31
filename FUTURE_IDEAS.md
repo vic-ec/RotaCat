@@ -46,3 +46,12 @@ build phase (see `README.md`).
    user, with the app retaining both the document and a transmission
    record. Needs a decision on PDF generation (in-app generator vs. an
    external service) and file delivery/download.
+
+10. **Dedicated desktop planner workspace** — for admins doing heavy
+    roster/leave editing on a desktop screen: sticky toolbar (planner
+    switcher, month/year, search, filter, legend), sticky first
+    column/header row so names stay visible while scrolling, a resizable
+    split view (planner left, selected-day inspector right) instead of a
+    modal, and filterable layers (approved/pending/capacity
+    warnings/public holidays/weekend rotation). A bigger, separate rebuild
+    from the mobile-first Leave planner work — not attempted alongside it.

@@ -6,6 +6,7 @@ import { todayStr, addDays } from '../lib/dateRange'
 import { CATEGORY_GROUPS, groupForCategory, saturdaysInRange, groupEntriesByWeekend } from '../lib/weekendPlanner'
 import { logWeekendPlannerChange } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from '../components/WeekendPlannerChangeLogModal'
+import InlineRuleHint from '../components/InlineRuleHint'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 
@@ -123,17 +124,14 @@ export default function WeekendPlannerPage() {
         )}
       </div>
 
-      <div className="card mt-4 bg-canvas-sunken p-4 text-sm text-ink-light">
-        <p className="font-semibold text-ink">Rules</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5">
-          <li>No more than one person per slot.</li>
-          <li>If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.</li>
-          <li>Use surnames when populating the planner.</li>
-        </ul>
-        <p className="mt-2 text-xs text-ink-muted">
-          Full rules: <a href="https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md" target="_blank" rel="noreferrer" className="underline hover:text-ink">EC_LEAVE_PLANNER_RULES.md</a>
-        </p>
-      </div>
+      <InlineRuleHint
+        inline="No more than one person per slot — a colour marks which weekends you're on for the month."
+        bullets={[
+          'No more than one person per slot.',
+          'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
+          'Use surnames when populating the planner.',
+        ]}
+      />
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}

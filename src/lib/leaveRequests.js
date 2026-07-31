@@ -3,6 +3,7 @@
 import { supabase } from './supabase'
 import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from './dateRange'
 import { overlapsPlannedWeekend } from './weekendPlanner'
+import { LEAVE_CAPACITY_COLUMNS, columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach } from './leaveYearGrid'
 
 export const LEAVE_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual leave' },
@@ -53,6 +54,44 @@ export function findDoubleBookingConflicts({ dateFrom, dateTo, existingLeaveRequ
   }
 }
 
+// Tier-1 (block at submission): the Annual Leave planner caps how many
+// doctors from the same capacity column (MO / Registrar / OT COSMO+Intern)
+// can be on leave at once — mirrors the physical Google Sheet's "only N
+// doctors in this category allowed leave at a time" rule. Checked against
+// every other pending or approved annual-leave request (rejected/withdrawn
+// never count, same as the double-booking check above). No-op for any
+// other leave type, or for a category with no capacity column (Other).
+async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
+  const [profileRes, constraintsRes, overlappingRes] = await Promise.all([
+    supabase.from('profiles').select('category').eq('id', profileId).single(),
+    supabase.from('constraints').select('key, value').in('key', LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey)),
+    supabase.from('leave_requests')
+      .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
+      .eq('leave_type', 'annual')
+      .in('status', ['pending', 'approved'])
+      .neq('profile_id', profileId)
+      .lte('date_from', dateTo)
+      .gte('date_to', dateFrom),
+  ])
+
+  const columnKey = columnForLeaveCategory(profileRes.data?.category)
+  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
+  if (!columnDef) return // this doctor's category has no capacity cap (Other column)
+
+  const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
+  const maxConcurrent = maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax
+
+  const byDate = buildLeaveByDate(overlappingRes.data || [], {
+    yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
+  })
+  const countsByDate = countByColumnPerDate(byDate, e => e.profiles?.category)
+  const { hasBreach, breachDates } = findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate: countsByDate })
+  if (hasBreach) {
+    const plural = maxConcurrent === 1 ? 'doctor is' : 'doctors are'
+    throw new Error(`Only ${maxConcurrent} ${columnDef.label} ${plural} allowed on leave at once, and that's already reached on ${breachDates[0]}. Adjust the dates and try again.`)
+  }
+}
+
 function todayStr() {
   const n = new Date()
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
@@ -77,6 +116,10 @@ export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFr
     if (!isSickBackdateAllowed(dateFrom, todayStr(), backdateDays)) {
       throw new Error(`Sick leave can only be backdated up to ${backdateDays} days. Contact an admin for older dates.`)
     }
+  }
+
+  if (leaveType === 'annual') {
+    await checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo })
   }
 
   // A weekend's Sunday can fall on dateFrom without its Saturday doing so,

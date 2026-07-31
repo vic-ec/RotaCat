@@ -29,7 +29,7 @@ export default function SpecialLeavePlanner() {
     const [leaveRes, phRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('profile_id, date_from, date_to, leave_type, status, profiles!leave_requests_profile_id_fkey(surname, category)')
+        .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(surname, category)')
         .or('leave_type.neq.annual,status.eq.pending')
         .lte('date_from', yearEnd)
         .gte('date_to', yearStart),
@@ -43,6 +43,7 @@ export default function SpecialLeavePlanner() {
     for (const [date, entries] of byDate) {
       reshaped.set(date, entries.map(e => ({
         profileId: e.profile_id, surname: e.profiles?.surname ?? '?', category: e.profiles?.category, status: e.status,
+        dateFrom: e.date_from, dateTo: e.date_to, leaveType: e.leave_type, annualLeaveDays: e.annual_leave_days,
       })))
     }
     setLeaveByDate(reshaped)

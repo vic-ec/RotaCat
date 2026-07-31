@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -46,6 +46,7 @@ export default function MyRequestHistory() {
         <div key={lr.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
           <div>
             <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}</p>
+            {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
             {lr.status !== 'pending' && lr.reviewed_at && (
               <p className="text-xs text-ink-muted">
                 {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {new Date(lr.reviewed_at).toLocaleDateString()}

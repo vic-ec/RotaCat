@@ -38,6 +38,28 @@ export function computeIncludesPublicHoliday(dateFrom, dateTo, publicHolidayDate
   return datesInRange(dateFrom, dateTo).some(d => phSet.has(d))
 }
 
+// A short "N total (M annual)" qualifier for any leave_requests row where
+// leave_type is 'annual' and annual_leave_days is present — distinguishing
+// the total unavailable-for-rostering period from the days that actually
+// count against the balance, for HR-audit visibility wherever a request is
+// listed. Null for non-annual types or legacy rows with no
+// annual_leave_days yet (nothing to contrast against).
+export function annualDaysSummary({ leave_type: leaveType, date_from: dateFrom, date_to: dateTo, annual_leave_days: annualLeaveDays }) {
+  if (leaveType !== 'annual' || annualLeaveDays == null) return null
+  const totalDays = datesInRange(dateFrom, dateTo).length
+  return `${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave)`
+}
+
+// annual_leave_days is entered by the requester, not auto-derived from the
+// date range -- the 5-day/10-day padding-weekend rules need human
+// judgement about which days in [dateFrom, dateTo] actually count against
+// the balance. All this validates is that it's a sane whole number no
+// greater than the total days requested (the range can include days that
+// don't count, e.g. a padding weekend, never more days than exist in it).
+export function isValidAnnualLeaveDays(annualLeaveDays, totalDays) {
+  return Number.isInteger(annualLeaveDays) && annualLeaveDays >= 1 && annualLeaveDays <= totalDays
+}
+
 export { overlapsPlannedWeekend as computeOverlapsRosteredWeekend }
 
 // Tier-1 (block at submission): double-booking against existing
@@ -115,13 +137,20 @@ function todayStr() {
 // Full submission flow: fetches what's needed to validate, blocks on
 // Tier-1 conflicts, computes the two derived flags, and inserts the row.
 // Throws with a user-facing message on any Tier-1 rejection.
-export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFrom, dateTo, notes }) {
+export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFrom, dateTo, annualLeaveDays, notes }) {
   if (!dateFrom || !dateTo || dateFrom > dateTo) {
     throw new Error('Please choose a valid date range.')
   }
 
   if (leaveType === 'weekend_exception' && !isValidWeekendExceptionRange(dateFrom, dateTo)) {
     throw new Error('A weekend exception must cover exactly one Saturday and the following Sunday.')
+  }
+
+  if (leaveType === 'annual') {
+    const totalDays = datesInRange(dateFrom, dateTo).length
+    if (!isValidAnnualLeaveDays(annualLeaveDays, totalDays)) {
+      throw new Error(`Enter how many of the ${totalDays} requested day${totalDays === 1 ? '' : 's'} count as annual leave (1–${totalDays}).`)
+    }
   }
 
   if (leaveType === 'sick' && !isAdmin) {
@@ -168,6 +197,7 @@ export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFr
     leave_type: leaveType,
     date_from: dateFrom,
     date_to: dateTo,
+    annual_leave_days: leaveType === 'annual' ? annualLeaveDays : null,
     notes: notes || null,
     includes_public_holiday: includesPublicHoliday,
     overlaps_rostered_weekend: overlapsWeekend,

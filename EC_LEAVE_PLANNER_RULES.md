@@ -40,6 +40,21 @@ Interns, and Overtime Interns:
 - All actual annual leave days taken (per the approved Leave Form) are shown
   in **bold** on the sheet.
 
+**Total days vs. annual leave days:** when submitting a request, you're
+unavailable for rostering for the *whole* date range entered, but you
+separately state how many of those days actually count as annual leave
+(the app requires this as an explicit number at submission, since it
+depends on the padding-weekend rules above and needs a human judgement
+call, not something the app derives automatically). For example: a 7-day
+request covering a padding weekend on either side might only be 5 annual
+leave days — the other 2 don't reduce your balance, but you still need to
+make up their hours elsewhere (per the 5-day rule). A 16-day request (Friday
+of week 1 to Sunday of week 2) covering an "on" middle weekend might count
+the full 10 core weekdays as annual leave with no makeup owed for that
+middle weekend (per the 10-day rule). Every list of leave requests in the
+app (My leave, Team leave, Requests, the planners) shows both numbers
+when they differ, for HR-audit visibility.
+
 **How the app enforces the capacity limit:** the sheet's "no more than one
 person per slot" rule is applied to the Annual Leave grid as a hard cap per
 category column, plus a combined cap across the three "full-time doctor"

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { annualDaysUsedInYear, upcomingRequests } from '../lib/leaveDashboard'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -26,6 +26,7 @@ export default function LeaveDashboard() {
   const [pendingDays, setPendingDays] = useState(0)
   const [myUpcoming, setMyUpcoming] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over changes within a session
 
@@ -36,7 +37,7 @@ export default function LeaveDashboard() {
 
     const [balanceRes, annualRes, mineRes] = await Promise.all([
       supabase.from('annual_leave_balances').select('days_allotted').eq('profile_id', profile.id).eq('year', year).maybeSingle(),
-      supabase.from('leave_requests').select('date_from, date_to, status').eq('profile_id', profile.id).eq('leave_type', 'annual'),
+      supabase.from('leave_requests').select('date_from, date_to, status, annual_leave_days').eq('profile_id', profile.id).eq('leave_type', 'annual'),
       supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true }),
     ])
 
@@ -78,6 +79,7 @@ export default function LeaveDashboard() {
               <div key={lr.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-ink">
                   {LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}
+                  {annualDaysSummary(lr) && <span className="block text-xs text-ink-muted">{annualDaysSummary(lr)}</span>}
                 </span>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
                   {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
@@ -88,12 +90,18 @@ export default function LeaveDashboard() {
         )}
       </div>
 
-      <div>
-        <p className="label-text">Request leave</p>
-        <div className="mt-1">
-          <LeaveRequestForm onSubmitted={load} />
+      {showForm ? (
+        <div>
+          <p className="label-text">Request leave</p>
+          <div className="mt-1">
+            <LeaveRequestForm onSubmitted={load} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <button type="button" onClick={() => setShowForm(true)} className="btn-primary">
+          Request leave
+        </button>
+      )}
     </div>
   )
 }

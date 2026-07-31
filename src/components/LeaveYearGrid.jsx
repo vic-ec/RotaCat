@@ -4,6 +4,7 @@ import {
   quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
 } from '../lib/leaveYearGrid'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
+import { annualDaysSummary } from '../lib/leaveRequests'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
@@ -214,19 +215,29 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, onClose }) {
             const colEntries = byColumn.get(col.key) || []
             const max = maxByColumnKey?.[col.key]
             return (
-              <div key={col.key} className="flex items-start justify-between gap-3 text-sm">
-                <span className="flex items-center gap-1.5 text-ink-muted">
+              <div key={col.key} className="text-sm">
+                <div className="flex items-center gap-1.5 text-ink-muted">
                   <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
                   {col.label}
                   {max ? <span className="text-xs">({colEntries.length}/{max})</span> : null}
-                </span>
-                <span className="text-right text-ink">
-                  {colEntries.length === 0 ? '—' : colEntries.map((e, i) => (
-                    <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : ''}>
-                      {e.surname}{i < colEntries.length - 1 ? ', ' : ''}
-                    </span>
-                  ))}
-                </span>
+                </div>
+                {colEntries.length === 0 ? (
+                  <p className="text-ink-muted">—</p>
+                ) : (
+                  <ul className="mt-0.5 space-y-0.5">
+                    {colEntries.map(e => {
+                      const summary = annualDaysSummary({
+                        leave_type: e.leaveType, date_from: e.dateFrom, date_to: e.dateTo, annual_leave_days: e.annualLeaveDays,
+                      })
+                      return (
+                        <li key={e.profileId} className="flex items-baseline justify-between gap-2">
+                          <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
+                          {summary && <span className="text-xs text-ink-muted">{summary}</span>}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
               </div>
             )
           })}

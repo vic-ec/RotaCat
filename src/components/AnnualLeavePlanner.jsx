@@ -36,7 +36,7 @@ export default function AnnualLeavePlanner() {
     const [leaveRes, phRes, constraintsRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(surname, category)')
+        .select('profile_id, date_from, date_to, leave_type, annual_leave_days, profiles!leave_requests_profile_id_fkey(surname, category)')
         .eq('leave_type', 'annual')
         .eq('status', 'approved')
         .lte('date_from', yearEnd)
@@ -52,6 +52,7 @@ export default function AnnualLeavePlanner() {
     for (const [date, entries] of byDate) {
       reshaped.set(date, entries.map(e => ({
         profileId: e.profile_id, surname: e.profiles?.surname ?? '?', category: e.profiles?.category, status: 'approved',
+        dateFrom: e.date_from, dateTo: e.date_to, leaveType: e.leave_type, annualLeaveDays: e.annual_leave_days,
       })))
     }
     setLeaveByDate(reshaped)
@@ -72,6 +73,7 @@ export default function AnnualLeavePlanner() {
         bullets={[
           'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
           'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
+          "You're unavailable for rostering for the whole date range requested, but only the days you enter as \"annual leave\" reduce your balance — e.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 still need their hours made up elsewhere.",
           `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor may be on leave at once (no more than one person per slot).`,
           `No more than ${maxFullTime} full-time doctors (MO + Registrar + EC COSMO/Intern combined) at once — e.g. 1 of each, or 2 MO + 1 of either, but never 2 Registrar or 2 EC COSMO/Intern. Enforced automatically at submission.`,
           "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",

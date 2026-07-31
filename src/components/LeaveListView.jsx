@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -46,6 +46,7 @@ export default function LeaveListView() {
           <div>
             <p className="font-medium text-ink">{lr.profiles?.name} {lr.profiles?.surname}</p>
             <p className="text-xs text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}</p>
+            {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
             {lr.status !== 'pending' && lr.reviewed_at && (
               <p className="text-xs text-ink-muted">
                 {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {new Date(lr.reviewed_at).toLocaleDateString()}

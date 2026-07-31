@@ -4,6 +4,8 @@ import {
   isSickBackdateAllowed,
   computeIncludesPublicHoliday,
   findDoubleBookingConflicts,
+  isValidAnnualLeaveDays,
+  annualDaysSummary,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
 
@@ -52,6 +54,53 @@ describe('findDoubleBookingConflicts', () => {
     })
     expect(result.hasConflict).toBe(true)
     expect(result.rosterConflicts).toEqual(['2026-08-13'])
+  })
+})
+
+describe('isValidAnnualLeaveDays', () => {
+  it('accepts a value between 1 and the total days, inclusive', () => {
+    expect(isValidAnnualLeaveDays(5, 7)).toBe(true)
+    expect(isValidAnnualLeaveDays(7, 7)).toBe(true)
+    expect(isValidAnnualLeaveDays(1, 7)).toBe(true)
+  })
+
+  it('rejects zero, negative, non-integer, or over-total values', () => {
+    expect(isValidAnnualLeaveDays(0, 7)).toBe(false)
+    expect(isValidAnnualLeaveDays(-1, 7)).toBe(false)
+    expect(isValidAnnualLeaveDays(2.5, 7)).toBe(false)
+    expect(isValidAnnualLeaveDays(8, 7)).toBe(false)
+  })
+
+  it('rejects non-numeric input (e.g. an empty form field)', () => {
+    expect(isValidAnnualLeaveDays(NaN, 7)).toBe(false)
+  })
+})
+
+describe('annualDaysSummary', () => {
+  it('shows total vs annual days when they differ (a padding weekend)', () => {
+    const summary = annualDaysSummary({
+      leave_type: 'annual', date_from: '2026-08-08', date_to: '2026-08-14', annual_leave_days: 5,
+    })
+    expect(summary).toBe('7 total days (5 annual leave)')
+  })
+
+  it('still shows both numbers when they are equal, for consistent HR-audit visibility', () => {
+    const summary = annualDaysSummary({
+      leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', annual_leave_days: 5,
+    })
+    expect(summary).toBe('5 total days (5 annual leave)')
+  })
+
+  it('returns null for non-annual leave types', () => {
+    expect(annualDaysSummary({
+      leave_type: 'sick', date_from: '2026-08-10', date_to: '2026-08-14', annual_leave_days: 5,
+    })).toBeNull()
+  })
+
+  it('returns null for a legacy annual row with no annual_leave_days recorded', () => {
+    expect(annualDaysSummary({
+      leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', annual_leave_days: null,
+    })).toBeNull()
   })
 })
 

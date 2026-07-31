@@ -50,6 +50,14 @@ describe('MyRequestHistory', () => {
     expect(screen.getByText(/No cover available/)).toBeInTheDocument()
   })
 
+  it('shows the total-vs-annual days summary for an annual leave row with a padding weekend', async () => {
+    mockData.rows = [{
+      id: 'r1', leave_type: 'annual', date_from: '2026-08-08', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5,
+    }]
+    render(<MyRequestHistory />)
+    expect(await screen.findByText('7 total days (5 annual leave)')).toBeInTheDocument()
+  })
+
   it('shows an empty state with no requests', async () => {
     render(<MyRequestHistory />)
     expect(await screen.findByText('No leave requests on record.')).toBeInTheDocument()

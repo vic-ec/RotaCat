@@ -55,3 +55,20 @@ build phase (see `README.md`).
     modal, and filterable layers (approved/pending/capacity
     warnings/public holidays/weekend rotation). A bigger, separate rebuild
     from the mobile-first Leave planner work — not attempted alongside it.
+
+11. **Annual leave affecting contracted-hours targets** — `annual_leave_days`
+    (the requester-entered count of days that reduce the 22-day balance) is
+    captured and displayed, but nothing in this repo currently reduces a
+    doctor's *contracted monthly hours target* to account for approved
+    leave — `monthlyHours.js`/`leaveApprovals.js` only warn when
+    already-rostered hours exceed a fixed ceiling, they don't compute an
+    adjusted target. The actual "how many hours does this doctor need to
+    work this month" decision happens in the scheduler backend (a separate
+    repo) during roster generation, so this needs coordination there, not
+    just a frontend change.
+
+12. **Annual leave HR-audit report** — a dedicated admin view totalling
+    total-vs-annual leave days per doctor per year, rather than only
+    showing the per-request breakdown wherever a request is listed (My
+    leave, Team leave, Requests, the planners). The per-request data
+    (`annual_leave_days`) already exists as the input this would need.

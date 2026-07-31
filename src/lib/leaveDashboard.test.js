@@ -40,6 +40,32 @@ describe('annualDaysUsedInYear', () => {
   it('returns 0 for an empty list', () => {
     expect(annualDaysUsedInYear([], 2026)).toBe(0)
   })
+
+  it('prefers annual_leave_days over the full date range when present', () => {
+    // 7-day span (5 weekdays + a padding weekend) but only 5 count as annual leave
+    const days = annualDaysUsedInYear(
+      [{ date_from: '2026-08-08', date_to: '2026-08-14', annual_leave_days: 5 }],
+      2026
+    )
+    expect(days).toBe(5)
+  })
+
+  it('mixes annual_leave_days rows with legacy (pre-migration) rows in the same total', () => {
+    const days = annualDaysUsedInYear(
+      [
+        { date_from: '2026-08-08', date_to: '2026-08-14', annual_leave_days: 5 },
+        { date_from: '2026-01-05', date_to: '2026-01-06' }, // legacy row, no annual_leave_days
+      ],
+      2026
+    )
+    expect(days).toBe(7)
+  })
+
+  it('attributes annual_leave_days entirely to the year the request starts in', () => {
+    const requests = [{ date_from: '2026-12-29', date_to: '2027-01-02', annual_leave_days: 3 }]
+    expect(annualDaysUsedInYear(requests, 2026)).toBe(3)
+    expect(annualDaysUsedInYear(requests, 2027)).toBe(0) // not double-counted into the following year
+  })
 })
 
 describe('upcomingRequests', () => {

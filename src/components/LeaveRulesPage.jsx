@@ -56,29 +56,29 @@ export default function LeaveRulesPage() {
           <li>Covers single days off, courses/CPD, and special leave requests.</li>
           <li>These do <strong>not</strong> count against the 22-day annual leave allowance.</li>
           <li>The requested day/shift is made up elsewhere, <strong>unless</strong> it is flagged as a special leave day.</li>
-		</ul>
-		  
-        <p>
-			<strong>Courses:</strong>
-		  <ul className="list-disc space-y-1 pl-5">
-			  <li>Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
-			  <li>A formal Leave Form must be submitted and approved - Courses done will count as "Special Leave".</li>
-			  <li>Please specify what course you are doing when requesting "Special Leave Days" e.g.: Bottomley (ACLS)</li>
-		  </ul>
-		</p>
+        </ul>
 
-		<p>
-			<strong>Single-Day-Off Requests:</strong>
-			<ul className="list-disc space-y-1 pl-5">
-				<li>The requested SINGLE day off CANNOT be "TAILED ONTO" requests made as per LEAVE PLANNER above.</li>
-				<li>The requested SINGLE day off CANNOT be requested "in ADDITION TO" Annual leave requests as per LEAVE PLANNER above.</li>
-				<li>The requested SINGLE day off CAN be requested "in ADDITION TO" an "ON" W/E off request.</li>
-				<li>The SINGLE day requested off can be ANY day of the week - hours will be made up on another (roster beneficial) day.</li>
-				<li>If the requested SINGLE day off is a FRIDAY - Indicate if wanted as a "Post-Call" day by adding (PC) in the leave request motivation.</li>
-				<li>If the requested FRIDAY is NOT a "Post-Call" day - The hours will be made-up on another day.</li>
-				<li>A SINGLE W/E Day on an "ON" W/E can also be requested - the W/E day will be worked back on another W/E during the month.</li>
-		 	</ul>
-        </p>
+        <div>
+          <strong>Courses:</strong>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
+            <li>A formal Leave Form must be submitted and approved - Courses done will count as "Special Leave".</li>
+            <li>Please specify what course you are doing when requesting "Special Leave Days" e.g.: Bottomley (ACLS)</li>
+          </ul>
+        </div>
+
+        <div>
+          <strong>Single-Day-Off Requests:</strong>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>The requested SINGLE day off CANNOT be "TAILED ONTO" requests made as per LEAVE PLANNER above.</li>
+            <li>The requested SINGLE day off CANNOT be requested "in ADDITION TO" Annual leave requests as per LEAVE PLANNER above.</li>
+            <li>The requested SINGLE day off CAN be requested "in ADDITION TO" an "ON" W/E off request.</li>
+            <li>The SINGLE day requested off can be ANY day of the week - hours will be made up on another (roster beneficial) day.</li>
+            <li>If the requested SINGLE day off is a FRIDAY - Indicate if wanted as a "Post-Call" day by adding (PC) in the leave request motivation.</li>
+            <li>If the requested FRIDAY is NOT a "Post-Call" day - The hours will be made-up on another day.</li>
+            <li>A SINGLE W/E Day on an "ON" W/E can also be requested - the W/E day will be worked back on another W/E during the month.</li>
+          </ul>
+        </div>
       </Section>
 
       <Section title="Weekend Requests Planner">
@@ -86,18 +86,18 @@ export default function LeaveRulesPage() {
           <li>Weekend rotations are organised in columns by MO / Registrar / EC Intern / OT Intern, colour-coded per doctor group.</li>
           <li>If your name is listed in a specific colour for a given month, you work <strong>every</strong> weekend in that colour that month.</li>
           <li>No more than one person per slot.</li>
-		</ul>
-		  
-	  <p>
-		<strong>Requests for Weekend Exceptions ("weekends off"):</strong>
-		  <ul className="list-disc space-y-1 pl-5">
-       		  <li>If you request an "ON" weekend off, you will be rostered on one of your "OFF" weekends to make up your weekend hours.</li>
-       	 	  <li>If you do not want this, then you have to put in annual leave days.</li>
-			  <li>Please indicate the number of annual leave days you wish to take when submitting your leave request.</li>
-        	  <li>If the request is approved, it will be captured on the LEAVE PLANNER and WEEKEND PLANNER.</li>
-       		  <li>If you do not put in leave days, this specific "off" weekend request will be CONSIDERED <strong>subject to rostering requirements.</strong></li>
-       	 </ul>
-	  </p>
+        </ul>
+
+        <div>
+          <strong>Requests for Weekend Exceptions ("weekends off"):</strong>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>If you request an "ON" weekend off, you will be rostered on one of your "OFF" weekends to make up your weekend hours.</li>
+            <li>If you do not want this, then you have to put in annual leave days.</li>
+            <li>Please indicate the number of annual leave days you wish to take when submitting your leave request.</li>
+            <li>If the request is approved, it will be captured on the LEAVE PLANNER and WEEKEND PLANNER.</li>
+            <li>If you do not put in leave days, this specific "off" weekend request will be CONSIDERED <strong>subject to rostering requirements.</strong></li>
+          </ul>
+        </div>
       </Section>
 
       <Section title="How to request leave">

@@ -6,12 +6,13 @@ to mirror. Source: [EC Leave Planner sheet](https://docs.google.com/spreadsheets
 Update this file if the source sheet's rules change — it's the reference
 the in-app "Rules" boxes on each planner tab are kept in sync with.
 
-## There are two planners
+## There are three planners
 
 1. **Annual Leave Planner**
-2. **Single Day/s, Courses, Special Leave + Weekend Request Planner**
+2. **Single Day/s, Courses, Special Leave Planner**
+3. **Weekend Request Planner**
 
-The second planner is for days you want off, or a special request — these
+The second is for days you want off, or a special request — these
 **do not count as Annual Leave days**. The requested shift/day is made up
 elsewhere, unless it's a "special leave day" (see below).
 
@@ -113,6 +114,32 @@ Supabase (`constraints` table:
   approval) also show here, since they haven't been approved onto the
   Annual Leave planner yet.
 
+### Courses
+
+- Courses taken are to be specified on the leave request. Days taken will
+  count as official working hours/days.
+- A formal Leave Form must be submitted and approved — courses done count as
+  "Special Leave."
+- Please specify what course you are doing when requesting "Special Leave
+  Days," e.g.: Bottomley (ACLS).
+
+### Single-Day-Off requests
+
+- The requested SINGLE day off CANNOT be "tailed onto" a request made as per
+  the Annual Leave Planner above.
+- The requested SINGLE day off CANNOT be requested "in addition to" an
+  Annual Leave request as per the Annual Leave Planner above.
+- The requested SINGLE day off CAN be requested "in addition to" an "on"
+  weekend-off request.
+- The SINGLE day requested off can be ANY day of the week — hours will be
+  made up on another (roster-beneficial) day.
+- If the requested SINGLE day off is a FRIDAY, indicate if it's wanted as a
+  "Post-Call" day by adding (PC) in the leave request motivation.
+- If the requested FRIDAY is NOT a "Post-Call" day, the hours will be made
+  up on another day.
+- A SINGLE weekend day on an "on" weekend can also be requested — the
+  weekend day will be worked back on another weekend during the month.
+
 ## Weekend Request Planner rules
 
 - Weekend rotations are organised in columns by MO / Registrar / EC COSMO /
@@ -120,6 +147,18 @@ Supabase (`constraints` table:
 - If your name is listed in a specific colour for a given month, you work
   **every** weekend in that colour that month.
 - No more than one person per slot.
+
+### Requests for Weekend Exceptions ("weekends off")
+
+- If you request an "on" weekend off, you will be rostered on one of your
+  "off" weekends to make up your weekend hours.
+- If you do not want this, then you have to put in annual leave days.
+- Please indicate the number of annual leave days you wish to take when
+  submitting your leave request.
+- If the request is approved, it will be captured on the Leave Planner and
+  Weekend Planner.
+- If you do not put in leave days, this specific "off" weekend request will
+  be considered **subject to rostering requirements.**
 
 ## How to request leave
 
@@ -130,9 +169,15 @@ Supabase (`constraints` table:
    Everything except Annual and Sick is the same "everything else"
    distinction the sheet draws between the Annual Leave Planner and the
    Special Requests Planner.
-2. An admin reviews and approves (or rejects) the request before it's
+2. Indicate the number of annual leave days you will be taking, per the
+   guidelines above.
+3. Indicate any motivations or additional requests in the **Motivations**
+   section.
+4. Incorrect or misrepresented leave requests will be rejected.
+5. An admin reviews and approves (or rejects) the request before it's
    confirmed — approved annual leave then appears on the Annual Leave
    planner; everything else (and anything still pending) appears on the
-   Special Leave planner.
-3. Populate/refer to the planner using **surnames**, matching the sheet's
+   Special Leave planner. Approved "Weekend Exception" requests appear on
+   the Weekend Planner.
+6. Populate/refer to the planner using **surnames**, matching the sheet's
    convention.

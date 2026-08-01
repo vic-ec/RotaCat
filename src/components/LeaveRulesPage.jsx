@@ -56,7 +56,10 @@ export default function LeaveRulesPage() {
           <li>Covers single days off, courses/CPD, and special leave requests.</li>
           <li>These do <strong>not</strong> count against the 22-day annual leave allowance.</li>
           <li>The requested day/shift is made up elsewhere, <strong>unless</strong> it is flagged as a special leave day.</li>
-          <li><strong>Courses:</strong></li>
+		</ul>
+		  
+        <p>
+			<strong>Courses:</strong>
 		  <ul>
 			  <li>Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
 			  <li>A formal Leave Form must be submitted and approved - Courses done will count as "Special Leave".</li>
@@ -69,7 +72,7 @@ export default function LeaveRulesPage() {
 			  <li>If the requested FRIDAY is NOT a "Post-Call" day - The hours will be made-up on another day.</li>
 			  <li>A SINGLE W/E Day on an "ON" W/E can also be requested - The W/E day will be worked back on another W/E during month.</li>
 		  </ul>
-        </ul>
+        </p>
       </Section>
 
       <Section title="Weekend Requests Planner">

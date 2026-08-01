@@ -18,7 +18,7 @@ export default function MobileAuthHero() {
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[13px] -right-[12px] h-[25px] w-[25px] -rotate-8 select-none"
+            className="absolute -top-[15.5px] -right-[12px] h-[25px] w-[25px] -rotate-8 select-none"
             draggable="false"
           />
         </span>
@@ -33,11 +33,6 @@ export default function MobileAuthHero() {
         />
       </div>
 
-      {/* Smaller and lighter than the tagline above — a supporting line,
-          not a second headline. */}
-      <p className="mt-1 max-w-[220px] text-center text-xs text-ink-muted/70">
-        Build fair rotas, manage leave, and keep every shift covered.
-      </p>
     </div>
   )
 }

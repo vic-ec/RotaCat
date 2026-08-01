@@ -307,7 +307,7 @@ export default function LoginPage() {
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
           <p className="mt-2 text-center text-[14.7px] text-ink-light">Get started with your account</p>
 
-          <div className="mt-6 flex flex-col gap-4">
+          <div className="mt-6">
             <button
               type="button"
               onClick={openSignInModal}
@@ -319,12 +319,18 @@ export default function LoginPage() {
             </button>
 
             <Link
-              to="/signup"
-              className="w-full rounded-lg border border-accent bg-canvas py-6 text-center text-[14.7px] font-semibold text-accent
-                transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+              to="/forgot-password"
+              className="mt-3 block text-center text-[14.7px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
             >
-              Create an account
+              Forgot password?
             </Link>
+
+            <p className="mt-5 text-center text-[14.7px] text-ink-light">
+              New here?{' '}
+              <Link to="/signup" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+                Create an account
+              </Link>
+            </p>
           </div>
 
           <AuthFooter onLight topGap="mt-4" compact />
@@ -342,11 +348,11 @@ export default function LoginPage() {
                 <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
                 <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts.</p>
 
-                <div className="mt-8 flex flex-col gap-4">
-                  {/* border-2 (transparent here, accent on Sign up) + py-[25px]
-                      on both buttons matches their total height exactly to the
-                      Signup page's role cards (border-2 + p-4 + two lines of
-                      text = 82px) — same border+padding-match approach used for
+                <div className="mt-8">
+                  {/* border-2 border-transparent + py-[25px] matches this
+                      button's total height exactly to the Signup page's
+                      role cards (border-2 + p-4 + two lines of text =
+                      82px) — same border+padding-match approach used for
                       the Account page's ghost-box inputs. */}
                   <button
                     type="button"
@@ -360,13 +366,18 @@ export default function LoginPage() {
                   </button>
 
                   <Link
-                    to="/signup"
-                    className="w-full rounded-lg border-2 border-accent bg-canvas py-[25px] text-center text-[18.9px] font-semibold text-accent
-                      transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken
-                      lg:text-[23.1px]"
+                    to="/forgot-password"
+                    className="mt-4 block text-center text-[18.9px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline lg:text-[23.1px]"
                   >
-                    Create your account
+                    Forgot password?
                   </Link>
+
+                  <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
+                    New here?{' '}
+                    <Link to="/signup" className="font-semibold text-rose hover:text-rose-dark hover:underline">
+                      Create an account
+                    </Link>
+                  </p>
                 </div>
               </div>
             </div>

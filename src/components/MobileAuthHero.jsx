@@ -11,31 +11,31 @@ export default function MobileAuthHero() {
       <h1 className="font-serif text-6xl font-semibold leading-none text-ink">
         <RotaCat />
       </h1>
-      <p className="mt-4 whitespace-nowrap text-[14.7px] text-ink-muted">
+      <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
         Smart ED scheduling, made{' '}
         <span className="relative inline-block">
           effortless
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[11.5px] -right-[10.5px] h-[22px] w-[22px] -rotate-8 select-none"
+            className="absolute -top-[13px] -right-[12px] h-[25px] w-[25px] -rotate-8 select-none"
             draggable="false"
           />
         </span>
       </p>
 
-      <div className="relative mt-6">
+      <div className="relative mt-2">
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[189px] w-auto select-none"
+          className="relative z-10 h-[min(217px,26dvh)] w-auto select-none"
           draggable="false"
         />
       </div>
 
       {/* Smaller and lighter than the tagline above — a supporting line,
           not a second headline. */}
-      <p className="mt-3 max-w-[220px] text-center text-xs text-ink-muted/70">
+      <p className="mt-1 max-w-[220px] text-center text-xs text-ink-muted/70">
         Build fair rotas, manage leave, and keep every shift covered.
       </p>
     </div>

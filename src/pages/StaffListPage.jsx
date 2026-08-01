@@ -8,7 +8,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
-import { CalendarArrowDown, CalendarArrowUp, UserPen, CircleCheck } from 'lucide-react'
+import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
@@ -153,9 +153,11 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 }
 
 // One row of the Pending-approval list. Selection checkbox feeds the bulk
-// action bar above the list; the UserPen button navigates straight to the
-// dedicated review page rather than expanding an inline panel — editing a
-// pending registration's details/role/category/admin flag happens there.
+// action bar above the list; clicking anywhere in the row (or the Eye
+// button specifically) navigates to the dedicated review page rather than
+// expanding an inline panel — editing a pending registration's details
+// happens there, including its mobile number, which is left out of this
+// collapsed row to keep it scannable.
 function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
@@ -167,12 +169,16 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
   const registeredTime = person.created_at?.slice(11, 16)
 
   return (
-    <div className="px-5 py-4">
+    <div
+      onClick={() => onEdit(person.id)}
+      className="cursor-pointer px-5 py-4 transition-colors hover:bg-canvas-sunken active:bg-slate-line"
+    >
       <div className="flex items-start gap-3">
         <input
           type="checkbox"
           checked={checked}
           onChange={onToggleCheck}
+          onClick={e => e.stopPropagation()}
           aria-label={`Select ${person.name || ''} ${person.surname}`.trim()}
           className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent md:mt-1"
         />
@@ -212,34 +218,30 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
                 <CircleCheck title="Email verified" className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-success" />
               )}
             </p>
-            {/* Line 3 (both breakpoints) — mobile number */}
-            <p className="mt-0.5 text-xs text-ink-muted">
-              {formatPhoneDisplay(person.phone) || 'Not set'}
-            </p>
           </div>
 
-          {/* Line 4 on mobile, right-aligned column on desktop */}
+          {/* Line 3 on mobile, right-aligned column on desktop */}
           <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
             <button
-              onClick={() => approveAccount(person)}
+              onClick={e => { e.stopPropagation(); approveAccount(person) }}
               title="Approve"
               className="flex h-7 w-7 items-center justify-center rounded-md bg-success text-white transition-opacity hover:opacity-80 active:opacity-80"
             >
               <CheckIcon className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => rejectAccount(person.id)}
+              onClick={e => { e.stopPropagation(); rejectAccount(person.id) }}
               title="Reject"
               className="flex h-7 w-7 items-center justify-center rounded-md border border-flagRed text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
             >
               <CloseIcon className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => onEdit(person.id)}
-              title="Edit"
+              onClick={e => { e.stopPropagation(); onEdit(person.id) }}
+              title="Review request"
               className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-line text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
             >
-              <UserPen className="h-3.5 w-3.5" />
+              <Eye className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -982,7 +984,7 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 ${canContact ? 'cursor-pointer no-callout' : ''}`}
+                          className={`flex items-center gap-3 px-4 py-2 transition-colors ${canContact ? 'cursor-pointer no-callout hover:bg-canvas-sunken active:bg-slate-line' : ''}`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -1080,8 +1082,8 @@ export default function StaffListPage() {
                             key={person.id}
                             onClick={() => isAdmin && navigate(`/account/${person.id}`)}
                             title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
-                            className={`border-b border-slate-line last:border-0 ${!person.is_active ? 'opacity-50' : ''} ${
-                              isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+                            className={`border-b border-slate-line last:border-0 transition-colors ${!person.is_active ? 'opacity-50' : ''} ${
+                              isAdmin ? 'cursor-pointer hover:bg-canvas-sunken active:bg-slate-line' : ''
                             }`}
                           >
                             <td className="px-2 py-1.5">

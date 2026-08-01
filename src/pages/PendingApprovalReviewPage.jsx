@@ -3,7 +3,6 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom'
 import { CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { isValidEmail } from '../lib/validateEmail'
 import ProfileAvatar from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import SelectMenu from '../components/SelectMenu'
@@ -42,7 +41,6 @@ export default function PendingApprovalReviewPage() {
   const [firstName, setFirstName] = useState('')
   const [surname, setSurname] = useState('')
   const [phone, setPhone] = useState('')
-  const [emailInput, setEmailInput] = useState('')
   const [role, setRole] = useState('doctor')
   const [category, setCategory] = useState('')
   const [hasAdmin, setHasAdmin] = useState(false)
@@ -70,13 +68,11 @@ export default function PendingApprovalReviewPage() {
       setLoading(false)
       return
     }
-    const foundEmail = (emailRows || []).find(r => r.id === id)?.email || ''
     setProfile(data)
-    setEmail(foundEmail)
+    setEmail((emailRows || []).find(r => r.id === id)?.email || '')
     setFirstName(data.name || '')
     setSurname(data.surname || '')
     setPhone(data.phone || '')
-    setEmailInput(foundEmail)
     setRole(data.role || 'doctor')
     setCategory(data.category || '')
     setHasAdmin(data.is_admin === true)
@@ -121,7 +117,6 @@ export default function PendingApprovalReviewPage() {
     firstName !== (profile.name || '') ||
     surname !== (profile.surname || '') ||
     phone !== (profile.phone || '') ||
-    emailInput !== (email || '') ||
     role !== (profile.role || 'doctor') ||
     category !== (profile.category || '') ||
     hasAdmin !== (profile.is_admin === true)
@@ -135,7 +130,6 @@ export default function PendingApprovalReviewPage() {
     setFirstName(profile.name || '')
     setSurname(profile.surname || '')
     setPhone(profile.phone || '')
-    setEmailInput(email || '')
     setRole(profile.role || 'doctor')
     setCategory(profile.category || '')
     setHasAdmin(profile.is_admin === true)
@@ -152,13 +146,6 @@ export default function PendingApprovalReviewPage() {
       return
     }
 
-    const emailChanged = emailInput !== (email || '')
-    if (emailChanged && !isValidEmail(emailInput)) {
-      setSaving(false)
-      setSaveError('Enter a valid email address.')
-      return
-    }
-
     const { error } = await supabase.from('profiles').update({
       name: firstName,
       surname,
@@ -168,34 +155,11 @@ export default function PendingApprovalReviewPage() {
       is_admin: role === 'doctor' ? hasAdmin : false,
     }).eq('id', id)
 
+    setSaving(false)
     if (error) {
-      setSaving(false)
       setSaveError(error.message)
       return
     }
-
-    // Email lives in auth.users, not profiles — changing someone else's
-    // requires the Admin API (service-role key), which the browser can
-    // never hold. This routes through an Edge Function that checks the
-    // caller is actually an admin before touching anything.
-    if (emailChanged) {
-      const { error: fnError } = await supabase.functions.invoke('admin-update-email', {
-        body: { profileId: id, email: emailInput },
-      })
-      if (fnError) {
-        let message = fnError.message
-        try {
-          const body = await fnError.context.json()
-          if (body?.error) message = body.error
-        } catch { /* keep the generic message */ }
-        setSaving(false)
-        setSaveError(message)
-        return
-      }
-      setEmail(emailInput)
-    }
-
-    setSaving(false)
     setProfile(prev => ({
       ...prev,
       name: firstName,
@@ -332,18 +296,21 @@ export default function PendingApprovalReviewPage() {
             </div>
             <div>
               <div className="mb-1.5 flex items-center gap-1.5">
-                <label htmlFor="email" className="text-sm font-medium text-ink-light">Email</label>
+                <label className="text-sm font-medium text-ink-light">Email</label>
                 {profile.email_verified && (
                   <CircleCheck title="Email verified" className="h-3.5 w-3.5 text-success" />
                 )}
               </div>
-              <input
-                id="email"
-                type="email"
-                value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
-                className="input-field"
-              />
+              {/* Read-only — the address was verified by the user during
+                  registration, so it isn't something an admin should be
+                  able to silently change here. */}
+              {email ? (
+                <a href={`mailto:${email}`} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">
+                  {email}
+                </a>
+              ) : (
+                <p className="truncate rounded border border-transparent px-3 py-1 text-sm text-ink-muted">Not set</p>
+              )}
             </div>
           </div>
         </div>

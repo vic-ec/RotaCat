@@ -2,7 +2,7 @@
 // flat, admin-populated calendar of who works which weekend, replacing
 // the old computed weekend_offset projection formerly used for both the
 // planner UI and the Leave submission overlap hint.
-import { addDays, dayOfWeek } from './dateRange'
+import { addDays, dayOfWeek, monthBounds } from './dateRange'
 
 // Column groupings for the planner grid. The scheduler backend only
 // distinguishes 5 categories for weekend eligibility (MO, Registrar,
@@ -40,6 +40,41 @@ export function saturdaysInRange(fromDate, throughDate) {
     cursor = addDays(cursor, 7)
   }
   return saturdays
+}
+
+// Every Saturday landing in a given calendar month — a weekend "belongs"
+// to whichever month its Saturday falls in, even if the Sunday spills into
+// the next month. Powers the Weekend Planner's month-at-a-time view (was
+// previously one long ~6-month scroll of every card at once).
+export function saturdaysInMonth(year, month) {
+  const { start, end } = monthBounds(year, month)
+  return saturdaysInRange(start, end)
+}
+
+// The Saturday of the next upcoming weekend from fromDate (today, normally)
+// — same "advance to the next Saturday on/after this date" rule
+// saturdaysInRange uses, so it's always consistent with what the month list
+// would show as the soonest weekend. Powers the planner's persistent "Next
+// weekend" summary card, shown regardless of which month is being viewed.
+export function nextWeekendSaturday(fromDate) {
+  const offsetToSaturday = (6 - dayOfWeek(fromDate) + 7) % 7
+  return addDays(fromDate, offsetToSaturday)
+}
+
+// Coverage of one weekend's category groups: how many of the 4 rotation
+// groups (MO/Registrar/EC COSMO+Intern/OT COSMO+Intern) have at least one
+// person assigned, and which ones are still open. bySaturdayEntries is the
+// { [groupKey]: [entry, ...] } shape from groupEntriesByWeekend.get(saturday).
+export function weekendCoverageSummary(bySaturdayEntries) {
+  const openGroups = CATEGORY_GROUPS.filter(g => !bySaturdayEntries?.[g.key]?.length).map(g => g.key)
+  return { filledGroups: CATEGORY_GROUPS.length - openGroups.length, totalGroups: CATEGORY_GROUPS.length, openGroups }
+}
+
+// True if profileId is assigned to any group of this weekend — powers the
+// "My rotation" filter and the "Next weekend" card's "you're on rotation"
+// messaging. bySaturdayEntries is the same shape as weekendCoverageSummary.
+export function isProfileAssignedToWeekend(bySaturdayEntries, profileId) {
+  return Object.values(bySaturdayEntries || {}).flat().some(e => e.profile_id === profileId)
 }
 
 // Shift codes that land on the Saturday/Sunday of a real weekend — used

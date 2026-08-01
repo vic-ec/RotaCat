@@ -36,12 +36,14 @@ describe('LeavePlannerPage', () => {
     expect(container).not.toHaveTextContent(/Leave/)
   })
 
-  it('doctor: defaults to My leave, does not see Approval-queue-only Requests view', async () => {
+  it('doctor: defaults to My leave, does not see Approval-queue-only Requests view or the redundant Team leave tab', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
     renderPage()
     expect(screen.getByText('MyLeaveStub')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My leave' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Team leave' })).toBeInTheDocument()
+    // A doctor already gets the "who's off" picture from the Annual/Special
+    // planners' All view, so Team leave is redundant and hidden for them.
+    expect(screen.queryByRole('button', { name: 'Team leave' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Planners' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rules' })).toBeInTheDocument()
 
@@ -52,11 +54,12 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('MyRequestHistoryStub')).toBeInTheDocument()
   })
 
-  it('admin: defaults to Planners > Requests (approval queue), no My leave tab', async () => {
+  it('admin: defaults to Planners > Requests (approval queue), no My leave tab, keeps Team leave', async () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
     renderPage()
     expect(screen.getByText('ApprovalQueueStub')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Team leave' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Annual' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument()

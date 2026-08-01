@@ -71,3 +71,17 @@ build phase (see `README.md`).
     (`LeaveAuditReport.jsx`, admin-only) shows cumulative annual/special/sick
     leave per doctor over any admin-chosen date range, filterable by
     category and drillable to one doctor's individual requests.
+
+13. **Leave area nav restructure (Overview + standalone Requests inbox)** —
+    a UX review of the Weekend Planner (whose highest-value points were
+    acted on: month-at-a-time view, Next weekend summary, needs-planning
+    filter, denser cards) also suggested a bigger navigation change not
+    attempted alongside it: rename the Planners sub-tabs to
+    Overview/Annual/Special/Weekends, move filters like "My rotation"/
+    "Needs planning" inside each planner instead of being separate tabs
+    (Weekends now does this), and pull Requests out into its own inbox
+    button with a pending-count badge rather than sitting as a sub-tab
+    alongside the planner types — the review's point being that "planner
+    type" and "user task" shouldn't compete at the same navigation level.
+    Bigger than a single round given how much of `LeavePlannerPage.jsx`
+    and `LeaveApprovalQueue.jsx` it would touch.

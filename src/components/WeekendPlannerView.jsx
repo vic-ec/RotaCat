@@ -2,12 +2,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays } from '../lib/dateRange'
-import { CATEGORY_GROUPS, groupForCategory, saturdaysInRange, groupEntriesByWeekend } from '../lib/weekendPlanner'
+import {
+  CATEGORY_GROUPS, groupForCategory, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
+  weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
+} from '../lib/weekendPlanner'
 import { logWeekendPlannerChange } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import InlineRuleHint from './InlineRuleHint'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'mine', label: 'My rotation' },
+  { key: 'needs-planning', label: 'Needs planning' },
+]
+const MONTH_LABELS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
@@ -15,6 +27,14 @@ const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months
 // restructure, without duplicating the assign/remove logic in two places.
 // Callers own the page-level heading/locum-redirect; this is just the
 // review-log button + rules + grid.
+//
+// Redesigned per a UX review of the old "one long scroll of every weekend
+// card for 6 months" layout: a persistent "Next weekend" status card so the
+// most urgent question (who's on this coming weekend?) never needs
+// scrolling to answer; one month at a time instead of ~26 cards at once;
+// All/My rotation/Needs planning filters instead of a wall of red; denser
+// role-row cards with open-slot counts; amber (not red) for incomplete
+// coverage, reserving stronger colour for the genuinely urgent case.
 export default function WeekendPlannerView() {
   const { isAdmin, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
@@ -24,6 +44,10 @@ export default function WeekendPlannerView() {
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
+  const [filter, setFilter] = useState('all')
+  const today = todayStr()
+  const [viewYear, setViewYear] = useState(() => Number(today.slice(0, 4)))
+  const [viewMonth, setViewMonth] = useState(() => Number(today.slice(5, 7)))
 
   useEffect(() => { load() }, [])
 
@@ -53,6 +77,46 @@ export default function WeekendPlannerView() {
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
+
+  const firstFetchedSaturday = saturdays[0]
+  const lastFetchedSaturday = saturdays[saturdays.length - 1]
+  const canGoPrevMonth = firstFetchedSaturday
+    && !(viewYear === Number(firstFetchedSaturday.slice(0, 4)) && viewMonth === Number(firstFetchedSaturday.slice(5, 7)))
+  const canGoNextMonth = lastFetchedSaturday
+    && !(viewYear === Number(lastFetchedSaturday.slice(0, 4)) && viewMonth === Number(lastFetchedSaturday.slice(5, 7)))
+
+  function goPrevMonth() {
+    if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12) }
+    else setViewMonth(m => m - 1)
+  }
+  function goNextMonth() {
+    if (viewMonth === 12) { setViewYear(y => y + 1); setViewMonth(1) }
+    else setViewMonth(m => m + 1)
+  }
+  function goToday() {
+    setViewYear(Number(today.slice(0, 4)))
+    setViewMonth(Number(today.slice(5, 7)))
+  }
+
+  // Only Saturdays actually in the fetched window are shown — this
+  // naturally excludes both already-passed weekends this month (the fetch
+  // starts from today) and anything beyond the fetch's runway, without
+  // separate min/max bounds logic.
+  const fetchedSet = useMemo(() => new Set(saturdays), [saturdays])
+  const monthSaturdays = useMemo(
+    () => saturdaysInMonth(viewYear, viewMonth).filter(s => fetchedSet.has(s)),
+    [viewYear, viewMonth, fetchedSet]
+  )
+  const visibleSaturdays = monthSaturdays.filter(saturday => {
+    const bySaturday = byWeekend.get(saturday)
+    if (filter === 'needs-planning') return weekendCoverageSummary(bySaturday).openGroups.length > 0
+    if (filter === 'mine') return isProfileAssignedToWeekend(bySaturday, profile?.id)
+    return true
+  })
+
+  const nextWeekend = nextWeekendSaturday(today)
+  const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
+  const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
 
   // Doctors already placed SOMEWHERE this weekend (any group) — the DB's
   // unique(weekend_saturday, profile_id) means a doctor can only fill one
@@ -127,100 +191,142 @@ export default function WeekendPlannerView() {
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
 
       {!loading && !error && (
-        <div className="mt-6 space-y-3">
-          {saturdays.map(saturday => {
-            const bySaturday = byWeekend.get(saturday) || {}
-            const totalCount = Object.values(bySaturday).flat().length
-            const isEmpty = totalCount === 0
-            const assignedIds = assignedDoctorIds(saturday)
-            const sunday = addDays(saturday, 1)
+        <>
+          <div className={`mt-6 card p-4 ${nextWeekendCoverage.openGroups.length > 0 ? 'border-flagAmber/50 bg-flagAmber/5' : ''}`}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
+            <p className="mt-0.5 text-base font-semibold text-ink">{nextWeekend} → {addDays(nextWeekend, 1)}</p>
+            <p className="mt-1 text-sm text-ink-light">
+              {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
+              {nextWeekendCoverage.openGroups.length > 0 && (
+                <> — {nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</>
+              )}
+            </p>
+            {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
+          </div>
 
-            return (
-              <div
-                key={saturday}
-                className={`card p-4 ${isEmpty ? 'border-flagRed/50 bg-flagRed/5' : ''}`}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-ink">{saturday} → {sunday}</p>
-                  {isEmpty && (
-                    <span className="text-xs font-semibold uppercase tracking-wide text-flagRed">
-                      Not yet planned
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  {CATEGORY_GROUPS.map(group => {
-                    const groupEntries = bySaturday[group.key] || []
-                    const pickerKey = `${saturday}:${group.key}`
-                    const availableDoctors = doctors
-                      .filter(d => groupForCategory(d.category) === group.key)
-                      .filter(d => !assignedIds.has(d.id))
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={goPrevMonth} disabled={!canGoPrevMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous month">←</button>
+              <span className="font-display text-base font-semibold text-ink">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
+              <button type="button" onClick={goNextMonth} disabled={!canGoNextMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next month">→</button>
+              <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+            </div>
 
-                    return (
-                      <div key={group.key}>
-                        <p className="label-text">{group.label}</p>
-                        {groupEntries.length === 0 ? (
-                          <p className="mt-1 text-sm text-ink-muted">—</p>
-                        ) : (
-                          <ul className="mt-1 space-y-1 text-sm text-ink-light">
-                            {groupEntries.map(entry => {
-                              const doctor = doctorById.get(entry.profile_id)
-                              return (
-                                <li key={entry.id} className="flex items-center justify-between gap-1">
-                                  <span>{doctor ? `${doctor.name} ${doctor.surname}` : '(unknown)'}</span>
-                                  {isAdmin && (
-                                    <button
-                                      type="button"
-                                      onClick={() => removeEntry(entry.id)}
-                                      disabled={saving}
-                                      className="text-ink-muted hover:text-flagRed"
-                                      aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
-                                    >
-                                      <XIcon className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </li>
+            <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
+              {FILTERS.map(f => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFilter(f.key)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    filter === f.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-3">
+            {visibleSaturdays.length === 0 ? (
+              <p className="text-sm text-ink-muted">
+                {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter.'}
+              </p>
+            ) : visibleSaturdays.map(saturday => {
+              const bySaturday = byWeekend.get(saturday) || {}
+              const coverage = weekendCoverageSummary(bySaturday)
+              const needsPlanning = coverage.openGroups.length > 0
+              const assignedIds = assignedDoctorIds(saturday)
+              const sunday = addDays(saturday, 1)
+
+              return (
+                <div
+                  key={saturday}
+                  className={`card p-4 ${needsPlanning ? 'border-flagAmber/50 bg-flagAmber/5' : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-ink">{saturday} → {sunday}</p>
+                    {needsPlanning && (
+                      <span className="text-xs font-semibold uppercase tracking-wide text-flagAmber">
+                        Needs planning
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-2 divide-y divide-slate-line">
+                    {CATEGORY_GROUPS.map(group => {
+                      const groupEntries = bySaturday[group.key] || []
+                      const pickerKey = `${saturday}:${group.key}`
+                      const availableDoctors = doctors
+                        .filter(d => groupForCategory(d.category) === group.key)
+                        .filter(d => !assignedIds.has(d.id))
+
+                      return (
+                        <div key={group.key} className="flex items-center justify-between gap-2 py-1.5">
+                          <span className="text-sm text-ink-muted">{group.label}</span>
+                          <div className="flex items-center gap-2">
+                            {groupEntries.length === 0 ? (
+                              <span className="text-xs font-medium text-flagAmber">1 open</span>
+                            ) : (
+                              groupEntries.map(entry => {
+                                const doctor = doctorById.get(entry.profile_id)
+                                return (
+                                  <span key={entry.id} className="flex items-center gap-1 text-sm text-ink">
+                                    {doctor ? `${doctor.name} ${doctor.surname}` : '(unknown)'}
+                                    {isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeEntry(entry.id)}
+                                        disabled={saving}
+                                        className="text-ink-muted hover:text-flagRed"
+                                        aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
+                                      >
+                                        <XIcon className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </span>
+                                )
+                              })
+                            )}
+                            {isAdmin && (
+                              openPicker === pickerKey ? (
+                                <select
+                                  autoFocus
+                                  className="input-field text-sm"
+                                  disabled={saving}
+                                  defaultValue=""
+                                  onChange={e => {
+                                    if (e.target.value) addEntry(saturday, group.key, e.target.value)
+                                    else setOpenPicker(null)
+                                  }}
+                                  onBlur={() => setOpenPicker(null)}
+                                >
+                                  <option value="">Select doctor…</option>
+                                  {availableDoctors.map(d => (
+                                    <option key={d.id} value={d.id}>{d.name} {d.surname}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenPicker(pickerKey)}
+                                  disabled={saving || availableDoctors.length === 0}
+                                  className="flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink disabled:opacity-40"
+                                >
+                                  +
+                                </button>
                               )
-                            })}
-                          </ul>
-                        )}
-                        {isAdmin && (
-                          openPicker === pickerKey ? (
-                            <select
-                              autoFocus
-                              className="input-field mt-1 text-sm"
-                              disabled={saving}
-                              defaultValue=""
-                              onChange={e => {
-                                if (e.target.value) addEntry(saturday, group.key, e.target.value)
-                                else setOpenPicker(null)
-                              }}
-                              onBlur={() => setOpenPicker(null)}
-                            >
-                              <option value="">Select doctor…</option>
-                              {availableDoctors.map(d => (
-                                <option key={d.id} value={d.id}>{d.name} {d.surname}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setOpenPicker(pickerKey)}
-                              disabled={saving || availableDoctors.length === 0}
-                              className="mt-1 flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink disabled:opacity-40"
-                            >
-                              +
-                            </button>
-                          )
-                        )}
-                      </div>
-                    )
-                  })}
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}

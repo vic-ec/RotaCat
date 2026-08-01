@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
         <div className="flex h-dvh flex-col bg-canvas-raised md:hidden">
           <MobileAuthHero />
 
-          <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-6 text-center">
+          <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
               <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
       <div className="flex h-dvh flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pt-8 pb-4">
+        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
           <p className="text-center text-2xl font-semibold text-ink">Reset your password</p>
           {/* min-h reserves space for 2 lines even when the copy fits on
               one — on wider phones it wraps to a single line, which would

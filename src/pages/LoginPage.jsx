@@ -357,7 +357,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={openSignInModal}
-                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-semibold text-white
+                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-bold text-white
                       transition-colors hover:bg-accent-dark active:bg-accent-dark
                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                       lg:text-[23.1px]"
@@ -367,14 +367,14 @@ export default function LoginPage() {
 
                   <Link
                     to="/forgot-password"
-                    className="mt-4 block text-center text-[18.9px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline lg:text-[23.1px]"
+                    className="mt-4 block text-center text-base font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
                   >
                     Forgot password?
                   </Link>
 
                   <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
                     New here?{' '}
-                    <Link to="/signup" className="font-medium text-rose hover:text-rose-dark hover:underline">
+                    <Link to="/signup" className="font-medium text-accent hover:text-accent-dark hover:underline">
                       Create an account
                     </Link>
                   </p>

@@ -8,8 +8,8 @@ import RotaCat from './RotaCat'
 // this component's whole desktop block hidden by an ancestor wrapper).
 export default function AuthHero() {
   return (
-    <div className="flex flex-col items-center justify-center bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">
-      <h1 className="font-serif text-6xl font-semibold leading-none text-ink md:text-[75px]">
+    <div className="flex -translate-y-[5px] flex-col items-center justify-center bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">
+      <h1 className="font-serif text-6xl font-semibold leading-none text-ink md:text-[82.5px]">
         <RotaCat />
       </h1>
       <p className="mt-3 whitespace-nowrap text-[14.7px] text-ink-muted sm:text-[16.8px] md:text-[18.9px] md:mt-[15px] lg:text-[23.1px]">
@@ -29,7 +29,7 @@ export default function AuthHero() {
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[202px] w-auto select-none md:h-[340px]"
+          className="relative z-10 h-[202px] w-auto select-none md:h-[357px]"
           draggable="false"
         />
       </div>

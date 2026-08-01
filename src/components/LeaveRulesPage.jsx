@@ -86,16 +86,18 @@ export default function LeaveRulesPage() {
           <li>Weekend rotations are organised in columns by MO / Registrar / EC Intern / OT Intern, colour-coded per doctor group.</li>
           <li>If your name is listed in a specific colour for a given month, you work <strong>every</strong> weekend in that colour that month.</li>
           <li>No more than one person per slot.</li>
-
+		</ul>
+		  
 	  <p>
 		<strong>Requests for Weekend Exceptions ("weekends off"):</strong>
 		  <ul className="list-disc space-y-1 pl-5">
-          <li>If you request an "ON" weekend off, you will be rostered on one of your "OFF" weekends to make up your weekend hours.</li>
-          <li>If you do not want this, then you have to put in annual leave days.</li>
-		  <li>Please indicate the number of annual leave days you wish to take when submitting your leave request.</li>
-          <li>If the request is approved, it will be captured on the LEAVE PLANNER and WEEKEND PLANNER.</li>
-          <li>If you do not put in leave days, this specific "off" weekend request will be CONSIDERED <strong>subject to rostering requirements.</strong></li>
-        </ul>
+       		  <li>If you request an "ON" weekend off, you will be rostered on one of your "OFF" weekends to make up your weekend hours.</li>
+       	 	  <li>If you do not want this, then you have to put in annual leave days.</li>
+			  <li>Please indicate the number of annual leave days you wish to take when submitting your leave request.</li>
+        	  <li>If the request is approved, it will be captured on the LEAVE PLANNER and WEEKEND PLANNER.</li>
+       		  <li>If you do not put in leave days, this specific "off" weekend request will be CONSIDERED <strong>subject to rostering requirements.</strong></li>
+       	 </ul>
+	  </p>
       </Section>
 
       <Section title="How to request leave">

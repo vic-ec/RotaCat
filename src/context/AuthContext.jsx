@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
   // Updated: accepts role and category for the new account model.
   // role defaults to 'doctor' to keep backward compatibility with any
   // existing callers that only pass email/password/name/surname.
-  async function signUp(email, password, name, surname, role = 'doctor', category = null) {
+  async function signUp(email, password, name, surname, role = 'doctor', category = null, phone = null) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -77,6 +77,7 @@ export function AuthProvider({ children }) {
           surname,
           role,
           ...(category ? { category } : {}),
+          ...(phone ? { phone } : {}),
         }
       }
     })

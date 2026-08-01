@@ -8,6 +8,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
+import { CalendarArrowDown, CalendarArrowUp, UserPen, CircleCheck } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
@@ -152,11 +153,10 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 }
 
 // One row of the Pending-approval list. Selection checkbox feeds the bulk
-// action bar above the list; the kebab opens a single-item menu ("Edit")
-// that navigates to the dedicated review page rather than expanding an
-// inline panel — editing a pending registration's role/category/admin flag
-// now happens on that page, not here.
-function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, menuOpen, onToggleMenu }) {
+// action bar above the list; the UserPen button navigates straight to the
+// dedicated review page rather than expanding an inline panel — editing a
+// pending registration's details/role/category/admin flag happens there.
+function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
   // role badge instead.
@@ -208,10 +208,17 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
             <p className="mt-0.5 text-xs text-ink-muted">
               Registered {registeredDate} at {registeredTime} with{' '}
               <span className="font-medium text-accent">{email || '—'}</span>
+              {person.email_verified && (
+                <CircleCheck title="Email verified" className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-success" />
+              )}
+            </p>
+            {/* Line 3 (both breakpoints) — mobile number */}
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {formatPhoneDisplay(person.phone) || 'Not set'}
             </p>
           </div>
 
-          {/* Line 3 on mobile, right-aligned column on desktop */}
+          {/* Line 4 on mobile, right-aligned column on desktop */}
           <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
             <button
               onClick={() => approveAccount(person)}
@@ -228,15 +235,11 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
               <CloseIcon className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={e => onToggleMenu(e.currentTarget)}
-              title="More"
-              className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                menuOpen
-                  ? 'border-transparent bg-canvas-sunken text-ink'
-                  : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
+              onClick={() => onEdit(person.id)}
+              title="Edit"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-line text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
             >
-              <KebabIcon className="h-4 w-4" />
+              <UserPen className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
@@ -260,10 +263,8 @@ export default function StaffListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set())
-  const [pendingMenuOpenId, setPendingMenuOpenId] = useState(null)
-  const [pendingMenuAnchor, setPendingMenuAnchor] = useState(null)
-  const pendingMenuRef = useRef(null)
-  useDismissablePopover(!!pendingMenuOpenId, () => setPendingMenuOpenId(null), pendingMenuRef)
+  // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
+  const [pendingSortDirection, setPendingSortDirection] = useState('asc')
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   const [emailById, setEmailById] = useState({})
@@ -1124,7 +1125,14 @@ export default function StaffListPage() {
                                 </a>
                               ) : '—'}
                             </td>
-                            <td className="px-2.5 py-1.5 text-ink-light">{emailById[person.id] || '—'}</td>
+                            <td className="px-2.5 py-1.5 text-ink-light">
+                              <span className="inline-flex items-center gap-1">
+                                {emailById[person.id] || '—'}
+                                {emailById[person.id] && person.email_verified && (
+                                  <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
+                                )}
+                              </span>
+                            </td>
                             <td className="px-2.5 py-1.5">
                               <div className="flex items-center gap-1.5">
                                 {isAdmin ? (
@@ -1206,14 +1214,40 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div className="md:mx-auto md:max-w-2xl">
-          <button
-            onClick={() => setTab('accounts')}
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            All staff
-          </button>
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              onClick={() => setTab('accounts')}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              All staff
+            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPendingSortDirection('asc')}
+                title="Old to new"
+                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                  pendingSortDirection === 'asc'
+                    ? 'border-transparent bg-accent text-white'
+                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                <CalendarArrowDown className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPendingSortDirection('desc')}
+                title="New to old"
+                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                  pendingSortDirection === 'desc'
+                    ? 'border-transparent bg-accent text-white'
+                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                <CalendarArrowUp className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
@@ -1255,7 +1289,7 @@ export default function StaffListPage() {
                   />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
                 </div>
-                {pending.map((person) => (
+                {(pendingSortDirection === 'asc' ? pending : [...pending].reverse()).map((person) => (
                   <PendingApprovalRow
                     key={person.id}
                     person={person}
@@ -1264,15 +1298,7 @@ export default function StaffListPage() {
                     onToggleCheck={() => togglePendingSelected(person.id)}
                     approveAccount={approveAccount}
                     rejectAccount={rejectAccount}
-                    menuOpen={pendingMenuOpenId === person.id}
-                    onToggleMenu={anchorEl => {
-                      if (pendingMenuOpenId === person.id) {
-                        setPendingMenuOpenId(null)
-                      } else {
-                        setPendingMenuAnchor(anchorEl.getBoundingClientRect())
-                        setPendingMenuOpenId(person.id)
-                      }
-                    }}
+                    onEdit={id => navigate(`/staff/pending/${id}`)}
                   />
                 ))}
               </div>
@@ -1518,32 +1544,6 @@ export default function StaffListPage() {
                 {opt.label}
               </button>
             ))}
-          </div>
-        )
-      })()}
-
-      {/* ── Pending-approval row kebab menu — rendered here (fixed,
-           viewport-anchored) rather than inside the row itself: the
-           Pending-approvals list card uses overflow-hidden for its rounded
-           corners/dividers, which clipped an in-row absolutely-positioned
-           dropdown for any row near the card's bottom edge. Same escape as
-           the quick-action popover below. ── */}
-      {pendingMenuOpenId && pendingMenuAnchor && (() => {
-        const menuWidth = 110
-        const positionStyle = computeAnchoredPosition(pendingMenuAnchor, menuWidth)
-        return (
-          <div
-            ref={pendingMenuRef}
-            role="menu"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
-          >
-            <button
-              onClick={() => { const id = pendingMenuOpenId; setPendingMenuOpenId(null); navigate(`/staff/pending/${id}`) }}
-              className="block w-full px-3.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-            >
-              Edit
-            </button>
           </div>
         )
       })()}

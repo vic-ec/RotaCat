@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
+import { CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { isValidEmail } from '../lib/validateEmail'
 import ProfileAvatar from '../components/ProfileAvatar'
 import BackButton from '../components/BackButton'
 import SelectMenu from '../components/SelectMenu'
-import { formatPhoneDisplay, phoneTelHref } from '../lib/phone'
+import { formatPhoneProgressive } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
@@ -37,6 +39,10 @@ export default function PendingApprovalReviewPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
+  const [firstName, setFirstName] = useState('')
+  const [surname, setSurname] = useState('')
+  const [phone, setPhone] = useState('')
+  const [emailInput, setEmailInput] = useState('')
   const [role, setRole] = useState('doctor')
   const [category, setCategory] = useState('')
   const [hasAdmin, setHasAdmin] = useState(false)
@@ -64,8 +70,13 @@ export default function PendingApprovalReviewPage() {
       setLoading(false)
       return
     }
+    const foundEmail = (emailRows || []).find(r => r.id === id)?.email || ''
     setProfile(data)
-    setEmail((emailRows || []).find(r => r.id === id)?.email || null)
+    setEmail(foundEmail)
+    setFirstName(data.name || '')
+    setSurname(data.surname || '')
+    setPhone(data.phone || '')
+    setEmailInput(foundEmail)
     setRole(data.role || 'doctor')
     setCategory(data.category || '')
     setHasAdmin(data.is_admin === true)
@@ -107,6 +118,10 @@ export default function PendingApprovalReviewPage() {
     : (ROLE_LABELS[profile.role] || profile.role)
 
   const dirty =
+    firstName !== (profile.name || '') ||
+    surname !== (profile.surname || '') ||
+    phone !== (profile.phone || '') ||
+    emailInput !== (email || '') ||
     role !== (profile.role || 'doctor') ||
     category !== (profile.category || '') ||
     hasAdmin !== (profile.is_admin === true)
@@ -117,6 +132,10 @@ export default function PendingApprovalReviewPage() {
   }
 
   function cancelEdits() {
+    setFirstName(profile.name || '')
+    setSurname(profile.surname || '')
+    setPhone(profile.phone || '')
+    setEmailInput(email || '')
     setRole(profile.role || 'doctor')
     setCategory(profile.category || '')
     setHasAdmin(profile.is_admin === true)
@@ -133,18 +152,59 @@ export default function PendingApprovalReviewPage() {
       return
     }
 
+    const emailChanged = emailInput !== (email || '')
+    if (emailChanged && !isValidEmail(emailInput)) {
+      setSaving(false)
+      setSaveError('Enter a valid email address.')
+      return
+    }
+
     const { error } = await supabase.from('profiles').update({
+      name: firstName,
+      surname,
+      phone: phone || null,
       role,
       category: role === 'doctor' ? category : null,
       is_admin: role === 'doctor' ? hasAdmin : false,
     }).eq('id', id)
 
-    setSaving(false)
     if (error) {
+      setSaving(false)
       setSaveError(error.message)
       return
     }
-    setProfile(prev => ({ ...prev, role, category: role === 'doctor' ? category : null, is_admin: role === 'doctor' ? hasAdmin : false }))
+
+    // Email lives in auth.users, not profiles — changing someone else's
+    // requires the Admin API (service-role key), which the browser can
+    // never hold. This routes through an Edge Function that checks the
+    // caller is actually an admin before touching anything.
+    if (emailChanged) {
+      const { error: fnError } = await supabase.functions.invoke('admin-update-email', {
+        body: { profileId: id, email: emailInput },
+      })
+      if (fnError) {
+        let message = fnError.message
+        try {
+          const body = await fnError.context.json()
+          if (body?.error) message = body.error
+        } catch { /* keep the generic message */ }
+        setSaving(false)
+        setSaveError(message)
+        return
+      }
+      setEmail(emailInput)
+    }
+
+    setSaving(false)
+    setProfile(prev => ({
+      ...prev,
+      name: firstName,
+      surname,
+      phone: phone || null,
+      role,
+      category: role === 'doctor' ? category : null,
+      is_admin: role === 'doctor' ? hasAdmin : false,
+    }))
     setJustSaved(true)
     setTimeout(() => setJustSaved(false), SAVED_FLASH_MS)
   }
@@ -214,7 +274,7 @@ export default function PendingApprovalReviewPage() {
 
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl text-ink">New User Registration for Approval</h1>
+          <h1 className="font-display text-2xl text-ink">New User Registration for Review</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Registered {registeredDate} at {registeredTime}
           </p>
@@ -222,13 +282,32 @@ export default function PendingApprovalReviewPage() {
 
         {/* ── Profile ──────────────────────────────────────────── */}
         <div className="card px-5 py-4">
-          <div className="flex items-center gap-3">
-            <ProfileAvatar profile={profile} size={48} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-semibold text-ink">
-                {profile.name ? `${profile.name} ` : ''}{profile.surname}
-              </p>
-              <span className="mt-1 inline-block rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
+          <div className="flex items-start gap-3">
+            <ProfileAvatar profile={profile} size={48} className="mt-1 flex-shrink-0" />
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="firstName" className="label-text">First name</label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={e => setFirstName(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="surname" className="label-text">Surname</label>
+                  <input
+                    id="surname"
+                    type="text"
+                    value={surname}
+                    onChange={e => setSurname(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+              <span className="inline-block rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
                 {atAGlanceLabel}
               </span>
             </div>
@@ -238,24 +317,33 @@ export default function PendingApprovalReviewPage() {
         {/* ── Contact details ──────────────────────────────────── */}
         <div>
           <GroupLabel>Contact Details</GroupLabel>
-          <div className="card overflow-hidden divide-y divide-slate-line">
-            <div className="flex items-center gap-3 px-5 py-3">
-              <span className="flex-shrink-0 text-ink-light"><PhoneIcon className="h-5 w-5" /></span>
-              {profile.phone && phoneTelHref(profile.phone) ? (
-                <a href={phoneTelHref(profile.phone)} className="truncate text-sm text-ink hover:underline">
-                  {formatPhoneDisplay(profile.phone)}
-                </a>
-              ) : (
-                <p className="truncate text-sm text-ink-muted">{formatPhoneDisplay(profile.phone) || 'Not set'}</p>
-              )}
+          <div className="card space-y-4 p-4">
+            <div>
+              <label htmlFor="phone" className="label-text">Mobile</label>
+              <input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                value={formatPhoneProgressive(phone)}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="(082) 123 4567"
+                className="input-field"
+              />
             </div>
-            <div className="flex items-center gap-3 px-5 py-3">
-              <span className="flex-shrink-0 text-ink-light"><EmailIcon className="h-5 w-5" /></span>
-              {email ? (
-                <a href={`mailto:${email}`} className="truncate text-sm text-ink hover:underline">{email}</a>
-              ) : (
-                <p className="truncate text-sm text-ink-muted">Not set</p>
-              )}
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <label htmlFor="email" className="text-sm font-medium text-ink-light">Email</label>
+                {profile.email_verified && (
+                  <CircleCheck title="Email verified" className="h-3.5 w-3.5 text-success" />
+                )}
+              </div>
+              <input
+                id="email"
+                type="email"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                className="input-field"
+              />
             </div>
           </div>
         </div>
@@ -288,7 +376,7 @@ export default function PendingApprovalReviewPage() {
                     onChange={e => setHasAdmin(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-line accent-accent"
                   />
-                  Has admin privileges
+                  Has admin permissions
                 </label>
               )}
 
@@ -326,21 +414,5 @@ export default function PendingApprovalReviewPage() {
         </div>
       </div>
     </div>
-  )
-}
-
-function PhoneIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106a2.25 2.25 0 00-2.288.573l-.766.766a11.25 11.25 0 01-6.198-6.198l.766-.766a2.25 2.25 0 00.572-2.288L6.65 3.852a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 5.25v1.5z" />
-    </svg>
-  )
-}
-
-function EmailIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-    </svg>
   )
 }

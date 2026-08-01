@@ -7,6 +7,7 @@ import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
+import { formatPhoneProgressive } from '../lib/phone'
 
 // Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
@@ -81,6 +82,7 @@ function RoleModal({ role, onClose }) {
   const [category, setCategory] = useState('')
   const [name, setName] = useState('')
   const [surname, setSurname] = useState('')
+  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
   const [password, setPassword] = useState('')
@@ -140,7 +142,7 @@ function RoleModal({ role, onClose }) {
     }
 
     setSubmitting(true)
-    const { error } = await signUp(email, password, name, surname, role, category || null)
+    const { error } = await signUp(email, password, name, surname, role, category || null, phone)
     setSubmitting(false)
 
     if (error) {
@@ -302,6 +304,27 @@ function RoleModal({ role, onClose }) {
                   autoComplete="family-name"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
+                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                    text-base text-ink placeholder:text-ink-muted
+                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-ink">
+                  Mobile
+                </label>
+                <input
+                  id="phone"
+                  name="tel"
+                  type="tel"
+                  required
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  value={formatPhoneProgressive(phone)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="(082) 123 4567"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-accent focus:bg-canvas-raised

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
+import { CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
@@ -257,7 +258,7 @@ function GroupLabel({ children }) {
 // no separate panel or duplicate label for fields that only ever hold one
 // value (a phone number or email address). Padding matches SectionRow's
 // exactly so a collapsed Contact row is the same height as the rows below it.
-function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, href, note, children }) {
+function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, onToggle, editable = true, href, note, verified, children }) {
   const rowRef = useRef(null)
   // Dismissing here calls the same onToggle the Cancel/pencil button uses,
   // which resets the field and closes it while editing=true — an outside
@@ -288,9 +289,19 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
                   edge back over the icon; matching box models outright avoids
                   needing any offset math at all.) */}
               {value && href ? (
-                <a href={href} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">{value}</a>
+                <a href={href} className="flex items-center gap-1.5 truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">
+                  <span className="truncate">{value}</span>
+                  {value && verified && (
+                    <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
+                  )}
+                </a>
               ) : (
-                <p className="truncate rounded border border-transparent px-3 py-1 text-sm text-ink">{value || placeholder}</p>
+                <p className="flex items-center gap-1.5 truncate rounded border border-transparent px-3 py-1 text-sm text-ink">
+                  <span className="truncate">{value || placeholder}</span>
+                  {value && verified && (
+                    <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
+                  )}
+                </p>
               )}
               {note && <p className="mt-0.5 px-3 text-xs text-ink-muted">{note}</p>}
             </>
@@ -1323,6 +1334,7 @@ export default function AccountSettingsPage() {
               editing={emailEditing}
               onToggle={() => (emailEditing ? cancelEmailEdit() : setEmailEditing(true))}
               editable={isOwnAccount}
+              verified={profile?.email_verified}
             >
               <form onSubmit={changeEmail} className="space-y-2">
                 <ClearableInput

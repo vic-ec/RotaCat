@@ -37,21 +37,23 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     mockAuth = { profile: { id: 'doctor-1' } }
   })
 
-  it('shows the allowance, upcoming requests, and the request form', async () => {
-    mockQueues.annual_leave_balances = [{ data: { days_allotted: 22 }, error: null }]
+  it('shows the leave tracker, upcoming requests, and the request form', async () => {
     mockQueues.leave_requests = [
-      { data: [ // own annual rows
-        { date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved' },
-        { date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending' },
+      { data: [
+        { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved' }, // 5 days
+        { id: 'up2', leave_type: 'annual', date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending' }, // 1 pending request
       ], error: null },
-      { data: [{ id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved' }], error: null }, // own upcoming
     ]
 
     render(<LeaveDashboard />)
 
-    const allowanceHeading = await screen.findByText('Your allowance')
-    expect(allowanceHeading.closest('.card').textContent).toMatch(/17\s*days remaining.*5\s*approved.*1\s*pending/s) // 22 - 5 approved
+    const trackerHeading = await screen.findByText('Leave tracker')
+    expect(trackerHeading.closest('.card').textContent).toMatch(/Annual leave.*5\s*days approved.*1\s*request pending/s)
     expect(await screen.findByText(/Annual leave — 2026-08-10 → 2026-08-14/)).toBeInTheDocument()
+
+    // Special/sick trackers aren't shown until more than one day of that type has been taken
+    expect(screen.queryByText('Special leave')).not.toBeInTheDocument()
+    expect(screen.queryByText('Sick leave')).not.toBeInTheDocument()
 
     // The form is collapsed behind a button until requested
     expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
@@ -59,9 +61,24 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
   })
 
-  it('shows an empty state when there is no allowance row yet', async () => {
-    mockQueues.annual_leave_balances = [{ data: null, error: null }]
+  it('shows the special-leave tracker once more than one day has been taken, but not sick leave at exactly one day', async () => {
+    mockQueues.leave_requests = [
+      { data: [
+        { id: 's1', leave_type: 'special_leave', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' }, // 3 days
+        { id: 'k1', leave_type: 'sick', date_from: '2026-03-01', date_to: '2026-03-01', status: 'approved' }, // 1 day
+      ], error: null },
+    ]
+
     render(<LeaveDashboard />)
-    expect(await screen.findByText(/No annual leave allowance set/)).toBeInTheDocument()
+
+    expect(await screen.findByText('Special leave')).toBeInTheDocument()
+    expect(screen.queryByText('Sick leave')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty state with no requests at all', async () => {
+    mockQueues.leave_requests = [{ data: [], error: null }]
+    render(<LeaveDashboard />)
+    expect(await screen.findByText('Leave tracker')).toBeInTheDocument()
+    expect(await screen.findByText('Nothing upcoming.')).toBeInTheDocument()
   })
 })

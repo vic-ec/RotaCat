@@ -66,7 +66,7 @@ export default function LeavePlannerPage() {
     <div className={`mx-auto ${isPlannersTab ? 'max-w-6xl' : 'max-w-2xl'}`}>
       <h1 className="font-display text-2xl font-bold text-ink">Leave</h1>
       <p className="mt-1 text-sm text-ink-muted">
-        {isAdmin ? 'Review requests, or check a planner.' : canSubmitLeave ? 'Your allowance, upcoming leave, and the planners.' : 'The team, and the planners.'}
+        {isAdmin ? 'Review requests, or check a planner.' : canSubmitLeave ? 'Your leave tracker, upcoming leave, and the planners.' : 'The team, and the planners.'}
       </p>
 
       <div className="mt-4 flex flex-wrap rounded-lg border border-slate-line bg-canvas-raised overflow-hidden w-fit">

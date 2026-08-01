@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
-import { annualDaysUsedInYear, upcomingRequests } from '../lib/leaveDashboard'
+import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from '../lib/leaveDashboard'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
 
@@ -13,17 +13,27 @@ const STATUS_BADGE = {
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 
+// Everything but annual and sick leave counts as "special leave" for the
+// tracker — single day, special leave, course/CPD, and weekend exception
+// all get lumped into one combined figure, matching how the paper leave
+// form groups every non-annual, non-sick leave type together.
+const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
+  .map(o => o.value)
+  .filter(v => v !== 'annual' && v !== 'sick')
+
+function emptyTracker() { return { approved: 0, pending: 0 } }
+
 // "My leave" tab content — only ever rendered for a signed-in doctor
-// (canSubmitLeave), gated by the caller. Personal annual-leave allowance,
+// (canSubmitLeave), gated by the caller. A personal leave tracker,
 // upcoming own requests, and the submission form all in one place, rather
 // than a separate "dashboard" tab plus a separate "submit" tab. Full
 // request history (past + rejected, not just upcoming) lives on the
 // "Requests" tab under Planners instead of being duplicated here.
 export default function LeaveDashboard() {
   const { profile } = useAuth()
-  const [allotted, setAllotted] = useState(null)
-  const [approvedDays, setApprovedDays] = useState(0)
-  const [pendingDays, setPendingDays] = useState(0)
+  const [annualTracker, setAnnualTracker] = useState(emptyTracker())
+  const [specialTracker, setSpecialTracker] = useState(emptyTracker())
+  const [sickTracker, setSickTracker] = useState(emptyTracker())
   const [myUpcoming, setMyUpcoming] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -35,36 +45,44 @@ export default function LeaveDashboard() {
     const today = todayStr()
     const year = new Date().getFullYear()
 
-    const [balanceRes, annualRes, mineRes] = await Promise.all([
-      supabase.from('annual_leave_balances').select('days_allotted').eq('profile_id', profile.id).eq('year', year).maybeSingle(),
-      supabase.from('leave_requests').select('date_from, date_to, status, annual_leave_days').eq('profile_id', profile.id).eq('leave_type', 'annual'),
-      supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true }),
-    ])
+    const { data } = await supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true })
+    const rows = data || []
 
-    const annualRows = annualRes?.data || []
-    setAllotted(balanceRes?.data?.days_allotted ?? null)
-    setApprovedDays(annualDaysUsedInYear(annualRows.filter(r => r.status === 'approved'), year))
-    setPendingDays(annualDaysUsedInYear(annualRows.filter(r => r.status === 'pending'), year))
-    setMyUpcoming(upcomingRequests(mineRes?.data || [], today))
+    const annualRows = rows.filter(r => r.leave_type === 'annual')
+    const specialRows = rows.filter(r => SPECIAL_LEAVE_TYPES.includes(r.leave_type))
+    const sickRows = rows.filter(r => r.leave_type === 'sick')
+
+    setAnnualTracker({
+      approved: annualDaysUsedInYear(annualRows.filter(r => r.status === 'approved'), year),
+      pending: pendingRequestCount(annualRows, year),
+    })
+    setSpecialTracker({
+      approved: totalDaysUsedInYear(specialRows.filter(r => r.status === 'approved'), year),
+      pending: pendingRequestCount(specialRows, year),
+    })
+    setSickTracker({
+      approved: totalDaysUsedInYear(sickRows.filter(r => r.status === 'approved'), year),
+      pending: pendingRequestCount(sickRows, year),
+    })
+    setMyUpcoming(upcomingRequests(rows, today))
     setLoading(false)
   }
-
-  const remaining = allotted != null ? Math.max(0, allotted - approvedDays) : null
 
   return (
     <div className="space-y-4">
       <div className="card p-5">
-        <h2 className="text-sm font-semibold text-ink">Your allowance</h2>
+        <h2 className="text-sm font-semibold text-ink">Leave tracker</h2>
         {loading ? (
           <p className="mt-2 text-sm text-ink-muted">Loading…</p>
-        ) : allotted == null ? (
-          <p className="mt-2 text-sm text-ink-muted">No annual leave allowance set for this year yet — ask an admin.</p>
         ) : (
-          <p className="mt-2 text-sm text-ink">
-            <span className="font-display text-2xl font-bold text-ink">{remaining}</span>
-            <span className="text-ink-muted"> days remaining · {approvedDays} approved · {pendingDays} pending</span>
-          </p>
+          <div className="mt-2 space-y-3">
+            <TrackerRow label="Annual leave" tracker={annualTracker} />
+            {/* Special/sick only shown once meaningfully used, so a doctor who's taken none of these isn't shown a wall of zeroes */}
+            {specialTracker.approved > 1 && <TrackerRow label="Special leave" tracker={specialTracker} />}
+            {sickTracker.approved > 1 && <TrackerRow label="Sick leave" tracker={sickTracker} />}
+          </div>
         )}
+        <p className="mt-3 text-xs text-ink-muted">Resets to zero on 1 January each year.</p>
       </div>
 
       <div className="card p-5">
@@ -102,6 +120,18 @@ export default function LeaveDashboard() {
           Request leave
         </button>
       )}
+    </div>
+  )
+}
+
+function TrackerRow({ label, tracker }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="text-sm text-ink">
+        <span className="font-display text-2xl font-bold text-ink">{tracker.approved}</span>
+        <span className="text-ink-muted"> days approved · {tracker.pending} request{tracker.pending === 1 ? '' : 's'} pending</span>
+      </p>
     </div>
   )
 }

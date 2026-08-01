@@ -5,21 +5,35 @@ import { todayStr, addDays } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
+  isEvenWeekend, weekendExceptionRequestsBySaturday,
 } from '../lib/weekendPlanner'
 import { logWeekendPlannerChange } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import InlineRuleHint from './InlineRuleHint'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
-const FILTERS = [
+// My Schedule is both the default landing filter and leftmost chip; Needs
+// planning is admin-only (nothing a non-admin viewer can act on) and sits
+// at the far right, appended only for admins rather than shared.
+const FILTERS_BASE = [
+  { key: 'mine', label: 'My Schedule' },
+  { key: 'my-requests', label: 'My Requests' },
   { key: 'all', label: 'All' },
-  { key: 'mine', label: 'My rotation' },
-  { key: 'needs-planning', label: 'Needs planning' },
 ]
+const EXCEPTION_STATUS_LABEL = { pending: 'Exception pending', approved: 'Exception approved', rejected: 'Exception rejected' }
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
+
+// Needs planning (amber) always wins as the genuinely actionable signal;
+// otherwise alternate light teal/rose-pink by weekend so consecutive cards
+// read as distinct rows, using the same accent/rose tokens as the rest of
+// the app's decorative (non-status) colour rather than inventing new ones.
+function weekendCardClass(needsPlanning, saturday) {
+  if (needsPlanning) return 'border-flagAmber/50 bg-flagAmber/5'
+  return isEvenWeekend(saturday) ? 'bg-accent-tint' : 'bg-rose-tint'
+}
 
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
@@ -32,24 +46,31 @@ const MONTH_LABELS = [
 // card for 6 months" layout: a persistent "Next weekend" status card so the
 // most urgent question (who's on this coming weekend?) never needs
 // scrolling to answer; one month at a time instead of ~26 cards at once;
-// All/My rotation/Needs planning filters instead of a wall of red; denser
-// role-row cards with open-slot counts; amber (not red) for incomplete
-// coverage, reserving stronger colour for the genuinely urgent case.
+// My Schedule/My Requests/All(/Needs planning, admin-only) filters instead
+// of a wall of red; denser role-row cards with open-slot counts, surnames
+// only, and alternating teal/rose backgrounds so consecutive weekends read
+// as distinct rows; amber (not red) for incomplete coverage, reserving
+// stronger colour for the genuinely actionable case.
 export default function WeekendPlannerView() {
   const { isAdmin, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [entries, setEntries] = useState([])
+  const [myWeekendRequests, setMyWeekendRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('mine')
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => Number(today.slice(5, 7)))
 
-  useEffect(() => { load() }, [])
+  // Needs planning is nothing a non-admin viewer can act on, so it's
+  // appended for admins only rather than shared across both roles.
+  const filters = isAdmin ? [...FILTERS_BASE, { key: 'needs-planning', label: 'Needs planning' }] : FILTERS_BASE
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile) changes within a session
 
   async function load() {
     setLoading(true)
@@ -57,17 +78,22 @@ export default function WeekendPlannerView() {
     const fromDate = todayStr()
     const throughDate = addDays(fromDate, WEEKS_AHEAD * 7)
 
-    const [profilesRes, entriesRes] = await Promise.all([
+    const [profilesRes, entriesRes, myRequestsRes] = await Promise.all([
       supabase.from('profiles').select('id, name, surname, category')
         .eq('is_approved', true).eq('is_active', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
         .gte('weekend_saturday', fromDate).lte('weekend_saturday', throughDate),
+      supabase.from('leave_requests').select('id, date_from, status')
+        .eq('profile_id', profile?.id ?? '').eq('leave_type', 'weekend_exception')
+        .gte('date_from', fromDate).lte('date_from', throughDate),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
+    if (myRequestsRes.error) { setError(myRequestsRes.error.message); setLoading(false); return }
 
     setDoctors((profilesRes.data || []).filter(p => groupForCategory(p.category)))
     setEntries(entriesRes.data || [])
+    setMyWeekendRequests(myRequestsRes.data || [])
     setLoading(false)
   }
 
@@ -77,6 +103,7 @@ export default function WeekendPlannerView() {
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
+  const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
 
   const firstFetchedSaturday = saturdays[0]
   const lastFetchedSaturday = saturdays[saturdays.length - 1]
@@ -111,6 +138,7 @@ export default function WeekendPlannerView() {
     const bySaturday = byWeekend.get(saturday)
     if (filter === 'needs-planning') return weekendCoverageSummary(bySaturday).openGroups.length > 0
     if (filter === 'mine') return isProfileAssignedToWeekend(bySaturday, profile?.id)
+    if (filter === 'my-requests') return myRequestsBySaturday.has(saturday)
     return true
   })
 
@@ -192,7 +220,7 @@ export default function WeekendPlannerView() {
 
       {!loading && !error && (
         <>
-          <div className={`mt-6 card p-4 ${nextWeekendCoverage.openGroups.length > 0 ? 'border-flagAmber/50 bg-flagAmber/5' : ''}`}>
+          <div className={`mt-6 card p-4 ${weekendCardClass(nextWeekendCoverage.openGroups.length > 0, nextWeekend)}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
             <p className="mt-0.5 text-base font-semibold text-ink">{nextWeekend} → {addDays(nextWeekend, 1)}</p>
             <p className="mt-1 text-sm text-ink-light">
@@ -213,7 +241,7 @@ export default function WeekendPlannerView() {
             </div>
 
             <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
-              {FILTERS.map(f => (
+              {filters.map(f => (
                 <button
                   key={f.key}
                   type="button"
@@ -239,19 +267,27 @@ export default function WeekendPlannerView() {
               const needsPlanning = coverage.openGroups.length > 0
               const assignedIds = assignedDoctorIds(saturday)
               const sunday = addDays(saturday, 1)
+              const myRequest = myRequestsBySaturday.get(saturday)
 
               return (
                 <div
                   key={saturday}
-                  className={`card p-4 ${needsPlanning ? 'border-flagAmber/50 bg-flagAmber/5' : ''}`}
+                  className={`card p-4 ${weekendCardClass(needsPlanning, saturday)}`}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-ink">{saturday} → {sunday}</p>
-                    {needsPlanning && (
-                      <span className="text-xs font-semibold uppercase tracking-wide text-flagAmber">
-                        Needs planning
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {myRequest && (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                          {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+                        </span>
+                      )}
+                      {needsPlanning && (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-flagAmber">
+                          Needs planning
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-2 divide-y divide-slate-line">
                     {CATEGORY_GROUPS.map(group => {
@@ -272,7 +308,7 @@ export default function WeekendPlannerView() {
                                 const doctor = doctorById.get(entry.profile_id)
                                 return (
                                   <span key={entry.id} className="flex items-center gap-1 text-sm text-ink">
-                                    {doctor ? `${doctor.name} ${doctor.surname}` : '(unknown)'}
+                                    {doctor ? doctor.surname : '(unknown)'}
                                     {isAdmin && (
                                       <button
                                         type="button"

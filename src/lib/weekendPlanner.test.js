@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
+  isEvenWeekend, weekendExceptionRequestsBySaturday,
 } from './weekendPlanner'
 
 describe('groupForCategory', () => {
@@ -123,6 +124,37 @@ describe('isProfileAssignedToWeekend', () => {
 
   it('returns false for an undefined weekend (nothing planned yet)', () => {
     expect(isProfileAssignedToWeekend(undefined, 'p2')).toBe(false)
+  })
+})
+
+describe('isEvenWeekend', () => {
+  it('alternates strictly between consecutive Saturdays', () => {
+    // 2026-08-01 is a Saturday
+    const results = ['2026-08-01', '2026-08-08', '2026-08-15', '2026-08-22'].map(isEvenWeekend)
+    expect(results[0]).not.toBe(results[1])
+    expect(results[1]).not.toBe(results[2])
+    expect(results[2]).not.toBe(results[3])
+  })
+
+  it('is stable/deterministic for the same date', () => {
+    expect(isEvenWeekend('2026-08-01')).toBe(isEvenWeekend('2026-08-01'))
+  })
+})
+
+describe('weekendExceptionRequestsBySaturday', () => {
+  it('maps each request to its weekend by date_from', () => {
+    const requests = [
+      { id: 'r1', date_from: '2026-08-01', status: 'pending' },
+      { id: 'r2', date_from: '2026-08-08', status: 'approved' },
+    ]
+    const map = weekendExceptionRequestsBySaturday(requests)
+    expect(map.get('2026-08-01')).toEqual(requests[0])
+    expect(map.get('2026-08-08')).toEqual(requests[1])
+    expect(map.has('2026-08-15')).toBe(false)
+  })
+
+  it('returns an empty map for no requests', () => {
+    expect(weekendExceptionRequestsBySaturday([]).size).toBe(0)
   })
 })
 

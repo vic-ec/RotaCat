@@ -2,7 +2,7 @@
 // flat, admin-populated calendar of who works which weekend, replacing
 // the old computed weekend_offset projection formerly used for both the
 // planner UI and the Leave submission overlap hint.
-import { addDays, dayOfWeek, monthBounds } from './dateRange'
+import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
 
 // Column groupings for the planner grid. The scheduler backend only
 // distinguishes 5 categories for weekend eligibility (MO, Registrar,
@@ -71,10 +71,32 @@ export function weekendCoverageSummary(bySaturdayEntries) {
 }
 
 // True if profileId is assigned to any group of this weekend — powers the
-// "My rotation" filter and the "Next weekend" card's "you're on rotation"
+// "My Schedule" filter and the "Next weekend" card's "you're on rotation"
 // messaging. bySaturdayEntries is the same shape as weekendCoverageSummary.
 export function isProfileAssignedToWeekend(bySaturdayEntries, profileId) {
   return Object.values(bySaturdayEntries || {}).flat().some(e => e.profile_id === profileId)
+}
+
+// Deterministic even/odd parity for a Saturday, used purely for alternating
+// background styling on the planner grid so consecutive weekends read as
+// distinct rows — not a real calendar week number, just guaranteed to flip
+// between any two consecutive Saturdays (always exactly 7 days apart) so
+// the same weekend renders the same colour regardless of which month view
+// or filter is active.
+export function isEvenWeekend(saturday) {
+  const daysSinceEpoch = Math.floor(parseLocalDate(saturday).getTime() / 86400000)
+  return Math.floor(daysSinceEpoch / 7) % 2 === 0
+}
+
+// Maps a Saturday to the signed-in doctor's own weekend_exception
+// leave_requests row for that weekend (leave_type='weekend_exception',
+// date_from is the Saturday per isValidWeekendExceptionRange) — powers the
+// "My Requests" filter and its status badge. Last request wins if somehow
+// more than one exists for the same weekend (e.g. a resubmission after
+// rejection); that's a rare edge case, not something callers need to
+// disambiguate further.
+export function weekendExceptionRequestsBySaturday(requests) {
+  return new Map(requests.map(r => [r.date_from, r]))
 }
 
 // Shift codes that land on the Saturday/Sunday of a real weekend — used

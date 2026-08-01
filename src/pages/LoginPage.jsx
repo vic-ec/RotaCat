@@ -320,7 +320,7 @@ export default function LoginPage() {
 
             <Link
               to="/forgot-password"
-              className="mt-3 block text-center text-[14.7px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
+              className="mt-3 block text-center text-[14.7px] font-medium text-accent transition-colors hover:text-accent-dark hover:underline"
             >
               Forgot password?
             </Link>

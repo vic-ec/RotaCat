@@ -23,6 +23,20 @@ elsewhere, unless it's a "special leave day" (see below).
   specific colour for a given month, you work **all** the weekends in that
   colour that month.
 
+## Consultant leave privacy
+
+A Consultant's leave request — of **any** leave type, including a weekend
+exception — is only visible to: an admin, the Consultant themselves, and
+other Consultants. It's invisible to every other non-admin viewer (other
+doctor categories, clerks), even once approved. This is enforced at the
+database level (a Postgres RLS policy on `leave_requests`), not just hidden
+in the UI, so it holds regardless of which screen or API call is used to
+read leave data.
+
+The roster grid is unaffected by this — every user can still see which
+Consultant is on call for a given date there, since that's roster
+assignment data, not a leave request.
+
 ## Annual Leave rules
 
 Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych
@@ -81,9 +95,11 @@ Never more than 1 Registrar or more than 1 EC COSMO/Intern concurrently
 (each already capped at 1 above), and never more than 3 full-time doctors
 combined even if each individual column is still under its own cap.
 
-Consultant doctors are still shown on the grid (an uncapped "Other"
-column) so their leave isn't hidden, but no concurrency cap applies to
-them. These numbers are configurable in Supabase (`constraints` table:
+Consultant doctors have their own uncapped "Other" column on the grid — no
+concurrency cap applies to them — but per the Consultant leave privacy rule
+above, only an admin or another Consultant actually sees names in it; for
+everyone else the column renders empty. These numbers are configurable in
+Supabase (`constraints` table:
 `leave_max_concurrent_mo` / `_registrar` / `_ec_cosmo` / `_ot_cosmo` /
 `_fulltime`) without a redeploy, in case the real caps change.
 

@@ -98,12 +98,8 @@ export default function LeavePlannerPage() {
     }, { replace: true })
   }
 
-  // Annual/Special/Weekends all need real width for their grids — widen
-  // the shell whenever Planners is active, regardless of which sub-tab.
-  const isPlannersTab = tab === 'planners'
-
   return (
-    <div className={`mx-auto ${isPlannersTab ? 'max-w-6xl' : 'max-w-2xl'}`}>
+    <div className="mx-auto max-w-7xl">
       <h1 className="font-display text-2xl font-bold text-ink">Leave</h1>
       <p className="mt-1 text-sm text-ink-muted">
         {isAdmin ? 'Review requests, or check a planner.' : canSubmitLeave ? 'Your leave tracker, upcoming leave, and the planners.' : 'The team, and the planners.'}

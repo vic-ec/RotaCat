@@ -1311,7 +1311,7 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
-        <div className="md:mx-auto md:max-w-2xl">
+        <div>
           <button
             onClick={() => setTab('accounts')}
             className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"

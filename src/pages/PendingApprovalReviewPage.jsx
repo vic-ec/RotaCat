@@ -85,7 +85,7 @@ export default function PendingApprovalReviewPage() {
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-2xl pb-12">
+      <div className="mx-auto max-w-7xl pb-12">
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn&apos;t load this registration: {loadError}</p>
           <button onClick={() => navigate('/staff')} className="btn-secondary mt-3">Back to Staff list</button>
@@ -96,7 +96,7 @@ export default function PendingApprovalReviewPage() {
 
   if (profile.is_approved || profile.is_rejected) {
     return (
-      <div className="mx-auto max-w-2xl pb-12">
+      <div className="mx-auto max-w-7xl pb-12">
         <div className="card p-8 text-center">
           <p className="text-sm text-ink-muted">
             This registration has already been {profile.is_approved ? 'approved' : 'rejected'}.
@@ -233,7 +233,7 @@ export default function PendingApprovalReviewPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl pb-12">
+    <div className="mx-auto max-w-7xl pb-12">
       <BackButton />
 
       <div className="space-y-6">
@@ -248,28 +248,26 @@ export default function PendingApprovalReviewPage() {
         <div className="card px-5 py-4">
           <div className="flex items-start gap-3">
             <ProfileAvatar profile={profile} size={48} className="mt-1 flex-shrink-0" />
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="firstName" className="label-text">First name</label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    value={firstName}
-                    onChange={e => setFirstName(e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="surname" className="label-text">Surname</label>
-                  <input
-                    id="surname"
-                    type="text"
-                    value={surname}
-                    onChange={e => setSurname(e.target.value)}
-                    className="input-field"
-                  />
-                </div>
+            <div className="min-w-0 flex-1 space-y-4">
+              <div>
+                <label htmlFor="firstName" className="label-text">First name</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={e => setFirstName(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label htmlFor="surname" className="label-text">Surname</label>
+                <input
+                  id="surname"
+                  type="text"
+                  value={surname}
+                  onChange={e => setSurname(e.target.value)}
+                  className="input-field"
+                />
               </div>
               <span className="inline-block rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
                 {atAGlanceLabel}

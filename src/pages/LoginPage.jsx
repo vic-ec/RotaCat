@@ -270,7 +270,7 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-base font-semibold text-ink">Sign in to your account</p>
+          <p className="text-lg font-semibold text-ink">Sign in to your account</p>
           <button
             type="button"
             onClick={onClose}
@@ -336,42 +336,48 @@ export default function LoginPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
-            <div className="mx-auto w-full max-w-sm text-center">
-              <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-              <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts.</p>
+          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+            <div className="flex flex-1 items-center justify-center">
+              <div className="mx-auto w-full max-w-sm text-center">
+                <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
+                <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts.</p>
 
-              <div className="mt-8 flex flex-col gap-4">
-                {/* border-2 (transparent here, accent on Sign up) + py-[25px]
-                    on both buttons matches their total height exactly to the
-                    Signup page's role cards (border-2 + p-4 + two lines of
-                    text = 82px) — same border+padding-match approach used for
-                    the Account page's ghost-box inputs. */}
-                <button
-                  type="button"
-                  onClick={openSignInModal}
-                  className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-semibold text-white
-                    transition-colors hover:bg-accent-dark active:bg-accent-dark
-                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                    lg:text-[23.1px]"
-                >
-                  Sign in
-                </button>
+                <div className="mt-8 flex flex-col gap-4">
+                  {/* border-2 (transparent here, accent on Sign up) + py-[25px]
+                      on both buttons matches their total height exactly to the
+                      Signup page's role cards (border-2 + p-4 + two lines of
+                      text = 82px) — same border+padding-match approach used for
+                      the Account page's ghost-box inputs. */}
+                  <button
+                    type="button"
+                    onClick={openSignInModal}
+                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-semibold text-white
+                      transition-colors hover:bg-accent-dark active:bg-accent-dark
+                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
+                      lg:text-[23.1px]"
+                  >
+                    Sign in
+                  </button>
 
-                <Link
-                  to="/signup"
-                  className="w-full rounded-lg border-2 border-accent bg-canvas py-[25px] text-center text-[18.9px] font-semibold text-accent
-                    transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken
-                    lg:text-[23.1px]"
-                >
-                  Create your account
-                </Link>
+                  <Link
+                    to="/signup"
+                    className="w-full rounded-lg border-2 border-accent bg-canvas py-[25px] text-center text-[18.9px] font-semibold text-accent
+                      transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken
+                      lg:text-[23.1px]"
+                  >
+                    Create your account
+                  </Link>
+                </div>
               </div>
             </div>
+
+            {/* Copyright pinned to the panel's own bottom edge (via the
+                flex-1 centering wrapper above absorbing the leftover space)
+                rather than floating below the whole card on the outer teal
+                background — reads as part of this panel, not an afterthought. */}
+            <AuthFooter onLight compact />
           </div>
         </div>
-
-        <AuthFooter compact />
       </div>
 
       <SignInModal isOpen={showSignInModal} onClose={() => setShowSignInModal(false)} triggerRef={signInTriggerRef} />

@@ -537,7 +537,7 @@ export default function SignupPage() {
 
           <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
             <div className="mx-auto w-full max-w-sm">
-              <p className="text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
+              <p className="text-center text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
               <div className="mt-8 space-y-3">
                 {ROLE_OPTIONS.map(opt => (
                   <button

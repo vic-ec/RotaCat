@@ -32,6 +32,12 @@ export default function MobileAuthHero() {
           draggable="false"
         />
       </div>
+
+      {/* Smaller and lighter than the tagline above — a supporting line,
+          not a second headline. */}
+      <p className="mt-3 max-w-[220px] text-center text-xs text-ink-muted/70">
+        Build fair rotas, manage leave, and keep every shift covered.
+      </p>
     </div>
   )
 }

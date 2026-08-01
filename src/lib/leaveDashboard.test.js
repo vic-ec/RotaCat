@@ -1,5 +1,44 @@
 import { describe, it, expect } from 'vitest'
-import { annualDaysUsedInYear, upcomingRequests } from './leaveDashboard'
+import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from './leaveDashboard'
+
+describe('totalDaysUsedInYear', () => {
+  it('sums inclusive days for requests fully inside the year', () => {
+    const days = totalDaysUsedInYear([{ date_from: '2026-08-10', date_to: '2026-08-14' }], 2026)
+    expect(days).toBe(5)
+  })
+
+  it('clips a request spanning into the next year to only that year\'s days', () => {
+    const days = totalDaysUsedInYear([{ date_from: '2026-12-29', date_to: '2027-01-02' }], 2026)
+    expect(days).toBe(3) // 29, 30, 31 Dec
+  })
+
+  it('excludes requests entirely outside the year', () => {
+    const days = totalDaysUsedInYear([{ date_from: '2025-06-01', date_to: '2025-06-05' }], 2026)
+    expect(days).toBe(0)
+  })
+
+  it('returns 0 for an empty list', () => {
+    expect(totalDaysUsedInYear([], 2026)).toBe(0)
+  })
+})
+
+describe('pendingRequestCount', () => {
+  it('counts pending requests starting in the given year', () => {
+    const count = pendingRequestCount(
+      [
+        { date_from: '2026-03-01', status: 'pending' },
+        { date_from: '2026-05-01', status: 'approved' },
+        { date_from: '2025-11-01', status: 'pending' },
+      ],
+      2026
+    )
+    expect(count).toBe(1)
+  })
+
+  it('returns 0 when nothing is pending', () => {
+    expect(pendingRequestCount([{ date_from: '2026-03-01', status: 'approved' }], 2026)).toBe(0)
+  })
+})
 
 describe('annualDaysUsedInYear', () => {
   it('sums inclusive days for requests fully inside the year', () => {

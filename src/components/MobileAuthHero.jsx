@@ -8,7 +8,7 @@ import RotaCat from './RotaCat'
 export default function MobileAuthHero() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-canvas-raised px-6">
-      <h1 className="font-serif text-6xl font-semibold leading-none text-ink">
+      <h1 className="font-serif text-[66px] font-semibold leading-none text-ink">
         <RotaCat />
       </h1>
       <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
@@ -24,11 +24,11 @@ export default function MobileAuthHero() {
         </span>
       </p>
 
-      <div className="relative mt-2">
+      <div className="relative mt-[5dvh]">
         <img
           src={robotLily}
           alt=""
-          className="relative z-10 h-[min(217px,26dvh)] w-auto select-none"
+          className="relative z-10 h-[min(228px,27dvh)] w-auto select-none"
           draggable="false"
         />
       </div>

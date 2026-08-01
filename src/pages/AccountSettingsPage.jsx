@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, Navigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
-import BackButton from '../components/BackButton'
+import { LAST_PATH_KEY } from '../components/AppLayout'
+import { navLabelForPath } from '../lib/navLabels'
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
 import CapsLockNotice from '../components/CapsLockNotice'
@@ -144,6 +145,14 @@ function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function ArrowLeftIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
     </svg>
   )
 }
@@ -409,8 +418,9 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 }
 
 export default function AccountSettingsPage() {
-  const { user, profile: myProfile, isAdmin, isSuperAdmin, refreshProfile } = useAuth()
+  const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile } = useAuth()
   const { id: routeId } = useParams()
+  const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   // Viewing someone else's account requires admin permission — enforced below via redirect.
@@ -1118,9 +1128,21 @@ export default function AccountSettingsPage() {
     : (ROLE_LABELS[profile.role] || profile.role)
   const permissionLabel = profile.is_admin ? (profile.is_super_admin ? 'Super-admin' : 'Admin') : null
 
+  // Matches the "← All staff" link template used by the pending-approvals
+  // and user-requests tabs, rather than a bare icon button — lets the link
+  // say where it's actually going back to.
+  const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
+  const backLabel = navLabelForPath(lastPath, { isAdmin, isLocum, isClerk })
+
   return (
     <div className="mx-auto max-w-2xl pb-12">
-      {!isOwnAccount && <BackButton />}
+      <button
+        onClick={() => navigate(lastPath)}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+      >
+        <ArrowLeftIcon className="h-4 w-4" />
+        {backLabel}
+      </button>
 
       {cropSrc && (
         <AvatarCropModal

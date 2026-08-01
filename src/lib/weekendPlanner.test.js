@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift } from './weekendPlanner'
+import {
+  groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
+  saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
+} from './weekendPlanner'
 
 describe('groupForCategory', () => {
   it('maps finer categories down to the 4 rotation groups', () => {
@@ -58,6 +61,68 @@ describe('groupEntriesByWeekend', () => {
     const entries = [{ id: '1', weekend_saturday: '2026-08-01', profile_id: 'p1', category: 'Consultant' }]
     const grouped = groupEntriesByWeekend(entries)
     expect(grouped.size).toBe(0)
+  })
+})
+
+describe('saturdaysInMonth', () => {
+  it('lists every Saturday landing in the given calendar month', () => {
+    // 2026-08-01 is a Saturday
+    expect(saturdaysInMonth(2026, 8)).toEqual(['2026-08-01', '2026-08-08', '2026-08-15', '2026-08-22', '2026-08-29'])
+  })
+
+  it('advances to the first Saturday on/after the 1st for a month that doesn\'t start on one', () => {
+    // 2026-09-01 is a Tuesday
+    expect(saturdaysInMonth(2026, 9)).toEqual(['2026-09-05', '2026-09-12', '2026-09-19', '2026-09-26'])
+  })
+})
+
+describe('nextWeekendSaturday', () => {
+  it('returns the same date when it is already a Saturday', () => {
+    expect(nextWeekendSaturday('2026-08-01')).toBe('2026-08-01')
+  })
+
+  it('advances to the next Saturday from a Sunday (not back to the day before)', () => {
+    expect(nextWeekendSaturday('2026-08-02')).toBe('2026-08-08')
+  })
+
+  it('advances to the first Saturday on/after a midweek date', () => {
+    expect(nextWeekendSaturday('2026-08-03')).toBe('2026-08-08') // Monday
+  })
+})
+
+describe('weekendCoverageSummary', () => {
+  it('reports open groups for a partially covered weekend', () => {
+    const summary = weekendCoverageSummary({
+      MO: [{ profile_id: 'p1' }],
+      COSMO: [{ profile_id: 'p2' }],
+    })
+    expect(summary).toEqual({ filledGroups: 2, totalGroups: 4, openGroups: ['Registrar', 'COSMOPsych'] })
+  })
+
+  it('reports every group open for an empty weekend', () => {
+    expect(weekendCoverageSummary({})).toEqual({
+      filledGroups: 0, totalGroups: 4, openGroups: ['MO', 'Registrar', 'COSMO', 'COSMOPsych'],
+    })
+  })
+
+  it('handles undefined (no entries fetched for this weekend at all)', () => {
+    expect(weekendCoverageSummary(undefined).filledGroups).toBe(0)
+  })
+})
+
+describe('isProfileAssignedToWeekend', () => {
+  it('finds a profile assigned to any group', () => {
+    const bySaturday = { MO: [{ profile_id: 'p1' }], Registrar: [{ profile_id: 'p2' }] }
+    expect(isProfileAssignedToWeekend(bySaturday, 'p2')).toBe(true)
+  })
+
+  it('returns false when the profile is not assigned that weekend', () => {
+    const bySaturday = { MO: [{ profile_id: 'p1' }] }
+    expect(isProfileAssignedToWeekend(bySaturday, 'p2')).toBe(false)
+  })
+
+  it('returns false for an undefined weekend (nothing planned yet)', () => {
+    expect(isProfileAssignedToWeekend(undefined, 'p2')).toBe(false)
   })
 })
 

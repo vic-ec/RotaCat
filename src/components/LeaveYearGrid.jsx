@@ -63,7 +63,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
     <div className="mt-4">
       {myProfileId && (
         <div className="mb-3 flex justify-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit mx-auto">
-          {[{ key: false, label: 'All' }, { key: true, label: 'My leave' }].map(opt => (
+          {[{ key: true, label: 'My leave' }, { key: false, label: 'All' }].map(opt => (
             <button
               key={String(opt.key)}
               type="button"

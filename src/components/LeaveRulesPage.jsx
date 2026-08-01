@@ -70,7 +70,7 @@ export default function LeaveRulesPage() {
 
       <Section title="How to request leave">
         <ol className="list-decimal space-y-1 pl-5">
-          <li>Submit the appropriate request from <strong>My leave</strong> — choose the correct leave type (Annual, Single day, Special leave, Course/CPD, Sick, or Weekend exception).</li>
+          <li>Submit the appropriate request from <strong>My leave</strong> — choose the correct leave type: Annual, Sick, Family responsibility, Study, Special, Prenatal, Maternity, Paternity, Workshop, Course/CPD, Conference, Single day, or Weekend exception.</li>
           <li>An admin reviews and approves (or rejects) the request before it&rsquo;s confirmed — approved annual leave then appears on the Annual Leave planner; everything else (and anything still pending) appears on the Special Leave planner.</li>
           <li>Populate/refer to the planner using <strong>surnames</strong>, matching the sheet&rsquo;s convention.</li>
         </ol>

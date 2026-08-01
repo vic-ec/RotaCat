@@ -8,12 +8,24 @@ import {
   columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
 
+// Mirrors the official leave-type picklist (screenshot from the employer's
+// leave system) plus a few RotaCat-specific extras that don't come from
+// that list: single_day (a generic day off) and weekend_exception (tied to
+// the weekend planner's exception flow, with its own Sat/Sun validation
+// below). Every value here must exist in the `leave_type` Postgres enum.
 export const LEAVE_TYPE_OPTIONS = [
   { value: 'annual', label: 'Annual leave' },
-  { value: 'single_day', label: 'Single day' },
-  { value: 'special_leave', label: 'Special leave' },
-  { value: 'course', label: 'Course / CPD' },
   { value: 'sick', label: 'Sick leave' },
+  { value: 'family_responsibility', label: 'Family responsibility leave' },
+  { value: 'study', label: 'Study leave' },
+  { value: 'special_leave', label: 'Special leave' },
+  { value: 'prenatal', label: 'Prenatal leave' },
+  { value: 'maternity', label: 'Maternity leave' },
+  { value: 'paternity', label: 'Paternity leave' },
+  { value: 'workshop', label: 'Workshop' },
+  { value: 'course', label: 'Course / CPD' },
+  { value: 'conference', label: 'Conference' },
+  { value: 'single_day', label: 'Single day' },
   { value: 'weekend_exception', label: 'Weekend exception' },
 ]
 

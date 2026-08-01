@@ -47,14 +47,22 @@ build phase (see `README.md`).
    record. Needs a decision on PDF generation (in-app generator vs. an
    external service) and file delivery/download.
 
-10. **Dedicated desktop planner workspace** — for admins doing heavy
-    roster/leave editing on a desktop screen: sticky toolbar (planner
-    switcher, month/year, search, filter, legend), sticky first
-    column/header row so names stay visible while scrolling, a resizable
-    split view (planner left, selected-day inspector right) instead of a
-    modal, and filterable layers (approved/pending/capacity
-    warnings/public holidays/weekend rotation). A bigger, separate rebuild
-    from the mobile-first Leave planner work — not attempted alongside it.
+10. ~~Dedicated desktop planner workspace~~ — done for the Weekend Planner:
+    `WeekendPlannerView.jsx` now has a real `lg:` desktop layout instead of
+    the mobile cards just laid out wider — sticky toolbar (month/year,
+    surname search, filter chips, a parity/needs-planning legend), a sticky
+    header row + first column on the grid, and a split view (scannable
+    read-only grid on the left, a `WeekendInspector` panel on the right
+    where all add/remove editing now happens) instead of a modal. Clicking
+    a grid row selects it and updates the inspector without losing scroll
+    position. Deliberately not built: a drag-resizable split (fixed two-pane
+    instead), a multi-month/quarter grid (still one month at a time, same as
+    mobile), undo/redo, publish/export, and a full
+    approved/pending/capacity-warnings/public-holidays filter set — the
+    existing My Schedule/My Requests/All/Needs planning chips cover this
+    planner's actual filterable concepts, several of the originally-listed
+    ones (capacity warnings, public holidays) don't map to anything in its
+    data model. Not extended to the Annual/Special leave planners.
 
 11. **Annual leave affecting contracted-hours targets** — `annual_leave_days`
     (the requester-entered count of days that reduce the 22-day balance) is

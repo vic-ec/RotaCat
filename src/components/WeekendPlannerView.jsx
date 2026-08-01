@@ -40,6 +40,155 @@ function weekendColorScheme(saturday) {
     : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 }
 
+function XIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
+
+function SearchIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+    </svg>
+  )
+}
+
+// One category group's row: assigned surname(s) (or an open-slot count) plus
+// the admin add/remove controls. Shared between the mobile card layout and
+// the desktop inspector panel so the edit logic exists in exactly one place.
+function CategoryGroupRow({
+  group, groupEntries, doctorById, availableDoctors, isAdmin, saving, textClass,
+  saturday, pickerKey, openPicker, setOpenPicker, addEntry, removeEntry,
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5">
+      <span className="text-sm text-ink-muted">{group.label}</span>
+      <div className="flex items-center gap-2">
+        {groupEntries.length === 0 ? (
+          <span className="text-xs font-medium text-rose-dark">1 open</span>
+        ) : (
+          groupEntries.map(entry => {
+            const doctor = doctorById.get(entry.profile_id)
+            return (
+              <span key={entry.id} className={`flex items-center gap-1 text-sm ${textClass}`}>
+                {doctor ? doctor.surname : '(unknown)'}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(entry.id)}
+                    disabled={saving}
+                    className={`${textClass} hover:text-flagRed`}
+                    aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
+                  >
+                    <XIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </span>
+            )
+          })
+        )}
+        {isAdmin && (
+          openPicker === pickerKey ? (
+            <select
+              autoFocus
+              className="input-field text-sm"
+              disabled={saving}
+              defaultValue=""
+              onChange={e => {
+                if (e.target.value) addEntry(saturday, group.key, e.target.value)
+                else setOpenPicker(null)
+              }}
+              onBlur={() => setOpenPicker(null)}
+            >
+              <option value="">Select doctor…</option>
+              {availableDoctors.map(d => (
+                <option key={d.id} value={d.id}>{d.name} {d.surname}</option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOpenPicker(pickerKey)}
+              disabled={saving || availableDoctors.length === 0}
+              className={`flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] ${textClass} hover:bg-canvas-sunken disabled:opacity-40`}
+            >
+              +
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+// The desktop split view's right-hand panel: full detail + actions for
+// whichever weekend is selected in the grid, so editing happens without
+// losing the grid's scroll position or context — "click a cell to inspect
+// ... and actions without losing grid context" per the desktop workspace
+// design review.
+function WeekendInspector({
+  saturday, bySaturday, doctors, doctorById, isAdmin, saving, myRequest,
+  assignedIds, openPicker, setOpenPicker, addEntry, removeEntry,
+}) {
+  const coverage = weekendCoverageSummary(bySaturday)
+  const needsPlanning = coverage.openGroups.length > 0
+  const scheme = weekendColorScheme(saturday)
+
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected weekend</p>
+      <p className={`mt-0.5 text-base font-semibold ${scheme.text}`}>{saturday} → {addDays(saturday, 1)}</p>
+      <p className="mt-1 text-sm text-ink-light">
+        {coverage.filledGroups} of {coverage.totalGroups} groups planned
+        {needsPlanning && (
+          <> — <span className="text-rose-dark">{coverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
+        )}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {needsPlanning && (
+          <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">Needs planning</span>
+        )}
+        {myRequest && (
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 divide-y divide-slate-line border-t border-slate-line">
+        {CATEGORY_GROUPS.map(group => {
+          const groupEntries = bySaturday[group.key] || []
+          const availableDoctors = doctors
+            .filter(d => groupForCategory(d.category) === group.key)
+            .filter(d => !assignedIds.has(d.id))
+          return (
+            <CategoryGroupRow
+              key={group.key}
+              group={group}
+              groupEntries={groupEntries}
+              doctorById={doctorById}
+              availableDoctors={availableDoctors}
+              isAdmin={isAdmin}
+              saving={saving}
+              textClass={scheme.text}
+              saturday={saturday}
+              pickerKey={`${saturday}:${group.key}`}
+              openPicker={openPicker}
+              setOpenPicker={setOpenPicker}
+              addEntry={addEntry}
+              removeEntry={removeEntry}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
 // nested inside the Leave page's "Planners" tab group — per the Planners-tabs
@@ -47,16 +196,16 @@ function weekendColorScheme(saturday) {
 // Callers own the page-level heading/locum-redirect; this is just the
 // review-log button + rules + grid.
 //
-// Redesigned per a UX review of the old "one long scroll of every weekend
-// card for 6 months" layout: a persistent "Next weekend" status card so the
-// most urgent question (who's on this coming weekend?) never needs
-// scrolling to answer; one month at a time instead of ~26 cards at once;
-// My Schedule/My Requests/All(/Needs planning, admin-only) filters instead
-// of a wall of red; denser role-row cards with open-slot counts, surnames
-// only, and alternating teal/amber backgrounds+text per weekend so
-// consecutive weekends read as distinct rows; a rose "Needs planning"
-// pillbox and rose open-slot counts layered on top, reserving that
-// stronger colour for the genuinely actionable signal rather than red.
+// Two genuinely different layouts share the same data/state below, not one
+// layout stretched wider: mobile (lg:hidden) keeps the month-at-a-time card
+// list from the earlier mobile-first redesign; desktop (hidden lg:block) is
+// a dedicated dense workspace instead — sticky header row + first column,
+// a surname search, and a split view (scannable grid on the left, a
+// selected-weekend inspector with the actual add/remove controls on the
+// right) rather than the same cards just laid out wider, per a UX review
+// that specifically flagged the old "enlarged mobile page" desktop layout
+// as too bulky. The inspector's split is a fixed two-pane layout, not
+// drag-resizable — logged as a possible follow-up rather than built here.
 export default function WeekendPlannerView() {
   const { isAdmin, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
@@ -68,6 +217,8 @@ export default function WeekendPlannerView() {
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
   const [filter, setFilter] = useState('mine')
+  const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
+  const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => Number(today.slice(5, 7)))
@@ -148,10 +299,27 @@ export default function WeekendPlannerView() {
     return true
   })
 
+  // Desktop-only: the surname search narrows the grid further still (any
+  // doctor assigned to that weekend, in any group), on top of whichever
+  // filter chip is active.
+  const searchTerm = searchQuery.trim().toLowerCase()
+  const desktopSaturdays = !searchTerm ? visibleSaturdays : visibleSaturdays.filter(saturday => {
+    const bySaturday = byWeekend.get(saturday) || {}
+    return Object.values(bySaturday).flat().some(e => doctorById.get(e.profile_id)?.surname?.toLowerCase().includes(searchTerm))
+  })
+
   const nextWeekend = nextWeekendSaturday(today)
   const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
   const nextWeekendScheme = weekendColorScheme(nextWeekend)
+
+  // The inspector defaults to Next weekend when it's in view, so the most
+  // urgent question is answered the moment the page loads — otherwise the
+  // first visible row, and whatever the admin last clicked as long as it's
+  // still in view after a filter/search/month change.
+  const inspectorSaturday = (selectedSaturday && desktopSaturdays.includes(selectedSaturday))
+    ? selectedSaturday
+    : (desktopSaturdays.includes(nextWeekend) ? nextWeekend : desktopSaturdays[0]) ?? null
 
   // Doctors already placed SOMEWHERE this weekend (any group) — the DB's
   // unique(weekend_saturday, profile_id) means a doctor can only fill one
@@ -203,6 +371,32 @@ export default function WeekendPlannerView() {
     }
   }
 
+  const monthNav = (
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={goPrevMonth} disabled={!canGoPrevMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous month">←</button>
+      <span className="font-display text-base font-semibold text-ink">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
+      <button type="button" onClick={goNextMonth} disabled={!canGoNextMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next month">→</button>
+      <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+    </div>
+  )
+
+  const filterChips = (
+    <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
+      {filters.map(f => (
+        <button
+          key={f.key}
+          type="button"
+          onClick={() => setFilter(f.key)}
+          className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+            filter === f.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+          }`}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div>
       {isAdmin && (
@@ -227,161 +421,205 @@ export default function WeekendPlannerView() {
 
       {!loading && !error && (
         <>
-          <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-            <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{nextWeekend} → {addDays(nextWeekend, 1)}</p>
-            <p className="mt-1 text-sm text-ink-light">
-              {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
-              {nextWeekendCoverage.openGroups.length > 0 && (
-                <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
-              )}
-            </p>
-            {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={goPrevMonth} disabled={!canGoPrevMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous month">←</button>
-              <span className="font-display text-base font-semibold text-ink">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
-              <button type="button" onClick={goNextMonth} disabled={!canGoNextMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next month">→</button>
-              <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
-            </div>
-
-            <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
-              {filters.map(f => (
-                <button
-                  key={f.key}
-                  type="button"
-                  onClick={() => setFilter(f.key)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                    filter === f.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 space-y-3">
-            {visibleSaturdays.length === 0 ? (
-              <p className="text-sm text-ink-muted">
-                {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter.'}
+          {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
+          <div className="lg:hidden" data-testid="weekend-mobile">
+            <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{nextWeekend} → {addDays(nextWeekend, 1)}</p>
+              <p className="mt-1 text-sm text-ink-light">
+                {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
+                {nextWeekendCoverage.openGroups.length > 0 && (
+                  <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
+                )}
               </p>
-            ) : visibleSaturdays.map(saturday => {
-              const bySaturday = byWeekend.get(saturday) || {}
-              const coverage = weekendCoverageSummary(bySaturday)
-              const needsPlanning = coverage.openGroups.length > 0
-              const assignedIds = assignedDoctorIds(saturday)
-              const sunday = addDays(saturday, 1)
-              const myRequest = myRequestsBySaturday.get(saturday)
-              const scheme = weekendColorScheme(saturday)
+              {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
+            </div>
 
-              return (
-                <div
-                  key={saturday}
-                  className={`card p-4 ${scheme.bg}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={`text-sm font-medium ${scheme.text}`}>{saturday} → {sunday}</p>
-                    <div className="flex items-center gap-2">
-                      {myRequest && (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                          {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
-                        </span>
-                      )}
-                      {needsPlanning && (
-                        <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                          Needs planning
-                        </span>
-                      )}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              {monthNav}
+              {filterChips}
+            </div>
+
+            <div className="mt-3 space-y-3">
+              {visibleSaturdays.length === 0 ? (
+                <p className="text-sm text-ink-muted">
+                  {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter.'}
+                </p>
+              ) : visibleSaturdays.map(saturday => {
+                const bySaturday = byWeekend.get(saturday) || {}
+                const coverage = weekendCoverageSummary(bySaturday)
+                const needsPlanning = coverage.openGroups.length > 0
+                const assignedIds = assignedDoctorIds(saturday)
+                const sunday = addDays(saturday, 1)
+                const myRequest = myRequestsBySaturday.get(saturday)
+                const scheme = weekendColorScheme(saturday)
+
+                return (
+                  <div
+                    key={saturday}
+                    className={`card p-4 ${scheme.bg}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className={`text-sm font-medium ${scheme.text}`}>{saturday} → {sunday}</p>
+                      <div className="flex items-center gap-2">
+                        {myRequest && (
+                          <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+                          </span>
+                        )}
+                        {needsPlanning && (
+                          <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
+                            Needs planning
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 divide-y divide-slate-line">
+                      {CATEGORY_GROUPS.map(group => {
+                        const groupEntries = bySaturday[group.key] || []
+                        const availableDoctors = doctors
+                          .filter(d => groupForCategory(d.category) === group.key)
+                          .filter(d => !assignedIds.has(d.id))
+
+                        return (
+                          <CategoryGroupRow
+                            key={group.key}
+                            group={group}
+                            groupEntries={groupEntries}
+                            doctorById={doctorById}
+                            availableDoctors={availableDoctors}
+                            isAdmin={isAdmin}
+                            saving={saving}
+                            textClass={scheme.text}
+                            saturday={saturday}
+                            pickerKey={`${saturday}:${group.key}`}
+                            openPicker={openPicker}
+                            setOpenPicker={setOpenPicker}
+                            addEntry={addEntry}
+                            removeEntry={removeEntry}
+                          />
+                        )
+                      })}
                     </div>
                   </div>
-                  <div className="mt-2 divide-y divide-slate-line">
-                    {CATEGORY_GROUPS.map(group => {
-                      const groupEntries = bySaturday[group.key] || []
-                      const pickerKey = `${saturday}:${group.key}`
-                      const availableDoctors = doctors
-                        .filter(d => groupForCategory(d.category) === group.key)
-                        .filter(d => !assignedIds.has(d.id))
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Desktop: dense workspace — sticky toolbar/grid + a split-view inspector, not a stretched mobile page ── */}
+          <div className="hidden lg:block" data-testid="weekend-desktop">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
+              {monthNav}
+              <div className="flex items-center gap-3">
+                <span className="relative">
+                  <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search surname…"
+                    aria-label="Search by surname"
+                    className="input-field w-40 py-1 pl-7 text-sm"
+                  />
+                </span>
+                {filterChips}
+              </div>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-ink-muted">
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-accent" /> Even weekend</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-flagAmber" /> Odd weekend</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-dark" /> Needs planning / open slot</span>
+            </div>
+
+            <div className="mt-4 flex items-start gap-4">
+              <div className="max-h-[60vh] flex-1 overflow-auto rounded-lg border border-slate-line">
+                <table className="w-full min-w-[640px] border-collapse text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-ink-muted">
+                      <th className="sticky top-0 left-0 z-20 bg-canvas-raised px-3 py-2 font-medium">Weekend</th>
+                      {CATEGORY_GROUPS.map(group => (
+                        <th key={group.key} className="sticky top-0 z-10 bg-canvas-raised px-3 py-2 font-medium">{group.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-line">
+                    {desktopSaturdays.length === 0 ? (
+                      <tr>
+                        <td colSpan={CATEGORY_GROUPS.length + 1} className="px-3 py-6 text-center text-ink-muted">
+                          {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}
+                        </td>
+                      </tr>
+                    ) : desktopSaturdays.map(saturday => {
+                      const bySaturday = byWeekend.get(saturday) || {}
+                      const coverage = weekendCoverageSummary(bySaturday)
+                      const needsPlanning = coverage.openGroups.length > 0
+                      const scheme = weekendColorScheme(saturday)
+                      const isSelected = saturday === inspectorSaturday
 
                       return (
-                        <div key={group.key} className="flex items-center justify-between gap-2 py-1.5">
-                          <span className="text-sm text-ink-muted">{group.label}</span>
-                          <div className="flex items-center gap-2">
-                            {groupEntries.length === 0 ? (
-                              <span className="text-xs font-medium text-rose-dark">1 open</span>
-                            ) : (
-                              groupEntries.map(entry => {
-                                const doctor = doctorById.get(entry.profile_id)
-                                return (
-                                  <span key={entry.id} className={`flex items-center gap-1 text-sm ${scheme.text}`}>
-                                    {doctor ? doctor.surname : '(unknown)'}
-                                    {isAdmin && (
-                                      <button
-                                        type="button"
-                                        onClick={() => removeEntry(entry.id)}
-                                        disabled={saving}
-                                        className={`${scheme.text} hover:text-flagRed`}
-                                        aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
-                                      >
-                                        <XIcon className="h-3 w-3" />
-                                      </button>
-                                    )}
+                        <tr
+                          key={saturday}
+                          onClick={() => setSelectedSaturday(saturday)}
+                          aria-selected={isSelected}
+                          className={`cursor-pointer ${isSelected ? 'ring-2 ring-inset ring-accent' : ''}`}
+                        >
+                          <td className={`sticky left-0 z-10 px-3 py-2 font-medium ${scheme.bg} ${scheme.text}`}>
+                            <div className="flex items-center gap-2">
+                              {saturday} → {addDays(saturday, 1)}
+                              {needsPlanning && (
+                                <span className="rounded-full bg-rose-light px-1.5 py-0.5 text-[10px] font-medium text-rose-dark">Needs planning</span>
+                              )}
+                            </div>
+                          </td>
+                          {CATEGORY_GROUPS.map(group => {
+                            const groupEntries = bySaturday[group.key] || []
+                            return (
+                              <td key={group.key} className={`px-3 py-2 ${scheme.bg}`}>
+                                {groupEntries.length === 0 ? (
+                                  <span className="text-xs font-medium text-rose-dark">1 open</span>
+                                ) : (
+                                  <span className={scheme.text}>
+                                    {groupEntries.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}
                                   </span>
-                                )
-                              })
-                            )}
-                            {isAdmin && (
-                              openPicker === pickerKey ? (
-                                <select
-                                  autoFocus
-                                  className="input-field text-sm"
-                                  disabled={saving}
-                                  defaultValue=""
-                                  onChange={e => {
-                                    if (e.target.value) addEntry(saturday, group.key, e.target.value)
-                                    else setOpenPicker(null)
-                                  }}
-                                  onBlur={() => setOpenPicker(null)}
-                                >
-                                  <option value="">Select doctor…</option>
-                                  {availableDoctors.map(d => (
-                                    <option key={d.id} value={d.id}>{d.name} {d.surname}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setOpenPicker(pickerKey)}
-                                  disabled={saving || availableDoctors.length === 0}
-                                  className={`flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] ${scheme.text} hover:bg-canvas-sunken disabled:opacity-40`}
-                                >
-                                  +
-                                </button>
-                              )
-                            )}
-                          </div>
-                        </div>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
                       )
                     })}
-                  </div>
-                </div>
-              )
-            })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="w-80 flex-shrink-0 rounded-lg border border-slate-line p-4">
+                {inspectorSaturday ? (
+                  <WeekendInspector
+                    saturday={inspectorSaturday}
+                    bySaturday={byWeekend.get(inspectorSaturday) || {}}
+                    doctors={doctors}
+                    doctorById={doctorById}
+                    isAdmin={isAdmin}
+                    saving={saving}
+                    myRequest={myRequestsBySaturday.get(inspectorSaturday)}
+                    assignedIds={assignedDoctorIds(inspectorSaturday)}
+                    openPicker={openPicker}
+                    setOpenPicker={setOpenPicker}
+                    addEntry={addEntry}
+                    removeEntry={removeEntry}
+                  />
+                ) : (
+                  <p className="text-sm text-ink-muted">Select a weekend to see details.</p>
+                )}
+              </div>
+            </div>
           </div>
         </>
       )}
 
       {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}
     </div>
-  )
-}
-
-function XIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
   )
 }

@@ -58,7 +58,7 @@ export default function LeaveRulesPage() {
           <li>Covers single days off, courses/CPD, and special leave requests.</li>
           <li>These do <strong>not</strong> count against the 22-day annual leave allowance.</li>
           <li>The requested day/shift is made up elsewhere, <strong>unless</strong> it&rsquo;s flagged as a &ldquo;special leave day.&rdquo;</li>
-          <li><strong>Courses:</strong>strong> Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
+          <li><strong>Courses:</strong> Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
 					<li>A formal Leave Form must be submitted and approved - Courses done will count as "Special Leave".</li>
 					<li>Please specify what course you are doing when requesting "Special Leave Days" e.g: Bottomley (ACLS)</li>
 					<li><strong>Single-Day-Off Requests:</strong> The requested SINGLE day off CANNOT be "TAILED ONTO" requests made as per LEAVE PLANNER above.</li>

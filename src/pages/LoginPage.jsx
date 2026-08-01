@@ -339,7 +339,7 @@ export default function LoginPage() {
           <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
             <div className="mx-auto w-full max-w-sm text-center">
               <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-              <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts, leave, and swaps.</p>
+              <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts.</p>
 
               <div className="mt-8 flex flex-col gap-4">
                 {/* border-2 (transparent here, accent on Sign up) + py-[25px]

@@ -126,34 +126,53 @@ describe('WeekendPlannerView', () => {
     expect(within(aug15Card).getByText('Needs planning')).toBeInTheDocument()
   })
 
-  it('cards alternate background colour by weekend, independent of coverage', async () => {
-    // Fully cover both 2026-08-08 and 2026-08-15 (adjacent weekends) so
-    // neither is flagged "needs planning" — that flag overrides the
-    // alternating colour, so it'd otherwise mask the parity check below.
-    mockResponses['weekend_planner_entries:select'] = {
-      data: [
-        ...ENTRIES,
-        { id: 'e6', weekend_saturday: '2026-08-15', profile_id: 'p1', category: 'MO' },
-        { id: 'e7', weekend_saturday: '2026-08-15', profile_id: 'p2', category: 'Registrar' },
-        { id: 'e8', weekend_saturday: '2026-08-15', profile_id: 'p3', category: 'COSMO' },
-        { id: 'e9', weekend_saturday: '2026-08-15', profile_id: 'p4', category: 'COSMOPsych' },
-      ],
-      error: null,
+  it('cards alternate teal/amber background+text colour by weekend, independent of coverage', async () => {
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+
+    // 2026-08-01 is both the next-weekend card and this month's first list card
+    const aug1Card = screen.getAllByText('2026-08-01 → 2026-08-02')[1].closest('.card')
+    const aug8Card = screen.getByText('2026-08-08 → 2026-08-09').closest('.card')
+    const aug1IsAccent = aug1Card.className.includes('bg-accent-tint')
+    const aug8IsAccent = aug8Card.className.includes('bg-accent-tint')
+    expect(aug1IsAccent).not.toBe(aug8IsAccent)
+    expect(aug1Card.className.includes('bg-flagAmber-bg') || aug1IsAccent).toBe(true)
+    expect(aug8Card.className.includes('bg-flagAmber-bg') || aug8IsAccent).toBe(true)
+  })
+
+  it('"Needs planning" no longer overrides the background — a rose pillbox and rose open-slot counts instead', async () => {
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+
+    const aug15Card = screen.getByText('2026-08-15 → 2026-08-16').closest('.card')
+    // still themed by parity, not overridden to a flat amber "warning" card
+    expect(aug15Card.className.includes('bg-accent-tint') || aug15Card.className.includes('bg-flagAmber-bg')).toBe(true)
+    expect(within(aug15Card).getByText('Needs planning')).toHaveClass('bg-rose-light', 'text-rose-dark')
+    for (const el of within(aug15Card).getAllByText('1 open')) {
+      expect(el).toHaveClass('text-rose-dark')
     }
+  })
+
+  it("filled surnames and the admin's +/x controls use the weekend's parity text colour", async () => {
+    mockAuth = { isAdmin: true, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
     await screen.findByText('August 2026')
     await showAll(user)
 
     const aug8Card = screen.getByText('2026-08-08 → 2026-08-09').closest('.card')
+    const scheme = aug8Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
+    expect(within(aug8Card).getByText('Anderson').closest('span')).toHaveClass(scheme)
+    expect(within(aug8Card).getByRole('button', { name: 'Remove Anderson from 2026-08-08' })).toHaveClass(scheme)
+
     const aug15Card = screen.getByText('2026-08-15 → 2026-08-16').closest('.card')
-    expect(aug8Card.className).not.toContain('flagAmber')
-    expect(aug15Card.className).not.toContain('flagAmber')
-    const aug8IsAccent = aug8Card.className.includes('bg-accent-tint')
-    const aug15IsAccent = aug15Card.className.includes('bg-accent-tint')
-    expect(aug8IsAccent).not.toBe(aug15IsAccent)
-    expect(aug8Card.className.includes('bg-rose-tint') || aug8IsAccent).toBe(true)
-    expect(aug15Card.className.includes('bg-rose-tint') || aug15IsAccent).toBe(true)
+    const aug15Scheme = aug15Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
+    const addButtons = within(aug15Card).getAllByRole('button', { name: '+' })
+    expect(addButtons[0]).toHaveClass(aug15Scheme)
   })
 
   it('"Needs planning" filter (admin-only) hides fully-covered weekends', async () => {

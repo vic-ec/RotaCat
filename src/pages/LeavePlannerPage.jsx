@@ -8,6 +8,7 @@ import LeaveListView from '../components/LeaveListView'
 import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
 import WeekendPlannerView from '../components/WeekendPlannerView'
+import LeaveAuditReport from '../components/LeaveAuditReport'
 import LeaveRulesPage from '../components/LeaveRulesPage'
 
 // Top-level "Leave" tabs, each a self-contained destination rather than
@@ -56,6 +57,11 @@ export default function LeavePlannerPage() {
     ...(canViewYearPlanners ? [{ key: 'annual', label: 'Annual' }, { key: 'special', label: 'Special' }] : []),
     { key: 'weekends', label: 'Weekends' },
     ...(isAdmin || canSubmitLeave ? [{ key: 'requests', label: 'Requests' }] : []),
+    // Cumulative HR-audit view, admin-only — unlike the doctor-facing "My
+    // leave" tracker (always the current calendar year), this is filterable
+    // to any date range, so leave taken never becomes invisible after a
+    // year rolls over.
+    ...(isAdmin ? [{ key: 'audit', label: 'Audit' }] : []),
   ]
 
   // Annual/Special/Weekends all need real width for their grids — widen
@@ -109,6 +115,7 @@ export default function LeavePlannerPage() {
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}
             {plannerTab === 'weekends' && <WeekendPlannerView />}
             {plannerTab === 'requests' && (isAdmin ? <LeaveApprovalQueue /> : canSubmitLeave ? <MyRequestHistory /> : null)}
+            {plannerTab === 'audit' && isAdmin && <LeaveAuditReport />}
           </>
         )}
       </div>

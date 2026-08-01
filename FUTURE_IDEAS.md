@@ -67,8 +67,7 @@ build phase (see `README.md`).
     repo) during roster generation, so this needs coordination there, not
     just a frontend change.
 
-12. **Annual leave HR-audit report** — a dedicated admin view totalling
-    total-vs-annual leave days per doctor per year, rather than only
-    showing the per-request breakdown wherever a request is listed (My
-    leave, Team leave, Requests, the planners). The per-request data
-    (`annual_leave_days`) already exists as the input this would need.
+12. ~~Annual leave HR-audit report~~ — done: Planners > Audit
+    (`LeaveAuditReport.jsx`, admin-only) shows cumulative annual/special/sick
+    leave per doctor over any admin-chosen date range, filterable by
+    category and drillable to one doctor's individual requests.

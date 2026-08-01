@@ -26,6 +26,7 @@ vi.mock('../components/LeaveListView', () => ({ default: () => <div>TeamLeaveStu
 vi.mock('../components/AnnualLeavePlanner', () => ({ default: () => <div>AnnualStub</div> }))
 vi.mock('../components/SpecialLeavePlanner', () => ({ default: () => <div>SpecialStub</div> }))
 vi.mock('../components/WeekendPlannerView', () => ({ default: () => <div>WeekendsStub</div> }))
+vi.mock('../components/LeaveAuditReport', () => ({ default: () => <div>AuditStub</div> }))
 vi.mock('../components/LeaveRulesPage', () => ({ default: () => <div>RulesStub</div> }))
 
 describe('LeavePlannerPage', () => {
@@ -59,6 +60,16 @@ describe('LeavePlannerPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Annual' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Audit' }))
+    expect(screen.getByText('AuditStub')).toBeInTheDocument()
+  })
+
+  it('doctor: does not see the admin-only Audit tab', async () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
+    expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
   })
 
   it('clerk: only Team leave and Planners > Weekends — no Annual/Special/Requests', async () => {

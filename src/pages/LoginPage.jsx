@@ -364,7 +364,7 @@ export default function LoginPage() {
                     transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken
                     lg:text-[23.1px]"
                 >
-                  Sign up
+                  Create your account
                 </Link>
               </div>
             </div>

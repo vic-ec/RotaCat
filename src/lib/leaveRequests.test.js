@@ -6,8 +6,17 @@ import {
   findDoubleBookingConflicts,
   isValidAnnualLeaveDays,
   annualDaysSummary,
+  SPECIAL_LEAVE_TYPES,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
+
+describe('SPECIAL_LEAVE_TYPES', () => {
+  it('excludes annual and sick but includes every other leave type', () => {
+    expect(SPECIAL_LEAVE_TYPES).not.toContain('annual')
+    expect(SPECIAL_LEAVE_TYPES).not.toContain('sick')
+    expect(SPECIAL_LEAVE_TYPES).toEqual(expect.arrayContaining(['family_responsibility', 'study', 'workshop', 'conference']))
+  })
+})
 
 describe('findDoubleBookingConflicts', () => {
   it('normal annual request with no existing bookings passes clean', () => {

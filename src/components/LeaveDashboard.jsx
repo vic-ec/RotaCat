@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from '../lib/leaveDashboard'
-import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -12,14 +12,6 @@ const STATUS_BADGE = {
   approved: 'bg-success-bg text-success',
   rejected: 'bg-flagRed-bg text-flagRed',
 }
-
-// Everything but annual and sick leave counts as "special leave" for the
-// tracker — single day, special leave, course/CPD, and weekend exception
-// all get lumped into one combined figure, matching how the paper leave
-// form groups every non-annual, non-sick leave type together.
-const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
-  .map(o => o.value)
-  .filter(v => v !== 'annual' && v !== 'sick')
 
 function emptyTracker() { return { approved: 0, pending: 0 } }
 

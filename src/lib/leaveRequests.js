@@ -29,6 +29,13 @@ export const LEAVE_TYPE_OPTIONS = [
   { value: 'weekend_exception', label: 'Weekend exception' },
 ]
 
+// Every leave type but annual and sick, grouped into one "special leave"
+// bucket for the My leave tracker and the admin Audit report — matches how
+// the reference leave-type picklist groups everything else together.
+export const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
+  .map(o => o.value)
+  .filter(v => v !== 'annual' && v !== 'sick')
+
 // weekend_exception must cover exactly one Saturday+Sunday pair.
 export function isValidWeekendExceptionRange(dateFrom, dateTo) {
   if (!dateFrom || !dateTo) return false

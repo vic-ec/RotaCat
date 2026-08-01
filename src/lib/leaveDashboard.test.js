@@ -1,5 +1,67 @@
 import { describe, it, expect } from 'vitest'
-import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from './leaveDashboard'
+import {
+  annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests,
+  totalDaysInRange, annualDaysInRange, pendingRequestCountInRange,
+} from './leaveDashboard'
+
+describe('totalDaysInRange', () => {
+  it('sums inclusive days for requests fully inside an arbitrary (non-calendar-year) range', () => {
+    const days = totalDaysInRange([{ date_from: '2026-04-10', date_to: '2026-04-14' }], '2026-04-01', '2026-06-30')
+    expect(days).toBe(5)
+  })
+
+  it('clips a request that only partially overlaps the range on either side', () => {
+    const days = totalDaysInRange(
+      [{ date_from: '2026-03-28', date_to: '2026-04-03' }], // spans into the range from before it starts
+      '2026-04-01', '2026-06-30'
+    )
+    expect(days).toBe(3) // 1, 2, 3 Apr
+  })
+
+  it('excludes requests entirely outside the range', () => {
+    expect(totalDaysInRange([{ date_from: '2026-01-01', date_to: '2026-01-05' }], '2026-04-01', '2026-06-30')).toBe(0)
+  })
+})
+
+describe('annualDaysInRange', () => {
+  it('attributes annual_leave_days to the range if date_from falls inside it', () => {
+    const days = annualDaysInRange(
+      [{ date_from: '2026-04-15', date_to: '2026-04-21', annual_leave_days: 5 }],
+      '2026-04-01', '2026-06-30'
+    )
+    expect(days).toBe(5)
+  })
+
+  it('does not attribute annual_leave_days when date_from falls outside the range, even if the range overlaps the tail', () => {
+    const days = annualDaysInRange(
+      [{ date_from: '2026-03-28', date_to: '2026-04-03', annual_leave_days: 5 }],
+      '2026-04-01', '2026-06-30'
+    )
+    expect(days).toBe(0)
+  })
+
+  it('falls back to the clipped full range for legacy rows with no annual_leave_days', () => {
+    const days = annualDaysInRange(
+      [{ date_from: '2026-03-28', date_to: '2026-04-03' }],
+      '2026-04-01', '2026-06-30'
+    )
+    expect(days).toBe(3) // 1, 2, 3 Apr
+  })
+})
+
+describe('pendingRequestCountInRange', () => {
+  it('counts pending requests starting inside an arbitrary range', () => {
+    const count = pendingRequestCountInRange(
+      [
+        { date_from: '2026-04-15', status: 'pending' },
+        { date_from: '2026-04-20', status: 'approved' },
+        { date_from: '2026-01-01', status: 'pending' },
+      ],
+      '2026-04-01', '2026-06-30'
+    )
+    expect(count).toBe(1)
+  })
+})
 
 describe('totalDaysUsedInYear', () => {
   it('sums inclusive days for requests fully inside the year', () => {

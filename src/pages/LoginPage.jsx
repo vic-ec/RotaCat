@@ -323,7 +323,7 @@ export default function LoginPage() {
               className="w-full rounded-lg border border-accent bg-canvas py-6 text-center text-[14.7px] font-semibold text-accent
                 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
-              Sign up
+              Create an account
             </Link>
           </div>
 

@@ -270,7 +270,7 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-lg font-semibold text-ink">Sign in to manage your shifts</p>
+          <p className="text-lg font-semibold text-ink">Sign in to your account</p>
           <button
             type="button"
             onClick={onClose}
@@ -305,7 +305,7 @@ export default function LoginPage() {
 
         <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
           <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
-          <p className="mt-2 text-center text-[14.7px] text-ink-light">Get started with your account</p>
+          <p className="mt-2 text-center text-[14.7px] text-ink-light">Sign in to manage your shifts</p>
 
           <div className="mt-6">
             <button
@@ -346,7 +346,7 @@ export default function LoginPage() {
             <div className="flex flex-1 items-center justify-center">
               <div className="mx-auto w-full max-w-sm text-center">
                 <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-                <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts.</p>
+                <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
 
                 <div className="mt-8">
                   {/* border-2 border-transparent + py-[25px] matches this

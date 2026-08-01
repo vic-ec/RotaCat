@@ -97,7 +97,11 @@ export default function LeaveRequestForm({ onSubmitted }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          <div>
+          {/* min-w-0 on each grid item: a native date input's intrinsic
+              content width doesn't shrink on its own inside a grid track,
+              which was pushing the two fields wide enough to overlap on
+              narrow mobile screens. */}
+          <div className="min-w-0">
             <label htmlFor="leave-date-from" className="label-text flex items-center gap-1">
               <CalendarIcon className="h-3.5 w-3.5" /> From
             </label>
@@ -107,10 +111,10 @@ export default function LeaveRequestForm({ onSubmitted }) {
               required
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full min-w-0"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <label htmlFor="leave-date-to" className="label-text flex items-center gap-1">
               <CalendarIcon className="h-3.5 w-3.5" /> To
             </label>
@@ -121,7 +125,7 @@ export default function LeaveRequestForm({ onSubmitted }) {
               min={dateFrom || undefined}
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full min-w-0"
             />
           </div>
         </div>

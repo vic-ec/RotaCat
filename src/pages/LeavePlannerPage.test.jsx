@@ -93,4 +93,30 @@ describe('LeavePlannerPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Rules' }))
     expect(screen.getByText('RulesStub')).toBeInTheDocument()
   })
+
+  // A page reload (e.g. a backgrounded mobile browser/PWA getting killed
+  // and reloaded by the OS) remounts this component fresh — the tab must
+  // come back from the URL, not silently reset to the role's default. An
+  // admin who's also a doctor (e.g. an admin Consultant) is exactly the
+  // case that surfaced this: their role default is Planners > Requests,
+  // which would otherwise clobber "My leave" on every reload.
+  it('resumes the tab requested via the URL instead of the role default', () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: true }
+    render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=my-leave']}>{children}</MemoryRouter> })
+    expect(screen.getByText('MyLeaveStub')).toBeInTheDocument()
+    expect(screen.queryByText('ApprovalQueueStub')).not.toBeInTheDocument()
+  })
+
+  it('resumes the requested Planners sub-tab from the URL', () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
+    render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=planners&sub=weekends']}>{children}</MemoryRouter> })
+    expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
+    expect(screen.queryByText('AnnualStub')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the role default when the URL requests a tab not valid for this role', () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false } // clerk — no My leave tab
+    render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=my-leave']}>{children}</MemoryRouter> })
+    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
+  })
 })

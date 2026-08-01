@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
@@ -34,9 +33,8 @@ function defaultPlannerTab({ isAdmin, canViewYearPlanners }) {
 
 export default function LeavePlannerPage() {
   const { canSubmitLeave, isAdmin, isLocum } = useAuth()
-  const [tab, setTab] = useState(() => defaultTopTab({ isAdmin, canSubmitLeave }))
+  const [searchParams, setSearchParams] = useSearchParams()
   const canViewYearPlanners = isAdmin || canSubmitLeave
-  const [plannerTab, setPlannerTab] = useState(() => defaultPlannerTab({ isAdmin, canViewYearPlanners }))
 
   // Locums can't submit or see leave at all (leave_select RLS returns
   // nothing for them) — redirect rather than render restricted content
@@ -70,6 +68,35 @@ export default function LeavePlannerPage() {
     // year rolls over.
     ...(isAdmin ? [{ key: 'audit', label: 'Audit' }] : []),
   ]
+
+  // Tab selection lives in the URL (?tab=...&sub=...), not plain component
+  // state — a backgrounded mobile browser/PWA can get killed and reloaded
+  // by the OS at any time (iOS Safari especially), which remounts this page
+  // from scratch. Plain useState loses the user's place and falls back to
+  // the role-based default every time; the URL survives a reload since the
+  // browser just re-requests the same address. Falls back to the
+  // role-appropriate default when the param is missing or no longer valid
+  // for this role (e.g. a stale link to a tab that's since been removed).
+  const requestedTab = searchParams.get('tab')
+  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave })
+  const requestedPlannerTab = searchParams.get('sub')
+  const plannerTab = plannerTabs.some(t => t.key === requestedPlannerTab) ? requestedPlannerTab : defaultPlannerTab({ isAdmin, canViewYearPlanners })
+
+  function setTab(nextTab) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', nextTab)
+      return next
+    }, { replace: true })
+  }
+  function setPlannerTab(nextSub) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', 'planners')
+      next.set('sub', nextSub)
+      return next
+    }, { replace: true })
+  }
 
   // Annual/Special/Weekends all need real width for their grids — widen
   // the shell whenever Planners is active, regardless of which sub-tab.

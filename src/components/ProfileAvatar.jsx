@@ -10,7 +10,7 @@ import { patternBackgroundStyle } from '../lib/avatarPatterns'
 // Inactive takes priority over on-leave since it's the more permanent state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
   const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-statusAway' : 'bg-success'
-  const label = !active ? 'Inactive' : onLeave ? 'Taking a break' : 'Active'
+  const label = !active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
   return (
     <span
       className={`inline-flex flex-shrink-0 rounded-full ${colorClass} ${className}`}
@@ -25,9 +25,10 @@ export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
 // Corner status badge for an avatar, with an optional click-to-change menu.
 // `interactive` is only ever true for the logged-in user's own avatar — every
 // other instance (viewing someone else) renders the plain, non-clickable
-// StatusBadge. Only Active/Inactive are settable here; "Taking a break" is
-// derived from actual approved leave records, not a simple flag, so it isn't
-// offered as a pickable option.
+// StatusBadge. Only Active/Inactive are settable here; "On leave" is derived
+// from actual approved leave records for the current date, not a simple
+// flag, so it isn't offered as a pickable option — it's shown as an
+// informational line instead, and only while that leave period is current.
 export function StatusPicker({ active, onLeave, size = 16, interactive = false, onSetActive }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -89,6 +90,11 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
           >
             Inactive
           </button>
+          {active && onLeave && (
+            <p className="mt-1 flex items-center gap-1.5 border-t border-slate-line px-3 pt-1.5 text-xs font-semibold text-statusAway">
+              <StatusBadge active onLeave size={8} /> On leave
+            </p>
+          )}
         </div>
       )}
     </div>

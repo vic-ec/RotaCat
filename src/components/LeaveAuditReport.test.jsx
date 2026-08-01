@@ -39,6 +39,13 @@ async function openFilters(user) {
   await user.click(screen.getByRole('button', { name: 'Filters' }))
 }
 
+// Opens the primary Filter popover and then the given dimension's cascading
+// options flyout (e.g. "Category", "Doctor", "Status", "Leave type").
+async function openFilterDimension(user, dimensionLabel) {
+  await openFilters(user)
+  await user.click(screen.getByRole('button', { name: new RegExp(`^${dimensionLabel} ·`) }))
+}
+
 describe('LeaveAuditReport (admin HR-audit view)', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
@@ -78,9 +85,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilters(user)
-    await user.click(screen.getByText('All categories'))
-    await user.click(await screen.findByRole('option', { name: 'MO' }))
+    await openFilterDimension(user, 'Category')
+    await user.click(await screen.findByRole('button', { name: 'MO' }))
 
     expect(screen.getByText('Zephyr, Ada')).toBeInTheDocument()
     expect(screen.queryByText('Adams, Bo')).not.toBeInTheDocument()
@@ -92,9 +98,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilters(user)
-    await user.click(screen.getByText('All statuses'))
-    await user.click(await screen.findByRole('option', { name: 'Inactive' }))
+    await openFilterDimension(user, 'Status')
+    await user.click(await screen.findByRole('button', { name: 'Inactive' }))
 
     expect(screen.getByText('Consult, Cy')).toBeInTheDocument()
     expect(screen.queryByText('Zephyr, Ada')).not.toBeInTheDocument()
@@ -108,9 +113,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     // Ada has 5 annual + 2 study (special) days = 7 total before filtering
     expect(within(rows.find(r => within(r).queryByText('Zephyr, Ada'))).getByText('7')).toBeInTheDocument()
 
-    await openFilters(user)
-    await user.click(screen.getByText('All leave types'))
-    await user.click(await screen.findByRole('option', { name: 'Study leave' }))
+    await openFilterDimension(user, 'Leave type')
+    await user.click(await screen.findByRole('button', { name: 'Study leave' }))
 
     const filteredRows = screen.getAllByRole('row')
     const adaRow = filteredRows.find(r => within(r).queryByText('Zephyr, Ada'))
@@ -124,9 +128,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilters(user)
-    await user.click(screen.getByText('All categories'))
-    await user.click(await screen.findByRole('option', { name: 'MO' }))
+    await openFilterDimension(user, 'Category')
+    await user.click(await screen.findByRole('button', { name: 'MO' }))
 
     expect(screen.getByRole('button', { name: 'Filters' })).toHaveTextContent('1')
     await user.click(screen.getByText('Clear filters'))
@@ -138,9 +141,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilters(user)
-    await user.click(screen.getByText('All doctors'))
-    await user.click(await screen.findByRole('option', { name: 'Zephyr, Ada' }))
+    await openFilterDimension(user, 'Doctor')
+    await user.click(await screen.findByRole('button', { name: 'Zephyr, Ada' }))
 
     expect(await screen.findByText('Individual requests in range')).toBeInTheDocument()
     expect(screen.getByText(/Annual leave — 2026-03-10 → 2026-03-14/)).toBeInTheDocument()

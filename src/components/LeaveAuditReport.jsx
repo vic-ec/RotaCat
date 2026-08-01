@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory } from '../lib/leaveYearGrid'
 import { buildAuditRows } from '../lib/leaveAudit'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
-import SelectMenu from './SelectMenu'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 
 function CalendarIcon(props) {
   return (
@@ -23,20 +24,48 @@ function FilterIcon(props) {
   )
 }
 
+function ChevronDownIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+// Mirrors StaffListPage's local flyout-position helper (rolls down only,
+// unlike computeAnchoredPosition's up/down flip) — kept local here too
+// since it's a small cascading-menu detail, not shared app-wide logic.
+function computeFlyoutPosition(anchorRect, width) {
+  const vw = window.innerWidth
+  const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
+  return { left, top: anchorRect.bottom + 6 }
+}
+
+function FilterRow({ label, expanded, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken ${
+        expanded ? 'font-semibold text-ink' : 'font-medium text-ink'
+      }`}
+    >
+      <span className="flex-1">{label}</span>
+      <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+    </button>
+  )
+}
+
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
   pending: 'bg-flagAmber-bg text-flagAmber',
   approved: 'bg-success-bg text-success',
   rejected: 'bg-flagRed-bg text-flagRed',
 }
-// LEAVE_OTHER_COLUMN's shared label is the generic "Other" used on the
-// planner grids — the Audit filter/table names it explicitly as
-// "Consultant" instead, since that's the only category it ever contains
-// and admins reviewing an audit want the real category name, not "Other".
 const CATEGORY_OPTIONS = [
   { value: 'all', label: 'All categories' },
   ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),
-  { value: LEAVE_OTHER_COLUMN.key, label: 'Consultant' },
+  { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
 ]
 const COLUMN_LABEL_BY_KEY = Object.fromEntries(CATEGORY_OPTIONS.filter(o => o.value !== 'all').map(o => [o.value, o.label]))
 const STATUS_OPTIONS = [
@@ -71,6 +100,11 @@ export default function LeaveAuditReport() {
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterAnchor, setFilterAnchor] = useState(null)
+  const filterMenuRef = useRef(null)
+  const [filterSecondaryFor, setFilterSecondaryFor] = useState(null) // null | 'category' | 'doctor' | 'status' | 'leaveType'
+  const [filterSecondaryAnchor, setFilterSecondaryAnchor] = useState(null)
+  const filterSecondaryMenuRef = useRef(null)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [doctorFilter, setDoctorFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -144,6 +178,28 @@ export default function LeaveAuditReport() {
     setLeaveTypeFilter('all')
   }
 
+  function openFilters(anchorEl) {
+    setFilterAnchor(anchorEl.getBoundingClientRect())
+    setFiltersOpen(true)
+  }
+  function closeFilters() {
+    setFiltersOpen(false)
+    setFilterAnchor(null)
+    setFilterSecondaryFor(null)
+    setFilterSecondaryAnchor(null)
+  }
+  // Picking the same filter dimension again closes its options flyout;
+  // picking another swaps to it — same cascade as Staff list's Filter popover.
+  function toggleFilterSecondary(key, anchorEl) {
+    setFilterSecondaryFor(s => {
+      if (s === key) { setFilterSecondaryAnchor(null); return null }
+      setFilterSecondaryAnchor(anchorEl.getBoundingClientRect())
+      return key
+    })
+  }
+
+  useDismissablePopover(filtersOpen, closeFilters, filterMenuRef, [filterSecondaryMenuRef])
+
   const activeFilterCount = [categoryFilter, doctorFilter, statusFilter, leaveTypeFilter].filter(v => v !== 'all').length
 
   return (
@@ -153,21 +209,28 @@ export default function LeaveAuditReport() {
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-0">
-          <label htmlFor="audit-date-from" className="label-text flex items-center gap-1">
-            <CalendarIcon className="h-3.5 w-3.5" /> From
-          </label>
-          <input id="audit-date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field min-w-0" />
-        </div>
-        <div className="min-w-0">
-          <label htmlFor="audit-date-to" className="label-text flex items-center gap-1">
-            <CalendarIcon className="h-3.5 w-3.5" /> To
-          </label>
-          <input id="audit-date-to" type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)} className="input-field min-w-0" />
+        {/* Date pair shares a shrinkable grid track so it can never grow
+            wide enough to overlap the fixed-size filter button beside it
+            on narrow mobile screens — same fix as LeaveRequestForm's
+            From/To pair. */}
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+          <div className="min-w-0">
+            <label htmlFor="audit-date-from" className="label-text flex items-center gap-1">
+              <CalendarIcon className="h-3.5 w-3.5" /> From
+            </label>
+            <input id="audit-date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field w-full min-w-0" />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor="audit-date-to" className="label-text flex items-center gap-1">
+              <CalendarIcon className="h-3.5 w-3.5" /> To
+            </label>
+            <input id="audit-date-to" type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)} className="input-field w-full min-w-0" />
+          </div>
         </div>
         <button
           type="button"
-          onClick={() => setFiltersOpen(o => !o)}
+          onClick={e => (filtersOpen ? closeFilters() : openFilters(e.currentTarget))}
+          aria-haspopup="menu"
           aria-expanded={filtersOpen}
           aria-label="Filters"
           className={`relative flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded border transition-colors ${
@@ -183,33 +246,84 @@ export default function LeaveAuditReport() {
         </button>
       </div>
 
-      {filtersOpen && (
-        <div className="mt-3 card p-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="w-44">
-              <label className="label-text">Category</label>
-              <SelectMenu value={categoryFilter} onChange={handleCategoryChange} options={CATEGORY_OPTIONS} />
-            </div>
-            <div className="w-56">
-              <label className="label-text">Doctor</label>
-              <SelectMenu value={doctorFilter} onChange={setDoctorFilter} options={doctorOptions} />
-            </div>
-            <div className="w-40">
-              <label className="label-text">Status</label>
-              <SelectMenu value={statusFilter} onChange={handleStatusChange} options={STATUS_OPTIONS} />
-            </div>
-            <div className="w-52">
-              <label className="label-text">Leave type</label>
-              <SelectMenu value={leaveTypeFilter} onChange={setLeaveTypeFilter} options={LEAVE_TYPE_FILTER_OPTIONS} />
-            </div>
+      {/* ── Filter popover (primary) — Category/Doctor/Status/Leave type,
+           each opening its own options flyout, matching the Staff list
+           page's cascading Filter popup (computeAnchoredPosition +
+           useDismissablePopover, close-on-outside-click muting the
+           background). ── */}
+      {filtersOpen && filterAnchor && (() => {
+        const menuWidth = 220
+        const positionStyle = computeAnchoredPosition(filterAnchor, menuWidth)
+        const categoryLabel = CATEGORY_OPTIONS.find(o => o.value === categoryFilter)?.label
+        const doctorLabel = doctorOptions.find(o => o.value === doctorFilter)?.label
+        const statusLabel = STATUS_OPTIONS.find(o => o.value === statusFilter)?.label
+        const leaveTypeLabel = LEAVE_TYPE_FILTER_OPTIONS.find(o => o.value === leaveTypeFilter)?.label
+        return (
+          <div
+            ref={filterMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            <FilterRow label={`Category · ${categoryLabel}`} expanded={filterSecondaryFor === 'category'} onClick={e => toggleFilterSecondary('category', e.currentTarget)} />
+            <FilterRow label={`Doctor · ${doctorLabel}`} expanded={filterSecondaryFor === 'doctor'} onClick={e => toggleFilterSecondary('doctor', e.currentTarget)} />
+            <FilterRow label={`Status · ${statusLabel}`} expanded={filterSecondaryFor === 'status'} onClick={e => toggleFilterSecondary('status', e.currentTarget)} />
+            <FilterRow label={`Leave type · ${leaveTypeLabel}`} expanded={filterSecondaryFor === 'leaveType'} onClick={e => toggleFilterSecondary('leaveType', e.currentTarget)} />
+            {activeFilterCount > 0 && (
+              <div className="mt-1 border-t border-slate-line px-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { clearFilters(); setFilterSecondaryFor(null) }}
+                  className="flex items-center gap-1.5 py-1 text-xs font-medium text-ink-light hover:text-ink"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
           </div>
-          {activeFilterCount > 0 && (
-            <button type="button" onClick={clearFilters} className="mt-3 text-xs font-medium text-accent hover:underline">
-              Clear filters
-            </button>
-          )}
-        </div>
-      )}
+        )
+      })()}
+
+      {/* ── Filter secondary flyout — cascades beside whichever dimension
+           row was tapped. ── */}
+      {filtersOpen && filterSecondaryFor && filterSecondaryAnchor && (() => {
+        const menuWidth = 200
+        const positionStyle = computeFlyoutPosition(filterSecondaryAnchor, menuWidth)
+        const optionSets = {
+          category: CATEGORY_OPTIONS,
+          doctor: doctorOptions,
+          status: STATUS_OPTIONS,
+          leaveType: LEAVE_TYPE_FILTER_OPTIONS,
+        }
+        const currentValues = { category: categoryFilter, doctor: doctorFilter, status: statusFilter, leaveType: leaveTypeFilter }
+        const setters = { category: handleCategoryChange, doctor: setDoctorFilter, status: handleStatusChange, leaveType: setLeaveTypeFilter }
+        const options = optionSets[filterSecondaryFor]
+        const currentValue = currentValues[filterSecondaryFor]
+        const setValue = setters[filterSecondaryFor]
+        return (
+          <div
+            ref={filterSecondaryMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            {options.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { setValue(opt.value); setFilterSecondaryFor(null) }}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === currentValue
+                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}

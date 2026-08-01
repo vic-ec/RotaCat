@@ -381,7 +381,7 @@ export default function WeekendPlannerView() {
   )
 
   const filterChips = (
-    <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
+    <div className="flex items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
       {filters.map(f => (
         <button
           key={f.key}
@@ -394,19 +394,23 @@ export default function WeekendPlannerView() {
           {f.label}
         </button>
       ))}
+      {/* Not a filter itself (doesn't touch `filter` state) — appended at
+          the far right of the same tab bar, admin-only, separated by a
+          divider so it reads as a distinct action rather than a 5th chip. */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={() => setShowChangeLog(true)}
+          className="ml-1 rounded border-l border-slate-line px-2.5 py-1 pl-3 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken"
+        >
+          Review log
+        </button>
+      )}
     </div>
   )
 
   return (
     <div>
-      {isAdmin && (
-        <div className="flex justify-end">
-          <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
-            Review log
-          </button>
-        </div>
-      )}
-
       <InlineRuleHint
         inline="No more than one person per slot — a colour marks which weekends you're on for the month."
         bullets={[

@@ -6,23 +6,21 @@ const NAV_LABELS = {
   admin: [
     { to: '/',         label: 'Dashboard' },
     { to: '/roster',   label: 'Roster' },
-    { to: '/weekend',  label: 'Weekends' },
     { to: '/staff',    label: 'Staff' },
-    { to: '/leave',    label: 'Leave' },
+    { to: '/leave',    label: 'Planners' },
     { to: '/account',  label: 'Account' },
     { to: '/settings', label: 'Settings' },
   ],
   doctor: [
     { to: '/',        label: 'My shifts' },
-    { to: '/roster',  label: 'Full roster' },
-    { to: '/weekend', label: 'Weekends' },
-    { to: '/leave',   label: 'My leave' },
+    { to: '/roster',  label: 'Roster' },
+    { to: '/leave',   label: 'Planners' },
     { to: '/swaps',   label: 'Swaps' },
     { to: '/account', label: 'Account' },
   ],
   locum: [
     { to: '/',        label: 'My shifts' },
-    { to: '/roster',  label: 'Full roster' },
+    { to: '/roster',  label: 'Roster' },
     { to: '/shifts',  label: 'Open shifts' },
     { to: '/swaps',   label: 'Swaps' },
     { to: '/account', label: 'Account' },
@@ -30,8 +28,8 @@ const NAV_LABELS = {
   clerk: [
     { to: '/',        label: 'Dashboard' },
     { to: '/roster',  label: 'Roster' },
-    { to: '/weekend', label: 'Weekends' },
     { to: '/staff',   label: 'Staff' },
+    { to: '/leave',   label: 'Planner' },
     { to: '/account', label: 'Account' },
   ],
 }

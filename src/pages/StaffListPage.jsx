@@ -254,9 +254,9 @@ export default function StaffListPage() {
   const { isAdmin, isClerk, isSuperAdmin, user, setMyActiveStatus } = useAuth()
   // Clerks are read-only for account management, but the mobile Quick
   // Actions menu (Message/Call/Mail) is pure contact info -- clerks need
-  // that same access (see AppLayout's clerkNav: "Roster, weekend grid,
-  // contact list only"). Account-settings navigation and admin-granting
-  // stay isAdmin/isSuperAdmin only, unaffected by this.
+  // that same access (see AppLayout's clerkNav: Roster, Staff, Planner,
+  // Account). Account-settings navigation and admin-granting stay
+  // isAdmin/isSuperAdmin only, unaffected by this.
   const canContact = isAdmin || isClerk
   const navigate = useNavigate()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'

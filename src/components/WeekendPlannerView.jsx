@@ -207,7 +207,7 @@ function WeekendInspector({
 // as too bulky. The inspector's split is a fixed two-pane layout, not
 // drag-resizable — logged as a possible follow-up rather than built here.
 export default function WeekendPlannerView() {
-  const { isAdmin, profile } = useAuth()
+  const { isAdmin, isClerk, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [entries, setEntries] = useState([])
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
@@ -216,7 +216,10 @@ export default function WeekendPlannerView() {
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
-  const [filter, setFilter] = useState('mine')
+  // Clerks have no personal weekend assignments/requests of their own, so
+  // "My Schedule" (the default for everyone else) would always land them on
+  // an empty view — they land on "All weekends" instead.
+  const [filter, setFilter] = useState(() => (isClerk ? 'all' : 'mine'))
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const today = todayStr()
@@ -224,8 +227,11 @@ export default function WeekendPlannerView() {
   const [viewMonth, setViewMonth] = useState(() => Number(today.slice(5, 7)))
 
   // Needs planning is nothing a non-admin viewer can act on, so it's
-  // appended for admins only rather than shared across both roles.
-  const filters = isAdmin ? [...FILTERS_BASE, { key: 'needs-planning', label: 'Needs planning' }] : FILTERS_BASE
+  // appended for admins only rather than shared across both roles. Clerks
+  // get no filter chips at all — My Schedule/My Requests are meaningless
+  // for them (no personal assignments), and All is the only view they'd
+  // ever want, so it's just the permanent, unfiltered landing state.
+  const filters = isAdmin ? [...FILTERS_BASE, { key: 'needs-planning', label: 'Needs planning' }] : isClerk ? [] : FILTERS_BASE
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile) changes within a session
 
@@ -380,7 +386,9 @@ export default function WeekendPlannerView() {
     </div>
   )
 
-  const filterChips = (
+  // Nothing to show for a clerk (no chips, and Review log is admin-only) —
+  // render nothing rather than an empty bordered pill.
+  const filterChips = filters.length > 0 ? (
     <div className="flex items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
       {filters.map(f => (
         <button
@@ -407,7 +415,7 @@ export default function WeekendPlannerView() {
         </button>
       )}
     </div>
-  )
+  ) : null
 
   return (
     <div>

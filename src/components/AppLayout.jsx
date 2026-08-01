@@ -13,15 +13,15 @@ const adminNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
-  { to: '/leave',  label: 'Leave',       icon: ClipboardIcon },
+  { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
   { to: '/settings', label: 'Settings',  icon: SlidersIcon },
 ]
 
 const doctorNav = [
   { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
-  { to: '/roster', label: 'Full roster', icon: CalendarIcon },
-  { to: '/leave',  label: 'My leave',    icon: ClipboardIcon },
+  { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
@@ -30,17 +30,20 @@ const doctorNav = [
 // No leave, no weekend grid (enforced via canViewWeekendGrid in those pages).
 const locumNav = [
   { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
-  { to: '/roster', label: 'Full roster', icon: CalendarIcon },
+  { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
-// Clerks: read-only. Roster, weekend grid, contact list only.
+// Clerks: read-only. Roster, Staff (contact list), and Planner (Annual /
+// Special / Weekends, "all" view only — no personal leave of their own) —
+// reuses the same /leave route as everyone else's Planners tab group.
 const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+  { to: '/leave',  label: 'Planner',     icon: ClipboardIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 

@@ -94,5 +94,6 @@ export default function LeaveRulesPage() {
         {' · '}
         <a href={GITHUB_RULES_URL} target="_blank" rel="noreferrer" className="underline hover:text-ink">EC Leave Rules</a>
       </p>
+	</div>
   )
 }

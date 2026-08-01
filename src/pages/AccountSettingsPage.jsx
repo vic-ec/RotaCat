@@ -345,7 +345,9 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+        className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
+          danger ? 'hover:bg-rose-light active:bg-rose' : 'hover:bg-canvas-sunken active:bg-canvas-sunken'
+        }`}
       >
         <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">

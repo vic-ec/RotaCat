@@ -25,7 +25,7 @@ export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'OT_COSMO', label: 'OT COSMO / Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_cosmo', defaultMax: 1 },
 ]
 
-export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Other', categories: ['Consultant'] }
+export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
 // The "no more than 3 full-time doctors on leave at once" rule spans MO,
 // Registrar, and EC COSMO/Intern combined — e.g. 1 MO + 1 Registrar + 1 EC

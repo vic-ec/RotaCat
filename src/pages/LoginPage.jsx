@@ -270,7 +270,7 @@ function SignInModal({ isOpen, onClose, triggerRef }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-lg font-semibold text-ink">Sign in to your account</p>
+          <p className="text-lg font-semibold text-ink">Sign in to manage your shifts</p>
           <button
             type="button"
             onClick={onClose}

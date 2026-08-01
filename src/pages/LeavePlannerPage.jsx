@@ -15,16 +15,20 @@ import LeaveRulesPage from '../components/LeaveRulesPage'
 // structure: My leave (personal, doctor-only) | Team leave (who's off) |
 // Planners (a nested tab group of reference/admin views) | Rules (the full
 // written policy, in-app instead of only linking out).
-function defaultTopTab({ isAdmin, canSubmitLeave }) {
+function defaultTopTab({ isAdmin, canSubmitLeave, isClerk }) {
   if (isAdmin) return 'planners'
+  // A clerk's Planner nav link IS this page — land them straight on the
+  // Planners tab group (Annual) rather than Team leave, which is now just
+  // a secondary tab for them, not the entry point.
+  if (isClerk) return 'planners'
   if (canSubmitLeave) return 'my-leave'
   return 'team'
 }
 
 // Planners' own default sub-tab: an admin's most actionable landing is the
-// Requests queue; a doctor/locum-excluded-already viewer without queue
-// access lands on Annual if they can see it, otherwise Weekends (the one
-// planner every non-locum role can always see).
+// Requests queue; a doctor/clerk/locum-excluded-already viewer without
+// queue access lands on Annual if they can see it, otherwise Weekends (the
+// one planner every non-locum role can always see).
 function defaultPlannerTab({ isAdmin, canViewYearPlanners }) {
   if (isAdmin) return 'requests'
   if (canViewYearPlanners) return 'annual'
@@ -32,9 +36,11 @@ function defaultPlannerTab({ isAdmin, canViewYearPlanners }) {
 }
 
 export default function LeavePlannerPage() {
-  const { canSubmitLeave, isAdmin, isLocum } = useAuth()
+  const { canSubmitLeave, isAdmin, isLocum, isClerk } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const canViewYearPlanners = isAdmin || canSubmitLeave
+  // Clerks get read-only "all" visibility into Annual/Special too — same
+  // grid every other year-planner viewer sees, they just can't submit.
+  const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
 
   // Locums can't submit or see leave at all (leave_select RLS returns
   // nothing for them) — redirect rather than render restricted content
@@ -78,7 +84,7 @@ export default function LeavePlannerPage() {
   // role-appropriate default when the param is missing or no longer valid
   // for this role (e.g. a stale link to a tab that's since been removed).
   const requestedTab = searchParams.get('tab')
-  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave })
+  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave, isClerk })
   const requestedPlannerTab = searchParams.get('sub')
   const plannerTab = plannerTabs.some(t => t.key === requestedPlannerTab) ? requestedPlannerTab : defaultPlannerTab({ isAdmin, canViewYearPlanners })
 

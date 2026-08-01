@@ -216,6 +216,23 @@ describe('WeekendPlannerView', () => {
       expect(view.queryByRole('button', { name: 'Needs planning' })).not.toBeInTheDocument()
     })
 
+    it('clerk: no filter chips at all — lands directly on "All weekends"', async () => {
+      mockAuth = { isAdmin: false, isClerk: true, profile: { id: 'clerk-1' } }
+      render(<WeekendPlannerView />)
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      expect(view.queryByRole('button', { name: 'My Schedule' })).not.toBeInTheDocument()
+      expect(view.queryByRole('button', { name: 'My Requests' })).not.toBeInTheDocument()
+      expect(view.queryByRole('button', { name: 'All' })).not.toBeInTheDocument()
+      expect(view.queryByRole('button', { name: 'Needs planning' })).not.toBeInTheDocument()
+      expect(view.queryByRole('button', { name: 'Review log' })).not.toBeInTheDocument()
+
+      // Every weekend in the month shows, same as clicking "All" would for a doctor
+      expect(view.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument()
+      expect(view.getByText('2026-08-15 → 2026-08-16')).toBeInTheDocument()
+    })
+
     it('"My Schedule" filter shows only weekends the signed-in doctor is assigned to', async () => {
       const user = userEvent.setup()
       render(<WeekendPlannerView />)

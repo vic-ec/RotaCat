@@ -75,16 +75,23 @@ describe('LeavePlannerPage', () => {
     expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
   })
 
-  it('clerk: only Team leave and Planners > Weekends — no Annual/Special/Requests', async () => {
-    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false }
+  it('clerk: defaults to Planners > Annual, keeps Team leave as a secondary tab, no My leave/Requests/Audit', async () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: true }
     renderPage()
-    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument() // clerk defaults to Team leave
+    expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team leave
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Team leave' })).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
-    expect(screen.getByText('WeekendsStub')).toBeInTheDocument() // only option, tab selector row not even shown
-    expect(screen.queryByRole('button', { name: 'Annual' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Special' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Weekends' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Requests' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weekends' }))
+    expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Team leave' }))
+    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
   })
 
   it('Rules tab renders the full in-app policy page', async () => {
@@ -115,8 +122,8 @@ describe('LeavePlannerPage', () => {
   })
 
   it('falls back to the role default when the URL requests a tab not valid for this role', () => {
-    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false } // clerk — no My leave tab
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: true } // clerk — no My leave tab
     render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=my-leave']}>{children}</MemoryRouter> })
-    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
+    expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's role default is Planners > Annual
   })
 })

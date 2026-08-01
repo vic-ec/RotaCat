@@ -24,8 +24,8 @@ const PROFILES = [
   { id: 'p4', name: 'Dan', surname: 'Della', category: 'COSMOPsych' },
 ]
 
-// 2026-08-01: only MO (p1) filled — needs planning.
-// 2026-08-08: fully covered.
+// 2026-08-01: only MO (p1) filled — needs planning. Also p1's "My Schedule".
+// 2026-08-08: fully covered. Also p1's "My Schedule".
 // 2026-08-15/22/29: nothing planned yet.
 const ENTRIES = [
   { id: 'e1', weekend_saturday: '2026-08-01', profile_id: 'p1', category: 'MO' },
@@ -33,6 +33,13 @@ const ENTRIES = [
   { id: 'e3', weekend_saturday: '2026-08-08', profile_id: 'p2', category: 'Registrar' },
   { id: 'e4', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'COSMO' },
   { id: 'e5', weekend_saturday: '2026-08-08', profile_id: 'p4', category: 'COSMOPsych' },
+]
+
+// p1 has a pending weekend-exception request for 2026-08-22 — a weekend
+// they're NOT rostered for, so it only shows up under "My Requests", not
+// "My Schedule".
+const MY_WEEKEND_REQUESTS = [
+  { id: 'r1', date_from: '2026-08-22', status: 'pending' },
 ]
 
 const { mockResponses, insertedRows } = vi.hoisted(() => ({ mockResponses: {}, insertedRows: [] }))
@@ -65,6 +72,10 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
+async function showAll(user) {
+  await user.click(screen.getByRole('button', { name: 'All' }))
+}
+
 describe('WeekendPlannerView', () => {
   beforeEach(() => {
     insertedRows.length = 0
@@ -72,6 +83,7 @@ describe('WeekendPlannerView', () => {
     mockResponses['profiles:select'] = { data: PROFILES, error: null }
     mockResponses['weekend_planner_entries:select'] = { data: ENTRIES, error: null }
     mockResponses['weekend_planner_entries:delete'] = { data: null, error: null }
+    mockResponses['leave_requests:select'] = { data: MY_WEEKEND_REQUESTS, error: null }
     mockAuth = { isAdmin: false, profile: { id: 'p1' } }
   })
 
@@ -85,12 +97,26 @@ describe('WeekendPlannerView', () => {
     expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
   })
 
-  it('renders one card per weekend in the current month, flagging incomplete coverage', async () => {
+  it('defaults to the "My Schedule" filter, leftmost of the chips', async () => {
     render(<WeekendPlannerView />)
     await screen.findByText('August 2026')
 
-    // 2026-08-01 is both "next weekend" and this month's first card — appears twice
-    expect(screen.getAllByText('2026-08-01 → 2026-08-02')).toHaveLength(2)
+    const chips = screen.getAllByRole('button', { name: /^(My Schedule|My Requests|All|Needs planning)$/ })
+    expect(chips.map(c => c.textContent)).toEqual(['My Schedule', 'My Requests', 'All'])
+    expect(screen.getByRole('button', { name: 'My Schedule' })).toHaveClass('bg-accent')
+
+    // Only p1's own two weekends show by default
+    expect(screen.getAllByText('2026-08-01 → 2026-08-02')).toHaveLength(2) // next-weekend card + list card
+    expect(screen.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument()
+    expect(screen.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument()
+  })
+
+  it('renders one card per weekend in the current month once "All" is selected, flagging incomplete coverage', async () => {
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+
     const aug8Heading = await screen.findByText('2026-08-08 → 2026-08-09')
     const aug8Card = aug8Heading.closest('.card')
     expect(within(aug8Card).queryByText('Needs planning')).not.toBeInTheDocument() // fully covered
@@ -100,7 +126,38 @@ describe('WeekendPlannerView', () => {
     expect(within(aug15Card).getByText('Needs planning')).toBeInTheDocument()
   })
 
-  it('"Needs planning" filter hides fully-covered weekends', async () => {
+  it('cards alternate background colour by weekend, independent of coverage', async () => {
+    // Fully cover both 2026-08-08 and 2026-08-15 (adjacent weekends) so
+    // neither is flagged "needs planning" — that flag overrides the
+    // alternating colour, so it'd otherwise mask the parity check below.
+    mockResponses['weekend_planner_entries:select'] = {
+      data: [
+        ...ENTRIES,
+        { id: 'e6', weekend_saturday: '2026-08-15', profile_id: 'p1', category: 'MO' },
+        { id: 'e7', weekend_saturday: '2026-08-15', profile_id: 'p2', category: 'Registrar' },
+        { id: 'e8', weekend_saturday: '2026-08-15', profile_id: 'p3', category: 'COSMO' },
+        { id: 'e9', weekend_saturday: '2026-08-15', profile_id: 'p4', category: 'COSMOPsych' },
+      ],
+      error: null,
+    }
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+
+    const aug8Card = screen.getByText('2026-08-08 → 2026-08-09').closest('.card')
+    const aug15Card = screen.getByText('2026-08-15 → 2026-08-16').closest('.card')
+    expect(aug8Card.className).not.toContain('flagAmber')
+    expect(aug15Card.className).not.toContain('flagAmber')
+    const aug8IsAccent = aug8Card.className.includes('bg-accent-tint')
+    const aug15IsAccent = aug15Card.className.includes('bg-accent-tint')
+    expect(aug8IsAccent).not.toBe(aug15IsAccent)
+    expect(aug8Card.className.includes('bg-rose-tint') || aug8IsAccent).toBe(true)
+    expect(aug15Card.className.includes('bg-rose-tint') || aug15IsAccent).toBe(true)
+  })
+
+  it('"Needs planning" filter (admin-only) hides fully-covered weekends', async () => {
+    mockAuth = { isAdmin: true, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
     await screen.findByText('August 2026')
@@ -110,20 +167,39 @@ describe('WeekendPlannerView', () => {
     expect(screen.getByText('2026-08-15 → 2026-08-16')).toBeInTheDocument()
   })
 
-  it('"My rotation" filter shows only weekends the signed-in doctor is assigned to', async () => {
+  it('non-admin: "Needs planning" filter does not exist', async () => {
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    expect(screen.queryByRole('button', { name: 'Needs planning' })).not.toBeInTheDocument()
+  })
+
+  it('"My Schedule" filter shows only weekends the signed-in doctor is assigned to', async () => {
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+    await user.click(screen.getByRole('button', { name: 'My Schedule' }))
+
+    expect(screen.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument() // p1 assigned
+    expect(screen.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument() // nobody assigned
+  })
+
+  it('"My Requests" filter shows weekends with the doctor\'s own weekend-exception request, with a status badge', async () => {
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
     await screen.findByText('August 2026')
 
-    await user.click(screen.getByRole('button', { name: 'My rotation' }))
-    expect(screen.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument() // p1 assigned
-    expect(screen.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument() // nobody assigned
+    await user.click(screen.getByRole('button', { name: 'My Requests' }))
+    const aug22Heading = await screen.findByText('2026-08-22 → 2026-08-23')
+    expect(screen.queryByText('2026-08-08 → 2026-08-09')).not.toBeInTheDocument() // in My Schedule, not My Requests
+    expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
   })
 
   it('month navigation moves forward and the Previous button is disabled on the starting (current) month', async () => {
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
     await screen.findByText('August 2026')
+    await showAll(user)
 
     expect(screen.getByRole('button', { name: 'Previous month' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Next month' }))
@@ -134,16 +210,31 @@ describe('WeekendPlannerView', () => {
   })
 
   it('non-admin: no add/remove controls on any card', async () => {
+    const user = userEvent.setup()
     render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
     await screen.findByText('2026-08-08 → 2026-08-09')
     expect(screen.queryByRole('button', { name: '+' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/Remove/)).not.toBeInTheDocument()
+  })
+
+  it('displays surnames only, not full names, in the grid', async () => {
+    const user = userEvent.setup()
+    render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
+    const aug8Card = (await screen.findByText('2026-08-08 → 2026-08-09')).closest('.card')
+    expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
+    expect(within(aug8Card).queryByText('Alice Anderson')).not.toBeInTheDocument()
   })
 
   it('admin: can remove an assigned doctor from a weekend', async () => {
     mockAuth = { isAdmin: true, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
     await screen.findByRole('button', { name: 'Remove Anderson from 2026-08-01' })
 
     await user.click(screen.getByRole('button', { name: 'Remove Anderson from 2026-08-01' }))
@@ -154,6 +245,8 @@ describe('WeekendPlannerView', () => {
     mockAuth = { isAdmin: true, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     render(<WeekendPlannerView />)
+    await screen.findByText('August 2026')
+    await showAll(user)
     const aug15Heading = await screen.findByText('2026-08-15 → 2026-08-16')
     const aug15Card = aug15Heading.closest('.card')
 
@@ -161,6 +254,6 @@ describe('WeekendPlannerView', () => {
     await user.click(addButtons[0]) // MO row is first
     await user.selectOptions(within(aug15Card).getByRole('combobox'), 'p1')
 
-    expect(await within(aug15Card).findByText('Alice Anderson')).toBeInTheDocument()
+    expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
   })
 })

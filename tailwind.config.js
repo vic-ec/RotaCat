@@ -59,6 +59,15 @@ export default {
         success: {
           DEFAULT: '#22A06B',
           bg: '#E3F5EC'
+        },
+        // A dedicated "on leave" presence colour — deliberately separate
+        // from the flag* palette above (reserved strictly for roster-state
+        // semantics like draft/published/conflict), since this marks a
+        // person's current status, not a roster flag. Used by
+        // ProfileAvatar's StatusBadge/StatusPicker only.
+        statusAway: {
+          DEFAULT: '#EAB308',
+          bg: '#FEF9C3'
         }
       },
       fontFamily: {

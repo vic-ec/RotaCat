@@ -34,6 +34,15 @@ export default function LeaveRulesPage() {
         </ul>
       </Section>
 
+      <Section title="Consultant leave privacy">
+        <p>
+          A Consultant&rsquo;s leave request — of <strong>any</strong> leave type, including a weekend exception — is only visible to an admin, the Consultant themselves, and other Consultants. It&rsquo;s invisible to every other non-admin viewer (other doctor categories, clerks), even once approved. This is enforced in the database, not just hidden on screen.
+        </p>
+        <p>
+          The roster grid is unaffected — everyone can still see which Consultant is on call for a given date there, since that&rsquo;s roster assignment data, not a leave request.
+        </p>
+      </Section>
+
       <Section title="Annual Leave">
         <p>Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns:</p>
         <ul className="list-disc space-y-1 pl-5">
@@ -44,7 +53,7 @@ export default function LeaveRulesPage() {
           <li>All actual annual leave days taken (per the approved Leave Form) are shown in <strong>bold</strong> on the sheet.</li>
         </ul>
         <p>
-          A hard cap on how many doctors from each category (MO, Registrar, EC COSMO/Intern, OT COSMO/Intern) can be on approved or pending annual leave at once is enforced automatically at submission — plus a combined cap across MO+Registrar+EC COSMO/Intern together. See the Annual Leave tab for the current numbers.
+          A hard cap on how many doctors from each category (MO, Registrar, EC COSMO/Intern, OT COSMO/Intern) can be on approved or pending annual leave at once is enforced automatically at submission — plus a combined cap across MO+Registrar+EC COSMO/Intern together. See the Annual Leave tab for the current numbers. Consultants have their own uncapped &ldquo;Other&rdquo; column, visible only per the Consultant leave privacy rule above.
         </p>
         <p>
           <strong>Total days vs. annual leave days:</strong> you&rsquo;re unavailable for rostering for the whole date range you enter, but you separately state how many of those days actually count as annual leave — since that depends on the padding-weekend rules above and needs a human judgement call, not something derived automatically. E.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 don&rsquo;t reduce your balance but still need their hours made up elsewhere. Every list of leave requests shows both numbers when they differ.

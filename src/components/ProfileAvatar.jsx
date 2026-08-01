@@ -4,12 +4,12 @@ import { patternBackgroundStyle } from '../lib/avatarPatterns'
 
 // Small inline status indicator, meant to sit next to a name/surname (not on
 // the avatar itself) — a plain colored dot: green (active), red (inactive),
-// or amber (active but currently on approved leave — amber rather than the
-// teal accent so it doesn't read as another shade of the green "active"
-// dot). Inactive takes priority over on-leave since it's the more permanent
-// state.
+// or yellow (active but currently on approved leave — a dedicated
+// statusAway yellow, not the flag* palette, so it doesn't read as a
+// roster-state flag or as another shade of the green "active" dot).
+// Inactive takes priority over on-leave since it's the more permanent state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
-  const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-flagAmber' : 'bg-success'
+  const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-statusAway' : 'bg-success'
   const label = !active ? 'Inactive' : onLeave ? 'Taking a break' : 'Active'
   return (
     <span

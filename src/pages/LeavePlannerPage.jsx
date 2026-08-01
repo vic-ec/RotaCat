@@ -106,12 +106,7 @@ export default function LeavePlannerPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <h1 className="font-display text-2xl font-bold text-ink">Leave</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        {isAdmin ? 'Review requests, or check a planner.' : canSubmitLeave ? 'Your leave tracker, upcoming leave, and the planners.' : 'The team, and the planners.'}
-      </p>
-
-      <div className="mt-4 flex flex-wrap rounded-lg border border-slate-line bg-canvas-raised overflow-hidden w-fit">
+      <div className="flex flex-wrap rounded-lg border border-slate-line bg-canvas-raised overflow-hidden w-fit">
         {tabs.map(t => (
           <button
             key={t.key}

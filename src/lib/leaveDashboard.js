@@ -34,12 +34,24 @@ export function totalDaysUsedInYear(requests, year) {
 // (the requester-entered count — a request's [date_from, date_to] can be
 // wider than this, e.g. a padding weekend that doesn't reduce the balance)
 // over the full date range. annual_leave_days is a single count for the
-// whole request, not attributable to specific days, so a request is
-// attributed entirely to the range if its date_from falls inside it, rather
-// than split/prorated — the same all-or-nothing rule the calendar-year
-// wrapper below already used, generalised to an arbitrary range so a
-// request isn't double-counted (or dropped) across two overlapping range
-// queries.
+// whole request, not attributable to specific days, so a request that
+// overlaps [rangeFrom, rangeTo] is given a share of annual_leave_days
+// proportional to how many of its calendar days fall inside the range (out
+// of its own full date_from..date_to span) — e.g. a 5-day annual request
+// spanning 29 Dec-2 Jan (3 days in one year, 2 in the next) shows 3 in the
+// first year's tracker and 2 in the second's once the tracker resets on 1
+// January, instead of dumping the whole count into whichever year the
+// request happens to start in. A request entirely inside one range gets
+// the full annual_leave_days, same as before.
+//
+// This can't be exact for a request that also has padding (annual_leave_days
+// less than the full range) — there's no per-day data saying which specific
+// calendar days are the "core" annual days vs. the padding, so the
+// proportional share is the best available estimate in that case, not a
+// precise attribution. Because each range is rounded independently, two
+// complementary ranges (e.g. either side of a year boundary) can very
+// rarely land a day off from the true total as a result — an acceptable
+// trade-off for a flat count instead of day-level data.
 //
 // Rows from before annual_leave_days existed fall back to totalDaysInRange
 // (clipped to the range, since there's no per-day data to attribute
@@ -49,7 +61,12 @@ export function annualDaysInRange(approvedAnnualRequests, rangeFrom, rangeTo) {
   const legacy = approvedAnnualRequests.filter(r => r.annual_leave_days == null)
   let days = totalDaysInRange(legacy, rangeFrom, rangeTo)
   for (const r of explicit) {
-    if (r.date_from >= rangeFrom && r.date_from <= rangeTo) days += Number(r.annual_leave_days)
+    const totalRangeDays = datesInRange(r.date_from, r.date_to).length
+    const overlapFrom = r.date_from < rangeFrom ? rangeFrom : r.date_from
+    const overlapTo = r.date_to > rangeTo ? rangeTo : r.date_to
+    if (overlapFrom > overlapTo) continue
+    const overlapDays = datesInRange(overlapFrom, overlapTo).length
+    days += Math.round(Number(r.annual_leave_days) * overlapDays / totalRangeDays)
   }
   return days
 }

@@ -82,10 +82,15 @@ export async function getApprovalWarnings(leaveRequest) {
   })
 
   // ── 2. Annual leave balance ──
-  // annual_leave_days is a single count for the whole request (not
-  // attributable to specific days), so — same as annualDaysUsedInYear —
-  // it's attributed entirely to the year the request starts in rather
-  // than split across a year boundary. Legacy rows without it (either this
+  // This pending request's own day count is attributed wholesale to the
+  // year it starts in — a deliberate simplification for this one-off
+  // approval-time warning check, unlike annualDaysUsedInYear (used just
+  // below for historical daysAlreadyApproved), which prorates a request
+  // across a year boundary by calendar-day overlap. Extending this check to
+  // weigh both years for a boundary-spanning pending request would need it
+  // to evaluate two balances at once instead of one; not done here since
+  // this is a soft Tier-2 warning, not the balance figure shown on the
+  // tracker itself. Legacy rows without annual_leave_days (either this
   // request under review, or a historical approved one) fall back to the
   // full date-range day count.
   const balanceWarnings = []

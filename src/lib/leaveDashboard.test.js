@@ -32,9 +32,27 @@ describe('annualDaysInRange', () => {
     expect(days).toBe(5)
   })
 
-  it('does not attribute annual_leave_days when date_from falls outside the range, even if the range overlaps the tail', () => {
+  it('prorates annual_leave_days by calendar-day overlap when the request starts before the range', () => {
+    // Full span 2026-03-28..2026-04-03 is 7 days; 3 of those (Apr 1-3) fall
+    // inside the range, so 5 * 3/7 rounds to 2.
     const days = annualDaysInRange(
       [{ date_from: '2026-03-28', date_to: '2026-04-03', annual_leave_days: 5 }],
+      '2026-04-01', '2026-06-30'
+    )
+    expect(days).toBe(2)
+  })
+
+  it('splits a year-boundary-spanning request across both years, exactly, in the no-padding case', () => {
+    // 5-day annual request, no padding (annual_leave_days === full span) —
+    // 29-31 Dec in 2025, 1-2 Jan in 2026.
+    const request = { date_from: '2025-12-29', date_to: '2026-01-02', annual_leave_days: 5 }
+    expect(annualDaysInRange([request], '2025-01-01', '2025-12-31')).toBe(3)
+    expect(annualDaysInRange([request], '2026-01-01', '2026-12-31')).toBe(2)
+  })
+
+  it('returns 0 when the request does not overlap the range at all', () => {
+    const days = annualDaysInRange(
+      [{ date_from: '2026-01-01', date_to: '2026-01-05', annual_leave_days: 5 }],
       '2026-04-01', '2026-06-30'
     )
     expect(days).toBe(0)
@@ -151,6 +169,22 @@ describe('annualDaysUsedInYear', () => {
     expect(days).toBe(5)
   })
 
+  it('shows the full count in the new year for a request entirely after 1 January', () => {
+    const days = annualDaysUsedInYear(
+      [{ date_from: '2026-01-01', date_to: '2026-01-08', annual_leave_days: 5 }],
+      2026
+    )
+    expect(days).toBe(5)
+  })
+
+  it('splits across the 1 January tracker reset for a request spanning both years (no padding)', () => {
+    // 29 Dec - 2 Jan, 5 annual leave days, no padding -- 3 days before the
+    // reset, 2 after.
+    const requests = [{ date_from: '2025-12-29', date_to: '2026-01-02', annual_leave_days: 5 }]
+    expect(annualDaysUsedInYear(requests, 2025)).toBe(3)
+    expect(annualDaysUsedInYear(requests, 2026)).toBe(2)
+  })
+
   it('mixes annual_leave_days rows with legacy (pre-migration) rows in the same total', () => {
     const days = annualDaysUsedInYear(
       [
@@ -162,10 +196,11 @@ describe('annualDaysUsedInYear', () => {
     expect(days).toBe(7)
   })
 
-  it('attributes annual_leave_days entirely to the year the request starts in', () => {
+  it('prorates annual_leave_days across a year boundary instead of dumping it all into the starting year', () => {
+    // Full span is 5 days (29-31 Dec + 1-2 Jan); 3 in 2026, 2 in 2027.
     const requests = [{ date_from: '2026-12-29', date_to: '2027-01-02', annual_leave_days: 3 }]
-    expect(annualDaysUsedInYear(requests, 2026)).toBe(3)
-    expect(annualDaysUsedInYear(requests, 2027)).toBe(0) // not double-counted into the following year
+    expect(annualDaysUsedInYear(requests, 2026)).toBe(2) // 3 * 3/5 = 1.8, rounds to 2
+    expect(annualDaysUsedInYear(requests, 2027)).toBe(1) // 3 * 2/5 = 1.2, rounds to 1 -- sums back to 3
   })
 })
 

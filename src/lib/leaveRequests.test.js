@@ -11,9 +11,12 @@ import {
 import { overlapsPlannedWeekend } from './weekendPlanner'
 
 describe('SPECIAL_LEAVE_TYPES', () => {
-  it('excludes annual and sick but includes every other leave type', () => {
+  it('excludes annual, sick, and weekend_exception but includes every other leave type', () => {
     expect(SPECIAL_LEAVE_TYPES).not.toContain('annual')
     expect(SPECIAL_LEAVE_TYPES).not.toContain('sick')
+    // weekend_exception doesn't reduce required hours (it's an exception to
+    // which weekend you work, not leave), so it shouldn't count as "days off".
+    expect(SPECIAL_LEAVE_TYPES).not.toContain('weekend_exception')
     expect(SPECIAL_LEAVE_TYPES).toEqual(expect.arrayContaining(['family_responsibility', 'study', 'workshop', 'conference']))
   })
 })

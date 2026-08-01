@@ -11,14 +11,14 @@ export default function MobileAuthHero() {
       <h1 className="font-serif text-[66px] font-semibold leading-none text-ink">
         <RotaCat />
       </h1>
-      <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
+      <p className="mt-[5dvh] whitespace-nowrap text-[14.7px] text-ink-muted">
         Smart ED scheduling, made{' '}
         <span className="relative inline-block">
           effortless
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[14.5px] -right-[12.5px] h-[25px] w-[25px] -rotate-8 select-none"
+            className="absolute -top-[15.5px] -right-[13.5px] h-[27px] w-[27px] -rotate-8 select-none"
             draggable="false"
           />
         </span>

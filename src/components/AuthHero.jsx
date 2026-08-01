@@ -12,14 +12,14 @@ export default function AuthHero() {
       <h1 className="font-serif text-6xl font-semibold leading-none text-ink md:text-[82.5px]">
         <RotaCat />
       </h1>
-      <p className="mt-3 whitespace-nowrap text-[14.7px] text-ink-muted sm:text-[16.8px] md:text-[18.9px] md:mt-[15px] lg:text-[23.1px]">
+      <p className="mt-3 whitespace-nowrap text-[14.7px] text-ink-muted sm:text-[16.8px] md:text-[18.9px] md:mt-10 lg:text-[23.1px]">
         Smart ED scheduling, made{' '}
         <span className="relative inline-block">
           effortless
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[14.5px] -right-[12.5px] h-[25px] w-[25px] -rotate-8 select-none"
+            className="absolute -top-[15.5px] -right-[13.5px] h-[27px] w-[27px] -rotate-8 select-none"
             draggable="false"
           />
         </span>

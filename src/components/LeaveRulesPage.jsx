@@ -88,7 +88,7 @@ export default function LeaveRulesPage() {
       <p className="text-xs text-ink-muted">
         Source: <a href={SHEET_URL} target="_blank" rel="noreferrer" className="underline hover:text-ink">EC Leave Planner sheet</a>
         {' · '}
-        <a href={GITHUB_RULES_URL} target="_blank" rel="noreferrer" className="underline hover:text-ink">Full written policy (EC_LEAVE_PLANNER_RULES.md)</a>
+        <a href={GITHUB_RULES_URL} target="_blank" rel="noreferrer" className="underline hover:text-ink">EC Leave Rules</a>
       </p>
     </div>
   )

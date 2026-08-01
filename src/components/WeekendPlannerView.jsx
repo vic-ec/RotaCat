@@ -26,13 +26,18 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-// Needs planning (amber) always wins as the genuinely actionable signal;
-// otherwise alternate light teal/rose-pink by weekend so consecutive cards
-// read as distinct rows, using the same accent/rose tokens as the rest of
-// the app's decorative (non-status) colour rather than inventing new ones.
-function weekendCardClass(needsPlanning, saturday) {
-  if (needsPlanning) return 'border-flagAmber/50 bg-flagAmber/5'
-  return isEvenWeekend(saturday) ? 'bg-accent-tint' : 'bg-rose-tint'
+// A weekend's background/text theme always follows even/odd parity — a
+// deliberate design choice that "Needs planning" no longer overrides it
+// (that's now signalled by a rose pillbox badge and rose open-slot counts
+// instead, layered on top of whichever theme applies). Reuses the existing
+// accent/flagAmber tokens for their colour values rather than inventing
+// near-duplicates, even though flagAmber is otherwise reserved for
+// roster-state semantics elsewhere in the app — this view is an explicit,
+// deliberate exception to that convention.
+function weekendColorScheme(saturday) {
+  return isEvenWeekend(saturday)
+    ? { bg: 'bg-accent-tint', text: 'text-accent' }
+    : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 }
 
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
@@ -48,9 +53,10 @@ function weekendCardClass(needsPlanning, saturday) {
 // scrolling to answer; one month at a time instead of ~26 cards at once;
 // My Schedule/My Requests/All(/Needs planning, admin-only) filters instead
 // of a wall of red; denser role-row cards with open-slot counts, surnames
-// only, and alternating teal/rose backgrounds so consecutive weekends read
-// as distinct rows; amber (not red) for incomplete coverage, reserving
-// stronger colour for the genuinely actionable case.
+// only, and alternating teal/amber backgrounds+text per weekend so
+// consecutive weekends read as distinct rows; a rose "Needs planning"
+// pillbox and rose open-slot counts layered on top, reserving that
+// stronger colour for the genuinely actionable signal rather than red.
 export default function WeekendPlannerView() {
   const { isAdmin, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
@@ -145,6 +151,7 @@ export default function WeekendPlannerView() {
   const nextWeekend = nextWeekendSaturday(today)
   const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
+  const nextWeekendScheme = weekendColorScheme(nextWeekend)
 
   // Doctors already placed SOMEWHERE this weekend (any group) — the DB's
   // unique(weekend_saturday, profile_id) means a doctor can only fill one
@@ -220,13 +227,13 @@ export default function WeekendPlannerView() {
 
       {!loading && !error && (
         <>
-          <div className={`mt-6 card p-4 ${weekendCardClass(nextWeekendCoverage.openGroups.length > 0, nextWeekend)}`}>
+          <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-            <p className="mt-0.5 text-base font-semibold text-ink">{nextWeekend} → {addDays(nextWeekend, 1)}</p>
+            <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{nextWeekend} → {addDays(nextWeekend, 1)}</p>
             <p className="mt-1 text-sm text-ink-light">
               {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
               {nextWeekendCoverage.openGroups.length > 0 && (
-                <> — {nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</>
+                <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
               )}
             </p>
             {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
@@ -268,14 +275,15 @@ export default function WeekendPlannerView() {
               const assignedIds = assignedDoctorIds(saturday)
               const sunday = addDays(saturday, 1)
               const myRequest = myRequestsBySaturday.get(saturday)
+              const scheme = weekendColorScheme(saturday)
 
               return (
                 <div
                   key={saturday}
-                  className={`card p-4 ${weekendCardClass(needsPlanning, saturday)}`}
+                  className={`card p-4 ${scheme.bg}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-ink">{saturday} → {sunday}</p>
+                    <p className={`text-sm font-medium ${scheme.text}`}>{saturday} → {sunday}</p>
                     <div className="flex items-center gap-2">
                       {myRequest && (
                         <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -283,7 +291,7 @@ export default function WeekendPlannerView() {
                         </span>
                       )}
                       {needsPlanning && (
-                        <span className="text-xs font-semibold uppercase tracking-wide text-flagAmber">
+                        <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
                           Needs planning
                         </span>
                       )}
@@ -302,19 +310,19 @@ export default function WeekendPlannerView() {
                           <span className="text-sm text-ink-muted">{group.label}</span>
                           <div className="flex items-center gap-2">
                             {groupEntries.length === 0 ? (
-                              <span className="text-xs font-medium text-flagAmber">1 open</span>
+                              <span className="text-xs font-medium text-rose-dark">1 open</span>
                             ) : (
                               groupEntries.map(entry => {
                                 const doctor = doctorById.get(entry.profile_id)
                                 return (
-                                  <span key={entry.id} className="flex items-center gap-1 text-sm text-ink">
+                                  <span key={entry.id} className={`flex items-center gap-1 text-sm ${scheme.text}`}>
                                     {doctor ? doctor.surname : '(unknown)'}
                                     {isAdmin && (
                                       <button
                                         type="button"
                                         onClick={() => removeEntry(entry.id)}
                                         disabled={saving}
-                                        className="text-ink-muted hover:text-flagRed"
+                                        className={`${scheme.text} hover:text-flagRed`}
                                         aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
                                       >
                                         <XIcon className="h-3 w-3" />
@@ -347,7 +355,7 @@ export default function WeekendPlannerView() {
                                   type="button"
                                   onClick={() => setOpenPicker(pickerKey)}
                                   disabled={saving || availableDoctors.length === 0}
-                                  className="flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink disabled:opacity-40"
+                                  className={`flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] ${scheme.text} hover:bg-canvas-sunken disabled:opacity-40`}
                                 >
                                   +
                                 </button>

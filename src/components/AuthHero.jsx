@@ -33,6 +33,12 @@ export default function AuthHero() {
           draggable="false"
         />
       </div>
+
+      {/* Smaller and lighter than the tagline above — a supporting line,
+          not a second headline. */}
+      <p className="mt-2 max-w-[220px] text-center text-xs text-ink-muted/70 sm:text-[13px] md:mt-4 md:max-w-[260px] md:text-sm">
+        Build fair rotas, manage leave, and keep every shift covered.
+      </p>
     </div>
   )
 }

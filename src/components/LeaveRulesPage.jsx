@@ -28,19 +28,10 @@ export default function LeaveRulesPage() {
 
       <Section title="General rules (both planners)">
         <ul className="list-disc space-y-1 pl-5">
-          <li>Use <strong>surnames</strong> (not first names) when populating a planner.</li>
+          <li><strong>Surnames</strong> are used to populate planners.</li>
           <li>No more than one person per slot.</li>
-          <li>Names are organised into groups and rotations. If your name appears in a specific colour for a given month, you work <strong>all</strong> the weekends in that colour that month.</li>
+          <li>Names are organised into groups and rotations. If your name appears in a specific colour for a given month, you work <strong>all</strong> the weekends in that specific colour.</li>
         </ul>
-      </Section>
-
-      <Section title="Consultant leave privacy">
-        <p>
-          A Consultant&rsquo;s leave request — of <strong>any</strong> leave type, including a weekend exception — is only visible to an admin, the Consultant themselves, and other Consultants. It&rsquo;s invisible to every other non-admin viewer (other doctor categories, clerks), even once approved. This is enforced in the database, not just hidden on screen.
-        </p>
-        <p>
-          The roster grid is unaffected — everyone can still see which Consultant is on call for a given date there, since that&rsquo;s roster assignment data, not a leave request.
-        </p>
       </Section>
 
       <Section title="Annual Leave">
@@ -53,7 +44,9 @@ export default function LeaveRulesPage() {
           <li>All actual annual leave days taken (per the approved Leave Form) are shown in <strong>bold</strong> on the sheet.</li>
         </ul>
         <p>
-          A hard cap on how many doctors from each category (MO, Registrar, EC COSMO/Intern, OT COSMO/Intern) can be on approved or pending annual leave at once is enforced automatically at submission — plus a combined cap across MO+Registrar+EC COSMO/Intern together. See the Annual Leave tab for the current numbers. Consultants have their own uncapped &ldquo;Other&rdquo; column, visible only per the Consultant leave privacy rule above.
+          <li>A maximum of 3 (three) doctors can be on leave at any given time. No more than 1 (one)EC Intern OR OT intern can be on leave at a time.</li>
+          <li><strong>OT interns doing OT in the EC:</strong> please ensure you discuss your leave requests with your supervisor <strong>AND</strong> the EC rostering team to prevent double-bookings.</li>
+        </p>
         </p>
         <p>
           <strong>Total days vs. annual leave days:</strong> you&rsquo;re unavailable for rostering for the whole date range you enter, but you separately state how many of those days actually count as annual leave — since that depends on the padding-weekend rules above and needs a human judgement call, not something derived automatically. E.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 don&rsquo;t reduce your balance but still need their hours made up elsewhere. Every list of leave requests shows both numbers when they differ.
@@ -65,15 +58,29 @@ export default function LeaveRulesPage() {
           <li>Covers single days off, courses/CPD, and special leave requests.</li>
           <li>These do <strong>not</strong> count against the 22-day annual leave allowance.</li>
           <li>The requested day/shift is made up elsewhere, <strong>unless</strong> it&rsquo;s flagged as a &ldquo;special leave day.&rdquo;</li>
-          <li>Pending requests of any leave type (including annual leave awaiting approval) also show on the Special tab, since they haven&rsquo;t been approved onto the Annual Leave planner yet.</li>
-        </ul>
+          <li><strong>Courses:</strong>strong> Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
+					<li>A formal Leave Form must be submitted and approved - Courses done will count as "Special Leave".</li>
+					<li>Please specify what course you are doing when requesting "Special Leave Days" e.g: Bottomley (ACLS)</li>
+					<li><strong>Single-Day-Off Requests:</strong> The requested SINGLE day off CANNOT be "TAILED ONTO" requests made as per LEAVE PLANNER above.</li>
+					<li>The requested SINGLE day off CANNOT be requested "in ADDITION TO" Annual leave requests as per LEAVE PLANNER above.</li>
+					<li>The requested SINGLE day off CAN be requested "in ADDITION TO" an "ON" W/E off request.</li>
+					<li>The SINGLE day requested off can be ANY day of the week - hours will be made up on another (roster beneficial) day.</li>
+					<li>The SINGLE day requested off can be ANY day of the week - hours will be made up on another (roster beneficial) day.</li>												
+					<li>If the requested SINGLE day off is a FRIDAY - Indicate if wanted as a "Post-Call" day by adding (PC) in the leave request motivation.</li> 												
+					<li>If the requested FRIDAY is NOT a "Post-Call" day - The hours will be made-up on another day.</li>												
+					<li>A SINGLE W/E Day on an "ON" W/E can also be requested - The W/E day will be worked back on another W/E during month.</li>
+          </ul>
       </Section>
 
-      <Section title="Weekend Request Planner">
+      <Section title="Weekend Requests Planner">
         <ul className="list-disc space-y-1 pl-5">
-          <li>Weekend rotations are organised in columns by MO / Registrar / EC COSMO / OT COSMO, colour-coded per doctor group.</li>
+          <li>Weekend rotations are organised in columns by MO / Registrar / EC COSMO/Intern / OT COSMO/Intern, colour-coded per doctor group.</li>
           <li>If your name is listed in a specific colour for a given month, you work <strong>every</strong> weekend in that colour that month.</li>
           <li>No more than one person per slot.</li>
+          <li>If you request an "ON" W/E off - you will be rostered on one of your "OFF" W/E's (to make up your W/E hours).</li>
+          <li>If you do not want this - You have to put in for Leave Days. Please indicate the number of annual leave days you wish to take. A formal Leave Form will have to be submitted as per normal.</li>
+          <li>The request will be captured on the LEAVE PLANNER and WEEKEND PLANNER if approved.</li>
+					<li>This specific "off" W/E off will be CONSIDERED - but will be ROSTER NEEDS DEPENDENT.</li>
         </ul>
       </Section>
 

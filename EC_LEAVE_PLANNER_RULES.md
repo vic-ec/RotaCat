@@ -108,8 +108,10 @@ them. These numbers are configurable in Supabase (`constraints` table:
 ## How to request leave
 
 1. Submit the appropriate request through the app's Leave tab (**My
-   leave**) — choose the correct leave type (Annual, Single day, Special
-   leave, Course/CPD, Sick, or Weekend exception); this is the same
+   leave**) — choose the correct leave type: Annual, Sick, Family
+   responsibility, Study, Special, Prenatal, Maternity, Paternity,
+   Workshop, Course/CPD, Conference, Single day, or Weekend exception.
+   Everything except Annual and Sick is the same "everything else"
    distinction the sheet draws between the Annual Leave Planner and the
    Special Requests Planner.
 2. An admin reviews and approves (or rejects) the request before it's

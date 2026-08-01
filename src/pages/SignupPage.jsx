@@ -505,7 +505,7 @@ export default function SignupPage() {
       <div className="flex h-dvh flex-col bg-canvas-raised md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[34dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
+        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
           <p className="text-center text-2xl font-semibold text-ink">Create your account</p>
           <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (

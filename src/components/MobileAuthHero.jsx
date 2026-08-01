@@ -11,7 +11,7 @@ export default function MobileAuthHero() {
       <h1 className="font-serif text-[66px] font-semibold leading-none text-ink">
         <RotaCat />
       </h1>
-      <p className="mt-[5dvh] whitespace-nowrap text-[14.7px] text-ink-muted">
+      <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
         Smart ED scheduling, made{' '}
         <span className="relative inline-block">
           effortless
@@ -24,7 +24,7 @@ export default function MobileAuthHero() {
         </span>
       </p>
 
-      <div className="relative mt-[5dvh]">
+      <div className="relative mt-2">
         <img
           src={robotLily}
           alt=""

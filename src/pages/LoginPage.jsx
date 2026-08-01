@@ -311,7 +311,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full rounded-lg bg-accent py-6 text-[14.7px] font-bold text-white
+              className="w-full rounded-lg bg-accent py-6 text-base font-bold text-white
                 transition-colors hover:bg-accent-dark active:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
             >
@@ -357,10 +357,9 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={openSignInModal}
-                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-[18.9px] font-bold text-white
+                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-lg font-bold text-white
                       transition-colors hover:bg-accent-dark active:bg-accent-dark
-                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                      lg:text-[23.1px]"
+                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
                   >
                     Sign in
                   </button>

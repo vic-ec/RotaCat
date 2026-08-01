@@ -10,7 +10,7 @@ export default function WeekendPlannerPage() {
   if (isLocum) return <Navigate to="/" replace />
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-7xl">
       <h1 className="font-display text-2xl font-bold text-ink">Weekend planner</h1>
       <p className="mt-1 text-sm text-ink-muted">
         {isAdmin

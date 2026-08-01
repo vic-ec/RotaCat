@@ -1,6 +1,6 @@
 export default function PlaceholderPage({ title, description }) {
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-7xl">
       <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
       <div className="card mt-6 p-8 text-center">
         <p className="text-sm text-ink-muted">

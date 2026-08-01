@@ -216,7 +216,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-7xl">
       <h1 className="font-display text-2xl font-bold text-ink">
         Welcome, {profile?.name || 'there'}
       </h1>

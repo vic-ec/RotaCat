@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, columnForLeaveCategory,
   quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
 } from '../lib/leaveYearGrid'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
@@ -8,13 +8,6 @@ import { annualDaysSummary } from '../lib/leaveRequests'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
-const COLUMN_DOT_COLOR = {
-  MO: 'bg-accent',
-  Registrar: 'bg-rose',
-  EC_COSMO: 'bg-amber-500',
-  OT_COSMO: 'bg-blue-500',
-  Other: 'bg-ink-muted',
-}
 
 // Shared leave-planner grid for the Annual Leave and Special Leave tabs.
 // Desktop (lg+) gets the full year-at-a-glance spreadsheet-style layout (4

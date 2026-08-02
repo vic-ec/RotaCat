@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { getApprovalWarnings } from '../lib/leaveApprovals'
-import { createNotification } from '../lib/notifications'
+import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -45,21 +44,13 @@ export default function LeaveApprovalQueue() {
 
   async function approve(request) {
     setActioningId(request.id)
-    const { error: err } = await supabase.from('leave_requests').update({
-      status: 'approved',
-      reviewed_by: user.id,
-      reviewed_at: new Date().toISOString(),
-    }).eq('id', request.id)
-    if (err) { setError(err.message); setActioningId(null); return }
-
-    await createNotification({
-      profileId: request.profile_id,
-      type: 'leave_approved',
-      title: 'Leave request approved',
-      body: `Your ${LEAVE_TYPE_LABELS[request.leave_type]} request (${request.date_from} to ${request.date_to}) was approved.`,
-      link: '/leave',
-    })
-
+    try {
+      await approveLeaveRequest(request, user.id)
+    } catch (err) {
+      setError(err.message)
+      setActioningId(null)
+      return
+    }
     setConfirmingApproveId(null)
     setRequests(rs => rs.filter(r => r.id !== request.id))
     setActioningId(null)
@@ -67,22 +58,13 @@ export default function LeaveApprovalQueue() {
 
   async function reject(request) {
     setActioningId(request.id)
-    const { error: err } = await supabase.from('leave_requests').update({
-      status: 'rejected',
-      admin_notes: rejectNotes || null,
-      reviewed_by: user.id,
-      reviewed_at: new Date().toISOString(),
-    }).eq('id', request.id)
-    if (err) { setError(err.message); setActioningId(null); return }
-
-    await createNotification({
-      profileId: request.profile_id,
-      type: 'leave_rejected',
-      title: 'Leave request rejected',
-      body: `Your ${LEAVE_TYPE_LABELS[request.leave_type]} request (${request.date_from} to ${request.date_to}) was rejected.${rejectNotes ? ` Note: ${rejectNotes}` : ''}`,
-      link: '/leave',
-    })
-
+    try {
+      await rejectLeaveRequest(request, user.id, rejectNotes)
+    } catch (err) {
+      setError(err.message)
+      setActioningId(null)
+      return
+    }
     setRejectingId(null)
     setRejectNotes('')
     setRequests(rs => rs.filter(r => r.id !== request.id))

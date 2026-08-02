@@ -9,6 +9,7 @@ import { annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 
 function hasWarnings(w) {
@@ -83,7 +84,13 @@ export default function MonthWorkspace({
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-lg border border-slate-line">
+      {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
+          Mobile (<lg): a compact glance grid (day number + category dots
+          only, same treatment as the Special Leave planner's mobile
+          calendar in LeaveYearGrid.jsx) — reading surnames happens in the
+          tap-opened day sheet below instead of being crammed into a
+          phone-width cell. */}
+      <div className="mt-3 hidden overflow-hidden rounded-lg border border-slate-line lg:block">
         <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
           {WEEKDAY_NAMES.map(d => (
             <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-ink-muted">{d}</div>
@@ -102,6 +109,27 @@ export default function MonthWorkspace({
             />
           ) : (
             <div key={`blank-${i}`} className="min-h-[100px] border-b border-r border-slate-line bg-canvas-sunken/30" />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 lg:hidden">
+        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
+          {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
+        </div>
+        <div className="mt-1 grid grid-cols-7 gap-1">
+          {weeks.flat().map((date, i) => date ? (
+            <MobileDayCell
+              key={date}
+              date={date}
+              isToday={date === today}
+              isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
+              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }).keys()]}
+              anyAtCap={dayCapacitySummary(date, countByColumnPerDate, maxByColumnKey).some(c => c.atCap)}
+              onClick={() => setSelectedDate(date)}
+            />
+          ) : (
+            <div key={`blank-${i}`} />
           ))}
         </div>
       </div>
@@ -157,6 +185,28 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacity, onClick }) 
           </div>
         ))}
       </div>
+    </button>
+  )
+}
+
+function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, anyAtCap, onClick }) {
+  const dateNum = Number(date.slice(-2))
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${
+        isPublicHoliday ? 'border-accent/40 bg-accent-tint' : 'border-slate-line bg-canvas-raised'
+      } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
+    >
+      <span className={isPublicHoliday ? 'font-semibold text-accent' : 'text-ink'}>{dateNum}</span>
+      <span className="mt-0.5 flex h-1.5 gap-0.5">
+        {columnsPresent.map(key => (
+          <span key={key} className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[key]}`} />
+        ))}
+      </span>
+      {anyAtCap && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-dark" title="At capacity" />}
     </button>
   )
 }
@@ -220,8 +270,8 @@ function DayReviewModal({
   const formattedDate = formatWeekdayDate(date)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
-      <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>

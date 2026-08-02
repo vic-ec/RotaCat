@@ -187,13 +187,13 @@ export default function AnnualPlannerOverview({
             <InspectorStat icon={TriangleAlert} label="Capacity warnings" value={`${monthCards[selectedMonth - 1].pressureDayCount} days`} />
           </div>
 
-          <div className="mt-3 space-y-1 border-t border-slate-line pt-3">
+          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Leave Slot Utilization</p>
             {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
               const state = LEAVE_CAPACITY_STATES[level]
               return (
                 <div key={level} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-ink-light">
+                  <span className="flex items-center gap-1.5 text-ink-muted">
                     <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3 slots taken
                   </span>
                   <span className={days > 0 ? `font-medium ${state.text}` : 'text-ink-muted'}>
@@ -209,7 +209,7 @@ export default function AnnualPlannerOverview({
               <p className="text-sm font-semibold text-ink">
                 Leave during {Number(selectedRange.from.slice(-2))}–{Number(selectedRange.to.slice(-2))} {selectedMonthLabel.slice(0, 3)}
               </p>
-              <p className="mt-0.5 text-xs text-ink-muted">
+              <p className="mt-0.5 text-sm text-ink-muted">
                 {rangeSummary.people} {rangeSummary.people === 1 ? 'person' : 'people'} · {rangeSummary.approved} approved · {rangeSummary.pending} pending
               </p>
               <ul className="mt-2 space-y-0.5">
@@ -218,14 +218,21 @@ export default function AnnualPlannerOverview({
                     <button
                       type="button"
                       onClick={() => setExpandedProfileId(id => id === e.profileId ? null : e.profileId)}
-                      className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
+                      className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
                     >
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      <span className="flex items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
+                        }`}>
+                          {e.surname}
+                        </span>
+                        <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category)}</span>
+                      </span>
+                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
                       }`}>
-                        {e.surname}
+                        {e.status === 'approved' ? 'Approved' : 'Pending'}
                       </span>
-                      <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category)}</span>
                     </button>
                     {expandedProfileId === e.profileId && (
                       <p className="pl-2 pb-1 text-xs text-ink-muted">Full leave: {formatShortDateRange(e.dateFrom, e.dateTo)}</p>
@@ -287,14 +294,15 @@ function MonthCard({ month, filter, isSelected, onSelect }) {
         {cells.map((day, i) => {
           if (!day) return <span key={`blank-${i}`} className="h-3 w-3" />
           const dim = filter === 'capacity' && !day.isPressure
-          // A public holiday gets a darker shade of its own capacity colour
-          // rather than a ring — a ring reads poorly at this size, and a
-          // darker fill still makes "this day is a PH" obvious without
-          // losing the capacity-state colour underneath it.
-          const cellClass = dim ? 'bg-canvas-sunken/40' : day.isPublicHoliday ? day.capacityState.dark : day.capacityState.fill
+          const cellClass = dim ? 'bg-canvas-sunken/40' : day.capacityState.fill
+          // A public holiday keeps its normal capacity-state fill (so the
+          // colour stays readable) plus a border in a darker shade of that
+          // same colour, rather than swapping the fill for a flat dark
+          // block that hid which capacity state the day was actually in.
+          const phRing = day.isPublicHoliday && !dim ? `ring-1 ring-inset ${day.capacityState.ringDark}` : ''
           return (
             <span key={day.date} className="h-3 w-3" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
-              <span className={`block h-3 w-3 rounded-sm ${cellClass}`} />
+              <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
             </span>
           )
         })}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
@@ -45,16 +46,22 @@ function reshapeByDate(byDate) {
 // that request's month with its day pre-opened, instead of hunting for it
 // manually — LeavePlannerPage.jsx reads those query params and passes them
 // through as these props, then clears them via onDeepLinkConsumed once
-// they've seeded this component's initial state (a one-shot hand-off, not a
-// live-bound value).
+// they've seeded this component's own persisted state below (a one-shot
+// hand-off, not a live-bound value).
+//
+// year/mode/workspaceMonth live in the URL (`ayear`/`aview`/`amonth`), not
+// plain useState — mirrors LeavePlannerPage.jsx's `?tab=&sub=` (see the
+// comment there for why: a backgrounded mobile browser/PWA can get killed
+// and reloaded by the OS at any time, which remounts this component from
+// scratch; plain state would silently drop the user back at the
+// current-month overview every time that happens). MonthWorkspace.jsx does
+// the same for which day's review sheet is open.
 export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDate, onDeepLinkConsumed }) {
   const { profile } = useAuth()
-  const [year, setYear] = useState(() => deepLinkMonth ? Number(deepLinkMonth.slice(0, 4)) : new Date().getFullYear())
-  const [mode, setMode] = useState(deepLinkMonth ? 'workspace' : 'overview') // 'overview' | 'workspace'
-  const [workspaceMonth, setWorkspaceMonth] = useState(() => {
-    if (!deepLinkMonth) return new Date().getMonth() + 1
-    return Number(deepLinkMonth.slice(5, 7))
-  })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const year = deepLinkMonth ? Number(deepLinkMonth.slice(0, 4)) : Number(searchParams.get('ayear')) || new Date().getFullYear()
+  const mode = (deepLinkMonth || searchParams.get('aview') === 'workspace') ? 'workspace' : 'overview'
+  const workspaceMonth = deepLinkMonth ? Number(deepLinkMonth.slice(5, 7)) : Number(searchParams.get('amonth')) || new Date().getMonth() + 1
   const [highlightDate, setHighlightDate] = useState(deepLinkHighlightDate || null)
   const [approvedByDate, setApprovedByDate] = useState(new Map())
   const [pendingByDate, setPendingByDate] = useState(new Map())
@@ -71,12 +78,22 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
   useEffect(() => { load() }, [year]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; including it would refetch in a loop
 
   // One-shot: a deep link (from the Requests queue's "View Calendar" action)
-  // only needs to seed the initial year/mode/workspaceMonth/highlightDate
-  // state above — once that's happened, tell the caller so it can strip
-  // `month`/`highlight` back out of the URL, or switching planner sub-tabs
-  // and back would re-open this same stale workspace/highlight again.
+  // seeds this component's own persisted ayear/aview/amonth params (so it
+  // keeps surviving reloads the same way regular navigation does), then
+  // tells the caller so it can strip `month`/`highlight` back out of the
+  // URL — otherwise switching planner sub-tabs and back would re-open this
+  // same stale workspace/highlight again.
   useEffect(() => {
-    if (deepLinkMonth) onDeepLinkConsumed?.()
+    if (deepLinkMonth) {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.set('ayear', String(year))
+        next.set('aview', 'workspace')
+        next.set('amonth', String(workspaceMonth))
+        return next
+      }, { replace: true })
+      onDeepLinkConsumed?.()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, deliberately not re-run if these props change later
   }, [])
 
@@ -130,14 +147,38 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     setLoading(false)
   }
 
+  function setYear(newYear) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('ayear', String(newYear))
+      return next
+    }, { replace: true })
+  }
+
   function openWorkspace(month) {
-    setWorkspaceMonth(month)
-    setMode('workspace')
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('amonth', String(month))
+      next.set('aview', 'workspace')
+      return next
+    }, { replace: true })
   }
 
   function changeWorkspaceMonth(newYear, newMonth) {
-    if (newYear !== year) setYear(newYear)
-    setWorkspaceMonth(newMonth)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('ayear', String(newYear))
+      next.set('amonth', String(newMonth))
+      return next
+    }, { replace: true })
+  }
+
+  function backToOverview() {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('aview')
+      return next
+    }, { replace: true })
   }
 
   return (
@@ -194,7 +235,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             maxByColumnKey={maxByColumnKey}
             maxFullTime={maxFullTime}
             onDataChanged={load}
-            onBack={() => setMode('overview')}
+            onBack={backToOverview}
           />
         )
       )}

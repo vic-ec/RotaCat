@@ -60,8 +60,8 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-function renderPage() {
-  return render(<AnnualLeavePlanner />, { wrapper: MemoryRouter })
+function renderPage(initialEntries = ['/']) {
+  return render(<AnnualLeavePlanner />, { wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter> })
 }
 
 describe('AnnualLeavePlanner', () => {
@@ -133,6 +133,13 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
   })
 
+  it('shows a right-aligned Approved/Pending status pill for each name in the "Leave during" list', async () => {
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+    // Anderson + Botha, both approved on 12-13 Aug.
+    expect(screen.getAllByText('Approved')).toHaveLength(2)
+  })
+
   it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
     mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-10', name: "Women's Day" }], error: null }
     renderPage()
@@ -189,6 +196,17 @@ describe('AnnualLeavePlanner', () => {
 
     await user.click(screen.getByRole('button', { name: '← Back to overview' }))
     expect(await screen.findByText('Selected month')).toBeInTheDocument()
+  })
+
+  it('restores the month workspace straight from the URL — surviving a background-triggered reload without a deep link', async () => {
+    // No deepLinkMonth prop involved here — this is the ongoing ayear/aview/
+    // amonth persistence, seeded purely by the URL a remount reads on mount
+    // (see AnnualLeavePlanner.jsx's header comment for why plain useState
+    // can't survive an OS-killed-and-reloaded PWA).
+    renderPage(['/?ayear=2026&aview=workspace&amonth=8'])
+    expect(await screen.findByRole('button', { name: '← Back to overview' })).toBeInTheDocument()
+    expect(screen.getByText('Sunday')).toBeInTheDocument()
+    expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
   })
 
   it('"How it works" opens a popup with the concurrency-cap detail, closable via the × button', async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
@@ -36,17 +37,34 @@ export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
 }) {
-  // highlightDate seeds the initially-open day (e.g. the Requests queue's
-  // "View Calendar" action landing straight on that request's date) — a
-  // lazy initializer, since this component only ever mounts fresh (see
-  // AnnualLeavePlanner.jsx's mode ternary), so this never needs to react to
-  // highlightDate changing after the fact.
-  const [selectedDate, setSelectedDate] = useState(() => highlightDate || null)
+  // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
+  // not plain useState — same reasoning as AnnualLeavePlanner.jsx's
+  // ayear/aview/amonth: a backgrounded mobile browser/PWA can get killed and
+  // reloaded by the OS at any time, and the URL is what survives that,
+  // reopening this same day's sheet instead of silently closing it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedDate = searchParams.get('day')
+
+  function setSelectedDate(date) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (date) next.set('day', date)
+      else next.delete('day')
+      return next
+    }, { replace: true })
+  }
+
   const today = todayStr()
   const weeks = weeksForMonth(year, month)
   const monthLabel = monthsForYear(year)[month - 1].label
 
+  // highlightDate seeds the initially-open day (e.g. the Requests queue's
+  // "View Calendar" action landing straight on that request's date) — a
+  // one-shot: only writes `day` into the URL if nothing's open there yet
+  // (a reload with an already-open day should keep showing that day, not
+  // get overridden by a stale highlight prop).
   useEffect(() => {
+    if (highlightDate && !selectedDate) setSelectedDate(highlightDate)
     if (highlightDate) onHighlightConsumed?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, consuming whatever highlightDate this instance was seeded with
   }, [])
@@ -168,23 +186,23 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.tint}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.fill}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-white' : phName ? 'text-ink-light' : 'text-ink'
+          isToday ? 'bg-accent text-white' : capacityState.onFillText
         }`}>
           {dateNum}
         </span>
       </div>
-      {phName && <span className="truncate text-[10px] font-medium text-ink-light">{phName}</span>}
+      {phName && <span className={`truncate text-[10px] font-medium ${capacityState.onFillMuted}`}>{phName}</span>}
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
             <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
             <span className="truncate">
               {entries.map((e, i) => (
-                <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
+                <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
                   {e.surname}{i < entries.length - 1 ? ', ' : ''}
                 </span>
               ))}
@@ -203,11 +221,11 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.tint} ${
+      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.fill} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
-      <span className={isPublicHoliday ? 'font-semibold text-accent' : 'text-ink'}>{dateNum}</span>
+      <span className={`${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
       <span className="mt-0.5 flex h-1.5 gap-0.5">
         {columnsPresent.map(key => (
           <span key={key} className={`h-1.5 w-1.5 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
@@ -274,13 +292,25 @@ function DayReviewModal({
   }
 
   const formattedDate = formatWeekdayDate(date)
+  const totalSlots = capacity.reduce((sum, col) => sum + col.count, 0)
+  const dayCapacityState = capacityStateForCount(totalSlots)
+  // Once the combined cap is reached, no more slots are available in ANY
+  // category regardless of that category's own headroom (e.g. MO showing
+  // "1/2" would wrongly suggest a 3rd doctor could still go on leave) — so
+  // every column's count is replaced with "—" rather than a real x/y.
+  const atFullCapacity = totalSlots >= maxFullTime
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+          <div className="flex items-center gap-2">
+            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.fill} ${dayCapacityState.onFillText}`}>
+              {totalSlots} of 3 slots taken
+            </span>
+            <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+          </div>
         </div>
         {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
         {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
@@ -307,8 +337,8 @@ function DayReviewModal({
                     <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
                     {col.label}
                   </span>
-                  <span className={col.atCap ? 'font-medium text-flagAmber' : 'text-ink'}>
-                    {col.count}/{col.max}
+                  <span className={atFullCapacity ? 'text-ink-muted' : col.atCap ? 'font-medium text-flagAmber' : 'text-ink'}>
+                    {atFullCapacity ? '—' : `${col.count}/${col.max}`}
                   </span>
                 </div>
               ))}
@@ -326,8 +356,12 @@ function DayReviewModal({
                       <ul className="mt-1 space-y-1">
                         {entries.map(e => (
                           <li key={e.profileId} className="flex items-center justify-between gap-2 text-sm">
-                            <span className="flex items-baseline gap-1.5">
-                              <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
+                            <span className="flex items-center gap-1.5">
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+                              }`}>
+                                {e.surname}
+                              </span>
                               <span className="text-xs text-ink-muted">{formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                             </span>
                             <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>

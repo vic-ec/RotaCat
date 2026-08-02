@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import MonthWorkspace from './MonthWorkspace'
 
 let mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
@@ -99,6 +100,15 @@ function baseProps(overrides = {}) {
   }
 }
 
+// MonthWorkspace reads/writes the open day-review sheet via
+// useSearchParams (see leaveYearGrid.jsx's comment on why), so it needs a
+// Router in the tree even outside AnnualLeavePlanner's own MemoryRouter.
+function renderWorkspace(overrides, initialEntries = ['/']) {
+  return render(<MonthWorkspace {...baseProps(overrides)} />, {
+    wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>,
+  })
+}
+
 describe('MonthWorkspace', () => {
   beforeEach(() => {
     fromCalls.length = 0
@@ -111,14 +121,14 @@ describe('MonthWorkspace', () => {
   })
 
   it('renders a full calendar grid with full weekday names and the month label', () => {
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     expect(screen.getByText('Sunday')).toBeInTheDocument()
     expect(screen.getByText('Saturday')).toBeInTheDocument()
     expect(screen.getByText('August 2026')).toBeInTheDocument()
   })
 
   it('reading surnames: shows approved plainly and pending in italics directly on the grid', () => {
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     expect(screen.getByText('Anderson')).toBeInTheDocument()
     const botha = screen.getByText('Botha')
     expect(botha).toHaveClass('italic')
@@ -126,19 +136,49 @@ describe('MonthWorkspace', () => {
 
   it('checking capacity: clicking a day shows count/max per category, flagging the at-cap column', async () => {
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(screen.getByText('1/2')).toBeInTheDocument() // MO
     const registrarCount = screen.getByText('1/1') // Registrar, at cap
     expect(registrarCount).toHaveClass('text-flagAmber')
+    // 2 total (MO + Registrar) of the maxFullTime=3 combined cap.
+    expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
+  })
+
+  it('shows dashes instead of x/y counts once the combined cap is reached, since no category has room left', async () => {
+    const user = userEvent.setup()
+    // 2 MO + 1 Registrar = 3, exactly maxFullTime — no more of ANY category
+    // can go on leave that day even though e.g. MO's own cap (2) isn't full.
+    const countByColumnPerDate = new Map([
+      ['2026-08-12', new Map([['MO', 2], ['Registrar', 1]])],
+    ])
+    renderWorkspace({ countByColumnPerDate })
+    await user.click(screen.getByText('Anderson'))
+
+    expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
+    expect(screen.getByText('3 of 3 slots taken')).toBeInTheDocument()
+    expect(screen.queryByText('1/2')).not.toBeInTheDocument()
+    expect(screen.queryByText('1/1')).not.toBeInTheDocument()
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4) // every one of the 4 capacity columns
+  })
+
+  it('shows each surname in a pillbox coloured by that request\'s status', async () => {
+    const user = userEvent.setup()
+    renderWorkspace()
+    await user.click(screen.getByText('Anderson'))
+    const heading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
+    const modal = within(heading.closest('.card'))
+
+    expect(modal.getByText('Anderson')).toHaveClass('bg-success-bg', 'text-success')
+    expect(modal.getByText('Botha')).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
   })
 
   it('reviewing pending requests: admin sees the pending request detail with its note', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByText('Bob Botha')).toBeInTheDocument()
@@ -148,7 +188,7 @@ describe('MonthWorkspace', () => {
   it('non-admin: pending entries are read-only, no approve/reject controls', async () => {
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
@@ -160,7 +200,7 @@ describe('MonthWorkspace', () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
     const onDataChanged = vi.fn()
-    render(<MonthWorkspace {...baseProps({ onDataChanged })} />)
+    renderWorkspace({ onDataChanged })
     await user.click(screen.getByText('Anderson'))
 
     const approveBtn = await screen.findByRole('button', { name: 'Approve' })
@@ -177,7 +217,7 @@ describe('MonthWorkspace', () => {
       hourCeilingWarning: null,
     })
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByText(/drop supervision below the required minimum/i)).toBeInTheDocument()
@@ -196,7 +236,7 @@ describe('MonthWorkspace', () => {
       profiles: { name: 'Dana', surname: 'Davis', category: 'Registrar' },
     }
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps({ approvedRows: [APPROVED_ROW, otherApproved] })} />)
+    renderWorkspace({ approvedRows: [APPROVED_ROW, otherApproved] })
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByText(/Approving would breach the Registrar cap/)).toBeInTheDocument()
@@ -206,7 +246,7 @@ describe('MonthWorkspace', () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
     const onDataChanged = vi.fn()
-    render(<MonthWorkspace {...baseProps({ onDataChanged })} />)
+    renderWorkspace({ onDataChanged })
     await user.click(screen.getByText('Anderson'))
 
     await user.click(await screen.findByRole('button', { name: 'Reject' }))
@@ -221,7 +261,7 @@ describe('MonthWorkspace', () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
     const onDataChanged = vi.fn()
-    render(<MonthWorkspace {...baseProps({ onDataChanged })} />)
+    renderWorkspace({ onDataChanged })
     await user.click(screen.getByText('Anderson'))
 
     await user.click(await screen.findByRole('button', { name: 'Request annual leave for this day' }))
@@ -235,7 +275,7 @@ describe('MonthWorkspace', () => {
   it('indicates a public holiday day with a distinct highlight and shows its name in the review modal', async () => {
     const user = userEvent.setup()
     const publicHolidaysByDate = new Map([['2026-08-12', 'Some Holiday']])
-    render(<MonthWorkspace {...baseProps({ publicHolidaysByDate })} />)
+    renderWorkspace({ publicHolidaysByDate })
     expect(screen.getByText('Public holiday')).toBeInTheDocument() // legend entry
     await user.click(screen.getByText('Anderson'))
     // Shown once on the grid cell and again in the opened review modal.
@@ -244,7 +284,7 @@ describe('MonthWorkspace', () => {
 
   it('marks an approved surname with an Approved indicator, alongside the existing Pending one', async () => {
     const user = userEvent.setup()
-    render(<MonthWorkspace {...baseProps()} />)
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
@@ -254,22 +294,29 @@ describe('MonthWorkspace', () => {
 
   it('opens the review modal for highlightDate on mount (a deep link from the Requests queue) and reports it consumed', () => {
     const onHighlightConsumed = vi.fn()
-    render(<MonthWorkspace {...baseProps({ highlightDate: '2026-08-12', onHighlightConsumed })} />)
+    renderWorkspace({ highlightDate: '2026-08-12', onHighlightConsumed })
     expect(screen.getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(onHighlightConsumed).toHaveBeenCalled()
   })
 
   it('does not report a highlight consumed when no highlightDate was given', () => {
     const onHighlightConsumed = vi.fn()
-    render(<MonthWorkspace {...baseProps({ onHighlightConsumed })} />)
+    renderWorkspace({ onHighlightConsumed })
     expect(onHighlightConsumed).not.toHaveBeenCalled()
+  })
+
+  it('reopens the day sheet straight from the URL — surviving a background-triggered reload with no highlightDate prop', () => {
+    // No highlightDate here either — this is the ongoing `day` persistence,
+    // seeded purely by the URL a remount reads on mount.
+    renderWorkspace({}, ['/?day=2026-08-12'])
+    expect(screen.getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
   })
 
   it('month navigation and back button call their callbacks', async () => {
     const user = userEvent.setup()
     const onMonthChange = vi.fn()
     const onBack = vi.fn()
-    render(<MonthWorkspace {...baseProps({ onMonthChange, onBack })} />)
+    renderWorkspace({ onMonthChange, onBack })
 
     await user.click(screen.getByRole('button', { name: 'Next month' }))
     expect(onMonthChange).toHaveBeenCalledWith(2026, 9)

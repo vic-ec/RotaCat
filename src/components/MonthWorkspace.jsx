@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate } from '../lib/dateRange'
-import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, weeksForMonth, monthsForYear } from '../lib/leaveYearGrid'
+import {
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
+  totalLeaveSlotsForDate, capacityStateForCount,
+} from '../lib/leaveYearGrid'
 import { dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
@@ -10,7 +13,19 @@ import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
+
+// "15 Aug" or, for a multi-day request, "15–30 Aug" (or "28 Aug – 3 Sep" if
+// it crosses a month boundary) — the day sheet's compact per-entry date
+// range, next to each doctor's name and approved/pending status.
+function formatEntryDateRange(dateFrom, dateTo) {
+  const [, fromMonth, fromDay] = dateFrom.split('-').map(Number)
+  const [, toMonth, toDay] = dateTo.split('-').map(Number)
+  if (dateFrom === dateTo) return `${fromDay} ${MONTH_SHORT[fromMonth - 1]}`
+  const from = fromMonth === toMonth ? `${fromDay}` : `${fromDay} ${MONTH_SHORT[fromMonth - 1]}`
+  return `${from}–${toDay} ${MONTH_SHORT[toMonth - 1]}`
+}
 
 function hasWarnings(w) {
   return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
@@ -76,12 +91,18 @@ export default function MonthWorkspace({
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
         {GRID_COLUMNS.map(col => (
           <span key={col.key} className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
+            <span className={`h-2 w-2 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[col.key]}`} />
             {col.label}
           </span>
         ))}
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-dark" /> At capacity</span>
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+        {LEAVE_CAPACITY_STATES.map(state => (
+          <span key={state.key} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-sm ${state.tint} ring-1 ring-inset ring-slate-line`} /> {state.label}
+          </span>
+        ))}
       </div>
 
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
@@ -104,7 +125,7 @@ export default function MonthWorkspace({
               isToday={date === today}
               phName={publicHolidaysByDate.get(date)}
               entriesByColumn={dayEntriesByColumn(date, { approvedByDate, pendingByDate })}
-              capacity={dayCapacitySummary(date, countByColumnPerDate, maxByColumnKey)}
+              capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
               onClick={() => setSelectedDate(date)}
             />
           ) : (
@@ -125,7 +146,7 @@ export default function MonthWorkspace({
               isToday={date === today}
               isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
               columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }).keys()]}
-              anyAtCap={dayCapacitySummary(date, countByColumnPerDate, maxByColumnKey).some(c => c.atCap)}
+              capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
               onClick={() => setSelectedDate(date)}
             />
           ) : (
@@ -152,15 +173,14 @@ export default function MonthWorkspace({
   )
 }
 
-function DayCell({ date, isToday, phName, entriesByColumn, capacity, onClick }) {
+function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClick }) {
   const dateNum = Number(date.slice(-2))
-  const anyAtCap = capacity.some(c => c.atCap)
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:bg-canvas-sunken/60 ${phName ? 'bg-ink/5 ring-1 ring-inset ring-ink-muted' : ''}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-1 ring-inset ring-ink-muted' : ''} ${capacityState.tint}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
@@ -168,13 +188,12 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacity, onClick }) 
         }`}>
           {dateNum}
         </span>
-        {anyAtCap && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-dark" title="At capacity" />}
       </div>
       {phName && <span className="truncate text-[10px] font-medium text-ink-light">{phName}</span>}
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
-            <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ${COLUMN_DOT_COLOR[key]}`} />
+            <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
@@ -189,24 +208,23 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacity, onClick }) 
   )
 }
 
-function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, anyAtCap, onClick }) {
+function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacityState, onClick }) {
   const dateNum = Number(date.slice(-2))
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${
-        isPublicHoliday ? 'border-accent/40 bg-accent-tint' : 'border-slate-line bg-canvas-raised'
-      } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
+      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.tint} ${
+        isPublicHoliday ? 'border-accent/40 ring-1 ring-inset ring-accent/40' : 'border-slate-line'
+      } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
       <span className={isPublicHoliday ? 'font-semibold text-accent' : 'text-ink'}>{dateNum}</span>
       <span className="mt-0.5 flex h-1.5 gap-0.5">
         {columnsPresent.map(key => (
-          <span key={key} className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[key]}`} />
+          <span key={key} className={`h-1.5 w-1.5 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
         ))}
       </span>
-      {anyAtCap && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-dark" title="At capacity" />}
     </button>
   )
 }
@@ -319,9 +337,12 @@ function DayReviewModal({
                     ) : (
                       <ul className="mt-1 space-y-1">
                         {entries.map(e => (
-                          <li key={e.profileId} className="flex items-center gap-1.5 text-sm">
-                            <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
-                            <span className={`text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
+                          <li key={e.profileId} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="flex items-baseline gap-1.5">
+                              <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
+                              <span className="text-xs text-ink-muted">{formatEntryDateRange(e.dateFrom, e.dateTo)}</span>
+                            </span>
+                            <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
                               {e.status === 'pending' ? 'Pending' : 'Approved'}
                             </span>
                           </li>

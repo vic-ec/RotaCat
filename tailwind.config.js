@@ -52,6 +52,12 @@ export default {
           DEFAULT: '#B7791F',
           bg: '#FBF1E1'
         },
+        // Fourth roster-state rung, between flagAmber and flagRed — the
+        // Annual Leave planner's "near capacity" (2 of 3 slots) day state.
+        flagOrange: {
+          DEFAULT: '#C2650A',
+          bg: '#FCEEDD'
+        },
         flagBlue: {
           DEFAULT: '#3457A6',
           bg: '#EAEEF8'

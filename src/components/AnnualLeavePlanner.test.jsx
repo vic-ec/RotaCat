@@ -93,15 +93,6 @@ describe('AnnualLeavePlanner', () => {
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
   })
 
-  it('shows year-total stats in the toolbar strip', async () => {
-    renderPage()
-    await screen.findByRole('button', { name: /August/ })
-    const stats = within(screen.getByTestId('annual-year-stats'))
-    expect(stats.getByText('7 days')).toBeInTheDocument() // 5 (p1) + 2 (p2) approved annual days
-    expect(stats.getByText('Max 3 doctors (15%)')).toBeInTheDocument() // the full-time aggregate cap, of a 20-person headcount
-    expect(stats.getByText('3 pressure days')).toBeInTheDocument()
-  })
-
   it('inspector defaults to August, showing the pressure date range and who is on it', async () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })
@@ -114,14 +105,18 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
 
-  it('shows peak concurrent count and day count per category in "Capacity by category", not just at-cap days', async () => {
+  it('shows a combined "X of 3" capacity breakdown in "Capacity by category", not a per-category one', async () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })
     const inspector = within(screen.getByTestId('annual-inspector'))
-    expect(inspector.getByText('1/2, 5 days')).toBeInTheDocument() // MO: Anderson alone, never hits its cap of 2
-    expect(inspector.getByText('1/1, 2 days')).toBeInTheDocument() // Registrar: Botha alone hits its cap of 1
-    expect(inspector.getByText('1/1, 1 day')).toBeInTheDocument() // EC COSMO/Intern: Cosmo's pending request hits its cap of 1
-    expect(inspector.getByText('—')).toBeInTheDocument() // OT COSMO/Intern: nothing on record this month
+
+    // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
+    // EC COSMO/Intern request alone — also 1 of 3. Four days total.
+    expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
+    // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
+    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
+    // Nothing ever reaches 3 of 3 in this fixture.
+    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
   })
 
   it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
@@ -151,13 +146,14 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByText('No capacity pressure this month.')).toBeInTheDocument()
   })
 
-  it('"My leave" filter narrows the year stats to the signed-in doctor only', async () => {
+  it('"My leave" filter narrows the selected month\'s approved-leave stat to the signed-in doctor only', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('button', { name: /August/ })
 
     await user.click(screen.getByRole('button', { name: 'My leave' }))
-    expect(within(screen.getByTestId('annual-year-stats')).getByText('5 days')).toBeInTheDocument() // only p1's own 5 days
+    // p1 (Anderson)'s own 5 days, not Botha's separate 2.
+    expect(within(screen.getByTestId('annual-inspector')).getByText('5 days')).toBeInTheDocument()
   })
 
   it('"View requests" links to the Requests planner tab', async () => {

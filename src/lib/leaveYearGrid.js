@@ -39,6 +39,37 @@ export const COLUMN_DOT_COLOR = {
   Other: 'bg-ink-muted',
 }
 
+// Four-state "how full is this day" read for the mobile planner's day/month
+// fill colouring — a purely visual indicator of the *observed* total
+// headcount on leave (any of the 4 capacity columns, pending+approved
+// combined), not a restatement of what's enforced at submission (see
+// LEAVE_FULL_TIME_GROUP_KEYS below, which is narrower). Clamped at 3 for
+// "at capacity" since that's the shared combined-cap ceiling doctors will
+// recognise, even though today's actual submission-time rule can in
+// practice allow a 4th (an independent OT COSMO/Intern) on top of that —
+// see ANNUAL_LEAVE_ISSUE.md for the open question on reconciling the two.
+export const LEAVE_CAPACITY_STATES = [
+  { key: 'available', label: 'Available', fill: 'bg-success', tint: 'bg-success-bg', text: 'text-success' },
+  { key: 'limited', label: 'Limited', fill: 'bg-flagAmber', tint: 'bg-flagAmber-bg', text: 'text-flagAmber' },
+  { key: 'near_capacity', label: 'Near capacity', fill: 'bg-flagOrange', tint: 'bg-flagOrange-bg', text: 'text-flagOrange' },
+  { key: 'at_capacity', label: 'At capacity', fill: 'bg-flagRed', tint: 'bg-flagRed-bg', text: 'text-flagRed' },
+]
+
+// Sum of every capacity column's count for one date — the total distinct
+// doctors (any category) on annual leave that day, pending+approved
+// combined. Not the same thing as any single column's own cap.
+export function totalLeaveSlotsForDate(date, countByColumnPerDate) {
+  const perColumn = countByColumnPerDate.get(date)
+  if (!perColumn) return 0
+  return LEAVE_CAPACITY_COLUMNS.reduce((sum, col) => sum + (perColumn.get(col.key) || 0), 0)
+}
+
+// Maps a total headcount to one of the 4 LEAVE_CAPACITY_STATES, clamping
+// anything at or above 3 to "at capacity".
+export function capacityStateForCount(count) {
+  return LEAVE_CAPACITY_STATES[Math.min(count, 3)]
+}
+
 // The "no more than 3 full-time doctors on leave at once" rule spans MO,
 // Registrar, and EC COSMO/Intern combined — e.g. 1 MO + 1 Registrar + 1 EC
 // COSMO/Intern, or 2 MO + 1 of either (never 2 Registrar or 2 EC

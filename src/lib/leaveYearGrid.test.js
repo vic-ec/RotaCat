@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   columnForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  totalLeaveSlotsForDate, capacityStateForCount, LEAVE_CAPACITY_STATES,
 } from './leaveYearGrid'
 
 describe('columnForLeaveCategory', () => {
@@ -195,5 +196,29 @@ describe('findFullTimeAggregateBreach', () => {
       dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
     })
     expect(result.hasBreach).toBe(false) // only 2 full-time doctors (MO+Registrar) counted, OT_COSMO excluded
+  })
+})
+
+describe('totalLeaveSlotsForDate', () => {
+  it('sums every capacity column for a date', () => {
+    const counts = new Map([['2026-08-10', new Map([['MO', 2], ['Registrar', 1], ['OT_COSMO', 1]])]])
+    expect(totalLeaveSlotsForDate('2026-08-10', counts)).toBe(4)
+  })
+
+  it('returns 0 for a date with nothing on record', () => {
+    expect(totalLeaveSlotsForDate('2026-08-10', new Map())).toBe(0)
+  })
+})
+
+describe('capacityStateForCount', () => {
+  it('maps 0/1/2 to available/limited/near_capacity', () => {
+    expect(capacityStateForCount(0)).toBe(LEAVE_CAPACITY_STATES[0])
+    expect(capacityStateForCount(1)).toBe(LEAVE_CAPACITY_STATES[1])
+    expect(capacityStateForCount(2)).toBe(LEAVE_CAPACITY_STATES[2])
+  })
+
+  it('clamps 3 and anything above it to at_capacity', () => {
+    expect(capacityStateForCount(3)).toBe(LEAVE_CAPACITY_STATES[3])
+    expect(capacityStateForCount(4)).toBe(LEAVE_CAPACITY_STATES[3])
   })
 })

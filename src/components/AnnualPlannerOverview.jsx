@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CircleCheck, TriangleAlert, Users, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
-import { monthsForYear } from '../lib/leaveYearGrid'
+import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
+import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityPeakByColumn, monthPublicHolidayCount, entriesInRange,
+  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek } from '../lib/dateRange'
 
@@ -45,7 +45,7 @@ function filterRows(rows, { filter, myProfileId }) {
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, maxFullTime, eligibleHeadcount, myProfileId, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, onOpenWorkspace,
 }) {
   const today = todayStr()
   const currentMonth = Number(today.slice(5, 7))
@@ -78,20 +78,10 @@ export default function AnnualPlannerOverview({
   const visibleApprovedByDate = filter === 'pending' ? new Map() : filteredApprovedByDate
   const visibleApprovedRows = filter === 'pending' ? [] : filteredApprovedRows
 
-  const yearStart = `${year}-01-01`
-  const yearEnd = `${year}-12-31`
-  const approvedDaysTotal = annualDaysInRange(visibleApprovedRows, yearStart, yearEnd)
-  // The full-time aggregate cap (MO + Registrar + EC COSMO/Intern combined)
-  // is the real department-wide ceiling on how many doctors can be off on
-  // the same day — OT COSMO/Intern has its own separate, independent cap
-  // and isn't added on top of it for this headline figure.
-  const dailyCap = maxFullTime
-  const capPercent = eligibleHeadcount ? Math.round((dailyCap / eligibleHeadcount) * 100) : null
-
   const months = monthsForYear(year)
   const monthCards = months.map(m => {
     const markers = monthDayMarkers(m.year, m.month, {
-      approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate, pressureDates, publicHolidaysByDate,
+      approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate, pressureDates, publicHolidaysByDate, countByColumnPerDate,
     })
     const pressureDayCount = markers.filter(d => d.isPressure).length
     const { start, end } = monthBounds(m.year, m.month)
@@ -133,34 +123,15 @@ export default function AnnualPlannerOverview({
         ))}
       </div>
 
-      {/* ── Year-total stat strip ── */}
-      <div data-testid="annual-year-stats" className="mt-4 flex flex-wrap items-center gap-6 rounded-lg border border-slate-line bg-canvas-raised px-4 py-3">
-        <span className="flex items-center gap-2 text-sm">
-          <Flag className="h-4 w-4 text-ink-light" />
-          <span className="text-ink-muted">Public holidays ({year})</span>
-          <span className="font-semibold text-ink">{publicHolidaysByDate.size}</span>
-        </span>
-        <span className="flex items-center gap-2 text-sm">
-          <CircleCheck className="h-4 w-4 text-success" />
-          <span className="text-ink-muted">Approved leave ({year})</span>
-          <span className="font-semibold text-ink">{approvedDaysTotal} days</span>
-        </span>
-        <span className="flex items-center gap-2 text-sm">
-          <Users className="h-4 w-4 text-accent" />
-          <span className="text-ink-muted">Cap per day</span>
-          <span className="font-semibold text-ink">Max {dailyCap} doctors{capPercent != null ? ` (${capPercent}%)` : ''}</span>
-        </span>
-        <span className="flex items-center gap-2 text-sm">
-          <TriangleAlert className="h-4 w-4 text-flagAmber" />
-          <span className="text-ink-muted">Capacity warnings</span>
-          <span className="font-semibold text-ink">{pressureDates.size} pressure {pressureDates.size === 1 ? 'day' : 'days'}</span>
-        </span>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> Approved leave</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-flagAmber bg-flagAmber-bg" /> Pending request</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-dark" /> At capacity</span>
+      {/* Day-block fill legend — matches the capacity-state colouring each
+          month card's day blocks use below (item 3 of the mobile revision:
+          background fill by occupied slots, not by approved/pending). */}
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+        {LEAVE_CAPACITY_STATES.map(state => (
+          <span key={state.key} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} /> {state.label}
+          </span>
+        ))}
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
 
@@ -208,18 +179,16 @@ export default function AnnualPlannerOverview({
 
           <div className="mt-3 space-y-1 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Capacity by category</p>
-            {monthCapacityPeakByColumn(year, selectedMonth, countByColumnPerDate, maxByColumnKey).map(col => {
-              const atCap = col.peak > 0 && col.max != null && col.peak >= col.max
+            {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
+              const state = LEAVE_CAPACITY_STATES[level]
               return (
-                <div key={col.key} className="flex items-center justify-between text-sm">
-                  <span className="text-ink-light">{col.label}</span>
-                  {col.peak > 0 ? (
-                    <span className={atCap ? 'font-medium text-flagAmber' : 'text-ink'}>
-                      {col.peak}/{col.max ?? '—'}, {col.daysAtPeak} {col.daysAtPeak === 1 ? 'day' : 'days'}
-                    </span>
-                  ) : (
-                    <span className="text-ink-muted">—</span>
-                  )}
+                <div key={level} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-ink-light">
+                    <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3
+                  </span>
+                  <span className={days > 0 ? `font-medium ${state.text}` : 'text-ink-muted'}>
+                    {days} {days === 1 ? 'day' : 'days'}
+                  </span>
                 </div>
               )
             })}
@@ -277,9 +246,10 @@ function InspectorStat({ icon: Icon, label, value }) {
 
 // One month's compact overview: title, a quiet one-line summary, and a
 // calendar-shaped grid of small day markers rather than a dense day-row
-// table — approved leave is a solid teal square, a pending-only day is an
-// amber outline, and a capacity-pressure day gets a rose corner dot
-// layered on top regardless of its other state. Empty days stay blank.
+// table — each day block is filled solid by its capacity state (green =
+// available, yellow = limited, orange = near capacity, red = at capacity),
+// so the grid reads as a heatmap of "can I take leave here" at a glance
+// rather than requiring a tap to find out.
 function MonthCard({ month, filter, isSelected, onSelect }) {
   const leadingBlanks = (dayOfWeek(month.markers[0].date) + 6) % 7 // Monday-start
   const cells = [...Array(leadingBlanks).fill(null), ...month.markers]
@@ -300,23 +270,14 @@ function MonthCard({ month, filter, isSelected, onSelect }) {
         {cells.map((day, i) => {
           if (!day) return <span key={`blank-${i}`} className="h-3 w-3" />
           const dim = filter === 'capacity' && !day.isPressure
-          const cellClass = dim
-            ? 'bg-canvas-sunken/40'
-            : day.hasApproved
-              ? 'bg-accent'
-              : day.hasPending
-                ? 'border border-flagAmber bg-flagAmber-bg'
-                : day.isPublicHoliday
-                  ? 'bg-ink/10'
-                  : 'bg-canvas-sunken/70'
+          const cellClass = dim ? 'bg-canvas-sunken/40' : day.capacityState.fill
           // A public holiday keeps its own ring even on a day that also has
           // leave on it, so "this day is a PH" never gets swallowed by
-          // whichever leave colour happens to win the fill above.
+          // whichever capacity colour happens to fill it.
           const phRing = day.isPublicHoliday && !dim ? 'ring-1 ring-inset ring-ink-muted' : ''
           return (
-            <span key={day.date} className="relative h-3 w-3" title={day.publicHolidayName || undefined}>
+            <span key={day.date} className="h-3 w-3" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
               <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
-              {day.isPressure && !dim && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-rose-dark" />}
             </span>
           )
         })}

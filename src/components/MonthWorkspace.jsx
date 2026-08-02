@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { TriangleAlert, CalendarCheck } from 'lucide-react'
+import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { dayOfWeek, todayStr } from '../lib/dateRange'
+import { todayStr, formatWeekdayDate } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, weeksForMonth, monthsForYear } from '../lib/leaveYearGrid'
 import { dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
@@ -217,7 +217,7 @@ function DayReviewModal({
     onDataChanged()
   }
 
-  const formattedDate = `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek(date)]}, ${date}`
+  const formattedDate = formatWeekdayDate(date)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
@@ -271,11 +271,9 @@ function DayReviewModal({
                         {entries.map(e => (
                           <li key={e.profileId} className="flex items-center gap-1.5 text-sm">
                             <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
-                            {e.status === 'pending' ? (
-                              <span className="text-xs font-medium text-flagAmber">Pending</span>
-                            ) : (
-                              <CalendarCheck className="h-3.5 w-3.5 text-success" title="Approved" />
-                            )}
+                            <span className={`text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
+                              {e.status === 'pending' ? 'Pending' : 'Approved'}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -303,7 +301,11 @@ function DayReviewModal({
                       <p className="text-sm font-medium text-ink">
                         {request.profiles?.name} {request.profiles?.surname}
                       </p>
-                      <p className="text-xs text-ink-muted">{request.date_from} → {request.date_to}</p>
+                      <p className="text-xs text-ink-muted">
+                        {request.date_from === request.date_to
+                          ? formatWeekdayDate(request.date_from)
+                          : `${formatWeekdayDate(request.date_from)} → ${formatWeekdayDate(request.date_to)}`}
+                      </p>
                       {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
                       {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
 

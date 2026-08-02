@@ -114,6 +114,33 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
 
+  it('shows peak concurrent count and day count per category in "Capacity by category", not just at-cap days', async () => {
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+    const inspector = within(screen.getByTestId('annual-inspector'))
+    expect(inspector.getByText('1/2, 5 days')).toBeInTheDocument() // MO: Anderson alone, never hits its cap of 2
+    expect(inspector.getByText('1/1, 2 days')).toBeInTheDocument() // Registrar: Botha alone hits its cap of 1
+    expect(inspector.getByText('1/1, 1 day')).toBeInTheDocument() // EC COSMO/Intern: Cosmo's pending request hits its cap of 1
+    expect(inspector.getByText('—')).toBeInTheDocument() // OT COSMO/Intern: nothing on record this month
+  })
+
+  it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
+    mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-10', name: "Women's Day" }], error: null }
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+
+    expect(within(screen.getByTestId('annual-inspector')).getByText('1 days')).toBeInTheDocument()
+    expect(screen.getByTitle("Women's Day")).toBeInTheDocument()
+  })
+
+  it('no longer shows a surname search input or a Year/Month toggle in the toolbar', async () => {
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+    expect(screen.queryByLabelText('Search by surname')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Year' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Month' })).not.toBeInTheDocument()
+  })
+
   it('clicking a quiet month updates the inspector accordingly', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -131,15 +158,6 @@ describe('AnnualLeavePlanner', () => {
 
     await user.click(screen.getByRole('button', { name: 'My leave' }))
     expect(within(screen.getByTestId('annual-year-stats')).getByText('5 days')).toBeInTheDocument() // only p1's own 5 days
-  })
-
-  it('surname search narrows the month card markers and year stats', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByRole('button', { name: /August/ })
-
-    await user.type(screen.getByLabelText('Search by surname'), 'Botha')
-    expect(within(screen.getByTestId('annual-year-stats')).getByText('2 days')).toBeInTheDocument() // only p2's 2 days now count as "approved"
   })
 
   it('"View requests" links to the Requests planner tab', async () => {

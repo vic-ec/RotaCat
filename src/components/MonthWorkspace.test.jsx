@@ -129,7 +129,7 @@ describe('MonthWorkspace', () => {
     render(<MonthWorkspace {...baseProps()} />)
     await user.click(screen.getByText('Anderson'))
 
-    expect(await screen.findByText('Wednesday, 2026-08-12')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(screen.getByText('1/2')).toBeInTheDocument() // MO
     const registrarCount = screen.getByText('1/1') // Registrar, at cap
     expect(registrarCount).toHaveClass('text-flagAmber')
@@ -151,7 +151,7 @@ describe('MonthWorkspace', () => {
     render(<MonthWorkspace {...baseProps()} />)
     await user.click(screen.getByText('Anderson'))
 
-    await screen.findByText('Wednesday, 2026-08-12')
+    await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
   })
@@ -229,7 +229,7 @@ describe('MonthWorkspace', () => {
 
     await user.click(screen.getByRole('button', { name: 'Simulate submit' }))
     expect(onDataChanged).toHaveBeenCalled()
-    expect(await screen.findByText('Wednesday, 2026-08-12')).toBeInTheDocument() // back to the review view
+    expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument() // back to the review view
   })
 
   it('indicates a public holiday day with a distinct highlight and shows its name in the review modal', async () => {
@@ -247,15 +247,15 @@ describe('MonthWorkspace', () => {
     render(<MonthWorkspace {...baseProps()} />)
     await user.click(screen.getByText('Anderson'))
 
-    await screen.findByText('Wednesday, 2026-08-12')
-    expect(screen.getByTitle('Approved')).toBeInTheDocument()
+    await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
+    expect(screen.getByText('Approved')).toHaveClass('text-success')
     expect(screen.getByText('Pending')).toBeInTheDocument()
   })
 
   it('opens the review modal for highlightDate on mount (a deep link from the Requests queue) and reports it consumed', () => {
     const onHighlightConsumed = vi.fn()
     render(<MonthWorkspace {...baseProps({ highlightDate: '2026-08-12', onHighlightConsumed })} />)
-    expect(screen.getByText('Wednesday, 2026-08-12')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(onHighlightConsumed).toHaveBeenCalled()
   })
 

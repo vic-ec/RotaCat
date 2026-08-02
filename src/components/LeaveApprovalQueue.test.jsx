@@ -88,6 +88,23 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
+  it('renders Approve/Reject as bare icons (no background box) and View Calendar as a bordered icon button, all the same size', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    renderQueue()
+
+    const approveBtn = await screen.findByRole('button', { name: 'Approve' })
+    const rejectBtn = screen.getByRole('button', { name: 'Reject' })
+    const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
+
+    expect(approveBtn.className).not.toMatch(/\bbg-|\bborder\b/)
+    expect(rejectBtn.className).not.toMatch(/\bbg-|\bborder\b/)
+    expect(viewCalendarBtn).toHaveClass('border', 'bg-success-bg')
+
+    for (const btn of [approveBtn, rejectBtn, viewCalendarBtn]) {
+      expect(btn.querySelector('svg')).toHaveClass('h-5', 'w-5')
+    }
+  })
+
   it('clean case: no warnings shows a single-click Approve button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()

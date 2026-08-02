@@ -215,6 +215,25 @@ describe('WeekendPlannerView', () => {
       expect(view.getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
 
+    it('admin: "All weekends" leads the filter chips, ahead of "My weekends"', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const chips = view.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
+      expect(chips.map(c => c.textContent)).toEqual(['All weekends', 'My weekends', 'My requests', 'Needs planning'])
+    })
+
+    it('admin: lands on "All weekends" by default; non-admin still lands on "My weekends"', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      expect(view.getByRole('button', { name: 'All weekends' })).toHaveClass('bg-accent')
+      expect(view.getByRole('button', { name: 'My weekends' })).not.toHaveClass('bg-accent')
+    })
+
     it('non-admin: "Needs planning" filter does not exist', async () => {
       renderView()
       const view = await mobile()

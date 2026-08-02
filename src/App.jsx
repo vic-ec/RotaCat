@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
 import AccountSlideOverPanel from './components/AccountSlideOverPanel'
+import PendingApprovalSlideOverPanel from './components/PendingApprovalSlideOverPanel'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -97,6 +98,14 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <AccountSlideOverPanel />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/staff/pending/:id"
+            element={
+              <ProtectedRoute>
+                <PendingApprovalSlideOverPanel />
               </ProtectedRoute>
             }
           />

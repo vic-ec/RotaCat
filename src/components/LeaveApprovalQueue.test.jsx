@@ -113,22 +113,23 @@ describe('LeaveApprovalQueue', () => {
     expect(screen.queryByText(/drop supervision/i)).not.toBeInTheDocument()
   })
 
-  it('formats the date range as "DDD dd MMM YYYY to DDD dd MMM YYYY" with a weekend/PH summary line', async () => {
+  it('formats the row as "{leave type} - DDD dd MMM YYYY to DDD dd MMM YYYY", with no weekend/Sat/Sun/PH count', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-12' }], error: null }
     renderQueue()
 
     // 2026-08-10 is a Monday, 2026-08-14 a Friday — a plain working week
-    // except for the one public holiday on the 12th.
-    expect(await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
-    expect(screen.getByText('1 Public Holiday included')).toBeInTheDocument()
+    // except for the one public holiday on the 12th, which no longer gets
+    // its own summary line.
+    expect(await screen.findByText('Annual leave - Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
+    expect(screen.queryByText(/included$/)).not.toBeInTheDocument()
   })
 
   it('does not show a summary line for a plain range with no weekend days or public holidays', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
-    await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')
+    await screen.findByText('Annual leave - Mon 10 Aug 2026 to Fri 14 Aug 2026')
     expect(screen.queryByText(/included$/)).not.toBeInTheDocument()
   })
 

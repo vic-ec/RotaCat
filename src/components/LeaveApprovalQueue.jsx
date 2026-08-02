@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert, CalendarArrowDown, CalendarArrowUp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import ProfileAvatar from './ProfileAvatar'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { LEAVE_TYPE_OPTIONS, annualDaysSummary, formatRequestDateRange } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+
+const CATEGORY_LABELS = {
+  MO:         'Medical Officer',
+  Registrar:  'Registrar',
+  COSMO:      'COSMO',
+  COSMOPsych: 'COSMO (Psych)',
+  Intern:     'Intern',
+  Consultant: 'Consultant',
+  Locum:      'Locum',
+}
 
 function hasWarnings(w) {
   return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
@@ -29,6 +40,10 @@ export default function LeaveApprovalQueue({ onBack }) {
   const [rejectNotes, setRejectNotes] = useState('')
   const [actioningId, setActioningId] = useState(null)
   const [error, setError] = useState('')
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
+  const [sortDirection, setSortDirection] = useState('asc')
+  const [bulkActioning, setBulkActioning] = useState(false)
 
   useEffect(() => { loadQueue() }, [])
 
@@ -38,7 +53,7 @@ export default function LeaveApprovalQueue({ onBack }) {
     const [queueRes, phRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type)')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, avatar_url, color_code, pattern_type)')
         .eq('status', 'pending')
         .order('created_at', { ascending: true }),
       supabase.from('public_holidays').select('date'),
@@ -100,6 +115,40 @@ export default function LeaveApprovalQueue({ onBack }) {
     setActioningId(null)
   }
 
+  function toggleSelected(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(prev =>
+      prev.size === requests.length ? new Set() : new Set(requests.map(r => r.id))
+    )
+  }
+
+  async function bulkApprove() {
+    const targets = requests.filter(r => selectedIds.has(r.id))
+    setBulkActioning(true)
+    setSelectedIds(new Set())
+    await Promise.all(targets.map(r => approveLeaveRequest(r, user.id).catch(err => setError(err.message))))
+    await loadQueue()
+    setBulkActioning(false)
+  }
+
+  async function bulkReject() {
+    const targets = requests.filter(r => selectedIds.has(r.id))
+    setBulkActioning(true)
+    setSelectedIds(new Set())
+    await Promise.all(targets.map(r => rejectLeaveRequest(r, user.id, '').catch(err => setError(err.message))))
+    await loadQueue()
+    setBulkActioning(false)
+  }
+
+  const displayedRequests = sortDirection === 'asc' ? requests : [...requests].reverse()
+
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
       <ArrowLeft className="h-4 w-4" /> Back to Annual planner
@@ -113,27 +162,109 @@ export default function LeaveApprovalQueue({ onBack }) {
   return (
     <div>
       {backLink}
+
+      <div className="mb-3 flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => setSortDirection('asc')}
+          title="Old to new"
+          className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+            sortDirection === 'asc'
+              ? 'border-transparent bg-accent text-white'
+              : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+          }`}
+        >
+          <CalendarArrowDown className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortDirection('desc')}
+          title="New to old"
+          className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+            sortDirection === 'desc'
+              ? 'border-transparent bg-accent text-white'
+              : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+          }`}
+        >
+          <CalendarArrowUp className="h-4 w-4" />
+        </button>
+      </div>
+
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
+          <span className="flex-1">{selectedIds.size} selected</span>
+          <button
+            onClick={bulkApprove}
+            disabled={bulkActioning}
+            className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:opacity-50"
+          >
+            Approve selected
+          </button>
+          <button
+            onClick={bulkReject}
+            disabled={bulkActioning}
+            className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10 disabled:opacity-50"
+          >
+            Reject selected
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs font-medium text-white/60 hover:text-white/90"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      <div className="card mb-3 flex items-center gap-3 overflow-hidden px-5 py-2.5">
+        <input
+          type="checkbox"
+          checked={selectedIds.size === requests.length}
+          onChange={toggleSelectAll}
+          aria-label="Select all pending leave requests"
+          className="h-4 w-4 rounded border-slate-line accent-accent"
+        />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      </div>
+
       <div className="space-y-3">
-        {requests.map(request => {
+        {displayedRequests.map(request => {
           const w = warningsById[request.id]
           const warned = hasWarnings(w)
           const confirming = confirmingApproveId === request.id
           const isActioning = actioningId === request.id
-          const { rangeLabel, extraLine } = formatRequestDateRange(request.date_from, request.date_to, publicHolidayDates)
+          const { rangeLabel } = formatRequestDateRange(request.date_from, request.date_to, publicHolidayDates)
           const approveLabel = warned ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'
+          const categoryLabel = request.profiles?.category ? (CATEGORY_LABELS[request.profiles.category] || request.profiles.category) : null
+          const daysTotalLine = approvalDaysTotalLine(request)
 
           return (
             <div key={request.id} className="card p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink">
-                    {request.profiles?.name} {request.profiles?.surname}
-                    <span className="ml-2 text-xs font-normal text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]}</span>
-                  </p>
-                  <p className="text-xs text-ink-muted">{rangeLabel}</p>
-                  {extraLine && <p className="text-xs text-ink-muted">{extraLine}</p>}
-                  {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
-                  {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(request.id)}
+                    onChange={() => toggleSelected(request.id)}
+                    aria-label={`Select ${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
+                    className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+                  />
+                  <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} className="mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium text-ink">
+                        {request.profiles?.name} {request.profiles?.surname}
+                      </p>
+                      {categoryLabel && (
+                        <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
+                          {categoryLabel}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]} - {rangeLabel}</p>
+                    {daysTotalLine && <p className="text-xs text-ink-muted">{daysTotalLine}</p>}
+                    {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
+                  </div>
                 </div>
 
                 <div className="flex flex-shrink-0 items-center gap-1.5">

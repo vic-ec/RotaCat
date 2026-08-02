@@ -111,6 +111,16 @@ export function annualDaysSummary({ leave_type: leaveType, date_from: dateFrom, 
   return `${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave)`
 }
 
+// Same underlying numbers as annualDaysSummary, worded for the approval
+// queue's row layout ("N days total - (M as annual leave)") — kept as its
+// own export rather than reusing annualDaysSummary's text so that page's
+// existing wording (and its tests) aren't disturbed elsewhere.
+export function approvalDaysTotalLine({ leave_type: leaveType, date_from: dateFrom, date_to: dateTo, annual_leave_days: annualLeaveDays }) {
+  if (leaveType !== 'annual' || annualLeaveDays == null) return null
+  const totalDays = datesInRange(dateFrom, dateTo).length
+  return `${totalDays} day${totalDays === 1 ? '' : 's'} total - (${annualLeaveDays} as annual leave)`
+}
+
 // annual_leave_days is entered by the requester, not auto-derived from the
 // date range -- the 5-day/10-day padding-weekend rules need human
 // judgement about which days in [dateFrom, dateTo] actually count against

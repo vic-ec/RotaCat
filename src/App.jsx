@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppLayout from './components/AppLayout'
+import AccountSlideOverPanel from './components/AccountSlideOverPanel'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -27,57 +28,89 @@ function PendingRoute() {
   return <PendingApprovalPage />
 }
 
+// The Staff list's desktop row click navigates to /account/:id with
+// `state: { backgroundLocation }` set to wherever it was — a standard React
+// Router pattern for a route-driven overlay: the main <Routes> below keeps
+// rendering the background page (Staff list stays mounted, untouched)
+// while a second <Routes> renders just the /account/:id match as a slide-
+// over panel on top of it. A direct visit to /account/:id (no background
+// state — e.g. a bookmark, or any other navigate() call that doesn't set
+// it) falls through to the normal full-page route inside AppLayout instead.
+function AppRoutes() {
+  const location = useLocation()
+  const backgroundLocation = location.state?.backgroundLocation
+
+  return (
+    <>
+      <Routes location={backgroundLocation || location}>
+        {/* Public routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/pending" element={<PendingRoute />} />
+
+        {/* Protected app shell */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+
+          {/* Phase 4: Roster screens */}
+          <Route path="roster" element={<RosterDashboardPage />} />
+          <Route path="roster/generate" element={<GenerationConfigPage />} />
+          <Route path="roster/:id" element={<RosterGridPage />} />
+
+          <Route path="staff" element={<StaffListPage />} />
+          <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
+          <Route path="account" element={<AccountSettingsPage />} />
+          <Route path="account/:id" element={<AccountSettingsPage />} />
+          <Route path="leave" element={<LeavePlannerPage />} />
+          <Route path="weekend" element={<WeekendPlannerPage />} />
+          <Route
+            path="swaps"
+            element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}
+          />
+          <Route
+            path="shifts"
+            element={<PlaceholderPage title="Open shifts" description="Locum shift marketplace coming in a later phase." />}
+          />
+          <Route
+            path="settings"
+            element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
+          />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {backgroundLocation && (
+        <Routes>
+          <Route
+            path="/account/:id"
+            element={
+              <ProtectedRoute>
+                <AccountSlideOverPanel />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      )}
+    </>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/pending" element={<PendingRoute />} />
-
-          {/* Protected app shell */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-
-            {/* Phase 4: Roster screens */}
-            <Route path="roster" element={<RosterDashboardPage />} />
-            <Route path="roster/generate" element={<GenerationConfigPage />} />
-            <Route path="roster/:id" element={<RosterGridPage />} />
-
-            <Route path="staff" element={<StaffListPage />} />
-            <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />
-            <Route path="account" element={<AccountSettingsPage />} />
-            <Route path="account/:id" element={<AccountSettingsPage />} />
-            <Route path="leave" element={<LeavePlannerPage />} />
-            <Route path="weekend" element={<WeekendPlannerPage />} />
-            <Route
-              path="swaps"
-              element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}
-            />
-            <Route
-              path="shifts"
-              element={<PlaceholderPage title="Open shifts" description="Locum shift marketplace coming in a later phase." />}
-            />
-            <Route
-              path="settings"
-              element={<PlaceholderPage title="Settings" description="No-code constraint editor coming in a later phase." />}
-            />
-          </Route>
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   )

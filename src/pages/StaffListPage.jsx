@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
@@ -259,6 +259,7 @@ export default function StaffListPage() {
   // isAdmin/isSuperAdmin only, unaffected by this.
   const canContact = isAdmin || isClerk
   const navigate = useNavigate()
+  const location = useLocation()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
@@ -1080,7 +1081,10 @@ export default function StaffListPage() {
                         return (
                           <tr
                             key={person.id}
-                            onClick={() => isAdmin && navigate(`/account/${person.id}`)}
+                            // Opens as a slide-over panel (state.backgroundLocation)
+                            // rather than a full-page navigation — see
+                            // AccountSlideOverPanel/App.jsx.
+                            onClick={() => isAdmin && navigate(`/account/${person.id}`, { state: { backgroundLocation: location } })}
                             title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
                             className={`border-b border-slate-line last:border-0 transition-colors ${!person.is_active ? 'opacity-50' : ''} ${
                               isAdmin ? 'cursor-pointer hover:bg-canvas-sunken active:bg-slate-line' : ''

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  columnForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
+  columnForLeaveCategory, labelForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
   totalLeaveSlotsForDate, capacityStateForCount, LEAVE_CAPACITY_STATES,
 } from './leaveYearGrid'
@@ -31,6 +31,19 @@ describe('columnForLeaveCategory', () => {
   it('excludes Locum and unrecognised categories', () => {
     expect(columnForLeaveCategory('Locum')).toBeNull()
     expect(columnForLeaveCategory(undefined)).toBeNull()
+  })
+})
+
+describe('labelForLeaveCategory', () => {
+  it('returns the friendly column label for a raw category', () => {
+    expect(labelForLeaveCategory('MO')).toBe('MO')
+    expect(labelForLeaveCategory('EC_COSMO_Intern')).toBe('EC COSMO / Intern')
+    expect(labelForLeaveCategory('COSMOPsych')).toBe('OT COSMO / Intern')
+    expect(labelForLeaveCategory('Consultant')).toBe('Consultant')
+  })
+
+  it('falls back to the raw category for anything unrecognised', () => {
+    expect(labelForLeaveCategory('Locum')).toBe('Locum')
   })
 })
 

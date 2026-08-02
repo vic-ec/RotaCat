@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { todayStr, formatWeekdayDate } from '../lib/dateRange'
+import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
   totalLeaveSlotsForDate, capacityStateForCount,
@@ -13,19 +13,7 @@ import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
-
-// "15 Aug" or, for a multi-day request, "15–30 Aug" (or "28 Aug – 3 Sep" if
-// it crosses a month boundary) — the day sheet's compact per-entry date
-// range, next to each doctor's name and approved/pending status.
-function formatEntryDateRange(dateFrom, dateTo) {
-  const [, fromMonth, fromDay] = dateFrom.split('-').map(Number)
-  const [, toMonth, toDay] = dateTo.split('-').map(Number)
-  if (dateFrom === dateTo) return `${fromDay} ${MONTH_SHORT[fromMonth - 1]}`
-  const from = fromMonth === toMonth ? `${fromDay}` : `${fromDay} ${MONTH_SHORT[fromMonth - 1]}`
-  return `${from}–${toDay} ${MONTH_SHORT[toMonth - 1]}`
-}
 
 function hasWarnings(w) {
   return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
@@ -100,7 +88,7 @@ export default function MonthWorkspace({
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
         {LEAVE_CAPACITY_STATES.map(state => (
           <span key={state.key} className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-sm ${state.tint} ring-1 ring-inset ring-slate-line`} /> {state.label}
+            <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} /> {state.label}
           </span>
         ))}
       </div>
@@ -180,7 +168,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-1 ring-inset ring-ink-muted' : ''} ${capacityState.tint}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.tint}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
@@ -216,7 +204,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
       type="button"
       onClick={onClick}
       className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.tint} ${
-        isPublicHoliday ? 'border-accent/40 ring-1 ring-inset ring-accent/40' : 'border-slate-line'
+        isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
       <span className={isPublicHoliday ? 'font-semibold text-accent' : 'text-ink'}>{dateNum}</span>
@@ -340,7 +328,7 @@ function DayReviewModal({
                           <li key={e.profileId} className="flex items-center justify-between gap-2 text-sm">
                             <span className="flex items-baseline gap-1.5">
                               <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
-                              <span className="text-xs text-ink-muted">{formatEntryDateRange(e.dateFrom, e.dateTo)}</span>
+                              <span className="text-xs text-ink-muted">{formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                             </span>
                             <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
                               {e.status === 'pending' ? 'Pending' : 'Approved'}

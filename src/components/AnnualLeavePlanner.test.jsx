@@ -93,30 +93,44 @@ describe('AnnualLeavePlanner', () => {
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
   })
 
-  it('inspector defaults to August, showing the pressure date range and who is on it', async () => {
+  it('inspector defaults to August, showing "Leave during" the pressure date range and who is on it', async () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })
 
     expect(screen.getByText('Selected month')).toBeInTheDocument()
     expect(screen.getByText('August 2026')).toBeInTheDocument()
-    expect(screen.getByText('12–13 Aug')).toBeInTheDocument() // the Registrar at-cap range
+    expect(screen.getByText('Leave during 12–13 Aug')).toBeInTheDocument() // the Registrar at-cap range
+    expect(screen.getByText('2 people · 2 approved · 0 pending')).toBeInTheDocument()
     expect(screen.getByText('Anderson')).toBeInTheDocument() // also on leave those days
     expect(screen.getByText('Botha')).toBeInTheDocument()
-    expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
 
-  it('shows a combined "X of 3" capacity breakdown in "Capacity by category", not a per-category one', async () => {
+  it('shows a combined "X of 3 slots taken" capacity breakdown in "Leave Slot Utilization", not a per-category one', async () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })
     const inspector = within(screen.getByTestId('annual-inspector'))
+    expect(inspector.getByText('Leave Slot Utilization')).toBeInTheDocument()
 
     // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
     // EC COSMO/Intern request alone — also 1 of 3. Four days total.
-    expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('1 of 3 slots taken').closest('div')).getByText('4 days')).toBeInTheDocument()
     // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
-    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('2 of 3 slots taken').closest('div')).getByText('2 days')).toBeInTheDocument()
     // Nothing ever reaches 3 of 3 in this fixture.
-    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('3 of 3 slots taken').closest('div')).getByText('0 days')).toBeInTheDocument()
+  })
+
+  it('tapping a name in the date-range list reveals their full leave dates', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+
+    expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
+    await user.click(screen.getByText('Anderson'))
+    expect(screen.getByText('Full leave: 11–15 Aug')).toBeInTheDocument()
+
+    await user.click(screen.getByText('Anderson'))
+    expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
   })
 
   it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {

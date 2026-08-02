@@ -52,12 +52,6 @@ export default {
           DEFAULT: '#B7791F',
           bg: '#FBF1E1'
         },
-        // Fourth roster-state rung, between flagAmber and flagRed — the
-        // Annual Leave planner's "near capacity" (2 of 3 slots) day state.
-        flagOrange: {
-          DEFAULT: '#C2650A',
-          bg: '#FCEEDD'
-        },
         flagBlue: {
           DEFAULT: '#3457A6',
           bg: '#EAEEF8'
@@ -74,6 +68,35 @@ export default {
         statusAway: {
           DEFAULT: '#EAB308',
           bg: '#FEF9C3'
+        },
+        // Dedicated 4-step "leave capacity" heatmap palette (Annual Leave
+        // planner day/month fill) — kept separate from the flag*/success
+        // tokens above (shared with Pending badges, warning banners, etc.
+        // elsewhere) so tuning contrast here can never accidentally recolor
+        // unrelated UI. Standard, maximally-distinct hues (green/yellow/
+        // orange/red) rather than the flagAmber/flagRed pairing, which read
+        // too close together at this saturation. Each step: `DEFAULT` (solid
+        // year-grid day block), `tint` (soft month-view cell background),
+        // `dark` (public holiday fill/border on top of either).
+        capAvailable: {
+          DEFAULT: '#16A34A',
+          tint: '#DCFCE7',
+          dark: '#166534'
+        },
+        capLimited: {
+          DEFAULT: '#EAB308',
+          tint: '#FEF9C3',
+          dark: '#854D0E'
+        },
+        capNear: {
+          DEFAULT: '#F97316',
+          tint: '#FFEDD5',
+          dark: '#9A3412'
+        },
+        capAtCapacity: {
+          DEFAULT: '#DC2626',
+          tint: '#FEE2E2',
+          dark: '#991B1B'
         }
       },
       fontFamily: {

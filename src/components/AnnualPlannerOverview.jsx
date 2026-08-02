@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
-import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
+import { monthsForYear, LEAVE_CAPACITY_STATES, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
   monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
 } from '../lib/annualPlannerOverview'
-import { monthBounds, todayStr, dayOfWeek } from '../lib/dateRange'
+import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -51,6 +51,7 @@ export default function AnnualPlannerOverview({
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
   const [filter, setFilter] = useState('all')
+  const [expandedProfileId, setExpandedProfileId] = useState(null)
 
   // Capacity pressure is a fact about pending+approved leave on record
   // (matching the real cap check in leaveRequests.js), not about whoever's
@@ -92,6 +93,15 @@ export default function AnnualPlannerOverview({
   const selectedRange = firstPressureRangeInMonth(year, selectedMonth, pressureDates)
   const selectedMonthLabel = months[selectedMonth - 1].label
   const { start: selMonthStart, end: selMonthEnd } = monthBounds(year, selectedMonth)
+
+  const rangeEntries = selectedRange
+    ? entriesInRange(selectedRange.from, selectedRange.to, { approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate })
+    : []
+  const rangeSummary = {
+    people: rangeEntries.length,
+    approved: rangeEntries.filter(e => e.status === 'approved').length,
+    pending: rangeEntries.filter(e => e.status === 'pending').length,
+  }
 
   return (
     <div className="mt-6">
@@ -178,13 +188,13 @@ export default function AnnualPlannerOverview({
           </div>
 
           <div className="mt-3 space-y-1 border-t border-slate-line pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Capacity by category</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Leave Slot Utilization</p>
             {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
               const state = LEAVE_CAPACITY_STATES[level]
               return (
                 <div key={level} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1.5 text-ink-light">
-                    <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3
+                    <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3 slots taken
                   </span>
                   <span className={days > 0 ? `font-medium ${state.text}` : 'text-ink-muted'}>
                     {days} {days === 1 ? 'day' : 'days'}
@@ -196,26 +206,33 @@ export default function AnnualPlannerOverview({
 
           {selectedRange ? (
             <div className="mt-3 border-t border-slate-line pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Date range</p>
-              <p className="mt-0.5 text-sm font-semibold text-ink">
-                {Number(selectedRange.from.slice(-2))}–{Number(selectedRange.to.slice(-2))} {selectedMonthLabel.slice(0, 3)}
+              <p className="text-sm font-semibold text-ink">
+                Leave during {Number(selectedRange.from.slice(-2))}–{Number(selectedRange.to.slice(-2))} {selectedMonthLabel.slice(0, 3)}
               </p>
-              <ul className="mt-2 space-y-1">
-                {entriesInRange(selectedRange.from, selectedRange.to, { approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate }).map(e => (
-                  <li key={e.surname} className="flex items-center justify-between text-sm">
-                    <span className="text-ink">{e.surname}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
-                    }`}>
-                      {e.status === 'approved' ? 'Approved' : 'Pending'}
-                    </span>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {rangeSummary.people} {rangeSummary.people === 1 ? 'person' : 'people'} · {rangeSummary.approved} approved · {rangeSummary.pending} pending
+              </p>
+              <ul className="mt-2 space-y-0.5">
+                {rangeEntries.map(e => (
+                  <li key={e.profileId}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedProfileId(id => id === e.profileId ? null : e.profileId)}
+                      className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
+                    >
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
+                      }`}>
+                        {e.surname}
+                      </span>
+                      <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category)}</span>
+                    </button>
+                    {expandedProfileId === e.profileId && (
+                      <p className="pl-2 pb-1 text-xs text-ink-muted">Full leave: {formatShortDateRange(e.dateFrom, e.dateTo)}</p>
+                    )}
                   </li>
                 ))}
               </ul>
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber">
-                <TriangleAlert className="h-4 w-4 flex-shrink-0" />
-                <span>{monthCards[selectedMonth - 1].pressureDayCount} pressure days in this range</span>
-              </div>
             </div>
           ) : (
             <p className="mt-3 border-t border-slate-line pt-3 text-sm text-ink-muted">No capacity pressure this month.</p>
@@ -270,14 +287,14 @@ function MonthCard({ month, filter, isSelected, onSelect }) {
         {cells.map((day, i) => {
           if (!day) return <span key={`blank-${i}`} className="h-3 w-3" />
           const dim = filter === 'capacity' && !day.isPressure
-          const cellClass = dim ? 'bg-canvas-sunken/40' : day.capacityState.fill
-          // A public holiday keeps its own ring even on a day that also has
-          // leave on it, so "this day is a PH" never gets swallowed by
-          // whichever capacity colour happens to fill it.
-          const phRing = day.isPublicHoliday && !dim ? 'ring-1 ring-inset ring-ink-muted' : ''
+          // A public holiday gets a darker shade of its own capacity colour
+          // rather than a ring — a ring reads poorly at this size, and a
+          // darker fill still makes "this day is a PH" obvious without
+          // losing the capacity-state colour underneath it.
+          const cellClass = dim ? 'bg-canvas-sunken/40' : day.isPublicHoliday ? day.capacityState.dark : day.capacityState.fill
           return (
             <span key={day.date} className="h-3 w-3" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
-              <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
+              <span className={`block h-3 w-3 rounded-sm ${cellClass}`} />
             </span>
           )
         })}

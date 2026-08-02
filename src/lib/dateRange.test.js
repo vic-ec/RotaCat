@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatWeekdayDate } from './dateRange'
+import { formatWeekdayDate, formatShortDateRange } from './dateRange'
 
 describe('formatWeekdayDate', () => {
   it('formats as "Weekday, d MMM YYYY"', () => {
@@ -12,5 +12,19 @@ describe('formatWeekdayDate', () => {
 
   it('handles December correctly (month index boundary)', () => {
     expect(formatWeekdayDate('2026-12-25')).toBe('Friday, 25 Dec 2026')
+  })
+})
+
+describe('formatShortDateRange', () => {
+  it('formats a single day as "d MMM"', () => {
+    expect(formatShortDateRange('2026-08-15', '2026-08-15')).toBe('15 Aug')
+  })
+
+  it('formats a range within the same month as "d–d MMM"', () => {
+    expect(formatShortDateRange('2026-08-11', '2026-08-15')).toBe('11–15 Aug')
+  })
+
+  it('formats a range crossing a month boundary as "d MMM–d MMM"', () => {
+    expect(formatShortDateRange('2026-08-28', '2026-09-03')).toBe('28 Aug–3 Sep')
   })
 })

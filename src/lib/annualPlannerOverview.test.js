@@ -164,17 +164,30 @@ describe('monthPublicHolidayCount', () => {
 
 describe('entriesInRange', () => {
   const approvedByDate = new Map([
-    ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed' }]],
-    ['2026-08-13', [{ profileId: 'p2', surname: 'Brown' }]],
+    ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed', category: 'MO', dateFrom: '2026-08-11', dateTo: '2026-08-13' }]],
+    ['2026-08-13', [{ profileId: 'p2', surname: 'Zilla', category: 'Registrar', dateFrom: '2026-08-13', dateTo: '2026-08-13' }]],
   ])
   const pendingByDate = new Map([
-    ['2026-08-12', [{ profileId: 'p3', surname: 'Davis' }]],
-    ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed' }]], // same profile also pending elsewhere in range
+    ['2026-08-12', [{ profileId: 'p3', surname: 'Davis', category: 'COSMO', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
+    ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed', category: 'MO', dateFrom: '2026-08-11', dateTo: '2026-08-13' }]], // same profile also pending elsewhere in range
   ])
 
-  it('returns every distinct profile touching the range, sorted by surname', () => {
+  it('returns every distinct profile touching the range, with surname/category/dateFrom/dateTo carried through', () => {
     const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
-    expect(entries.map(e => e.surname)).toEqual(['Ahmed', 'Brown', 'Davis'])
+    expect(entries.find(e => e.surname === 'Ahmed')).toEqual({
+      profileId: 'p1', surname: 'Ahmed', category: 'MO', status: 'approved', dateFrom: '2026-08-11', dateTo: '2026-08-13',
+    })
+  })
+
+  it('sorts approved entries before pending ones, even out of alphabetical order', () => {
+    const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
+    // Zilla (approved) sorts before Davis (pending) despite the alphabet.
+    expect(entries.map(e => e.surname)).toEqual(['Ahmed', 'Zilla', 'Davis'])
+  })
+
+  it('sorts by surname within each status group', () => {
+    const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
+    expect(entries.filter(e => e.status === 'approved').map(e => e.surname)).toEqual(['Ahmed', 'Zilla'])
   })
 
   it('prefers approved status over pending for the same profile', () => {

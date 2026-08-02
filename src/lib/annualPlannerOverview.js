@@ -107,18 +107,26 @@ export function monthPublicHolidayCount(year, month, publicHolidaysByDate) {
   return datesInRange(start, end).filter(date => publicHolidaysByDate.has(date)).length
 }
 
-// Every distinct profile with approved or pending leave touching
-// [from, to], surname + status only (approved wins if a profile somehow
-// has both on record) — powers the inspector's date-range person list.
+// Every distinct profile with approved or pending leave touching [from,
+// to] — surname, category, status, and that entry's own full dateFrom/dateTo
+// (approved wins if a profile somehow has both on record) — powers the
+// inspector's date-range person list. Sorted approved-first (approved leave
+// is what actually affects available capacity; pending is still provisional)
+// then by surname within each group.
 export function entriesInRange(from, to, { approvedByDate, pendingByDate }) {
   const byProfile = new Map()
   for (const date of datesInRange(from, to)) {
     for (const e of pendingByDate.get(date) || []) {
-      if (!byProfile.has(e.profileId)) byProfile.set(e.profileId, { surname: e.surname, status: 'pending' })
+      if (!byProfile.has(e.profileId)) {
+        byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, status: 'pending', dateFrom: e.dateFrom, dateTo: e.dateTo })
+      }
     }
     for (const e of approvedByDate.get(date) || []) {
-      byProfile.set(e.profileId, { surname: e.surname, status: 'approved' })
+      byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, status: 'approved', dateFrom: e.dateFrom, dateTo: e.dateTo })
     }
   }
-  return [...byProfile.values()].sort((a, b) => a.surname.localeCompare(b.surname))
+  return [...byProfile.values()].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'approved' ? -1 : 1
+    return a.surname.localeCompare(b.surname)
+  })
 }

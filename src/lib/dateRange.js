@@ -52,6 +52,18 @@ export function formatWeekdayDate(dateStr) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
 }
 
+// "2026-08-15" -> "15 Aug"; "2026-08-15" to "2026-08-20" -> "15–20 Aug"; or
+// "2026-08-28" to "2026-09-03" -> "28 Aug–3 Sep" when it crosses a month
+// boundary. The compact per-entry date-range display used in the leave
+// planner's day sheet and inspector (e.g. "who's off, and for how long").
+export function formatShortDateRange(dateFrom, dateTo) {
+  const [, fromMonth, fromDay] = dateFrom.split('-').map(Number)
+  const [, toMonth, toDay] = dateTo.split('-').map(Number)
+  if (dateFrom === dateTo) return `${fromDay} ${MONTH_ABBR[fromMonth - 1]}`
+  const from = fromMonth === toMonth ? `${fromDay}` : `${fromDay} ${MONTH_ABBR[fromMonth - 1]}`
+  return `${from}–${toDay} ${MONTH_ABBR[toMonth - 1]}`
+}
+
 // First/last "YYYY-MM-DD" of a calendar month (1-indexed month).
 export function monthBounds(year, month) {
   const start = `${year}-${String(month).padStart(2, '0')}-01`

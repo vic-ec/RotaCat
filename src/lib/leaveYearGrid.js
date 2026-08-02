@@ -43,12 +43,17 @@ export const COLUMN_DOT_COLOR = {
 // leave (all 4 capacity columns combined, pending+approved combined).
 // Clamped at 3, matching LEAVE_FULL_TIME_DEFAULT_MAX below — the combined
 // cap across all four columns, so 3 really is the ceiling every doctor can
-// hit in practice, not just a display simplification.
+// hit in practice, not just a display simplification. Uses the dedicated
+// cap* palette (tailwind.config.js), not flagAmber/flagRed, so this scale's
+// contrast can be tuned independently of shared status colours elsewhere.
+// `dark` is the public-holiday treatment — a deeper shade of the same
+// state, layered on top of `fill`/`tint` instead of a border/ring (which
+// doesn't read well against a solid or tinted background).
 export const LEAVE_CAPACITY_STATES = [
-  { key: 'available', label: 'Available', fill: 'bg-success', tint: 'bg-success-bg', text: 'text-success' },
-  { key: 'limited', label: 'Limited', fill: 'bg-flagAmber', tint: 'bg-flagAmber-bg', text: 'text-flagAmber' },
-  { key: 'near_capacity', label: 'Near capacity', fill: 'bg-flagOrange', tint: 'bg-flagOrange-bg', text: 'text-flagOrange' },
-  { key: 'at_capacity', label: 'At capacity', fill: 'bg-flagRed', tint: 'bg-flagRed-bg', text: 'text-flagRed' },
+  { key: 'available', label: 'Available', fill: 'bg-capAvailable', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', text: 'text-capAvailable-dark' },
+  { key: 'limited', label: 'Limited', fill: 'bg-capLimited', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', text: 'text-capLimited-dark' },
+  { key: 'near_capacity', label: 'Near capacity', fill: 'bg-capNear', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', text: 'text-capNear-dark' },
+  { key: 'at_capacity', label: 'At capacity', fill: 'bg-capAtCapacity', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', text: 'text-capAtCapacity-dark' },
 ]
 
 // Sum of every capacity column's count for one date — the total distinct
@@ -86,6 +91,17 @@ const COLUMN_BY_CATEGORY = new Map(
 // shouldn't appear on the grid at all (Locum, or an unrecognised value).
 export function columnForLeaveCategory(category) {
   return COLUMN_BY_CATEGORY.get(category) ?? null
+}
+
+const LABEL_BY_CATEGORY = new Map(
+  [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.label]))
+)
+
+// The friendly column label for a raw staff_category (e.g. 'EC_COSMO_Intern'
+// -> 'EC COSMO / Intern') — falls back to the raw category for anything not
+// on the grid (Locum, unrecognised values) rather than hiding it entirely.
+export function labelForLeaveCategory(category) {
+  return LABEL_BY_CATEGORY.get(category) ?? category
 }
 
 // 12 {year, month, label} entries for a calendar year.

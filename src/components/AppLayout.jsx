@@ -26,11 +26,28 @@ const doctorNav = [
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
-// Locums: see roster and open shifts, can request locum↔locum swaps.
+// MO/Registrar doctors get the same read-only Staff list (contact list)
+// access as Locums and Clerks — other doctor categories (Consultant,
+// COSMO, Intern, etc.) don't, so this is a separate array picked at
+// render time (see canViewStaffList below) rather than a static addition
+// to doctorNav, which every doctor category shares.
+const doctorNavWithStaff = [
+  { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
+  { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+  { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
+  { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+  { to: '/account', label: 'Account',    icon: UserIcon },
+]
+
+// Locums: see roster and open shifts, can request locum↔locum swaps, plus
+// the same read-only Staff list access as Clerks (a locum's category is
+// always MO/Registrar-equivalent — see AuthContext's canViewStaffList).
 // No leave, no weekend grid (enforced via canViewWeekendGrid in those pages).
 const locumNav = [
   { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
@@ -103,7 +120,7 @@ function MobileAvatar({ profile, size, onLeave, onSetActive }) {
 }
 
 export default function AppLayout() {
-  const { profile, signOut, isAdmin, isLocum, isClerk, setMyActiveStatus } = useAuth()
+  const { profile, signOut, isAdmin, isLocum, isClerk, canViewStaffList, setMyActiveStatus } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [staffBadgeCount, setStaffBadgeCount] = useState(0)
@@ -146,6 +163,7 @@ export default function AppLayout() {
   const navItems = isAdmin  ? adminNav
                  : isLocum  ? locumNav
                  : isClerk  ? clerkNav
+                 : canViewStaffList ? doctorNavWithStaff
                  : doctorNav
 
   // Subtitle under the name in the sidebar

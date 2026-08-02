@@ -7,6 +7,7 @@ import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import PublicHolidayButton from '../components/PublicHolidayButton'
+import UpcomingBirthdays from '../components/UpcomingBirthdays'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -217,18 +218,25 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <h1 className="font-display text-2xl font-bold text-ink">
-        Welcome, {profile?.name || 'there'}
-      </h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        {isAdmin
-          ? 'Leave and hours overview for the team.'
-          : isClerk
-            ? 'Live team status — who\'s on shift, who\'s up next, who\'s on leave.'
-            : isLocum
-              ? 'Your upcoming shifts on the published roster.'
-              : 'Your upcoming shifts and leave.'}
-      </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold text-ink">
+            Welcome, {profile?.name || 'there'}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">
+            {isAdmin
+              ? 'Leave and hours overview for the team.'
+              : isClerk
+                ? 'Live team status — who\'s on shift, who\'s up next, who\'s on leave.'
+                : isLocum
+                  ? 'Your upcoming shifts on the published roster.'
+                  : 'Your upcoming shifts and leave.'}
+          </p>
+        </div>
+        {/* Visible to every role/category/permission level, unlike the
+            widgets below — see UpcomingBirthdays' own comment. */}
+        <UpcomingBirthdays />
+      </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 

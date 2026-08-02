@@ -14,6 +14,7 @@ const NAV_LABELS = {
   doctor: [
     { to: '/',        label: 'My shifts' },
     { to: '/roster',  label: 'Roster' },
+    { to: '/staff',   label: 'Staff' },
     { to: '/leave',   label: 'Planners' },
     { to: '/swaps',   label: 'Swaps' },
     { to: '/account', label: 'Account' },
@@ -21,6 +22,7 @@ const NAV_LABELS = {
   locum: [
     { to: '/',        label: 'My shifts' },
     { to: '/roster',  label: 'Roster' },
+    { to: '/staff',   label: 'Staff' },
     { to: '/shifts',  label: 'Open shifts' },
     { to: '/swaps',   label: 'Swaps' },
     { to: '/account', label: 'Account' },

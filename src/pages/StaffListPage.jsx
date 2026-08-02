@@ -251,13 +251,14 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
 }
 
 export default function StaffListPage() {
-  const { isAdmin, isClerk, isSuperAdmin, user, setMyActiveStatus } = useAuth()
-  // Clerks are read-only for account management, but the mobile Quick
-  // Actions menu (Message/Call/Mail) is pure contact info -- clerks need
-  // that same access (see AppLayout's clerkNav: Roster, Staff, Planner,
-  // Account). Account-settings navigation and admin-granting stay
-  // isAdmin/isSuperAdmin only, unaffected by this.
-  const canContact = isAdmin || isClerk
+  const { isAdmin, canViewStaffList, isSuperAdmin, user, setMyActiveStatus } = useAuth()
+  // Clerks, Locums, and MO/Registrar doctors are all read-only for account
+  // management, but the mobile Quick Actions menu (Message/Call/Mail) is
+  // pure contact info -- they all need that same access (see AuthContext's
+  // canViewStaffList for the shared role/category rule this mirrors).
+  // Account-settings navigation and admin-granting stay isAdmin/isSuperAdmin
+  // only, unaffected by this.
+  const canContact = canViewStaffList
   const navigate = useNavigate()
   const location = useLocation()
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
@@ -1133,7 +1134,17 @@ export default function StaffListPage() {
                             </td>
                             <td className="px-2.5 py-1.5 text-ink-light">
                               <span className="inline-flex items-center gap-1">
-                                {emailById[person.id] || '—'}
+                                {emailById[person.id] && person.email_verified ? (
+                                  <a
+                                    href={`mailto:${emailById[person.id]}`}
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-ink-light hover:underline"
+                                  >
+                                    {emailById[person.id]}
+                                  </a>
+                                ) : (
+                                  emailById[person.id] || '—'
+                                )}
                                 {emailById[person.id] && person.email_verified && (
                                   <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
                                 )}

@@ -1053,7 +1053,7 @@ export default function StaffListPage() {
                     <th className="px-2.5 py-2">Email</th>
                     <th className="px-2.5 py-2">Status</th>
                     <th className="px-2.5 py-2">Is Admin</th>
-                    {isAdmin && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
+                    {canContact && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1066,7 +1066,7 @@ export default function StaffListPage() {
                           onClick={() => toggleGroupCollapsed(group.key)}
                           className="cursor-pointer bg-canvas-sunken transition-colors hover:bg-slate-line active:bg-slate-line"
                         >
-                          <td colSpan={isAdmin ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                          <td colSpan={canContact ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                               <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -1204,7 +1204,7 @@ export default function StaffListPage() {
                                 <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
                               )}
                             </td>
-                            {isAdmin && (
+                            {canContact && (
                               <td className="px-2.5 py-1.5 text-right">
                                 <button
                                   onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
@@ -1565,12 +1565,14 @@ export default function StaffListPage() {
         )
       })()}
 
-      {/* ── Per-row quick-action popover (mobile, admin viewers) ──
-           iOS Contacts-style: anchored to wherever the kebab was pressed
-           (rolling down from a row in the top/middle of the screen, up from
-           one near the bottom). Message/Call open a second, separate flyout
-           popover cascading below that row (see below) rather than expanding
-           in place. Mail goes straight to the mail client. Status is set via
+      {/* ── Per-row quick-action popover — shared by both the mobile and
+           desktop kebab triggers, visible to any canContact viewer (admin,
+           clerk, locum, or MO/Registrar doctor). iOS Contacts-style:
+           anchored to wherever the kebab was pressed (rolling down from a
+           row in the top/middle of the screen, up from one near the
+           bottom). Message/Call open a second, separate flyout popover
+           cascading below that row (see below) rather than expanding in
+           place. Mail goes straight to the mail client. Status is set via
            the status badge itself, so it's not duplicated here. */}
       {quickActionPerson && quickActionAnchor && (() => {
         const targetEmail = emailById[quickActionPerson.id]

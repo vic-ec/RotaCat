@@ -7,9 +7,11 @@ import { datesInRange, monthBounds } from './dateRange'
 import { LEAVE_CAPACITY_COLUMNS } from './leaveYearGrid'
 
 // Every date across a capacity-column count map (countByColumnPerDate's
-// output, approved leave only — that's what the concurrency cap actually
-// governs) where at least one column has hit (or passed) its max, i.e. no
-// more of that category could be approved that day without breaching it.
+// output, over pending+approved leave combined — that's what the
+// concurrency cap actually counts, per checkAnnualLeaveCapacity in
+// leaveRequests.js) where at least one column has hit (or passed) its max,
+// i.e. no more of that category could be submitted for that day without
+// being blocked.
 export function pressureDatesInYear(countByColumnPerDate, maxByColumnKey) {
   const pressureDates = new Set()
   for (const [date, perColumn] of countByColumnPerDate) {

@@ -8,9 +8,10 @@ vi.mock('../context/AuthContext', () => ({
 }))
 
 const getApprovalWarnings = vi.fn()
-vi.mock('../lib/leaveApprovals', () => ({
-  getApprovalWarnings: (...args) => getApprovalWarnings(...args),
-}))
+vi.mock('../lib/leaveApprovals', async () => {
+  const actual = await vi.importActual('../lib/leaveApprovals')
+  return { ...actual, getApprovalWarnings: (...args) => getApprovalWarnings(...args) }
+})
 
 const createNotification = vi.fn().mockResolvedValue({ error: null })
 vi.mock('../lib/notifications', () => ({

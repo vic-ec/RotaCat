@@ -60,8 +60,9 @@ export default function AnnualPlannerOverview({
   const [searchQuery, setSearchQuery] = useState('')
 
   const searchTerm = searchQuery.trim().toLowerCase()
-  // Capacity pressure is a fact about the real approved roster, not about
-  // whoever's currently searching/filtering — always computed unfiltered.
+  // Capacity pressure is a fact about pending+approved leave on record
+  // (matching the real cap check in leaveRequests.js), not about whoever's
+  // currently searching/filtering — always computed unfiltered.
   const pressureDates = useMemo(() => pressureDatesInYear(countByColumnPerDate, maxByColumnKey), [countByColumnPerDate, maxByColumnKey])
 
   // Hooks must run unconditionally (Rules of Hooks) — compute the filtered
@@ -140,7 +141,7 @@ export default function AnnualPlannerOverview({
               <button
                 key={v}
                 type="button"
-                onClick={v === 'Month' ? onOpenWorkspace : undefined}
+                onClick={v === 'Month' ? () => onOpenWorkspace(selectedMonth) : undefined}
                 aria-current={v === 'Year' ? 'true' : undefined}
                 className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                   v === 'Year' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
@@ -255,7 +256,7 @@ export default function AnnualPlannerOverview({
           )}
 
           <div className="mt-4 space-y-2">
-            <button type="button" onClick={onOpenWorkspace} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
+            <button type="button" onClick={() => onOpenWorkspace(selectedMonth)} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
               <ExternalLink className="h-3.5 w-3.5" /> Open month workspace
             </button>
             <Link to="/leave?tab=planners&sub=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">

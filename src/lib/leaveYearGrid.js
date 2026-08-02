@@ -27,6 +27,18 @@ export const LEAVE_CAPACITY_COLUMNS = [
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
+// Shared column->colour mapping for both calendar views that render these
+// categories (LeaveYearGrid.jsx's mobile month-glance, and MonthWorkspace.jsx's
+// desktop calendar) — kept here, not in either component, so both agree on
+// which colour means which category.
+export const COLUMN_DOT_COLOR = {
+  MO: 'bg-accent',
+  Registrar: 'bg-rose',
+  EC_COSMO: 'bg-amber-500',
+  OT_COSMO: 'bg-blue-500',
+  Other: 'bg-ink-muted',
+}
+
 // The "no more than 3 full-time doctors on leave at once" rule spans MO,
 // Registrar, and EC COSMO/Intern combined — e.g. 1 MO + 1 Registrar + 1 EC
 // COSMO/Intern, or 2 MO + 1 of either (never 2 Registrar or 2 EC

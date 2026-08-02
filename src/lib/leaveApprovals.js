@@ -13,6 +13,50 @@
 import { supabase } from './supabase'
 import { datesInRange, monthBounds } from './dateRange'
 import { annualDaysUsedInYear } from './leaveDashboard'
+import { createNotification } from './notifications'
+import { LEAVE_TYPE_OPTIONS } from './leaveRequests'
+
+const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+
+// Shared approve/reject actions — originally only in LeaveApprovalQueue.jsx,
+// pulled out here so the Annual planner's month workspace can approve/reject
+// a pending request inline too, without duplicating the update+notify flow.
+// Both throw on a Supabase error so callers can surface it the same way
+// submitLeaveRequest's callers already do (catch + show err.message).
+export async function approveLeaveRequest(request, reviewerId) {
+  const { error } = await supabase.from('leave_requests').update({
+    status: 'approved',
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', request.id)
+  if (error) throw new Error(error.message)
+
+  await createNotification({
+    profileId: request.profile_id,
+    type: 'leave_approved',
+    title: 'Leave request approved',
+    body: `Your ${LEAVE_TYPE_LABELS[request.leave_type]} request (${request.date_from} to ${request.date_to}) was approved.`,
+    link: '/leave',
+  })
+}
+
+export async function rejectLeaveRequest(request, reviewerId, notes) {
+  const { error } = await supabase.from('leave_requests').update({
+    status: 'rejected',
+    admin_notes: notes || null,
+    reviewed_by: reviewerId,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', request.id)
+  if (error) throw new Error(error.message)
+
+  await createNotification({
+    profileId: request.profile_id,
+    type: 'leave_rejected',
+    title: 'Leave request rejected',
+    body: `Your ${LEAVE_TYPE_LABELS[request.leave_type]} request (${request.date_from} to ${request.date_to}) was rejected.${notes ? ` Note: ${notes}` : ''}`,
+    link: '/leave',
+  })
+}
 
 export function findSupervisionBreaches({ profileCategory, minSupervision, assignedSupervisionShifts }) {
   if (profileCategory !== 'MO' && profileCategory !== 'Registrar') return []

@@ -15,11 +15,16 @@ function CalendarIcon(props) {
   )
 }
 
-export default function LeaveRequestForm({ onSubmitted }) {
+// initialDateFrom/initialDateTo: optional prefill for a specific date (or
+// range) — used by the Annual planner's month workspace when someone opens
+// this form from a day they clicked, rather than starting from a blank
+// date field. Submission itself is unaffected: still always files under
+// the signed-in user's own profile via useAuth(), same as before.
+export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '' }) {
   const { profile, isAdmin } = useAuth()
   const [leaveType, setLeaveType] = useState('annual')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState(initialDateFrom)
+  const [dateTo, setDateTo] = useState(initialDateTo)
   const [annualLeaveDays, setAnnualLeaveDays] = useState('')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)

@@ -12,26 +12,30 @@ vi.mock('../context/AuthContext', () => ({
 }))
 
 // Fixture tuned so August reproduces the reference mockup's own example
-// text ("2 pressure days · 1 pending"):
+// text ("… pressure days · 1 pending"):
 //  - p1 (Anderson, MO) approved 11–15 Aug (5 days) — no MO pressure since
 //    the default MO cap is 2 and there's only one MO doctor off.
 //  - p2 (Botha, Registrar) approved 12–13 Aug (2 days) — the default
 //    Registrar cap is 1, so both those days are immediately "at cap".
 //  - p3 (Cosmo, EC COSMO/Intern via the 'COSMO' category) has one pending
-//    request on 20 Aug.
+//    request on 20 Aug — pending counts toward the cap too (the real
+//    concurrency rule checks pending+approved together, see
+//    checkAnnualLeaveCapacity in leaveRequests.js), so with the default
+//    EC COSMO/Intern cap of 1, that pending request alone already puts
+//    20 Aug at capacity. Total: 3 pressure days (12, 13, 20).
 // January has nothing at all, for the "Quiet" empty state.
 const LEAVE_REQUESTS = [
   {
-    profile_id: 'p1', date_from: '2026-08-11', date_to: '2026-08-15', leave_type: 'annual',
-    status: 'approved', annual_leave_days: 5, profiles: { surname: 'Anderson', category: 'MO' },
+    id: 'req-1', profile_id: 'p1', date_from: '2026-08-11', date_to: '2026-08-15', leave_type: 'annual',
+    status: 'approved', annual_leave_days: 5, profiles: { name: 'Alice', surname: 'Anderson', category: 'MO' },
   },
   {
-    profile_id: 'p2', date_from: '2026-08-12', date_to: '2026-08-13', leave_type: 'annual',
-    status: 'approved', annual_leave_days: 2, profiles: { surname: 'Botha', category: 'Registrar' },
+    id: 'req-2', profile_id: 'p2', date_from: '2026-08-12', date_to: '2026-08-13', leave_type: 'annual',
+    status: 'approved', annual_leave_days: 2, profiles: { name: 'Bob', surname: 'Botha', category: 'Registrar' },
   },
   {
-    profile_id: 'p3', date_from: '2026-08-20', date_to: '2026-08-20', leave_type: 'annual',
-    status: 'pending', annual_leave_days: 1, profiles: { surname: 'Cosmo', category: 'COSMO' },
+    id: 'req-3', profile_id: 'p3', date_from: '2026-08-20', date_to: '2026-08-20', leave_type: 'annual',
+    status: 'pending', annual_leave_days: 1, profiles: { name: 'Carol', surname: 'Cosmo', category: 'COSMO' },
   },
 ]
 
@@ -83,7 +87,7 @@ describe('AnnualLeavePlanner', () => {
   it('shows the pressure/pending summary line on the affected month card', async () => {
     renderPage()
     const augustCard = await screen.findByRole('button', { name: /August/ })
-    expect(within(augustCard).getByText('2 pressure days · 1 pending')).toBeInTheDocument()
+    expect(within(augustCard).getByText('3 pressure days · 1 pending')).toBeInTheDocument()
 
     const januaryCard = screen.getByRole('button', { name: /January/ })
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
@@ -95,7 +99,7 @@ describe('AnnualLeavePlanner', () => {
     const stats = within(screen.getByTestId('annual-year-stats'))
     expect(stats.getByText('7 days')).toBeInTheDocument() // 5 (p1) + 2 (p2) approved annual days
     expect(stats.getByText('Max 3 doctors (15%)')).toBeInTheDocument() // the full-time aggregate cap, of a 20-person headcount
-    expect(stats.getByText('2 pressure days')).toBeInTheDocument()
+    expect(stats.getByText('3 pressure days')).toBeInTheDocument()
   })
 
   it('inspector defaults to August, showing the pressure date range and who is on it', async () => {
@@ -144,13 +148,15 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=planners&sub=requests')
   })
 
-  it('"Open month workspace" switches to the detailed spreadsheet view, and Back returns to the overview', async () => {
+  it('"Open month workspace" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('button', { name: /August/ })
 
     await user.click(screen.getByRole('button', { name: /Open month workspace/ }))
     expect(screen.getByRole('button', { name: '← Back to overview' })).toBeInTheDocument()
+    expect(screen.getByText('Sunday')).toBeInTheDocument() // full weekday name column header
+    expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
     expect(screen.queryByText('Selected month')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '← Back to overview' }))

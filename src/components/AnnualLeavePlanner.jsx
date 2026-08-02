@@ -5,8 +5,8 @@ import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
   buildLeaveByDate, countByColumnPerDate,
 } from '../lib/leaveYearGrid'
-import LeaveYearGrid from './LeaveYearGrid'
 import AnnualPlannerOverview from './AnnualPlannerOverview'
+import MonthWorkspace from './MonthWorkspace'
 import InlineRuleHint from './InlineRuleHint'
 
 const ELIGIBLE_CATEGORIES = [...new Set(LEAVE_CAPACITY_COLUMNS.flatMap(col => col.categories))]
@@ -34,14 +34,15 @@ function reshapeByDate(byDate) {
 //
 // Two views share this one fetch: AnnualPlannerOverview (the default
 // landing view — a 12-month "where does this need my attention" summary)
-// and the original day-row LeaveYearGrid spreadsheet, demoted to a
-// "workspace" view for when a genuine per-day read is actually needed
-// (opened via the overview's "Open month workspace" action or its Month
-// toggle) rather than thrown away.
+// and MonthWorkspace (a full calendar for one month — reading surnames,
+// checking capacity, reviewing/approving pending requests, and submitting
+// new leave — opened via the overview's "Open month workspace" action or
+// its Month toggle, both of which hand over whichever month was selected).
 export default function AnnualLeavePlanner() {
   const { profile } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [mode, setMode] = useState('overview') // 'overview' | 'workspace'
+  const [workspaceMonth, setWorkspaceMonth] = useState(new Date().getMonth() + 1)
   const [approvedByDate, setApprovedByDate] = useState(new Map())
   const [pendingByDate, setPendingByDate] = useState(new Map())
   const [approvedRows, setApprovedRows] = useState([])
@@ -65,7 +66,7 @@ export default function AnnualLeavePlanner() {
     const [leaveRes, phRes, constraintsRes, headcountRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(surname, category)')
+        .select('id, profile_id, date_from, date_to, leave_type, status, annual_leave_days, notes, profiles!leave_requests_profile_id_fkey(name, surname, category)')
         .eq('leave_type', 'annual')
         .in('status', ['approved', 'pending'])
         .lte('date_from', yearEnd)
@@ -83,12 +84,18 @@ export default function AnnualLeavePlanner() {
 
     const approvedRawByDate = buildLeaveByDate(approvedRawRows, { yearFrom: year, yearTo: year })
     const pendingRawByDate = buildLeaveByDate(pendingRawRows, { yearFrom: year, yearTo: year })
+    // The real concurrency cap (checkAnnualLeaveCapacity in leaveRequests.js)
+    // is checked against pending+approved combined at submission time — a
+    // pending request already occupies a slot, blocking anyone else from
+    // even submitting an overlapping one. So "at capacity" here has to
+    // count both, not approved alone, to match what the cap actually means.
+    const combinedRawByDate = buildLeaveByDate(allRows, { yearFrom: year, yearTo: year })
 
     setApprovedByDate(reshapeByDate(approvedRawByDate))
     setPendingByDate(reshapeByDate(pendingRawByDate))
     setApprovedRows(approvedRawRows)
     setPendingRows(pendingRawRows)
-    setCountsByColumn(countByColumnPerDate(approvedRawByDate, entry => entry.profiles?.category))
+    setCountsByColumn(countByColumnPerDate(combinedRawByDate, entry => entry.profiles?.category))
     setPublicHolidaysByDate(new Map((phRes.data || []).map(ph => [ph.date, ph.name])))
     setEligibleHeadcount(headcountRes.count ?? 0)
 
@@ -100,10 +107,15 @@ export default function AnnualLeavePlanner() {
     setLoading(false)
   }
 
-  // The old grid's own capacity display only makes sense for approved
-  // leave (pending isn't "using up" the cap yet) — the LeaveYearGrid
-  // workspace view keeps showing approved-only, same as before this round.
-  const approvedOnlyForWorkspace = new Map(approvedByDate)
+  function openWorkspace(month) {
+    setWorkspaceMonth(month)
+    setMode('workspace')
+  }
+
+  function changeWorkspaceMonth(newYear, newMonth) {
+    if (newYear !== year) setYear(newYear)
+    setWorkspaceMonth(newMonth)
+  }
 
   return (
     <div>
@@ -120,7 +132,7 @@ export default function AnnualLeavePlanner() {
           "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
           'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',
           'Public holidays are highlighted on the grid; tap or hover the date to see the name.',
-          'Pending requests here show as a "pressure" signal only — the concurrency cap itself is only ever enforced against approved leave.',
+          'Pending requests count toward the cap too, not just approved ones — once a category is full, submitting another overlapping request for it is blocked until one already pending is decided.',
         ]}
       />
 
@@ -140,22 +152,24 @@ export default function AnnualLeavePlanner() {
             maxFullTime={maxFullTime}
             eligibleHeadcount={eligibleHeadcount}
             myProfileId={profile?.id}
-            onOpenWorkspace={() => setMode('workspace')}
+            onOpenWorkspace={openWorkspace}
           />
         ) : (
-          <div className="mt-4">
-            <button type="button" onClick={() => setMode('overview')} className="btn-secondary text-sm">
-              ← Back to overview
-            </button>
-            <LeaveYearGrid
-              year={year}
-              onYearChange={setYear}
-              leaveByDate={approvedOnlyForWorkspace}
-              publicHolidaysByDate={publicHolidaysByDate}
-              maxByColumnKey={maxByColumnKey}
-              myProfileId={profile?.id}
-            />
-          </div>
+          <MonthWorkspace
+            year={year}
+            month={workspaceMonth}
+            onMonthChange={changeWorkspaceMonth}
+            approvedByDate={approvedByDate}
+            pendingByDate={pendingByDate}
+            approvedRows={approvedRows}
+            pendingRows={pendingRows}
+            countByColumnPerDate={countsByColumn}
+            publicHolidaysByDate={publicHolidaysByDate}
+            maxByColumnKey={maxByColumnKey}
+            maxFullTime={maxFullTime}
+            onDataChanged={load}
+            onBack={() => setMode('overview')}
+          />
         )
       )}
     </div>

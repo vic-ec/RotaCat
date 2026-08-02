@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
-import { CircleCheck } from 'lucide-react'
+import { CircleCheck, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from '../components/ProfileAvatar'
-import BackButton from '../components/BackButton'
 import SelectMenu from '../components/SelectMenu'
 import { formatPhoneProgressive } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
@@ -28,10 +27,22 @@ function GroupLabel({ children }) {
   return <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{children}</p>
 }
 
-export default function PendingApprovalReviewPage() {
+// `embedded`/`onClose`: when rendered inside PendingApprovalSlideOverPanel
+// (the Staff list's right-hugging panel — see that component) rather than
+// as its own full-page route, the fixed BackButton doesn't make sense
+// (it's positioned against the whole viewport, not the panel) and
+// approve/reject/back should close the panel instead of navigating to
+// /staff. Standalone use (a direct link to /staff/pending/:id) is
+// unaffected — same navigate('/staff') as before.
+export default function PendingApprovalReviewPage({ embedded = false, onClose }) {
   const { isAdmin } = useAuth()
   const { id } = useParams()
   const navigate = useNavigate()
+
+  function goBack() {
+    if (embedded && onClose) onClose()
+    else navigate('/staff')
+  }
 
   const [profile, setProfile] = useState(null)
   const [email, setEmail] = useState(null)
@@ -88,7 +99,7 @@ export default function PendingApprovalReviewPage() {
       <div className="mx-auto max-w-7xl pb-12">
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn&apos;t load this registration: {loadError}</p>
-          <button onClick={() => navigate('/staff')} className="btn-secondary mt-3">Back to Staff list</button>
+          <button onClick={goBack} className="btn-secondary mt-3">Back to Staff list</button>
         </div>
       </div>
     )
@@ -101,7 +112,7 @@ export default function PendingApprovalReviewPage() {
           <p className="text-sm text-ink-muted">
             This registration has already been {profile.is_approved ? 'approved' : 'rejected'}.
           </p>
-          <button onClick={() => navigate('/staff')} className="btn-secondary mt-4">Back to Staff list</button>
+          <button onClick={goBack} className="btn-secondary mt-4">Back to Staff list</button>
         </div>
       </div>
     )
@@ -213,7 +224,7 @@ export default function PendingApprovalReviewPage() {
       )
     }
 
-    navigate('/staff')
+    goBack()
   }
 
   async function reject() {
@@ -229,12 +240,18 @@ export default function PendingApprovalReviewPage() {
       alert('Could not reject account: ' + error.message)
       return
     }
-    navigate('/staff')
+    goBack()
   }
 
   return (
     <div className="mx-auto max-w-7xl pb-12">
-      <BackButton />
+      <button
+        type="button"
+        onClick={goBack}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+      >
+        <ArrowLeft className="h-4 w-4" /> All staff
+      </button>
 
       <div className="space-y-6">
         <div>

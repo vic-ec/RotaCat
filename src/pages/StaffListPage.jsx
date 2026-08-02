@@ -8,7 +8,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
-import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck } from 'lucide-react'
+import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
@@ -220,28 +220,36 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
             </p>
           </div>
 
-          {/* Line 3 on mobile, right-aligned column on desktop */}
+          {/* Line 3 on mobile, right-aligned column on desktop — icon/size/
+              color treatment matches the Leave requests approval queue's
+              Approve/Reject/View buttons exactly (see LeaveApprovalQueue). */}
           <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
             <button
+              type="button"
               onClick={e => { e.stopPropagation(); approveAccount(person) }}
               title="Approve"
-              className="flex h-7 w-7 items-center justify-center rounded-md bg-success text-white transition-opacity hover:opacity-80 active:opacity-80"
+              aria-label="Approve"
+              className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <CheckIcon className="h-3.5 w-3.5" />
+              <CircleCheck className="h-5 w-5" />
             </button>
             <button
+              type="button"
               onClick={e => { e.stopPropagation(); rejectAccount(person.id) }}
               title="Reject"
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-flagRed text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
+              aria-label="Reject"
+              className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <CloseIcon className="h-3.5 w-3.5" />
+              <CircleX className="h-5 w-5" />
             </button>
             <button
+              type="button"
               onClick={e => { e.stopPropagation(); onEdit(person.id) }}
-              title="Review request"
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-line text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+              title="View request"
+              aria-label="View request"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
             >
-              <Eye className="h-3.5 w-3.5" />
+              <Eye className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -276,6 +284,9 @@ export default function StaffListPage() {
   const [accountFilters, setAccountFilters] = useState({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
+  const [selectedRequestIds, setSelectedRequestIds] = useState(new Set())
+  // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
+  const [requestsSortDirection, setRequestsSortDirection] = useState('asc')
 
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
@@ -453,7 +464,7 @@ export default function StaffListPage() {
       isAdmin
         ? supabase
             .from('account_change_requests')
-            .select('*, requester:profile_id(name, surname)')
+            .select('*, requester:profile_id(name, surname, role, category, avatar_url, color_code, pattern_type)')
             .eq('status', 'pending')
             .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
@@ -658,6 +669,32 @@ export default function StaffListPage() {
     setRequestActioningId(null)
   }
 
+  function toggleRequestSelected(id) {
+    setSelectedRequestIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllRequests() {
+    setSelectedRequestIds(prev =>
+      prev.size === accountRequests.length ? new Set() : new Set(accountRequests.map(r => r.id))
+    )
+  }
+
+  async function bulkApproveRequests() {
+    const targets = accountRequests.filter(r => selectedRequestIds.has(r.id))
+    setSelectedRequestIds(new Set())
+    await Promise.all(targets.map(approveRequest))
+  }
+
+  async function bulkRejectRequests() {
+    const targets = accountRequests.filter(r => selectedRequestIds.has(r.id))
+    setSelectedRequestIds(new Set())
+    await Promise.all(targets.map(r => rejectRequest(r)))
+  }
+
   // ── Quick-action popover handlers ────────────────────
   function openQuickActions(person, anchorEl) {
     setQuickActionPerson(person)
@@ -720,6 +757,7 @@ export default function StaffListPage() {
   const sheetFilterCount = ['role', 'category', 'status', 'isAdmin'].filter(k => accountFilters[k] !== 'all').length
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
+  const displayedRequests = requestsSortDirection === 'asc' ? accountRequests : [...accountRequests].reverse()
 
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
@@ -1231,7 +1269,7 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div>
+        <div className="md:max-w-2xl">
           <div className="mb-4 flex items-center justify-between">
             <button
               onClick={() => setTab('accounts')}
@@ -1315,7 +1353,7 @@ export default function StaffListPage() {
                     onToggleCheck={() => togglePendingSelected(person.id)}
                     approveAccount={approveAccount}
                     rejectAccount={rejectAccount}
-                    onEdit={id => navigate(`/staff/pending/${id}`)}
+                    onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
                   />
                 ))}
               </div>
@@ -1326,70 +1364,170 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
-        <div>
-          <button
-            onClick={() => setTab('accounts')}
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            All staff
-          </button>
+        <div className="md:max-w-2xl">
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              onClick={() => setTab('accounts')}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              All staff
+            </button>
+            {accountRequests.length > 0 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setRequestsSortDirection('asc')}
+                  title="Old to new"
+                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                    requestsSortDirection === 'asc'
+                      ? 'border-transparent bg-accent text-white'
+                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                  }`}
+                >
+                  <CalendarArrowDown className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setRequestsSortDirection('desc')}
+                  title="New to old"
+                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                    requestsSortDirection === 'desc'
+                      ? 'border-transparent bg-accent text-white'
+                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                  }`}
+                >
+                  <CalendarArrowUp className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No account requests pending review.</p>
             </div>
           ) : (
-            <div className="card overflow-hidden divide-y divide-slate-line">
-              {accountRequests.map((r) => {
-                const isActioning = requestActioningId === r.id
-                return (
-                  <div key={r.id} className="px-5 py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-medium text-ink text-sm">
-                            {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
-                          </p>
-                          <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium text-ink-light">
-                            {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
-                          </span>
+            <>
+              {selectedRequestIds.size > 0 && (
+                <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
+                  <span className="flex-1">{selectedRequestIds.size} selected</span>
+                  <button
+                    onClick={bulkApproveRequests}
+                    className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85"
+                  >
+                    Approve selected
+                  </button>
+                  <button
+                    onClick={bulkRejectRequests}
+                    className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10"
+                  >
+                    Reject selected
+                  </button>
+                  <button
+                    onClick={() => setSelectedRequestIds(new Set())}
+                    className="text-xs font-medium text-white/60 hover:text-white/90"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              <div className="card overflow-hidden divide-y divide-slate-line">
+                <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedRequestIds.size === accountRequests.length}
+                    onChange={toggleSelectAllRequests}
+                    aria-label="Select all account requests"
+                    className="h-4 w-4 rounded border-slate-line accent-accent"
+                  />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+                </div>
+                {displayedRequests.map((r) => {
+                  const isActioning = requestActioningId === r.id
+                  const secondaryLabel = r.requester?.role === 'doctor'
+                    ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
+                    : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+                  return (
+                    <div key={r.id} className="px-5 py-4">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedRequestIds.has(r.id)}
+                          onChange={() => toggleRequestSelected(r.id)}
+                          aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
+                          className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+                        />
+                        <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
+
+                        <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-ink text-sm">
+                                {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                              </p>
+                              {secondaryLabel && (
+                                <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
+                                  {secondaryLabel}
+                                </span>
+                              )}
+                              <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium text-ink-light">
+                                {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
+                              </span>
+                            </div>
+                            {r.request_type !== 'deletion' && (
+                              <p className="mt-1 text-xs text-ink-light">
+                                {r.current_value || '—'} → <span className="font-medium text-ink">{r.requested_value}</span>
+                              </p>
+                            )}
+                            {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
+                            <p className="mt-0.5 text-xs text-ink-muted">
+                              Requested {r.created_at?.slice(0, 10)}
+                            </p>
+                            {r.request_type === 'deletion' && (
+                              <p className="mt-1 text-xs text-flagAmber">
+                                Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
+                            <button
+                              type="button"
+                              disabled={isActioning}
+                              onClick={() => approveRequest(r)}
+                              title="Approve"
+                              aria-label="Approve"
+                              className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <CircleCheck className="h-5 w-5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isActioning}
+                              onClick={() => rejectRequest(r)}
+                              title="Reject"
+                              aria-label="Reject"
+                              className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <CircleX className="h-5 w-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}
+                              title="View request"
+                              aria-label="View request"
+                              className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
+                            >
+                              <Eye className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
-                        {r.request_type !== 'deletion' && (
-                          <p className="mt-1 text-xs text-ink-light">
-                            {r.current_value || '—'} → <span className="font-medium text-ink">{r.requested_value}</span>
-                          </p>
-                        )}
-                        {r.reason && <p className="mt-1 text-xs text-ink-muted">&quot;{r.reason}&quot;</p>}
-                        <p className="mt-0.5 text-xs text-ink-muted">
-                          Requested {r.created_at?.slice(0, 10)}
-                        </p>
-                        {r.request_type === 'deletion' && (
-                          <p className="mt-1 text-xs text-flagAmber">
-                            Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          disabled={isActioning}
-                          onClick={() => approveRequest(r)}
-                          className="rounded bg-success px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-80 active:opacity-80 disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          disabled={isActioning}
-                          onClick={() => rejectRequest(r)}
-                          className="rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:opacity-50"
-                        >
-                          Reject
-                        </button>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1681,22 +1819,6 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
-    </svg>
-  )
-}
-
-function CheckIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12l5 5L19 7" />
-    </svg>
-  )
-}
-
-function CloseIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
 }

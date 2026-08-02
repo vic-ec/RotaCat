@@ -3,6 +3,11 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LeaveYearGrid from './LeaveYearGrid'
 
+let mockAuth = { isAdmin: true }
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => mockAuth,
+}))
+
 // jsdom doesn't apply the `lg:` breakpoint media query, so both the
 // desktop (hidden lg:block) and mobile (lg:hidden) layouts are present in
 // the DOM simultaneously here — tests scope into the mobile calendar via
@@ -109,5 +114,18 @@ describe('LeaveYearGrid', () => {
     expect(within(sheet).getByText('Exford')).toBeInTheDocument()
     expect(screen.queryByText('Smit')).not.toBeInTheDocument() // filtered out of both views entirely, not just this sheet
     vi.useRealTimers()
+  })
+
+  it('mobile legend: hides Consultant for a non-admin viewer, shows it for an admin', () => {
+    const { container, rerender } = render(
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />
+    )
+    const mobileLegend = container.querySelector('.lg\\:hidden')
+    expect(within(mobileLegend).getByText('Consultant')).toBeInTheDocument()
+
+    mockAuth = { isAdmin: false }
+    rerender(<LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />)
+    expect(within(container.querySelector('.lg\\:hidden')).queryByText('Consultant')).not.toBeInTheDocument()
+    mockAuth = { isAdmin: true }
   })
 })

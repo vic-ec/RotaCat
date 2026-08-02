@@ -76,32 +76,38 @@ export default {
         // unrelated UI. Standard, maximally-distinct hues (green/yellow/
         // orange/red) rather than the flagAmber/flagRed pairing, which read
         // too close together at this saturation. Each step: `DEFAULT` (solid
-        // year-grid/month-view day block), `tint` (soft alternative
-        // background, kept for callers that still want a paler fill),
-        // `dark` (public holiday border/fill accent on top of `DEFAULT`),
-        // `ink` (on-white text — a shade lighter than `dark` so it still
-        // reads as its own hue instead of every state converging on the
-        // same near-black brown at high darkness).
+        // year-grid day block), `light` (DEFAULT lightened ~7.5% toward
+        // white — the month-view day blocks/legend/day-view pillbox, which
+        // read as too saturated at full DEFAULT strength), `tint` (soft
+        // alternative background, kept for callers that still want a paler
+        // fill), `dark` (public holiday border/fill accent on top of
+        // `DEFAULT`), `ink` (on-white text — a shade lighter than `dark` so
+        // it still reads as its own hue instead of every state converging
+        // on the same near-black brown at high darkness).
         capAvailable: {
           DEFAULT: '#16A34A',
+          light: '#27AA58',
           tint: '#DCFCE7',
           dark: '#166534',
           ink: '#15803D'
         },
         capLimited: {
           DEFAULT: '#EAB308',
+          light: '#ECB91B',
           tint: '#FEF9C3',
           dark: '#854D0E',
           ink: '#A16207'
         },
         capNear: {
           DEFAULT: '#F97316',
+          light: '#F97E27',
           tint: '#FFEDD5',
           dark: '#9A3412',
           ink: '#C2410C'
         },
         capAtCapacity: {
           DEFAULT: '#DC2626',
+          light: '#DF3636',
           tint: '#FEE2E2',
           dark: '#991B1B',
           ink: '#B91C1C'

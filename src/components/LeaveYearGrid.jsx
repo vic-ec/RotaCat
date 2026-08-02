@@ -5,6 +5,7 @@ import {
 } from '../lib/leaveYearGrid'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { annualDaysSummary } from '../lib/leaveRequests'
+import { useAuth } from '../context/AuthContext'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
@@ -23,6 +24,14 @@ const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 // "(max N)" capacity hints — pass it for Annual Leave, omit for Special
 // Leave (no concurrency cap there).
 export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicHolidaysByDate, maxByColumnKey, myProfileId }) {
+  const { isAdmin } = useAuth()
+  // Consultant leave is only ever visible to an admin (or another
+  // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
+  // so a non-admin viewer's legend shouldn't reference a category they can
+  // never actually see data for. Only the legend is filtered — the actual
+  // desktop table columns and day-detail sheet already resolve to empty
+  // for non-admins via RLS, so they don't need this too.
+  const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
   const [openPH, setOpenPH] = useState(null) // date string or null, desktop hover/tap tooltip
   const [showMineOnly, setShowMineOnly] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1)
@@ -113,7 +122,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
         </div>
 
         <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
-          {GRID_COLUMNS.map(col => (
+          {legendColumns.map(col => (
             <span key={col.key} className="flex items-center gap-1">
               <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
               {col.label}
@@ -165,11 +174,11 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
               key={date}
               type="button"
               onClick={() => onSelectDate(date)}
-              className={`flex aspect-square flex-col items-center justify-center rounded border text-xs ${
-                phName ? 'border-accent/40 bg-accent-tint' : 'border-slate-line bg-canvas-raised'
+              className={`flex aspect-square flex-col items-center justify-center rounded border bg-canvas-raised text-xs ${
+                phName ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
               } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
             >
-              <span className={phName ? 'font-semibold text-accent' : 'text-ink'}>{Number(date.slice(-2))}</span>
+              <span className={`text-ink ${phName ? 'font-semibold' : ''}`}>{Number(date.slice(-2))}</span>
               <span className="mt-0.5 flex h-1.5 gap-0.5">
                 {columnsPresent.map(key => (
                   <span key={key} className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[key]}`} />

@@ -37,6 +37,15 @@ export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
 }) {
+  const { isAdmin } = useAuth()
+  // Consultant leave is only ever visible to an admin (or another
+  // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
+  // so a non-admin viewer's legend shouldn't reference a category they can
+  // never actually see data for. Only the legend is filtered — the
+  // DayReviewModal's real per-category breakdown already resolves to
+  // empty for non-admins via RLS, so it doesn't need this too.
+  const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
+
   // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
   // not plain useState — same reasoning as AnnualLeavePlanner.jsx's
   // ayear/aview/amonth: a backgrounded mobile browser/PWA can get killed and
@@ -95,7 +104,7 @@ export default function MonthWorkspace({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {GRID_COLUMNS.map(col => (
+        {legendColumns.map(col => (
           <span key={col.key} className="flex items-center gap-1.5">
             <span className={`h-2 w-2 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[col.key]}`} />
             {col.label}
@@ -106,7 +115,7 @@ export default function MonthWorkspace({
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
         {LEAVE_CAPACITY_STATES.map(state => (
           <span key={state.key} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} /> {state.label}
+            <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
           </span>
         ))}
       </div>
@@ -186,7 +195,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.fill}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
@@ -221,7 +230,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.fill} ${
+      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
@@ -306,7 +315,7 @@ function DayReviewModal({
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <div className="flex items-center gap-2">
-            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.fill} ${dayCapacityState.onFillText}`}>
+            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.light} ${dayCapacityState.onFillText}`}>
               {totalSlots} of 3 slots taken
             </span>
             <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>

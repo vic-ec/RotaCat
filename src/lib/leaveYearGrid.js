@@ -46,14 +46,44 @@ export const COLUMN_DOT_COLOR = {
 // hit in practice, not just a display simplification. Uses the dedicated
 // cap* palette (tailwind.config.js), not flagAmber/flagRed, so this scale's
 // contrast can be tuned independently of shared status colours elsewhere.
-// `dark` is the public-holiday treatment — a deeper shade of the same
-// state, layered on top of `fill`/`tint` instead of a border/ring (which
-// doesn't read well against a solid or tinted background).
+//   fill        solid state colour — legend swatches, year-grid day blocks,
+//               and month-view day-cell backgrounds (all share one colour
+//               so the legend visibly matches what it's a legend for).
+//   tint        a paler alternative background, kept for any caller that
+//               wants a softer fill than `fill`.
+//   dark/ringDark  a deeper shade of the same hue for the public-holiday
+//               accent — `dark` as a fill, `ringDark` as a border/ring, so
+//               a PH day still reads its own capacity colour underneath.
+//   text        on-white text colour for the state's own numbers (e.g. the
+//               Leave Slot Utilization day-counts) — a shade lighter than
+//               `dark` so available/limited/near/at-capacity still read as
+//               four different hues instead of converging on the same
+//               near-black brown once darkened enough for contrast.
+//   onFillText/onFillMuted  primary/secondary text colour for content
+//               sitting on top of the solid `fill` background (day numbers,
+//               entries) — dark ink on the light `limited` (yellow) state,
+//               white on the three darker states.
 export const LEAVE_CAPACITY_STATES = [
-  { key: 'available', label: 'Available', fill: 'bg-capAvailable', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', text: 'text-capAvailable-dark' },
-  { key: 'limited', label: 'Limited', fill: 'bg-capLimited', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', text: 'text-capLimited-dark' },
-  { key: 'near_capacity', label: 'Near capacity', fill: 'bg-capNear', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', text: 'text-capNear-dark' },
-  { key: 'at_capacity', label: 'At capacity', fill: 'bg-capAtCapacity', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', text: 'text-capAtCapacity-dark' },
+  {
+    key: 'available', label: 'Available',
+    fill: 'bg-capAvailable', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
+    text: 'text-capAvailable-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
+  },
+  {
+    key: 'limited', label: 'Limited',
+    fill: 'bg-capLimited', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
+    text: 'text-capLimited-ink', onFillText: 'text-ink', onFillMuted: 'text-ink-light',
+  },
+  {
+    key: 'near_capacity', label: 'Near capacity',
+    fill: 'bg-capNear', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
+    text: 'text-capNear-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
+  },
+  {
+    key: 'at_capacity', label: 'At capacity',
+    fill: 'bg-capAtCapacity', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', ringDark: 'ring-capAtCapacity-dark',
+    text: 'text-capAtCapacity-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
+  },
 ]
 
 // Sum of every capacity column's count for one date — the total distinct

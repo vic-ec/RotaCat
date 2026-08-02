@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityWarningsByColumn, combinedDailyCap, entriesInRange,
+  monthCapacityWarningsByColumn, entriesInRange,
 } from './annualPlannerOverview'
 
 const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 1, OT_COSMO: 1 }
@@ -95,16 +95,6 @@ describe('monthCapacityWarningsByColumn', () => {
     expect(result.find(r => r.key === 'MO').days).toBe(2)
     expect(result.find(r => r.key === 'Registrar').days).toBe(1)
     expect(result.find(r => r.key === 'EC_COSMO').days).toBe(0)
-  })
-})
-
-describe('combinedDailyCap', () => {
-  it('sums the full-time aggregate cap with the independent OT COSMO cap', () => {
-    expect(combinedDailyCap({ OT_COSMO: 1 }, 3)).toBe(4)
-  })
-
-  it('treats a missing OT COSMO cap as zero', () => {
-    expect(combinedDailyCap({}, 3)).toBe(3)
   })
 })
 

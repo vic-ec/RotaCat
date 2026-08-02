@@ -81,16 +81,6 @@ export function monthCapacityWarningsByColumn(year, month, countByColumnPerDate,
   })
 }
 
-// The realistic "most people who could be approved off on the same day":
-// the full-time group (MO/Registrar/EC COSMO+Intern) is capped in
-// aggregate at maxFullTime even though each of those columns also has its
-// own smaller cap, so the combined ceiling is that aggregate plus the
-// independent OT COSMO/Intern cap (its own separate pool, not part of the
-// full-time aggregate — see leaveYearGrid.js).
-export function combinedDailyCap(maxByColumnKey, maxFullTime) {
-  return maxFullTime + (maxByColumnKey.OT_COSMO ?? 0)
-}
-
 // Every distinct profile with approved or pending leave touching
 // [from, to], surname + status only (approved wins if a profile somehow
 // has both on record) — powers the inspector's date-range person list.

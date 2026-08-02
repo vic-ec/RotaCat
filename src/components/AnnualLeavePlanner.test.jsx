@@ -94,7 +94,7 @@ describe('AnnualLeavePlanner', () => {
     await screen.findByRole('button', { name: /August/ })
     const stats = within(screen.getByTestId('annual-year-stats'))
     expect(stats.getByText('7 days')).toBeInTheDocument() // 5 (p1) + 2 (p2) approved annual days
-    expect(stats.getByText('Max 4 people (20%)')).toBeInTheDocument() // full-time cap 3 + OT COSMO cap 1, of a 20-person headcount
+    expect(stats.getByText('Max 3 doctors (15%)')).toBeInTheDocument() // the full-time aggregate cap, of a 20-person headcount
     expect(stats.getByText('2 pressure days')).toBeInTheDocument()
   })
 
@@ -155,5 +155,18 @@ describe('AnnualLeavePlanner', () => {
 
     await user.click(screen.getByRole('button', { name: '← Back to overview' }))
     expect(await screen.findByText('Selected month')).toBeInTheDocument()
+  })
+
+  it('"How it works" opens a popup with the concurrency-cap detail, closable via the × button', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('button', { name: /August/ })
+
+    expect(screen.queryByText(/never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'How it works' }))
+    expect(screen.getByText(/never more than 3 doctors on leave at a time/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText(/never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
   })
 })

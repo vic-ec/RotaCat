@@ -5,7 +5,7 @@ import { monthsForYear } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityWarningsByColumn, combinedDailyCap, entriesInRange,
+  monthCapacityWarningsByColumn, entriesInRange,
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek } from '../lib/dateRange'
 
@@ -88,7 +88,11 @@ export default function AnnualPlannerOverview({
   const yearStart = `${year}-01-01`
   const yearEnd = `${year}-12-31`
   const approvedDaysTotal = annualDaysInRange(visibleApprovedRows, yearStart, yearEnd)
-  const dailyCap = combinedDailyCap(maxByColumnKey, maxFullTime)
+  // The full-time aggregate cap (MO + Registrar + EC COSMO/Intern combined)
+  // is the real department-wide ceiling on how many doctors can be off on
+  // the same day — OT COSMO/Intern has its own separate, independent cap
+  // and isn't added on top of it for this headline figure.
+  const dailyCap = maxFullTime
   const capPercent = eligibleHeadcount ? Math.round((dailyCap / eligibleHeadcount) * 100) : null
 
   const months = monthsForYear(year)
@@ -174,7 +178,7 @@ export default function AnnualPlannerOverview({
         <span className="flex items-center gap-2 text-sm">
           <Users className="h-4 w-4 text-accent" />
           <span className="text-ink-muted">Cap per day</span>
-          <span className="font-semibold text-ink">Max {dailyCap} people{capPercent != null ? ` (${capPercent}%)` : ''}</span>
+          <span className="font-semibold text-ink">Max {dailyCap} doctors{capPercent != null ? ` (${capPercent}%)` : ''}</span>
         </span>
         <span className="flex items-center gap-2 text-sm">
           <TriangleAlert className="h-4 w-4 text-flagAmber" />

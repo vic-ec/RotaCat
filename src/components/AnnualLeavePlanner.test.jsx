@@ -20,9 +20,9 @@ vi.mock('../context/AuthContext', () => ({
 //  - p3 (Cosmo, EC COSMO/Intern via the 'COSMO' category) has one pending
 //    request on 20 Aug — pending counts toward the cap too (the real
 //    concurrency rule checks pending+approved together, see
-//    checkAnnualLeaveCapacity in leaveRequests.js), so with the default
-//    EC COSMO/Intern cap of 1, that pending request alone already puts
-//    20 Aug at capacity. Total: 3 pressure days (12, 13, 20).
+//    checkAnnualLeaveCapacity in leaveRequests.js), but the default EC
+//    COSMO/Intern cap is 2, so that single pending request alone doesn't
+//    reach it. Total: 2 pressure days (12, 13).
 // January has nothing at all, for the "Quiet" empty state.
 const LEAVE_REQUESTS = [
   {
@@ -69,7 +69,7 @@ describe('AnnualLeavePlanner', () => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
-    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 1, OT_COSMO 1, full-time 3
+    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, full-time 3
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' } }
   })
@@ -87,7 +87,7 @@ describe('AnnualLeavePlanner', () => {
   it('shows the pressure/pending summary line on the affected month card', async () => {
     renderPage()
     const augustCard = await screen.findByRole('button', { name: /August/ })
-    expect(within(augustCard).getByText('3 pressure days · 1 pending')).toBeInTheDocument()
+    expect(within(augustCard).getByText('2 pressure days · 1 pending')).toBeInTheDocument()
 
     const januaryCard = screen.getByRole('button', { name: /January/ })
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()

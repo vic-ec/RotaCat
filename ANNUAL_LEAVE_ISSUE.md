@@ -1,14 +1,24 @@
-# Annual Leave capacity — rule discrepancy to resolve
+# Annual Leave capacity — rule discrepancy (resolved)
 
 Raised while reworking the mobile Annual Leave planner UI (Perplexity's
 suggestions on the leave-planner screenshot prompted a "1 of 3 / 2 of 3 / 3
 of 3" combined capacity display). The combinations requested for that
-redesign don't match what the app currently enforces at submission time —
-flagging it here for discussion before anything about the actual cap
-changes, rather than changing enforcement silently as a side effect of a UI
-pass.
+redesign didn't match what the app enforced at submission time — flagged
+here before changing enforcement silently as a side effect of a UI pass.
 
-## Current rule (live today, unchanged by this UI update)
+## Resolution
+
+vic-ec confirmed the requested combinations against the source EC Leave
+Planner Google Sheet: EC COSMO/Intern's cap rises from 1 to 2 concurrent,
+and OT COSMO/Intern is folded into the combined 3-doctor cap alongside
+MO/Registrar/EC COSMO/Intern (all four columns are "full-time EC doctors"
+for the purposes of that combined cap). The combined ceiling stays at 3
+total. Implemented in `leaveYearGrid.js`, `leaveRequests.js`,
+`EC_LEAVE_PLANNER_RULES.md`, and the `AnnualLeavePlanner.jsx` "How it works"
+hint — see those files for the current, live rule. The section below is
+kept as a record of the discrepancy that prompted the change.
+
+## Current rule (as it stood before this resolution)
 
 Per-category caps, checked in `checkAnnualLeaveCapacity`
 (`src/lib/leaveRequests.js`) against `LEAVE_CAPACITY_COLUMNS`
@@ -74,33 +84,19 @@ which real leave requests get approved or blocked going forward — worth a
 second pair of eyes before it ships, not something to fold into a UI-only
 PR.
 
-## What this PR does in the meantime
+## What the mobile UI redesign did independently of this
 
-The new mobile UI's "X of 3" capacity figure and the day/month background
+The mobile UI's "X of 3" capacity figure and the day/month background
 colouring (green → yellow → orange → red) are a **read-only visual
 indicator**: they show the current *observed* total headcount on leave that
-day (any of the four categories, pending + approved combined), clamped at 3
-for the "at capacity" (red) state. They do not enforce anything and don't
-depend on which way the question above is resolved.
+day (all four categories, pending + approved combined), clamped at 3 for the
+"at capacity" (red) state. They didn't enforce anything and never depended
+on how this question was resolved — now that the cap itself spans all four
+columns too, the display and the enforcement agree.
 
-Unchanged in this PR, pending the decision above:
+## Decision (resolved)
 
-- `LEAVE_CAPACITY_COLUMNS` per-column caps in `src/lib/leaveYearGrid.js`
-- `LEAVE_FULL_TIME_GROUP_KEYS` (still MO + Registrar + EC COSMO/Intern only)
-- The enforcement logic in `checkAnnualLeaveCapacity`
-  (`src/lib/leaveRequests.js`)
-- The rule text in `EC_LEAVE_PLANNER_RULES.md` and the "How it works" hint
-  in `AnnualLeavePlanner.jsx` — both still describe the current, actually-
-  enforced rule, not the requested combinations
-
-## Decision needed
-
-- [ ] Raise EC COSMO/Intern's cap from 1 to 2 concurrent?
-- [ ] Fold OT COSMO/Intern into the combined 3-doctor cap (currently
-      independent, effectively allowing 4 concurrent today)?
-- [ ] If both above: confirm the combined ceiling stays at 3 total across
-      all four categories, rather than needing to move to 4.
-
-Once decided, `leaveYearGrid.js`, `leaveRequests.js`,
-`EC_LEAVE_PLANNER_RULES.md`, and the `AnnualLeavePlanner.jsx` hint copy can
-all be updated together in a follow-up PR.
+- [x] Raise EC COSMO/Intern's cap from 1 to 2 concurrent.
+- [x] Fold OT COSMO/Intern into the combined 3-doctor cap (previously
+      independent, which effectively allowed 4 concurrent).
+- [x] Combined ceiling confirmed at 3 total across all four categories.

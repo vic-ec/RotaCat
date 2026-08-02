@@ -72,7 +72,7 @@ when they differ, for HR-audit visibility.
 
 **How the app enforces the capacity limit:** the sheet's "no more than one
 person per slot" rule is applied to the Annual Leave grid as a hard cap per
-category column, plus a combined cap across the three "full-time doctor"
+category column, plus a combined cap across all four "full-time EC doctor"
 columns together — both checked automatically when a doctor submits an
 annual leave request, not just displayed after the fact:
 
@@ -80,20 +80,24 @@ annual leave request, not just displayed after the fact:
 | --- | --- | --- |
 | MO | MO | 2 |
 | Registrar | Registrar | 1 |
-| EC COSMO / Intern | COSMO, EC_COSMO, EC_COSMO_Intern, Intern | 1 |
+| EC COSMO / Intern | COSMO, EC_COSMO, EC_COSMO_Intern, Intern | 2 |
 | OT COSMO / Intern | COSMOPsych, OT_COSMO, OT_COSMO_Intern | 1 |
 
-**Combined cap — no more than 3 full-time doctors (MO + Registrar + EC
-COSMO/Intern combined) on leave at once.** OT COSMO/Intern is a separate
-stream and isn't part of this combined cap. Valid combinations at the
-3-doctor ceiling:
+**Combined cap — no more than 3 full-time EC doctors (MO + Registrar + EC
+COSMO/Intern + OT COSMO/Intern combined) on leave at once.** All four
+columns count toward this shared ceiling — MO and EC COSMO/Intern may each
+contribute up to 2 of the 3 slots, Registrar and OT COSMO/Intern up to 1
+each. Valid combinations at the 3-doctor ceiling:
 
-- 1 MO + 1 Registrar + 1 EC COSMO/Intern
 - 2 MO + 1 Registrar
 - 2 MO + 1 EC COSMO/Intern
+- 2 MO + 1 OT COSMO/Intern
+- 2 EC COSMO/Intern + 1 Registrar
+- 2 EC COSMO/Intern + 1 OT COSMO/Intern
+- 1 MO + 1 Registrar + 1 EC COSMO/Intern or OT COSMO/Intern
 
-Never more than 1 Registrar or more than 1 EC COSMO/Intern concurrently
-(each already capped at 1 above), and never more than 3 full-time doctors
+Never more than 1 Registrar or more than 1 OT COSMO/Intern concurrently
+(each already capped at 1 above), and never more than 3 full-time EC doctors
 combined even if each individual column is still under its own cap.
 
 Consultant doctors have their own uncapped "Other" column on the grid — no

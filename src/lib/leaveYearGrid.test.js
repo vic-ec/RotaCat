@@ -188,14 +188,14 @@ describe('findFullTimeAggregateBreach', () => {
     expect(result.hasBreach).toBe(false)
   })
 
-  it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
+  it('counts OT COSMO/Intern toward the full-time aggregate too', () => {
     const existingCountsByDate = new Map([
       ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_COSMO', 1]])],
     ])
     const result = findFullTimeAggregateBreach({
       dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
     })
-    expect(result.hasBreach).toBe(false) // only 2 full-time doctors (MO+Registrar) counted, OT_COSMO excluded
+    expect(result.hasBreach).toBe(true) // MO + Registrar + OT_COSMO already at 3; a 4th of any kind breaches
   })
 })
 

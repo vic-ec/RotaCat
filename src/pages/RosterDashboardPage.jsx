@@ -161,7 +161,7 @@ export default function RosterDashboardPage() {
   })
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl md:max-w-2xl">
       {/* Header */}
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-ink">Rosters</h1>

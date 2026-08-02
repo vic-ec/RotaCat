@@ -1108,7 +1108,7 @@ export default function AccountSettingsPage() {
 
   if (!isOwnAccount && targetLoadError) {
     return (
-      <div className="mx-auto max-w-7xl pb-12">
+      <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
         <div className="card border-flagRed bg-flagRed-bg p-4">
           <p className="text-sm text-flagRed">Couldn&apos;t load this account: {targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block">Back to Staff list</Link>
@@ -1137,7 +1137,7 @@ export default function AccountSettingsPage() {
   const backLabel = navLabelForPath(lastPath, { isAdmin, isLocum, isClerk })
 
   return (
-    <div className="mx-auto max-w-7xl pb-12">
+    <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
       <button
         onClick={() => navigate(lastPath)}
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"

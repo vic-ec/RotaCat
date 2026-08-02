@@ -144,7 +144,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     <div>
       <InlineRuleHint
         inline="Shows approved and pending annual leave, subject to category caps."
-        intro={`At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 1} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern may be on leave at once — never more than ${maxFullTime} doctors on leave at a time.`}
+        intro={`Never more than ${maxFullTime} doctors on leave at a time.`}
         bullets={[
           'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
           'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',

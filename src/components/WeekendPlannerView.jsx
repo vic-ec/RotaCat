@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search, Pencil, Users, CircleCheck, CircleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { todayStr, addDays } from '../lib/dateRange'
+import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
@@ -58,6 +58,30 @@ function XIcon(props) {
   )
 }
 
+// "2026-08-15" → "Sat 15 - Sun 16 Aug 2026" (or "Sat 31 Aug - Sun 1 Sep 2026"
+// when the weekend straddles a month boundary) — replaces the verbose
+// YYYY-MM-DD → YYYY-MM-DD range everywhere a weekend is displayed.
+function formatWeekendRange(saturday) {
+  const sunday = addDays(saturday, 1)
+  const satDate = parseLocalDate(saturday)
+  const sunDate = parseLocalDate(sunday)
+  const sunMonth = sunDate.toLocaleDateString('en-GB', { month: 'short' })
+  const sunYear = sunDate.getFullYear()
+  const sameMonth = satDate.getMonth() === sunDate.getMonth() && satDate.getFullYear() === sunDate.getFullYear()
+  if (sameMonth) return `Sat ${satDate.getDate()} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+  const satMonth = satDate.toLocaleDateString('en-GB', { month: 'short' })
+  return `Sat ${satDate.getDate()} ${satMonth} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+}
+
+// Splits a list into rows of (at most) 2 — used to lay assigned names out as
+// two lines (e.g. a 4-person MO group) instead of one line that can overflow
+// a fixed-width column/panel.
+function chunkInPairs(items) {
+  const rows = []
+  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2))
+  return rows
+}
+
 // One category group's row: assigned surname(s) (or an open-slot count) plus
 // the admin add/remove controls. Shared between the mobile card layout and
 // the desktop inspector's edit mode so the edit logic exists in exactly one
@@ -66,38 +90,48 @@ function CategoryGroupRow({
   group, groupEntries, doctorById, availableDoctors, isAdmin, saving, textClass,
   saturday, pickerKey, openPicker, setOpenPicker, addEntry, removeEntry,
 }) {
+  const rows = chunkInPairs(groupEntries)
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5">
-      <span className="text-sm text-ink-muted">{group.label}</span>
-      <div className="flex items-center gap-2">
-        {groupEntries.length === 0 ? (
-          <span className="text-xs font-medium text-rose-dark">1 open</span>
-        ) : (
-          groupEntries.map(entry => {
-            const doctor = doctorById.get(entry.profile_id)
-            return (
-              <span key={entry.id} className={`flex items-center gap-1 text-sm ${textClass}`}>
-                {doctor ? doctor.surname : '(unknown)'}
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => removeEntry(entry.id)}
-                    disabled={saving}
-                    className={`${textClass} hover:text-flagRed`}
-                    aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
-                  >
-                    <XIcon className="h-3 w-3" />
-                  </button>
-                )}
-              </span>
-            )
-          })
-        )}
-        {isAdmin && (
-          openPicker === pickerKey ? (
+    <div className="py-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm text-ink-muted">{group.label}</span>
+        {groupEntries.length === 0 && <span className="text-xs font-medium text-rose-dark">1 open</span>}
+      </div>
+
+      {rows.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {rows.map((row, i) => (
+            <div key={i} className="flex items-center gap-3">
+              {row.map(entry => {
+                const doctor = doctorById.get(entry.profile_id)
+                return (
+                  <span key={entry.id} className={`flex items-center gap-1 text-sm ${textClass}`}>
+                    {doctor ? doctor.surname : '(unknown)'}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => removeEntry(entry.id)}
+                        disabled={saving}
+                        className={`${textClass} hover:text-flagRed`}
+                        aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mt-1.5 flex justify-end">
+          {openPicker === pickerKey ? (
             <select
               autoFocus
-              className="input-field text-sm"
+              className="input-field w-full text-sm"
               disabled={saving}
               defaultValue=""
               onChange={e => {
@@ -116,13 +150,13 @@ function CategoryGroupRow({
               type="button"
               onClick={() => setOpenPicker(pickerKey)}
               disabled={saving || availableDoctors.length === 0}
-              className={`flex items-center justify-center rounded border border-dashed border-slate-line px-2 py-0.5 text-[10px] ${textClass} hover:bg-canvas-sunken disabled:opacity-40`}
+              className={`rounded border border-dashed border-slate-line px-2 py-1 text-xs ${textClass} hover:bg-canvas-sunken disabled:opacity-40`}
             >
-              +
+              Add doctor
             </button>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -176,7 +210,7 @@ function WeekendInspector({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected weekend</p>
-          <p className="mt-0.5 text-base font-semibold text-ink">{saturday} → {addDays(saturday, 1)}</p>
+          <p className="mt-0.5 text-base font-semibold text-ink">{formatWeekendRange(saturday)}</p>
         </div>
         <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
       </div>
@@ -516,7 +550,7 @@ export default function WeekendPlannerView() {
           <div className="lg:hidden" data-testid="weekend-mobile">
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-              <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{nextWeekend} → {addDays(nextWeekend, 1)}</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
               <p className="mt-1 text-sm text-ink-light">
                 {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
                 {nextWeekendCoverage.openGroups.length > 0 && (
@@ -541,7 +575,6 @@ export default function WeekendPlannerView() {
                 const coverage = weekendCoverageSummary(bySaturday)
                 const needsPlanning = coverage.openGroups.length > 0
                 const assignedIds = assignedDoctorIds(saturday)
-                const sunday = addDays(saturday, 1)
                 const myRequest = myRequestsBySaturday.get(saturday)
                 const scheme = weekendColorScheme(saturday)
 
@@ -551,7 +584,7 @@ export default function WeekendPlannerView() {
                     className={`card p-4 ${scheme.bg}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm font-medium ${scheme.text}`}>{saturday} → {sunday}</p>
+                      <p className={`text-sm font-medium ${scheme.text}`}>{formatWeekendRange(saturday)}</p>
                       <div className="flex items-center gap-2">
                         {myRequest && (
                           <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -661,7 +694,7 @@ export default function WeekendPlannerView() {
                             isSelected ? 'border-l-accent bg-accent-tint/50' : 'border-l-transparent bg-canvas-raised group-hover:bg-canvas-sunken/40'
                           }`}>
                             <div className="flex flex-col gap-1">
-                              <span>{saturday} → {addDays(saturday, 1)}</span>
+                              <span>{formatWeekendRange(saturday)}</span>
                               <span className={`inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.chip}`}>{badge.label}</span>
                             </div>
                           </td>
@@ -672,7 +705,11 @@ export default function WeekendPlannerView() {
                                 {groupEntries.length === 0 ? (
                                   <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
                                 ) : (
-                                  <span className="text-ink">{groupEntries.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}</span>
+                                  <div className="space-y-0.5">
+                                    {chunkInPairs(groupEntries).map((row, i) => (
+                                      <div key={i} className="text-ink">{row.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}</div>
+                                    ))}
+                                  </div>
                                 )}
                               </td>
                             )

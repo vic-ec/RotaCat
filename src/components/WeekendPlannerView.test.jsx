@@ -114,7 +114,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       const heading = await view.findByText('Next weekend')
       const card = heading.closest('.card')
-      expect(within(card).getByText('2026-08-01 → 2026-08-02')).toBeInTheDocument()
+      expect(within(card).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
       expect(within(card).getByText(/1 of 4 groups planned/)).toBeInTheDocument()
       expect(within(card).getByText(/Registrar, EC COSMO \/ Intern, OT COSMO \/ Intern still open/)).toBeInTheDocument()
       expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
@@ -130,9 +130,9 @@ describe('WeekendPlannerView', () => {
       expect(view.getByRole('button', { name: 'My weekends' })).toHaveClass('bg-accent')
 
       // Only p1's own two weekends show by default
-      expect(view.getAllByText('2026-08-01 → 2026-08-02')).toHaveLength(2) // next-weekend card + list card
-      expect(view.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument()
-      expect(view.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument()
+      expect(view.getAllByText('Sat 1 - Sun 2 Aug 2026')).toHaveLength(2) // next-weekend card + list card
+      expect(view.getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
+      expect(view.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument()
     })
 
     it('renders one card per weekend in the current month once "All weekends" is selected, flagging incomplete coverage', async () => {
@@ -142,11 +142,11 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      const aug8Heading = await view.findByText('2026-08-08 → 2026-08-09')
+      const aug8Heading = await view.findByText('Sat 8 - Sun 9 Aug 2026')
       const aug8Card = aug8Heading.closest('.card')
       expect(within(aug8Card).queryByText('Needs planning')).not.toBeInTheDocument() // fully covered
 
-      const aug15Heading = view.getByText('2026-08-15 → 2026-08-16')
+      const aug15Heading = view.getByText('Sat 15 - Sun 16 Aug 2026')
       const aug15Card = aug15Heading.closest('.card')
       expect(within(aug15Card).getByText('Needs planning')).toBeInTheDocument()
     })
@@ -159,8 +159,8 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       // 2026-08-01 is both the next-weekend card and this month's first list card
-      const aug1Card = view.getAllByText('2026-08-01 → 2026-08-02')[1].closest('.card')
-      const aug8Card = view.getByText('2026-08-08 → 2026-08-09').closest('.card')
+      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
       const aug1IsAccent = aug1Card.className.includes('bg-accent-tint')
       const aug8IsAccent = aug8Card.className.includes('bg-accent-tint')
       expect(aug1IsAccent).not.toBe(aug8IsAccent)
@@ -175,7 +175,7 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      const aug15Card = view.getByText('2026-08-15 → 2026-08-16').closest('.card')
+      const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
       // still themed by parity, not overridden to a flat amber "warning" card
       expect(aug15Card.className.includes('bg-accent-tint') || aug15Card.className.includes('bg-flagAmber-bg')).toBe(true)
       expect(within(aug15Card).getByText('Needs planning')).toHaveClass('bg-rose-light', 'text-rose-dark')
@@ -192,14 +192,14 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      const aug8Card = view.getByText('2026-08-08 → 2026-08-09').closest('.card')
+      const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
       const scheme = aug8Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
       expect(within(aug8Card).getByText('Anderson').closest('span')).toHaveClass(scheme)
       expect(within(aug8Card).getByRole('button', { name: 'Remove Anderson from 2026-08-08' })).toHaveClass(scheme)
 
-      const aug15Card = view.getByText('2026-08-15 → 2026-08-16').closest('.card')
+      const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
       const aug15Scheme = aug15Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
-      const addButtons = within(aug15Card).getAllByRole('button', { name: '+' })
+      const addButtons = within(aug15Card).getAllByRole('button', { name: 'Add doctor' })
       expect(addButtons[0]).toHaveClass(aug15Scheme)
     })
 
@@ -211,8 +211,8 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       await user.click(view.getByRole('button', { name: 'Needs planning' }))
-      expect(view.queryByText('2026-08-08 → 2026-08-09')).not.toBeInTheDocument()
-      expect(view.getByText('2026-08-15 → 2026-08-16')).toBeInTheDocument()
+      expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
+      expect(view.getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
 
     it('non-admin: "Needs planning" filter does not exist', async () => {
@@ -230,8 +230,8 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
       await user.click(view.getByRole('button', { name: 'My weekends' }))
 
-      expect(view.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument() // p1 assigned
-      expect(view.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument() // nobody assigned
+      expect(view.getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument() // p1 assigned
+      expect(view.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument() // nobody assigned
     })
 
     it('"My requests" filter shows weekends with the doctor\'s own weekend-exception request, with a status badge', async () => {
@@ -241,8 +241,8 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       await user.click(view.getByRole('button', { name: 'My requests' }))
-      const aug22Heading = await view.findByText('2026-08-22 → 2026-08-23')
-      expect(view.queryByText('2026-08-08 → 2026-08-09')).not.toBeInTheDocument() // in My weekends, not My requests
+      const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
+      expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
       expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
     })
 
@@ -257,8 +257,8 @@ describe('WeekendPlannerView', () => {
       await user.click(view.getByRole('button', { name: 'Next month' }))
 
       expect(await view.findByText('September 2026')).toBeInTheDocument()
-      expect(view.getByText('2026-09-05 → 2026-09-06')).toBeInTheDocument()
-      expect(view.queryByText('2026-08-08 → 2026-08-09')).not.toBeInTheDocument()
+      expect(view.getByText('Sat 5 - Sun 6 Sep 2026')).toBeInTheDocument()
+      expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
     })
 
     it('non-admin: no add/remove controls on any card', async () => {
@@ -267,8 +267,8 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      await view.findByText('2026-08-08 → 2026-08-09')
-      expect(view.queryByRole('button', { name: '+' })).not.toBeInTheDocument()
+      await view.findByText('Sat 8 - Sun 9 Aug 2026')
+      expect(view.queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
       expect(view.queryByLabelText(/Remove/)).not.toBeInTheDocument()
     })
 
@@ -278,7 +278,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      const aug8Card = (await view.findByText('2026-08-08 → 2026-08-09')).closest('.card')
+      const aug8Card = (await view.findByText('Sat 8 - Sun 9 Aug 2026')).closest('.card')
       expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
       expect(within(aug8Card).queryByText('Alice Anderson')).not.toBeInTheDocument()
     })
@@ -303,10 +303,10 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      const aug15Heading = await view.findByText('2026-08-15 → 2026-08-16')
+      const aug15Heading = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       const aug15Card = aug15Heading.closest('.card')
 
-      const addButtons = within(aug15Card).getAllByRole('button', { name: '+' })
+      const addButtons = within(aug15Card).getAllByRole('button', { name: 'Add doctor' })
       await user.click(addButtons[0]) // MO row is first
       await user.selectOptions(within(aug15Card).getByRole('combobox'), 'p1')
 
@@ -339,11 +339,11 @@ describe('WeekendPlannerView', () => {
       // 2026-08-08 isn't the default-selected row (that's next weekend,
       // 2026-08-01), so its background reflects parity only — not the
       // selection highlight, which also uses bg-accent-tint.
-      const aug8Row = table.getByText('2026-08-08 → 2026-08-09').closest('tr')
+      const aug8Row = table.getByText('Sat 8 - Sun 9 Aug 2026').closest('tr')
       expect(aug8Row.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg/)
       expect(within(aug8Row).getByText(`Wknd 2 · ${isEvenWeekend('2026-08-08') ? 'Even' : 'Odd'}`)).toBeInTheDocument()
 
-      const aug15Row = table.getByText('2026-08-15 → 2026-08-16').closest('tr')
+      const aug15Row = table.getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
       expect(within(aug15Row).getByText(`Wknd 3 · ${isEvenWeekend('2026-08-15') ? 'Even' : 'Odd'}`)).toBeInTheDocument()
     })
 
@@ -355,11 +355,11 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const table = within(view.getByRole('table'))
-      const aug1Row = table.getByText('2026-08-01 → 2026-08-02').closest('tr')
+      const aug1Row = table.getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
       expect(within(aug1Row).getByText('3 gaps')).toBeInTheDocument()
       expect(within(aug1Row).getAllByText('Open')).toHaveLength(3)
 
-      const aug8Row = table.getByText('2026-08-08 → 2026-08-09').closest('tr')
+      const aug8Row = table.getByText('Sat 8 - Sun 9 Aug 2026').closest('tr')
       expect(within(aug8Row).getByText('Fully planned')).toBeInTheDocument()
       expect(within(aug8Row).queryByText('Open')).not.toBeInTheDocument()
     })
@@ -370,12 +370,12 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).getByText('2026-08-01 → 2026-08-02')).toBeInTheDocument()
+      expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
       expect(within(inspector).getByText('3 gaps')).toBeInTheDocument()
       expect(within(inspector).getByText('Anderson')).toBeInTheDocument() // MO filled
       expect(within(inspector).getAllByText('Open')).toHaveLength(3) // Registrar/COSMO/COSMOPsych open
       // View mode has no inline edit controls
-      expect(within(inspector).queryByRole('button', { name: '+' })).not.toBeInTheDocument()
+      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
     })
 
     it('clicking a grid row selects it and updates the inspector without navigating away', async () => {
@@ -385,11 +385,11 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      const aug15Cell = await view.findByText('2026-08-15 → 2026-08-16')
+      const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       await user.click(aug15Cell.closest('tr'))
 
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).getByText('2026-08-15 → 2026-08-16')).toBeInTheDocument()
+      expect(within(inspector).getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
       expect(within(inspector).getByText('4 gaps')).toBeInTheDocument()
     })
 
@@ -399,14 +399,14 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
       await showAll(view, user)
-      await view.findByText('2026-08-15 → 2026-08-16')
+      await view.findByText('Sat 15 - Sun 16 Aug 2026')
 
       await user.type(view.getByLabelText('Search by surname'), 'Anderson')
 
       const table = within(view.getByRole('table'))
-      expect(table.getByText('2026-08-01 → 2026-08-02')).toBeInTheDocument()
-      expect(table.getByText('2026-08-08 → 2026-08-09')).toBeInTheDocument()
-      expect(table.queryByText('2026-08-15 → 2026-08-16')).not.toBeInTheDocument()
+      expect(table.getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
+      expect(table.getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
+      expect(table.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument()
     })
 
     it('non-admin: no Edit assignments action, and a View requests link is offered instead', async () => {
@@ -431,13 +431,13 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).queryByRole('button', { name: '+' })).not.toBeInTheDocument()
+      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
 
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      expect(within(inspector).getAllByRole('button', { name: '+' }).length).toBeGreaterThan(0)
+      expect(within(inspector).getAllByRole('button', { name: 'Add doctor' }).length).toBeGreaterThan(0)
 
       await user.click(within(inspector).getByRole('button', { name: 'Done editing' }))
-      expect(within(inspector).queryByRole('button', { name: '+' })).not.toBeInTheDocument()
+      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
       expect(within(inspector).getByRole('button', { name: /Edit assignments/ })).toBeInTheDocument()
     })
 
@@ -449,7 +449,7 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      const aug15Cell = await view.findByText('2026-08-15 → 2026-08-16')
+      const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       await user.click(aug15Cell.closest('tr'))
 
       // jsdom loads no stylesheet, so `lg:hidden` never actually removes
@@ -464,12 +464,12 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      const addButtons = within(inspector).getAllByRole('button', { name: '+' })
+      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
       await user.click(addButtons[0]) // MO row is first
       await user.selectOptions(await within(inspector).findByRole('combobox'), 'p1')
 
       expect(await within(inspector).findByText('Anderson')).toBeInTheDocument()
-      const aug15Row = within(view.getByRole('table')).getByText('2026-08-15 → 2026-08-16').closest('tr')
+      const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
       expect(within(aug15Row).getByText('Anderson')).toBeInTheDocument()
     })
 

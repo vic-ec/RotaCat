@@ -28,15 +28,18 @@ export function pressureDatesInYear(countByColumnPerDate, maxByColumnKey) {
 
 // Per-day markers for one month's compact overview grid: whether that day
 // has any approved leave, any pending request, and/or is a capacity-
-// pressure day. approvedByDate/pendingByDate are the reshaped
-// { profileId, surname, ... } maps LeaveYearGrid's callers already build.
-export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pressureDates }) {
+// pressure day, plus whether it's a public holiday. approvedByDate/
+// pendingByDate are the reshaped { profileId, surname, ... } maps
+// LeaveYearGrid's callers already build. publicHolidaysByDate is optional
+// (defaults to none) since not every caller of this needs PH markers.
+export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate = new Map() }) {
   const { start, end } = monthBounds(year, month)
   return datesInRange(start, end).map(date => ({
     date,
     hasApproved: (approvedByDate.get(date) || []).length > 0,
     hasPending: (pendingByDate.get(date) || []).length > 0,
     isPressure: pressureDates.has(date),
+    isPublicHoliday: publicHolidaysByDate.has(date),
   }))
 }
 

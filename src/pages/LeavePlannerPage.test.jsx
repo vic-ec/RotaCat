@@ -20,10 +20,26 @@ vi.mock('../context/AuthContext', () => ({
 }))
 
 vi.mock('../components/LeaveDashboard', () => ({ default: () => <div>MyLeaveStub</div> }))
-vi.mock('../components/LeaveApprovalQueue', () => ({ default: () => <div>ApprovalQueueStub</div> }))
+vi.mock('../components/LeaveApprovalQueue', () => ({
+  default: ({ onBack }) => (
+    <div>
+      ApprovalQueueStub
+      {onBack && <button onClick={onBack}>QueueBackStub</button>}
+    </div>
+  ),
+}))
 vi.mock('../components/MyRequestHistory', () => ({ default: () => <div>MyRequestHistoryStub</div> }))
 vi.mock('../components/LeaveListView', () => ({ default: () => <div>TeamLeaveStub</div> }))
-vi.mock('../components/AnnualLeavePlanner', () => ({ default: () => <div>AnnualStub</div> }))
+vi.mock('../components/AnnualLeavePlanner', () => ({
+  default: ({ deepLinkMonth, deepLinkHighlightDate, onDeepLinkConsumed }) => (
+    <div>
+      AnnualStub
+      {deepLinkMonth && <p>deepLinkMonth: {deepLinkMonth}</p>}
+      {deepLinkHighlightDate && <p>deepLinkHighlightDate: {deepLinkHighlightDate}</p>}
+      {onDeepLinkConsumed && <button onClick={onDeepLinkConsumed}>ConsumeDeepLinkStub</button>}
+    </div>
+  ),
+}))
 vi.mock('../components/SpecialLeavePlanner', () => ({ default: () => <div>SpecialStub</div> }))
 vi.mock('../components/WeekendPlannerView', () => ({ default: () => <div>WeekendsStub</div> }))
 vi.mock('../components/LeaveAuditReport', () => ({ default: () => <div>AuditStub</div> }))
@@ -119,6 +135,30 @@ describe('LeavePlannerPage', () => {
     render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=planners&sub=weekends']}>{children}</MemoryRouter> })
     expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
     expect(screen.queryByText('AnnualStub')).not.toBeInTheDocument()
+  })
+
+  it('admin Requests view: narrows/centres the queue and its back link returns to Annual', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    renderPage()
+    expect(screen.getByText('ApprovalQueueStub').closest('.mx-auto.md\\:max-w-2xl')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('QueueBackStub'))
+    expect(screen.getByText('AnnualStub')).toBeInTheDocument()
+  })
+
+  it('passes the month/highlight deep-link query params through to AnnualLeavePlanner and clears them once consumed', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    render(<LeavePlannerPage />, {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={['/leave?tab=planners&sub=annual&month=2026-08&highlight=2026-08-12']}>{children}</MemoryRouter>
+      ),
+    })
+    expect(screen.getByText('deepLinkMonth: 2026-08')).toBeInTheDocument()
+    expect(screen.getByText('deepLinkHighlightDate: 2026-08-12')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('ConsumeDeepLinkStub'))
+    expect(screen.queryByText('deepLinkMonth: 2026-08')).not.toBeInTheDocument()
+    expect(screen.queryByText('deepLinkHighlightDate: 2026-08-12')).not.toBeInTheDocument()
   })
 
   it('falls back to the role default when the URL requests a tab not valid for this role', () => {

@@ -1,7 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import LeaveApprovalQueue from './LeaveApprovalQueue'
+
+function renderQueue(props) {
+  return render(<LeaveApprovalQueue {...props} />, { wrapper: MemoryRouter })
+}
+
+function LocationProbe() {
+  const location = useLocation()
+  return <p data-testid="location-probe">{location.pathname}{location.search}</p>
+}
+
+function renderQueueWithLocationProbe(props) {
+  return render(
+    <MemoryRouter initialEntries={['/leave?tab=planners&sub=requests']}>
+      <Routes>
+        <Route path="/leave" element={<><LeaveApprovalQueue {...props} /><LocationProbe /></>} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'admin-1' } }),
@@ -65,14 +85,57 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['leave_requests:select'] = { data: [PENDING_REQUEST], error: null }
     mockResponses['leave_requests:update'] = { data: null, error: null }
     mockResponses['notifications:insert'] = { data: null, error: null }
+    mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
   it('clean case: no warnings shows a single-click Approve button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
-    render(<LeaveApprovalQueue />)
+    renderQueue()
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument())
-    expect(screen.queryByText(/⚠/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/drop supervision/i)).not.toBeInTheDocument()
+  })
+
+  it('formats the date range as "DDD dd MMM YYYY to DDD dd MMM YYYY" with a weekend/PH summary line', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-12' }], error: null }
+    renderQueue()
+
+    // 2026-08-10 is a Monday, 2026-08-14 a Friday — a plain working week
+    // except for the one public holiday on the 12th.
+    expect(await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
+    expect(screen.getByText('1 Public Holiday included')).toBeInTheDocument()
+  })
+
+  it('does not show a summary line for a plain range with no weekend days or public holidays', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    renderQueue()
+
+    await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')
+    expect(screen.queryByText(/included$/)).not.toBeInTheDocument()
+  })
+
+  it('renders a back link that calls onBack when provided, and omits it otherwise', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const onBack = vi.fn()
+    const user = userEvent.setup()
+    renderQueue({ onBack })
+
+    // Wait for the queue to finish loading first — the back link also
+    // renders during the loading state, but as a different DOM node (the
+    // loading/loaded branches return different root elements), so querying
+    // it before the swap risks clicking a node about to be unmounted.
+    await screen.findByRole('button', { name: 'Approve' })
+    await user.click(screen.getByRole('button', { name: /Back to Annual planner/ }))
+    expect(onBack).toHaveBeenCalled()
+  })
+
+  it('omits the back link when onBack is not provided', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    renderQueue()
+
+    await screen.findByRole('button', { name: 'Approve' })
+    expect(screen.queryByRole('button', { name: /Back to Annual planner/ })).not.toBeInTheDocument()
   })
 
   it('flags a supervision-floor breach and requires a second click to approve', async () => {
@@ -82,7 +145,7 @@ describe('LeaveApprovalQueue', () => {
       hourCeilingWarning: null,
     })
     const user = userEvent.setup()
-    render(<LeaveApprovalQueue />)
+    renderQueue()
 
     expect(await screen.findByText(/drop supervision below the required minimum/i)).toBeInTheDocument()
     const approveBtn = await screen.findByRole('button', { name: 'Approve anyway' })
@@ -96,7 +159,7 @@ describe('LeaveApprovalQueue', () => {
       balanceWarnings: [{ year: 2026, remainingAfter: -3, daysAllotted: 22, daysAlreadyApproved: 20, daysRequested: 5 }],
       hourCeilingWarning: null,
     })
-    render(<LeaveApprovalQueue />)
+    renderQueue()
 
     expect(await screen.findByText(/2026 annual leave balance would go negative/i)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Approve anyway' })).toBeInTheDocument()
@@ -108,16 +171,38 @@ describe('LeaveApprovalQueue', () => {
       balanceWarnings: [],
       hourCeilingWarning: { year: 2026, month: 8, alreadyRosteredHours: 122, maxHours: 118 },
     })
-    render(<LeaveApprovalQueue />)
+    renderQueue()
 
     expect(await screen.findByText(/already has 122h rostered this month/i)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Approve anyway' })).toBeInTheDocument()
   })
 
+  it('"View Calendar" on an annual leave request navigates to the Annual month workspace with a highlight', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueueWithLocationProbe()
+
+    await user.click(await screen.findByRole('button', { name: 'View Calendar' }))
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/leave?tab=planners&sub=annual&month=2026-08&highlight=2026-08-10')
+  })
+
+  it('"View Calendar" on a non-annual request navigates to the Special tab instead', async () => {
+    mockResponses['leave_requests:select'] = {
+      data: [{ ...PENDING_REQUEST, leave_type: 'sick' }],
+      error: null,
+    }
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueueWithLocationProbe()
+
+    await user.click(await screen.findByRole('button', { name: 'View Calendar' }))
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/leave?tab=planners&sub=special')
+  })
+
   it('rejecting only updates leave_requests, never touches roster_entries (availability)', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
-    render(<LeaveApprovalQueue />)
+    renderQueue()
 
     await user.click(await screen.findByRole('button', { name: 'Reject' }))
     await user.click(await screen.findByRole('button', { name: 'Confirm reject' }))

@@ -60,6 +60,45 @@ export function computeIncludesPublicHoliday(dateFrom, dateTo, publicHolidayDate
   return datesInRange(dateFrom, dateTo).some(d => phSet.has(d))
 }
 
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function formatDDDddMMMYYYY(dateStr) {
+  const d = parseLocalDate(dateStr)
+  return `${WEEKDAY_ABBR[d.getDay()]} ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
+}
+
+// "Sat 15 Aug 2026 to Sun 30 Aug 2026" (just the one date, unrepeated, for a
+// single-day request) plus a second summary line counting weekends,
+// Saturdays, Sundays, and public holidays the range touches — detail a plain
+// YYYY-MM-DD → YYYY-MM-DD range doesn't surface, e.g. "does approving this
+// also grant a public holiday, or span two weekends unnecessarily." A
+// "weekend" here means a Saturday in the range whose very next day (Sunday)
+// is also in the range — a lone trailing/leading Saturday or Sunday still
+// counts toward the Saturday/Sunday tallies but not the weekend one.
+export function formatRequestDateRange(dateFrom, dateTo, publicHolidayDates = []) {
+  const rangeLabel = dateFrom === dateTo
+    ? formatDDDddMMMYYYY(dateFrom)
+    : `${formatDDDddMMMYYYY(dateFrom)} to ${formatDDDddMMMYYYY(dateTo)}`
+
+  const phSet = publicHolidayDates instanceof Set ? publicHolidayDates : new Set(publicHolidayDates)
+  const dates = datesInRange(dateFrom, dateTo)
+  const dateSet = new Set(dates)
+  const satCount = dates.filter(d => dayOfWeek(d) === 6).length
+  const sunCount = dates.filter(d => dayOfWeek(d) === 0).length
+  const weekendCount = dates.filter(d => dayOfWeek(d) === 6 && dateSet.has(addDays(d, 1))).length
+  const phCount = dates.filter(d => phSet.has(d)).length
+
+  const parts = []
+  if (weekendCount > 0) parts.push(`${weekendCount} weekend${weekendCount === 1 ? '' : 's'}`)
+  if (satCount > 0) parts.push(`${satCount} Saturday${satCount === 1 ? '' : 's'}`)
+  if (sunCount > 0) parts.push(`${sunCount} Sunday${sunCount === 1 ? '' : 's'}`)
+  if (phCount > 0) parts.push(`${phCount} Public Holiday${phCount === 1 ? '' : 's'}`)
+  const extraLine = parts.length ? `${parts.join(', ')} included` : null
+
+  return { rangeLabel, extraLine }
+}
+
 // A short "N total (M annual)" qualifier for any leave_requests row where
 // leave_type is 'annual' and annual_leave_days is present — distinguishing
 // the total unavailable-for-rostering period from the days that actually

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert, CalendarCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, weeksForMonth, monthsForYear } from '../lib/leaveYearGrid'
@@ -30,12 +30,22 @@ function hasWarnings(w) {
 // one month by the calendar itself.
 export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, maxFullTime, onDataChanged, onBack,
+  countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
 }) {
-  const [selectedDate, setSelectedDate] = useState(null)
+  // highlightDate seeds the initially-open day (e.g. the Requests queue's
+  // "View Calendar" action landing straight on that request's date) — a
+  // lazy initializer, since this component only ever mounts fresh (see
+  // AnnualLeavePlanner.jsx's mode ternary), so this never needs to react to
+  // highlightDate changing after the fact.
+  const [selectedDate, setSelectedDate] = useState(() => highlightDate || null)
   const today = todayStr()
   const weeks = weeksForMonth(year, month)
   const monthLabel = monthsForYear(year)[month - 1].label
+
+  useEffect(() => {
+    if (highlightDate) onHighlightConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, consuming whatever highlightDate this instance was seeded with
+  }, [])
 
   function goPrevMonth() {
     if (month === 1) onMonthChange(year - 1, 12)
@@ -70,6 +80,7 @@ export default function MonthWorkspace({
           </span>
         ))}
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-dark" /> At capacity</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
 
       <div className="mt-3 overflow-hidden rounded-lg border border-slate-line">
@@ -121,17 +132,17 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacity, onClick }) 
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:bg-canvas-sunken/60 ${phName ? 'bg-accent-tint' : ''}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:bg-canvas-sunken/60 ${phName ? 'bg-ink/5 ring-1 ring-inset ring-ink-muted' : ''}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-white' : phName ? 'text-accent' : 'text-ink'
+          isToday ? 'bg-accent text-white' : phName ? 'text-ink-light' : 'text-ink'
         }`}>
           {dateNum}
         </span>
         {anyAtCap && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-dark" title="At capacity" />}
       </div>
-      {phName && <span className="truncate text-[10px] font-medium text-accent">{phName}</span>}
+      {phName && <span className="truncate text-[10px] font-medium text-ink-light">{phName}</span>}
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
@@ -215,7 +226,7 @@ function DayReviewModal({
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
-        {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
+        {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
         {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
 
         {showRequestForm ? (
@@ -258,9 +269,13 @@ function DayReviewModal({
                     ) : (
                       <ul className="mt-1 space-y-1">
                         {entries.map(e => (
-                          <li key={e.profileId} className="text-sm">
+                          <li key={e.profileId} className="flex items-center gap-1.5 text-sm">
                             <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
-                            {e.status === 'pending' && <span className="ml-1.5 text-xs font-medium text-flagAmber">Pending</span>}
+                            {e.status === 'pending' ? (
+                              <span className="text-xs font-medium text-flagAmber">Pending</span>
+                            ) : (
+                              <CalendarCheck className="h-3.5 w-3.5 text-success" title="Approved" />
+                            )}
                           </li>
                         ))}
                       </ul>

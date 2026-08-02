@@ -6,6 +6,7 @@ import {
   findDoubleBookingConflicts,
   isValidAnnualLeaveDays,
   annualDaysSummary,
+  formatRequestDateRange,
   SPECIAL_LEAVE_TYPES,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
@@ -176,5 +177,38 @@ describe('overlapsPlannedWeekend', () => {
 
   it('returns false gracefully when the doctor has no planner entries in range', () => {
     expect(overlapsPlannedWeekend([], '2026-08-14', '2026-08-17')).toBe(false)
+  })
+})
+
+describe('formatRequestDateRange', () => {
+  it('formats a multi-day range as "DDD dd MMM YYYY to DDD dd MMM YYYY" with a weekend/Sat/Sun/PH summary', () => {
+    // 2026-08-15 is a Saturday, 2026-08-30 is a Sunday — 3 full weekends,
+    // 3 Saturdays, 3 Sundays in between.
+    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-15', '2026-08-30', ['2026-08-24'])
+    expect(rangeLabel).toBe('Sat 15 Aug 2026 to Sun 30 Aug 2026')
+    expect(extraLine).toBe('3 weekends, 3 Saturdays, 3 Sundays, 1 Public Holiday included')
+  })
+
+  it('formats a single-day request as one date, not a repeated range', () => {
+    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-12', '2026-08-12')
+    expect(rangeLabel).toBe('Wed 12 Aug 2026')
+    expect(extraLine).toBeNull()
+  })
+
+  it('counts a lone Saturday without its Sunday toward Saturdays but not weekends', () => {
+    // 2026-08-14 (Fri) to 2026-08-15 (Sat) — a Saturday with no following Sunday in range.
+    const { extraLine } = formatRequestDateRange('2026-08-14', '2026-08-15')
+    expect(extraLine).toBe('1 Saturday included')
+  })
+
+  it('omits the summary line entirely when the range has no weekend days or public holidays', () => {
+    // 2026-08-10 (Mon) to 2026-08-14 (Fri) — a plain working week.
+    const { extraLine } = formatRequestDateRange('2026-08-10', '2026-08-14')
+    expect(extraLine).toBeNull()
+  })
+
+  it('accepts a Set of public holiday dates as well as an array', () => {
+    const { extraLine } = formatRequestDateRange('2026-08-10', '2026-08-10', new Set(['2026-08-10']))
+    expect(extraLine).toBe('1 Public Holiday included')
   })
 })

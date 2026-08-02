@@ -80,7 +80,45 @@ build phase (see `README.md`).
     leave per doctor over any admin-chosen date range, filterable by
     category and drillable to one doctor's individual requests.
 
-13. **Leave area nav restructure (Overview + standalone Requests inbox)** —
+13. **Apply the Annual planner's Overview + Month workspace + Requests
+    template to Special Leave** — the Annual Leave tab now has a genuine
+    year-overview → single-month-workspace flow (`AnnualPlannerOverview.jsx`
+    → `MonthWorkspace.jsx`) plus a redesigned Requests queue
+    (`LeaveApprovalQueue.jsx`), while the Special Leave tab
+    (`SpecialLeavePlanner.jsx`) still shows the older day-row spreadsheet
+    (`LeaveYearGrid.jsx`). The pieces below are already built generically
+    enough to reuse rather than rebuild when Special Leave gets the same
+    treatment:
+    - Public-holiday highlighting (`bg-ink/10` + `ring-1 ring-ink-muted`,
+      used in both `AnnualPlannerOverview.jsx`'s year-grid cells and
+      `MonthWorkspace.jsx`'s day cells) and the matching legend entry — not
+      annual-leave-specific, drop straight in.
+    - `formatRequestDateRange` (`leaveRequests.js`) — the
+      "DDD dd MMM YYYY to DDD dd MMM YYYY" + weekend/Saturday/Sunday/PH
+      summary line — leave-type-agnostic already.
+    - `approveLeaveRequest`/`rejectLeaveRequest` (`leaveApprovals.js`) —
+      already shared between `LeaveApprovalQueue.jsx` and
+      `MonthWorkspace.jsx`'s inline actions, and already type-agnostic (the
+      Requests queue lists every pending leave type, not just annual).
+    - The Requests queue's row layout (icon Approve/Reject/View-Calendar
+      actions, back link, narrow centred width) is entirely leave-type
+      generic already — no changes needed there for Special Leave to
+      benefit, since it's the same single "Requests" tab both planners
+      share (see `LeavePlannerPage.jsx`'s `plannerTabs`).
+    - What Special Leave actually needs built fresh: its own
+      `MonthWorkspace`-equivalent per-day review/approve modal (today's
+      "View Calendar" action from a non-annual request just lands on the
+      Special tab generally — see `openInCalendar` in
+      `LeaveApprovalQueue.jsx` — since there's no per-day modal to deep-link
+      into yet), and a year-overview replacing `LeaveYearGrid.jsx`'s
+      spreadsheet. `MonthWorkspace.jsx`'s capacity-column machinery
+      (`dayCapacitySummary`, `checkApprovalCapacityImpact`) is
+      annual-leave-specific (the concurrency cap only applies to annual
+      leave) and would need to be dropped or reworked, not reused as-is —
+      Special Leave's day cells would show pending/approved status only, no
+      "at capacity" concept.
+
+14. **Leave area nav restructure (Overview + standalone Requests inbox)** —
     a UX review of the Weekend Planner (whose highest-value points were
     acted on: month-at-a-time view, Next weekend summary, needs-planning
     filter, denser cards) also suggested a bigger navigation change not

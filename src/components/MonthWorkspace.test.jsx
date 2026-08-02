@@ -232,6 +232,39 @@ describe('MonthWorkspace', () => {
     expect(await screen.findByText('Wednesday, 2026-08-12')).toBeInTheDocument() // back to the review view
   })
 
+  it('indicates a public holiday day with a distinct highlight and shows its name in the review modal', async () => {
+    const user = userEvent.setup()
+    const publicHolidaysByDate = new Map([['2026-08-12', 'Some Holiday']])
+    render(<MonthWorkspace {...baseProps({ publicHolidaysByDate })} />)
+    expect(screen.getByText('Public holiday')).toBeInTheDocument() // legend entry
+    await user.click(screen.getByText('Anderson'))
+    // Shown once on the grid cell and again in the opened review modal.
+    expect(await screen.findAllByText('Some Holiday')).toHaveLength(2)
+  })
+
+  it('marks an approved surname with an Approved indicator, alongside the existing Pending one', async () => {
+    const user = userEvent.setup()
+    render(<MonthWorkspace {...baseProps()} />)
+    await user.click(screen.getByText('Anderson'))
+
+    await screen.findByText('Wednesday, 2026-08-12')
+    expect(screen.getByTitle('Approved')).toBeInTheDocument()
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+  })
+
+  it('opens the review modal for highlightDate on mount (a deep link from the Requests queue) and reports it consumed', () => {
+    const onHighlightConsumed = vi.fn()
+    render(<MonthWorkspace {...baseProps({ highlightDate: '2026-08-12', onHighlightConsumed })} />)
+    expect(screen.getByText('Wednesday, 2026-08-12')).toBeInTheDocument()
+    expect(onHighlightConsumed).toHaveBeenCalled()
+  })
+
+  it('does not report a highlight consumed when no highlightDate was given', () => {
+    const onHighlightConsumed = vi.fn()
+    render(<MonthWorkspace {...baseProps({ onHighlightConsumed })} />)
+    expect(onHighlightConsumed).not.toHaveBeenCalled()
+  })
+
   it('month navigation and back button call their callbacks', async () => {
     const user = userEvent.setup()
     const onMonthChange = vi.fn()

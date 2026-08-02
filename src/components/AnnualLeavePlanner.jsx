@@ -36,13 +36,26 @@ function reshapeByDate(byDate) {
 // landing view — a 12-month "where does this need my attention" summary)
 // and MonthWorkspace (a full calendar for one month — reading surnames,
 // checking capacity, reviewing/approving pending requests, and submitting
-// new leave — opened via the overview's "Open month workspace" action or
-// its Month toggle, both of which hand over whichever month was selected).
-export default function AnnualLeavePlanner() {
+// new leave — opened via the overview's "Open month workspace" action, its
+// Month toggle, or clicking an already-selected month card, all of which
+// hand over whichever month was selected). deepLinkMonth/deepLinkHighlightDate
+// are a third, external way in: the Requests queue's "View Calendar" action
+// (LeaveApprovalQueue.jsx) navigates here with `?month=YYYY-MM&highlight=
+// YYYY-MM-DD` so an admin reviewing a pending request can jump straight to
+// that request's month with its day pre-opened, instead of hunting for it
+// manually — LeavePlannerPage.jsx reads those query params and passes them
+// through as these props, then clears them via onDeepLinkConsumed once
+// they've seeded this component's initial state (a one-shot hand-off, not a
+// live-bound value).
+export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDate, onDeepLinkConsumed }) {
   const { profile } = useAuth()
-  const [year, setYear] = useState(new Date().getFullYear())
-  const [mode, setMode] = useState('overview') // 'overview' | 'workspace'
-  const [workspaceMonth, setWorkspaceMonth] = useState(new Date().getMonth() + 1)
+  const [year, setYear] = useState(() => deepLinkMonth ? Number(deepLinkMonth.slice(0, 4)) : new Date().getFullYear())
+  const [mode, setMode] = useState(deepLinkMonth ? 'workspace' : 'overview') // 'overview' | 'workspace'
+  const [workspaceMonth, setWorkspaceMonth] = useState(() => {
+    if (!deepLinkMonth) return new Date().getMonth() + 1
+    return Number(deepLinkMonth.slice(5, 7))
+  })
+  const [highlightDate, setHighlightDate] = useState(deepLinkHighlightDate || null)
   const [approvedByDate, setApprovedByDate] = useState(new Map())
   const [pendingByDate, setPendingByDate] = useState(new Map())
   const [approvedRows, setApprovedRows] = useState([])
@@ -56,6 +69,16 @@ export default function AnnualLeavePlanner() {
   const [error, setError] = useState('')
 
   useEffect(() => { load() }, [year]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; including it would refetch in a loop
+
+  // One-shot: a deep link (from the Requests queue's "View Calendar" action)
+  // only needs to seed the initial year/mode/workspaceMonth/highlightDate
+  // state above — once that's happened, tell the caller so it can strip
+  // `month`/`highlight` back out of the URL, or switching planner sub-tabs
+  // and back would re-open this same stale workspace/highlight again.
+  useEffect(() => {
+    if (deepLinkMonth) onDeepLinkConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, deliberately not re-run if these props change later
+  }, [])
 
   async function load() {
     setLoading(true)
@@ -148,6 +171,7 @@ export default function AnnualLeavePlanner() {
             approvedRows={approvedRows}
             pendingRows={pendingRows}
             countByColumnPerDate={countsByColumn}
+            publicHolidaysByDate={publicHolidaysByDate}
             maxByColumnKey={maxByColumnKey}
             maxFullTime={maxFullTime}
             eligibleHeadcount={eligibleHeadcount}
@@ -165,6 +189,8 @@ export default function AnnualLeavePlanner() {
             pendingRows={pendingRows}
             countByColumnPerDate={countsByColumn}
             publicHolidaysByDate={publicHolidaysByDate}
+            highlightDate={highlightDate}
+            onHighlightConsumed={() => setHighlightDate(null)}
             maxByColumnKey={maxByColumnKey}
             maxFullTime={maxFullTime}
             onDataChanged={load}

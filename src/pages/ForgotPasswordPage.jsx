@@ -175,81 +175,85 @@ export default function ForgotPasswordPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
-            <div className="mx-auto w-full max-w-sm">
-              <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
-              <p className="mt-2 text-base text-ink-light">
-                Enter your account email and we&apos;ll send a password-reset link.
-              </p>
+          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+            <div className="flex flex-1 items-center justify-center">
+              <div className="mx-auto w-full max-w-sm">
+                <p className="text-2xl font-semibold text-ink lg:text-3xl">Reset your password</p>
+                <p className="mt-2 text-base text-ink-light">
+                  Enter your account email and we&apos;ll send a password-reset link.
+                </p>
 
-              <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
-                <div>
-                  <label htmlFor="email-desktop" className="mb-1.5 block text-base font-semibold text-ink">
-                    Email
-                  </label>
-                  <div className="relative">
-                    <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="5" width="18" height="14" rx="2" />
-                        <path d="M3 7l9 6 9-6" />
-                      </svg>
-                    </span>
-                    <input
-                      id="email-desktop"
-                      name="email"
-                      type="email"
-                      required
-                      autoComplete="email"
-                      inputMode="email"
-                      autoFocus
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onBlur={() => setEmailTouched(true)}
-                      aria-invalid={emailInvalid}
-                      placeholder="you@example.com"
-                      className={`w-full rounded-lg border-2 bg-canvas-raised py-3 pl-12 pr-4
-                        text-lg text-ink placeholder:text-ink-muted
-                        transition-colors focus:bg-canvas-raised
-                        focus:outline focus:outline-2 focus:outline-offset-2
-                        ${emailInvalid
-                          ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                          : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
-                    />
+                <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+                  <div>
+                    <label htmlFor="email-desktop" className="mb-1.5 block text-base font-semibold text-ink">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="5" width="18" height="14" rx="2" />
+                          <path d="M3 7l9 6 9-6" />
+                        </svg>
+                      </span>
+                      <input
+                        id="email-desktop"
+                        name="email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        inputMode="email"
+                        autoFocus
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onBlur={() => setEmailTouched(true)}
+                        aria-invalid={emailInvalid}
+                        placeholder="you@example.com"
+                        className={`w-full rounded-lg border-2 bg-canvas-raised py-3 pl-12 pr-4
+                          text-lg text-ink placeholder:text-ink-muted
+                          transition-colors focus:bg-canvas-raised
+                          focus:outline focus:outline-2 focus:outline-offset-2
+                          ${emailInvalid
+                            ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
+                            : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
+                      />
+                    </div>
+                    {emailInvalid && (
+                      <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+                    )}
                   </div>
-                  {emailInvalid && (
-                    <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+
+                  {error && (
+                    <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                      {error}
+                    </div>
                   )}
-                </div>
 
-                {error && (
-                  <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
-                    {error}
-                  </div>
-                )}
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
+                      transition-colors hover:bg-accent-dark active:bg-accent-dark
+                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
+                      disabled:opacity-60"
+                  >
+                    {submitting ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </form>
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
-                    transition-colors hover:bg-accent-dark active:bg-accent-dark
-                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                    disabled:opacity-60"
-                >
-                  {submitting ? 'Sending…' : 'Send reset link'}
-                </button>
-              </form>
-
-              <p className="mt-6 text-center text-base text-ink-light">
-                Remembered it after all?{' '}
-                <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
-                  Sign in
-                </Link>
-              </p>
+                <p className="mt-6 text-center text-base text-ink-light">
+                  Remembered it after all?{' '}
+                  <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+                    Sign in
+                  </Link>
+                </p>
+              </div>
             </div>
+
+            {/* Copyright pinned to the panel's own bottom edge, matching
+                the Login page's desktop panel. */}
+            <AuthFooter onLight compact />
           </div>
         </div>
-
-        <AuthFooter compact />
       </div>
     </>
   )

@@ -346,9 +346,9 @@ export default function LoginPage() {
             <div className="flex flex-1 items-center justify-center">
               <div className="mx-auto w-full max-w-sm text-center">
                 <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-                <p className="mt-2 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
+                <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
 
-                <div className="mt-8">
+                <div className="mt-5">
                   {/* border-2 border-transparent + py-[25px] matches this
                       button's total height exactly to the Signup page's
                       role cards (border-2 + p-4 + two lines of text =

@@ -324,7 +324,6 @@ function RoleModal({ role, onClose }) {
                   inputMode="numeric"
                   value={formatPhoneProgressive(phone)}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="(082) 123 4567"
                   className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
                     transition-colors focus:border-accent focus:bg-canvas-raised
@@ -535,32 +534,36 @@ export default function SignupPage() {
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 
-          <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
-            <div className="mx-auto w-full max-w-sm">
-              <p className="text-center text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
-              <div className="mt-8 space-y-3">
-                {ROLE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setSelectedRole(opt.value)}
-                    className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-4 text-left transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
-                  >
-                    <p className="text-base font-semibold text-ink">{opt.label}</p>
-                    <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>
-                  </button>
-                ))}
+          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+            <div className="flex flex-1 items-center justify-center">
+              <div className="mx-auto w-full max-w-sm">
+                <p className="text-center text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
+                <div className="mt-8 space-y-3">
+                  {ROLE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSelectedRole(opt.value)}
+                      className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-4 text-center transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
+                    >
+                      <p className="text-base font-semibold text-ink">{opt.label}</p>
+                      <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-6 text-center text-base text-ink-light">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+                    Sign in
+                  </Link>
+                </p>
               </div>
-              <p className="mt-6 text-center text-base text-ink-light">
-                Already have an account?{' '}
-                <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
-                  Sign in
-                </Link>
-              </p>
             </div>
+
+            {/* Copyright pinned to the panel's own bottom edge, matching
+                the Login page's desktop panel. */}
+            <AuthFooter onLight compact />
           </div>
         </div>
-
-        <AuthFooter compact />
       </div>
 
       {selectedRole && (

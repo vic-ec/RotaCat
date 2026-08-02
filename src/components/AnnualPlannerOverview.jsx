@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, CircleCheck, TriangleAlert, Users, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
+import { CircleCheck, TriangleAlert, Users, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityWarningsByColumn, entriesInRange,
+  monthCapacityPeakByColumn, monthPublicHolidayCount, entriesInRange,
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek } from '../lib/dateRange'
 
@@ -17,26 +17,20 @@ const FILTERS = [
 ]
 
 // Narrows a { profileId, surname, ... } day-map to entries matching the
-// active filter/search — shared by the month grid and the year-total stats
-// so both always agree on "what's currently in view."
-function filterByDate(byDate, { filter, myProfileId, searchTerm }) {
-  if (filter === 'all' && !searchTerm) return byDate
+// active filter chip — shared by the month grid and the year-total stats so
+// both always agree on "what's currently in view."
+function filterByDate(byDate, { filter, myProfileId }) {
+  if (filter === 'all') return byDate
   const next = new Map()
   for (const [date, entries] of byDate) {
-    const visible = entries.filter(e =>
-      (filter !== 'mine' || e.profileId === myProfileId) &&
-      (!searchTerm || e.surname.toLowerCase().includes(searchTerm))
-    )
+    const visible = entries.filter(e => filter !== 'mine' || e.profileId === myProfileId)
     if (visible.length) next.set(date, visible)
   }
   return next
 }
 
-function filterRows(rows, { filter, myProfileId, searchTerm }) {
-  return rows.filter(r =>
-    (filter !== 'mine' || r.profile_id === myProfileId) &&
-    (!searchTerm || (r.profiles?.surname ?? '').toLowerCase().includes(searchTerm))
-  )
+function filterRows(rows, { filter, myProfileId }) {
+  return rows.filter(r => filter !== 'mine' || r.profile_id === myProfileId)
 }
 
 // A 12-month "decision" overview for the Annual Leave planner — replaces
@@ -57,12 +51,10 @@ export default function AnnualPlannerOverview({
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
   const [filter, setFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
 
-  const searchTerm = searchQuery.trim().toLowerCase()
   // Capacity pressure is a fact about pending+approved leave on record
   // (matching the real cap check in leaveRequests.js), not about whoever's
-  // currently searching/filtering — always computed unfiltered.
+  // currently filtering — always computed unfiltered.
   const pressureDates = useMemo(() => pressureDatesInYear(countByColumnPerDate, maxByColumnKey), [countByColumnPerDate, maxByColumnKey])
 
   // Hooks must run unconditionally (Rules of Hooks) — compute the filtered
@@ -72,16 +64,16 @@ export default function AnnualPlannerOverview({
   // callback (not hoisted to a shared variable) so its dependencies are
   // just the primitives already listed below, not a new object every render.
   const filteredApprovedByDate = useMemo(
-    () => filterByDate(approvedByDate, { filter, myProfileId, searchTerm }), [approvedByDate, filter, myProfileId, searchTerm]
+    () => filterByDate(approvedByDate, { filter, myProfileId }), [approvedByDate, filter, myProfileId]
   )
   const visiblePendingByDate = useMemo(
-    () => filterByDate(pendingByDate, { filter, myProfileId, searchTerm }), [pendingByDate, filter, myProfileId, searchTerm]
+    () => filterByDate(pendingByDate, { filter, myProfileId }), [pendingByDate, filter, myProfileId]
   )
   const filteredApprovedRows = useMemo(
-    () => filterRows(approvedRows, { filter, myProfileId, searchTerm }), [approvedRows, filter, myProfileId, searchTerm]
+    () => filterRows(approvedRows, { filter, myProfileId }), [approvedRows, filter, myProfileId]
   )
   const visiblePendingRows = useMemo(
-    () => filterRows(pendingRows, { filter, myProfileId, searchTerm }), [pendingRows, filter, myProfileId, searchTerm]
+    () => filterRows(pendingRows, { filter, myProfileId }), [pendingRows, filter, myProfileId]
   )
   const visibleApprovedByDate = filter === 'pending' ? new Map() : filteredApprovedByDate
   const visibleApprovedRows = filter === 'pending' ? [] : filteredApprovedRows
@@ -122,34 +114,6 @@ export default function AnnualPlannerOverview({
             <span className="font-display text-base font-semibold text-ink">{year}</span>
             <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Next year">→</button>
             <button type="button" onClick={() => onYearChange(Number(today.slice(0, 4)))} className="btn-secondary px-2 py-1 text-xs">Today</button>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search surname…"
-              aria-label="Search by surname"
-              className="input-field w-48 py-1.5 pl-7 text-sm"
-            />
-          </span>
-          <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
-            {['Year', 'Month'].map(v => (
-              <button
-                key={v}
-                type="button"
-                onClick={v === 'Month' ? () => onOpenWorkspace(selectedMonth) : undefined}
-                aria-current={v === 'Year' ? 'true' : undefined}
-                className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                  v === 'Year' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -225,6 +189,7 @@ export default function AnnualPlannerOverview({
           <p className="mt-1 text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
+            <InspectorStat icon={Flag} label="Public holidays" value={`${monthPublicHolidayCount(year, selectedMonth, publicHolidaysByDate)} days`} />
             <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(visibleApprovedRows, selMonthStart, selMonthEnd)} days`} />
             <InspectorStat
               icon={Clock}
@@ -236,12 +201,21 @@ export default function AnnualPlannerOverview({
 
           <div className="mt-3 space-y-1 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Capacity by category</p>
-            {monthCapacityWarningsByColumn(year, selectedMonth, countByColumnPerDate, maxByColumnKey).map(col => (
-              <div key={col.key} className="flex items-center justify-between text-sm">
-                <span className="text-ink-light">{col.label}</span>
-                <span className={col.days > 0 ? 'font-medium text-flagAmber' : 'text-ink-muted'}>{col.days > 0 ? `${col.days} at cap` : '—'}</span>
-              </div>
-            ))}
+            {monthCapacityPeakByColumn(year, selectedMonth, countByColumnPerDate, maxByColumnKey).map(col => {
+              const atCap = col.peak > 0 && col.max != null && col.peak >= col.max
+              return (
+                <div key={col.key} className="flex items-center justify-between text-sm">
+                  <span className="text-ink-light">{col.label}</span>
+                  {col.peak > 0 ? (
+                    <span className={atCap ? 'font-medium text-flagAmber' : 'text-ink'}>
+                      {col.peak}/{col.max ?? '—'}, {col.daysAtPeak} {col.daysAtPeak === 1 ? 'day' : 'days'}
+                    </span>
+                  ) : (
+                    <span className="text-ink-muted">—</span>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {selectedRange ? (
@@ -333,7 +307,7 @@ function MonthCard({ month, filter, isSelected, onSelect }) {
           // whichever leave colour happens to win the fill above.
           const phRing = day.isPublicHoliday && !dim ? 'ring-1 ring-inset ring-ink-muted' : ''
           return (
-            <span key={day.date} className="relative h-3 w-3">
+            <span key={day.date} className="relative h-3 w-3" title={day.publicHolidayName || undefined}>
               <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
               {day.isPressure && !dim && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-rose-dark" />}
             </span>

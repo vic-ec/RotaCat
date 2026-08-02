@@ -143,7 +143,7 @@ export default function LeaveApprovalQueue({ onBack }) {
                     disabled={isActioning || w === undefined}
                     title={approveLabel}
                     aria-label={isActioning ? 'Approving…' : approveLabel}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <CircleCheck className="h-5 w-5" />
                   </button>
@@ -153,7 +153,7 @@ export default function LeaveApprovalQueue({ onBack }) {
                     disabled={isActioning}
                     title="Reject"
                     aria-label="Reject"
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-flagRed text-white transition-colors hover:bg-flagRed/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <CircleX className="h-5 w-5" />
                   </button>
@@ -162,7 +162,7 @@ export default function LeaveApprovalQueue({ onBack }) {
                     onClick={() => openInCalendar(request)}
                     title="View Calendar"
                     aria-label="View Calendar"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
                   >
                     <CalendarSearch className="h-5 w-5" />
                   </button>

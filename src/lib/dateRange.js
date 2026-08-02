@@ -41,6 +41,17 @@ export function dayOfWeek(dateStr) {
   return parseLocalDate(dateStr).getDay() // 0=Sun … 6=Sat
 }
 
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// "2026-08-10" -> "Monday, 10 Aug 2026" — the single-date display format
+// used wherever a full weekday name reads better than an abbreviation (e.g.
+// the Annual planner's Day View).
+export function formatWeekdayDate(dateStr) {
+  const d = parseLocalDate(dateStr)
+  return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
+}
+
 // First/last "YYYY-MM-DD" of a calendar month (1-indexed month).
 export function monthBounds(year, month) {
   const start = `${year}-${String(month).padStart(2, '0')}-01`

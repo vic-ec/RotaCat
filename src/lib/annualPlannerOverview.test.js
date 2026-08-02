@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityWarningsByColumn, entriesInRange,
+  monthCapacityPeakByColumn, monthPublicHolidayCount, entriesInRange,
 } from './annualPlannerOverview'
 
 const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 1, OT_COSMO: 1 }
@@ -40,16 +40,16 @@ describe('monthDayMarkers', () => {
     expect(markers[30].date).toBe('2026-08-31')
 
     const aug8 = markers.find(m => m.date === '2026-08-08')
-    expect(aug8).toEqual({ date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true, isPublicHoliday: false })
+    expect(aug8).toEqual({ date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true, isPublicHoliday: false, publicHolidayName: null })
 
     const aug9 = markers.find(m => m.date === '2026-08-09')
-    expect(aug9).toEqual({ date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false, isPublicHoliday: false })
+    expect(aug9).toEqual({ date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false, isPublicHoliday: false, publicHolidayName: null })
 
     const aug1 = markers.find(m => m.date === '2026-08-01')
-    expect(aug1).toEqual({ date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false, isPublicHoliday: false })
+    expect(aug1).toEqual({ date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false, isPublicHoliday: false, publicHolidayName: null })
   })
 
-  it('flags a public holiday date, and defaults to none when publicHolidaysByDate is omitted', () => {
+  it('flags a public holiday date (with its name), and defaults to none when publicHolidaysByDate is omitted', () => {
     const approvedByDate = new Map()
     const pendingByDate = new Map()
     const pressureDates = new Set()
@@ -57,10 +57,12 @@ describe('monthDayMarkers', () => {
 
     const markers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate })
     expect(markers.find(m => m.date === '2026-08-10').isPublicHoliday).toBe(true)
+    expect(markers.find(m => m.date === '2026-08-10').publicHolidayName).toBe('Some Holiday')
     expect(markers.find(m => m.date === '2026-08-11').isPublicHoliday).toBe(false)
+    expect(markers.find(m => m.date === '2026-08-11').publicHolidayName).toBeNull()
 
     const noPhMarkers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates })
-    expect(noPhMarkers.every(m => m.isPublicHoliday === false)).toBe(true)
+    expect(noPhMarkers.every(m => m.isPublicHoliday === false && m.publicHolidayName === null)).toBe(true)
   })
 })
 
@@ -97,18 +99,49 @@ describe('firstPressureRangeInMonth', () => {
   })
 })
 
-describe('monthCapacityWarningsByColumn', () => {
-  it('counts at-cap days per column within the month, ignoring days outside it', () => {
+describe('monthCapacityPeakByColumn', () => {
+  it('reports the peak concurrent count and how many days it was reached, ignoring days outside the month', () => {
     const counts = new Map([
       ['2026-08-08', new Map([['MO', 2]])],
       ['2026-08-09', new Map([['MO', 2]])],
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])], // a lower MO day doesn't count toward the peak's day tally
       ['2026-09-01', new Map([['MO', 2]])], // outside August
-      ['2026-08-10', new Map([['Registrar', 1]])],
     ])
-    const result = monthCapacityWarningsByColumn(2026, 8, counts, MAX_BY_COLUMN)
-    expect(result.find(r => r.key === 'MO').days).toBe(2)
-    expect(result.find(r => r.key === 'Registrar').days).toBe(1)
-    expect(result.find(r => r.key === 'EC_COSMO').days).toBe(0)
+    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
+    const mo = result.find(r => r.key === 'MO')
+    expect(mo).toEqual({ key: 'MO', label: 'MO', peak: 2, max: 2, daysAtPeak: 2 })
+    const registrar = result.find(r => r.key === 'Registrar')
+    expect(registrar).toEqual({ key: 'Registrar', label: 'Registrar', peak: 1, max: 1, daysAtPeak: 1 })
+  })
+
+  it('reports a peak below the cap when nothing ever reaches it', () => {
+    const counts = new Map([
+      ['2026-08-01', new Map([['MO', 1]])],
+      ['2026-08-15', new Map([['MO', 1]])],
+    ])
+    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
+    expect(result.find(r => r.key === 'MO')).toEqual({ key: 'MO', label: 'MO', peak: 1, max: 2, daysAtPeak: 2 })
+  })
+
+  it('reports a zero peak and zero days for a column with nothing on record', () => {
+    const counts = new Map([['2026-08-08', new Map([['MO', 2]])]])
+    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
+    expect(result.find(r => r.key === 'OT_COSMO')).toEqual({ key: 'OT_COSMO', label: 'OT COSMO / Intern', peak: 0, max: 1, daysAtPeak: 0 })
+  })
+})
+
+describe('monthPublicHolidayCount', () => {
+  it('counts public holidays within the month, ignoring dates outside it', () => {
+    const publicHolidaysByDate = new Map([
+      ['2026-08-10', 'Some Holiday'],
+      ['2026-08-24', 'Another Holiday'],
+      ['2026-09-01', 'Outside August'],
+    ])
+    expect(monthPublicHolidayCount(2026, 8, publicHolidaysByDate)).toBe(2)
+  })
+
+  it('returns 0 for a month with no public holidays', () => {
+    expect(monthPublicHolidayCount(2026, 8, new Map())).toBe(0)
   })
 })
 

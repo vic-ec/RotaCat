@@ -14,13 +14,22 @@ import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import InlineRuleHint from './InlineRuleHint'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
-// My weekends is both the default landing filter and leftmost chip; Needs
-// planning is admin-only (nothing a non-admin viewer can act on) and sits
-// at the far right, appended only for admins rather than shared.
+// My weekends is both the default landing filter and leftmost chip for a
+// non-admin viewer. Needs planning is admin-only (nothing a non-admin
+// viewer can act on) and sits at the far right, appended only for admins
+// rather than shared. For an admin, All weekends leads instead — an admin's
+// default concern is the whole roster, not just their own rotation — so
+// ADMIN_FILTERS reorders FILTERS_BASE to put it first rather than sharing
+// the same leftmost chip as everyone else.
 const FILTERS_BASE = [
   { key: 'mine', label: 'My weekends' },
   { key: 'my-requests', label: 'My requests' },
   { key: 'all', label: 'All weekends' },
+]
+const ADMIN_FILTERS = [
+  FILTERS_BASE.find(f => f.key === 'all'),
+  ...FILTERS_BASE.filter(f => f.key !== 'all'),
+  { key: 'needs-planning', label: 'Needs planning' },
 ]
 const EXCEPTION_STATUS_LABEL = { pending: 'Exception pending', approved: 'Exception approved', rejected: 'Exception rejected' }
 const MONTH_LABELS = [
@@ -335,7 +344,11 @@ export default function WeekendPlannerView() {
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
-  const [filter, setFilter] = useState('mine')
+  // An admin's default concern is the whole roster, not their own rotation
+  // (they may not even be on it) — lands on "All weekends" rather than
+  // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
+  // leading with the same chip above.
+  const [filter, setFilter] = useState(isAdmin ? 'all' : 'mine')
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const today = todayStr()
@@ -348,9 +361,7 @@ export default function WeekendPlannerView() {
   // never links somewhere that redirects the visitor elsewhere.
   const canViewRequests = isAdmin || canSubmitLeave
 
-  // Needs planning is nothing a non-admin viewer can act on, so it's
-  // appended for admins only rather than shared across both roles.
-  const filters = isAdmin ? [...FILTERS_BASE, { key: 'needs-planning', label: 'Needs planning' }] : FILTERS_BASE
+  const filters = isAdmin ? ADMIN_FILTERS : FILTERS_BASE
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile) changes within a session
 

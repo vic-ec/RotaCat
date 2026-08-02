@@ -217,7 +217,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl md:max-w-2xl">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold text-ink">
@@ -233,9 +233,8 @@ export default function DashboardPage() {
                   : 'Your upcoming shifts and leave.'}
           </p>
         </div>
-        {/* Visible to every role/category/permission level, unlike the
-            widgets below — see UpcomingBirthdays' own comment. */}
-        <UpcomingBirthdays />
+        {/* Doctor/locum view moves this under Your Shift Swaps instead — see below. */}
+        {(isAdmin || isClerk) && <UpcomingBirthdays />}
       </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
@@ -308,6 +307,8 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          <UpcomingBirthdays />
         </div>
       )}
 

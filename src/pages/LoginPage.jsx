@@ -366,14 +366,14 @@ export default function LoginPage() {
 
                   <Link
                     to="/forgot-password"
-                    className="mt-4 block text-center text-base font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
+                    className="mt-4 block text-center text-base font-medium text-accent transition-colors hover:text-accent-dark hover:underline"
                   >
                     Forgot password?
                   </Link>
 
                   <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
                     New here?{' '}
-                    <Link to="/signup" className="font-medium text-accent hover:text-accent-dark hover:underline">
+                    <Link to="/signup" className="font-medium text-rose hover:text-rose-dark hover:underline">
                       Create an account
                     </Link>
                   </p>

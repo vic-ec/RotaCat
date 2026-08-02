@@ -18,7 +18,7 @@ export default function MobileAuthHero() {
           <img
             src={butterflyLoop}
             alt=""
-            className="absolute -top-[15.5px] -right-[13.5px] h-[27px] w-[27px] -rotate-8 select-none"
+            className="absolute -top-[16.5px] -right-[15px] h-[27px] w-[27px] -rotate-15 select-none"
             draggable="false"
           />
         </span>

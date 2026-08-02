@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, CircleCheck, TriangleAlert, Users, Pin, Calendar, Clock, ExternalLink, ListChecks } from 'lucide-react'
+import { Search, CircleCheck, TriangleAlert, Users, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
@@ -51,7 +51,7 @@ function filterRows(rows, { filter, myProfileId, searchTerm }) {
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, maxByColumnKey, maxFullTime, eligibleHeadcount, myProfileId, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, maxFullTime, eligibleHeadcount, myProfileId, onOpenWorkspace,
 }) {
   const today = todayStr()
   const currentMonth = Number(today.slice(5, 7))
@@ -99,7 +99,7 @@ export default function AnnualPlannerOverview({
   const months = monthsForYear(year)
   const monthCards = months.map(m => {
     const markers = monthDayMarkers(m.year, m.month, {
-      approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate, pressureDates,
+      approvedByDate: visibleApprovedByDate, pendingByDate: visiblePendingByDate, pressureDates, publicHolidaysByDate,
     })
     const pressureDayCount = markers.filter(d => d.isPressure).length
     const { start, end } = monthBounds(m.year, m.month)
@@ -172,6 +172,11 @@ export default function AnnualPlannerOverview({
       {/* ── Year-total stat strip ── */}
       <div data-testid="annual-year-stats" className="mt-4 flex flex-wrap items-center gap-6 rounded-lg border border-slate-line bg-canvas-raised px-4 py-3">
         <span className="flex items-center gap-2 text-sm">
+          <Flag className="h-4 w-4 text-ink-light" />
+          <span className="text-ink-muted">Public holidays ({year})</span>
+          <span className="font-semibold text-ink">{publicHolidaysByDate.size}</span>
+        </span>
+        <span className="flex items-center gap-2 text-sm">
           <CircleCheck className="h-4 w-4 text-success" />
           <span className="text-ink-muted">Approved leave ({year})</span>
           <span className="font-semibold text-ink">{approvedDaysTotal} days</span>
@@ -188,6 +193,13 @@ export default function AnnualPlannerOverview({
         </span>
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> Approved leave</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-flagAmber bg-flagAmber-bg" /> Pending request</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-dark" /> At capacity</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+      </div>
+
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex items-start gap-4">
         <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -197,7 +209,11 @@ export default function AnnualPlannerOverview({
               month={m}
               filter={filter}
               isSelected={m.month === selectedMonth}
-              onSelect={() => setSelectedMonth(m.month)}
+              // Clicking an unselected month just selects it (updating the
+              // inspector); clicking the already-selected one goes straight
+              // to its month workspace — a second click on the same month
+              // reads as "open this," not "select this again."
+              onSelect={() => m.month === selectedMonth ? onOpenWorkspace(m.month) : setSelectedMonth(m.month)}
             />
           ))}
         </div>
@@ -309,10 +325,16 @@ function MonthCard({ month, filter, isSelected, onSelect }) {
               ? 'bg-accent'
               : day.hasPending
                 ? 'border border-flagAmber bg-flagAmber-bg'
-                : 'bg-canvas-sunken/70'
+                : day.isPublicHoliday
+                  ? 'bg-ink/10'
+                  : 'bg-canvas-sunken/70'
+          // A public holiday keeps its own ring even on a day that also has
+          // leave on it, so "this day is a PH" never gets swallowed by
+          // whichever leave colour happens to win the fill above.
+          const phRing = day.isPublicHoliday && !dim ? 'ring-1 ring-inset ring-ink-muted' : ''
           return (
             <span key={day.date} className="relative h-3 w-3">
-              <span className={`block h-3 w-3 rounded-sm ${cellClass}`} />
+              <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
               {day.isPressure && !dim && <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-rose-dark" />}
             </span>
           )

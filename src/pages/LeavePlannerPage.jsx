@@ -104,6 +104,23 @@ export default function LeavePlannerPage() {
     }, { replace: true })
   }
 
+  // A one-shot deep link from the Requests queue's "View Calendar" action
+  // (LeaveApprovalQueue.jsx): `?sub=annual&month=YYYY-MM&highlight=YYYY-MM-DD`
+  // seeds AnnualLeavePlanner's initial month-workspace state, then gets
+  // stripped back out of the URL via clearDeepLink once it's been consumed
+  // — otherwise switching away from Annual and back (without touching
+  // "View Calendar" again) would keep re-opening the same stale highlight.
+  const deepLinkMonth = searchParams.get('month')
+  const deepLinkHighlight = searchParams.get('highlight')
+  function clearDeepLink() {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('month')
+      next.delete('highlight')
+      return next
+    }, { replace: true })
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <div className="flex flex-wrap rounded-lg border border-slate-line bg-canvas-raised overflow-hidden w-fit">
@@ -142,10 +159,22 @@ export default function LeavePlannerPage() {
         {tab === 'rules' && <div className="md:max-w-2xl"><LeaveRulesPage /></div>}
         {tab === 'planners' && (
           <>
-            {plannerTab === 'annual' && canViewYearPlanners && <AnnualLeavePlanner />}
+            {plannerTab === 'annual' && canViewYearPlanners && (
+              <AnnualLeavePlanner
+                deepLinkMonth={deepLinkMonth}
+                deepLinkHighlightDate={deepLinkHighlight}
+                onDeepLinkConsumed={clearDeepLink}
+              />
+            )}
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}
             {plannerTab === 'weekends' && <WeekendPlannerView />}
-            {plannerTab === 'requests' && (isAdmin ? <LeaveApprovalQueue /> : canSubmitLeave ? <MyRequestHistory /> : null)}
+            {plannerTab === 'requests' && (
+              isAdmin ? (
+                <div className="mx-auto md:max-w-2xl">
+                  <LeaveApprovalQueue onBack={() => setPlannerTab('annual')} />
+                </div>
+              ) : canSubmitLeave ? <MyRequestHistory /> : null
+            )}
             {plannerTab === 'audit' && isAdmin && <LeaveAuditReport />}
           </>
         )}

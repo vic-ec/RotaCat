@@ -40,13 +40,27 @@ describe('monthDayMarkers', () => {
     expect(markers[30].date).toBe('2026-08-31')
 
     const aug8 = markers.find(m => m.date === '2026-08-08')
-    expect(aug8).toEqual({ date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true })
+    expect(aug8).toEqual({ date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true, isPublicHoliday: false })
 
     const aug9 = markers.find(m => m.date === '2026-08-09')
-    expect(aug9).toEqual({ date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false })
+    expect(aug9).toEqual({ date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false, isPublicHoliday: false })
 
     const aug1 = markers.find(m => m.date === '2026-08-01')
-    expect(aug1).toEqual({ date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false })
+    expect(aug1).toEqual({ date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false, isPublicHoliday: false })
+  })
+
+  it('flags a public holiday date, and defaults to none when publicHolidaysByDate is omitted', () => {
+    const approvedByDate = new Map()
+    const pendingByDate = new Map()
+    const pressureDates = new Set()
+    const publicHolidaysByDate = new Map([['2026-08-10', 'Some Holiday']])
+
+    const markers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate })
+    expect(markers.find(m => m.date === '2026-08-10').isPublicHoliday).toBe(true)
+    expect(markers.find(m => m.date === '2026-08-11').isPublicHoliday).toBe(false)
+
+    const noPhMarkers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates })
+    expect(noPhMarkers.every(m => m.isPublicHoliday === false)).toBe(true)
   })
 })
 

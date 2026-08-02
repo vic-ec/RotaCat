@@ -127,6 +127,16 @@ describe('MonthWorkspace', () => {
     expect(screen.getByText('August 2026')).toBeInTheDocument()
   })
 
+  it('legend: shows Consultant for an admin, hides it for a non-admin', () => {
+    const admin = renderWorkspace()
+    expect(screen.getByText('Consultant')).toBeInTheDocument()
+    admin.unmount()
+
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
+    renderWorkspace()
+    expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
+  })
+
   it('reading surnames: shows approved plainly and pending in italics directly on the grid', () => {
     renderWorkspace()
     expect(screen.getByText('Anderson')).toBeInTheDocument()

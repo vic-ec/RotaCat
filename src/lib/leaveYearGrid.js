@@ -46,9 +46,13 @@ export const COLUMN_DOT_COLOR = {
 // hit in practice, not just a display simplification. Uses the dedicated
 // cap* palette (tailwind.config.js), not flagAmber/flagRed, so this scale's
 // contrast can be tuned independently of shared status colours elsewhere.
-//   fill        solid state colour — legend swatches, year-grid day blocks,
-//               and month-view day-cell backgrounds (all share one colour
-//               so the legend visibly matches what it's a legend for).
+//   fill        solid state colour — legend swatches and year-grid day
+//               blocks (so the legend visibly matches what it's a legend
+//               for).
+//   light       `fill` lightened ~7.5% toward white — used by the month
+//               workspace's day blocks/legend and the day-view "N of 3
+//               slots taken" pill, which read as too saturated at full
+//               `fill` strength.
 //   tint        a paler alternative background, kept for any caller that
 //               wants a softer fill than `fill`.
 //   dark/ringDark  a deeper shade of the same hue for the public-holiday
@@ -60,28 +64,28 @@ export const COLUMN_DOT_COLOR = {
 //               four different hues instead of converging on the same
 //               near-black brown once darkened enough for contrast.
 //   onFillText/onFillMuted  primary/secondary text colour for content
-//               sitting on top of the solid `fill` background (day numbers,
-//               entries) — dark ink on the light `limited` (yellow) state,
-//               white on the three darker states.
+//               sitting on top of the solid `fill`/`light` background (day
+//               numbers, entries) — dark ink on the light `limited`
+//               (yellow) state, white on the three darker states.
 export const LEAVE_CAPACITY_STATES = [
   {
     key: 'available', label: 'Available',
-    fill: 'bg-capAvailable', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
+    fill: 'bg-capAvailable', light: 'bg-capAvailable-light', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
     text: 'text-capAvailable-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
   },
   {
     key: 'limited', label: 'Limited',
-    fill: 'bg-capLimited', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
+    fill: 'bg-capLimited', light: 'bg-capLimited-light', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
     text: 'text-capLimited-ink', onFillText: 'text-ink', onFillMuted: 'text-ink-light',
   },
   {
     key: 'near_capacity', label: 'Near capacity',
-    fill: 'bg-capNear', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
+    fill: 'bg-capNear', light: 'bg-capNear-light', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
     text: 'text-capNear-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
   },
   {
     key: 'at_capacity', label: 'At capacity',
-    fill: 'bg-capAtCapacity', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', ringDark: 'ring-capAtCapacity-dark',
+    fill: 'bg-capAtCapacity', light: 'bg-capAtCapacity-light', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', ringDark: 'ring-capAtCapacity-dark',
     text: 'text-capAtCapacity-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
   },
 ]

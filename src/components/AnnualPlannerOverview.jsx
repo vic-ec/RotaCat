@@ -165,8 +165,12 @@ export default function AnnualPlannerOverview({
       </div>
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
-      <div className="mt-4 flex items-start gap-4">
-        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Mobile (<lg): stacked, full width, inspector shown first so the
+          currently-selected month's detail is visible without scrolling
+          past the whole grid. Desktop (lg+): unchanged side-by-side layout
+          with the sticky w-80 inspector. */}
+      <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
           {monthCards.map(m => (
             <MonthCard
               key={m.month}
@@ -182,7 +186,10 @@ export default function AnnualPlannerOverview({
           ))}
         </div>
 
-        <div data-testid="annual-inspector" className="sticky top-4 w-80 flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4">
+        <div
+          data-testid="annual-inspector"
+          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
+        >
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             <Pin className="h-3.5 w-3.5" /> Selected month
           </div>

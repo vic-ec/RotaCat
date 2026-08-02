@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthCapacityPeakByColumn, monthPublicHolidayCount, entriesInRange,
+  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
 } from './annualPlannerOverview'
+import { LEAVE_CAPACITY_STATES } from './leaveYearGrid'
 
 const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 1, OT_COSMO: 1 }
 
@@ -33,20 +34,30 @@ describe('monthDayMarkers', () => {
     const approvedByDate = new Map([['2026-08-08', [{ profileId: 'p1' }]]])
     const pendingByDate = new Map([['2026-08-09', [{ profileId: 'p2' }]]])
     const pressureDates = new Set(['2026-08-08'])
+    const countByColumnPerDate = new Map([['2026-08-08', new Map([['MO', 2]])], ['2026-08-09', new Map([['Registrar', 1]])]])
 
-    const markers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates })
+    const markers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates, countByColumnPerDate })
     expect(markers).toHaveLength(31)
     expect(markers[0].date).toBe('2026-08-01')
     expect(markers[30].date).toBe('2026-08-31')
 
     const aug8 = markers.find(m => m.date === '2026-08-08')
-    expect(aug8).toEqual({ date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true, isPublicHoliday: false, publicHolidayName: null })
+    expect(aug8).toEqual({
+      date: '2026-08-08', hasApproved: true, hasPending: false, isPressure: true, isPublicHoliday: false, publicHolidayName: null,
+      totalSlots: 2, capacityState: LEAVE_CAPACITY_STATES[2],
+    })
 
     const aug9 = markers.find(m => m.date === '2026-08-09')
-    expect(aug9).toEqual({ date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false, isPublicHoliday: false, publicHolidayName: null })
+    expect(aug9).toEqual({
+      date: '2026-08-09', hasApproved: false, hasPending: true, isPressure: false, isPublicHoliday: false, publicHolidayName: null,
+      totalSlots: 1, capacityState: LEAVE_CAPACITY_STATES[1],
+    })
 
     const aug1 = markers.find(m => m.date === '2026-08-01')
-    expect(aug1).toEqual({ date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false, isPublicHoliday: false, publicHolidayName: null })
+    expect(aug1).toEqual({
+      date: '2026-08-01', hasApproved: false, hasPending: false, isPressure: false, isPublicHoliday: false, publicHolidayName: null,
+      totalSlots: 0, capacityState: LEAVE_CAPACITY_STATES[0],
+    })
   })
 
   it('flags a public holiday date (with its name), and defaults to none when publicHolidaysByDate is omitted', () => {
@@ -63,6 +74,11 @@ describe('monthDayMarkers', () => {
 
     const noPhMarkers = monthDayMarkers(2026, 8, { approvedByDate, pendingByDate, pressureDates })
     expect(noPhMarkers.every(m => m.isPublicHoliday === false && m.publicHolidayName === null)).toBe(true)
+  })
+
+  it('defaults totalSlots to 0 (available) when countByColumnPerDate is omitted', () => {
+    const markers = monthDayMarkers(2026, 8, { approvedByDate: new Map(), pendingByDate: new Map(), pressureDates: new Set() })
+    expect(markers.every(m => m.totalSlots === 0 && m.capacityState === LEAVE_CAPACITY_STATES[0])).toBe(true)
   })
 })
 
@@ -99,34 +115,35 @@ describe('firstPressureRangeInMonth', () => {
   })
 })
 
-describe('monthCapacityPeakByColumn', () => {
-  it('reports the peak concurrent count and how many days it was reached, ignoring days outside the month', () => {
+describe('monthTotalCapacityBreakdown', () => {
+  it('buckets each day by its combined headcount across all categories, ignoring days outside the month', () => {
     const counts = new Map([
-      ['2026-08-08', new Map([['MO', 2]])],
-      ['2026-08-09', new Map([['MO', 2]])],
-      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])], // a lower MO day doesn't count toward the peak's day tally
-      ['2026-09-01', new Map([['MO', 2]])], // outside August
+      ['2026-08-08', new Map([['MO', 2]])], // 2 of 3
+      ['2026-08-09', new Map([['MO', 1], ['Registrar', 1]])], // 2 of 3
+      ['2026-08-10', new Map([['MO', 1]])], // 1 of 3
+      ['2026-08-11', new Map()], // 0 of 3, not counted
+      ['2026-09-01', new Map([['MO', 3]])], // outside August
     ])
-    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
-    const mo = result.find(r => r.key === 'MO')
-    expect(mo).toEqual({ key: 'MO', label: 'MO', peak: 2, max: 2, daysAtPeak: 2 })
-    const registrar = result.find(r => r.key === 'Registrar')
-    expect(registrar).toEqual({ key: 'Registrar', label: 'Registrar', peak: 1, max: 1, daysAtPeak: 1 })
+    const result = monthTotalCapacityBreakdown(2026, 8, counts)
+    expect(result).toEqual([
+      { level: 1, days: 1 },
+      { level: 2, days: 2 },
+      { level: 3, days: 0 },
+    ])
   })
 
-  it('reports a peak below the cap when nothing ever reaches it', () => {
-    const counts = new Map([
-      ['2026-08-01', new Map([['MO', 1]])],
-      ['2026-08-15', new Map([['MO', 1]])],
-    ])
-    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
-    expect(result.find(r => r.key === 'MO')).toEqual({ key: 'MO', label: 'MO', peak: 1, max: 2, daysAtPeak: 2 })
+  it('clamps a day whose combined total exceeds 3 into the "3 of 3" bucket', () => {
+    const counts = new Map([['2026-08-08', new Map([['MO', 2], ['Registrar', 1], ['OT_COSMO', 1]])]]) // 4 total
+    const result = monthTotalCapacityBreakdown(2026, 8, counts)
+    expect(result.find(r => r.level === 3).days).toBe(1)
   })
 
-  it('reports a zero peak and zero days for a column with nothing on record', () => {
-    const counts = new Map([['2026-08-08', new Map([['MO', 2]])]])
-    const result = monthCapacityPeakByColumn(2026, 8, counts, MAX_BY_COLUMN)
-    expect(result.find(r => r.key === 'OT_COSMO')).toEqual({ key: 'OT_COSMO', label: 'OT COSMO / Intern', peak: 0, max: 1, daysAtPeak: 0 })
+  it('reports zero days at every level for a quiet month', () => {
+    expect(monthTotalCapacityBreakdown(2026, 8, new Map())).toEqual([
+      { level: 1, days: 0 },
+      { level: 2, days: 0 },
+      { level: 3, days: 0 },
+    ])
   })
 })
 

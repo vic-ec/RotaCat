@@ -72,10 +72,10 @@ const PENDING_ROW = {
 
 function baseProps(overrides = {}) {
   const approvedByDate = new Map([
-    ['2026-08-12', [{ profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved' }]],
+    ['2026-08-12', [{ profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
   ])
   const pendingByDate = new Map([
-    ['2026-08-12', [{ profileId: 'p2', surname: 'Botha', category: 'Registrar', status: 'pending' }]],
+    ['2026-08-12', [{ profileId: 'p2', surname: 'Botha', category: 'Registrar', status: 'pending', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
   ])
   const countByColumnPerDate = new Map([
     ['2026-08-12', new Map([['MO', 1], ['Registrar', 1]])],

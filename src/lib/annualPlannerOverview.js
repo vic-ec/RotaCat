@@ -4,7 +4,7 @@
 // for detailed review/editing), kept separate from the Supabase fetch so
 // it's unit-testable without mocking the client.
 import { datesInRange, monthBounds } from './dateRange'
-import { LEAVE_CAPACITY_COLUMNS } from './leaveYearGrid'
+import { LEAVE_CAPACITY_COLUMNS, totalLeaveSlotsForDate, capacityStateForCount } from './leaveYearGrid'
 
 // Every date across a capacity-column count map (countByColumnPerDate's
 // output, over pending+approved leave combined — that's what the
@@ -32,17 +32,25 @@ export function pressureDatesInYear(countByColumnPerDate, maxByColumnKey) {
 // hover tooltip). approvedByDate/pendingByDate are the reshaped
 // { profileId, surname, ... } maps LeaveYearGrid's callers already build.
 // publicHolidaysByDate is optional (defaults to none) since not every
-// caller of this needs PH markers.
-export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate = new Map() }) {
+// caller of this needs PH markers. totalSlots/capacityState (the "how full
+// is this day" fill, see leaveYearGrid.js) are always computed from the
+// unfiltered countByColumnPerDate — the day-block colour reflects reality
+// regardless of which "All/My leave/Pending/Capacity issues" chip is active.
+export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate = new Map(), countByColumnPerDate = new Map() }) {
   const { start, end } = monthBounds(year, month)
-  return datesInRange(start, end).map(date => ({
-    date,
-    hasApproved: (approvedByDate.get(date) || []).length > 0,
-    hasPending: (pendingByDate.get(date) || []).length > 0,
-    isPressure: pressureDates.has(date),
-    isPublicHoliday: publicHolidaysByDate.has(date),
-    publicHolidayName: publicHolidaysByDate.get(date) || null,
-  }))
+  return datesInRange(start, end).map(date => {
+    const totalSlots = totalLeaveSlotsForDate(date, countByColumnPerDate)
+    return {
+      date,
+      hasApproved: (approvedByDate.get(date) || []).length > 0,
+      hasPending: (pendingByDate.get(date) || []).length > 0,
+      isPressure: pressureDates.has(date),
+      isPublicHoliday: publicHolidaysByDate.has(date),
+      publicHolidayName: publicHolidaysByDate.get(date) || null,
+      totalSlots,
+      capacityState: capacityStateForCount(totalSlots),
+    }
+  })
 }
 
 // One line of copy for a month card: "2 pressure days · 1 pending", "1
@@ -75,28 +83,25 @@ export function firstPressureRangeInMonth(year, month, pressureDates) {
   return rangeStart ? { from: rangeStart, to: rangeEnd } : null
 }
 
-// Per-capacity-column peak concurrent-leave count reached within a month,
-// and how many days that peak was reached — powers the inspector's
-// "capacity by category" breakdown for the selected month, e.g. "1/1, 16
-// days" for a column that hit its cap of 1 on 16 different days, or "1/2, 8
-// days" for a column that never reached its cap of 2 but still had one
-// person on leave on 8 days. peak is 0 (nothing to show) when nobody in
-// that column has any leave on record that month at all.
-export function monthCapacityPeakByColumn(year, month, countByColumnPerDate, maxByColumnKey) {
+// How many days in a month sit at each combined-headcount level (1 of 3, 2
+// of 3, 3 of 3 doctors — any category — on leave, pending+approved
+// combined) — powers the inspector's combined capacity summary. A
+// read-only observed count, not a restatement of the submission-time cap
+// (see LEAVE_CAPACITY_STATES in leaveYearGrid.js for why 3 is the ceiling
+// here even though today's actual rule can allow a 4th in some cases).
+// Days with nobody on leave (0 of 3) aren't part of this breakdown.
+export function monthTotalCapacityBreakdown(year, month, countByColumnPerDate) {
   const { start, end } = monthBounds(year, month)
-  const dates = datesInRange(start, end)
-  return LEAVE_CAPACITY_COLUMNS.map(col => {
-    const max = maxByColumnKey[col.key]
-    const counts = dates.map(date => countByColumnPerDate.get(date)?.get(col.key) || 0)
-    const peak = Math.max(0, ...counts)
-    const daysAtPeak = peak > 0 ? counts.filter(c => c === peak).length : 0
-    return { key: col.key, label: col.label, peak, max, daysAtPeak }
-  })
+  const daysAtLevel = { 1: 0, 2: 0, 3: 0 }
+  for (const date of datesInRange(start, end)) {
+    const level = Math.min(totalLeaveSlotsForDate(date, countByColumnPerDate), 3)
+    if (level >= 1) daysAtLevel[level] += 1
+  }
+  return [1, 2, 3].map(level => ({ level, days: daysAtLevel[level] }))
 }
 
 // Public holidays falling within a month — the inspector's "public
-// holidays" stat for the selected month (distinct from the year-total
-// count in the toolbar strip above).
+// holidays" stat for the selected month.
 export function monthPublicHolidayCount(year, month, publicHolidaysByDate) {
   const { start, end } = monthBounds(year, month)
   return datesInRange(start, end).filter(date => publicHolidaysByDate.has(date)).length

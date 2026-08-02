@@ -95,9 +95,9 @@ describe('checkApprovalCapacityImpact', () => {
     expect(result.fullTimeBreach).toBe(true)
   })
 
-  it('does not check the full-time aggregate for OT COSMO/Intern (a separate pool)', () => {
+  it('checks the full-time aggregate for OT COSMO/Intern too — it is one of the four pooled columns', () => {
     const request = { date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'OT_COSMO' } }
-    const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0 would breach if checked
-    expect(result.fullTimeBreach).toBe(false)
+    const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0: any addition breaches
+    expect(result.fullTimeBreach).toBe(true)
   })
 })

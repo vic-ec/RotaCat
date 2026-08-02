@@ -1024,7 +1024,7 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 transition-colors ${canContact ? 'cursor-pointer no-callout hover:bg-canvas-sunken active:bg-slate-line' : ''}`}
+                          className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''}`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -1125,8 +1125,8 @@ export default function StaffListPage() {
                             // AccountSlideOverPanel/App.jsx.
                             onClick={() => isAdmin && navigate(`/account/${person.id}`, { state: { backgroundLocation: location } })}
                             title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
-                            className={`border-b border-slate-line last:border-0 transition-colors ${!person.is_active ? 'opacity-50' : ''} ${
-                              isAdmin ? 'cursor-pointer hover:bg-canvas-sunken active:bg-slate-line' : ''
+                            className={`border-b border-slate-line last:border-0 transition-colors hover:bg-canvas-sunken ${!person.is_active ? 'opacity-50' : ''} ${
+                              isAdmin ? 'cursor-pointer active:bg-slate-line' : ''
                             }`}
                           >
                             <td className="px-2 py-1.5">
@@ -1364,7 +1364,7 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
-        <div className="md:max-w-2xl">
+        <div className="mx-auto md:max-w-2xl">
           <div className="mb-4 flex items-center justify-between">
             <button
               onClick={() => setTab('accounts')}

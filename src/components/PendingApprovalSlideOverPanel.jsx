@@ -26,7 +26,7 @@ export default function PendingApprovalSlideOverPanel() {
       ref={panelRef}
       role="dialog"
       aria-modal="true"
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-canvas-raised shadow-[-3px_0_10px_0_rgba(15,23,42,0.18)] md:w-[25%] md:min-w-[320px]"
+      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-canvas-raised shadow-[-3px_0_10px_0_rgba(15,23,42,0.18)] md:w-[35%] md:min-w-[320px]"
     >
       <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
         <PendingApprovalReviewPage embedded onClose={close} />

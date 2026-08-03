@@ -801,33 +801,44 @@ export default function StaffListPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="text-sm text-ink-muted">
-            {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
-          </span>
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => setTab('pending')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
-                  pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
-                }`}
-              >
-                <BellIcon className="h-3.5 w-3.5" />
-                {pending.length} pending approval{pending.length === 1 ? '' : 's'}
-              </button>
-              <button
-                onClick={() => setTab('requests')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
-                  accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
-                }`}
-              >
-                <MailQuestionMarkIcon className="h-3.5 w-3.5" />
-                {accountRequests.length} user request{accountRequests.length === 1 ? '' : 's'}
-              </button>
-            </>
-          )}
-        </div>
+        <span className="mt-1 block text-sm text-ink-muted">
+          {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
+        </span>
+
+        {/* Admin-only tab row — All Staff / Approvals / User Requests. Equal
+            fixed-width columns (grid-cols-3) so a tab's width never shifts
+            when its "(n)" count appears or disappears. Active tab carries
+            two cues (teal text + underline), not color alone. */}
+        {isAdmin && (
+          <div className="mt-3 grid grid-cols-3 border-b border-slate-line">
+            <button
+              onClick={() => setTab('accounts')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                tab === 'accounts' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              }`}
+            >
+              All Staff
+            </button>
+            <button
+              onClick={() => setTab('pending')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                tab === 'pending' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              }`}
+            >
+              <BellIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              Approvals{pending.length > 0 ? ` (${pending.length})` : ''}
+            </button>
+            <button
+              onClick={() => setTab('requests')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
+                tab === 'requests' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              }`}
+            >
+              <MailQuestionMarkIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              User Requests{accountRequests.length > 0 ? ` (${accountRequests.length})` : ''}
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && <p className="text-sm text-ink-muted">Loading…</p>}
@@ -841,12 +852,14 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Mobile selector switch — Search / Quick Sort / Filter, each a
-              third of the screen width. Shares state/popovers with the
-              desktop switch below (only the visible copy is ever
-              interactive), so picking anything here behaves identically. */}
+          {/* Mobile selector switch — Search / Quick Sort / Filter, on one
+              row: Search hugs to fill the remaining width, Sort/Filter are
+              fixed-size icon-only buttons pinned to the right. Shares
+              state/popovers with the desktop switch below (only the visible
+              copy is ever interactive), so picking anything here behaves
+              identically. */}
           <div className="mb-4 flex items-center gap-2 md:hidden">
-            <div ref={mobileSearchWrapRef} className="w-1/3">
+            <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
               {searchOpen ? (
                 <ClearableInput
                   autoFocus
@@ -873,55 +886,46 @@ export default function StaffListPage() {
               )}
             </div>
 
-            <div className="w-1/3">
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                Quick Sort
-                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
+            <button
+              onClick={e => openDesktopSort(e.currentTarget)}
+              aria-haspopup="menu"
+              aria-expanded={desktopSortOpen}
+              aria-label="Quick Sort"
+              title="Quick Sort"
+              className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                desktopSortOpen
+                  ? 'bg-accent text-white'
+                  : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+              }`}
+            >
+              <ZapIcon className="h-4 w-4" />
+            </button>
 
-            <div className="w-1/3">
-              {/* Same fixed-position technique as the desktop Filter switch:
-                  reset icon is absolutely positioned over the trigger, not a
-                  flex sibling, so "Filter" never shifts when it appears. */}
-              <div
-                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+            <div className="relative flex-shrink-0">
+              <button
+                onClick={e => openDesktopFilter(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopFilterOpen}
+                aria-label="Filter"
+                title="Filter"
+                className={`flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-accent/25 transition-colors ${
                   desktopFilterOpen || sheetFilterCount > 0
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
+                <ListFilterIcon className="h-4 w-4" />
+              </button>
+              {sheetFilterCount > 0 && (
                 <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  className="flex h-full w-full items-center justify-center gap-1 px-1"
+                  onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                  aria-label="Reset filters"
+                  title="Reset filters"
+                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
                 >
-                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  Filter
-                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
+                  <ResetIcon className="h-2.5 w-2.5" />
                 </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                  >
-                    <ResetIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
 

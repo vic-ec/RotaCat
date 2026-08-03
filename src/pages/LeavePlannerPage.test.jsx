@@ -58,8 +58,8 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('MyLeaveStub')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My leave' })).toBeInTheDocument()
     // A doctor already gets the "who's off" picture from the Annual/Special
-    // planners' All view, so Team leave is redundant and hidden for them.
-    expect(screen.queryByRole('button', { name: 'Team leave' })).not.toBeInTheDocument()
+    // planners' All view, so Team is redundant and hidden for them.
+    expect(screen.queryByRole('button', { name: 'Team' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Planners' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rules' })).toBeInTheDocument()
 
@@ -70,12 +70,12 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('MyRequestHistoryStub')).toBeInTheDocument()
   })
 
-  it('admin: defaults to Planners > Requests (approval queue), no My leave tab, keeps Team leave', async () => {
+  it('admin: defaults to Planners > Requests (approval queue), no My leave tab, keeps Team', async () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
     renderPage()
     expect(screen.getByText('ApprovalQueueStub')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Team leave' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Team' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Annual' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument()
@@ -97,9 +97,9 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team leave
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
     // Clerks get the same All-view visibility into Annual/Special/Weekends
-    // a plain doctor gets from those tabs, so Team leave is redundant and
+    // a plain doctor gets from those tabs, so Team is redundant and
     // hidden for them too — same as it already is for doctors.
-    expect(screen.queryByRole('button', { name: 'Team leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Team' })).not.toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Special' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weekends' })).toBeInTheDocument()

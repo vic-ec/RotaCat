@@ -106,7 +106,7 @@ export default function MonthWorkspace({
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
         {legendColumns.map(col => (
           <span key={col.key} className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[col.key]}`} />
+            <span className={`h-2 w-2 rounded-full border border-white ${COLUMN_DOT_COLOR[col.key]}`} />
             {col.label}
           </span>
         ))}
@@ -205,10 +205,17 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
         </span>
       </div>
       {phName && <span className={`truncate text-[10px] font-medium ${capacityState.onFillMuted}`}>{phName}</span>}
+      {/* This list clips vertically once it outgrows the cell's fixed
+          min-height, via overflow-hidden below — but a `ring` (box-shadow)
+          bleeds outside its own box and gets clipped by that same
+          overflow-hidden the instant a dot sits flush against the list's
+          left edge, no matter how much padding the outer cell has. A real
+          `border` stays inside the box model instead, so it can't be cut
+          off that way. */}
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
-            <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
+            <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full border border-white ${COLUMN_DOT_COLOR[key]}`} />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
@@ -237,7 +244,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
       <span className={`${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
       <span className="mt-0.5 flex h-1.5 gap-0.5">
         {columnsPresent.map(key => (
-          <span key={key} className={`h-1.5 w-1.5 rounded-full ring-1 ring-white ${COLUMN_DOT_COLOR[key]}`} />
+          <span key={key} className={`h-1.5 w-1.5 rounded-full border border-white ${COLUMN_DOT_COLOR[key]}`} />
         ))}
       </span>
     </button>

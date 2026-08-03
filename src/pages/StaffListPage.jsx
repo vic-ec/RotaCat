@@ -45,10 +45,6 @@ const ROLE_BADGE = {
 }
 
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
-const PERMISSION_BADGE = {
-  admin: 'bg-accent text-white',
-  super_admin: 'bg-flagBlue text-white',
-}
 
 // Only five_eighths gets a tag — full and psych_overtime show nothing extra.
 const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
@@ -148,6 +144,37 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
   return (
     <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
       {content}
+    </button>
+  )
+}
+
+// A single promoted contact action, inline in the desktop table's Actions
+// column — message/call/email get one-click icon buttons here instead of
+// living only behind the kebab, per a UX review of the Staff list ("direct
+// icons for quick use, kebab for less common actions"). Renders a real
+// `<a>` when there's somewhere to go (so it behaves like any other link —
+// middle-click, "open in new tab", etc. all work); falls back to a button
+// that surfaces the existing missing-contact-detail toast otherwise. The
+// kebab is left fully intact alongside these for WhatsApp and Grant admin,
+// which don't have a natural single icon of their own.
+function RowActionIcon({ icon, href, title, onMissing }) {
+  const className = 'flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
+  if (href) {
+    return (
+      <a href={href} title={title} aria-label={title} onClick={e => e.stopPropagation()} className={className}>
+        {icon}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={e => { e.stopPropagation(); onMissing() }}
+      className={className}
+    >
+      {icon}
     </button>
   )
 }
@@ -758,9 +785,9 @@ export default function StaffListPage() {
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
   const displayedRequests = requestsSortDirection === 'asc' ? accountRequests : [...accountRequests].reverse()
-  // Photo/First name/Surname/Role/Category/Mobile/Email/Status, plus the
-  // Is Admin and Actions columns only when they're actually rendered.
-  const staffTableCols = 8 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
+  // Person/Contact/Status, plus the Is Admin and Actions columns only when
+  // they're actually rendered.
+  const staffTableCols = 3 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
 
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
@@ -1082,16 +1109,11 @@ export default function StaffListPage() {
             </div>
 
             <div className="card hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[920px] border-collapse text-xs">
+              <table className="w-full min-w-[680px] border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                    <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
-                    <th className="px-2.5 py-2">First name</th>
-                    <th className="px-2.5 py-2">Surname</th>
-                    <th className="px-2.5 py-2">Role</th>
-                    <th className="px-2.5 py-2">Category</th>
-                    <th className="px-2.5 py-2">Mobile</th>
-                    <th className="px-2.5 py-2">Email</th>
+                    <th className="px-2.5 py-2">Person</th>
+                    <th className="px-2.5 py-2">Contact</th>
                     <th className="px-2.5 py-2">Status</th>
                     {isAdmin && <th className="px-2.5 py-2">Is Admin</th>}
                     {canContact && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
@@ -1120,6 +1142,15 @@ export default function StaffListPage() {
                         const isToggling = togglingId === person.id
                         const formattedPhone = formatPhoneDisplay(person.phone)
                         const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                        // Same "category if doctor, else role" pick as the mobile
+                        // card list and the Pending-approval row — one primary
+                        // identity label, not a separate Role column and a
+                        // separate Category column competing for attention.
+                        const secondaryLabel = person.role === 'doctor'
+                          ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                          : (ROLE_LABELS[person.role] || person.role)
+                        const targetEmail = emailById[person.id]
+                        const firstNameForMissing = person.name || person.surname || 'this person'
                         return (
                           <tr
                             key={person.id}
@@ -1132,64 +1163,64 @@ export default function StaffListPage() {
                               isAdmin ? 'cursor-pointer active:bg-slate-line' : ''
                             }`}
                           >
-                            <td className="px-2 py-1.5">
-                              <ProfileAvatar profile={person} size={28} />
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
-                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5">
-                              <div className="flex flex-wrap gap-1">
-                                <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                                  {ROLE_LABELS[person.role] || person.role}
-                                </span>
-                                {person.is_admin && (
-                                  <span className={(person.is_super_admin ? PERMISSION_BADGE.super_admin : PERMISSION_BADGE.admin) + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
-                                    {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                              <div className="flex items-center gap-2.5">
+                                <ProfileAvatar profile={person} size={30} className="flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <span className="block truncate text-sm font-semibold text-ink">
+                                    {person.name ? `${person.name} ` : ''}{person.surname}
                                   </span>
-                                )}
+                                  <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] text-ink-muted">
+                                    <span>{secondaryLabel}</span>
+                                    {contractTag && (
+                                      <span
+                                        className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                        title="Part-time (⅝ contract)"
+                                      >
+                                        {contractTag}
+                                      </span>
+                                    )}
+                                    {isAdmin && person.is_admin && (
+                                      <span className={`font-semibold uppercase tracking-wide ${person.is_super_admin ? 'text-flagBlue' : 'text-accent'}`}>
+                                        {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1">
-                                {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
-                                {contractTag && (
-                                  <span
-                                    className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
-                                    title="Part-time (⅝ contract)"
-                                  >
-                                    {contractTag}
-                                  </span>
-                                )}
-                              </span>
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
-                              {formattedPhone ? (
-                                <a
-                                  href={phoneTelHref(person.phone)}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-ink-light hover:underline"
-                                >
-                                  {formattedPhone}
-                                </a>
-                              ) : '—'}
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink-light">
-                              <span className="inline-flex items-center gap-1">
-                                {emailById[person.id] && person.email_verified ? (
-                                  <a
-                                    href={`mailto:${emailById[person.id]}`}
-                                    onClick={e => e.stopPropagation()}
-                                    className="text-ink-light hover:underline"
-                                  >
-                                    {emailById[person.id]}
-                                  </a>
-                                ) : (
-                                  emailById[person.id] || '—'
-                                )}
-                                {emailById[person.id] && person.email_verified && (
-                                  <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
-                                )}
-                              </span>
+                            <td className="px-2.5 py-1.5 text-ink">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <PhoneIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
+                                  {formattedPhone ? (
+                                    <a
+                                      href={phoneTelHref(person.phone)}
+                                      onClick={e => e.stopPropagation()}
+                                      className="hover:underline"
+                                    >
+                                      {formattedPhone}
+                                    </a>
+                                  ) : <span>—</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <EmailIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
+                                  {targetEmail && person.email_verified ? (
+                                    <a
+                                      href={`mailto:${targetEmail}`}
+                                      onClick={e => e.stopPropagation()}
+                                      className="hover:underline"
+                                    >
+                                      {targetEmail}
+                                    </a>
+                                  ) : (
+                                    <span>{targetEmail || '—'}</span>
+                                  )}
+                                  {targetEmail && person.email_verified && (
+                                    <CircleCheck title="Email verified" className="h-3 w-3 flex-shrink-0 text-success" />
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td className="px-2.5 py-1.5">
                               <div className="flex items-center gap-1.5">
@@ -1246,15 +1277,35 @@ export default function StaffListPage() {
                               </td>
                             )}
                             {canContact && (
-                              <td className="px-2.5 py-1.5 text-right">
-                                <button
-                                  onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
-                                  aria-label="Quick actions"
-                                  title="Quick actions"
-                                  className="rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
-                                >
-                                  <KebabIcon className="h-4 w-4" />
-                                </button>
+                              <td className="px-2.5 py-1.5">
+                                <div className="flex items-center justify-end gap-0.5">
+                                  <RowActionIcon
+                                    icon={<MessageIcon className="h-4 w-4" />}
+                                    title="Message"
+                                    href={phoneSmsHref(person.phone)}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                  <RowActionIcon
+                                    icon={<PhoneIcon className="h-4 w-4" />}
+                                    title="Call"
+                                    href={phoneTelHref(person.phone)}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                  <RowActionIcon
+                                    icon={<EmailIcon className="h-4 w-4" />}
+                                    title="Mail"
+                                    href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                  <button
+                                    onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
+                                    aria-label="More actions"
+                                    title="More actions"
+                                    className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+                                  >
+                                    <KebabIcon className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </td>
                             )}
                           </tr>

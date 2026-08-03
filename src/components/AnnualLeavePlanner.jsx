@@ -184,14 +184,16 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
   return (
     <div>
       <InlineRuleHint
+        compact
         inline="Shows approved and pending annual leave, subject to category caps."
-        intro={`Never more than ${maxFullTime} doctors on leave at a time.`}
+        intro={`Never more than ${maxFullTime + (maxByColumnKey.OT_COSMO ?? 1)} doctors on leave at a time.`}
         bullets={[
           'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
           'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
           "You're unavailable for rostering for the whole date range requested, but only the days you enter as \"annual leave\" reduce your balance — e.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 still need their hours made up elsewhere.",
-          `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 2} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor(s) may be on leave at once.`,
-          `No more than ${maxFullTime} full-time EC doctors (MO + Registrar + EC COSMO/Intern + OT COSMO/Intern combined) on leave at once — e.g. 2 MO + 1 Registrar, 2 MO + 1 EC COSMO/Intern, 2 MO + 1 OT COSMO/Intern, 2 EC COSMO/Intern + 1 Registrar, 2 EC COSMO/Intern + 1 OT COSMO/Intern, or 1 MO + 1 Registrar + 1 EC/OT COSMO/Intern — never 2 Registrar or 2 OT COSMO/Intern at once. Enforced automatically at submission.`,
+          `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, and ${maxByColumnKey.EC_COSMO ?? 2} EC COSMO/Intern doctor(s) may be on leave at once.`,
+          `No more than ${maxFullTime} EC full-time doctors (MO + Registrar + EC COSMO/Intern combined) on leave at once — e.g. 2 MO, 1 MO + 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC COSMO/Intern — never 2 Registrar (already capped at 1 above). Enforced automatically at submission.`,
+          `Separately, at most ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern (including Psych) may be on leave at once — independent of the EC full-time cap above, so both can be at their own cap on the same day (e.g. 2 MO + 1 OT COSMO/Intern).`,
           "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",
           "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
           'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',

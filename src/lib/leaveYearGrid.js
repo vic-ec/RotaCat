@@ -9,11 +9,14 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-// Capacity-capped columns for the Annual Leave planner — all four are
-// "full-time EC doctor" columns for the purposes of the combined cap below
-// (per the EC Leave Planner Google Sheet): each has its own per-column cap
-// AND, combined across all four, may never exceed LEAVE_FULL_TIME_MAX at
-// once (see findFullTimeAggregateBreach below). Consultant/Locum never
+// Capacity-capped columns for the Annual Leave planner. MO, Registrar, and
+// EC COSMO/Intern are the "EC full-time" columns for the purposes of the
+// combined cap below (see LEAVE_FULL_TIME_GROUP_KEYS/findFullTimeAggregateBreach):
+// each has its own per-column cap AND, combined across those three, may
+// never exceed LEAVE_FULL_TIME_DEFAULT_MAX at once. OT COSMO/Intern is
+// deliberately NOT part of that group — it has its own independent
+// per-column cap only, so a day can have the EC full-time group at its cap
+// AND one OT COSMO/Intern off at the same time. Consultant/Locum never
 // appear (not part of the leave-eligible doctor roster); Consultant alone
 // falls into an uncapped "Other" column so their leave isn't hidden off the
 // grid.
@@ -41,9 +44,10 @@ export const COLUMN_DOT_COLOR = {
 // Four-state "how full is this day" read for the mobile planner's day/month
 // fill colouring — a visual indicator of the *observed* total headcount on
 // leave (all 4 capacity columns combined, pending+approved combined).
-// Clamped at 3, matching LEAVE_FULL_TIME_DEFAULT_MAX below — the combined
-// cap across all four columns, so 3 really is the ceiling every doctor can
-// hit in practice, not just a display simplification. Uses the dedicated
+// Clamped at 3 — the EC full-time group's cap (2, see
+// LEAVE_FULL_TIME_DEFAULT_MAX) plus OT COSMO/Intern's independent cap (1)
+// combined, so 3 really is the ceiling every doctor can hit in practice,
+// not just a display simplification. Uses the dedicated
 // cap* palette (tailwind.config.js), not flagAmber/flagRed, so this scale's
 // contrast can be tuned independently of shared status colours elsewhere.
 //   fill        solid state colour — legend swatches and year-grid day
@@ -105,17 +109,17 @@ export function capacityStateForCount(count) {
   return LEAVE_CAPACITY_STATES[Math.min(count, 3)]
 }
 
-// The "no more than 3 full-time EC doctors on leave at once" rule spans all
-// four capacity columns combined — e.g. 2 MO + 1 Registrar, 2 MO + 1 EC
-// COSMO/Intern, 2 MO + 1 OT COSMO/Intern, 2 EC COSMO/Intern + 1 Registrar,
-// 2 EC COSMO/Intern + 1 OT COSMO/Intern, or 1 MO + 1 Registrar + 1 (EC or OT)
-// COSMO/Intern — never 2 Registrar or 2 OT COSMO/Intern (each already capped
-// at 1 above). Per the EC Leave Planner Google Sheet: MO and EC COSMO/Intern
-// may each contribute up to 2 of the 3 combined slots, Registrar and OT
-// COSMO/Intern up to 1 each.
-export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO', 'OT_COSMO']
+// The "no more than 2 EC full-time doctors on leave at once" rule spans MO,
+// Registrar, and EC COSMO/Intern combined — valid combinations: 2 MO, 1 MO +
+// 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or
+// 2 EC COSMO/Intern — never 2 Registrar (already capped at 1 above). OT
+// COSMO/Intern is independent of this group (its own cap of 1, checked
+// separately by findLeaveCapacityBreach) — so up to 1 OT COSMO/Intern may
+// also be off on top of this group being at its own cap, for 3 doctors
+// total on leave the same day at most (e.g. 2 MO + 1 OT COSMO/Intern).
+export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO']
 export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
-export const LEAVE_FULL_TIME_DEFAULT_MAX = 3
+export const LEAVE_FULL_TIME_DEFAULT_MAX = 2
 
 const COLUMN_BY_CATEGORY = new Map(
   [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.key]))

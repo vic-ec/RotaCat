@@ -201,14 +201,14 @@ describe('findFullTimeAggregateBreach', () => {
     expect(result.hasBreach).toBe(false)
   })
 
-  it('counts OT COSMO/Intern toward the full-time aggregate too', () => {
+  it('excludes OT COSMO/Intern from the full-time aggregate — it has its own independent cap', () => {
     const existingCountsByDate = new Map([
-      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_COSMO', 1]])],
+      ['2026-08-10', new Map([['OT_COSMO', 10]])], // any amount of OT COSMO/Intern is irrelevant to this group
     ])
     const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
     })
-    expect(result.hasBreach).toBe(true) // MO + Registrar + OT_COSMO already at 3; a 4th of any kind breaches
+    expect(result.hasBreach).toBe(false) // MO/Registrar/EC_COSMO are all 0 here
   })
 })
 

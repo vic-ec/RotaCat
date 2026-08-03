@@ -93,7 +93,7 @@ function baseProps(overrides = {}) {
     countByColumnPerDate,
     publicHolidaysByDate: new Map(),
     maxByColumnKey: MAX_BY_COLUMN,
-    maxFullTime: 2,
+    maxFullTime: 2, // the EC full-time (MO+Registrar+EC_COSMO) sub-cap — combined with OT_COSMO's own cap of 1, the day's real ceiling is 3
     onDataChanged: vi.fn(),
     onBack: vi.fn(),
     ...overrides,
@@ -137,19 +137,30 @@ describe('MonthWorkspace', () => {
     expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
   })
 
-  it('day view: shows the Consultant section for an admin, hides it for a non-admin', async () => {
+  it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {
+    // The consolidated list omits empty categories entirely now, so a
+    // Consultant entry must actually exist on this date to prove the
+    // privacy filter (not just the absence of an always-rendered heading).
+    const withConsultant = {
+      approvedByDate: new Map([
+        ['2026-08-12', [
+          { profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+          { profileId: 'p5', surname: 'Smith', category: 'Consultant', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+        ]],
+      ]),
+    }
     const user = userEvent.setup()
-    const admin = renderWorkspace()
+    const admin = renderWorkspace(withConsultant)
     await user.click(screen.getByText('Anderson'))
     const adminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
-    expect(within(adminHeading.closest('.card')).getByText('Consultant')).toBeInTheDocument()
+    expect(within(adminHeading.closest('.card')).getByText('Smith')).toBeInTheDocument()
     admin.unmount()
 
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
-    renderWorkspace()
+    renderWorkspace(withConsultant)
     await user.click(screen.getByText('Anderson'))
     const nonAdminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
-    expect(within(nonAdminHeading.closest('.card')).queryByText('Consultant')).not.toBeInTheDocument()
+    expect(within(nonAdminHeading.closest('.card')).queryByText('Smith')).not.toBeInTheDocument()
   })
 
   it('reading surnames: shows approved plainly and pending in italics directly on the grid', () => {
@@ -159,20 +170,19 @@ describe('MonthWorkspace', () => {
     expect(botha).toHaveClass('italic')
   })
 
-  it('checking capacity: clicking a day shows count/max per category, flagging the at-cap column', async () => {
+  it('checking capacity: clicking a day shows only the combined "N of 3 slots taken" pill, no per-category quotas', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    expect(screen.getByText('1/2')).toBeInTheDocument() // MO
-    const registrarCount = screen.getByText('1/1') // Registrar, at cap
-    expect(registrarCount).toHaveClass('text-flagAmber')
     // 2 total (MO + Registrar) of the 3-slot combined ceiling (full-time cap 2 + OT COSMO/Intern cap 1).
     expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
+    expect(screen.queryByText('1/2')).not.toBeInTheDocument()
+    expect(screen.queryByText('1/1')).not.toBeInTheDocument()
   })
 
-  it('shows dashes instead of x/y counts once the combined cap is reached, since no category has room left', async () => {
+  it('shows a "Full" verdict banner once the combined cap is reached, with no per-category counts anywhere', async () => {
     const user = userEvent.setup()
     // 2 MO + 1 Registrar = 3, exactly the combined ceiling (full-time cap 2 +
     // OT COSMO/Intern cap 1) — no more of ANY category can go on leave that
@@ -184,10 +194,11 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    expect(screen.getByText('3 of 3 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('Full — 3 of 3 slots taken')).toBeInTheDocument() // the verdict banner
+    expect(screen.getByText('3 of 3 slots taken')).toBeInTheDocument() // the header pill
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(4) // every one of the 4 capacity columns
+    expect(screen.queryByText('—')).not.toBeInTheDocument()
   })
 
   it('shows each surname in a pillbox coloured by that request\'s status', async () => {
@@ -252,7 +263,7 @@ describe('MonthWorkspace', () => {
     expect(await screen.findByRole('button', { name: 'Confirm approval' })).toBeInTheDocument()
   })
 
-  it('seeing rule impacts: flags a capacity breach when approving would push another Registrar over the cap', async () => {
+  it('seeing rule impacts: flags a Registrar-column breach in isolation from the full-time aggregate', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     // A second, already-approved Registrar on the same day means approving
     // Botha's pending request would push the Registrar column (cap 1) to 2.
@@ -270,6 +281,27 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByText(/Approving would breach the Registrar cap/)).toBeInTheDocument()
+  })
+
+  it('seeing rule impacts: flags a capacity breach when approving would push the EC full-time group over its cap', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    // Anderson (MO) is already approved on 12 Aug (baseProps), and this adds
+    // a second EC full-time doctor (Davis, Registrar) — with the EC
+    // full-time cap at its real default of 2, MO + Registrar already fills
+    // it, so approving Botha's pending Registrar request would add a 3rd EC
+    // full-time doctor, breaching the full-time cap (on top of Registrar's
+    // own column cap of 1 — see the previous test for that message in
+    // isolation).
+    const otherApproved = {
+      id: 'req-3', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-12',
+      leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,
+      profiles: { name: 'Dana', surname: 'Davis', category: 'Registrar' },
+    }
+    const user = userEvent.setup()
+    renderWorkspace({ approvedRows: [APPROVED_ROW, otherApproved] })
+    await user.click(screen.getByText('Anderson'))
+
+    expect(await screen.findByText(/Approving would breach the full-time doctor cap/)).toBeInTheDocument()
   })
 
   it('rejecting leave: requires a reason field and a confirm step', async () => {
@@ -340,6 +372,21 @@ describe('MonthWorkspace', () => {
     // seeded purely by the URL a remount reads on mount.
     renderWorkspace({}, ['/?day=2026-08-12'])
     expect(screen.getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
+  })
+
+  it('"Your leave" card: shows a personalised days-with-room stat and a Request leave link for the viewer\'s own category', async () => {
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    renderWorkspace()
+
+    expect(await screen.findByText('MO · August')).toBeInTheDocument()
+    expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
+  })
+
+  it('"Your leave" card: renders nothing for a category with no capacity column (e.g. Consultant)', () => {
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'Consultant' } }
+    renderWorkspace()
+    expect(screen.queryByText(/days have room for your category/)).not.toBeInTheDocument()
   })
 
   it('month navigation and back button call their callbacks', async () => {

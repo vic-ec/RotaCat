@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact } from './monthWorkspace'
+import {
+  dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
+} from './monthWorkspace'
 
 describe('dayEntriesByColumn', () => {
   const approvedByDate = new Map([
@@ -98,6 +100,46 @@ describe('checkApprovalCapacityImpact', () => {
   it('does not check the full-time aggregate for OT COSMO/Intern — it is a separate pool', () => {
     const request = { date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'OT_COSMO' } }
     const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0: any addition would breach if OT_COSMO were included
+    expect(result.applicable).toBe(true) // its own column cap still applies
     expect(result.fullTimeBreach).toBe(false)
+  })
+})
+
+describe('daysWithRoomForCategory', () => {
+  const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+
+  it('counts days in the month where the column is still under its cap', () => {
+    // August 2026 has 31 days; MO is at cap (2) on the 10th and 11th only.
+    const countByColumnPerDate = new Map([
+      ['2026-08-10', new Map([['MO', 2]])],
+      ['2026-08-11', new Map([['MO', 2]])],
+    ])
+    const result = daysWithRoomForCategory(2026, 8, 'MO', maxByColumnKey, countByColumnPerDate)
+    expect(result).toEqual({ withRoom: 29, total: 31 })
+  })
+
+  it('returns null for a category with no capacity column', () => {
+    expect(daysWithRoomForCategory(2026, 8, 'Other', maxByColumnKey, new Map())).toBeNull()
+  })
+})
+
+describe('categoryPressureState', () => {
+  const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+
+  it('is "Available" when the column never hits its cap all month', () => {
+    const state = categoryPressureState(2026, 8, 'MO', maxByColumnKey, new Map())
+    expect(state.label).toBe('Available')
+  })
+
+  it('is "At capacity" when the column is at its cap every day of the month', () => {
+    const countByColumnPerDate = new Map(
+      Array.from({ length: 31 }, (_, i) => [`2026-08-${String(i + 1).padStart(2, '0')}`, new Map([['Registrar', 1]])])
+    )
+    const state = categoryPressureState(2026, 8, 'Registrar', maxByColumnKey, countByColumnPerDate)
+    expect(state.label).toBe('At capacity')
+  })
+
+  it('returns null for a category with no capacity column', () => {
+    expect(categoryPressureState(2026, 8, 'Other', maxByColumnKey, new Map())).toBeNull()
   })
 })

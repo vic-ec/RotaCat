@@ -186,6 +186,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
   return (
     <div>
       <InlineRuleHint
+        compact
         inline="Shows approved and pending annual leave, subject to category caps."
         intro={`Never more than ${totalCeiling} doctors on leave at a time.`}
         bullets={[

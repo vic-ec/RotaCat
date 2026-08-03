@@ -69,7 +69,7 @@ describe('AnnualLeavePlanner', () => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
-    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, full-time 2
+    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, EC full-time 2
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' } }
   })
@@ -214,11 +214,11 @@ describe('AnnualLeavePlanner', () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })
 
-    expect(screen.queryByText(/never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'How it works' }))
-    expect(screen.getByText(/never more than 3 doctors on leave at a time/)).toBeInTheDocument()
+    expect(screen.getByText(/Never more than 3 doctors on leave at a time/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Close' }))
-    expect(screen.queryByText(/never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
   })
 })

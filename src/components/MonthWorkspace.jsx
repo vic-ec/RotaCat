@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
-  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
+  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
 } from '../lib/leaveYearGrid'
-import { dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact } from '../lib/monthWorkspace'
+import {
+  dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
+} from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -37,7 +39,7 @@ export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
 }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
   // so a non-admin viewer shouldn't see the category referenced at all —
@@ -150,6 +152,14 @@ export default function MonthWorkspace({
       </div>
 
       <div className="mt-3 lg:hidden">
+        <YourLeaveCard
+          profile={profile}
+          year={year}
+          month={month}
+          monthLabel={monthLabel}
+          maxByColumnKey={maxByColumnKey}
+          countByColumnPerDate={countByColumnPerDate}
+        />
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
         </div>
@@ -184,6 +194,47 @@ export default function MonthWorkspace({
           onClose={() => setSelectedDate(null)}
         />
       )}
+    </div>
+  )
+}
+
+// Mobile-only personalised summary, replacing the old flat admin-style stat
+// strip: leads with the one question a doctor actually opens this page to
+// answer ("can I take leave, and when's easiest?") by showing how many days
+// this month still have room in *their own* category, not a generic
+// headcount. Renders nothing for a viewer whose category has no capacity
+// column (Consultant, Locum, or no signed-in profile) — there's nothing to
+// personalise for them.
+function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, countByColumnPerDate }) {
+  const columnKey = columnForLeaveCategory(profile?.category)
+  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
+  if (!columnDef) return null
+
+  const stat = daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, countByColumnPerDate)
+  const state = categoryPressureState(year, month, columnKey, maxByColumnKey, countByColumnPerDate)
+  if (!stat || !state) return null
+  const otherColumns = LEAVE_CAPACITY_COLUMNS.filter(c => c.key !== columnKey)
+
+  return (
+    <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-4">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">{columnDef.label} · {monthLabel}</p>
+      <p className="mt-1.5 flex items-baseline gap-1.5">
+        <span className={`font-display text-3xl font-bold tabular-nums ${state.text}`}>{stat.withRoom}</span>
+        <span className="text-xs text-ink-muted">of {stat.total} days have room for your category</span>
+      </p>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {otherColumns.map(col => {
+          const otherState = categoryPressureState(year, month, col.key, maxByColumnKey, countByColumnPerDate)
+          if (!otherState) return null
+          return (
+            <span key={col.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-line bg-canvas px-2 py-1 text-[10px] text-ink-muted">
+              <span className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
+              {col.label} — {otherState.label}
+            </span>
+          )
+        })}
+      </div>
+      <a href="/leave?tab=my-leave" className="btn-primary mt-3 block w-full text-center text-xs">Request leave</a>
     </div>
   )
 }
@@ -315,15 +366,29 @@ function DayReviewModal({
   const totalSlots = capacity.reduce((sum, col) => sum + col.count, 0)
   const dayCapacityState = capacityStateForCount(totalSlots)
   const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
-  // Once the combined ceiling is reached, no more slots are available in ANY
-  // category regardless of that category's own headroom (e.g. MO showing
-  // "1/2" would wrongly suggest a 3rd doctor could still go on leave) — so
-  // every column's count is replaced with "—" rather than a real x/y.
   const atFullCapacity = totalSlots >= totalCeiling
+  // One consolidated list instead of a heading per category — an empty
+  // category no longer gets a row at all (it was pure visual weight with no
+  // information), and individual x/y quotas are gone entirely: with the
+  // combined cap now spanning multiple categories at once, a lone column's
+  // own headroom doesn't tell a viewer anything reliable about whether they
+  // can actually get leave that day.
+  const allEntries = visibleColumns.flatMap(col =>
+    (entriesByColumn.get(col.key) || []).map(e => ({ ...e, columnKey: col.key, columnLabel: col.label }))
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
+        {atFullCapacity && (
+          <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${dayCapacityState.tint}`}>
+            <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>✕</span>
+            <div>
+              <p className={`text-sm font-bold ${dayCapacityState.text}`}>Full — {totalSlots} of {totalCeiling} slots taken</p>
+              <p className="mt-0.5 text-xs text-ink-muted">No annual leave slots available for any category today.</p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <div className="flex items-center gap-2">
@@ -351,51 +416,28 @@ function DayReviewModal({
           </div>
         ) : (
           <>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              {capacity.map(col => (
-                <div key={col.key} className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-ink-muted">
-                    <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
-                    {col.label}
-                  </span>
-                  <span className={atFullCapacity ? 'text-ink-muted' : col.atCap ? 'font-medium text-flagAmber' : 'text-ink'}>
-                    {atFullCapacity ? '—' : `${col.count}/${col.max}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-              {visibleColumns.map(col => {
-                const entries = entriesByColumn.get(col.key) || []
-                return (
-                  <div key={col.key} className="py-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{col.label}</p>
-                    {entries.length === 0 ? (
-                      <p className="mt-1 text-sm text-ink-muted">—</p>
-                    ) : (
-                      <ul className="mt-1 space-y-1">
-                        {entries.map(e => (
-                          <li key={e.profileId} className="flex items-center justify-between gap-2 text-sm">
-                            <span className="flex items-center gap-1.5">
-                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                              }`}>
-                                {e.surname}
-                              </span>
-                              <span className="text-xs text-ink-muted">{formatShortDateRange(e.dateFrom, e.dateTo)}</span>
-                            </span>
-                            <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
-                              {e.status === 'pending' ? 'Pending' : 'Approved'}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            {allEntries.length === 0 ? (
+              <p className="mt-4 text-sm text-ink-muted">No annual leave on this day.</p>
+            ) : (
+              <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
+                {allEntries.map(e => (
+                  <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`h-2 w-2 flex-shrink-0 rounded-full ${COLUMN_DOT_COLOR[e.columnKey]}`} />
+                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+                      }`}>
+                        {e.surname}
+                      </span>
+                      <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
+                    </span>
+                    <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
+                      {e.status === 'pending' ? 'Pending' : 'Approved'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             {isAdmin && pendingRequestsThisDate.length > 0 && (
               <div className="mt-4 space-y-3 border-t border-slate-line pt-3">
@@ -492,13 +534,20 @@ function DayReviewModal({
             )}
 
             {canSubmitLeave && (
-              <button
-                type="button"
-                onClick={() => setShowRequestForm(true)}
-                className="btn-secondary mt-4 w-full text-sm"
-              >
-                Request annual leave for this day
-              </button>
+              <>
+                {atFullCapacity && (
+                  <p className="mt-4 text-xs text-ink-muted">
+                    This day is already at capacity for annual leave — a request for it will be blocked at submission unless the dates change or an admin frees up a slot.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowRequestForm(true)}
+                  className={`btn-secondary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
+                >
+                  Request annual leave for this day
+                </button>
+              </>
             )}
           </>
         )}

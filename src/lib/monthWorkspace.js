@@ -3,8 +3,8 @@
 // the year overview, kept separate from the Supabase fetch so it's
 // unit-testable without mocking the client.
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, columnForLeaveCategory,
-  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_CAPACITY_STATES, columnForLeaveCategory,
+  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach, datesInMonth,
 } from './leaveYearGrid'
 
 // Every entry (approved or pending, already reshaped to { profileId,
@@ -73,4 +73,38 @@ export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, 
     fullTimeBreach: fullTime.hasBreach,
     fullTimeBreachDates: fullTime.breachDates,
   }
+}
+
+// How many days in [year, month] still have room for one more doctor in
+// `columnKey` — the Annual planner's mobile "Your leave" card personalises
+// its headline stat to the viewer's own category with this ("N of 31 days
+// have room for your category") rather than a flat admin-style count.
+// Returns null for a category with no capacity column (Other) so the
+// caller knows not to render the card at all.
+export function daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, countByColumnPerDateMap) {
+  const max = maxByColumnKey[columnKey]
+  if (max == null) return null
+  const dates = datesInMonth(year, month)
+  const withRoom = dates.filter(d => (countByColumnPerDateMap.get(d)?.get(columnKey) || 0) < max).length
+  return { withRoom, total: dates.length }
+}
+
+// A quick qualitative read on how pressured one capacity column is over a
+// month, expressed with the same Available/Limited/Near capacity/At
+// capacity vocabulary the day/month fill colours already use — used for the
+// "Your leave" card's quiet pills for *other* categories (and its own
+// headline number), so a viewer gets a useful signal without the raw x/y
+// quota this round's redesign otherwise removes from the day view. Based on
+// the share of the month's days that are already at that column's own cap,
+// not a flat headcount, since different columns have different caps.
+export function categoryPressureState(year, month, columnKey, maxByColumnKey, countByColumnPerDateMap) {
+  const max = maxByColumnKey[columnKey]
+  if (max == null) return null
+  const dates = datesInMonth(year, month)
+  const fullDays = dates.filter(d => (countByColumnPerDateMap.get(d)?.get(columnKey) || 0) >= max).length
+  const ratio = fullDays / dates.length
+  if (ratio === 0) return LEAVE_CAPACITY_STATES[0]
+  if (ratio < 1 / 3) return LEAVE_CAPACITY_STATES[1]
+  if (ratio < 1) return LEAVE_CAPACITY_STATES[2]
+  return LEAVE_CAPACITY_STATES[3]
 }

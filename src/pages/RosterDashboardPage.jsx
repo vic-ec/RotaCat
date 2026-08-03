@@ -24,10 +24,18 @@ const STATUS_LABELS = {
   archived:  'Archived',
 }
 
-const TABS = [
+const TABS_ADMIN = [
   { key: 'active', label: 'Active' },
   { key: 'archive', label: 'Archive' },
   { key: 'bin', label: 'Bin' },
+]
+// Non-admins get the same Active/Archive split (and can archive/unarchive
+// their own view of it, see set_roster_months_archived) but never see
+// Drafts (RLS never returns them) or the Bin (permanent deletion stays
+// admin-only).
+const TABS_DOCTOR = [
+  { key: 'active', label: 'Active' },
+  { key: 'archive', label: 'Archive' },
 ]
 
 function formatDate(value) {
@@ -106,11 +114,15 @@ export default function RosterDashboardPage() {
   const restoreFromBin = (ids) => runAction(() =>
     supabase.from('roster_months').update({ deleted_at: null }).in('id', ids))
 
+  // Archive/unarchive go through an RPC rather than a direct table update —
+  // it's the one write non-admins are allowed (published <-> archived only,
+  // see the set_roster_months_archived migration), so routing admins
+  // through the same call keeps this to one code path for both roles.
   const archiveRosters = (ids) => runAction(() =>
-    supabase.from('roster_months').update({ status: 'archived', archived_at: new Date().toISOString() }).in('id', ids))
+    supabase.rpc('set_roster_months_archived', { p_ids: ids, p_archived: true }))
 
   const unarchiveRosters = (ids) => runAction(() =>
-    supabase.from('roster_months').update({ status: 'published', archived_at: null }).in('id', ids))
+    supabase.rpc('set_roster_months_archived', { p_ids: ids, p_archived: false }))
 
   const deletePermanently = (ids) => {
     if (!window.confirm(`Permanently delete ${ids.length} roster${ids.length !== 1 ? 's' : ''}? This cannot be undone.`)) return
@@ -168,21 +180,19 @@ export default function RosterDashboardPage() {
       </div>
 
       <div className="mb-5 flex items-center gap-2">
-        {isAdmin && (
-          <div className="flex flex-1 gap-1 rounded-lg border border-slate-line bg-canvas-raised p-1 md:w-fit md:flex-none">
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors md:flex-none ${
-                  tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-1 gap-1 rounded-lg border border-slate-line bg-canvas-raised p-1 md:w-fit md:flex-none">
+          {(isAdmin ? TABS_ADMIN : TABS_DOCTOR).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors md:flex-none ${
+                tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         {isAdmin && (
           // Always rendered (even off the Active tab) so the tab selector's
           // `flex-1` share of the row is computed against the same layout on
@@ -208,13 +218,9 @@ export default function RosterDashboardPage() {
         </div>
       )}
 
-      {!isAdmin && (
-        <RosterFlatList rosters={rosters} navigate={navigate} />
-      )}
-
-      {isAdmin && tab === 'active' && (
+      {tab === 'active' && (
         <>
-          {(drafts.length > 0 || published.length > 0) && (
+          {((isAdmin && drafts.length > 0) || published.length > 0) && (
             <RosterSearchFilter
               search={activeSearch}
               onSearchChange={setActiveSearch}
@@ -226,16 +232,18 @@ export default function RosterDashboardPage() {
               ariaLabel="Filter active rosters"
             />
           )}
-          <RosterSection
-            title="Drafts"
-            rosters={filteredDrafts}
-            selected={draftSel}
-            setSelected={setDraftSel}
-            navigate={navigate}
-            metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
-            actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
-            emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
-          />
+          {isAdmin && (
+            <RosterSection
+              title="Drafts"
+              rosters={filteredDrafts}
+              selected={draftSel}
+              setSelected={setDraftSel}
+              navigate={navigate}
+              metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
+              actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
+              emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
+            />
+          )}
           <RosterSection
             title="Published"
             rosters={filteredPublished}
@@ -246,13 +254,13 @@ export default function RosterDashboardPage() {
             actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
             emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
           />
-          {drafts.length === 0 && published.length === 0 && (
-            <EmptyState navigate={navigate} />
+          {(!isAdmin || drafts.length === 0) && published.length === 0 && (
+            <EmptyState navigate={navigate} isAdmin={isAdmin} />
           )}
         </>
       )}
 
-      {isAdmin && tab === 'archive' && (
+      {tab === 'archive' && (
         <>
           <RosterSearchFilter
             search={search}
@@ -422,7 +430,16 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
   )
 }
 
-function EmptyState({ navigate }) {
+function EmptyState({ navigate, isAdmin }) {
+  if (!isAdmin) {
+    return (
+      <div className="card p-12 text-center">
+        <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
+        <p className="font-medium text-ink">No rosters yet</p>
+        <p className="mt-1 text-sm text-ink-muted">Check back once a roster has been published.</p>
+      </div>
+    )
+  }
   return (
     <div className="card p-12 text-center">
       <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
@@ -434,34 +451,6 @@ function EmptyState({ navigate }) {
         <PencilSparklesIcon className="h-4 w-4" />
         Create roster
       </button>
-    </div>
-  )
-}
-
-function RosterFlatList({ rosters, navigate }) {
-  if (rosters.length === 0) {
-    return <EmptyState navigate={navigate} />
-  }
-  return (
-    <div className="card divide-y divide-slate-line overflow-hidden">
-      {rosters.map(roster => (
-        <button
-          key={roster.id}
-          onClick={() => navigate(`/roster/${roster.id}`)}
-          className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-        >
-          <div>
-            <p className="text-sm font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
-            <p className="mt-0.5 text-xs text-ink-muted">Created {formatDate(roster.created_at)}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[roster.status]}`}>
-              {STATUS_LABELS[roster.status]}
-            </span>
-            <ChevronRightIcon className="h-4 w-4 text-ink-muted" />
-          </div>
-        </button>
-      ))}
     </div>
   )
 }

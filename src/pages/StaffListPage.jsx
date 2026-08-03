@@ -758,6 +758,9 @@ export default function StaffListPage() {
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
   const displayedRequests = requestsSortDirection === 'asc' ? accountRequests : [...accountRequests].reverse()
+  // Photo/First name/Surname/Role/Category/Mobile/Email/Status, plus the
+  // Is Admin and Actions columns only when they're actually rendered.
+  const staffTableCols = 8 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
 
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
@@ -1052,7 +1055,7 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
-                          {person.is_admin && (
+                          {isAdmin && person.is_admin && (
                             <span className={`flex flex-shrink-0 items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
                               person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
                             }`}>
@@ -1090,7 +1093,7 @@ export default function StaffListPage() {
                     <th className="px-2.5 py-2">Mobile</th>
                     <th className="px-2.5 py-2">Email</th>
                     <th className="px-2.5 py-2">Status</th>
-                    <th className="px-2.5 py-2">Is Admin</th>
+                    {isAdmin && <th className="px-2.5 py-2">Is Admin</th>}
                     {canContact && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
@@ -1104,7 +1107,7 @@ export default function StaffListPage() {
                           onClick={() => toggleGroupCollapsed(group.key)}
                           className="cursor-pointer bg-canvas-sunken transition-colors hover:bg-slate-line active:bg-slate-line"
                         >
-                          <td colSpan={canContact ? 10 : 9} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                          <td colSpan={staffTableCols} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                               <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -1220,28 +1223,28 @@ export default function StaffListPage() {
                                 </span>
                               </div>
                             </td>
-                            <td className="px-2.5 py-1.5">
-                              {person.role === 'clerk' ? (
-                                <span className="text-[11px] text-ink-muted">—</span>
-                              ) : isAdmin ? (
-                                <button
-                                  onClick={e => { e.stopPropagation(); togglingAdminId !== person.id && toggleAdmin(person) }}
-                                  disabled={togglingAdminId === person.id || person.is_super_admin}
-                                  title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
-                                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    person.is_admin ? 'bg-accent' : 'bg-slate-line'
-                                  }`}
-                                >
-                                  <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                                      person.is_admin ? 'translate-x-4' : 'translate-x-0'
+                            {isAdmin && (
+                              <td className="px-2.5 py-1.5">
+                                {person.role === 'clerk' ? (
+                                  <span className="text-[11px] text-ink-muted">—</span>
+                                ) : (
+                                  <button
+                                    onClick={e => { e.stopPropagation(); togglingAdminId !== person.id && toggleAdmin(person) }}
+                                    disabled={togglingAdminId === person.id || person.is_super_admin}
+                                    title={person.is_super_admin ? 'Super-admin — manage from their own Account page' : (person.is_admin ? 'Click to revoke admin' : 'Click to grant admin')}
+                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      person.is_admin ? 'bg-accent' : 'bg-slate-line'
                                     }`}
-                                  />
-                                </button>
-                              ) : (
-                                <span className="text-[11px] text-ink-muted">{person.is_admin ? 'Yes' : '—'}</span>
-                              )}
-                            </td>
+                                  >
+                                    <span
+                                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                                        person.is_admin ? 'translate-x-4' : 'translate-x-0'
+                                      }`}
+                                    />
+                                  </button>
+                                )}
+                              </td>
+                            )}
                             {canContact && (
                               <td className="px-2.5 py-1.5 text-right">
                                 <button
@@ -1641,13 +1644,15 @@ export default function StaffListPage() {
               expanded={filterSecondaryFor === 'status'}
               onClick={e => toggleFilterSecondary('status', e.currentTarget)}
             />
-            <QuickActionRow
-              icon={<UserStarIcon className="h-5 w-5" />}
-              label={`Is Admin · ${isAdminLabel}`}
-              expandable
-              expanded={filterSecondaryFor === 'isAdmin'}
-              onClick={e => toggleFilterSecondary('isAdmin', e.currentTarget)}
-            />
+            {isAdmin && (
+              <QuickActionRow
+                icon={<UserStarIcon className="h-5 w-5" />}
+                label={`Is Admin · ${isAdminLabel}`}
+                expandable
+                expanded={filterSecondaryFor === 'isAdmin'}
+                onClick={e => toggleFilterSecondary('isAdmin', e.currentTarget)}
+              />
+            )}
             {sheetFilterCount > 0 && (
               <div className="mt-1 border-t border-slate-line px-4 pt-2">
                 <button

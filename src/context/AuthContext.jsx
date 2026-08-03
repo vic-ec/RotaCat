@@ -134,12 +134,10 @@ export function AuthProvider({ children }) {
   const canManageRoster    = isAdmin
   const canClaimShifts     = isLocum && profile?.is_approved
   const canRequestSwap     = isDoctor && profile?.is_approved
-  // Read-only Staff list access (contact list): admins, clerks, locums, and
-  // MO/Registrar doctors only — other doctor categories (Consultant, COSMO,
-  // Intern, etc.) don't get it. A locum's category is always MO/Registrar
-  // (see AccountSettingsPage's LOCUM_CATEGORY_OPTIONS), so isLocum alone is
-  // sufficient there; doctors need the explicit category check.
-  const canViewStaffList = isAdmin || isClerk || isLocum || (isDoctor && ['MO', 'Registrar'].includes(profile?.category))
+  // Read-only Staff list access (contact list): every approved account,
+  // regardless of role or doctor category — admins get full read/write
+  // access to it separately (see StaffListPage's isAdmin-gated controls).
+  const canViewStaffList = true
 
   const value = {
     session,

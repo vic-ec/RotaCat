@@ -137,6 +137,21 @@ describe('MonthWorkspace', () => {
     expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
   })
 
+  it('day view: shows the Consultant section for an admin, hides it for a non-admin', async () => {
+    const user = userEvent.setup()
+    const admin = renderWorkspace()
+    await user.click(screen.getByText('Anderson'))
+    const adminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
+    expect(within(adminHeading.closest('.card')).getByText('Consultant')).toBeInTheDocument()
+    admin.unmount()
+
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
+    renderWorkspace()
+    await user.click(screen.getByText('Anderson'))
+    const nonAdminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
+    expect(within(nonAdminHeading.closest('.card')).queryByText('Consultant')).not.toBeInTheDocument()
+  })
+
   it('reading surnames: shows approved plainly and pending in italics directly on the grid', () => {
     renderWorkspace()
     expect(screen.getByText('Anderson')).toBeInTheDocument()

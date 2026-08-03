@@ -128,4 +128,26 @@ describe('LeaveYearGrid', () => {
     expect(within(container.querySelector('.lg\\:hidden')).queryByText('Consultant')).not.toBeInTheDocument()
     mockAuth = { isAdmin: true }
   })
+
+  it('day-detail sheet: shows the Consultant section for an admin, hides it for a non-admin', async () => {
+    vi.setSystemTime(new Date('2026-08-01T00:00:00'))
+    const admin = render(
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} />
+    )
+    await userEvent.click(within(mobileDayGrid(admin.container)).getByText('10').closest('button'))
+    const adminHeading = await screen.findByText(/Monday, 2026-08-10/)
+    expect(within(adminHeading.closest('.card')).getByText('Consultant')).toBeInTheDocument()
+    admin.unmount()
+
+    mockAuth = { isAdmin: false }
+    const nonAdmin = render(
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} />
+    )
+    await userEvent.click(within(mobileDayGrid(nonAdmin.container)).getByText('10').closest('button'))
+    const nonAdminHeading = await screen.findByText(/Monday, 2026-08-10/)
+    expect(within(nonAdminHeading.closest('.card')).queryByText('Consultant')).not.toBeInTheDocument()
+
+    mockAuth = { isAdmin: true }
+    vi.useRealTimers()
+  })
 })

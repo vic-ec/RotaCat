@@ -27,10 +27,11 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
-  // so a non-admin viewer's legend shouldn't reference a category they can
-  // never actually see data for. Only the legend is filtered — the actual
-  // desktop table columns and day-detail sheet already resolve to empty
-  // for non-admins via RLS, so they don't need this too.
+  // so a non-admin viewer shouldn't see the category referenced at all —
+  // used for both the mobile legend and DayDetailSheet's per-category
+  // breakdown (passed down as `visibleColumns`). The desktop table's
+  // columns are left as-is (not a "legend" or day view, and already
+  // resolve to empty for non-admins via RLS regardless).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
   const [openPH, setOpenPH] = useState(null) // date string or null, desktop hover/tap tooltip
   const [showMineOnly, setShowMineOnly] = useState(false)
@@ -145,6 +146,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
           entries={visibleLeaveByDate.get(selectedDate) || []}
           phName={publicHolidaysByDate.get(selectedDate)}
           maxByColumnKey={maxByColumnKey}
+          visibleColumns={legendColumns}
           onClose={() => setSelectedDate(null)}
         />
       )}
@@ -192,7 +194,7 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
   )
 }
 
-function DayDetailSheet({ date, entries, phName, maxByColumnKey, onClose }) {
+function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns, onClose }) {
   const byColumn = new Map()
   for (const entry of entries) {
     const key = columnForLeaveCategory(entry.category)
@@ -213,7 +215,7 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, onClose }) {
         {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
 
         <div className="mt-3 space-y-3">
-          {GRID_COLUMNS.map(col => {
+          {visibleColumns.map(col => {
             const colEntries = byColumn.get(col.key) || []
             const max = maxByColumnKey?.[col.key]
             return (

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
+import CreateRosterModal from '../components/CreateRosterModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -70,6 +71,7 @@ export default function RosterDashboardPage() {
   const [binSearch, setBinSearch] = useState('')
   const [binFilterMonth, setBinFilterMonth] = useState('')
   const [binFilterYear, setBinFilterYear] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadRosters()
@@ -201,7 +203,7 @@ export default function RosterDashboardPage() {
           // whole row on Archive/Bin, making it a different width there
           // than on Active.
           <button
-            onClick={() => navigate('/roster/generate')}
+            onClick={() => setShowCreateModal(true)}
             aria-hidden={tab !== 'active'}
             tabIndex={tab !== 'active' ? -1 : undefined}
             className={`btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto ${tab !== 'active' ? 'invisible' : ''}`}
@@ -255,7 +257,7 @@ export default function RosterDashboardPage() {
             emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
           />
           {(!isAdmin || drafts.length === 0) && published.length === 0 && (
-            <EmptyState navigate={navigate} isAdmin={isAdmin} />
+            <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
           )}
         </>
       )}
@@ -311,6 +313,14 @@ export default function RosterDashboardPage() {
             emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
           />
         </>
+      )}
+
+      {showCreateModal && (
+        <CreateRosterModal
+          onClose={() => setShowCreateModal(false)}
+          onGenerate={() => { setShowCreateModal(false); navigate('/roster/generate') }}
+          onBuild={() => { setShowCreateModal(false); navigate('/roster/build') }}
+        />
       )}
     </div>
   )
@@ -430,7 +440,7 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
   )
 }
 
-function EmptyState({ navigate, isAdmin }) {
+function EmptyState({ isAdmin, onCreate }) {
   if (!isAdmin) {
     return (
       <div className="card p-12 text-center">
@@ -447,7 +457,7 @@ function EmptyState({ navigate, isAdmin }) {
       <p className="mt-1 text-sm text-ink-muted">
         Click &quot;Create roster&quot; to create your first one.
       </p>
-      <button onClick={() => navigate('/roster/generate')} className="btn-primary mx-auto mt-5">
+      <button onClick={onCreate} className="btn-primary mx-auto mt-5">
         <PencilSparklesIcon className="h-4 w-4" />
         Create roster
       </button>

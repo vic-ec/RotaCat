@@ -91,9 +91,16 @@ export default {
           dark: '#166534',
           ink: '#15803D'
         },
+        // Brighter/lighter than the other three states' DEFAULT->light step
+        // — the original #EAB308 (Tailwind yellow-500) read as too dark
+        // against the legend/day blocks in practice, so DEFAULT and light
+        // are the same bright yellow-400 here: the legend (year grid +
+        // month workspace both use `fill`/DEFAULT for their dot swatches
+        // and day-block fill) and the month/day view (`light`) all render
+        // identically instead of two subtly different darker yellows.
         capLimited: {
-          DEFAULT: '#EAB308',
-          light: '#ECB91B',
+          DEFAULT: '#FACC15',
+          light: '#FACC15',
           tint: '#FEF9C3',
           dark: '#854D0E',
           ink: '#A16207'

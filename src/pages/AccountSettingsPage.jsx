@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useNavigate, Navigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
 import { CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -527,7 +527,7 @@ export default function AccountSettingsPage() {
   }
 
   useEffect(() => {
-    if (isOwnAccount || !isAdmin) return
+    if (isOwnAccount) return
     setTargetLoadError('')
     setTargetProfile(null)
     supabase.from('profiles').select('*').eq('id', targetId).single().then(({ data, error }) => {
@@ -538,7 +538,7 @@ export default function AccountSettingsPage() {
       const row = (data || []).find(r => r.id === targetId)
       setTargetEmail(row?.email || '')
     })
-  }, [targetId, isOwnAccount, isAdmin])
+  }, [targetId, isOwnAccount])
 
   useEffect(() => {
     if (!profile) return
@@ -1101,11 +1101,6 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // Non-admins may only ever view their own account.
-  if (routeId && routeId !== user?.id && !isAdmin) {
-    return <Navigate to="/account" replace />
-  }
-
   if (!isOwnAccount && targetLoadError) {
     return (
       <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
@@ -1237,15 +1232,17 @@ export default function AccountSettingsPage() {
               </div>
             </div>
 
-            <EditIconButton
-              label="Edit profile details"
-              expanded={profileDetailsOpen}
-              onClick={() => setProfileDetailsOpen(o => !o)}
-            />
+            {(isOwnAccount || isAdmin) && (
+              <EditIconButton
+                label="Edit profile details"
+                expanded={profileDetailsOpen}
+                onClick={() => setProfileDetailsOpen(o => !o)}
+              />
+            )}
           </div>
           {avatarError && <p className="mt-2 text-xs text-flagRed">{avatarError}</p>}
 
-          {profileDetailsOpen && (
+          {profileDetailsOpen && (isOwnAccount || isAdmin) && (
             <div className="mt-4 border-t border-slate-line pt-4">
               <form onSubmit={saveProfile} className="space-y-4">
                 <div>
@@ -1325,6 +1322,7 @@ export default function AccountSettingsPage() {
               editLabel="Edit mobile number"
               editing={phoneEditing}
               onToggle={() => (phoneEditing ? cancelPhoneEdit() : setPhoneEditing(true))}
+              editable={isOwnAccount || isAdmin}
             >
               <form onSubmit={savePhone} className="space-y-2">
                 <ClearableInput

@@ -14,6 +14,7 @@ import DashboardPage from './pages/DashboardPage'
 import StaffListPage from './pages/StaffListPage'
 import RosterDashboardPage from './pages/RosterDashboardPage'
 import GenerationConfigPage from './pages/GenerationConfigPage'
+import BlankRosterConfigPage from './pages/BlankRosterConfigPage'
 import RosterGridPage from './pages/RosterGridPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
@@ -65,6 +66,7 @@ function AppRoutes() {
           {/* Phase 4: Roster screens */}
           <Route path="roster" element={<RosterDashboardPage />} />
           <Route path="roster/generate" element={<GenerationConfigPage />} />
+          <Route path="roster/build" element={<BlankRosterConfigPage />} />
           <Route path="roster/:id" element={<RosterGridPage />} />
 
           <Route path="staff" element={<StaffListPage />} />

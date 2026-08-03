@@ -7,8 +7,9 @@ import ClearableInput from '../components/ClearableInput'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
+import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
-import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck, CircleX } from 'lucide-react'
+import { Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
@@ -45,10 +46,6 @@ const ROLE_BADGE = {
 }
 
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
-const PERMISSION_BADGE = {
-  admin: 'bg-accent text-white',
-  super_admin: 'bg-flagBlue text-white',
-}
 
 // Only five_eighths gets a tag — full and psych_overtime show nothing extra.
 const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
@@ -149,6 +146,145 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
     <button type="button" onClick={onClick} disabled={disabled} title={title} className={className}>
       {content}
     </button>
+  )
+}
+
+// A single promoted contact action, inline in the desktop table's Actions
+// column — message/call/email get one-click icon buttons here instead of
+// living only behind the kebab, per a UX review of the Staff list ("direct
+// icons for quick use, kebab for less common actions"). Renders a real
+// `<a>` when there's somewhere to go (so it behaves like any other link —
+// middle-click, "open in new tab", etc. all work); falls back to a button
+// that surfaces the existing missing-contact-detail toast otherwise. The
+// kebab is left fully intact alongside these for WhatsApp and Grant admin,
+// which don't have a natural single icon of their own.
+function RowActionIcon({ icon, href, title, onMissing }) {
+  const className = 'flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
+  if (href) {
+    return (
+      <a href={href} title={title} aria-label={title} onClick={e => e.stopPropagation()} className={className}>
+        {icon}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={e => { e.stopPropagation(); onMissing() }}
+      className={className}
+    >
+      {icon}
+    </button>
+  )
+}
+
+// One of the mobile detail sheet's four icon-only actions (Message/Call/
+// Email/View Account) — a generously-sized touch target (48px tall) with
+// visible pressed feedback, since three of these hand off to another app
+// entirely and a user should feel their tap land before that happens.
+function SheetActionButton({ icon, label, href, onClick, onMissing }) {
+  const className = 'flex h-12 flex-1 items-center justify-center rounded-lg border border-slate-line text-ink-light transition-all active:scale-95 active:border-accent/40 active:bg-canvas-sunken active:text-ink'
+  if (href) {
+    return (
+      <a href={href} title={label} aria-label={label} onClick={e => { e.stopPropagation(); onClick?.() }} className={className}>
+        {icon}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={e => { e.stopPropagation(); onClick ? onClick() : onMissing() }}
+      className={className}
+    >
+      {icon}
+    </button>
+  )
+}
+
+// Shared Search/Sort/Filter toolbar for the Approvals and User Requests
+// views — icon-only on mobile, icon + persistent label on desktop (one
+// element with responsive classes, not duplicated mobile/desktop copies,
+// since the search input here is always visible rather than the accounts
+// tab's own click-to-expand icon button). Sort is a single button that
+// flips between oldest/newest first rather than opening a menu, since
+// it's a plain binary choice. Filter opens a small single-level popover
+// (role only) — there's no equivalent to the accounts tab's role/category/
+// status/admin filter set for these two views.
+function SimpleListToolbar({
+  searchValue, onSearchChange, searchPlaceholder,
+  sortTitle, onToggleSort,
+  filterOpen, filterActive, onToggleFilter, filterAnchor, filterMenuRef,
+  filterOptions, filterValue, onFilterChange,
+}) {
+  const menuWidth = 160
+  const positionStyle = filterAnchor ? computeAnchoredPosition(filterAnchor, menuWidth) : null
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1 md:w-56 md:flex-none">
+        <ClearableInput
+          type="text"
+          value={searchValue}
+          onChange={e => onSearchChange(e.target.value)}
+          placeholder={searchPlaceholder}
+          className="input-field h-[30px] py-1"
+          clearLabel="Clear search"
+          icon={<SearchIcon className="h-4 w-4" />}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onToggleSort}
+        title={sortTitle}
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink md:w-24"
+      >
+        <ZapIcon className="h-4 w-4 flex-shrink-0" />
+        <span className="hidden md:inline">Sort</span>
+      </button>
+      <div className="relative flex-shrink-0">
+        <button
+          type="button"
+          onClick={onToggleFilter}
+          aria-haspopup="menu"
+          aria-expanded={filterOpen}
+          className={`flex h-[30px] w-[30px] items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors md:w-24 ${
+            filterOpen || filterActive
+              ? 'bg-accent text-white'
+              : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+          }`}
+        >
+          <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+          <span className="hidden md:inline">Filter</span>
+        </button>
+        {filterOpen && positionStyle && (
+          <div
+            ref={filterMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            {filterOptions.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onFilterChange(opt.value)}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === filterValue
+                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -288,6 +424,22 @@ export default function StaffListPage() {
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [requestsSortDirection, setRequestsSortDirection] = useState('asc')
 
+  // Approvals/User Requests toolbars — each view gets its own search text
+  // and role filter, independent of the accounts tab's own accountFilters.
+  const [pendingSearchQuery, setPendingSearchQuery] = useState('')
+  const [pendingRoleFilter, setPendingRoleFilter] = useState('all')
+  const [pendingFilterOpen, setPendingFilterOpen] = useState(false)
+  const [pendingFilterAnchor, setPendingFilterAnchor] = useState(null)
+  const pendingFilterMenuRef = useRef(null)
+  useDismissablePopover(pendingFilterOpen, () => setPendingFilterOpen(false), pendingFilterMenuRef)
+
+  const [requestsSearchQuery, setRequestsSearchQuery] = useState('')
+  const [requestsRoleFilter, setRequestsRoleFilter] = useState('all')
+  const [requestsFilterOpen, setRequestsFilterOpen] = useState(false)
+  const [requestsFilterAnchor, setRequestsFilterAnchor] = useState(null)
+  const requestsFilterMenuRef = useRef(null)
+  useDismissablePopover(requestsFilterOpen, () => setRequestsFilterOpen(false), requestsFilterMenuRef)
+
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
     try { return localStorage.getItem(SORT_MODE_KEY) || 'category' } catch { return 'category' }
@@ -409,6 +561,13 @@ export default function StaffListPage() {
 
   useDismissablePopover(!!quickActionPerson, () => closeQuickActions(), quickActionMenuRef, [quickActionTriggerRef, secondaryMenuRef])
 
+  // Mobile row tap opens this bottom sheet (contact details + one-tap
+  // actions) instead of navigating straight to the account page — long
+  // press/kebab still open the existing quick-action popover below.
+  const [detailSheetPerson, setDetailSheetPerson] = useState(null)
+  const detailSheetRef = useRef(null)
+  useDismissablePopover(!!detailSheetPerson, () => setDetailSheetPerson(null), detailSheetRef)
+
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
   // click-to-navigate that would otherwise fire on release.
@@ -434,7 +593,11 @@ export default function StaffListPage() {
       longPressFiredRef.current = false
       return
     }
-    if (isAdmin) navigate(`/account/${person.id}`)
+    // Mobile-only entry point (desktop rows have their own onClick that
+    // opens the slide-over panel) — a tap opens the contact/detail sheet
+    // rather than navigating straight to the account page; "View Account"
+    // inside the sheet is the new path to that full page.
+    setDetailSheetPerson(person)
   }
 
   useEffect(() => {
@@ -757,10 +920,35 @@ export default function StaffListPage() {
   const sheetFilterCount = ['role', 'category', 'status', 'isAdmin'].filter(k => accountFilters[k] !== 'all').length
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
-  const displayedRequests = requestsSortDirection === 'asc' ? accountRequests : [...accountRequests].reverse()
-  // Photo/First name/Surname/Role/Category/Mobile/Email/Status, plus the
-  // Is Admin and Actions columns only when they're actually rendered.
-  const staffTableCols = 8 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
+
+  // ── Approvals/User Requests: search + role filter, same substring-match
+  // and role-equality rules as the accounts tab's own filter. ──
+  const pendingRoleOptions = [...new Set(pending.map(p => p.role).filter(Boolean))].sort()
+  const filteredPending = pending.filter(person => {
+    const q = pendingSearchQuery.trim().toLowerCase()
+    if (q) {
+      const fullName = `${person.surname || ''} ${person.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    if (pendingRoleFilter !== 'all' && person.role !== pendingRoleFilter) return false
+    return true
+  })
+  const orderedPending = pendingSortDirection === 'asc' ? filteredPending : [...filteredPending].reverse()
+
+  const requestsRoleOptions = [...new Set(accountRequests.map(r => r.requester?.role).filter(Boolean))].sort()
+  const filteredRequests = accountRequests.filter(r => {
+    const q = requestsSearchQuery.trim().toLowerCase()
+    if (q) {
+      const fullName = `${r.requester?.surname || ''} ${r.requester?.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    if (requestsRoleFilter !== 'all' && r.requester?.role !== requestsRoleFilter) return false
+    return true
+  })
+  const displayedRequests = requestsSortDirection === 'asc' ? filteredRequests : [...filteredRequests].reverse()
+  // Person/Contact/Status, plus the Is Admin and Actions columns only when
+  // they're actually rendered.
+  const staffTableCols = 3 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
 
   function clearAllFilters() {
     setAccountFilters({ q: '', role: 'all', category: 'all', status: 'all', isAdmin: 'all' })
@@ -768,35 +956,257 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="text-sm text-ink-muted">
-            {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
-          </span>
-          {isAdmin && (
-            <>
+      {/* Sticky header — tab row (admin-only: All Staff / Approvals / User
+          Requests) plus the Search/Sort/Filter toolbar (every viewer, only
+          while on the accounts tab). top-[49px]: AppLayout's mobile
+          <header> is exactly 49px tall (32px avatar + py-2's 16px + a 1px
+          border-b) — top-14 (56px) left a 7px gap scrolled content showed
+          through. md:top-0 on desktop, which has no top bar of its own
+          (just the persistent sidebar). The mobile card list's sticky
+          group labels further down are offset to clear this bar's actual
+          rendered height (49px + this bar's own height, which differs by
+          role since the tab row only exists for admins) — see the
+          isAdmin ? 'top-[142px]' : 'top-[99px]' split below. */}
+      <div className="sticky top-[49px] z-20 mb-4 bg-canvas pb-3 pt-2 md:top-0 md:pb-4 md:pt-0 md:shadow-[0_3px_6px_-1px_rgba(15,23,42,0.15)]">
+        {isAdmin && (
+          <div className="grid grid-cols-3 border-b border-slate-line md:flex md:w-fit">
+            <button
+              onClick={() => setTab('accounts')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
+                tab === 'accounts' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
+              }`}
+            >
+              <UsersIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              All Staff
+            </button>
+            <button
+              onClick={() => setTab('pending')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
+                tab === 'pending' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
+              }`}
+            >
+              <BellIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              Approvals
+              {pending.length > 0 && (
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                  {pending.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setTab('requests')}
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
+                tab === 'requests' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
+              }`}
+            >
+              <MailQuestionMarkIcon className="h-3.5 w-3.5 flex-shrink-0" />
+              User Requests
+              {accountRequests.length > 0 && (
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                  {accountRequests.length}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {tab === 'accounts' && (
+          <>
+            {/* Mobile toolbar — Search hugs to fill the remaining width,
+                Sort/Filter are fixed-size icon-only buttons pinned to the
+                right. Shares state/popovers with the desktop toolbar below
+                (only the visible copy is ever interactive), so picking
+                anything here behaves identically. */}
+            <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
+              <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
+                {searchOpen ? (
+                  <ClearableInput
+                    autoFocus
+                    type="text"
+                    value={accountFilters.q}
+                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                    placeholder="Surname or first name…"
+                    className="input-field h-[30px] py-1"
+                    clearLabel="Clear search"
+                    icon={<SearchIcon className="h-4 w-4" />}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                      accountFilters.q
+                        ? 'bg-accent text-white'
+                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    }`}
+                  >
+                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                    Search
+                  </button>
+                )}
+              </div>
+
               <button
-                onClick={() => setTab('pending')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
-                  pending.length > 0 ? 'bg-success-bg text-success' : 'bg-canvas-sunken text-ink-muted opacity-60'
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                aria-label="Quick Sort"
+                title="Quick Sort"
+                className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
-                <BellIcon className="h-3.5 w-3.5" />
-                {pending.length} pending approval{pending.length === 1 ? '' : 's'}
+                <ZapIcon className="h-4 w-4" />
               </button>
+
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  aria-label="Filter"
+                  title="Filter"
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                    desktopFilterOpen || sheetFilterCount > 0
+                      ? 'bg-accent text-white'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                  }`}
+                >
+                  <ListFilterIcon className="h-4 w-4" />
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
+                  >
+                    <ResetIcon className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop toolbar — Search, Sort, and Filter all at fixed,
+                stable widths (not flex-1/hugging) so the row never reflows;
+                Sort/Filter always show their icon + label. */}
+            <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
+              <div ref={searchWrapRef} className="w-56 flex-shrink-0">
+                {searchOpen ? (
+                  <ClearableInput
+                    autoFocus
+                    type="text"
+                    value={accountFilters.q}
+                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                    placeholder="Surname or first name…"
+                    className="input-field h-[30px] py-1"
+                    clearLabel="Clear search"
+                    icon={<SearchIcon className="h-4 w-4" />}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                      accountFilters.q
+                        ? 'bg-accent text-white'
+                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    }`}
+                  >
+                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                    Search
+                  </button>
+                )}
+              </div>
+
               <button
-                onClick={() => setTab('requests')}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium transition-opacity hover:opacity-80 active:opacity-80 ${
-                  accountRequests.length > 0 ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-muted opacity-60'
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                className={`flex h-[30px] w-24 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
-                <MailQuestionMarkIcon className="h-3.5 w-3.5" />
-                {accountRequests.length} user request{accountRequests.length === 1 ? '' : 's'}
+                <ZapIcon className="h-4 w-4 flex-shrink-0" />
+                Sort
               </button>
-            </>
-          )}
-        </div>
+
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  className={`flex h-[30px] w-24 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                    desktopFilterOpen || sheetFilterCount > 0
+                      ? 'bg-accent text-white'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                  }`}
+                >
+                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                  Filter
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
+                  >
+                    <ResetIcon className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === 'pending' && (
+          <div className={isAdmin ? 'mt-2' : ''}>
+            <SimpleListToolbar
+              searchValue={pendingSearchQuery}
+              onSearchChange={setPendingSearchQuery}
+              searchPlaceholder="Surname or first name…"
+              sortTitle={pendingSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
+              onToggleSort={() => setPendingSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
+              filterOpen={pendingFilterOpen}
+              filterActive={pendingRoleFilter !== 'all'}
+              onToggleFilter={e => {
+                if (pendingFilterOpen) { setPendingFilterOpen(false) }
+                else { setPendingFilterAnchor(e.currentTarget.getBoundingClientRect()); setPendingFilterOpen(true) }
+              }}
+              filterAnchor={pendingFilterAnchor}
+              filterMenuRef={pendingFilterMenuRef}
+              filterOptions={[{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+              filterValue={pendingRoleFilter}
+              onFilterChange={v => { setPendingRoleFilter(v); setPendingFilterOpen(false) }}
+            />
+          </div>
+        )}
+
+        {tab === 'requests' && (
+          <div className={isAdmin ? 'mt-2' : ''}>
+            <SimpleListToolbar
+              searchValue={requestsSearchQuery}
+              onSearchChange={setRequestsSearchQuery}
+              searchPlaceholder="Surname or first name…"
+              sortTitle={requestsSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
+              onToggleSort={() => setRequestsSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
+              filterOpen={requestsFilterOpen}
+              filterActive={requestsRoleFilter !== 'all'}
+              onToggleFilter={e => {
+                if (requestsFilterOpen) { setRequestsFilterOpen(false) }
+                else { setRequestsFilterAnchor(e.currentTarget.getBoundingClientRect()); setRequestsFilterOpen(true) }
+              }}
+              filterAnchor={requestsFilterAnchor}
+              filterMenuRef={requestsFilterMenuRef}
+              filterOptions={[{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+              filterValue={requestsRoleFilter}
+              onFilterChange={v => { setRequestsRoleFilter(v); setRequestsFilterOpen(false) }}
+            />
+          </div>
+        )}
       </div>
 
       {loading && <p className="text-sm text-ink-muted">Loading…</p>}
@@ -810,175 +1220,6 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Mobile selector switch — Search / Quick Sort / Filter, each a
-              third of the screen width. Shares state/popovers with the
-              desktop switch below (only the visible copy is ever
-              interactive), so picking anything here behaves identically. */}
-          <div className="mb-4 flex items-center gap-2 md:hidden">
-            <div ref={mobileSearchWrapRef} className="w-1/3">
-              {searchOpen ? (
-                <ClearableInput
-                  autoFocus
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                    accountFilters.q
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  Search
-                </button>
-              )}
-            </div>
-
-            <div className="w-1/3">
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-full items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                Quick Sort
-                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-
-            <div className="w-1/3">
-              {/* Same fixed-position technique as the desktop Filter switch:
-                  reset icon is absolutely positioned over the trigger, not a
-                  flex sibling, so "Filter" never shifts when it appears. */}
-              <div
-                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopFilterOpen || sheetFilterCount > 0
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  className="flex h-full w-full items-center justify-center gap-1 px-1"
-                >
-                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  Filter
-                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                  >
-                    <ResetIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop selector switch — Search / Quick Sort / Filter. Capped
-              to well under half the grid's own width (matching the table's
-              min-w below, not the wider page container), split equally
-              between the three. */}
-          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[650px]">
-            <div ref={searchWrapRef} className="flex-1">
-              {searchOpen ? (
-                <ClearableInput
-                  autoFocus
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                    accountFilters.q
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  Search
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1">
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                Quick Sort
-                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-
-            <div className="flex-1">
-              {/* Reset icon is absolutely positioned over the trigger,
-                  not a flex sibling — so "Filter" stays perfectly centered
-                  whether or not the icon is showing, instead of shifting
-                  as the trigger's available width changes. */}
-              <div
-                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopFilterOpen || sheetFilterCount > 0
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  className="flex h-full w-full items-center justify-center gap-1.5 px-2"
-                >
-                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  Filter
-                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                  >
-                    <ResetIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
           {activeAccounts.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No approved accounts yet.</p>
@@ -1000,12 +1241,21 @@ export default function StaffListPage() {
                 <div key={group.key} className="mb-4 last:mb-0">
                   {group.label && (() => {
                     const activeCount = group.items.filter(p => p.is_active).length
+                    const inactiveCount = group.items.length - activeCount
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
-                      className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
+                      // Offset to clear the sticky header above it — taller
+                      // for admins, who also get the tab row on top of the
+                      // toolbar (see the header's own comment for the maths).
+                      className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
+                        isAdmin ? 'top-[142px]' : 'top-[99px]'
+                      }`}
                     >
-                      <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
+                      {/* "X active · Y inactive" instead of "X total · Y
+                          active" — surfaces the exception (anyone inactive)
+                          immediately instead of burying it in a total. */}
+                      <span>{group.label} <span className="ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
@@ -1013,8 +1263,11 @@ export default function StaffListPage() {
                   {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
+                      // "Doctor · COSMO" rather than category alone — a bare
+                      // category read as a status/location to reviewers, and
+                      // didn't match the role-badge non-doctors show.
                       const secondaryLabel = person.role === 'doctor'
-                        ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                        ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
                         : (ROLE_LABELS[person.role] || person.role)
                       const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
                       const isMe = person.id === user?.id
@@ -1027,7 +1280,9 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''}`}
+                          className={`flex items-center gap-3 px-4 py-1 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''} ${
+                            person.is_active ? '' : 'opacity-60'
+                          }`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -1043,11 +1298,15 @@ export default function StaffListPage() {
                             <span className="block truncate text-sm font-medium text-ink">
                               {person.name ? `${person.name} ` : ''}{person.surname}
                             </span>
+                            {/* line-clamp-2, not truncate: a long category
+                                combo (e.g. "Doctor · COSMO (Psych)") wraps
+                                to a second line instead of silently cutting
+                                off. */}
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
-                              <span>{secondaryLabel}</span>
+                              <span className="line-clamp-2">{secondaryLabel}</span>
                               {contractTag && (
                                 <span
-                                  className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                  className="flex-shrink-0 rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
                                   title="Part-time (⅝ contract)"
                                 >
                                   {contractTag}
@@ -1055,19 +1314,32 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
-                          {isAdmin && person.is_admin && (
-                            <span className={`flex flex-shrink-0 items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
-                              person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
-                            }`}>
-                              {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                            </span>
-                          )}
+                          <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                            {isAdmin && person.is_admin && (
+                              <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
+                                person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
+                              }`}>
+                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                              </span>
+                            )}
+                            {!person.is_active && (
+                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
                           {canContact && (
                             <button
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
                               title="Quick actions"
-                              className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+                              // The visible dot stays small (keeps the row
+                              // compact), but the actual tappable area is
+                              // expanded to 44px via this invisible ::after
+                              // — a real 44px button here would fight the
+                              // shorter-row goal by becoming the row's
+                              // tallest element instead of the avatar.
+                              className="relative flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
                             >
                               <KebabIcon className="h-4 w-4" />
                             </button>
@@ -1082,19 +1354,14 @@ export default function StaffListPage() {
             </div>
 
             <div className="card hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[920px] border-collapse text-xs">
+              <table className="w-full min-w-[680px] border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                    <th className="px-2 py-2 w-10"><span className="sr-only">Photo</span></th>
-                    <th className="px-2.5 py-2">First name</th>
-                    <th className="px-2.5 py-2">Surname</th>
-                    <th className="px-2.5 py-2">Role</th>
-                    <th className="px-2.5 py-2">Category</th>
-                    <th className="px-2.5 py-2">Mobile</th>
-                    <th className="px-2.5 py-2">Email</th>
+                    <th className="px-2.5 py-2">Person</th>
+                    <th className="px-2.5 py-2">Contact</th>
                     <th className="px-2.5 py-2">Status</th>
                     {isAdmin && <th className="px-2.5 py-2">Is Admin</th>}
-                    {canContact && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
+                    {canContact && <th className="px-2.5 py-2 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1120,6 +1387,15 @@ export default function StaffListPage() {
                         const isToggling = togglingId === person.id
                         const formattedPhone = formatPhoneDisplay(person.phone)
                         const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                        // Same "category if doctor, else role" pick as the mobile
+                        // card list and the Pending-approval row — one primary
+                        // identity label, not a separate Role column and a
+                        // separate Category column competing for attention.
+                        const secondaryLabel = person.role === 'doctor'
+                          ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                          : (ROLE_LABELS[person.role] || person.role)
+                        const targetEmail = emailById[person.id]
+                        const firstNameForMissing = person.name || person.surname || 'this person'
                         return (
                           <tr
                             key={person.id}
@@ -1132,64 +1408,64 @@ export default function StaffListPage() {
                               isAdmin ? 'cursor-pointer active:bg-slate-line' : ''
                             }`}
                           >
-                            <td className="px-2 py-1.5">
-                              <ProfileAvatar profile={person} size={28} />
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink whitespace-nowrap">{person.name || '—'}</td>
-                            <td className="px-2.5 py-1.5 font-medium text-ink whitespace-nowrap">{person.surname}</td>
                             <td className="px-2.5 py-1.5">
-                              <div className="flex flex-wrap gap-1">
-                                <span className={`whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                                  {ROLE_LABELS[person.role] || person.role}
-                                </span>
-                                {person.is_admin && (
-                                  <span className={(person.is_super_admin ? PERMISSION_BADGE.super_admin : PERMISSION_BADGE.admin) + ' whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-medium'}>
-                                    {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                              <div className="flex items-center gap-2.5">
+                                <ProfileAvatar profile={person} size={30} className="flex-shrink-0" />
+                                <div className="min-w-0">
+                                  <span className="block truncate text-sm font-semibold text-ink">
+                                    {person.name ? `${person.name} ` : ''}{person.surname}
                                   </span>
-                                )}
+                                  <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] text-ink-muted">
+                                    <span>{secondaryLabel}</span>
+                                    {contractTag && (
+                                      <span
+                                        className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                        title="Part-time (⅝ contract)"
+                                      >
+                                        {contractTag}
+                                      </span>
+                                    )}
+                                    {isAdmin && person.is_admin && (
+                                      <span className={`font-semibold uppercase tracking-wide ${person.is_super_admin ? 'text-flagBlue' : 'text-accent'}`}>
+                                        {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1">
-                                {person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—'}
-                                {contractTag && (
-                                  <span
-                                    className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
-                                    title="Part-time (⅝ contract)"
-                                  >
-                                    {contractTag}
-                                  </span>
-                                )}
-                              </span>
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink-light whitespace-nowrap">
-                              {formattedPhone ? (
-                                <a
-                                  href={phoneTelHref(person.phone)}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-ink-light hover:underline"
-                                >
-                                  {formattedPhone}
-                                </a>
-                              ) : '—'}
-                            </td>
-                            <td className="px-2.5 py-1.5 text-ink-light">
-                              <span className="inline-flex items-center gap-1">
-                                {emailById[person.id] && person.email_verified ? (
-                                  <a
-                                    href={`mailto:${emailById[person.id]}`}
-                                    onClick={e => e.stopPropagation()}
-                                    className="text-ink-light hover:underline"
-                                  >
-                                    {emailById[person.id]}
-                                  </a>
-                                ) : (
-                                  emailById[person.id] || '—'
-                                )}
-                                {emailById[person.id] && person.email_verified && (
-                                  <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
-                                )}
-                              </span>
+                            <td className="px-2.5 py-1.5 text-ink">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <PhoneIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
+                                  {formattedPhone ? (
+                                    <a
+                                      href={phoneTelHref(person.phone)}
+                                      onClick={e => e.stopPropagation()}
+                                      className="hover:underline"
+                                    >
+                                      {formattedPhone}
+                                    </a>
+                                  ) : <span>—</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                  <EmailIcon className="h-3 w-3 flex-shrink-0 text-ink-muted" />
+                                  {targetEmail && person.email_verified ? (
+                                    <a
+                                      href={`mailto:${targetEmail}`}
+                                      onClick={e => e.stopPropagation()}
+                                      className="hover:underline"
+                                    >
+                                      {targetEmail}
+                                    </a>
+                                  ) : (
+                                    <span>{targetEmail || '—'}</span>
+                                  )}
+                                  {targetEmail && person.email_verified && (
+                                    <CircleCheck title="Email verified" className="h-3 w-3 flex-shrink-0 text-success" />
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td className="px-2.5 py-1.5">
                               <div className="flex items-center gap-1.5">
@@ -1246,15 +1522,27 @@ export default function StaffListPage() {
                               </td>
                             )}
                             {canContact && (
-                              <td className="px-2.5 py-1.5 text-right">
-                                <button
-                                  onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
-                                  aria-label="Quick actions"
-                                  title="Quick actions"
-                                  className="rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
-                                >
-                                  <KebabIcon className="h-4 w-4" />
-                                </button>
+                              <td className="px-2.5 py-1.5">
+                                <div className="flex items-center justify-end gap-0.5">
+                                  <RowActionIcon
+                                    icon={<MessageIcon className="h-4 w-4" />}
+                                    title="Message (MS Teams)"
+                                    href={msTeamsChatHref(targetEmail)}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                  <RowActionIcon
+                                    icon={<PhoneIcon className="h-4 w-4" />}
+                                    title="Call (MS Teams)"
+                                    href={msTeamsCallHref(targetEmail)}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                  <RowActionIcon
+                                    icon={<EmailIcon className="h-4 w-4" />}
+                                    title="Mail"
+                                    href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
+                                    onMissing={() => contactMissing(firstNameForMissing)}
+                                  />
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -1272,8 +1560,8 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div className="md:max-w-2xl">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mx-auto md:max-w-2xl">
+          <div className="mb-4">
             <button
               onClick={() => setTab('accounts')}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
@@ -1281,34 +1569,14 @@ export default function StaffListPage() {
               <ArrowLeftIcon className="h-4 w-4" />
               All staff
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPendingSortDirection('asc')}
-                title="Old to new"
-                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                  pendingSortDirection === 'asc'
-                    ? 'border-transparent bg-accent text-white'
-                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                <CalendarArrowDown className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setPendingSortDirection('desc')}
-                title="New to old"
-                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                  pendingSortDirection === 'desc'
-                    ? 'border-transparent bg-accent text-white'
-                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                <CalendarArrowUp className="h-4 w-4" />
-              </button>
-            </div>
           </div>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
+            </div>
+          ) : filteredPending.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
             </div>
           ) : (
             <>
@@ -1347,7 +1615,7 @@ export default function StaffListPage() {
                   />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
                 </div>
-                {(pendingSortDirection === 'asc' ? pending : [...pending].reverse()).map((person) => (
+                {orderedPending.map((person) => (
                   <PendingApprovalRow
                     key={person.id}
                     person={person}
@@ -1368,7 +1636,7 @@ export default function StaffListPage() {
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
         <div className="mx-auto md:max-w-2xl">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4">
             <button
               onClick={() => setTab('accounts')}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
@@ -1376,37 +1644,15 @@ export default function StaffListPage() {
               <ArrowLeftIcon className="h-4 w-4" />
               All staff
             </button>
-            {accountRequests.length > 0 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setRequestsSortDirection('asc')}
-                  title="Old to new"
-                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                    requestsSortDirection === 'asc'
-                      ? 'border-transparent bg-accent text-white'
-                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                  }`}
-                >
-                  <CalendarArrowDown className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setRequestsSortDirection('desc')}
-                  title="New to old"
-                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                    requestsSortDirection === 'desc'
-                      ? 'border-transparent bg-accent text-white'
-                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                  }`}
-                >
-                  <CalendarArrowUp className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </div>
 
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No account requests pending review.</p>
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No requests match these filters.</p>
             </div>
           ) : (
             <>
@@ -1769,14 +2015,21 @@ export default function StaffListPage() {
       })()}
 
       {/* ── Message/Call flyout — a separate popover cascading below
-           whichever row was tapped, always rolling down, its two options in
-           a lighter color than the root menu's. ── */}
+           whichever row was tapped, always rolling down, its options in a
+           lighter color than the root menu's. Message adds a Teams "Chat"
+           option below Mobile/WhatsApp; Call adds a Teams "MS Teams" call
+           option below Mobile/WhatsApp — both keyed off the person's email
+           rather than phone, since that's what Teams itself resolves an
+           account by. ── */}
       {quickActionPerson && secondaryFor && secondaryAnchor && (() => {
         const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
         const telHref = phoneTelHref(quickActionPerson.phone)
         const smsHref = phoneSmsHref(quickActionPerson.phone)
         const waHref = phoneWhatsAppHref(quickActionPerson.phone)
         const mobileHref = secondaryFor === 'message' ? smsHref : telHref
+        const targetEmail = emailById[quickActionPerson.id]
+        const teamsHref = secondaryFor === 'message' ? msTeamsChatHref(targetEmail) : msTeamsCallHref(targetEmail)
+        const teamsLabel = secondaryFor === 'message' ? 'Chat' : 'MS Teams'
 
         function missing() {
           return () => { contactMissing(firstName); closeQuickActions() }
@@ -1792,8 +2045,87 @@ export default function StaffListPage() {
             style={{ ...positionStyle, width: menuWidth }}
             className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
           >
-            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing('Mobile')} />
-            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
+            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing()} />
+            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing()} />
+            <QuickActionRow label={teamsLabel} muted href={teamsHref} external onClick={teamsHref ? closeQuickActions : missing()} />
+          </div>
+        )
+      })()}
+
+      {/* ── Mobile row-tap detail sheet — profile summary, contact fields,
+           and one-tap Message/Call/Email/View Account actions. No dark
+           backdrop, matching every other popover/panel in the app —
+           closes on the first outside tap (muting whatever's under it) or
+           picking an action. ── */}
+      {detailSheetPerson && (() => {
+        const person = detailSheetPerson
+        const secondaryLabel = person.role === 'doctor'
+          ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+          : (ROLE_LABELS[person.role] || person.role)
+        const formattedPhone = formatPhoneDisplay(person.phone)
+        const targetEmail = emailById[person.id]
+        const onLeave = leaveProfileIds.has(person.id)
+        const statusLabel = !person.is_active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
+        const statusColor = !person.is_active ? 'text-flagRed' : onLeave ? 'text-statusAway' : 'text-success'
+        const firstNameForMissing = person.name || person.surname || 'this person'
+
+        return (
+          <div
+            ref={detailSheetRef}
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-slate-line bg-canvas-raised px-5 pb-6 pt-3 shadow-[0_-3px_10px_0_rgba(15,23,42,0.18)] md:hidden"
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
+                <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+              </div>
+              <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+            </div>
+
+            <div className="mt-3 space-y-1.5 border-t border-slate-line pt-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-14 flex-shrink-0 text-ink-muted">Mobile</span>
+                <span className="min-w-0 truncate text-ink">{formattedPhone || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-14 flex-shrink-0 text-ink-muted">Email</span>
+                <span className="min-w-0 truncate text-ink">{targetEmail || '—'}</span>
+                {targetEmail && person.email_verified && <CircleCheck className="h-3.5 w-3.5 flex-shrink-0 text-success" />}
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <SheetActionButton
+                icon={<MessageIcon className="h-5 w-5" />}
+                label="Message"
+                href={phoneSmsHref(person.phone)}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<PhoneIcon className="h-5 w-5" />}
+                label="Call"
+                href={phoneTelHref(person.phone)}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<EmailIcon className="h-5 w-5" />}
+                label="Email"
+                href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<Eye className="h-5 w-5" />}
+                label="View Account"
+                onClick={() => { setDetailSheetPerson(null); navigate(`/account/${person.id}`) }}
+              />
+            </div>
           </div>
         )
       })()}
@@ -1949,6 +2281,14 @@ function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function UsersIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
     </svg>
   )
 }

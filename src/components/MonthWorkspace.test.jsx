@@ -176,7 +176,7 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    // 2 total (MO + Registrar) of the real 3-doctor ceiling (maxFullTime=2 EC full-time + OT_COSMO=1).
+    // 2 total (MO + Registrar) of the 3-slot combined ceiling (full-time cap 2 + OT COSMO/Intern cap 1).
     expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
@@ -184,7 +184,9 @@ describe('MonthWorkspace', () => {
 
   it('shows a "Full" verdict banner once the combined cap is reached, with no per-category counts anywhere', async () => {
     const user = userEvent.setup()
-    // 2 MO + 1 Registrar = 3, the real ceiling (2 EC full-time + 1 OT_COSMO).
+    // 2 MO + 1 Registrar = 3, exactly the combined ceiling (full-time cap 2 +
+    // OT COSMO/Intern cap 1) — no more of ANY category can go on leave that
+    // day even though e.g. MO's own cap (2) isn't full.
     const countByColumnPerDate = new Map([
       ['2026-08-12', new Map([['MO', 2], ['Registrar', 1]])],
     ])
@@ -261,13 +263,35 @@ describe('MonthWorkspace', () => {
     expect(await screen.findByRole('button', { name: 'Confirm approval' })).toBeInTheDocument()
   })
 
+  it('seeing rule impacts: flags a Registrar-column breach in isolation from the full-time aggregate', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    // A second, already-approved Registrar on the same day means approving
+    // Botha's pending request would push the Registrar column (cap 1) to 2.
+    // maxFullTime is bumped to 3 for this test alone so the (unrelated)
+    // full-time aggregate cap doesn't also breach here — Anderson (MO) +
+    // Davis (Registrar) already sit at the real default of 2, which would
+    // otherwise mask the column-specific message this test is checking for.
+    const otherApproved = {
+      id: 'req-3', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-12',
+      leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,
+      profiles: { name: 'Dana', surname: 'Davis', category: 'Registrar' },
+    }
+    const user = userEvent.setup()
+    renderWorkspace({ approvedRows: [APPROVED_ROW, otherApproved], maxFullTime: 3 })
+    await user.click(screen.getByText('Anderson'))
+
+    expect(await screen.findByText(/Approving would breach the Registrar cap/)).toBeInTheDocument()
+  })
+
   it('seeing rule impacts: flags a capacity breach when approving would push the EC full-time group over its cap', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     // Anderson (MO) is already approved on 12 Aug (baseProps), and this adds
     // a second EC full-time doctor (Davis, Registrar) — with the EC
-    // full-time cap now at 2, MO + Registrar already fills it, so approving
-    // Botha's pending Registrar request would add a 3rd EC full-time doctor,
-    // breaching the full-time cap (on top of Registrar's own cap of 1).
+    // full-time cap at its real default of 2, MO + Registrar already fills
+    // it, so approving Botha's pending Registrar request would add a 3rd EC
+    // full-time doctor, breaching the full-time cap (on top of Registrar's
+    // own column cap of 1 — see the previous test for that message in
+    // isolation).
     const otherApproved = {
       id: 'req-3', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-12',
       leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
-  totalLeaveSlotsForDate, capacityStateForCount, columnForLeaveCategory,
+  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
 } from '../lib/leaveYearGrid'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
@@ -365,12 +365,8 @@ function DayReviewModal({
   const formattedDate = formatWeekdayDate(date)
   const totalSlots = capacity.reduce((sum, col) => sum + col.count, 0)
   const dayCapacityState = capacityStateForCount(totalSlots)
-  // The real combined ceiling is the EC full-time group's own cap PLUS OT
-  // COSMO/Intern's independent cap (see leaveYearGrid.js) — maxFullTime
-  // alone is only the EC full-time sub-cap (2 by default), not the day's
-  // true "nobody else can go on leave" threshold (3 by default).
-  const totalMax = maxFullTime + (maxByColumnKey.OT_COSMO ?? 1)
-  const atFullCapacity = totalSlots >= totalMax
+  const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
+  const atFullCapacity = totalSlots >= totalCeiling
   // One consolidated list instead of a heading per category — an empty
   // category no longer gets a row at all (it was pure visual weight with no
   // information), and individual x/y quotas are gone entirely: with the
@@ -388,7 +384,7 @@ function DayReviewModal({
           <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${dayCapacityState.tint}`}>
             <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>✕</span>
             <div>
-              <p className={`text-sm font-bold ${dayCapacityState.text}`}>Full — {totalSlots} of {totalMax} slots taken</p>
+              <p className={`text-sm font-bold ${dayCapacityState.text}`}>Full — {totalSlots} of {totalCeiling} slots taken</p>
               <p className="mt-0.5 text-xs text-ink-muted">No annual leave slots available for any category today.</p>
             </div>
           </div>
@@ -397,7 +393,7 @@ function DayReviewModal({
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <div className="flex items-center gap-2">
             <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.light} ${dayCapacityState.onFillText}`}>
-              {totalSlots} of {totalMax} slots taken
+              {totalSlots} of {totalCeiling} slots taken
             </span>
             <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
           </div>

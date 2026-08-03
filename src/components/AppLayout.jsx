@@ -293,11 +293,14 @@ export default function AppLayout() {
   )
 }
 
-// Small count badge overlapping the top-right corner of a nav icon.
+// Small count badge overlapping the top-right corner of a nav icon —
+// slightly smaller/thinner-ringed than a typical notification badge, so it
+// reads as "N need attention" rather than competing for the same visual
+// weight as the tab's own "you're here" active-state styling.
 function NavBadge({ count }) {
   return (
     <span
-      className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-canvas-raised"
+      className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised"
       aria-label={`${count} pending`}
     >
       {count > 9 ? '9+' : count}

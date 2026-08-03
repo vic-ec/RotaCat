@@ -10,16 +10,14 @@ const MONTH_LABELS = [
 ]
 
 // Capacity-capped columns for the Annual Leave planner. MO, Registrar, and
-// EC COSMO/Intern are the "EC full-time" columns for the purposes of the
-// combined cap below (see LEAVE_FULL_TIME_GROUP_KEYS/findFullTimeAggregateBreach):
-// each has its own per-column cap AND, combined across those three, may
-// never exceed LEAVE_FULL_TIME_DEFAULT_MAX at once. OT COSMO/Intern is
-// deliberately NOT part of that group — it has its own independent
-// per-column cap only, so a day can have the EC full-time group at its cap
-// AND one OT COSMO/Intern off at the same time. Consultant/Locum never
-// appear (not part of the leave-eligible doctor roster); Consultant alone
-// falls into an uncapped "Other" column so their leave isn't hidden off the
-// grid.
+// EC COSMO/Intern are the "full-time EC doctor" columns for the purposes of
+// the combined cap below: each has its own per-column cap AND, combined
+// across those three, may never exceed LEAVE_FULL_TIME_DEFAULT_MAX at once
+// (see findFullTimeAggregateBreach below). OT COSMO/Intern is a separate
+// pool with its own independent cap, additive on top of that combined cap
+// rather than part of it. Consultant/Locum never appear (not part of the
+// leave-eligible doctor roster); Consultant alone falls into an uncapped
+// "Other" column so their leave isn't hidden off the grid.
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
@@ -44,10 +42,10 @@ export const COLUMN_DOT_COLOR = {
 // Four-state "how full is this day" read for the mobile planner's day/month
 // fill colouring — a visual indicator of the *observed* total headcount on
 // leave (all 4 capacity columns combined, pending+approved combined).
-// Clamped at 3 — the EC full-time group's cap (2, see
-// LEAVE_FULL_TIME_DEFAULT_MAX) plus OT COSMO/Intern's independent cap (1)
-// combined, so 3 really is the ceiling every doctor can hit in practice,
-// not just a display simplification. Uses the dedicated
+// Clamped at 3 — the full-time combined cap (2) plus OT COSMO/Intern's own
+// separate cap (1), see totalLeaveCeiling below — so 3 really is the
+// ceiling every doctor can hit in practice with the default caps, not just
+// a display simplification. Uses the dedicated
 // cap* palette (tailwind.config.js), not flagAmber/flagRed, so this scale's
 // contrast can be tuned independently of shared status colours elsewhere.
 //   fill        solid state colour — legend swatches and year-grid day
@@ -109,14 +107,13 @@ export function capacityStateForCount(count) {
   return LEAVE_CAPACITY_STATES[Math.min(count, 3)]
 }
 
-// The "no more than 2 EC full-time doctors on leave at once" rule spans MO,
-// Registrar, and EC COSMO/Intern combined — valid combinations: 2 MO, 1 MO +
-// 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or
-// 2 EC COSMO/Intern — never 2 Registrar (already capped at 1 above). OT
-// COSMO/Intern is independent of this group (its own cap of 1, checked
-// separately by findLeaveCapacityBreach) — so up to 1 OT COSMO/Intern may
-// also be off on top of this group being at its own cap, for 3 doctors
-// total on leave the same day at most (e.g. 2 MO + 1 OT COSMO/Intern).
+// The "no more than 2 full-time EC doctors on leave at once" rule spans MO,
+// Registrar, and EC COSMO/Intern combined — e.g. 2 MO, 1 MO + 1 Registrar,
+// 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC
+// COSMO/Intern — never 2 Registrar (already capped at 1 above). OT
+// COSMO/Intern is a separate stream with its own cap (1) and isn't part of
+// this aggregate — it's additive on top, giving an overall ceiling of 3
+// doctors (any category) on leave at once (see totalLeaveCeiling below).
 export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO']
 export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
 export const LEAVE_FULL_TIME_DEFAULT_MAX = 2
@@ -236,9 +233,9 @@ export function findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcur
 
 // Would adding one more doctor (from any of LEAVE_FULL_TIME_GROUP_KEYS) push
 // a day's combined full-time-doctor count over maxTotal? Checked in addition
-// to (not instead of) each column's own findLeaveCapacityBreach — e.g. 2 MO
+// to (not instead of) each column's own findLeaveCapacityBreach — e.g. 1 MO
 // + 1 Registrar already satisfies each individual cap but would still
-// breach a maxTotal of 3 if a 3rd of any of those columns were added.
+// breach a maxTotal of 2 if a 3rd of any of those columns were added.
 export function findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existingCountsByDate }) {
   const breachDates = []
   for (const date of datesInRange(dateFrom, dateTo)) {
@@ -247,4 +244,16 @@ export function findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existi
     if (total + 1 > maxTotal) breachDates.push(date)
   }
   return { hasBreach: breachDates.length > 0, breachDates }
+}
+
+// The overall "how many doctors, any category, could be on leave the same
+// day" ceiling — the full-time combined cap plus every capacity column's
+// own max that sits outside that group (today just OT COSMO/Intern, a
+// separate additive pool). Used wherever the UI needs a single "N of
+// TOTAL" figure rather than just the full-time-only cap.
+export function totalLeaveCeiling(maxFullTime, maxByColumnKey) {
+  const additional = LEAVE_CAPACITY_COLUMNS
+    .filter(col => !LEAVE_FULL_TIME_GROUP_KEYS.includes(col.key))
+    .reduce((sum, col) => sum + (maxByColumnKey[col.key] ?? col.defaultMax), 0)
+  return maxFullTime + additional
 }

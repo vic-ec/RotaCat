@@ -97,9 +97,9 @@ describe('checkApprovalCapacityImpact', () => {
     expect(result.fullTimeBreach).toBe(true)
   })
 
-  it('never flags a full-time-aggregate breach for OT COSMO/Intern — it is no longer one of the pooled columns', () => {
+  it('does not check the full-time aggregate for OT COSMO/Intern — it is a separate pool', () => {
     const request = { date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'OT_COSMO' } }
-    const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0: would breach if pooled
+    const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0: any addition would breach if OT_COSMO were included
     expect(result.applicable).toBe(true) // its own column cap still applies
     expect(result.fullTimeBreach).toBe(false)
   })

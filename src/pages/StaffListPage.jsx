@@ -180,6 +180,32 @@ function RowActionIcon({ icon, href, title, onMissing }) {
   )
 }
 
+// One of the mobile detail sheet's four icon-only actions (Message/Call/
+// Email/View Account) — a generously-sized touch target (48px tall) with
+// visible pressed feedback, since three of these hand off to another app
+// entirely and a user should feel their tap land before that happens.
+function SheetActionButton({ icon, label, href, onClick, onMissing }) {
+  const className = 'flex h-12 flex-1 items-center justify-center rounded-lg border border-slate-line text-ink-light transition-all active:scale-95 active:border-accent/40 active:bg-canvas-sunken active:text-ink'
+  if (href) {
+    return (
+      <a href={href} title={label} aria-label={label} onClick={e => { e.stopPropagation(); onClick?.() }} className={className}>
+        {icon}
+      </a>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={e => { e.stopPropagation(); onClick ? onClick() : onMissing() }}
+      className={className}
+    >
+      {icon}
+    </button>
+  )
+}
+
 // Shared Search/Sort/Filter toolbar for the Approvals and User Requests
 // views — icon-only on mobile, icon + persistent label on desktop (one
 // element with responsive classes, not duplicated mobile/desktop copies,
@@ -535,6 +561,13 @@ export default function StaffListPage() {
 
   useDismissablePopover(!!quickActionPerson, () => closeQuickActions(), quickActionMenuRef, [quickActionTriggerRef, secondaryMenuRef])
 
+  // Mobile row tap opens this bottom sheet (contact details + one-tap
+  // actions) instead of navigating straight to the account page — long
+  // press/kebab still open the existing quick-action popover below.
+  const [detailSheetPerson, setDetailSheetPerson] = useState(null)
+  const detailSheetRef = useRef(null)
+  useDismissablePopover(!!detailSheetPerson, () => setDetailSheetPerson(null), detailSheetRef)
+
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
   // click-to-navigate that would otherwise fire on release.
@@ -560,10 +593,11 @@ export default function StaffListPage() {
       longPressFiredRef.current = false
       return
     }
-    // Every viewer can open the account page now — read-only for anyone
-    // but the account owner or an admin (enforced by AccountSettingsPage
-    // itself, not gated here).
-    navigate(`/account/${person.id}`)
+    // Mobile-only entry point (desktop rows have their own onClick that
+    // opens the slide-over panel) — a tap opens the contact/detail sheet
+    // rather than navigating straight to the account page; "View Account"
+    // inside the sheet is the new path to that full page.
+    setDetailSheetPerson(person)
   }
 
   useEffect(() => {
@@ -1207,6 +1241,7 @@ export default function StaffListPage() {
                 <div key={group.key} className="mb-4 last:mb-0">
                   {group.label && (() => {
                     const activeCount = group.items.filter(p => p.is_active).length
+                    const inactiveCount = group.items.length - activeCount
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
@@ -1217,7 +1252,10 @@ export default function StaffListPage() {
                         isAdmin ? 'top-[142px]' : 'top-[99px]'
                       }`}
                     >
-                      <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
+                      {/* "X active · Y inactive" instead of "X total · Y
+                          active" — surfaces the exception (anyone inactive)
+                          immediately instead of burying it in a total. */}
+                      <span>{group.label} <span className="ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
@@ -1225,8 +1263,11 @@ export default function StaffListPage() {
                   {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
+                      // "Doctor · COSMO" rather than category alone — a bare
+                      // category read as a status/location to reviewers, and
+                      // didn't match the role-badge non-doctors show.
                       const secondaryLabel = person.role === 'doctor'
-                        ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
+                        ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
                         : (ROLE_LABELS[person.role] || person.role)
                       const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
                       const isMe = person.id === user?.id
@@ -1239,7 +1280,9 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''}`}
+                          className={`flex items-center gap-3 px-4 py-1 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''} ${
+                            person.is_active ? '' : 'opacity-60'
+                          }`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -1255,11 +1298,15 @@ export default function StaffListPage() {
                             <span className="block truncate text-sm font-medium text-ink">
                               {person.name ? `${person.name} ` : ''}{person.surname}
                             </span>
+                            {/* line-clamp-2, not truncate: a long category
+                                combo (e.g. "Doctor · COSMO (Psych)") wraps
+                                to a second line instead of silently cutting
+                                off. */}
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
-                              <span>{secondaryLabel}</span>
+                              <span className="line-clamp-2">{secondaryLabel}</span>
                               {contractTag && (
                                 <span
-                                  className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                  className="flex-shrink-0 rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
                                   title="Part-time (⅝ contract)"
                                 >
                                   {contractTag}
@@ -1267,19 +1314,32 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
-                          {isAdmin && person.is_admin && (
-                            <span className={`flex flex-shrink-0 items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
-                              person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
-                            }`}>
-                              {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                            </span>
-                          )}
+                          <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                            {isAdmin && person.is_admin && (
+                              <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
+                                person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
+                              }`}>
+                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                              </span>
+                            )}
+                            {!person.is_active && (
+                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                                Inactive
+                              </span>
+                            )}
+                          </div>
                           {canContact && (
                             <button
                               onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
                               aria-label="Quick actions"
                               title="Quick actions"
-                              className="flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+                              // The visible dot stays small (keeps the row
+                              // compact), but the actual tappable area is
+                              // expanded to 44px via this invisible ::after
+                              // — a real 44px button here would fight the
+                              // shorter-row goal by becoming the row's
+                              // tallest element instead of the avatar.
+                              className="relative flex-shrink-0 rounded p-1.5 text-ink-muted transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
                             >
                               <KebabIcon className="h-4 w-4" />
                             </button>
@@ -1988,6 +2048,84 @@ export default function StaffListPage() {
             <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing()} />
             <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing()} />
             <QuickActionRow label={teamsLabel} muted href={teamsHref} external onClick={teamsHref ? closeQuickActions : missing()} />
+          </div>
+        )
+      })()}
+
+      {/* ── Mobile row-tap detail sheet — profile summary, contact fields,
+           and one-tap Message/Call/Email/View Account actions. No dark
+           backdrop, matching every other popover/panel in the app —
+           closes on the first outside tap (muting whatever's under it) or
+           picking an action. ── */}
+      {detailSheetPerson && (() => {
+        const person = detailSheetPerson
+        const secondaryLabel = person.role === 'doctor'
+          ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+          : (ROLE_LABELS[person.role] || person.role)
+        const formattedPhone = formatPhoneDisplay(person.phone)
+        const targetEmail = emailById[person.id]
+        const onLeave = leaveProfileIds.has(person.id)
+        const statusLabel = !person.is_active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
+        const statusColor = !person.is_active ? 'text-flagRed' : onLeave ? 'text-statusAway' : 'text-success'
+        const firstNameForMissing = person.name || person.surname || 'this person'
+
+        return (
+          <div
+            ref={detailSheetRef}
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-slate-line bg-canvas-raised px-5 pb-6 pt-3 shadow-[0_-3px_10px_0_rgba(15,23,42,0.18)] md:hidden"
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
+                <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+              </div>
+              <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+            </div>
+
+            <div className="mt-3 space-y-1.5 border-t border-slate-line pt-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-14 flex-shrink-0 text-ink-muted">Mobile</span>
+                <span className="min-w-0 truncate text-ink">{formattedPhone || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-14 flex-shrink-0 text-ink-muted">Email</span>
+                <span className="min-w-0 truncate text-ink">{targetEmail || '—'}</span>
+                {targetEmail && person.email_verified && <CircleCheck className="h-3.5 w-3.5 flex-shrink-0 text-success" />}
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <SheetActionButton
+                icon={<MessageIcon className="h-5 w-5" />}
+                label="Message"
+                href={phoneSmsHref(person.phone)}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<PhoneIcon className="h-5 w-5" />}
+                label="Call"
+                href={phoneTelHref(person.phone)}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<EmailIcon className="h-5 w-5" />}
+                label="Email"
+                href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
+                onClick={() => setDetailSheetPerson(null)}
+                onMissing={() => contactMissing(firstNameForMissing)}
+              />
+              <SheetActionButton
+                icon={<Eye className="h-5 w-5" />}
+                label="View Account"
+                onClick={() => { setDetailSheetPerson(null); navigate(`/account/${person.id}`) }}
+              />
+            </div>
           </div>
         )
       })()}

@@ -69,7 +69,7 @@ describe('AnnualLeavePlanner', () => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
-    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, full-time 3
+    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, full-time 2
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' } }
   })

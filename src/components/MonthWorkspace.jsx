@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
-  totalLeaveSlotsForDate, capacityStateForCount,
+  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
 } from '../lib/leaveYearGrid'
 import { dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
@@ -314,11 +314,12 @@ function DayReviewModal({
   const formattedDate = formatWeekdayDate(date)
   const totalSlots = capacity.reduce((sum, col) => sum + col.count, 0)
   const dayCapacityState = capacityStateForCount(totalSlots)
-  // Once the combined cap is reached, no more slots are available in ANY
+  const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
+  // Once the combined ceiling is reached, no more slots are available in ANY
   // category regardless of that category's own headroom (e.g. MO showing
   // "1/2" would wrongly suggest a 3rd doctor could still go on leave) — so
   // every column's count is replaced with "—" rather than a real x/y.
-  const atFullCapacity = totalSlots >= maxFullTime
+  const atFullCapacity = totalSlots >= totalCeiling
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
@@ -327,7 +328,7 @@ function DayReviewModal({
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <div className="flex items-center gap-2">
             <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.light} ${dayCapacityState.onFillText}`}>
-              {totalSlots} of 3 slots taken
+              {totalSlots} of {totalCeiling} slots taken
             </span>
             <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
           </div>

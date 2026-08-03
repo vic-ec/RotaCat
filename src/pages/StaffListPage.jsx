@@ -799,45 +799,217 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold text-ink">Staff</h1>
-        <span className="mt-1 block text-sm text-ink-muted">
-          {activeAccounts.length} team member{activeAccounts.length === 1 ? '' : 's'}
-        </span>
-
-        {/* Admin-only tab row — All Staff / Approvals / User Requests. Equal
-            fixed-width columns (grid-cols-3) so a tab's width never shifts
-            when its "(n)" count appears or disappears. Active tab carries
-            two cues (teal text + underline), not color alone. */}
+      {/* Sticky header — tab row (admin-only: All Staff / Approvals / User
+          Requests) plus the Search/Sort/Filter toolbar (every viewer, only
+          while on the accounts tab). Sticks below AppLayout's own mobile
+          top bar (top-14) or right at the viewport top on desktop, which
+          has no such bar of its own (md:top-0). The mobile card list's
+          sticky group labels further down are offset to clear this bar's
+          actual rendered height, which differs by role since the tab row
+          only exists for admins — see the isAdmin ? 'top-40' : 'top-28'
+          split below. */}
+      <div className="sticky top-14 z-20 mb-4 bg-canvas pb-3 pt-2 md:top-0 md:pb-4 md:pt-0 md:shadow-[0_3px_6px_-1px_rgba(15,23,42,0.15)]">
         {isAdmin && (
-          <div className="mt-3 grid grid-cols-3 border-b border-slate-line">
+          <div className="grid grid-cols-3 border-b border-slate-line">
             <button
               onClick={() => setTab('accounts')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
-                tab === 'accounts' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+                tab === 'accounts' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
+              <UsersIcon className="h-3.5 w-3.5 flex-shrink-0" />
               All Staff
             </button>
             <button
               onClick={() => setTab('pending')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
-                tab === 'pending' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+                tab === 'pending' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
               <BellIcon className="h-3.5 w-3.5 flex-shrink-0" />
-              Approvals{pending.length > 0 ? ` (${pending.length})` : ''}
+              Approvals
+              {pending.length > 0 && (
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                  {pending.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setTab('requests')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs font-semibold transition-colors ${
-                tab === 'requests' ? 'border-accent text-accent' : 'border-transparent text-ink-light hover:text-ink'
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+                tab === 'requests' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
               <MailQuestionMarkIcon className="h-3.5 w-3.5 flex-shrink-0" />
-              User Requests{accountRequests.length > 0 ? ` (${accountRequests.length})` : ''}
+              User Requests
+              {accountRequests.length > 0 && (
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                  {accountRequests.length}
+                </span>
+              )}
             </button>
           </div>
+        )}
+
+        {tab === 'accounts' && (
+          <>
+            {/* Mobile toolbar — Search hugs to fill the remaining width,
+                Sort/Filter are fixed-size icon-only buttons pinned to the
+                right. Shares state/popovers with the desktop toolbar below
+                (only the visible copy is ever interactive), so picking
+                anything here behaves identically. */}
+            <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
+              <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
+                {searchOpen ? (
+                  <ClearableInput
+                    autoFocus
+                    type="text"
+                    value={accountFilters.q}
+                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                    placeholder="Surname or first name…"
+                    className="input-field h-[30px] py-1"
+                    clearLabel="Clear search"
+                    icon={<SearchIcon className="h-4 w-4" />}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                      accountFilters.q
+                        ? 'bg-accent text-white'
+                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    }`}
+                  >
+                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                    Search
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                aria-label="Quick Sort"
+                title="Quick Sort"
+                className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ZapIcon className="h-4 w-4" />
+              </button>
+
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  aria-label="Filter"
+                  title="Filter"
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                    desktopFilterOpen || sheetFilterCount > 0
+                      ? 'bg-accent text-white'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                  }`}
+                >
+                  <ListFilterIcon className="h-4 w-4" />
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
+                  >
+                    <ResetIcon className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop toolbar — same hugging-search + icon-only Sort/Filter
+                layout as mobile, but Sort/Filter reveal a text label on
+                hover (real mouse-hover only — the app's shared hover:
+                variant is already gated to hover-capable pointers, so
+                touchscreens never trigger this). Capped width so the row
+                doesn't stretch across a wide desktop viewport. */}
+            <div className={`hidden items-center gap-2 md:flex md:max-w-[420px] ${isAdmin ? 'md:mt-2' : ''}`}>
+              <div ref={searchWrapRef} className="min-w-0 flex-1">
+                {searchOpen ? (
+                  <ClearableInput
+                    autoFocus
+                    type="text"
+                    value={accountFilters.q}
+                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                    placeholder="Surname or first name…"
+                    className="input-field h-[30px] py-1"
+                    clearLabel="Clear search"
+                    icon={<SearchIcon className="h-4 w-4" />}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                      accountFilters.q
+                        ? 'bg-accent text-white'
+                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    }`}
+                  >
+                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
+                    Search
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={e => openDesktopSort(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopSortOpen}
+                aria-label="Quick Sort"
+                className={`group flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-accent/25 px-2 transition-colors ${
+                  desktopSortOpen
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ZapIcon className="h-4 w-4 flex-shrink-0" />
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[60px] group-hover:opacity-100">
+                  Sort
+                </span>
+              </button>
+
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={e => openDesktopFilter(e.currentTarget)}
+                  aria-haspopup="menu"
+                  aria-expanded={desktopFilterOpen}
+                  aria-label="Filter"
+                  className={`group flex h-[30px] items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-accent/25 px-2 transition-colors ${
+                    desktopFilterOpen || sheetFilterCount > 0
+                      ? 'bg-accent text-white'
+                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                  }`}
+                >
+                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[60px] group-hover:opacity-100">
+                    Filter
+                  </span>
+                </button>
+                {sheetFilterCount > 0 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
+                    aria-label="Reset filters"
+                    title="Reset filters"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
+                  >
+                    <ResetIcon className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -852,168 +1024,6 @@ export default function StaffListPage() {
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
       {!loading && tab === 'accounts' && (
         <div>
-          {/* Mobile selector switch — Search / Quick Sort / Filter, on one
-              row: Search hugs to fill the remaining width, Sort/Filter are
-              fixed-size icon-only buttons pinned to the right. Shares
-              state/popovers with the desktop switch below (only the visible
-              copy is ever interactive), so picking anything here behaves
-              identically. */}
-          <div className="mb-4 flex items-center gap-2 md:hidden">
-            <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
-              {searchOpen ? (
-                <ClearableInput
-                  autoFocus
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                    accountFilters.q
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  Search
-                </button>
-              )}
-            </div>
-
-            <button
-              onClick={e => openDesktopSort(e.currentTarget)}
-              aria-haspopup="menu"
-              aria-expanded={desktopSortOpen}
-              aria-label="Quick Sort"
-              title="Quick Sort"
-              className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
-                desktopSortOpen
-                  ? 'bg-accent text-white'
-                  : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-              }`}
-            >
-              <ZapIcon className="h-4 w-4" />
-            </button>
-
-            <div className="relative flex-shrink-0">
-              <button
-                onClick={e => openDesktopFilter(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopFilterOpen}
-                aria-label="Filter"
-                title="Filter"
-                className={`flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-accent/25 transition-colors ${
-                  desktopFilterOpen || sheetFilterCount > 0
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ListFilterIcon className="h-4 w-4" />
-              </button>
-              {sheetFilterCount > 0 && (
-                <button
-                  onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                  aria-label="Reset filters"
-                  title="Reset filters"
-                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
-                >
-                  <ResetIcon className="h-2.5 w-2.5" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop selector switch — Search / Quick Sort / Filter. Capped
-              to well under half the grid's own width (matching the table's
-              min-w below, not the wider page container), split equally
-              between the three. */}
-          <div className="mb-4 hidden items-center gap-3 md:flex md:max-w-[650px]">
-            <div ref={searchWrapRef} className="flex-1">
-              {searchOpen ? (
-                <ClearableInput
-                  autoFocus
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              ) : (
-                <button
-                  onClick={() => setSearchOpen(true)}
-                  className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                    accountFilters.q
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                  Search
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1">
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                Quick Sort
-                <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopSortOpen ? 'rotate-180' : ''}`} />
-              </button>
-            </div>
-
-            <div className="flex-1">
-              {/* Reset icon is absolutely positioned over the trigger,
-                  not a flex sibling — so "Filter" stays perfectly centered
-                  whether or not the icon is showing, instead of shifting
-                  as the trigger's available width changes. */}
-              <div
-                className={`relative flex h-[30px] w-full items-center rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopFilterOpen || sheetFilterCount > 0
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  className="flex h-full w-full items-center justify-center gap-1.5 px-2"
-                >
-                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  Filter
-                  <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${desktopFilterOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-                  >
-                    <ResetIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
           {activeAccounts.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No approved accounts yet.</p>
@@ -1038,7 +1048,12 @@ export default function StaffListPage() {
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
-                      className="sticky top-14 z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
+                      // Offset to clear the sticky header above it — taller
+                      // for admins, who also get the tab row on top of the
+                      // toolbar (see the header's own comment for the maths).
+                      className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
+                        isAdmin ? 'top-40' : 'top-28'
+                      }`}
                     >
                       <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
                       <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -2008,6 +2023,14 @@ function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+    </svg>
+  )
+}
+
+function UsersIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
     </svg>
   )
 }

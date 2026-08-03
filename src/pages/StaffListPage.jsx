@@ -7,6 +7,7 @@ import ClearableInput from '../components/ClearableInput'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
+import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck, CircleX } from 'lucide-react'
 
@@ -461,7 +462,10 @@ export default function StaffListPage() {
       longPressFiredRef.current = false
       return
     }
-    if (isAdmin) navigate(`/account/${person.id}`)
+    // Every viewer can open the account page now — read-only for anyone
+    // but the account owner or an admin (enforced by AccountSettingsPage
+    // itself, not gated here).
+    navigate(`/account/${person.id}`)
   }
 
   useEffect(() => {
@@ -1116,7 +1120,7 @@ export default function StaffListPage() {
                     <th className="px-2.5 py-2">Contact</th>
                     <th className="px-2.5 py-2">Status</th>
                     {isAdmin && <th className="px-2.5 py-2">Is Admin</th>}
-                    {canContact && <th className="px-2.5 py-2 w-10"><span className="sr-only">Actions</span></th>}
+                    {canContact && <th className="px-2.5 py-2 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -1281,14 +1285,14 @@ export default function StaffListPage() {
                                 <div className="flex items-center justify-end gap-0.5">
                                   <RowActionIcon
                                     icon={<MessageIcon className="h-4 w-4" />}
-                                    title="Message"
-                                    href={phoneSmsHref(person.phone)}
+                                    title="Message (MS Teams)"
+                                    href={msTeamsChatHref(targetEmail)}
                                     onMissing={() => contactMissing(firstNameForMissing)}
                                   />
                                   <RowActionIcon
                                     icon={<PhoneIcon className="h-4 w-4" />}
-                                    title="Call"
-                                    href={phoneTelHref(person.phone)}
+                                    title="Call (MS Teams)"
+                                    href={msTeamsCallHref(targetEmail)}
                                     onMissing={() => contactMissing(firstNameForMissing)}
                                   />
                                   <RowActionIcon
@@ -1297,14 +1301,6 @@ export default function StaffListPage() {
                                     href={targetEmail && person.email_verified ? `mailto:${targetEmail}` : null}
                                     onMissing={() => contactMissing(firstNameForMissing)}
                                   />
-                                  <button
-                                    onClick={e => { e.stopPropagation(); toggleQuickActions(person, e.currentTarget) }}
-                                    aria-label="More actions"
-                                    title="More actions"
-                                    className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
-                                  >
-                                    <KebabIcon className="h-4 w-4" />
-                                  </button>
                                 </div>
                               </td>
                             )}
@@ -1820,14 +1816,21 @@ export default function StaffListPage() {
       })()}
 
       {/* ── Message/Call flyout — a separate popover cascading below
-           whichever row was tapped, always rolling down, its two options in
-           a lighter color than the root menu's. ── */}
+           whichever row was tapped, always rolling down, its options in a
+           lighter color than the root menu's. Message adds a Teams "Chat"
+           option below Mobile/WhatsApp; Call adds a Teams "MS Teams" call
+           option below Mobile/WhatsApp — both keyed off the person's email
+           rather than phone, since that's what Teams itself resolves an
+           account by. ── */}
       {quickActionPerson && secondaryFor && secondaryAnchor && (() => {
         const firstName = quickActionPerson.name || quickActionPerson.surname || 'this person'
         const telHref = phoneTelHref(quickActionPerson.phone)
         const smsHref = phoneSmsHref(quickActionPerson.phone)
         const waHref = phoneWhatsAppHref(quickActionPerson.phone)
         const mobileHref = secondaryFor === 'message' ? smsHref : telHref
+        const targetEmail = emailById[quickActionPerson.id]
+        const teamsHref = secondaryFor === 'message' ? msTeamsChatHref(targetEmail) : msTeamsCallHref(targetEmail)
+        const teamsLabel = secondaryFor === 'message' ? 'Chat' : 'MS Teams'
 
         function missing() {
           return () => { contactMissing(firstName); closeQuickActions() }
@@ -1843,8 +1846,9 @@ export default function StaffListPage() {
             style={{ ...positionStyle, width: menuWidth }}
             className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
           >
-            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing('Mobile')} />
-            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing('WhatsApp')} />
+            <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing()} />
+            <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing()} />
+            <QuickActionRow label={teamsLabel} muted href={teamsHref} external onClick={teamsHref ? closeQuickActions : missing()} />
           </div>
         )
       })()}

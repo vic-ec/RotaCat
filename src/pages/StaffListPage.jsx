@@ -9,7 +9,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
 import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
-import { CalendarArrowDown, CalendarArrowUp, Eye, CircleCheck, CircleX } from 'lucide-react'
+import { Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const CATEGORY_LABELS = {
@@ -180,6 +180,88 @@ function RowActionIcon({ icon, href, title, onMissing }) {
   )
 }
 
+// Shared Search/Sort/Filter toolbar for the Approvals and User Requests
+// views — icon-only on mobile, icon + persistent label on desktop (one
+// element with responsive classes, not duplicated mobile/desktop copies,
+// since the search input here is always visible rather than the accounts
+// tab's own click-to-expand icon button). Sort is a single button that
+// flips between oldest/newest first rather than opening a menu, since
+// it's a plain binary choice. Filter opens a small single-level popover
+// (role only) — there's no equivalent to the accounts tab's role/category/
+// status/admin filter set for these two views.
+function SimpleListToolbar({
+  searchValue, onSearchChange, searchPlaceholder,
+  sortTitle, onToggleSort,
+  filterOpen, filterActive, onToggleFilter, filterAnchor, filterMenuRef,
+  filterOptions, filterValue, onFilterChange,
+}) {
+  const menuWidth = 160
+  const positionStyle = filterAnchor ? computeAnchoredPosition(filterAnchor, menuWidth) : null
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1 md:w-56 md:flex-none">
+        <ClearableInput
+          type="text"
+          value={searchValue}
+          onChange={e => onSearchChange(e.target.value)}
+          placeholder={searchPlaceholder}
+          className="input-field h-[30px] py-1"
+          clearLabel="Clear search"
+          icon={<SearchIcon className="h-4 w-4" />}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onToggleSort}
+        title={sortTitle}
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink md:w-24"
+      >
+        <ZapIcon className="h-4 w-4 flex-shrink-0" />
+        <span className="hidden md:inline">Sort</span>
+      </button>
+      <div className="relative flex-shrink-0">
+        <button
+          type="button"
+          onClick={onToggleFilter}
+          aria-haspopup="menu"
+          aria-expanded={filterOpen}
+          className={`flex h-[30px] w-[30px] items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors md:w-24 ${
+            filterOpen || filterActive
+              ? 'bg-accent text-white'
+              : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+          }`}
+        >
+          <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+          <span className="hidden md:inline">Filter</span>
+        </button>
+        {filterOpen && positionStyle && (
+          <div
+            ref={filterMenuRef}
+            role="menu"
+            style={{ ...positionStyle, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          >
+            {filterOptions.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onFilterChange(opt.value)}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === filterValue
+                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // One row of the Pending-approval list. Selection checkbox feeds the bulk
 // action bar above the list; clicking anywhere in the row (or the Eye
 // button specifically) navigates to the dedicated review page rather than
@@ -315,6 +397,22 @@ export default function StaffListPage() {
   const [selectedRequestIds, setSelectedRequestIds] = useState(new Set())
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [requestsSortDirection, setRequestsSortDirection] = useState('asc')
+
+  // Approvals/User Requests toolbars — each view gets its own search text
+  // and role filter, independent of the accounts tab's own accountFilters.
+  const [pendingSearchQuery, setPendingSearchQuery] = useState('')
+  const [pendingRoleFilter, setPendingRoleFilter] = useState('all')
+  const [pendingFilterOpen, setPendingFilterOpen] = useState(false)
+  const [pendingFilterAnchor, setPendingFilterAnchor] = useState(null)
+  const pendingFilterMenuRef = useRef(null)
+  useDismissablePopover(pendingFilterOpen, () => setPendingFilterOpen(false), pendingFilterMenuRef)
+
+  const [requestsSearchQuery, setRequestsSearchQuery] = useState('')
+  const [requestsRoleFilter, setRequestsRoleFilter] = useState('all')
+  const [requestsFilterOpen, setRequestsFilterOpen] = useState(false)
+  const [requestsFilterAnchor, setRequestsFilterAnchor] = useState(null)
+  const requestsFilterMenuRef = useRef(null)
+  useDismissablePopover(requestsFilterOpen, () => setRequestsFilterOpen(false), requestsFilterMenuRef)
 
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
@@ -788,7 +886,32 @@ export default function StaffListPage() {
   const sheetFilterCount = ['role', 'category', 'status', 'isAdmin'].filter(k => accountFilters[k] !== 'all').length
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
-  const displayedRequests = requestsSortDirection === 'asc' ? accountRequests : [...accountRequests].reverse()
+
+  // ── Approvals/User Requests: search + role filter, same substring-match
+  // and role-equality rules as the accounts tab's own filter. ──
+  const pendingRoleOptions = [...new Set(pending.map(p => p.role).filter(Boolean))].sort()
+  const filteredPending = pending.filter(person => {
+    const q = pendingSearchQuery.trim().toLowerCase()
+    if (q) {
+      const fullName = `${person.surname || ''} ${person.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    if (pendingRoleFilter !== 'all' && person.role !== pendingRoleFilter) return false
+    return true
+  })
+  const orderedPending = pendingSortDirection === 'asc' ? filteredPending : [...filteredPending].reverse()
+
+  const requestsRoleOptions = [...new Set(accountRequests.map(r => r.requester?.role).filter(Boolean))].sort()
+  const filteredRequests = accountRequests.filter(r => {
+    const q = requestsSearchQuery.trim().toLowerCase()
+    if (q) {
+      const fullName = `${r.requester?.surname || ''} ${r.requester?.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    if (requestsRoleFilter !== 'all' && r.requester?.role !== requestsRoleFilter) return false
+    return true
+  })
+  const displayedRequests = requestsSortDirection === 'asc' ? filteredRequests : [...filteredRequests].reverse()
   // Person/Contact/Status, plus the Is Admin and Actions columns only when
   // they're actually rendered.
   const staffTableCols = 3 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
@@ -801,19 +924,21 @@ export default function StaffListPage() {
     <div className="mx-auto max-w-7xl">
       {/* Sticky header — tab row (admin-only: All Staff / Approvals / User
           Requests) plus the Search/Sort/Filter toolbar (every viewer, only
-          while on the accounts tab). Sticks below AppLayout's own mobile
-          top bar (top-14) or right at the viewport top on desktop, which
-          has no such bar of its own (md:top-0). The mobile card list's
-          sticky group labels further down are offset to clear this bar's
-          actual rendered height, which differs by role since the tab row
-          only exists for admins — see the isAdmin ? 'top-40' : 'top-28'
-          split below. */}
-      <div className="sticky top-14 z-20 mb-4 bg-canvas pb-3 pt-2 md:top-0 md:pb-4 md:pt-0 md:shadow-[0_3px_6px_-1px_rgba(15,23,42,0.15)]">
+          while on the accounts tab). top-[49px]: AppLayout's mobile
+          <header> is exactly 49px tall (32px avatar + py-2's 16px + a 1px
+          border-b) — top-14 (56px) left a 7px gap scrolled content showed
+          through. md:top-0 on desktop, which has no top bar of its own
+          (just the persistent sidebar). The mobile card list's sticky
+          group labels further down are offset to clear this bar's actual
+          rendered height (49px + this bar's own height, which differs by
+          role since the tab row only exists for admins) — see the
+          isAdmin ? 'top-[142px]' : 'top-[99px]' split below. */}
+      <div className="sticky top-[49px] z-20 mb-4 bg-canvas pb-3 pt-2 md:top-0 md:pb-4 md:pt-0 md:shadow-[0_3px_6px_-1px_rgba(15,23,42,0.15)]">
         {isAdmin && (
-          <div className="grid grid-cols-3 border-b border-slate-line">
+          <div className="grid grid-cols-3 border-b border-slate-line md:flex md:w-fit">
             <button
               onClick={() => setTab('accounts')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
                 tab === 'accounts' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
@@ -822,7 +947,7 @@ export default function StaffListPage() {
             </button>
             <button
               onClick={() => setTab('pending')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
                 tab === 'pending' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
@@ -836,7 +961,7 @@ export default function StaffListPage() {
             </button>
             <button
               onClick={() => setTab('requests')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors ${
+              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
                 tab === 'requests' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
               }`}
             >
@@ -929,14 +1054,11 @@ export default function StaffListPage() {
               </div>
             </div>
 
-            {/* Desktop toolbar — same hugging-search + icon-only Sort/Filter
-                layout as mobile, but Sort/Filter reveal a text label on
-                hover (real mouse-hover only — the app's shared hover:
-                variant is already gated to hover-capable pointers, so
-                touchscreens never trigger this). Capped width so the row
-                doesn't stretch across a wide desktop viewport. */}
-            <div className={`hidden items-center gap-2 md:flex md:max-w-[420px] ${isAdmin ? 'md:mt-2' : ''}`}>
-              <div ref={searchWrapRef} className="min-w-0 flex-1">
+            {/* Desktop toolbar — Search, Sort, and Filter all at fixed,
+                stable widths (not flex-1/hugging) so the row never reflows;
+                Sort/Filter always show their icon + label. */}
+            <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
+              <div ref={searchWrapRef} className="w-56 flex-shrink-0">
                 {searchOpen ? (
                   <ClearableInput
                     autoFocus
@@ -967,17 +1089,14 @@ export default function StaffListPage() {
                 onClick={e => openDesktopSort(e.currentTarget)}
                 aria-haspopup="menu"
                 aria-expanded={desktopSortOpen}
-                aria-label="Quick Sort"
-                className={`group flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-accent/25 px-2 transition-colors ${
+                className={`flex h-[30px] w-24 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopSortOpen
                     ? 'bg-accent text-white'
                     : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
                 <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[60px] group-hover:opacity-100">
-                  Sort
-                </span>
+                Sort
               </button>
 
               <div className="relative flex-shrink-0">
@@ -985,17 +1104,14 @@ export default function StaffListPage() {
                   onClick={e => openDesktopFilter(e.currentTarget)}
                   aria-haspopup="menu"
                   aria-expanded={desktopFilterOpen}
-                  aria-label="Filter"
-                  className={`group flex h-[30px] items-center justify-center gap-1.5 overflow-hidden rounded-lg border border-accent/25 px-2 transition-colors ${
+                  className={`flex h-[30px] w-24 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                     desktopFilterOpen || sheetFilterCount > 0
                       ? 'bg-accent text-white'
                       : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
                   }`}
                 >
                   <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[60px] group-hover:opacity-100">
-                    Filter
-                  </span>
+                  Filter
                 </button>
                 {sheetFilterCount > 0 && (
                   <button
@@ -1010,6 +1126,52 @@ export default function StaffListPage() {
               </div>
             </div>
           </>
+        )}
+
+        {tab === 'pending' && (
+          <div className={isAdmin ? 'mt-2' : ''}>
+            <SimpleListToolbar
+              searchValue={pendingSearchQuery}
+              onSearchChange={setPendingSearchQuery}
+              searchPlaceholder="Surname or first name…"
+              sortTitle={pendingSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
+              onToggleSort={() => setPendingSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
+              filterOpen={pendingFilterOpen}
+              filterActive={pendingRoleFilter !== 'all'}
+              onToggleFilter={e => {
+                if (pendingFilterOpen) { setPendingFilterOpen(false) }
+                else { setPendingFilterAnchor(e.currentTarget.getBoundingClientRect()); setPendingFilterOpen(true) }
+              }}
+              filterAnchor={pendingFilterAnchor}
+              filterMenuRef={pendingFilterMenuRef}
+              filterOptions={[{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+              filterValue={pendingRoleFilter}
+              onFilterChange={v => { setPendingRoleFilter(v); setPendingFilterOpen(false) }}
+            />
+          </div>
+        )}
+
+        {tab === 'requests' && (
+          <div className={isAdmin ? 'mt-2' : ''}>
+            <SimpleListToolbar
+              searchValue={requestsSearchQuery}
+              onSearchChange={setRequestsSearchQuery}
+              searchPlaceholder="Surname or first name…"
+              sortTitle={requestsSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
+              onToggleSort={() => setRequestsSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
+              filterOpen={requestsFilterOpen}
+              filterActive={requestsRoleFilter !== 'all'}
+              onToggleFilter={e => {
+                if (requestsFilterOpen) { setRequestsFilterOpen(false) }
+                else { setRequestsFilterAnchor(e.currentTarget.getBoundingClientRect()); setRequestsFilterOpen(true) }
+              }}
+              filterAnchor={requestsFilterAnchor}
+              filterMenuRef={requestsFilterMenuRef}
+              filterOptions={[{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
+              filterValue={requestsRoleFilter}
+              onFilterChange={v => { setRequestsRoleFilter(v); setRequestsFilterOpen(false) }}
+            />
+          </div>
         )}
       </div>
 
@@ -1052,7 +1214,7 @@ export default function StaffListPage() {
                       // for admins, who also get the tab row on top of the
                       // toolbar (see the header's own comment for the maths).
                       className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-40' : 'top-28'
+                        isAdmin ? 'top-[142px]' : 'top-[99px]'
                       }`}
                     >
                       <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
@@ -1338,8 +1500,8 @@ export default function StaffListPage() {
 
       {/* ── Tab: pending account approvals (admin only) ── */}
       {!loading && isAdmin && tab === 'pending' && (
-        <div className="md:max-w-2xl">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mx-auto md:max-w-2xl">
+          <div className="mb-4">
             <button
               onClick={() => setTab('accounts')}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
@@ -1347,34 +1509,14 @@ export default function StaffListPage() {
               <ArrowLeftIcon className="h-4 w-4" />
               All staff
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPendingSortDirection('asc')}
-                title="Old to new"
-                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                  pendingSortDirection === 'asc'
-                    ? 'border-transparent bg-accent text-white'
-                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                <CalendarArrowDown className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setPendingSortDirection('desc')}
-                title="New to old"
-                className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                  pendingSortDirection === 'desc'
-                    ? 'border-transparent bg-accent text-white'
-                    : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                <CalendarArrowUp className="h-4 w-4" />
-              </button>
-            </div>
           </div>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
+            </div>
+          ) : filteredPending.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
             </div>
           ) : (
             <>
@@ -1413,7 +1555,7 @@ export default function StaffListPage() {
                   />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
                 </div>
-                {(pendingSortDirection === 'asc' ? pending : [...pending].reverse()).map((person) => (
+                {orderedPending.map((person) => (
                   <PendingApprovalRow
                     key={person.id}
                     person={person}
@@ -1434,7 +1576,7 @@ export default function StaffListPage() {
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
         <div className="mx-auto md:max-w-2xl">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4">
             <button
               onClick={() => setTab('accounts')}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
@@ -1442,37 +1584,15 @@ export default function StaffListPage() {
               <ArrowLeftIcon className="h-4 w-4" />
               All staff
             </button>
-            {accountRequests.length > 0 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setRequestsSortDirection('asc')}
-                  title="Old to new"
-                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                    requestsSortDirection === 'asc'
-                      ? 'border-transparent bg-accent text-white'
-                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                  }`}
-                >
-                  <CalendarArrowDown className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setRequestsSortDirection('desc')}
-                  title="New to old"
-                  className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-                    requestsSortDirection === 'desc'
-                      ? 'border-transparent bg-accent text-white'
-                      : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-                  }`}
-                >
-                  <CalendarArrowUp className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </div>
 
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No account requests pending review.</p>
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className="card p-10 text-center">
+              <p className="text-sm text-ink-muted">No requests match these filters.</p>
             </div>
           ) : (
             <>

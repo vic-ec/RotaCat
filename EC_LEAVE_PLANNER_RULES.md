@@ -72,7 +72,7 @@ when they differ, for HR-audit visibility.
 
 **How the app enforces the capacity limit:** the sheet's "no more than one
 person per slot" rule is applied to the Annual Leave grid as a hard cap per
-category column, plus a combined cap across all four "full-time EC doctor"
+category column, plus a combined cap across the three "full-time EC doctor"
 columns together — both checked automatically when a doctor submits an
 annual leave request, not just displayed after the fact:
 
@@ -83,22 +83,25 @@ annual leave request, not just displayed after the fact:
 | EC COSMO / Intern | COSMO, EC_COSMO, EC_COSMO_Intern, Intern | 2 |
 | OT COSMO / Intern | COSMOPsych, OT_COSMO, OT_COSMO_Intern | 1 |
 
-**Combined cap — no more than 3 full-time EC doctors (MO + Registrar + EC
-COSMO/Intern + OT COSMO/Intern combined) on leave at once.** All four
-columns count toward this shared ceiling — MO and EC COSMO/Intern may each
-contribute up to 2 of the 3 slots, Registrar and OT COSMO/Intern up to 1
-each. Valid combinations at the 3-doctor ceiling:
+**Combined cap — no more than 2 full-time EC doctors (MO + Registrar + EC
+COSMO/Intern combined) on leave at once.** OT COSMO/Intern is a separate
+stream with its own independent cap (1) and isn't part of this combined
+cap — it's additive on top, giving an overall ceiling of **3 doctors (any
+category) on leave at once.** Valid combinations of full-time EC doctors at
+the 2-doctor combined cap:
 
-- 2 MO + 1 Registrar
-- 2 MO + 1 EC COSMO/Intern
-- 2 MO + 1 OT COSMO/Intern
-- 2 EC COSMO/Intern + 1 Registrar
-- 2 EC COSMO/Intern + 1 OT COSMO/Intern
-- 1 MO + 1 Registrar + 1 EC COSMO/Intern or OT COSMO/Intern
+1. 2 MO
+2. 1 MO + 1 Registrar
+3. 1 MO + 1 EC COSMO/Intern
+4. 1 Registrar + 1 EC COSMO/Intern
+5. 2 EC COSMO/Intern
 
-Never more than 1 Registrar or more than 1 OT COSMO/Intern concurrently
-(each already capped at 1 above), and never more than 3 full-time EC doctors
-combined even if each individual column is still under its own cap.
+Never more than 1 Registrar concurrently (already capped at 1 above), and
+never more than 2 full-time EC doctors combined even if each individual
+column is still under its own cap. The separate OT COSMO/Intern cap of 1
+(this includes any COSMO/Intern Psych) then adds to whichever full-time
+combination is on leave — e.g. 2 MO + 1 OT COSMO/Intern reaches the
+3-doctor overall ceiling.
 
 Consultant doctors have their own uncapped "Other" column on the grid — no
 concurrency cap applies to them — but per the Consultant leave privacy rule
@@ -117,6 +120,10 @@ Supabase (`constraints` table:
 - Pending requests of any leave type (including annual leave awaiting
   approval) also show here, since they haven't been approved onto the
   Annual Leave planner yet.
+- **No more than 3 doctors (any category) may apply for Special Leave at
+  the same time.** Unlike the Annual Leave capacity limits above, this is
+  currently a documented guideline only — it isn't yet checked
+  automatically at submission.
 
 ### Courses
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   columnForLeaveCategory, labelForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
-  totalLeaveSlotsForDate, capacityStateForCount, LEAVE_CAPACITY_STATES,
+  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, LEAVE_CAPACITY_STATES,
 } from './leaveYearGrid'
 
 describe('columnForLeaveCategory', () => {
@@ -176,39 +176,51 @@ describe('findFullTimeAggregateBreach', () => {
     ['2026-08-10', new Map([['MO', mo], ['Registrar', registrar], ['EC_COSMO', ecCosmo]])],
   ])
 
-  it('breaches once 1 MO + 1 Registrar + 1 EC COSMO/Intern (the 3-total cap) is already reached', () => {
-    const existingCountsByDate = counts(1, 1, 1)
+  it('breaches once 1 MO + 1 Registrar (the 2-total cap) is already reached', () => {
+    const existingCountsByDate = counts(1, 1, 0)
     const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
     })
     expect(result.hasBreach).toBe(true)
   })
 
-  it('allows 2 MO + 1 Registrar (individual caps satisfied, aggregate at exactly 3)', () => {
-    const existingCountsByDate = counts(2, 1, 0)
-    // A 3rd MO would breach the per-column cap separately; check the aggregate alone here.
+  it('allows 2 MO (individual cap satisfied, aggregate at exactly 2)', () => {
+    const existingCountsByDate = counts(2, 0, 0)
     const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
     })
-    expect(result.hasBreach).toBe(true) // adding a 4th full-time doctor of any kind breaches
+    expect(result.hasBreach).toBe(true) // adding a 3rd full-time doctor of any kind breaches
   })
 
   it('does not breach when under the aggregate cap', () => {
     const existingCountsByDate = counts(1, 0, 0)
     const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
     })
     expect(result.hasBreach).toBe(false)
   })
 
-  it('counts OT COSMO/Intern toward the full-time aggregate too', () => {
+  it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
     const existingCountsByDate = new Map([
       ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_COSMO', 1]])],
     ])
     const result = findFullTimeAggregateBreach({
       dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
     })
-    expect(result.hasBreach).toBe(true) // MO + Registrar + OT_COSMO already at 3; a 4th of any kind breaches
+    // If OT_COSMO counted, the full-time total would already be 3 and a 4th
+    // would breach a maxTotal of 3; excluded, it's only 2 (MO+Registrar), so
+    // a 3rd full-time doctor still fits exactly at the cap.
+    expect(result.hasBreach).toBe(false)
+  })
+})
+
+describe('totalLeaveCeiling', () => {
+  it('adds every non-full-time column\'s own max on top of the full-time combined cap', () => {
+    expect(totalLeaveCeiling(2, { OT_COSMO: 1 })).toBe(3)
+  })
+
+  it('falls back to a column\'s defaultMax when it is missing from maxByColumnKey', () => {
+    expect(totalLeaveCeiling(2, {})).toBe(3) // OT_COSMO defaults to 1
   })
 })
 

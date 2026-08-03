@@ -9,7 +9,10 @@ import InlineRuleHint from './InlineRuleHint'
 // leave, course/CPD, sick, weekend exception) at any status, PLUS any
 // pending request regardless of type — including pending annual leave,
 // which doesn't show on the Annual Leave tab until approved. No concurrency
-// cap applies here (that rule only covers annual leave).
+// cap is enforced in code here (that rule only covers annual leave) — the
+// EC Leave Planner sheet does cap special leave at 3 doctors (any category)
+// concurrently, but that's currently a documented guideline only, not a
+// submission-time check.
 export default function SpecialLeavePlanner() {
   const { profile, isClerk } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
@@ -60,7 +63,7 @@ export default function SpecialLeavePlanner() {
           "The requested day/shift is made up elsewhere, unless it's flagged as a \"special leave day.\"",
           'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
           'Italicised entries are pending admin approval.',
-          'No concurrent-leave limit applies here — that cap only covers approved annual leave (see the Annual Leave tab).',
+          'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
         ]}
       />
 

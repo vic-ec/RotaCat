@@ -55,7 +55,9 @@ export default function LeavePlannerPage() {
   const showTeamLeaveTab = isAdmin || (!canSubmitLeave && !isClerk)
   const tabs = [
     ...(canSubmitLeave ? [{ key: 'my-leave', label: 'My leave' }] : []),
-    ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team leave' }] : []),
+    // "Team", not "Team leave" — the "Leave" module context is already
+    // established by the page itself, so the tab label doesn't need to repeat it.
+    ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team' }] : []),
     { key: 'planners', label: 'Planners' },
     { key: 'rules', label: 'Rules' },
   ]
@@ -122,33 +124,40 @@ export default function LeavePlannerPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="flex flex-wrap rounded-lg border border-slate-line bg-canvas-raised overflow-hidden w-fit">
+      {/* Module nav: switches which Leave destination is showing. Underlined
+          selection, not a filled segmented control, so it reads as primary
+          navigation rather than a same-level option group with the Planners
+          sub-tabs below. Scrolls horizontally only if it doesn't fit. */}
+      <nav className="flex gap-6 overflow-x-auto border-b border-slate-line" aria-label="Leave">
         {tabs.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-              tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+            className={`shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2.5 text-sm font-medium transition-colors ${
+              tab === t.key ? 'border-accent text-ink' : 'border-transparent text-ink-light hover:text-ink'
             }`}
           >
             {t.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       {tab === 'planners' && plannerTabs.length > 1 && (
-        <div className="mt-3 flex flex-wrap rounded-lg border border-slate-line bg-canvas-sunken/60 p-0.5 w-fit">
-          {plannerTabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setPlannerTab(t.key)}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                plannerTab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-raised active:bg-canvas-raised'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="mt-4">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Planners</h2>
+          <nav className="flex gap-5 overflow-x-auto border-b border-slate-line" aria-label="Planners">
+            {plannerTabs.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setPlannerTab(t.key)}
+                className={`shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-1.5 text-xs font-medium transition-colors ${
+                  plannerTab === t.key ? 'border-accent text-ink' : 'border-transparent text-ink-light hover:text-ink'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </nav>
         </div>
       )}
 

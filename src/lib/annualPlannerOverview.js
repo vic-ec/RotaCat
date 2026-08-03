@@ -4,7 +4,7 @@
 // for detailed review/editing), kept separate from the Supabase fetch so
 // it's unit-testable without mocking the client.
 import { datesInRange, monthBounds } from './dateRange'
-import { LEAVE_CAPACITY_COLUMNS, totalLeaveSlotsForDate, capacityStateForCount } from './leaveYearGrid'
+import { LEAVE_CAPACITY_COLUMNS, LEAVE_CAPACITY_STATES, totalLeaveSlotsForDate, capacityStateForCount } from './leaveYearGrid'
 
 // Every date across a capacity-column count map (countByColumnPerDate's
 // output, over pending+approved leave combined — that's what the
@@ -98,6 +98,41 @@ export function monthTotalCapacityBreakdown(year, month, countByColumnPerDate) {
     if (level >= 1) daysAtLevel[level] += 1
   }
   return [1, 2, 3].map(level => ({ level, days: daysAtLevel[level] }))
+}
+
+// Maps one capacity column's own count/max on a single day to one of the 4
+// LEAVE_CAPACITY_STATES, by how full that column is *relative to its own
+// cap* — unlike capacityStateForCount (which reads a fixed 0-3 combined
+// headcount), a column's cap can be 1 or 2, so "half full" means something
+// different per column. A cap-1 column has no middle ground: it's either
+// available or already at capacity, never "limited"/"near capacity" — which
+// is the correct read (there genuinely isn't a partial state to show).
+export function categoryDayCapacityState(count, max) {
+  if (max == null || count <= 0) return LEAVE_CAPACITY_STATES[0]
+  const ratio = count / max
+  if (ratio >= 1) return LEAVE_CAPACITY_STATES[3]
+  return LEAVE_CAPACITY_STATES[ratio <= 0.5 ? 1 : 2]
+}
+
+// Per-day markers for one month, scoped to a single capacity column (or
+// 'all' for the existing blended/combined headcount reading) — the mobile
+// year overview's per-category "which month has room for my category" view
+// (see categoryDayCapacityState above for why this differs from the
+// combined-headcount markers monthDayMarkers already provides).
+export function monthCapacityMarkers(year, month, columnKey, { countByColumnPerDate, maxByColumnKey, publicHolidaysByDate = new Map() }) {
+  const { start, end } = monthBounds(year, month)
+  return datesInRange(start, end).map(date => {
+    const perColumn = countByColumnPerDate.get(date)
+    const count = columnKey === 'all' ? totalLeaveSlotsForDate(date, countByColumnPerDate) : (perColumn?.get(columnKey) || 0)
+    const capacityState = columnKey === 'all'
+      ? capacityStateForCount(count)
+      : categoryDayCapacityState(count, maxByColumnKey[columnKey])
+    return {
+      date, count, capacityState,
+      isPublicHoliday: publicHolidaysByDate.has(date),
+      publicHolidayName: publicHolidaysByDate.get(date) || null,
+    }
+  })
 }
 
 // Public holidays falling within a month — the inspector's "public

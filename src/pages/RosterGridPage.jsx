@@ -13,6 +13,7 @@ import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
+import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -73,6 +74,7 @@ export default function RosterGridPage() {
   const [profiles, setProfiles] = useState([])   // all schedulable doctors
   const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
+  const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('month') // 'month' | 'week'
@@ -119,7 +121,11 @@ export default function RosterGridPage() {
       const [rosterRes, entriesRes, profilesRes, consultantProfilesRes, shiftTypesRes, phRes] = await Promise.all([
         supabase.from('roster_months').select('*').eq('id', id).single(),
         supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position', { nullsFirst: true }),
-        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type').eq('is_approved', true).neq('category', 'Consultant'),
+        // Schedulable roster assignees (§1.2): all doctor categories except
+        // Consultant (its own column below), excluding locums/clerks
+        // (role != 'doctor') and inactive profiles.
+        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type')
+          .eq('is_approved', true).eq('is_active', true).eq('role', 'doctor').neq('category', 'Consultant'),
         supabase.from('profiles').select('id, name, surname, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
@@ -166,6 +172,24 @@ export default function RosterGridPage() {
         phMap[ph.date?.slice(0, 10)] = ph.name
       }
       setPublicHolidays(phMap)
+
+      // Approved leave overlapping this month (§1.2) — a doctor on leave
+      // for a given date shouldn't appear in that date's assignment
+      // dropdowns. Fetched separately since it needs the month bounds from
+      // rosterRes, which only resolves once the Promise.all above lands.
+      const { start: monthStart, end: monthEnd } = monthBounds(rosterRes.data.year, rosterRes.data.month)
+      const { data: leaveData } = await supabase
+        .from('leave_requests')
+        .select('profile_id, date_from, date_to')
+        .eq('status', 'approved')
+        .lte('date_from', monthEnd)
+        .gte('date_to', monthStart)
+      const leaveMap = {}
+      for (const lr of (leaveData || [])) {
+        const list = leaveMap[lr.profile_id] || (leaveMap[lr.profile_id] = [])
+        list.push([lr.date_from?.slice(0, 10), lr.date_to?.slice(0, 10)])
+      }
+      setLeaveByProfile(leaveMap)
     } catch (err) {
       setError(err.message)
     }
@@ -655,9 +679,18 @@ export default function RosterGridPage() {
       {/* Dropdown */}
       {openDropdown && (
         <DoctorDropdown
-          profiles={profiles.filter(p => !findSameDayConflict({
-            entries, date: openDropdown.date, profileId: p.id, excludeEntryId: openDropdown.entryId,
-          }))}
+          profiles={profiles.filter(p =>
+            // Already working a different shift this same day (§1.3)
+            !findSameDayConflict({
+              entries, date: openDropdown.date, profileId: p.id, excludeEntryId: openDropdown.entryId,
+            })
+            // Worked a night shift the day before — needs post-call rest (§1.4)
+            && !workedNightShiftPreviousDay({
+              entries, shiftTypes, date: openDropdown.date, profileId: p.id,
+            })
+            // On approved leave this date (§1.2)
+            && !isOnApprovedLeave({ leaveByProfile, profileId: p.id, date: openDropdown.date }),
+          )}
           search={dropdownSearch}
           onSearchChange={setDropdownSearch}
           onSelect={profileId => assignDoctor(profileId, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}

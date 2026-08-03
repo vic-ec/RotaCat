@@ -40,10 +40,10 @@ export default function MonthWorkspace({
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
-  // so a non-admin viewer's legend shouldn't reference a category they can
-  // never actually see data for. Only the legend is filtered — the
-  // DayReviewModal's real per-category breakdown already resolves to
-  // empty for non-admins via RLS, so it doesn't need this too.
+  // so a non-admin viewer shouldn't see the category referenced at all —
+  // neither in this legend nor in DayReviewModal's per-category breakdown
+  // (which has its own identical filter, since it gets isAdmin from its
+  // own useAuth() call rather than as a prop from here).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
 
   // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
@@ -195,7 +195,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-1.5 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
+      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
@@ -248,6 +248,10 @@ function DayReviewModal({
   date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, onDataChanged, onClose,
 }) {
   const { user, isAdmin, canSubmitLeave } = useAuth()
+  // See MonthWorkspace's own legendColumns above — same Consultant-privacy
+  // filter, computed separately here since this is a different component
+  // with its own useAuth() call.
+  const visibleColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
   const [warningsById, setWarningsById] = useState({})
   const [actioningId, setActioningId] = useState(null)
   const [confirmingApproveId, setConfirmingApproveId] = useState(null)
@@ -354,7 +358,7 @@ function DayReviewModal({
             </div>
 
             <div className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-              {GRID_COLUMNS.map(col => {
+              {visibleColumns.map(col => {
                 const entries = entriesByColumn.get(col.key) || []
                 return (
                   <div key={col.key} className="py-2">

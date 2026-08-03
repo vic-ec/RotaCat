@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
+import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { monthsForYear, LEAVE_CAPACITY_STATES, labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory, columnForLeaveCategory } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
+  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange, monthCapacityMarkers,
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
+import SelectMenu from './SelectMenu'
 
 const FILTERS_BASE = [
   { key: 'all', label: 'All' },
@@ -47,6 +48,13 @@ function filterRows(rows, { filter, myProfileId }) {
   return rows.filter(r => filter !== 'mine' || r.profile_id === myProfileId)
 }
 
+// Every capacity column plus a blended "All categories" option — the mobile
+// non-admin overview's category picker, defaulting to the viewer's own
+// column (see defaultCategoryKey below) so the very first thing they see is
+// "does MY category have room," not a departmental blend they'd have to
+// mentally filter themselves.
+const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })), { value: 'all', label: 'All categories' }]
+
 // A 12-month "decision" overview for the Annual Leave planner — replaces
 // the old always-visible day-row spreadsheet as the default landing view.
 // That spreadsheet (LeaveYearGrid) hasn't gone away — it's now the "month
@@ -59,7 +67,7 @@ function filterRows(rows, { filter, myProfileId }) {
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, myCategory, onOpenWorkspace,
 }) {
   const { isAdmin, isClerk } = useAuth()
   const filters = useMemo(() => visibleFilters({ isAdmin, isClerk }), [isAdmin, isClerk])
@@ -68,6 +76,15 @@ export default function AnnualPlannerOverview({
   const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
   const [filter, setFilter] = useState('all')
   const [expandedProfileId, setExpandedProfileId] = useState(null)
+
+  // Non-admin mobile view only (see the render below) — which category's
+  // capacity the month list/tiles reflect. Defaults to the viewer's own
+  // column; falls back to the blended "all" reading for a category with no
+  // capacity column (Consultant, or no signed-in profile) since there's
+  // nothing personal to default to.
+  const myColumnKey = columnForLeaveCategory(myCategory)
+  const defaultCategoryKey = LEAVE_CAPACITY_COLUMNS.some(c => c.key === myColumnKey) ? myColumnKey : 'all'
+  const [categoryKey, setCategoryKey] = useState(defaultCategoryKey)
 
   // Capacity pressure is a fact about pending+approved leave on record
   // (matching the real cap check in leaveRequests.js), not about whoever's
@@ -106,6 +123,26 @@ export default function AnnualPlannerOverview({
     return { ...m, markers, pressureDayCount, pendingCount, summaryLine: monthSummaryLine({ pressureDayCount, pendingCount }) }
   })
 
+  // Category-scoped month list for the non-admin mobile view (see the
+  // render below) — each month's capacity read for just categoryKey (or the
+  // blended total for 'all'), grouped into "Best months" (no pressure days
+  // at all) vs "Requires checking" (at least one) rather than the uniform
+  // 12-tile catalogue admins/desktop still get. worstState drives the
+  // tile's label chip: the most severe state reached that month, so a
+  // single day at capacity still surfaces even if most of the month is
+  // clear.
+  const categoryMonthCards = months.map(m => {
+    const markers = monthCapacityMarkers(m.year, m.month, categoryKey, { countByColumnPerDate, maxByColumnKey, publicHolidaysByDate })
+    const pressureDayCount = markers.filter(d => d.capacityState.key !== 'available').length
+    const worstState = markers.reduce(
+      (worst, d) => LEAVE_CAPACITY_STATES.indexOf(d.capacityState) > LEAVE_CAPACITY_STATES.indexOf(worst) ? d.capacityState : worst,
+      LEAVE_CAPACITY_STATES[0]
+    )
+    return { ...m, markers, pressureDayCount, worstState }
+  })
+  const bestMonths = categoryMonthCards.filter(m => m.pressureDayCount === 0)
+  const monthsNeedingChecking = categoryMonthCards.filter(m => m.pressureDayCount > 0)
+
   const selectedRange = firstPressureRangeInMonth(year, selectedMonth, pressureDates)
   const selectedMonthLabel = months[selectedMonth - 1].label
   const { start: selMonthStart, end: selMonthEnd } = monthBounds(year, selectedMonth)
@@ -121,6 +158,54 @@ export default function AnnualPlannerOverview({
 
   return (
     <div className="mt-6">
+      {/* ── Non-admin mobile: a category-first month finder, replacing the
+          admin dashboard below with "which month has room for MY category"
+          — see CategoryMonthTile. Admins keep the departmental dashboard on
+          every viewport (their job is cross-category exception management,
+          not personal capacity planning — a category filter would hide the
+          very conflicts they need to see), and this same dashboard remains
+          on desktop for everyone, where there's room for it. */}
+      {!isAdmin && (
+        <div className="lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous year">←</button>
+              <span className="font-display text-base font-semibold text-ink">{year}</span>
+              <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Next year">→</button>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <label className="label-text">Showing capacity for</label>
+            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+          </div>
+
+          {bestMonths.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Best months</p>
+              <div className="mt-2 space-y-2">
+                {bestMonths.map(m => (
+                  <CategoryMonthTile key={m.month} month={m} onOpen={() => onOpenWorkspace(m.month)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {monthsNeedingChecking.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Requires checking</p>
+              <div className="mt-2 space-y-2">
+                {monthsNeedingChecking.map(m => (
+                  <CategoryMonthTile key={m.month} month={m} onOpen={() => onOpenWorkspace(m.month)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className={isAdmin ? '' : 'hidden lg:block'}>
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -271,7 +356,46 @@ export default function AnnualPlannerOverview({
           </div>
         </div>
       </div>
+      </div>
     </div>
+  )
+}
+
+// Non-admin mobile's decision-led month row: name, a state chip (colour AND
+// text/icon, not colour alone — a colour-vision-safe requirement), a plain
+// "N pressure days" line, and a heat strip of the month's daily capacity
+// states in one row rather than a calendar grid — reads as "is this month
+// worth a closer look" without requiring anyone to count or decode
+// individual day cells first. Tapping opens the month workspace directly.
+function CategoryMonthTile({ month, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="card flex w-full items-center gap-3 p-3 text-left transition-colors hover:border-accent/40"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
+          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${month.worstState.tint} ${month.worstState.text}`}>
+            {month.worstState.label}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-ink-muted">
+          {month.pressureDayCount === 0 ? 'No pressure days' : `${month.pressureDayCount} pressure ${month.pressureDayCount === 1 ? 'day' : 'days'}`}
+        </p>
+        <div className="mt-2 flex gap-[2px]">
+          {month.markers.map(d => (
+            <span
+              key={d.date}
+              className={`h-1.5 flex-1 rounded-sm ${d.capacityState.fill}`}
+              title={d.publicHolidayName || d.capacityState.label}
+            />
+          ))}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
+    </button>
   )
 }
 

@@ -6,7 +6,7 @@ import AnnualLeavePlanner from './AnnualLeavePlanner'
 
 // Sandbox clock is 2026-08-01 throughout this session, so August is the
 // default-selected month and the default-viewed year is 2026.
-let mockAuth = { profile: { id: 'p1' } }
+let mockAuth = { profile: { id: 'p1' }, isAdmin: true }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
@@ -71,7 +71,7 @@ describe('AnnualLeavePlanner', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
     mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_COSMO 2, OT_COSMO 1, EC full-time 2
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
-    mockAuth = { profile: { id: 'p1' } }
+    mockAuth = { profile: { id: 'p1' }, isAdmin: true }
   })
 
   it('renders all 12 months and defaults the selection to the current month (August)', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
   monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange,
+  categoryDayCapacityState, monthCapacityMarkers,
 } from './annualPlannerOverview'
 import { LEAVE_CAPACITY_STATES } from './leaveYearGrid'
 
@@ -198,5 +199,59 @@ describe('entriesInRange', () => {
 
   it('returns an empty array when nothing overlaps the range', () => {
     expect(entriesInRange('2026-09-01', '2026-09-05', { approvedByDate, pendingByDate })).toEqual([])
+  })
+})
+
+describe('categoryDayCapacityState', () => {
+  it('reads a cap-1 column as either available or fully at capacity, with no middle state', () => {
+    expect(categoryDayCapacityState(0, 1)).toBe(LEAVE_CAPACITY_STATES[0])
+    expect(categoryDayCapacityState(1, 1)).toBe(LEAVE_CAPACITY_STATES[3])
+  })
+
+  it('reads a cap-2 column\'s half-full day as "limited", not "near capacity"', () => {
+    expect(categoryDayCapacityState(1, 2)).toBe(LEAVE_CAPACITY_STATES[1])
+    expect(categoryDayCapacityState(2, 2)).toBe(LEAVE_CAPACITY_STATES[3])
+  })
+
+  it('reads a cap-4 column\'s 3-of-4 day as "near capacity"', () => {
+    expect(categoryDayCapacityState(3, 4)).toBe(LEAVE_CAPACITY_STATES[2])
+  })
+
+  it('returns "available" for a column with no configured max', () => {
+    expect(categoryDayCapacityState(5, null)).toBe(LEAVE_CAPACITY_STATES[0])
+  })
+})
+
+describe('monthCapacityMarkers', () => {
+  const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+
+  it('reads each day against just the given column\'s own cap', () => {
+    const countByColumnPerDate = new Map([
+      ['2026-08-10', new Map([['MO', 2], ['Registrar', 1]])],
+    ])
+    const markers = monthCapacityMarkers(2026, 8, 'MO', { countByColumnPerDate, maxByColumnKey })
+    const day10 = markers.find(d => d.date === '2026-08-10')
+    expect(day10.capacityState).toBe(LEAVE_CAPACITY_STATES[3]) // MO at its own cap of 2
+
+    const registrarMarkers = monthCapacityMarkers(2026, 8, 'Registrar', { countByColumnPerDate, maxByColumnKey })
+    const registrarDay10 = registrarMarkers.find(d => d.date === '2026-08-10')
+    expect(registrarDay10.capacityState).toBe(LEAVE_CAPACITY_STATES[3]) // Registrar at its own cap of 1
+  })
+
+  it('falls back to the blended combined-headcount reading for "all"', () => {
+    const countByColumnPerDate = new Map([
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])],
+    ])
+    const markers = monthCapacityMarkers(2026, 8, 'all', { countByColumnPerDate, maxByColumnKey })
+    const day10 = markers.find(d => d.date === '2026-08-10')
+    expect(day10.capacityState).toBe(LEAVE_CAPACITY_STATES[2]) // 2 of 3 combined
+  })
+
+  it('carries public holiday info through per day', () => {
+    const publicHolidaysByDate = new Map([['2026-08-10', "Women's Day"]])
+    const markers = monthCapacityMarkers(2026, 8, 'MO', { countByColumnPerDate: new Map(), maxByColumnKey, publicHolidaysByDate })
+    const day10 = markers.find(d => d.date === '2026-08-10')
+    expect(day10.isPublicHoliday).toBe(true)
+    expect(day10.publicHolidayName).toBe("Women's Day")
   })
 })

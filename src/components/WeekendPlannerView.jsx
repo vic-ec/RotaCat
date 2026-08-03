@@ -31,6 +31,9 @@ const ADMIN_FILTERS = [
   ...FILTERS_BASE.filter(f => f.key !== 'all'),
   { key: 'needs-planning', label: 'Needs planning' },
 ]
+// Clerks are read-only "All" access only — "My weekends"/"My requests" are
+// personal/actionable views that don't apply to them.
+const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
 const EXCEPTION_STATUS_LABEL = { pending: 'Exception pending', approved: 'Exception approved', rejected: 'Exception rejected' }
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -335,7 +338,7 @@ function WeekendInspector({
 // two-pane split (not drag-resizable) and still one month at a time — those
 // scope cuts from the previous round stand.
 export default function WeekendPlannerView() {
-  const { isAdmin, canSubmitLeave, profile } = useAuth()
+  const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [entries, setEntries] = useState([])
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
@@ -348,7 +351,7 @@ export default function WeekendPlannerView() {
   // (they may not even be on it) — lands on "All weekends" rather than
   // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
   // leading with the same chip above.
-  const [filter, setFilter] = useState(isAdmin ? 'all' : 'mine')
+  const [filter, setFilter] = useState(isAdmin || isClerk ? 'all' : 'mine')
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const today = todayStr()
@@ -361,7 +364,7 @@ export default function WeekendPlannerView() {
   // never links somewhere that redirects the visitor elsewhere.
   const canViewRequests = isAdmin || canSubmitLeave
 
-  const filters = isAdmin ? ADMIN_FILTERS : FILTERS_BASE
+  const filters = isAdmin ? ADMIN_FILTERS : isClerk ? CLERK_FILTERS : FILTERS_BASE
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile) changes within a session
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { monthsForYear, LEAVE_CAPACITY_STATES, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
@@ -9,12 +10,25 @@ import {
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 
-const FILTERS = [
+const FILTERS_BASE = [
   { key: 'all', label: 'All' },
   { key: 'mine', label: 'My leave' },
   { key: 'pending', label: 'Pending' },
   { key: 'capacity', label: 'Capacity issues' },
 ]
+
+// Capacity issues is a decision-support view for whoever plans the roster —
+// admin-only. My leave / Pending are personal/actionable views that don't
+// apply to a clerk's read-only "All" access (they read the whole picture,
+// not their own leave or requests they can act on), so those two drop out
+// for clerks specifically, leaving them just the "All" filter.
+function visibleFilters({ isAdmin, isClerk }) {
+  return FILTERS_BASE.filter(f => {
+    if (f.key === 'capacity') return isAdmin
+    if ((f.key === 'mine' || f.key === 'pending') && isClerk) return false
+    return true
+  })
+}
 
 // Narrows a { profileId, surname, ... } day-map to entries matching the
 // active filter chip — shared by the month grid and the year-total stats so
@@ -47,6 +61,8 @@ export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, onOpenWorkspace,
 }) {
+  const { isAdmin, isClerk } = useAuth()
+  const filters = useMemo(() => visibleFilters({ isAdmin, isClerk }), [isAdmin, isClerk])
   const today = todayStr()
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
@@ -119,7 +135,7 @@ export default function AnnualPlannerOverview({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit">
-        {FILTERS.map(f => (
+        {filters.map(f => (
           <button
             key={f.key}
             type="button"

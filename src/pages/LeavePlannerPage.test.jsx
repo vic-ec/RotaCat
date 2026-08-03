@@ -91,12 +91,15 @@ describe('LeavePlannerPage', () => {
     expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
   })
 
-  it('clerk: defaults to Planners > Annual, keeps Team leave as a secondary tab, no My leave/Requests/Audit', async () => {
+  it('clerk: defaults to Planners > Annual, no My leave/Team leave/Requests/Audit', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: true }
     renderPage()
     expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team leave
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Team leave' })).toBeInTheDocument()
+    // Clerks get the same All-view visibility into Annual/Special/Weekends
+    // a plain doctor gets from those tabs, so Team leave is redundant and
+    // hidden for them too — same as it already is for doctors.
+    expect(screen.queryByRole('button', { name: 'Team leave' })).not.toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Special' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weekends' })).toBeInTheDocument()
@@ -105,9 +108,6 @@ describe('LeavePlannerPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Weekends' }))
     expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Team leave' }))
-    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
   })
 
   it('Rules tab renders the full in-app policy page', async () => {

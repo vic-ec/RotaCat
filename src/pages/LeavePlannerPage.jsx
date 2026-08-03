@@ -49,11 +49,10 @@ export default function LeavePlannerPage() {
 
   // Team leave is redundant for a plain doctor — they already get the same
   // "who's off" picture (plus more, since it's year-at-a-glance) from the
-  // Annual/Special planners' All view. Clerks keep it since it's their only
-  // leave visibility at all (leave_select RLS scopes clerks to
-  // approved-and-today-only, so they can't use the planners' All view the
-  // way a doctor can); admins keep it too, unaffected either way.
-  const showTeamLeaveTab = isAdmin || !canSubmitLeave
+  // Annual/Special planners' All view. Clerks get that same All-view
+  // visibility into Annual/Special/Weekends now too, so Team leave is
+  // redundant for them as well and stays hidden; admins keep it, unaffected.
+  const showTeamLeaveTab = isAdmin || (!canSubmitLeave && !isClerk)
   const tabs = [
     ...(canSubmitLeave ? [{ key: 'my-leave', label: 'My leave' }] : []),
     ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team leave' }] : []),

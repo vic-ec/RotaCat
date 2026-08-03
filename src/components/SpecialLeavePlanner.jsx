@@ -11,7 +11,7 @@ import InlineRuleHint from './InlineRuleHint'
 // which doesn't show on the Annual Leave tab until approved. No concurrency
 // cap applies here (that rule only covers annual leave).
 export default function SpecialLeavePlanner() {
-  const { profile } = useAuth()
+  const { profile, isClerk } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
@@ -72,7 +72,10 @@ export default function SpecialLeavePlanner() {
           onYearChange={setYear}
           leaveByDate={leaveByDate}
           publicHolidaysByDate={publicHolidaysByDate}
-          myProfileId={profile?.id}
+          // A clerk's access here is read-only "All" only — no personal
+          // leave of their own to filter to — so omitting myProfileId hides
+          // the My leave/All toggle entirely for them (see LeaveYearGrid).
+          myProfileId={isClerk ? null : profile?.id}
         />
       )}
     </div>

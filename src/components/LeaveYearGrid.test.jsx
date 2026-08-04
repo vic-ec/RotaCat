@@ -116,13 +116,21 @@ describe('LeaveYearGrid', () => {
     vi.useRealTimers()
   })
 
-  it('mobile legend: hides Consultant for a non-admin viewer, shows it for an admin', () => {
+  it('mobile legend: collapsed by default, hides Consultant for a non-admin viewer, shows it for an admin once expanded', async () => {
     const { container, rerender } = render(
       <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />
     )
+    // "Consultant" also appears in the desktop table's column header
+    // (always in the DOM alongside the mobile view in jsdom, per this
+    // file's own mobileDayGrid() comment) — scope to the mobile container
+    // specifically rather than a global query.
+    expect(within(container.querySelector('.lg\\:hidden')).queryByText('Consultant')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Legend/ }))
     const mobileLegend = container.querySelector('.lg\\:hidden')
     expect(within(mobileLegend).getByText('Consultant')).toBeInTheDocument()
 
+    // Same component instance — legendOpen state survives the rerender, so
+    // the legend stays expanded here without needing another click.
     mockAuth = { isAdmin: false }
     rerender(<LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />)
     expect(within(container.querySelector('.lg\\:hidden')).queryByText('Consultant')).not.toBeInTheDocument()

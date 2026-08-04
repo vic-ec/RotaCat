@@ -127,13 +127,17 @@ describe('MonthWorkspace', () => {
     expect(screen.getByText('August 2026')).toBeInTheDocument()
   })
 
-  it('legend: shows Consultant for an admin, hides it for a non-admin', () => {
+  it('legend: collapsed by default, shows Consultant for an admin once expanded, hides it for a non-admin', async () => {
+    const user = userEvent.setup()
     const admin = renderWorkspace()
+    expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Legend/ }))
     expect(screen.getByText('Consultant')).toBeInTheDocument()
     admin.unmount()
 
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
     renderWorkspace()
+    await user.click(screen.getByRole('button', { name: /Legend/ }))
     expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
   })
 
@@ -338,6 +342,7 @@ describe('MonthWorkspace', () => {
     const user = userEvent.setup()
     const publicHolidaysByDate = new Map([['2026-08-12', 'Some Holiday']])
     renderWorkspace({ publicHolidaysByDate })
+    await user.click(screen.getByRole('button', { name: /Legend/ }))
     expect(screen.getByText('Public holiday')).toBeInTheDocument() // legend entry
     await user.click(screen.getByText('Anderson'))
     // Shown once on the grid cell and again in the opened review modal.

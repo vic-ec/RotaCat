@@ -233,6 +233,14 @@ function TrashIcon(props) {
   )
 }
 
+function LogoutIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  )
+}
+
 // Small icon button — used for the header's "edit profile details" trigger
 // (chevron, down-when-closed/up-when-open, matching the SectionRow
 // accordions elsewhere on the page) and for each Contact row's edit action
@@ -420,7 +428,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 }
 
 export default function AccountSettingsPage() {
-  const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile } = useAuth()
+  const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
@@ -1130,6 +1138,11 @@ export default function AccountSettingsPage() {
   // say where it's actually going back to.
   const lastPath = sessionStorage.getItem(LAST_PATH_KEY) || '/'
   const backLabel = navLabelForPath(lastPath, { isAdmin, isLocum, isClerk })
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/login')
+  }
 
   return (
     <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
@@ -1847,6 +1860,25 @@ export default function AccountSettingsPage() {
             </SectionRow>
         </div>
         </div>
+        )}
+
+        {/* ── Sign out — mobile only: the desktop sidebar keeps its own
+             always-visible sign-out, this is only here to replace the one
+             that used to live in the mobile top bar (now Dashboard-only,
+             see AppLayout.jsx). ── */}
+        {isOwnAccount && (
+          <div className="md:hidden">
+            <div className="card overflow-hidden">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm font-medium text-ink transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+              >
+                <LogoutIcon className="h-5 w-5 text-ink-light" />
+                Sign out
+              </button>
+            </div>
+          </div>
         )}
 
         {/* ── Danger zone ───────────────────────────────────────── */}

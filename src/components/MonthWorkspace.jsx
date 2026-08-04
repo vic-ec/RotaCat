@@ -13,6 +13,7 @@ import {
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import InlineRuleHint from './InlineRuleHint'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -39,6 +40,7 @@ function hasWarnings(w) {
 export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
+  ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, profile } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
@@ -115,6 +117,7 @@ export default function MonthWorkspace({
           >
             Legend {legendOpen ? '▴' : '▾'}
           </button>
+          <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
         </div>
       </div>
 

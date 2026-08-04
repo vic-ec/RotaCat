@@ -23,8 +23,14 @@ export default function CategoryBadge({ label, size = 20, className = '' }) {
       className={`flex-shrink-0 ${className}`}
       aria-hidden="true"
     >
-      <circle cx="22" cy="22" r="21" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.5" />
-      <circle cx="22" cy="22" r="18.5" fill="#0F766E" />
+      {/* One circle with both fill and stroke, not a filled circle plus a
+          separate outer stroke-only ring — SVG centres a stroke on the
+          path itself, so it sits flush against the fill with no gap
+          between them. Two disconnected circles left an unfilled band
+          between the fill's edge and the ring that showed through to
+          whatever was behind the badge (visible as a mismatched colour
+          ring on the capacity-tinted day cells). */}
+      <circle cx="22" cy="22" r="19" fill="#0F766E" stroke="rgba(255,255,255,0.55)" strokeWidth="3" />
       <text
         x="22" y="23" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
         textAnchor="middle" dominantBaseline="central" fontFamily="inherit"

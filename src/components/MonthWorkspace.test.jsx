@@ -174,14 +174,16 @@ describe('MonthWorkspace', () => {
     expect(botha).toHaveClass('italic')
   })
 
-  it('checking capacity: clicking a day shows only the combined "N of 3 slots taken" pill, no per-category quotas', async () => {
+  it('checking capacity: clicking a day shows no per-category quotas or the old header pill', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    // 2 total (MO + Registrar) of the 3-slot combined ceiling (full-time cap 2 + OT COSMO/Intern cap 1).
-    expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
+    // The old top-right "N of 3 slots taken" pill is gone entirely now (removed
+    // in favour of the top banner, which this mock admin — no `profile` in
+    // mockAuth, so no personal category — doesn't get since the day isn't full).
+    expect(screen.queryByText('2 of 3 slots taken')).not.toBeInTheDocument()
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
   })
@@ -198,11 +200,26 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    expect(screen.getByText('Full — 3 of 3 slots taken')).toBeInTheDocument() // the verdict banner
-    expect(screen.getByText('3 of 3 slots taken')).toBeInTheDocument() // the header pill
+    // No personal category on this mock admin, so it's the generic fallback banner.
+    expect(screen.getByText('Full — 3 of 3 slots taken')).toBeInTheDocument()
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
     expect(screen.queryByText('—')).not.toBeInTheDocument()
+  })
+
+  it('personalises the top banner to the viewer\'s own category — shared full-time pool, not their own column alone', async () => {
+    const user = userEvent.setup()
+    mockAuth = { user: { id: 'doctor-1' }, profile: { category: 'MO' }, isAdmin: false, canSubmitLeave: true }
+    // 1 MO + 1 Registrar already fills the shared full-time pool (cap 2),
+    // even though MO's own count (1) is under its own old individual cap.
+    renderWorkspace()
+    await user.click(screen.getByText('Anderson'))
+
+    expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
+    expect(screen.getByText('2 of 2 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('0 leave slots available for MO')).toBeInTheDocument()
+    expect(screen.queryByText(/Full —/)).not.toBeInTheDocument() // personalised banner replaces the generic one, not both
+    mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
   })
 
   it('shows each surname in a pillbox coloured by that request\'s status', async () => {

@@ -29,10 +29,12 @@ export default function CategoryBadge({ label, size = 20, className = '' }) {
           between them. Two disconnected circles left an unfilled band
           between the fill's edge and the ring that showed through to
           whatever was behind the badge (visible as a mismatched colour
-          ring on the capacity-tinted day cells). */}
-      <circle cx="22" cy="22" r="19" fill="#0F766E" stroke="rgba(255,255,255,0.55)" strokeWidth="3" />
+          ring on the capacity-tinted day cells). Stroke is fully opaque
+          white — a translucent stroke let the teal fill show through it,
+          reading as a muted/greyed border instead of a crisp white one. */}
+      <circle cx="22" cy="22" r="19" fill="#0F766E" stroke="#FFFFFF" strokeWidth="3" />
       <text
-        x="22" y="23" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
+        x="22" y="22" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
         textAnchor="middle" dominantBaseline="central" fontFamily="inherit"
       >
         {label}
@@ -51,7 +53,7 @@ export function CategoryOverflowChip({ count, size = 16 }) {
   return (
     <span
       className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
-      style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.5)), background: '#0F766E', border: '1.5px solid rgba(255,255,255,0.55)' }}
+      style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.5)), background: '#0F766E', border: '1.5px solid #FFFFFF' }}
     >
       +{count}
     </span>

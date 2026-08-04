@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
+  myCategoryDaySlots,
 } from './monthWorkspace'
 
 describe('dayEntriesByColumn', () => {
@@ -107,39 +108,90 @@ describe('checkApprovalCapacityImpact', () => {
 
 describe('daysWithRoomForCategory', () => {
   const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+  const maxFullTime = 2
 
-  it('counts days in the month where the column is still under its cap', () => {
-    // August 2026 has 31 days; MO is at cap (2) on the 10th and 11th only.
+  it('counts days in the month where the shared full-time pool is still under its combined cap', () => {
+    // August 2026 has 31 days; MO alone hits the combined full-time cap (2) on the 10th and 11th only.
     const countByColumnPerDate = new Map([
       ['2026-08-10', new Map([['MO', 2]])],
       ['2026-08-11', new Map([['MO', 2]])],
     ])
-    const result = daysWithRoomForCategory(2026, 8, 'MO', maxByColumnKey, countByColumnPerDate)
+    const result = daysWithRoomForCategory(2026, 8, 'MO', maxByColumnKey, maxFullTime, countByColumnPerDate)
     expect(result).toEqual({ withRoom: 29, total: 31 })
   })
 
+  it('a different category filling the shared pool still counts as no room for this one — the bug this replaced', () => {
+    // 1 MO + 1 Registrar already exhausts the combined full-time pool (2), even
+    // though MO's own historical column count (1) is under MO's own old max (2).
+    const countByColumnPerDate = new Map([
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])],
+    ])
+    const result = daysWithRoomForCategory(2026, 8, 'MO', maxByColumnKey, maxFullTime, countByColumnPerDate)
+    expect(result).toEqual({ withRoom: 30, total: 31 })
+  })
+
+  it('OT COSMO/Intern is unaffected by the full-time pool filling up — it has its own independent cap', () => {
+    const countByColumnPerDate = new Map([
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])], // full-time pool full, OT untouched
+    ])
+    const result = daysWithRoomForCategory(2026, 8, 'OT_COSMO', maxByColumnKey, maxFullTime, countByColumnPerDate)
+    expect(result).toEqual({ withRoom: 31, total: 31 })
+  })
+
   it('returns null for a category with no capacity column', () => {
-    expect(daysWithRoomForCategory(2026, 8, 'Other', maxByColumnKey, new Map())).toBeNull()
+    expect(daysWithRoomForCategory(2026, 8, 'Other', maxByColumnKey, maxFullTime, new Map())).toBeNull()
   })
 })
 
 describe('categoryPressureState', () => {
   const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+  const maxFullTime = 2
 
-  it('is "Available" when the column never hits its cap all month', () => {
-    const state = categoryPressureState(2026, 8, 'MO', maxByColumnKey, new Map())
+  it('is "Available" when the shared pool never hits its combined cap all month', () => {
+    const state = categoryPressureState(2026, 8, 'MO', maxByColumnKey, maxFullTime, new Map())
     expect(state.label).toBe('Available')
   })
 
-  it('is "At capacity" when the column is at its cap every day of the month', () => {
+  it('is "At capacity" when the shared full-time pool is at its combined cap every day of the month', () => {
     const countByColumnPerDate = new Map(
-      Array.from({ length: 31 }, (_, i) => [`2026-08-${String(i + 1).padStart(2, '0')}`, new Map([['Registrar', 1]])])
+      Array.from({ length: 31 }, (_, i) => [`2026-08-${String(i + 1).padStart(2, '0')}`, new Map([['Registrar', 1], ['EC_COSMO', 1]])])
     )
-    const state = categoryPressureState(2026, 8, 'Registrar', maxByColumnKey, countByColumnPerDate)
+    const state = categoryPressureState(2026, 8, 'Registrar', maxByColumnKey, maxFullTime, countByColumnPerDate)
     expect(state.label).toBe('At capacity')
   })
 
   it('returns null for a category with no capacity column', () => {
-    expect(categoryPressureState(2026, 8, 'Other', maxByColumnKey, new Map())).toBeNull()
+    expect(categoryPressureState(2026, 8, 'Other', maxByColumnKey, maxFullTime, new Map())).toBeNull()
+  })
+})
+
+describe('myCategoryDaySlots', () => {
+  const maxFullTime = 2
+
+  it('sums the shared full-time pool across MO/Registrar/EC COSMO, not just the viewer\'s own column', () => {
+    const capacity = [
+      { key: 'MO', count: 1, max: 2 },
+      { key: 'Registrar', count: 1, max: 1 },
+      { key: 'EC_COSMO', count: 0, max: 2 },
+      { key: 'OT_COSMO', count: 0, max: 1 },
+    ]
+    expect(myCategoryDaySlots('MO', capacity, maxFullTime)).toEqual({ taken: 2, max: 2 })
+    expect(myCategoryDaySlots('Registrar', capacity, maxFullTime)).toEqual({ taken: 2, max: 2 })
+    expect(myCategoryDaySlots('EC_COSMO', capacity, maxFullTime)).toEqual({ taken: 2, max: 2 })
+  })
+
+  it('OT COSMO/Intern reads its own independent column, unaffected by the full-time pool', () => {
+    const capacity = [
+      { key: 'MO', count: 2, max: 2 },
+      { key: 'Registrar', count: 0, max: 1 },
+      { key: 'EC_COSMO', count: 0, max: 2 },
+      { key: 'OT_COSMO', count: 0, max: 1 },
+    ]
+    expect(myCategoryDaySlots('OT_COSMO', capacity, maxFullTime)).toEqual({ taken: 0, max: 1 })
+  })
+
+  it('returns null for a category with no capacity column (Other/Consultant)', () => {
+    const capacity = [{ key: 'MO', count: 0, max: 2 }]
+    expect(myCategoryDaySlots('Other', capacity, maxFullTime)).toBeNull()
   })
 })

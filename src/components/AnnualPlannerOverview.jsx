@@ -10,6 +10,7 @@ import {
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 import SelectMenu from './SelectMenu'
+import InlineRuleHint from './InlineRuleHint'
 
 const FILTERS_BASE = [
   { key: 'all', label: 'All' },
@@ -68,6 +69,7 @@ const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, myCategory, onOpenWorkspace,
+  ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, isClerk } = useAuth()
   const filters = useMemo(() => visibleFilters({ isAdmin, isClerk }), [isAdmin, isClerk])
@@ -157,7 +159,7 @@ export default function AnnualPlannerOverview({
   }
 
   return (
-    <div className="mt-6">
+    <div>
       {/* ── Non-admin mobile: a category-first month finder, replacing the
           admin dashboard below with "which month has room for MY category"
           — see CategoryMonthTile. Admins keep the departmental dashboard on
@@ -168,12 +170,15 @@ export default function AnnualPlannerOverview({
       {!isAdmin && (
         <div className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous year">←</button>
-              <span className="font-display text-base font-semibold text-ink">{year}</span>
-              <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Next year">→</button>
+            <div className="flex items-center gap-3">
+              <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous year">←</button>
+                <span className="font-display text-base font-semibold text-ink">{year}</span>
+                <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Next year">→</button>
+              </div>
             </div>
+            <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
           </div>
 
           <div className="mt-3">
@@ -217,6 +222,7 @@ export default function AnnualPlannerOverview({
             <button type="button" onClick={() => onYearChange(Number(today.slice(0, 4)))} className="btn-secondary px-2 py-1 text-xs">Today</button>
           </div>
         </div>
+        <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit">

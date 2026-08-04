@@ -8,7 +8,6 @@ import {
 } from '../lib/leaveYearGrid'
 import AnnualPlannerOverview from './AnnualPlannerOverview'
 import MonthWorkspace from './MonthWorkspace'
-import InlineRuleHint from './InlineRuleHint'
 
 const ELIGIBLE_CATEGORIES = [...new Set(LEAVE_CAPACITY_COLUMNS.flatMap(col => col.categories))]
 
@@ -206,27 +205,24 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
       {!loading && !error && (
         mode === 'overview' ? (
-          <>
-            <div className="flex justify-end">
-              <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
-            </div>
-            <AnnualPlannerOverview
-              year={year}
-              onYearChange={setYear}
-              approvedByDate={approvedByDate}
-              pendingByDate={pendingByDate}
-              approvedRows={approvedRows}
-              pendingRows={pendingRows}
-              countByColumnPerDate={countsByColumn}
-              publicHolidaysByDate={publicHolidaysByDate}
-              maxByColumnKey={maxByColumnKey}
-              maxFullTime={maxFullTime}
-              eligibleHeadcount={eligibleHeadcount}
-              myProfileId={profile?.id}
-              myCategory={profile?.category}
-              onOpenWorkspace={openWorkspace}
-            />
-          </>
+          <AnnualPlannerOverview
+            year={year}
+            onYearChange={setYear}
+            approvedByDate={approvedByDate}
+            pendingByDate={pendingByDate}
+            approvedRows={approvedRows}
+            pendingRows={pendingRows}
+            countByColumnPerDate={countsByColumn}
+            publicHolidaysByDate={publicHolidaysByDate}
+            maxByColumnKey={maxByColumnKey}
+            maxFullTime={maxFullTime}
+            eligibleHeadcount={eligibleHeadcount}
+            myProfileId={profile?.id}
+            myCategory={profile?.category}
+            onOpenWorkspace={openWorkspace}
+            ruleHintIntro={ruleHintIntro}
+            ruleHintBullets={ruleHintBullets}
+          />
         ) : (
           <MonthWorkspace
             year={year}

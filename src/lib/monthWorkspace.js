@@ -75,17 +75,61 @@ export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, 
   }
 }
 
+// True for any category with a real cap to compare against — the three
+// LEAVE_FULL_TIME_GROUP_KEYS always do (their combined pool), OT COSMO/
+// Intern does via its own maxByColumnKey entry; false for a column-less
+// category (Other/Consultant) that daysWithRoomForCategory/
+// categoryPressureState below shouldn't be computed for at all.
+function hasCapacityColumn(columnKey, maxByColumnKey) {
+  return LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey) || maxByColumnKey[columnKey] != null
+}
+
+// MO/Registrar/EC_COSMO draw from one shared pool (maxFullTime, default 2
+// — see LEAVE_FULL_TIME_GROUP_KEYS/totalLeaveCeiling in leaveYearGrid.js):
+// a day with 1 MO + 1 Registrar already has zero room left for a 3rd
+// MO/Registrar/EC COSMO doctor, even though neither individual column's own
+// historical max (2/1/2) has been hit on its own. OT COSMO/Intern is a
+// separate, independent pool with its own cap (1) — additive, not part of
+// this shared pool.
+function slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
+  const counts = countByColumnPerDateMap.get(date)
+  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
+    const taken = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (counts?.get(key) || 0), 0)
+    return { taken, max: maxFullTime }
+  }
+  return { taken: counts?.get(columnKey) || 0, max: maxByColumnKey[columnKey] }
+}
+
+// Same combined-pool logic as slotsForColumnOnDate, but for a single
+// already-summarised day — MonthWorkspace's DayReviewModal already has a
+// `capacity` prop (dayCapacitySummary's per-column {key,count,max} array
+// for that one date) rather than a whole month's countByColumnPerDateMap,
+// so the day view reads directly off that instead of re-deriving it.
+export function myCategoryDaySlots(columnKey, capacity, maxFullTime) {
+  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
+    const taken = capacity
+      .filter(c => LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key))
+      .reduce((sum, c) => sum + c.count, 0)
+    return { taken, max: maxFullTime }
+  }
+  const col = capacity.find(c => c.key === columnKey)
+  if (!col || col.max == null) return null
+  return { taken: col.count, max: col.max }
+}
+
 // How many days in [year, month] still have room for one more doctor in
 // `columnKey` — the Annual planner's mobile "Your leave" card personalises
 // its headline stat to the viewer's own category with this ("N of 31 days
 // have room for your category") rather than a flat admin-style count.
 // Returns null for a category with no capacity column (Other) so the
 // caller knows not to render the card at all.
-export function daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, countByColumnPerDateMap) {
-  const max = maxByColumnKey[columnKey]
-  if (max == null) return null
+export function daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
+  if (!hasCapacityColumn(columnKey, maxByColumnKey)) return null
   const dates = datesInMonth(year, month)
-  const withRoom = dates.filter(d => (countByColumnPerDateMap.get(d)?.get(columnKey) || 0) < max).length
+  const withRoom = dates.filter(d => {
+    const slots = slotsForColumnOnDate(d, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
+    return slots.taken < slots.max
+  }).length
   return { withRoom, total: dates.length }
 }
 
@@ -95,13 +139,16 @@ export function daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, 
 // "Your leave" card's quiet pills for *other* categories (and its own
 // headline number), so a viewer gets a useful signal without the raw x/y
 // quota this round's redesign otherwise removes from the day view. Based on
-// the share of the month's days that are already at that column's own cap,
-// not a flat headcount, since different columns have different caps.
-export function categoryPressureState(year, month, columnKey, maxByColumnKey, countByColumnPerDateMap) {
-  const max = maxByColumnKey[columnKey]
-  if (max == null) return null
+// the share of the month's days that are already at that pool's cap, not a
+// flat headcount, since MO/Registrar/EC COSMO share one pool and OT
+// COSMO/Intern has its own.
+export function categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
+  if (!hasCapacityColumn(columnKey, maxByColumnKey)) return null
   const dates = datesInMonth(year, month)
-  const fullDays = dates.filter(d => (countByColumnPerDateMap.get(d)?.get(columnKey) || 0) >= max).length
+  const fullDays = dates.filter(d => {
+    const slots = slotsForColumnOnDate(d, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
+    return slots.taken >= slots.max
+  }).length
   const ratio = fullDays / dates.length
   if (ratio === 0) return LEAVE_CAPACITY_STATES[0]
   if (ratio < 1 / 3) return LEAVE_CAPACITY_STATES[1]

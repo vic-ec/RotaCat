@@ -4,11 +4,13 @@ import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
-  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory, splitForOverflow,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
+  weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
+  splitForOverflow,
 } from '../lib/leaveYearGrid'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
+  myCategoryDaySlots,
 } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
@@ -178,6 +180,7 @@ export default function MonthWorkspace({
           month={month}
           monthLabel={monthLabel}
           maxByColumnKey={maxByColumnKey}
+          maxFullTime={maxFullTime}
           countByColumnPerDate={countByColumnPerDate}
         />
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
@@ -225,15 +228,26 @@ export default function MonthWorkspace({
 // headcount. Renders nothing for a viewer whose category has no capacity
 // column (Consultant, Locum, or no signed-in profile) — there's nothing to
 // personalise for them.
-function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, countByColumnPerDate }) {
+function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate }) {
   const columnKey = columnForLeaveCategory(profile?.category)
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return null
 
-  const stat = daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, countByColumnPerDate)
-  const state = categoryPressureState(year, month, columnKey, maxByColumnKey, countByColumnPerDate)
+  const stat = daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
+  const state = categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
   if (!stat || !state) return null
-  const otherColumns = LEAVE_CAPACITY_COLUMNS.filter(c => c.key !== columnKey)
+
+  // MO/Registrar/EC COSMO all draw from the same shared pool now, so their
+  // pressure states are always identical to each other and to this card's
+  // own headline number — showing all three as separate "other category"
+  // pills would just repeat the same reading three times. A full-time
+  // viewer instead gets the one genuinely different pool (OT COSMO/Intern);
+  // an OT viewer gets a single combined pill for the full-time pool (any
+  // one of its three keys reads the same pool, so 'MO' stands in for it).
+  const isFullTime = LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)
+  const otherPools = isFullTime
+    ? [{ key: 'OT_COSMO', label: LEAVE_CAPACITY_COLUMNS.find(c => c.key === 'OT_COSMO').label, badge: true }]
+    : [{ key: 'MO', label: 'EC full-time (MO / Registrar / EC COSMO)', badge: false }]
 
   return (
     <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-4">
@@ -243,13 +257,13 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, count
         <span className="text-xs text-ink-muted">of {stat.total} days have room for your category</span>
       </p>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {otherColumns.map(col => {
-          const otherState = categoryPressureState(year, month, col.key, maxByColumnKey, countByColumnPerDate)
+        {otherPools.map(pool => {
+          const otherState = categoryPressureState(year, month, pool.key, maxByColumnKey, maxFullTime, countByColumnPerDate)
           if (!otherState) return null
           return (
-            <span key={col.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-line bg-canvas px-2 py-1 text-[10px] text-ink-muted">
-              <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={13} />
-              {col.label} — {otherState.label}
+            <span key={pool.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-line bg-canvas px-2 py-1 text-[10px] text-ink-muted">
+              {pool.badge && <CategoryBadge label={COLUMN_BADGE_LABEL[pool.key]} size={13} />}
+              {pool.label} — {otherState.label}
             </span>
           )
         })}
@@ -327,7 +341,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
 function DayReviewModal({
   date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, onDataChanged, onClose,
 }) {
-  const { user, isAdmin, canSubmitLeave } = useAuth()
+  const { user, profile, isAdmin, canSubmitLeave } = useAuth()
   // See MonthWorkspace's own legendColumns above — same Consultant-privacy
   // filter, computed separately here since this is a different component
   // with its own useAuth() call.
@@ -389,6 +403,20 @@ function DayReviewModal({
   const dayCapacityState = capacityStateForCount(totalSlots)
   const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
   const atFullCapacity = totalSlots >= totalCeiling
+
+  // The top banner personalises to the viewer's own category rather than a
+  // flat admin-style headcount — a doctor cares whether *they* could still
+  // get leave today, not the generic combined total. myColumnDef is null for
+  // a category with no capacity column (Consultant/no profile), which falls
+  // back to the old generic "Full" banner below instead.
+  const myColumnKey = columnForLeaveCategory(profile?.category)
+  const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
+  const mySlots = myColumnDef ? myCategoryDaySlots(myColumnKey, capacity, maxFullTime) : null
+  const myAvailable = mySlots ? mySlots.max - mySlots.taken : null
+  const myBannerState = mySlots
+    ? (myAvailable <= 0 ? LEAVE_CAPACITY_STATES[3] : myAvailable === mySlots.max ? LEAVE_CAPACITY_STATES[0] : LEAVE_CAPACITY_STATES[2])
+    : null
+
   // One consolidated list instead of a heading per category — an empty
   // category no longer gets a row at all (it was pure visual weight with no
   // information), and individual x/y quotas are gone entirely: with the
@@ -402,7 +430,21 @@ function DayReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        {atFullCapacity && (
+        {mySlots ? (
+          <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${myBannerState.tint}`}>
+            <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${myBannerState.dark}`}>
+              {myAvailable <= 0 ? '✕' : myAvailable === mySlots.max ? '✓' : '!'}
+            </span>
+            <div>
+              <p className={`text-sm font-bold ${myBannerState.text}`}>
+                {mySlots.taken} of {mySlots.max} slot{mySlots.max !== 1 ? 's' : ''} taken
+              </p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {myAvailable} leave slot{myAvailable !== 1 ? 's' : ''} available for {myColumnDef.label}
+              </p>
+            </div>
+          </div>
+        ) : atFullCapacity && (
           <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${dayCapacityState.tint}`}>
             <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>✕</span>
             <div>
@@ -413,12 +455,7 @@ function DayReviewModal({
         )}
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
-          <div className="flex items-center gap-2">
-            <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${dayCapacityState.light} ${dayCapacityState.onFillText}`}>
-              {totalSlots} of {totalCeiling} slots taken
-            </span>
-            <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
-          </div>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
         {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
         {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
@@ -439,7 +476,7 @@ function DayReviewModal({
         ) : (
           <>
             {allEntries.length === 0 ? (
-              <p className="mt-4 text-sm text-ink-muted">No annual leave on this day.</p>
+              <p className="mt-4 text-sm text-ink-muted">No one is on annual leave today</p>
             ) : (
               <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
                 {allEntries.map(e => (
@@ -565,7 +602,7 @@ function DayReviewModal({
                 <button
                   type="button"
                   onClick={() => setShowRequestForm(true)}
-                  className={`btn-secondary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
+                  className={`btn-primary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
                 >
                   Request annual leave for this day
                 </button>

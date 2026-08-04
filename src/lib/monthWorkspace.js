@@ -117,6 +117,34 @@ export function myCategoryDaySlots(columnKey, capacity, maxFullTime) {
   return { taken: col.count, max: col.max }
 }
 
+// Personalised day-cell fill for the non-admin mobile month grid
+// (MonthWorkspace's MobileDayCell) — collapses the generic 4-state total
+// headcount read down to the states actually reachable within the
+// viewer's own pool: full-time (MO/Registrar/EC COSMO) has 2 slots, so
+// 0/1/2 taken maps to available/limited/at capacity (there's no 3rd
+// distinct level to give a "near capacity" step to); OT COSMO/Intern has
+// only 1 slot, so 0/1 taken jumps straight from available to at capacity
+// with no middle state at all. Admins keep the generic total-based read on
+// every day cell regardless of viewport (their job is cross-category
+// exception spotting, not personal capacity planning) — this is only ever
+// called for a non-admin viewer with a resolvable capacity column.
+export function myCategoryCapacityStateForDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
+  const { taken, max } = slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
+  if (taken <= 0) return LEAVE_CAPACITY_STATES[0]
+  if (taken >= max) return LEAVE_CAPACITY_STATES[3]
+  return LEAVE_CAPACITY_STATES[1]
+}
+
+// Which LEAVE_CAPACITY_STATES are actually reachable for one viewer's own
+// pool — the legend counterpart to myCategoryCapacityStateForDate above, so
+// a non-admin's mobile legend only lists the 2 or 3 states their own day
+// cells can actually show rather than the admin's full 4-state scale.
+export function myCategoryLegendStates(columnKey) {
+  return LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)
+    ? [LEAVE_CAPACITY_STATES[0], LEAVE_CAPACITY_STATES[1], LEAVE_CAPACITY_STATES[3]]
+    : [LEAVE_CAPACITY_STATES[0], LEAVE_CAPACITY_STATES[3]]
+}
+
 // How many days in [year, month] still have room for one more doctor in
 // `columnKey` — the Annual planner's mobile "Your leave" card personalises
 // its headline stat to the viewer's own category with this ("N of 31 days

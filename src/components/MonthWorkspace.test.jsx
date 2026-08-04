@@ -141,6 +141,46 @@ describe('MonthWorkspace', () => {
     expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
   })
 
+  it('legend: a non-admin full-time viewer sees only 3 states on the mobile legend; the desktop legend still lists the generic 4-state scale', async () => {
+    const user = userEvent.setup()
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    renderWorkspace()
+    await user.click(screen.getByRole('button', { name: /Legend/ }))
+    // "Near capacity" is never reachable within the full-time pool (only 2
+    // slots, so 0/1/2 taken maps straight to available/limited/at capacity)
+    // — it should appear just once, from the desktop-only legend block that
+    // always lists the generic 4-state scale regardless of viewer.
+    expect(screen.getAllByText('Near capacity')).toHaveLength(1)
+    expect(screen.getAllByText('Available')).toHaveLength(2)
+  })
+
+  it('legend: an admin sees the generic 4-state scale on both the mobile and desktop legend blocks', async () => {
+    const user = userEvent.setup()
+    renderWorkspace()
+    await user.click(screen.getByRole('button', { name: /Legend/ }))
+    expect(screen.getAllByText('Near capacity')).toHaveLength(2)
+  })
+
+  it('mobile day cells: fill personalises to a non-admin viewer\'s own pool; an admin keeps the generic total-based read', async () => {
+    // MO + Registrar fill the shared full-time pool (2 of 2) but the day's
+    // generic cross-category total is also just 2 (of a 3-doctor ceiling).
+    const countByColumnPerDate = new Map([
+      ['2026-08-12', new Map([['MO', 1], ['Registrar', 1]])],
+    ])
+
+    const admin = renderWorkspace({ countByColumnPerDate })
+    // Admin's generic read: total 2 of 3 -> "Near capacity" (orange), not yet "At capacity".
+    const adminMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[92px]'))
+    expect(adminMobileCell.className).toContain('bg-capNear-light')
+    admin.unmount()
+
+    // A non-admin MO viewer's own shared pool is already full (2 of 2) -> "At capacity" (red).
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    renderWorkspace({ countByColumnPerDate })
+    const doctorMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[92px]'))
+    expect(doctorMobileCell.className).toContain('bg-capAtCapacity-light')
+  })
+
   it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {
     // The consolidated list omits empty categories entirely now, so a
     // Consultant entry must actually exist on this date to prove the
@@ -400,7 +440,7 @@ describe('MonthWorkspace', () => {
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
     renderWorkspace()
 
-    expect(await screen.findByText('MO · August')).toBeInTheDocument()
+    expect(await screen.findByText('For Medical Officer · August')).toBeInTheDocument()
     expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
   })

@@ -43,6 +43,18 @@ export const COLUMN_BADGE_LABEL = {
   Other: 'C',
 }
 
+// Full-length category name for a capacity column, for a headline that
+// reads too abbreviated at just the column's own `label` (the Annual
+// planner's mobile "Your leave" card header) — Registrar and EC COSMO/
+// Intern already match their column's `label` exactly, so this only needs
+// to spell out MO and OT COSMO/Intern.
+export const COLUMN_FULL_LABEL = {
+  MO: 'Medical Officer',
+  Registrar: 'Registrar',
+  EC_COSMO: 'EC COSMO / Intern',
+  OT_COSMO: 'Overtime COSMO / Intern',
+}
+
 // Four-state "how full is this day" read for the mobile planner's day/month
 // fill colouring — a visual indicator of the *observed* total headcount on
 // leave (all 4 capacity columns combined, pending+approved combined).

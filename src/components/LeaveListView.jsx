@@ -13,8 +13,10 @@ const STATUS_BADGE = {
 // Team-wide leave list. Intentionally has NO role-conditional filtering —
 // the leave_select RLS policy already scopes rows correctly per role
 // (requester sees own always; other doctors see others' only once approved;
-// clerk sees approved + today-only; locum sees nothing — enforced by this
-// route being locum-blocked before this ever renders; admin sees all).
+// clerk sees all approved leave year-round now (see the Annual/Special
+// planners' "All" tab, which is this same data — this tab itself is hidden
+// for clerks as redundant); locum sees nothing — enforced by this route
+// being locum-blocked before this ever renders; admin sees all).
 // This component just renders whatever comes back.
 export default function LeaveListView() {
   const [requests, setRequests] = useState([])

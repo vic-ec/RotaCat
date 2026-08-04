@@ -4,13 +4,13 @@ import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
   weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
   splitForOverflow,
 } from '../lib/leaveYearGrid'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
-  myCategoryDaySlots,
+  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates,
 } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
@@ -56,6 +56,19 @@ export default function MonthWorkspace({
   // legend: the badges are letter-labelled now, so this is a reference for
   // anyone who wants it rather than something needed to read the grid.
   const [legendOpen, setLegendOpen] = useState(false)
+
+  // The mobile day-cell grid (MobileDayCell, <lg) fills each day by the
+  // viewer's own pool for a non-admin doctor with a resolvable capacity
+  // column, instead of the generic cross-category total — see
+  // myCategoryCapacityStateForDate. Admins, and anyone without a category
+  // column (Consultant, no profile), keep the generic total-based read
+  // everywhere, including on their own mobile view — their job there is
+  // still cross-category exception spotting, not personal planning. The
+  // desktop grid (DayCell, lg+) always stays generic regardless of role.
+  const myColumnKey = columnForLeaveCategory(profile?.category)
+  const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
+  const personalizeFill = !isAdmin && Boolean(myColumnDef)
+  const mobileLegendStates = personalizeFill ? myCategoryLegendStates(myColumnKey) : LEAVE_CAPACITY_STATES
 
   // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
   // not plain useState — same reasoning as AnnualLeavePlanner.jsx's
@@ -134,7 +147,21 @@ export default function MonthWorkspace({
             ))}
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+          {/* Two variants, gated by viewport rather than role directly —
+              this mirrors which day-cell grid (DayCell vs MobileDayCell)
+              each breakpoint actually shows below, so the legend always
+              matches the fill colours the viewer can currently see: the
+              desktop grid stays generic for everyone, so its legend does
+              too, while the mobile grid personalises for a non-admin
+              viewer with a category, so its legend follows suit. */}
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted lg:hidden">
+            {mobileLegendStates.map(state => (
+              <span key={state.key} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+              </span>
+            ))}
+          </div>
+          <div className="mt-1.5 hidden flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted lg:flex">
             {LEAVE_CAPACITY_STATES.map(state => (
               <span key={state.key} className="flex items-center gap-1.5">
                 <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
@@ -194,7 +221,11 @@ export default function MonthWorkspace({
               isToday={date === today}
               isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
               columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }).keys()]}
-              capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
+              capacityState={
+                personalizeFill
+                  ? myCategoryCapacityStateForDate(date, myColumnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
+                  : capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))
+              }
               onClick={() => setSelectedDate(date)}
             />
           ) : (
@@ -227,7 +258,9 @@ export default function MonthWorkspace({
 // this month still have room in *their own* category, not a generic
 // headcount. Renders nothing for a viewer whose category has no capacity
 // column (Consultant, Locum, or no signed-in profile) — there's nothing to
-// personalise for them.
+// personalise for them. No other-category pool pill any more — the day
+// cells below now carry that cross-category read themselves via their own
+// personalised fill, so repeating it here was redundant.
 function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate }) {
   const columnKey = columnForLeaveCategory(profile?.category)
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
@@ -237,38 +270,16 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
   const state = categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
   if (!stat || !state) return null
 
-  // MO/Registrar/EC COSMO all draw from the same shared pool now, so their
-  // pressure states are always identical to each other and to this card's
-  // own headline number — showing all three as separate "other category"
-  // pills would just repeat the same reading three times. A full-time
-  // viewer instead gets the one genuinely different pool (OT COSMO/Intern);
-  // an OT viewer gets a single combined pill for the full-time pool (any
-  // one of its three keys reads the same pool, so 'MO' stands in for it).
-  const isFullTime = LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)
-  const otherPools = isFullTime
-    ? [{ key: 'OT_COSMO', label: LEAVE_CAPACITY_COLUMNS.find(c => c.key === 'OT_COSMO').label, badge: true }]
-    : [{ key: 'MO', label: 'EC full-time (MO / Registrar / EC COSMO)', badge: false }]
-
   return (
-    <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-4">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">{columnDef.label} · {monthLabel}</p>
+    <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">
+        For {COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · {monthLabel}
+      </p>
       <p className="mt-1.5 flex items-baseline gap-1.5">
         <span className={`font-display text-3xl font-bold tabular-nums ${state.text}`}>{stat.withRoom}</span>
         <span className="text-xs text-ink-muted">of {stat.total} days have room for your category</span>
       </p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {otherPools.map(pool => {
-          const otherState = categoryPressureState(year, month, pool.key, maxByColumnKey, maxFullTime, countByColumnPerDate)
-          if (!otherState) return null
-          return (
-            <span key={pool.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-line bg-canvas px-2 py-1 text-[10px] text-ink-muted">
-              {pool.badge && <CategoryBadge label={COLUMN_BADGE_LABEL[pool.key]} size={13} />}
-              {pool.label} — {otherState.label}
-            </span>
-          )
-        })}
-      </div>
-      <a href="/leave?tab=my-leave" className="btn-primary mt-3 block w-full text-center text-xs">Request leave</a>
+      <a href="/leave?tab=my-leave" className="btn-primary mt-2 block w-full text-center text-xs">Request leave</a>
     </div>
   )
 }
@@ -323,7 +334,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-[58px] flex-col items-center justify-start gap-1 rounded border pt-1 text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[92px] flex-col items-center justify-center gap-1 rounded border text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >

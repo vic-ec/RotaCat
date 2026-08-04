@@ -182,47 +182,51 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
   }
 
   const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
+  // Shared by both views' "How it works" trigger — the overview gets its
+  // own icon (nothing else on that page to sit next to), the workspace
+  // view's is passed down so it can render right next to MonthWorkspace's
+  // own "Legend" chip instead of claiming a row of its own up here.
+  const ruleHintIntro = `Never more than ${totalCeiling} doctors on leave at a time.`
+  const ruleHintBullets = [
+    'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
+    'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
+    "You're unavailable for rostering for the whole date range requested, but only the days you enter as \"annual leave\" reduce your balance — e.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 still need their hours made up elsewhere.",
+    `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 2} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor(s) may be on leave at once.`,
+    `No more than ${maxFullTime} full-time EC doctors (MO + Registrar + EC COSMO/Intern combined) on leave at once — e.g. 2 MO, 1 MO + 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC COSMO/Intern — never 2 Registrar. OT COSMO/Intern is a separate pool, capped at ${maxByColumnKey.OT_COSMO ?? 1} on its own and additive on top of the full-time cap (e.g. 2 MO + 1 OT COSMO/Intern reaches the ${totalCeiling}-doctor ceiling). Enforced automatically at submission.`,
+    "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",
+    "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
+    'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',
+    'Public holidays are highlighted on the grid; tap or hover the date to see the name.',
+    'Pending requests count toward the cap too, not just approved ones — once a category is full, submitting another overlapping request for it is blocked until one already pending is decided.',
+  ]
 
   return (
     <div>
-      <InlineRuleHint
-        compact
-        inline="Shows approved and pending annual leave, subject to category caps."
-        intro={`Never more than ${totalCeiling} doctors on leave at a time.`}
-        bullets={[
-          'Applies to everyone working in EC — MOs, Registrars, EC Interns, Psych Interns, and Overtime Interns.',
-          'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
-          "You're unavailable for rostering for the whole date range requested, but only the days you enter as \"annual leave\" reduce your balance — e.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 still need their hours made up elsewhere.",
-          `At most ${maxByColumnKey.MO ?? 2} MO, ${maxByColumnKey.Registrar ?? 1} Registrar, ${maxByColumnKey.EC_COSMO ?? 2} EC COSMO/Intern, and ${maxByColumnKey.OT_COSMO ?? 1} OT COSMO/Intern doctor(s) may be on leave at once.`,
-          `No more than ${maxFullTime} full-time EC doctors (MO + Registrar + EC COSMO/Intern combined) on leave at once — e.g. 2 MO, 1 MO + 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC COSMO/Intern — never 2 Registrar. OT COSMO/Intern is a separate pool, capped at ${maxByColumnKey.OT_COSMO ?? 1} on its own and additive on top of the full-time cap (e.g. 2 MO + 1 OT COSMO/Intern reaches the ${totalCeiling}-doctor ceiling). Enforced automatically at submission.`,
-          "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",
-          "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
-          'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',
-          'Public holidays are highlighted on the grid; tap or hover the date to see the name.',
-          'Pending requests count toward the cap too, not just approved ones — once a category is full, submitting another overlapping request for it is blocked until one already pending is decided.',
-        ]}
-      />
-
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
       {!loading && !error && (
         mode === 'overview' ? (
-          <AnnualPlannerOverview
-            year={year}
-            onYearChange={setYear}
-            approvedByDate={approvedByDate}
-            pendingByDate={pendingByDate}
-            approvedRows={approvedRows}
-            pendingRows={pendingRows}
-            countByColumnPerDate={countsByColumn}
-            publicHolidaysByDate={publicHolidaysByDate}
-            maxByColumnKey={maxByColumnKey}
-            maxFullTime={maxFullTime}
-            eligibleHeadcount={eligibleHeadcount}
-            myProfileId={profile?.id}
-            myCategory={profile?.category}
-            onOpenWorkspace={openWorkspace}
-          />
+          <>
+            <div className="flex justify-end">
+              <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
+            </div>
+            <AnnualPlannerOverview
+              year={year}
+              onYearChange={setYear}
+              approvedByDate={approvedByDate}
+              pendingByDate={pendingByDate}
+              approvedRows={approvedRows}
+              pendingRows={pendingRows}
+              countByColumnPerDate={countsByColumn}
+              publicHolidaysByDate={publicHolidaysByDate}
+              maxByColumnKey={maxByColumnKey}
+              maxFullTime={maxFullTime}
+              eligibleHeadcount={eligibleHeadcount}
+              myProfileId={profile?.id}
+              myCategory={profile?.category}
+              onOpenWorkspace={openWorkspace}
+            />
+          </>
         ) : (
           <MonthWorkspace
             year={year}
@@ -240,6 +244,8 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             maxFullTime={maxFullTime}
             onDataChanged={load}
             onBack={backToOverview}
+            ruleHintIntro={ruleHintIntro}
+            ruleHintBullets={ruleHintBullets}
           />
         )
       )}

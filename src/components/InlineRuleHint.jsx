@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CircleQuestionMark } from 'lucide-react'
 
 const DEFAULT_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md'
 
@@ -19,8 +20,45 @@ const DEFAULT_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_
 // permanently-open card was eating vertical space repeat visitors don't
 // need. Defaults to false so every other caller (Special/Weekend/Rules
 // pages) keeps the original boxed treatment unchanged.
-export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFAULT_RULES_URL, compact = false }) {
+//
+// `iconOnly`: no inline text, no row of its own — just the trigger, as a
+// round accent-tint button (same treatment as MonthWorkspace's "Legend"
+// chip) so a caller can drop it directly into an existing row (e.g. right
+// next to that Legend chip) instead of it claiming a line of its own.
+export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFAULT_RULES_URL, compact = false, iconOnly = false }) {
   const [showModal, setShowModal] = useState(false)
+
+  if (iconOnly) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          aria-label="How it works"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent"
+        >
+          <CircleQuestionMark className="h-4 w-4" />
+        </button>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={() => setShowModal(false)}>
+            <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-lg font-bold text-ink">How it works</h2>
+                <button onClick={() => setShowModal(false)} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+              </div>
+              {intro && <p className="mt-3 text-sm text-ink-light">{intro}</p>}
+              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-ink-muted">
+                {bullets.map((bullet, i) => <li key={i}>{bullet}</li>)}
+              </ul>
+              <p className="mt-3 text-xs text-ink-muted">
+                <a href={rulesUrl} target="_blank" rel="noreferrer" className="underline hover:text-ink">Full rules</a>
+              </p>
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
 
   return (
     <div className={compact

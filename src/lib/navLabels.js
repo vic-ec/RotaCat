@@ -12,7 +12,7 @@ const NAV_LABELS = {
     { to: '/settings', label: 'Settings' },
   ],
   doctor: [
-    { to: '/',        label: 'My shifts' },
+    { to: '/',        label: 'Dashboard' },
     { to: '/roster',  label: 'Roster' },
     { to: '/staff',   label: 'Staff' },
     { to: '/leave',   label: 'Planners' },
@@ -20,7 +20,7 @@ const NAV_LABELS = {
     { to: '/account', label: 'Account' },
   ],
   locum: [
-    { to: '/',        label: 'My shifts' },
+    { to: '/',        label: 'Dashboard' },
     { to: '/roster',  label: 'Roster' },
     { to: '/staff',   label: 'Staff' },
     { to: '/shifts',  label: 'Open shifts' },

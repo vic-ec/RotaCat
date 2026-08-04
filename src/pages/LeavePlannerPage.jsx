@@ -1,5 +1,6 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useScrollReveal } from '../lib/useScrollReveal'
 import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import MyRequestHistory from '../components/MyRequestHistory'
@@ -38,6 +39,10 @@ function defaultPlannerTab({ isAdmin, canViewYearPlanners }) {
 export default function LeavePlannerPage() {
   const { canSubmitLeave, isAdmin, isLocum, isClerk } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
+  // Hide-on-scroll-down/reveal-on-scroll-up for the Planners sub-nav below
+  // (mobile only — see its md:hidden gating) — called unconditionally here,
+  // ahead of the locum early-return, per the rules of hooks.
+  const subnavVisible = useScrollReveal()
   // Clerks get read-only "all" visibility into Annual/Special too — same
   // grid every other year-planner viewer sees, they just can't submit.
   const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
@@ -143,7 +148,11 @@ export default function LeavePlannerPage() {
       </nav>
 
       {tab === 'planners' && plannerTabs.length > 1 && (
-        <div className="mt-4">
+        <div
+          className={`mt-4 sticky top-0 z-10 bg-canvas transition-[transform,opacity] duration-200 md:static md:translate-y-0 md:opacity-100 ${
+            subnavVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
+          }`}
+        >
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Planners</h2>
           <nav className="flex gap-5 overflow-x-auto border-b border-slate-line" aria-label="Planners">
             {plannerTabs.map(t => (

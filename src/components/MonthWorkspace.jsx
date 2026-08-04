@@ -4,14 +4,15 @@ import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
-  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES, weeksForMonth, monthsForYear,
+  totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory, splitForOverflow,
 } from '../lib/leaveYearGrid'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
 } from '../lib/monthWorkspace'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
+import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -47,6 +48,10 @@ export default function MonthWorkspace({
   // (which has its own identical filter, since it gets isAdmin from its
   // own useAuth() call rather than as a prop from here).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
+  // Collapsed by default — same reasoning as LeaveYearGrid.jsx's mobile
+  // legend: the badges are letter-labelled now, so this is a reference for
+  // anyone who wants it rather than something needed to read the grid.
+  const [legendOpen, setLegendOpen] = useState(false)
 
   // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
   // not plain useState — same reasoning as AnnualLeavePlanner.jsx's
@@ -97,30 +102,42 @@ export default function MonthWorkspace({
     <div className="mt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onBack} className="btn-secondary text-sm">← Back to overview</button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
           <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
           <button type="button" onClick={goNextMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Next month">→</button>
           <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+          <button
+            type="button"
+            onClick={() => setLegendOpen(o => !o)}
+            aria-expanded={legendOpen}
+            className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+          >
+            Legend {legendOpen ? '▴' : '▾'}
+          </button>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {legendColumns.map(col => (
-          <span key={col.key} className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full border border-white ${COLUMN_DOT_COLOR[col.key]}`} />
-            {col.label}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {LEAVE_CAPACITY_STATES.map(state => (
-          <span key={state.key} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
-          </span>
-        ))}
-      </div>
+      {legendOpen && (
+        <>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted">
+            {legendColumns.map(col => (
+              <span key={col.key} className="flex items-center gap-1.5">
+                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
+                {col.label}
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+            {LEAVE_CAPACITY_STATES.map(state => (
+              <span key={state.key} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
           Mobile (<lg): a compact glance grid (day number + category dots
@@ -228,7 +245,7 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, count
           if (!otherState) return null
           return (
             <span key={col.key} className="inline-flex items-center gap-1.5 rounded-full border border-slate-line bg-canvas px-2 py-1 text-[10px] text-ink-muted">
-              <span className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
+              <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={13} />
               {col.label} — {otherState.label}
             </span>
           )
@@ -266,7 +283,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
-            <span className={`mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full border border-white ${COLUMN_DOT_COLOR[key]}`} />
+            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={14} className="mt-0.5" />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
@@ -283,21 +300,23 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
 
 function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacityState, onClick }) {
   const dateNum = Number(date.slice(-2))
+  const { shown, overflow } = splitForOverflow(columnsPresent)
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex aspect-square flex-col items-center justify-center rounded border text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[58px] flex-col items-center justify-start gap-1 rounded border pt-1 text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
       <span className={`${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
-      <span className="mt-0.5 flex h-1.5 gap-0.5">
-        {columnsPresent.map(key => (
-          <span key={key} className={`h-1.5 w-1.5 rounded-full border border-white ${COLUMN_DOT_COLOR[key]}`} />
-        ))}
-      </span>
+      {columnsPresent.length > 0 && (
+        <span className="grid grid-cols-2 gap-0.5">
+          {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
+          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
+        </span>
+      )}
     </button>
   )
 }
@@ -423,7 +442,7 @@ function DayReviewModal({
                 {allEntries.map(e => (
                   <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className={`h-2 w-2 flex-shrink-0 rounded-full ${COLUMN_DOT_COLOR[e.columnKey]}`} />
+                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
                       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
                       }`}>

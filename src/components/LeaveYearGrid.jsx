@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_DOT_COLOR, columnForLeaveCategory,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, columnForLeaveCategory, splitForOverflow,
   quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
 } from '../lib/leaveYearGrid'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
+import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
@@ -37,6 +38,10 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
   const [showMineOnly, setShowMineOnly] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState(null)
+  // Collapsed by default — the grid's badges are letter-labelled now, so the
+  // legend is a reference for anyone who wants it rather than something
+  // needed to read the grid at a glance.
+  const [legendOpen, setLegendOpen] = useState(false)
 
   const visibleLeaveByDate = useMemo(() => {
     if (!showMineOnly || !myProfileId) return leaveByDate
@@ -115,21 +120,31 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
 
       {/* Mobile: one month at a time, tap a day for detail */}
       <div className="lg:hidden">
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
           <span className="font-display text-base font-semibold text-ink">{monthsForYear(year)[viewMonth - 1].label} {year}</span>
           <button type="button" onClick={goNextMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Next month">→</button>
           <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+          <button
+            type="button"
+            onClick={() => setLegendOpen(o => !o)}
+            aria-expanded={legendOpen}
+            className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+          >
+            Legend {legendOpen ? '▴' : '▾'}
+          </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
-          {legendColumns.map(col => (
-            <span key={col.key} className="flex items-center gap-1">
-              <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
-              {col.label}
-            </span>
-          ))}
-        </div>
+        {legendOpen && (
+          <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted">
+            {legendColumns.map(col => (
+              <span key={col.key} className="flex items-center gap-1.5">
+                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={16} />
+                {col.label}
+              </span>
+            ))}
+          </div>
+        )}
 
         <MonthGlance
           year={year}
@@ -169,6 +184,7 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
           const phName = publicHolidaysByDate.get(date)
           const entries = leaveByDate.get(date) || []
           const columnsPresent = [...new Set(entries.map(e => columnForLeaveCategory(e.category)).filter(Boolean))]
+          const { shown, overflow } = splitForOverflow(columnsPresent)
           const isToday = date === today
 
           return (
@@ -176,16 +192,17 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
               key={date}
               type="button"
               onClick={() => onSelectDate(date)}
-              className={`flex aspect-square flex-col items-center justify-center rounded border bg-canvas-raised text-xs ${
+              className={`flex min-h-[58px] flex-col items-center justify-start gap-1 rounded border bg-canvas-raised pt-1 text-xs ${
                 phName ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
               } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
             >
               <span className={`text-ink ${phName ? 'font-semibold' : ''}`}>{Number(date.slice(-2))}</span>
-              <span className="mt-0.5 flex h-1.5 gap-0.5">
-                {columnsPresent.map(key => (
-                  <span key={key} className={`h-1.5 w-1.5 rounded-full ${COLUMN_DOT_COLOR[key]}`} />
-                ))}
-              </span>
+              {columnsPresent.length > 0 && (
+                <span className="grid grid-cols-2 gap-0.5">
+                  {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
+                  {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
+                </span>
+              )}
             </button>
           )
         })}
@@ -221,7 +238,7 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns,
             return (
               <div key={col.key} className="text-sm">
                 <div className="flex items-center gap-1.5 text-ink-muted">
-                  <span className={`h-2 w-2 rounded-full ${COLUMN_DOT_COLOR[col.key]}`} />
+                  <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
                   {col.label}
                   {max ? <span className="text-xs">({colEntries.length}/{max})</span> : null}
                 </div>

@@ -27,16 +27,20 @@ export const LEAVE_CAPACITY_COLUMNS = [
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
-// Shared column->colour mapping for both calendar views that render these
-// categories (LeaveYearGrid.jsx's mobile month-glance, and MonthWorkspace.jsx's
-// desktop calendar) — kept here, not in either component, so both agree on
-// which colour means which category.
-export const COLUMN_DOT_COLOR = {
-  MO: 'bg-accent',
-  Registrar: 'bg-rose',
-  EC_COSMO: 'bg-amber-500',
-  OT_COSMO: 'bg-blue-500',
-  Other: 'bg-ink-muted',
+// Shared column->badge-letter mapping for every calendar view that renders
+// these categories (LeaveYearGrid.jsx's mobile month-glance, and
+// MonthWorkspace.jsx's desktop+mobile calendars) — kept here, not in either
+// component, so both agree on which letters mean which category. Rendered
+// via CategoryBadge.jsx, a single-colour badge — unlike the old
+// COLUMN_DOT_COLOR this replaced, colour no longer varies by category, so
+// it can't be mistaken for the capacity heat-map colours used elsewhere on
+// the same grids.
+export const COLUMN_BADGE_LABEL = {
+  MO: 'MO',
+  Registrar: 'Reg',
+  EC_COSMO: 'EC',
+  OT_COSMO: 'OT',
+  Other: 'C',
 }
 
 // Four-state "how full is this day" read for the mobile planner's day/month
@@ -126,6 +130,15 @@ const COLUMN_BY_CATEGORY = new Map(
 // shouldn't appear on the grid at all (Locum, or an unrecognised value).
 export function columnForLeaveCategory(category) {
   return COLUMN_BY_CATEGORY.get(category) ?? null
+}
+
+// Splits a list of column keys into "shown" (max 4) and an overflow count
+// for a 5th+ — shared by every day-glance-style cluster (LeaveYearGrid's
+// MonthGlance, MonthWorkspace's MobileDayCell) so they all agree on when to
+// switch from "every badge" to "3 badges + a +N chip".
+export function splitForOverflow(keys, max = 4) {
+  if (keys.length <= max) return { shown: keys, overflow: 0 }
+  return { shown: keys.slice(0, max - 1), overflow: keys.length - (max - 1) }
 }
 
 const LABEL_BY_CATEGORY = new Map(

@@ -21,7 +21,7 @@ const adminNav = [
 // Every doctor category gets the same read-only Staff list (contact list)
 // access as Locums and Clerks — see AuthContext's canViewStaffList.
 const doctorNav = [
-  { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
+  { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
@@ -33,7 +33,7 @@ const doctorNav = [
 // the same read-only Staff list access as Clerks and doctors.
 // No leave, no weekend grid (enforced via canViewWeekendGrid in those pages).
 const locumNav = [
-  { to: '/',       label: 'My shifts',   icon: HomeIcon,      end: true },
+  { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
@@ -152,6 +152,7 @@ export default function AppLayout() {
                  : isLocum  ? locumNav
                  : isClerk  ? clerkNav
                  : doctorNav
+  const isDashboard = location.pathname === '/'
 
   // Subtitle under the name in the sidebar
   const subtitle = isAdmin  ? 'Admin'
@@ -221,37 +222,25 @@ export default function AppLayout() {
 
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col pb-[54px] md:pb-0">
-        {/* Top bar — mobile only. `sticky` (in-flow), not `fixed`: a fixed
-            header is positioned against the *layout* viewport, which iOS
-            Safari can desync from the *visual* viewport when the on-screen
-            keyboard opens and the browser auto-scrolls the focused input
-            into view — the header would visually detach/jump as a result.
-            Sticky keeps it anchored within the normal scroll flow instead,
-            which tracks the visual viewport correctly through that. */}
-        <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
-          <div className="flex flex-shrink-0 items-center gap-2">
+        {/* Top bar — mobile only, and Dashboard-only: every other mobile
+            page starts straight into its own content/nav instead, the same
+            way a native app only brands its home tab. Sign-out lives on the
+            Account page now (see AccountSettingsPage.jsx's own "Sign out"
+            row) rather than up here, freeing this down to just the identity
+            row Dashboard's "Welcome, X" heading doesn't already say.
+            `sticky` (in-flow), not `fixed`: a fixed header is positioned
+            against the *layout* viewport, which iOS Safari can desync from
+            the *visual* viewport when the on-screen keyboard opens and the
+            browser auto-scrolls the focused input into view — the header
+            would visually detach/jump as a result. Sticky keeps it anchored
+            within the normal scroll flow instead, which tracks the visual
+            viewport correctly through that. */}
+        {isDashboard && (
+          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
             <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
             <span className="font-serif text-xl font-semibold text-ink"><RotaCat /></span>
-          </div>
-          <div className="flex min-w-0 items-center gap-3">
-            {profile && (
-              <span className="min-w-0 truncate text-xs text-ink-muted">
-                Welcome, {profile.name} {profile.surname}
-              </span>
-            )}
-            <button
-              onClick={handleSignOut}
-              title="Sign out"
-              aria-label="Sign out"
-              className="group flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded px-2 py-1.5 text-xs font-medium text-ink-light transition-colors hover:bg-accent-light active:bg-accent-light"
-            >
-              <LogoutIcon className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:max-w-[70px] group-hover:opacity-100">
-                Sign out
-              </span>
-            </button>
-          </div>
-        </header>
+          </header>
+        )}
 
         <main className="min-w-0 flex-1 px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-5">
           <Outlet />

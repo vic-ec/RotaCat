@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
+import LeaveCapacityBanner from './LeaveCapacityBanner'
 import { datesInRange } from '../lib/dateRange'
-import { LEAVE_TYPE_OPTIONS, submitLeaveRequest } from '../lib/leaveRequests'
+import {
+  LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
+} from '../lib/leaveRequests'
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
 
@@ -29,10 +33,44 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState(null) // { type: 'error' | 'success', text }
+  const [annualPreview, setAnnualPreview] = useState(null)
+  const [annualPreviewLoading, setAnnualPreviewLoading] = useState(false)
+  const [specialPressure, setSpecialPressure] = useState(null)
 
   const isWeekendException = leaveType === 'weekend_exception'
   const isAnnual = leaveType === 'annual'
+  const isSpecial = SPECIAL_LEAVE_TYPES.includes(leaveType)
   const totalDays = dateFrom && dateTo && dateFrom <= dateTo ? datesInRange(dateFrom, dateTo).length : null
+  const hasValidRange = Boolean(totalDays)
+
+  // Live capacity feedback for a range that's actually complete — a date
+  // <input>'s onChange already only fires on a committed value (not per
+  // keystroke the way a text field would), so reacting to dateFrom/dateTo
+  // here already behaves like "on blur," without needing to wire that up
+  // separately across two fields (and however dateFrom/dateTo got set —
+  // typed, prefilled via initialDateFrom/To, or derived from the weekend-
+  // exception Saturday picker — this still fires exactly once each way).
+  // Neither fetch can throw (see fetchAnnualCapacityPreview/
+  // fetchSpecialLeavePressure), so this is purely informative — it can
+  // never block or interfere with submission.
+  useEffect(() => {
+    if (!isAnnual || !hasValidRange) { setAnnualPreview(null); setAnnualPreviewLoading(false); return }
+    let cancelled = false
+    setAnnualPreviewLoading(true)
+    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category }).then(result => {
+      if (!cancelled) { setAnnualPreview(result); setAnnualPreviewLoading(false) }
+    })
+    return () => { cancelled = true }
+  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category])
+
+  useEffect(() => {
+    if (!isSpecial || !hasValidRange) { setSpecialPressure(null); return }
+    let cancelled = false
+    fetchSpecialLeavePressure({ dateFrom, dateTo }).then(result => {
+      if (!cancelled) setSpecialPressure(result)
+    })
+    return () => { cancelled = true }
+  }, [isSpecial, hasValidRange, dateFrom, dateTo])
 
   function handleWeekendSaturdayChange(value) {
     setDateFrom(value)
@@ -133,6 +171,27 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
               className="input-field w-full min-w-0"
             />
           </div>
+        </div>
+      )}
+
+      {isAnnual && hasValidRange && (
+        annualPreviewLoading ? (
+          <p className="text-xs text-ink-muted">Checking availability…</p>
+        ) : annualPreview && (
+          <LeaveCapacityBanner
+            mySlots={{ taken: annualPreview.taken, max: annualPreview.max }}
+            columnLabel={annualPreview.columnLabel}
+          />
+        )
+      )}
+
+      {isSpecial && hasValidRange && specialPressure?.overSoftCap && (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <p>
+            {specialPressure.count} doctor{specialPressure.count === 1 ? '' : 's'} already {specialPressure.count === 1 ? 'has' : 'have'} special
+            leave requests over this period — above the informal guideline of {specialPressure.softCap}, but you can still submit; admin will review.
+          </p>
         </div>
       )}
 

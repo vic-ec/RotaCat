@@ -91,13 +91,33 @@ function hasCapacityColumn(columnKey, maxByColumnKey) {
 // historical max (2/1/2) has been hit on its own. OT COSMO/Intern is a
 // separate, independent pool with its own cap (1) — additive, not part of
 // this shared pool.
-function slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
+// Exported (not just used internally) so leaveRequests.js's
+// fetchAnnualCapacityPreview can reuse the exact same combined-pool
+// calculation for a not-yet-submitted request's date range, instead of
+// reimplementing it against its own countByColumnPerDate map.
+export function slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
   const counts = countByColumnPerDateMap.get(date)
   if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
     const taken = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (counts?.get(key) || 0), 0)
     return { taken, max: maxFullTime }
   }
   return { taken: counts?.get(columnKey) || 0, max: maxByColumnKey[columnKey] }
+}
+
+// The day-view banner's own "how urgent is this" read — a 3-step scale
+// (available/near capacity/at capacity) that skips the middle "limited"
+// step myCategoryCapacityStateForDate's day-cell fill uses: a banner is
+// answering "should I even try requesting this", not just "is there room
+// at all" the way a day-cell's quick-glance fill is, so a single slot
+// still open already reads as "getting tight" (orange) rather than
+// "fine" (yellow). Shared by MonthWorkspace's DayReviewModal and
+// LeaveRequestForm's capacity preview via LeaveCapacityBanner, so both
+// always agree on which colour a given {taken, max} pair gets.
+export function bannerStateForSlots({ taken, max }) {
+  const available = max - taken
+  if (available <= 0) return LEAVE_CAPACITY_STATES[3]
+  if (available === max) return LEAVE_CAPACITY_STATES[0]
+  return LEAVE_CAPACITY_STATES[2]
 }
 
 // Same combined-pool logic as slotsForColumnOnDate, but for a single

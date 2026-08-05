@@ -77,7 +77,7 @@ function AppRoutes() {
           <Route path="weekend" element={<WeekendPlannerPage />} />
           <Route
             path="swaps"
-            element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." />}
+            element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." maxWidthClassName="md:max-w-2xl" />}
           />
           <Route
             path="shifts"

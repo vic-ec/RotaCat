@@ -220,6 +220,7 @@ function SimpleListToolbar({
   sortTitle, onToggleSort,
   filterOpen, filterActive, onToggleFilter, filterAnchor, filterMenuRef,
   filterOptions, filterValue, onFilterChange,
+  onClearAll,
 }) {
   const menuWidth = 160
   const positionStyle = filterAnchor ? computeAnchoredPosition(filterAnchor, menuWidth) : null
@@ -240,7 +241,7 @@ function SimpleListToolbar({
         type="button"
         onClick={onToggleSort}
         title={sortTitle}
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink md:w-24"
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 bg-canvas text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink md:w-24"
       >
         <ZapIcon className="h-4 w-4 flex-shrink-0" />
         <span className="hidden md:inline">Sort</span>
@@ -254,7 +255,7 @@ function SimpleListToolbar({
           className={`flex h-[30px] w-[30px] items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors md:w-24 ${
             filterOpen || filterActive
               ? 'bg-accent text-white'
-              : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+              : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
           }`}
         >
           <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
@@ -284,6 +285,15 @@ function SimpleListToolbar({
           </div>
         )}
       </div>
+      <button
+        type="button"
+        onClick={onClearAll}
+        aria-label="Clear all filters"
+        title="Clear all filters"
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+      >
+        <CircleX className="h-4 w-4" />
+      </button>
     </div>
   )
 }
@@ -958,16 +968,16 @@ export default function StaffListPage() {
     <div className="mx-auto max-w-7xl">
       {/* Sticky header — tab row (admin-only: All Staff / Approvals / User
           Requests) plus the Search/Sort/Filter toolbar (every viewer, only
-          while on the accounts tab). top-[49px]: AppLayout's mobile
-          <header> is exactly 49px tall (32px avatar + py-2's 16px + a 1px
-          border-b) — top-14 (56px) left a 7px gap scrolled content showed
-          through. md:top-0 on desktop, which has no top bar of its own
-          (just the persistent sidebar). The mobile card list's sticky
-          group labels further down are offset to clear this bar's actual
-          rendered height (49px + this bar's own height, which differs by
-          role since the tab row only exists for admins) — see the
-          isAdmin ? 'top-[142px]' : 'top-[99px]' split below. */}
-      <div className="sticky top-[49px] z-20 mb-4 bg-canvas pb-3 pt-2 md:top-0 md:pb-4 md:pt-0 md:shadow-[0_3px_6px_-1px_rgba(15,23,42,0.15)]">
+          while on the accounts tab). top-0 on both breakpoints: AppLayout's
+          mobile <header> is Dashboard-only now (never present on this
+          page), so there's no app-bar height to offset below any more —
+          this used to add its ~49px, which briefly went stale and hid this
+          whole bar behind a gap once that header stopped rendering here.
+          The mobile card list's sticky group labels further down are
+          offset to clear this bar's own rendered height, which differs by
+          role since the tab row only exists for admins — see the
+          isAdmin ? 'top-[93px]' : 'top-[50px]' split below. */}
+      <div className="sticky top-0 z-20 mb-4 border-b-2 border-accent bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {isAdmin && (
           <div className="grid grid-cols-3 border-b border-slate-line md:flex md:w-fit">
             <button
@@ -1013,10 +1023,10 @@ export default function StaffListPage() {
         {tab === 'accounts' && (
           <>
             {/* Mobile toolbar — Search hugs to fill the remaining width,
-                Sort/Filter are fixed-size icon-only buttons pinned to the
-                right. Shares state/popovers with the desktop toolbar below
-                (only the visible copy is ever interactive), so picking
-                anything here behaves identically. */}
+                Sort/Filter/Clear-all are fixed-size icon-only buttons
+                pinned to the right. Shares state/popovers with the desktop
+                toolbar below (only the visible copy is ever interactive),
+                so picking anything here behaves identically. */}
             <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
               <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
                 {searchOpen ? (
@@ -1036,7 +1046,7 @@ export default function StaffListPage() {
                     className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                       accountFilters.q
                         ? 'bg-accent text-white'
-                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                        : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
                     }`}
                   >
                     <SearchIcon className="h-4 w-4 flex-shrink-0" />
@@ -1054,43 +1064,41 @@ export default function StaffListPage() {
                 className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
                   desktopSortOpen
                     ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
                 <ZapIcon className="h-4 w-4" />
               </button>
 
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  aria-label="Filter"
-                  title="Filter"
-                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-accent/25 transition-colors ${
-                    desktopFilterOpen || sheetFilterCount > 0
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <ListFilterIcon className="h-4 w-4" />
-                </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
-                  >
-                    <ResetIcon className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={e => openDesktopFilter(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopFilterOpen}
+                aria-label="Filter"
+                title="Filter"
+                className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
+                  desktopFilterOpen || sheetFilterCount > 0
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ListFilterIcon className="h-4 w-4" />
+              </button>
+
+              <button
+                onClick={resetDesktopFilters}
+                aria-label="Clear all filters"
+                title="Clear all filters"
+                className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+              >
+                <CircleX className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Desktop toolbar — Search, Sort, and Filter all at fixed,
                 stable widths (not flex-1/hugging) so the row never reflows;
-                Sort/Filter always show their icon + label. */}
+                Sort/Filter always show their icon + label. Clear-all is
+                icon-only at the fixed 30x30 size on both breakpoints. */}
             <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
               <div ref={searchWrapRef} className="w-56 flex-shrink-0">
                 {searchOpen ? (
@@ -1110,7 +1118,7 @@ export default function StaffListPage() {
                     className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                       accountFilters.q
                         ? 'bg-accent text-white'
-                        : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                        : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
                     }`}
                   >
                     <SearchIcon className="h-4 w-4 flex-shrink-0" />
@@ -1126,38 +1134,35 @@ export default function StaffListPage() {
                 className={`flex h-[30px] w-24 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
                   desktopSortOpen
                     ? 'bg-accent text-white'
-                    : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
                 }`}
               >
                 <ZapIcon className="h-4 w-4 flex-shrink-0" />
                 Sort
               </button>
 
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={e => openDesktopFilter(e.currentTarget)}
-                  aria-haspopup="menu"
-                  aria-expanded={desktopFilterOpen}
-                  className={`flex h-[30px] w-24 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                    desktopFilterOpen || sheetFilterCount > 0
-                      ? 'bg-accent text-white'
-                      : 'bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                  }`}
-                >
-                  <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-                  Filter
-                </button>
-                {sheetFilterCount > 0 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); resetDesktopFilters() }}
-                    aria-label="Reset filters"
-                    title="Reset filters"
-                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent-dark text-white hover:bg-ink active:bg-ink"
-                  >
-                    <ResetIcon className="h-2.5 w-2.5" />
-                  </button>
-                )}
-              </div>
+              <button
+                onClick={e => openDesktopFilter(e.currentTarget)}
+                aria-haspopup="menu"
+                aria-expanded={desktopFilterOpen}
+                className={`flex h-[30px] w-24 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                  desktopFilterOpen || sheetFilterCount > 0
+                    ? 'bg-accent text-white'
+                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
+                }`}
+              >
+                <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
+                Filter
+              </button>
+
+              <button
+                onClick={resetDesktopFilters}
+                aria-label="Clear all filters"
+                title="Clear all filters"
+                className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+              >
+                <CircleX className="h-4 w-4" />
+              </button>
             </div>
           </>
         )}
@@ -1181,6 +1186,7 @@ export default function StaffListPage() {
               filterOptions={[{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
               filterValue={pendingRoleFilter}
               onFilterChange={v => { setPendingRoleFilter(v); setPendingFilterOpen(false) }}
+              onClearAll={() => { setPendingSearchQuery(''); setPendingRoleFilter('all'); setPendingFilterOpen(false) }}
             />
           </div>
         )}
@@ -1204,6 +1210,7 @@ export default function StaffListPage() {
               filterOptions={[{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
               filterValue={requestsRoleFilter}
               onFilterChange={v => { setRequestsRoleFilter(v); setRequestsFilterOpen(false) }}
+              onClearAll={() => { setRequestsSearchQuery(''); setRequestsRoleFilter('all'); setRequestsFilterOpen(false) }}
             />
           </div>
         )}
@@ -1249,7 +1256,7 @@ export default function StaffListPage() {
                       // for admins, who also get the tab row on top of the
                       // toolbar (see the header's own comment for the maths).
                       className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-[142px]' : 'top-[99px]'
+                        isAdmin ? 'top-[93px]' : 'top-[50px]'
                       }`}
                     >
                       {/* "X active · Y inactive" instead of "X total · Y

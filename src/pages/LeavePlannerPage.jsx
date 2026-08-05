@@ -171,9 +171,9 @@ export default function LeavePlannerPage() {
       )}
 
       <div className="mt-6">
-        {tab === 'my-leave' && canSubmitLeave && <div className="md:max-w-2xl"><LeaveDashboard /></div>}
+        {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
         {tab === 'team' && <LeaveListView />}
-        {tab === 'rules' && <div className="md:max-w-2xl"><LeaveRulesPage /></div>}
+        {tab === 'rules' && <div className="mx-auto md:max-w-2xl"><LeaveRulesPage /></div>}
         {tab === 'planners' && (
           <>
             {plannerTab === 'annual' && canViewYearPlanners && (

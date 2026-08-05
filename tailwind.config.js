@@ -86,7 +86,7 @@ export default {
         // on the same near-black brown at high darkness).
         capAvailable: {
           DEFAULT: '#16A34A',
-          light: '#27AA58',
+          light: '#3DB369',
           tint: '#DCFCE7',
           dark: '#166534',
           ink: '#15803D'
@@ -100,21 +100,21 @@ export default {
         // identically instead of two subtly different darker yellows.
         capLimited: {
           DEFAULT: '#FACC15',
-          light: '#FACC15',
+          light: '#FBD12C',
           tint: '#FEF9C3',
           dark: '#854D0E',
           ink: '#A16207'
         },
         capNear: {
           DEFAULT: '#F97316',
-          light: '#F97E27',
+          light: '#FA8B3D',
           tint: '#FFEDD5',
           dark: '#9A3412',
           ink: '#C2410C'
         },
         capAtCapacity: {
           DEFAULT: '#DC2626',
-          light: '#DF3636',
+          light: '#E24A4A',
           tint: '#FEE2E2',
           dark: '#991B1B',
           ink: '#B91C1C'

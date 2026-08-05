@@ -201,7 +201,7 @@ export default function MonthWorkspace({
               onClick={() => setSelectedDate(date)}
             />
           ) : (
-            <div key={`blank-${i}`} className="min-h-[100px] border-b border-r border-slate-line bg-canvas-sunken/30" />
+            <div key={`blank-${i}`} className="min-h-[104px] border-b border-r border-slate-line bg-canvas-sunken/30" />
           ))}
         </div>
       </div>
@@ -297,7 +297,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[100px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
+      className={`flex min-h-[104px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
@@ -316,8 +316,8 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
           off that way. */}
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
-          <div key={key} className="flex items-start gap-1 text-[11px] leading-tight">
-            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={14} className="mt-0.5" />
+          <div key={key} className="flex items-center gap-1 text-[11px] leading-tight">
+            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
@@ -491,8 +491,8 @@ function DayReviewModal({
 
         {showRequestForm ? (
           <div className="mt-4">
-            <button type="button" onClick={() => setShowRequestForm(false)} className="text-xs font-medium text-accent hover:underline">
-              ‹ Back
+            <button type="button" onClick={() => setShowRequestForm(false)} className="text-xs font-medium text-ink-light hover:text-ink">
+              {'<- Back'}
             </button>
             <div className="mt-2">
               <LeaveRequestForm

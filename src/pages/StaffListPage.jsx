@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import ClearableInput from '../components/ClearableInput'
+import PageTabs from '../components/PageTabs'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
@@ -966,58 +967,30 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      {/* Sticky header — tab row (admin-only: All Staff / Approvals / User
-          Requests) plus the Search/Sort/Filter toolbar (every viewer, only
-          while on the accounts tab). top-0 on both breakpoints: AppLayout's
-          mobile <header> is Dashboard-only now (never present on this
-          page), so there's no app-bar height to offset below any more —
-          this used to add its ~49px, which briefly went stale and hid this
-          whole bar behind a gap once that header stopped rendering here.
+      {/* Sticky header — tab row (admin-only: All Staff / Pending Approvals /
+          User Requests, via the shared PageTabs template) plus the Search/
+          Sort/Filter toolbar (every viewer, only while on the accounts tab).
+          top-0 on both breakpoints: AppLayout's mobile <header> is
+          Dashboard-only now (never present on this page), so there's no
+          app-bar height to offset below any more — this used to add its
+          ~49px, which briefly went stale and hid this whole bar behind a
+          gap once that header stopped rendering here.
           The mobile card list's sticky group labels further down are
           offset to clear this bar's own rendered height, which differs by
           role since the tab row only exists for admins — see the
           isAdmin ? 'top-[93px]' : 'top-[50px]' split below. */}
       <div className="sticky top-0 z-20 mb-4 border-b-2 border-accent bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {isAdmin && (
-          <div className="grid grid-cols-3 border-b border-slate-line md:flex md:w-fit">
-            <button
-              onClick={() => setTab('accounts')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
-                tab === 'accounts' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
-              }`}
-            >
-              <UsersIcon className="h-3.5 w-3.5 flex-shrink-0" />
-              All Staff
-            </button>
-            <button
-              onClick={() => setTab('pending')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
-                tab === 'pending' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
-              }`}
-            >
-              <BellIcon className="h-3.5 w-3.5 flex-shrink-0" />
-              Approvals
-              {pending.length > 0 && (
-                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
-                  {pending.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setTab('requests')}
-              className={`flex items-center justify-center gap-1 border-b-2 px-2 py-2 text-xs transition-colors md:w-32 ${
-                tab === 'requests' ? 'border-accent font-semibold text-accent' : 'border-transparent font-normal text-ink-light hover:text-ink'
-              }`}
-            >
-              <MailQuestionMarkIcon className="h-3.5 w-3.5 flex-shrink-0" />
-              User Requests
-              {accountRequests.length > 0 && (
-                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
-                  {accountRequests.length}
-                </span>
-              )}
-            </button>
-          </div>
+          <PageTabs
+            tabs={[
+              { key: 'accounts', label: 'All Staff' },
+              { key: 'pending', label: 'Pending Approvals', badge: pending.length },
+              { key: 'requests', label: 'User Requests', badge: accountRequests.length },
+            ]}
+            active={tab}
+            onChange={setTab}
+            ariaLabel="Staff"
+          />
         )}
 
         {tab === 'accounts' && (
@@ -2148,34 +2121,12 @@ export default function StaffListPage() {
 }
 
 
-function BellIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8a6 6 0 1 1 12 0c0 4.5 1.5 6 1.5 6h-15S6 12.5 6 8z" />
-      <path strokeLinecap="round" d="M10 19a2 2 0 0 0 4 0" />
-    </svg>
-  )
-}
-
 function KebabIcon(props) {
   return (
     <svg {...props} viewBox="0 0 24 24" fill="currentColor">
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
-    </svg>
-  )
-}
-
-// Envelope with a "?" badge (Lucide's "mail-question-mark") — the "user
-// requests" pillbox's marker, replacing the earlier double-exclamation mark.
-function MailQuestionMarkIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5h-13.5a2.25 2.25 0 00-2.25 2.25v7.5a2.25 2.25 0 002.25 2.25h6.75" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5a2.25 2.25 0 012.25 2.25v2.318M19.5 4.5L13.06 9.12a2.25 2.25 0 01-2.62 0L3.75 4.5" />
-      <circle cx="18.5" cy="18" r="4.5" fill="currentColor" stroke="none" />
-      <text x="18.5" y="20.2" textAnchor="middle" fontSize="6.5" fontWeight="700" fill="white" stroke="none">?</text>
     </svg>
   )
 }
@@ -2288,14 +2239,6 @@ function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-    </svg>
-  )
-}
-
-function UsersIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
     </svg>
   )
 }

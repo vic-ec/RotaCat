@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
+import PageTabs from '../components/PageTabs'
 import CreateRosterModal from '../components/CreateRosterModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
@@ -176,37 +177,17 @@ export default function RosterDashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl md:max-w-2xl">
-      {/* Header */}
-      <div className="mb-6">
+      {/* Header — title + Create roster (admin, Active tab only) live in
+          their own row now that the tab row below is the shared PageTabs
+          underline template, not a fixed-width segmented pill; there's no
+          layout-jitter concern that requires keeping the button always
+          mounted any more (see the old comment this replaced). */}
+      <div className="mb-4 flex items-start justify-between gap-3">
         <h1 className="font-display text-2xl font-bold text-ink">Rosters</h1>
-      </div>
-
-      <div className="mb-5 flex items-center gap-2">
-        <div className="flex flex-1 gap-1 rounded-lg border border-slate-line bg-canvas-raised p-1 md:w-fit md:flex-none">
-          {(isAdmin ? TABS_ADMIN : TABS_DOCTOR).map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors md:flex-none ${
-                tab === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        {isAdmin && (
-          // Always rendered (even off the Active tab) so the tab selector's
-          // `flex-1` share of the row is computed against the same layout on
-          // every tab — hiding it via `tab !== 'active'` conditional
-          // rendering instead would let the selector expand to fill the
-          // whole row on Archive/Bin, making it a different width there
-          // than on Active.
+        {isAdmin && tab === 'active' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            aria-hidden={tab !== 'active'}
-            tabIndex={tab !== 'active' ? -1 : undefined}
-            className={`btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto ${tab !== 'active' ? 'invisible' : ''}`}
+            className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto"
           >
             <PencilSparklesIcon className="h-4 w-4" />
             Create roster
@@ -214,106 +195,110 @@ export default function RosterDashboardPage() {
         )}
       </div>
 
-      {actionError && (
-        <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
-          <p className="text-sm text-flagRed">{actionError}</p>
-        </div>
-      )}
+      <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Rosters" />
 
-      {tab === 'active' && (
-        <>
-          {((isAdmin && drafts.length > 0) || published.length > 0) && (
-            <RosterSearchFilter
-              search={activeSearch}
-              onSearchChange={setActiveSearch}
-              filterMonth={activeFilterMonth}
-              onFilterMonthChange={setActiveFilterMonth}
-              filterYear={activeFilterYear}
-              onFilterYearChange={setActiveFilterYear}
-              years={activeYears}
-              ariaLabel="Filter active rosters"
-            />
-          )}
-          {isAdmin && (
+      <div className="mt-4">
+        {actionError && (
+          <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
+            <p className="text-sm text-flagRed">{actionError}</p>
+          </div>
+        )}
+
+        {tab === 'active' && (
+          <>
+            {((isAdmin && drafts.length > 0) || published.length > 0) && (
+              <RosterSearchFilter
+                search={activeSearch}
+                onSearchChange={setActiveSearch}
+                filterMonth={activeFilterMonth}
+                onFilterMonthChange={setActiveFilterMonth}
+                filterYear={activeFilterYear}
+                onFilterYearChange={setActiveFilterYear}
+                years={activeYears}
+                ariaLabel="Filter active rosters"
+              />
+            )}
+            {isAdmin && (
+              <RosterSection
+                title="Drafts"
+                rosters={filteredDrafts}
+                selected={draftSel}
+                setSelected={setDraftSel}
+                navigate={navigate}
+                metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
+                actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
+                emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
+              />
+            )}
             <RosterSection
-              title="Drafts"
-              rosters={filteredDrafts}
-              selected={draftSel}
-              setSelected={setDraftSel}
+              title="Published"
+              rosters={filteredPublished}
+              selected={pubSel}
+              setSelected={setPubSel}
               navigate={navigate}
               metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
-              actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
-              emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
+              actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
+              emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
             />
-          )}
-          <RosterSection
-            title="Published"
-            rosters={filteredPublished}
-            selected={pubSel}
-            setSelected={setPubSel}
-            navigate={navigate}
-            metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
-            actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
-            emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
-          />
-          {(!isAdmin || drafts.length === 0) && published.length === 0 && (
-            <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
-          )}
-        </>
-      )}
+            {(!isAdmin || drafts.length === 0) && published.length === 0 && (
+              <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
+            )}
+          </>
+        )}
 
-      {tab === 'archive' && (
-        <>
-          <RosterSearchFilter
-            search={search}
-            onSearchChange={setSearch}
-            filterMonth={filterMonth}
-            onFilterMonthChange={setFilterMonth}
-            filterYear={filterYear}
-            onFilterYearChange={setFilterYear}
-            years={years}
-            ariaLabel="Filter archived rosters"
-          />
-          <RosterSection
-            title="Archived"
-            rosters={filteredArchived}
-            selected={archiveSel}
-            setSelected={setArchiveSel}
-            navigate={navigate}
-            metaFn={r => `Archived ${formatDate(r.archived_at || r.updated_at)}`}
-            actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
-            emptyText="No archived rosters match these filters."
-          />
-        </>
-      )}
+        {tab === 'archive' && (
+          <>
+            <RosterSearchFilter
+              search={search}
+              onSearchChange={setSearch}
+              filterMonth={filterMonth}
+              onFilterMonthChange={setFilterMonth}
+              filterYear={filterYear}
+              onFilterYearChange={setFilterYear}
+              years={years}
+              ariaLabel="Filter archived rosters"
+            />
+            <RosterSection
+              title="Archived"
+              rosters={filteredArchived}
+              selected={archiveSel}
+              setSelected={setArchiveSel}
+              navigate={navigate}
+              metaFn={r => `Archived ${formatDate(r.archived_at || r.updated_at)}`}
+              actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
+              emptyText="No archived rosters match these filters."
+            />
+          </>
+        )}
 
-      {isAdmin && tab === 'bin' && (
-        <>
-          <RosterSearchFilter
-            search={binSearch}
-            onSearchChange={setBinSearch}
-            filterMonth={binFilterMonth}
-            onFilterMonthChange={setBinFilterMonth}
-            filterYear={binFilterYear}
-            onFilterYearChange={setBinFilterYear}
-            years={binYears}
-            ariaLabel="Filter bin"
-          />
-          <RosterSection
-            title="Bin"
-            rosters={filteredBinned}
-            selected={binSel}
-            setSelected={setBinSel}
-            navigate={navigate}
-            metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
-            actions={[
-              { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
-              { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
-            ]}
-            emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
-          />
-        </>
-      )}
+        {isAdmin && tab === 'bin' && (
+          <>
+            <RosterSearchFilter
+              search={binSearch}
+              onSearchChange={setBinSearch}
+              filterMonth={binFilterMonth}
+              onFilterMonthChange={setBinFilterMonth}
+              filterYear={binFilterYear}
+              onFilterYearChange={setBinFilterYear}
+              years={binYears}
+              ariaLabel="Filter bin"
+            />
+            <RosterSection
+              title="Bin"
+              rosters={filteredBinned}
+              selected={binSel}
+              setSelected={setBinSel}
+              navigate={navigate}
+              metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
+              actions={[
+                { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
+                { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
+              ]}
+              emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
+            />
+          </>
+        )}
+      </div>
 
       {showCreateModal && (
         <CreateRosterModal
@@ -351,8 +336,12 @@ function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonth
 
   return (
     <>
+      {/* Left-aligned, not stretched full-width — matches the Staff list's
+          search+filter toolbar (fixed-width search box on desktop, filter
+          pill sized to its own content), sitting directly under the
+          PageTabs row rather than spanning the whole row. */}
       <div className="mb-4 flex items-center gap-2">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 md:w-64 md:flex-none">
           <ClearableInput
             type="text"
             value={search}

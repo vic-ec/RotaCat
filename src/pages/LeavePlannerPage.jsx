@@ -1,6 +1,7 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useScrollReveal } from '../lib/useScrollReveal'
+import PageTabs from '../components/PageTabs'
 import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import MyRequestHistory from '../components/MyRequestHistory'
@@ -136,20 +137,9 @@ export default function LeavePlannerPage() {
       {/* Module nav: switches which Leave destination is showing. Underlined
           selection, not a filled segmented control, so it reads as primary
           navigation rather than a same-level option group with the Planners
-          sub-tabs below. Scrolls horizontally only if it doesn't fit. */}
-      <nav className="flex gap-6 overflow-x-auto border-b border-slate-line" aria-label="Leave">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2.5 text-sm font-medium transition-colors ${
-              tab === t.key ? 'border-accent text-ink' : 'border-transparent text-ink-light hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+          sub-tabs below. Scrolls horizontally only if it doesn't fit.
+          Shared `PageTabs` template — see src/components/PageTabs.jsx. */}
+      <PageTabs tabs={tabs} active={tab} onChange={setTab} ariaLabel="Leave" />
 
       {tab === 'planners' && plannerTabs.length > 1 && (
         <div
@@ -158,19 +148,7 @@ export default function LeavePlannerPage() {
           }`}
         >
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Planners</h2>
-          <nav className="flex gap-5 overflow-x-auto border-b border-slate-line" aria-label="Planners">
-            {plannerTabs.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setPlannerTab(t.key)}
-                className={`shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-1.5 text-xs font-medium transition-colors ${
-                  plannerTab === t.key ? 'border-accent text-ink' : 'border-transparent text-ink-light hover:text-ink'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          <PageTabs tabs={plannerTabs} active={plannerTab} onChange={setPlannerTab} ariaLabel="Planners" size="sub" />
         </div>
       )}
 

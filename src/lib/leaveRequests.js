@@ -7,6 +7,7 @@ import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
   columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
+import { slotsForColumnOnDate } from './monthWorkspace'
 
 // Mirrors the official leave-type picklist (screenshot from the employer's
 // leave system) plus a few RotaCat-specific extras that don't come from
@@ -38,6 +39,15 @@ export const LEAVE_TYPE_OPTIONS = [
 export const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
   .map(o => o.value)
   .filter(v => v !== 'annual' && v !== 'sick' && v !== 'weekend_exception')
+
+// The EC Leave Planner sheet's documented guideline — no more than 3
+// doctors (any category) on special leave at the same time — see
+// SpecialLeavePlanner.jsx and fetchSpecialLeavePressure below. A plain
+// constant, not a `constraints` table row: unlike the Annual Leave caps,
+// this hasn't run against real submissions yet, so it stays a flag/
+// advisory only (see fetchSpecialLeavePressure) until it's proven out and
+// deliberately hardened into an enforced, admin-configurable value.
+export const SPECIAL_LEAVE_SOFT_CAP = 3
 
 // weekend_exception must cover exactly one Saturday+Sunday pair.
 export function isValidWeekendExceptionRange(dateFrom, dateTo) {
@@ -199,6 +209,123 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
     if (fullTimeBreach) {
       throw new Error(`No more than ${maxTotal} full-time EC doctors (MO/Registrar/EC COSMO/Intern combined) may be on leave at once, and that's already reached on ${fullTimeDates[0]}. Adjust the dates and try again.`)
     }
+  }
+}
+
+// Pure per-date scan behind fetchAnnualCapacityPreview below — the single
+// most-constrained date in [dateFrom, dateTo] for `columnKey`'s pool (the
+// shared full-time pool for MO/Registrar/EC COSMO, or the column's own
+// count otherwise — see slotsForColumnOnDate in monthWorkspace.js, reused
+// rather than reimplemented here). Ties go to the earliest date, matching
+// findLeaveCapacityBreach/findFullTimeAggregateBreach's own
+// earliest-first convention. Returns null only for an empty range (never
+// happens in practice — callers already validate dateFrom <= dateTo).
+export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap }) {
+  let worst = null
+  for (const date of datesInRange(dateFrom, dateTo)) {
+    const { taken, max } = slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
+    if (!worst || (max - taken) < (worst.max - worst.taken)) {
+      worst = { date, taken, max }
+    }
+  }
+  return worst ? { ...worst, atCapacity: worst.taken >= worst.max } : null
+}
+
+// Read-only, non-blocking counterpart to checkAnnualLeaveCapacity above —
+// same query shape (constraints + overlapping annual leave_requests for
+// the date range), but scoped to a not-yet-submitted request's own picked
+// range instead of a submit-time guard, and never throws. Used to drive
+// LeaveRequestForm's live capacity preview via LeaveCapacityBanner, the
+// same component MonthWorkspace's DayReviewModal renders. Unlike
+// checkAnnualLeaveCapacity, `category` is passed directly (the caller
+// already has the signed-in profile in hand) rather than looked up by
+// profileId, and the overlapping-requests query doesn't exclude anyone —
+// this is a preview of room for a new request, not a conflict check
+// against the requester's own other rows.
+export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category }) {
+  const columnKey = columnForLeaveCategory(category)
+  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
+  if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
+
+  try {
+    const [constraintsRes, overlappingRes] = await Promise.all([
+      supabase.from('constraints').select('key, value').in('key', [columnDef.constraintKey, LEAVE_FULL_TIME_CONSTRAINT_KEY]),
+      supabase.from('leave_requests')
+        .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
+        .eq('leave_type', 'annual')
+        .in('status', ['pending', 'approved'])
+        .lte('date_from', dateTo)
+        .gte('date_to', dateFrom),
+    ])
+
+    const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
+    const maxByColumnKey = { [columnKey]: maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax }
+    const maxFullTime = maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX
+
+    const byDate = buildLeaveByDate(overlappingRes.data || [], {
+      yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
+    })
+    const countByColumnPerDateMap = countByColumnPerDate(byDate, e => e.profiles?.category)
+
+    const worst = findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap })
+    return worst ? { ...worst, columnLabel: columnDef.label } : null
+  } catch {
+    return null // informative only — never let a fetch hiccup disrupt the form
+  }
+}
+
+// Pure per-date scan behind fetchSpecialLeavePressure and
+// SpecialLeavePlanner.jsx's own year-wide stat below — the date with the
+// most DISTINCT doctors present in `byDate` (Map<date, entries[]>) within
+// [dateFrom, dateTo]. A doctor with two overlapping special-leave rows on
+// the same day only counts once. `profileIdOf` accounts for callers
+// keying their entries differently: fetchSpecialLeavePressure's own raw
+// leave_requests rows use `profile_id`, SpecialLeavePlanner's
+// already-reshaped rows use `profileId`.
+export function findWorstSpecialLeavePressure({ dateFrom, dateTo, byDate, profileIdOf = e => e.profile_id, softCap = SPECIAL_LEAVE_SOFT_CAP }) {
+  let worst = null
+  for (const date of datesInRange(dateFrom, dateTo)) {
+    const count = new Set((byDate.get(date) || []).map(profileIdOf)).size
+    if (!worst || count > worst.count) worst = { date, count }
+  }
+  return worst ? { ...worst, softCap, overSoftCap: worst.count >= softCap } : null
+}
+
+// Whole-year count of dates where DISTINCT doctors present in `byDate`
+// meet or exceed `softCap` — the actual number behind the "no more than 3
+// doctors..." guideline sentence, for SpecialLeavePlanner's year view.
+// Shares `profileIdOf`/`softCap` semantics with findWorstSpecialLeavePressure
+// above; the caller is responsible for `byDate` already containing only
+// the entries that should count (e.g. SPECIAL_LEAVE_TYPES rows).
+export function countSpecialLeavePressureDaysInYear({ year, byDate, profileIdOf = e => e.profile_id, softCap = SPECIAL_LEAVE_SOFT_CAP }) {
+  return datesInRange(`${year}-01-01`, `${year}-12-31`).filter(date => {
+    const count = new Set((byDate.get(date) || []).map(profileIdOf)).size
+    return count >= softCap
+  }).length
+}
+
+// Read-only, flag-only counterpart for special leave — there is no
+// `checkSpecialLeaveCapacity` to mirror, since the ≤3-doctors guideline is
+// deliberately not enforced yet (see SPECIAL_LEAVE_SOFT_CAP above). Never
+// throws and is never called from submitLeaveRequest's blocking path —
+// display/advisory only, wired into LeaveRequestForm and
+// SpecialLeavePlanner.jsx.
+export async function fetchSpecialLeavePressure({ dateFrom, dateTo }) {
+  try {
+    const { data } = await supabase
+      .from('leave_requests')
+      .select('profile_id, date_from, date_to')
+      .in('leave_type', SPECIAL_LEAVE_TYPES)
+      .in('status', ['pending', 'approved'])
+      .lte('date_from', dateTo)
+      .gte('date_to', dateFrom)
+
+    const byDate = buildLeaveByDate(data || [], {
+      yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
+    })
+    return findWorstSpecialLeavePressure({ dateFrom, dateTo, byDate })
+  } catch {
+    return null
   }
 }
 

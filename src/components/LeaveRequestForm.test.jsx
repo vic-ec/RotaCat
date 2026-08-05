@@ -3,19 +3,30 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LeaveRequestForm from './LeaveRequestForm'
 
+let mockAuth = { profile: { id: 'doctor-1' }, isAdmin: false }
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ profile: { id: 'doctor-1' }, isAdmin: false }),
+  useAuth: () => mockAuth,
 }))
 
 const submitLeaveRequest = vi.fn()
+const fetchAnnualCapacityPreview = vi.fn()
+const fetchSpecialLeavePressure = vi.fn()
 vi.mock('../lib/leaveRequests', async () => {
   const actual = await vi.importActual('../lib/leaveRequests')
-  return { ...actual, submitLeaveRequest: (...args) => submitLeaveRequest(...args) }
+  return {
+    ...actual,
+    submitLeaveRequest: (...args) => submitLeaveRequest(...args),
+    fetchAnnualCapacityPreview: (...args) => fetchAnnualCapacityPreview(...args),
+    fetchSpecialLeavePressure: (...args) => fetchSpecialLeavePressure(...args),
+  }
 })
 
 describe('LeaveRequestForm', () => {
   beforeEach(() => {
+    mockAuth = { profile: { id: 'doctor-1' }, isAdmin: false }
     submitLeaveRequest.mockReset()
+    fetchAnnualCapacityPreview.mockReset().mockResolvedValue(null)
+    fetchSpecialLeavePressure.mockReset().mockResolvedValue(null)
   })
 
   it('submits a normal annual leave request with the entered date range', async () => {
@@ -71,5 +82,60 @@ describe('LeaveRequestForm', () => {
     await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(
       expect.objectContaining({ leaveType: 'weekend_exception', dateFrom: '2026-08-01', dateTo: '2026-08-02' })
     ))
+  })
+
+  it('annual leave: shows the shared capacity banner once both dates are picked, reusing LeaveCapacityBanner\'s own wording', async () => {
+    mockAuth = { profile: { id: 'doctor-1', category: 'MO' }, isAdmin: false }
+    fetchAnnualCapacityPreview.mockResolvedValue({ date: '2026-08-12', taken: 1, max: 2, atCapacity: false, columnLabel: 'MO' })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+
+    expect(await screen.findByText('1 of 2 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('1 leave slot available for MO')).toBeInTheDocument()
+    expect(fetchAnnualCapacityPreview).toHaveBeenCalledWith({ dateFrom: '2026-08-10', dateTo: '2026-08-14', category: 'MO' })
+  })
+
+  it('annual leave: shows no banner once the preview resolves null (e.g. a category with no capacity column)', async () => {
+    fetchAnnualCapacityPreview.mockResolvedValue(null)
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+
+    await waitFor(() => expect(fetchAnnualCapacityPreview).toHaveBeenCalled())
+    expect(screen.queryByText(/slots taken/)).not.toBeInTheDocument()
+  })
+
+  it('special leave: shows an amber advisory once pressure is over the soft cap, without disabling submission', async () => {
+    fetchSpecialLeavePressure.mockResolvedValue({ date: '2026-08-12', count: 4, softCap: 3, overSoftCap: true })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.click(screen.getByText('Annual leave'))
+    await user.click(await screen.findByRole('option', { name: 'Special leave' }))
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+
+    expect(await screen.findByText(/4 doctors already have special leave requests/)).toBeInTheDocument()
+    expect(screen.getByText(/above the informal guideline of 3/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit request/i })).not.toBeDisabled()
+  })
+
+  it('special leave: shows no advisory when pressure is under the soft cap', async () => {
+    fetchSpecialLeavePressure.mockResolvedValue({ date: '2026-08-12', count: 1, softCap: 3, overSoftCap: false })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.click(screen.getByText('Annual leave'))
+    await user.click(await screen.findByRole('option', { name: 'Special leave' }))
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+
+    await waitFor(() => expect(fetchSpecialLeavePressure).toHaveBeenCalled())
+    expect(screen.queryByText(/already have special leave requests/)).not.toBeInTheDocument()
   })
 })

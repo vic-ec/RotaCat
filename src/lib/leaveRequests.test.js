@@ -8,6 +8,10 @@ import {
   annualDaysSummary,
   formatRequestDateRange,
   SPECIAL_LEAVE_TYPES,
+  SPECIAL_LEAVE_SOFT_CAP,
+  findWorstAnnualCapacitySlot,
+  findWorstSpecialLeavePressure,
+  countSpecialLeavePressureDaysInYear,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
 
@@ -210,5 +214,112 @@ describe('formatRequestDateRange', () => {
   it('accepts a Set of public holiday dates as well as an array', () => {
     const { extraLine } = formatRequestDateRange('2026-08-10', '2026-08-10', new Set(['2026-08-10']))
     expect(extraLine).toBe('1 Public Holiday included')
+  })
+})
+
+describe('findWorstAnnualCapacitySlot', () => {
+  const maxByColumnKey = { OT_COSMO: 1 }
+  const maxFullTime = 2
+
+  it('picks the date with the least headroom in the shared full-time pool, not just the first date', () => {
+    // 10th: 1 of 2 taken (1 headroom). 11th: 2 of 2 taken (0 headroom, the worst).
+    const countByColumnPerDateMap = new Map([
+      ['2026-08-10', new Map([['MO', 1]])],
+      ['2026-08-11', new Map([['MO', 1], ['Registrar', 1]])],
+    ])
+    const result = findWorstAnnualCapacitySlot({
+      dateFrom: '2026-08-10', dateTo: '2026-08-11', columnKey: 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
+    })
+    expect(result).toEqual({ date: '2026-08-11', taken: 2, max: 2, atCapacity: true })
+  })
+
+  it('reads OT COSMO/Intern from its own independent column, not the full-time pool', () => {
+    const countByColumnPerDateMap = new Map([
+      ['2026-08-10', new Map([['MO', 2], ['Registrar', 1]])], // full-time pool full, OT untouched
+    ])
+    const result = findWorstAnnualCapacitySlot({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_COSMO', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
+    })
+    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 1, atCapacity: false })
+  })
+
+  it('breaks a tie between equally-constrained dates in favour of the earliest one', () => {
+    const countByColumnPerDateMap = new Map([
+      ['2026-08-10', new Map([['MO', 1]])],
+      ['2026-08-11', new Map([['MO', 1]])],
+    ])
+    const result = findWorstAnnualCapacitySlot({
+      dateFrom: '2026-08-10', dateTo: '2026-08-11', columnKey: 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
+    })
+    expect(result.date).toBe('2026-08-10')
+  })
+
+  it('treats a date with no existing entries as fully open', () => {
+    const result = findWorstAnnualCapacitySlot({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap: new Map(),
+    })
+    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 2, atCapacity: false })
+  })
+})
+
+describe('SPECIAL_LEAVE_SOFT_CAP', () => {
+  it('is 3 — the EC Leave Planner sheet\'s documented guideline', () => {
+    expect(SPECIAL_LEAVE_SOFT_CAP).toBe(3)
+  })
+})
+
+describe('findWorstSpecialLeavePressure', () => {
+  it('picks the date with the most distinct doctors, not the first date', () => {
+    const byDate = new Map([
+      ['2026-08-10', [{ profile_id: 'p1' }]],
+      ['2026-08-11', [{ profile_id: 'p1' }, { profile_id: 'p2' }, { profile_id: 'p3' }]],
+    ])
+    const result = findWorstSpecialLeavePressure({ dateFrom: '2026-08-10', dateTo: '2026-08-11', byDate })
+    expect(result).toEqual({ date: '2026-08-11', count: 3, softCap: 3, overSoftCap: true })
+  })
+
+  it('does not double-count the same doctor with two overlapping rows on the same day', () => {
+    const byDate = new Map([
+      ['2026-08-10', [{ profile_id: 'p1' }, { profile_id: 'p1' }, { profile_id: 'p2' }]],
+    ])
+    const result = findWorstSpecialLeavePressure({ dateFrom: '2026-08-10', dateTo: '2026-08-10', byDate })
+    expect(result.count).toBe(2)
+    expect(result.overSoftCap).toBe(false)
+  })
+
+  it('accepts a custom profileIdOf accessor for already-reshaped rows', () => {
+    const byDate = new Map([
+      ['2026-08-10', [{ profileId: 'p1' }, { profileId: 'p2' }]],
+    ])
+    const result = findWorstSpecialLeavePressure({
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', byDate, profileIdOf: e => e.profileId,
+    })
+    expect(result.count).toBe(2)
+  })
+
+  it('treats a date with no entries as zero', () => {
+    const result = findWorstSpecialLeavePressure({ dateFrom: '2026-08-10', dateTo: '2026-08-10', byDate: new Map() })
+    expect(result).toEqual({ date: '2026-08-10', count: 0, softCap: 3, overSoftCap: false })
+  })
+})
+
+describe('countSpecialLeavePressureDaysInYear', () => {
+  it('counts only the dates that meet or exceed the soft cap', () => {
+    const byDate = new Map([
+      ['2026-03-10', [{ profile_id: 'p1' }, { profile_id: 'p2' }, { profile_id: 'p3' }]], // 3 -> over
+      ['2026-03-11', [{ profile_id: 'p1' }, { profile_id: 'p2' }]], // 2 -> under
+    ])
+    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate })).toBe(1)
+  })
+
+  it('returns 0 for a year with no pressure days', () => {
+    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate: new Map() })).toBe(0)
+  })
+
+  it('accepts a custom profileIdOf accessor for already-reshaped rows', () => {
+    const byDate = new Map([
+      ['2026-03-10', [{ profileId: 'p1' }, { profileId: 'p2' }, { profileId: 'p3' }]],
+    ])
+    expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate, profileIdOf: e => e.profileId })).toBe(1)
   })
 })

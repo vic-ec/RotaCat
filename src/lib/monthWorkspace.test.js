@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
-  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates,
+  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates, slotsForColumnOnDate, bannerStateForSlots,
 } from './monthWorkspace'
 
 describe('dayEntriesByColumn', () => {
@@ -236,5 +236,45 @@ describe('myCategoryLegendStates', () => {
 
   it('lists 2 states for OT COSMO/Intern — no middle "Limited" state, since it only has 1 slot', () => {
     expect(myCategoryLegendStates('OT_COSMO').map(s => s.label)).toEqual(['Available', 'At capacity'])
+  })
+})
+
+describe('slotsForColumnOnDate', () => {
+  const maxByColumnKey = { OT_COSMO: 1 }
+  const maxFullTime = 2
+
+  it('sums the shared full-time pool across MO/Registrar/EC COSMO for a full-time-group column', () => {
+    const countByColumnPerDateMap = new Map([['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])]])
+    expect(slotsForColumnOnDate('2026-08-10', 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap)).toEqual({ taken: 2, max: 2 })
+  })
+
+  it('reads OT COSMO/Intern from its own column, unaffected by the full-time pool', () => {
+    const countByColumnPerDateMap = new Map([['2026-08-10', new Map([['MO', 2]])]])
+    expect(slotsForColumnOnDate('2026-08-10', 'OT_COSMO', maxByColumnKey, maxFullTime, countByColumnPerDateMap)).toEqual({ taken: 0, max: 1 })
+  })
+
+  it('treats a date with no entries as zero taken', () => {
+    expect(slotsForColumnOnDate('2026-08-10', 'MO', maxByColumnKey, maxFullTime, new Map())).toEqual({ taken: 0, max: 2 })
+  })
+})
+
+describe('bannerStateForSlots', () => {
+  it('is "Available" when nothing is taken', () => {
+    expect(bannerStateForSlots({ taken: 0, max: 2 }).label).toBe('Available')
+  })
+
+  it('is "Near capacity" (not "Limited") once at least one slot is taken but room remains', () => {
+    // The banner reads as "should I even try" — 1 of 2 taken already reads
+    // as tightening up, unlike the day-cell fill's more lenient "Limited".
+    expect(bannerStateForSlots({ taken: 1, max: 2 }).label).toBe('Near capacity')
+  })
+
+  it('is "At capacity" once taken reaches max', () => {
+    expect(bannerStateForSlots({ taken: 2, max: 2 }).label).toBe('At capacity')
+  })
+
+  it('is "At capacity" for a 1-slot pool with no middle state, same as OT COSMO/Intern elsewhere', () => {
+    expect(bannerStateForSlots({ taken: 0, max: 1 }).label).toBe('Available')
+    expect(bannerStateForSlots({ taken: 1, max: 1 }).label).toBe('At capacity')
   })
 })

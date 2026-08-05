@@ -16,6 +16,7 @@ import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '..
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import InlineRuleHint from './InlineRuleHint'
+import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -437,14 +438,12 @@ function DayReviewModal({
   // flat admin-style headcount — a doctor cares whether *they* could still
   // get leave today, not the generic combined total. myColumnDef is null for
   // a category with no capacity column (Consultant/no profile), which falls
-  // back to the old generic "Full" banner below instead.
+  // back to the old generic "Full" banner below instead. Rendering itself
+  // (colours/copy/the generic fallback) lives in LeaveCapacityBanner, shared
+  // with LeaveRequestForm's own capacity preview.
   const myColumnKey = columnForLeaveCategory(profile?.category)
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
   const mySlots = myColumnDef ? myCategoryDaySlots(myColumnKey, capacity, maxFullTime) : null
-  const myAvailable = mySlots ? mySlots.max - mySlots.taken : null
-  const myBannerState = mySlots
-    ? (myAvailable <= 0 ? LEAVE_CAPACITY_STATES[3] : myAvailable === mySlots.max ? LEAVE_CAPACITY_STATES[0] : LEAVE_CAPACITY_STATES[2])
-    : null
 
   // One consolidated list instead of a heading per category — an empty
   // category no longer gets a row at all (it was pure visual weight with no
@@ -459,29 +458,14 @@ function DayReviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        {mySlots ? (
-          <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${myBannerState.tint}`}>
-            <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${myBannerState.dark}`}>
-              {myAvailable <= 0 ? '✕' : myAvailable === mySlots.max ? '✓' : '!'}
-            </span>
-            <div>
-              <p className={`text-sm font-bold ${myBannerState.text}`}>
-                {mySlots.taken} of {mySlots.max} slot{mySlots.max !== 1 ? 's' : ''} taken
-              </p>
-              <p className="mt-0.5 text-xs text-ink-muted">
-                {myAvailable} leave slot{myAvailable !== 1 ? 's' : ''} available for {myColumnDef.label}
-              </p>
-            </div>
-          </div>
-        ) : atFullCapacity && (
-          <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${dayCapacityState.tint}`}>
-            <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>✕</span>
-            <div>
-              <p className={`text-sm font-bold ${dayCapacityState.text}`}>Full — {totalSlots} of {totalCeiling} slots taken</p>
-              <p className="mt-0.5 text-xs text-ink-muted">No annual leave slots available for any category today.</p>
-            </div>
-          </div>
-        )}
+        <LeaveCapacityBanner
+          mySlots={mySlots}
+          columnLabel={myColumnDef?.label}
+          atFullCapacity={atFullCapacity}
+          dayCapacityState={dayCapacityState}
+          totalSlots={totalSlots}
+          totalCeiling={totalCeiling}
+        />
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>

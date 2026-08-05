@@ -7,6 +7,9 @@ import { datesInRange } from '../lib/dateRange'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
 } from '../lib/leaveRequests'
+import {
+  INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote,
+} from '../lib/internRotations'
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
 
@@ -36,12 +39,40 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const [annualPreview, setAnnualPreview] = useState(null)
   const [annualPreviewLoading, setAnnualPreviewLoading] = useState(false)
   const [specialPressure, setSpecialPressure] = useState(null)
+  const [myRotations, setMyRotations] = useState([])
+  const [myRotationsLoaded, setMyRotationsLoaded] = useState(false)
 
   const isWeekendException = leaveType === 'weekend_exception'
   const isAnnual = leaveType === 'annual'
   const isSpecial = SPECIAL_LEAVE_TYPES.includes(leaveType)
+  const isIntern = profile?.category === INTERN_ROTATION_CATEGORY
   const totalDays = dateFrom && dateTo && dateFrom <= dateTo ? datesInRange(dateFrom, dateTo).length : null
   const hasValidRange = Boolean(totalDays)
+
+  // An Intern's own rotation blocks — fetched once per signed-in profile
+  // (not per date change), live rather than cached, so an admin's
+  // last-minute rotation swap is reflected the next time this form
+  // mounts/re-fetches. Drives both the boundary-straddle note below and the
+  // "no rotation assigned yet" state — never blocks the rest of the form on
+  // failure (see leaveRequests.js's own resolveLeaveCapacityColumn callers
+  // for the same never-throw contract).
+  useEffect(() => {
+    if (!isIntern || !profile?.id) { setMyRotations([]); setMyRotationsLoaded(false); return }
+    let cancelled = false
+    fetchInternRotationsForDoctorIds([profile.id])
+      .then(rotations => { if (!cancelled) { setMyRotations(rotations); setMyRotationsLoaded(true) } })
+      .catch(() => { if (!cancelled) { setMyRotations([]); setMyRotationsLoaded(true) } })
+    return () => { cancelled = true }
+  }, [isIntern, profile?.id])
+
+  // Date-driven per requirement #2/#3: resolved off the START of the
+  // requested range (dateFrom), never today's date and never split
+  // day-by-day across a range that straddles two blocks — matches exactly
+  // what checkAnnualLeaveCapacity/fetchAnnualCapacityPreview resolve this
+  // same request against.
+  const boundaryNote = isAnnual && isIntern && hasValidRange ? rotationBoundaryNote(myRotations, dateFrom, dateTo) : null
+  const noRotationAssigned = isAnnual && isIntern && hasValidRange && myRotationsLoaded
+    && !myRotations.some(r => r.start_date <= dateFrom && dateFrom <= r.end_date)
 
   // Live capacity feedback for a range that's actually complete — a date
   // <input>'s onChange already only fires on a committed value (not per
@@ -57,11 +88,11 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     if (!isAnnual || !hasValidRange) { setAnnualPreview(null); setAnnualPreviewLoading(false); return }
     let cancelled = false
     setAnnualPreviewLoading(true)
-    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category }).then(result => {
+    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category, profileId: profile?.id }).then(result => {
       if (!cancelled) { setAnnualPreview(result); setAnnualPreviewLoading(false) }
     })
     return () => { cancelled = true }
-  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category])
+  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.id])
 
   useEffect(() => {
     if (!isSpecial || !hasValidRange) { setSpecialPressure(null); return }
@@ -183,6 +214,19 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
             columnLabel={annualPreview.columnLabel}
           />
         )
+      )}
+
+      {noRotationAssigned && (
+        <p className="text-xs text-ink-muted">
+          No EC/OT rotation is assigned to you yet for this date — showing the default pool until an admin sets one.
+        </p>
+      )}
+
+      {boundaryNote && (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <p>{boundaryNote}</p>
+        </div>
       )}
 
       {isSpecial && hasValidRange && specialPressure?.overSoftCap && (

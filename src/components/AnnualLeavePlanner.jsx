@@ -6,6 +6,7 @@ import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX, totalLeaveCeiling,
   buildLeaveByDate, countByColumnPerDate,
 } from '../lib/leaveYearGrid'
+import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import AnnualPlannerOverview from './AnnualPlannerOverview'
 import MonthWorkspace from './MonthWorkspace'
 
@@ -68,6 +69,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
   const [pendingRows, setPendingRows] = useState([])
   const [countsByColumn, setCountsByColumn] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
+  const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [maxByColumnKey, setMaxByColumnKey] = useState({})
   const [maxFullTime, setMaxFullTime] = useState(LEAVE_FULL_TIME_DEFAULT_MAX)
   const [eligibleHeadcount, setEligibleHeadcount] = useState(0)
@@ -118,6 +120,22 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     if (phRes.error) { setError(phRes.error.message); setLoading(false); return }
 
     const allRows = leaveRes.data || []
+
+    // Every doctor whose own rotation could change which column their leave
+    // lands in (see internRotations.js) — fetched once per load, live (never
+    // cached), and threaded down to both views the same way
+    // publicHolidaysByDate already is. A fetch hiccup here just degrades to
+    // the pre-existing static bucketing for whoever's affected, never blocks
+    // the rest of the page from loading.
+    let rotationsMap = new Map()
+    try {
+      const rotations = await fetchInternRotationsForDoctorIds(allRows.map(r => r.profile_id))
+      rotationsMap = groupRotationsByDoctorId(rotations)
+    } catch {
+      // degrade silently — see comment above
+    }
+    setRotationsByDoctorId(rotationsMap)
+
     const approvedRawRows = allRows.filter(r => r.status === 'approved')
     const pendingRawRows = allRows.filter(r => r.status === 'pending')
 
@@ -134,7 +152,9 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     setPendingByDate(reshapeByDate(pendingRawByDate))
     setApprovedRows(approvedRawRows)
     setPendingRows(pendingRawRows)
-    setCountsByColumn(countByColumnPerDate(combinedRawByDate, entry => entry.profiles?.category))
+    setCountsByColumn(countByColumnPerDate(combinedRawByDate, entry => resolveLeaveCapacityColumn({
+      category: entry.profiles?.category, profileId: entry.profile_id, date: entry.date_from, rotationsByDoctorId: rotationsMap,
+    })))
     setPublicHolidaysByDate(new Map((phRes.data || []).map(ph => [ph.date, ph.name])))
     setEligibleHeadcount(headcountRes.count ?? 0)
 
@@ -214,6 +234,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             pendingRows={pendingRows}
             countByColumnPerDate={countsByColumn}
             publicHolidaysByDate={publicHolidaysByDate}
+            rotationsByDoctorId={rotationsByDoctorId}
             maxByColumnKey={maxByColumnKey}
             maxFullTime={maxFullTime}
             eligibleHeadcount={eligibleHeadcount}
@@ -234,6 +255,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             pendingRows={pendingRows}
             countByColumnPerDate={countsByColumn}
             publicHolidaysByDate={publicHolidaysByDate}
+            rotationsByDoctorId={rotationsByDoctorId}
             highlightDate={highlightDate}
             onHighlightConsumed={() => setHighlightDate(null)}
             maxByColumnKey={maxByColumnKey}

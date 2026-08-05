@@ -225,15 +225,22 @@ export function buildLeaveByDate(leaveRequests, { yearFrom, yearTo }) {
 
 // Map<date, Map<columnKey, count>> — how many distinct profiles occupy each
 // capacity column on each date. Used both to render "x/max" on the grid and
-// to check the capacity rule at submission time.
-export function countByColumnPerDate(leaveByDate, categoryOfProfile) {
+// to check the capacity rule at submission time. `columnKeyOf(entry)`
+// resolves the already-final column key for one entry (profile_id +
+// date_from/category are typically what it needs) — callers that don't
+// need rotation-awareness pass `e => columnForLeaveCategory(e.category)`
+// directly; callers bucketing an Intern-eligible doctor pass
+// resolveLeaveCapacityColumn (see internRotations.js) instead so a bare
+// 'Intern' category resolves through that doctor's own rotation blocks
+// rather than the static category->column table alone.
+export function countByColumnPerDate(leaveByDate, columnKeyOf) {
   const counts = new Map()
   for (const [date, entries] of leaveByDate) {
     const perColumn = new Map()
     const seenProfiles = new Set() // a doctor can only occupy one column once per day even with overlapping rows
     for (const entry of entries) {
       if (seenProfiles.has(entry.profile_id)) continue
-      const column = columnForLeaveCategory(categoryOfProfile(entry))
+      const column = columnKeyOf(entry)
       if (!column) continue
       seenProfiles.add(entry.profile_id)
       perColumn.set(column, (perColumn.get(column) || 0) + 1)

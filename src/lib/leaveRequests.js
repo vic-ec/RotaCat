@@ -5,9 +5,10 @@ import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from 
 import { overlapsPlannedWeekend } from './weekendPlanner'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
-  columnForLeaveCategory, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
 import { slotsForColumnOnDate } from './monthWorkspace'
+import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from './internRotations'
 
 // Mirrors the official leave-type picklist (screenshot from the employer's
 // leave system) plus a few RotaCat-specific extras that don't come from
@@ -185,17 +186,37 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
       .gte('date_to', dateFrom),
   ])
 
-  const columnKey = columnForLeaveCategory(profileRes.data?.category)
+  const overlappingRows = overlappingRes.data || []
+
+  // An Intern's capacity pool is date-driven (see internRotations.js) --
+  // resolve every doctor's own rotation blocks (the submitter's, plus
+  // every OTHER doctor whose overlapping request needs correctly bucketing
+  // by ITS OWN date_from, not the submitter's dates) before doing any
+  // bucketing below. A rotation-fetch hiccup must never block submission
+  // of an otherwise-valid request, so this degrades to an empty map (same
+  // as "no rotation assigned yet") rather than throwing.
+  let rotationsByDoctorId = new Map()
+  try {
+    const doctorIds = [profileId, ...overlappingRows.map(r => r.profile_id)]
+    rotationsByDoctorId = groupRotationsByDoctorId(await fetchInternRotationsForDoctorIds(doctorIds))
+  } catch {
+    // fall through with an empty map -- resolveLeaveCapacityColumn already
+    // degrades gracefully to static category bucketing for every doctor
+  }
+
+  const columnKey = resolveLeaveCapacityColumn({ category: profileRes.data?.category, profileId, date: dateFrom, rotationsByDoctorId })
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return // this doctor's category has no capacity cap (Other column)
 
   const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
   const maxConcurrent = maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax
 
-  const byDate = buildLeaveByDate(overlappingRes.data || [], {
+  const byDate = buildLeaveByDate(overlappingRows, {
     yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
   })
-  const countsByDate = countByColumnPerDate(byDate, e => e.profiles?.category)
+  const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
+    category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+  }))
 
   const { hasBreach, breachDates } = findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate: countsByDate })
   if (hasBreach) {
@@ -237,19 +258,18 @@ export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxBy
 // range instead of a submit-time guard, and never throws. Used to drive
 // LeaveRequestForm's live capacity preview via LeaveCapacityBanner, the
 // same component MonthWorkspace's DayReviewModal renders. Unlike
-// checkAnnualLeaveCapacity, `category` is passed directly (the caller
-// already has the signed-in profile in hand) rather than looked up by
-// profileId, and the overlapping-requests query doesn't exclude anyone —
-// this is a preview of room for a new request, not a conflict check
-// against the requester's own other rows.
-export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category }) {
-  const columnKey = columnForLeaveCategory(category)
-  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
-  if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
-
+// checkAnnualLeaveCapacity, `category`/`profileId` are passed directly (the
+// caller already has the signed-in profile in hand) rather than looked up
+// fresh, and the overlapping-requests query doesn't exclude anyone — this
+// is a preview of room for a new request, not a conflict check against the
+// requester's own other rows. `profileId` doubles as the resolution key
+// for the requester's own rotation (an Intern's pool is date-driven — see
+// internRotations.js) and is excluded from `rotationsByDoctorId`'s "other
+// doctor" fetch when already covered by its own lookup.
+export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, profileId }) {
   try {
     const [constraintsRes, overlappingRes] = await Promise.all([
-      supabase.from('constraints').select('key, value').in('key', [columnDef.constraintKey, LEAVE_FULL_TIME_CONSTRAINT_KEY]),
+      supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
       supabase.from('leave_requests')
         .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
         .eq('leave_type', 'annual')
@@ -258,14 +278,31 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category })
         .gte('date_to', dateFrom),
     ])
 
+    const overlappingRows = overlappingRes.data || []
+
+    let rotationsByDoctorId = new Map()
+    try {
+      const doctorIds = [profileId, ...overlappingRows.map(r => r.profile_id)]
+      rotationsByDoctorId = groupRotationsByDoctorId(await fetchInternRotationsForDoctorIds(doctorIds))
+    } catch {
+      // informational preview only -- a rotation-fetch hiccup just falls
+      // back to static category bucketing below, same as checkAnnualLeaveCapacity
+    }
+
+    const columnKey = resolveLeaveCapacityColumn({ category, profileId, date: dateFrom, rotationsByDoctorId })
+    const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
+    if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
+
     const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
     const maxByColumnKey = { [columnKey]: maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax }
     const maxFullTime = maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX
 
-    const byDate = buildLeaveByDate(overlappingRes.data || [], {
+    const byDate = buildLeaveByDate(overlappingRows, {
       yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
     })
-    const countByColumnPerDateMap = countByColumnPerDate(byDate, e => e.profiles?.category)
+    const countByColumnPerDateMap = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
+      category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+    }))
 
     const worst = findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap })
     return worst ? { ...worst, columnLabel: columnDef.label } : null

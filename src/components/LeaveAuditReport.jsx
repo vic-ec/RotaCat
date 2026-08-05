@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
-import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory } from '../lib/leaveYearGrid'
+import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
+import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows } from '../lib/leaveAudit'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -111,6 +112,7 @@ export default function LeaveAuditReport() {
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
   const [profiles, setProfiles] = useState([])
   const [leaveRequests, setLeaveRequests] = useState([])
+  const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -128,12 +130,30 @@ export default function LeaveAuditReport() {
     if (requestsRes.error) { setError(requestsRes.error.message); setLoading(false); return }
     setProfiles(profilesRes.data || [])
     setLeaveRequests(requestsRes.data || [])
+
+    try {
+      const rotations = await fetchInternRotationsForDoctorIds((profilesRes.data || []).map(p => p.id))
+      setRotationsByDoctorId(groupRotationsByDoctorId(rotations))
+    } catch {
+      setRotationsByDoctorId(new Map()) // degrades to static category bucketing below
+    }
+
     setLoading(false)
   }
 
+  // This is an aggregate report (one row per doctor for the WHOLE queried
+  // range, not per leave_requests row), so there's no single leave-request
+  // date_from to resolve an Intern's rotation off — the queried range's own
+  // start (dateFrom) is used as the best available proxy instead, same
+  // "resolve once, don't split day-by-day" spirit as everywhere else. A
+  // doctor who rotated mid-range will show under whichever pool covered the
+  // start of the range, not a blended read across both.
   const columnByProfileId = useMemo(
-    () => new Map(profiles.map(p => [p.id, columnForLeaveCategory(p.category) ?? LEAVE_OTHER_COLUMN.key])),
-    [profiles]
+    () => new Map(profiles.map(p => [
+      p.id,
+      resolveLeaveCapacityColumn({ category: p.category, profileId: p.id, date: dateFrom, rotationsByDoctorId }) ?? LEAVE_OTHER_COLUMN.key,
+    ])),
+    [profiles, dateFrom, rotationsByDoctorId]
   )
 
   const statusFilteredProfiles = useMemo(

@@ -334,11 +334,18 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-[92px] flex-col items-center justify-center gap-1 rounded border text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[64px] flex-col items-center justify-center rounded border text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
-      <span className={`${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
+      {/* Pinned to the same corner on every cell via absolute positioning,
+          taken out of the flex flow entirely — otherwise this shares the
+          flex-col's centering with the badge grid below it, so a 4-badge
+          day and a no-badge day put the date number at two different
+          heights (dead centre with nothing else in the cell, pushed up
+          once badges join it), which reads as the number "jumping
+          around" from one day to the next. */}
+      <span className={`absolute left-1.5 top-1 ${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
           {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}

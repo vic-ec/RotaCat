@@ -342,8 +342,8 @@ describe('WeekendPlannerView', () => {
       expect(view.getByRole('columnheader', { name: 'Weekend' })).toBeInTheDocument()
       expect(view.getByRole('columnheader', { name: 'MO' })).toBeInTheDocument()
       expect(view.getByRole('columnheader', { name: 'Registrar' })).toBeInTheDocument()
-      expect(view.getByRole('columnheader', { name: 'EC COSMO / Intern' })).toBeInTheDocument()
-      expect(view.getByRole('columnheader', { name: 'OT COSMO / Intern' })).toBeInTheDocument()
+      expect(view.getByRole('columnheader', { name: 'EC Intern' })).toBeInTheDocument()
+      expect(view.getByRole('columnheader', { name: 'OT Intern' })).toBeInTheDocument()
       expect(view.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
     })
 

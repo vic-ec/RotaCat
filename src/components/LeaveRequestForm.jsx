@@ -88,11 +88,11 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     if (!isAnnual || !hasValidRange) { setAnnualPreview(null); setAnnualPreviewLoading(false); return }
     let cancelled = false
     setAnnualPreviewLoading(true)
-    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category, profileId: profile?.id }).then(result => {
+    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id }).then(result => {
       if (!cancelled) { setAnnualPreview(result); setAnnualPreviewLoading(false) }
     })
     return () => { cancelled = true }
-  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.id])
+  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.contract_type, profile?.id])
 
   useEffect(() => {
     if (!isSpecial || !hasValidRange) { setSpecialPressure(null); return }

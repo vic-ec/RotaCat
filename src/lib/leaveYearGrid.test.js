@@ -37,8 +37,8 @@ describe('columnForLeaveCategory', () => {
 describe('labelForLeaveCategory', () => {
   it('returns the friendly column label for a raw category', () => {
     expect(labelForLeaveCategory('MO')).toBe('MO')
-    expect(labelForLeaveCategory('EC_COSMO_Intern')).toBe('EC COSMO / Intern')
-    expect(labelForLeaveCategory('COSMOPsych')).toBe('OT COSMO / Intern')
+    expect(labelForLeaveCategory('EC_COSMO_Intern')).toBe('EC Intern')
+    expect(labelForLeaveCategory('COSMOPsych')).toBe('OT Intern')
     expect(labelForLeaveCategory('Consultant')).toBe('Consultant')
   })
 

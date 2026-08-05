@@ -32,11 +32,14 @@ const ROLE_OPTIONS = [
   },
 ]
 
-// Category options shown only when role = 'doctor'
+// Category options shown only when role = 'doctor'. COSMO deliberately
+// excluded here (2026-08) — Intern is the one choice offered at signup for
+// junior doctors now; COSMO still exists as a category (kept for possible
+// future reuse) but is admin-assigned only, via Staff List / pending
+// review, not self-selected at registration.
 const CATEGORY_OPTIONS = [
   { value: 'MO',         label: 'Medical Officer' },
   { value: 'Registrar',  label: 'Registrar' },
-  { value: 'COSMO',      label: 'COSMO' },
   { value: 'Intern',     label: 'Intern' },
   { value: 'Consultant', label: 'Consultant' },
 ]

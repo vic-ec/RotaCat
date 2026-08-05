@@ -10,10 +10,10 @@ const MONTH_LABELS = [
 ]
 
 // Capacity-capped columns for the Annual Leave planner. MO, Registrar, and
-// EC COSMO/Intern are the "full-time EC doctor" columns for the purposes of
+// EC Intern are the "full-time EC doctor" columns for the purposes of
 // the combined cap below: each has its own per-column cap AND, combined
 // across those three, may never exceed LEAVE_FULL_TIME_DEFAULT_MAX at once
-// (see findFullTimeAggregateBreach below). OT COSMO/Intern is a separate
+// (see findFullTimeAggregateBreach below). OT Intern is a separate
 // pool with its own independent cap, additive on top of that combined cap
 // rather than part of it. Consultant/Locum never appear (not part of the
 // leave-eligible doctor roster); Consultant alone falls into an uncapped
@@ -21,11 +21,36 @@ const MONTH_LABELS = [
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
-  { key: 'EC_COSMO', label: 'EC COSMO / Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_cosmo', defaultMax: 2 },
-  { key: 'OT_COSMO', label: 'OT COSMO / Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_cosmo', defaultMax: 1 },
+  { key: 'EC_COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_cosmo', defaultMax: 2 },
+  { key: 'OT_COSMO', label: 'OT Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_cosmo', defaultMax: 1 },
 ]
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
+
+// Only COSMO and Intern are actually ambiguous without contractType —
+// every other legacy value (COSMOPsych, EC_COSMO, OT_COSMO,
+// EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
+// via its own name/history, so it resolves through the static
+// COLUMN_BY_CATEGORY map unchanged, same as before 2026-08.
+const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
+const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
+
+const COLUMN_BY_CATEGORY = new Map(
+  [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.key]))
+)
+
+// Returns the planner column key for a staff_category, or null if it
+// shouldn't appear on the grid at all (Locum, or an unrecognised value).
+// `contractType` is required for COSMO/Intern specifically — see
+// AMBIGUOUS_CATEGORIES above — since category alone no longer determines
+// EC vs OT for those two. Every other category (including the legacy OT/
+// EC-specific values) ignores contractType entirely.
+export function columnForLeaveCategory(category, contractType) {
+  if (AMBIGUOUS_CATEGORIES.has(category)) {
+    return OT_HOURS_CONTRACT_TYPES.has(contractType) ? 'OT_COSMO' : 'EC_COSMO'
+  }
+  return COLUMN_BY_CATEGORY.get(category) ?? null
+}
 
 // Shared column->badge-letter mapping for every calendar view that renders
 // these categories (LeaveYearGrid.jsx's mobile month-glance, and
@@ -45,14 +70,14 @@ export const COLUMN_BADGE_LABEL = {
 
 // Full-length category name for a capacity column, for a headline that
 // reads too abbreviated at just the column's own `label` (the Annual
-// planner's mobile "Your leave" card header) — Registrar and EC COSMO/
-// Intern already match their column's `label` exactly, so this only needs
-// to spell out MO and OT COSMO/Intern.
+// planner's mobile "Your leave" card header) — every column now already
+// matches its own `label` exactly (see LEAVE_CAPACITY_COLUMNS above), so
+// this only needs to spell out MO.
 export const COLUMN_FULL_LABEL = {
   MO: 'Medical Officer',
   Registrar: 'Registrar',
-  EC_COSMO: 'EC COSMO / Intern',
-  OT_COSMO: 'Overtime COSMO / Intern',
+  EC_COSMO: 'EC Intern',
+  OT_COSMO: 'OT Intern',
 }
 
 // Four-state "how full is this day" read for the mobile planner's day/month
@@ -134,16 +159,6 @@ export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO']
 export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
 export const LEAVE_FULL_TIME_DEFAULT_MAX = 2
 
-const COLUMN_BY_CATEGORY = new Map(
-  [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.key]))
-)
-
-// Returns the planner column key for a staff_category, or null if it
-// shouldn't appear on the grid at all (Locum, or an unrecognised value).
-export function columnForLeaveCategory(category) {
-  return COLUMN_BY_CATEGORY.get(category) ?? null
-}
-
 // Splits a list of column keys into "shown" (max 4) and an overflow count
 // for a 5th+ — shared by every day-glance-style cluster (LeaveYearGrid's
 // MonthGlance, MonthWorkspace's MobileDayCell) so they all agree on when to
@@ -157,10 +172,17 @@ const LABEL_BY_CATEGORY = new Map(
   [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].flatMap(col => col.categories.map(c => [c, col.label]))
 )
 
-// The friendly column label for a raw staff_category (e.g. 'EC_COSMO_Intern'
-// -> 'EC COSMO / Intern') — falls back to the raw category for anything not
-// on the grid (Locum, unrecognised values) rather than hiding it entirely.
-export function labelForLeaveCategory(category) {
+// The friendly column label for a raw staff_category — falls back to the
+// raw category for anything not on the grid (Locum, unrecognised values)
+// rather than hiding it entirely. Same contractType requirement as
+// columnForLeaveCategory above, for the same reason (COSMO/Intern alone no
+// longer says EC vs OT).
+export function labelForLeaveCategory(category, contractType) {
+  const columnKey = columnForLeaveCategory(category, contractType)
+  if (columnKey) {
+    const col = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN].find(c => c.key === columnKey)
+    if (col) return col.label
+  }
   return LABEL_BY_CATEGORY.get(category) ?? category
 }
 

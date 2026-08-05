@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from '../components/ProfileAvatar'
 import SelectMenu from '../components/SelectMenu'
 import { formatPhoneProgressive } from '../lib/phone'
-import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
+import { defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
@@ -14,12 +14,23 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ valu
 const CATEGORY_LABELS = {
   MO:         'Medical Officer',
   Registrar:  'Registrar',
-  COSMO:      'COSMO',
-  COSMOPsych: 'COSMO (Psych)',
+  COSMO:      'COSMO (legacy)',
   Intern:     'Intern',
   Consultant: 'Consultant',
 }
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
+
+// COSMOPsych retired from active assignment (2026-08) — folded into
+// COSMO/Intern + contract_type=='Junior_Doctor_Overtime' instead of its
+// own category. These two categories need a second choice (which hours
+// band) that no longer follows from category alone.
+const CONTRACT_TYPE_OPTIONS = [
+  { value: 'full', label: 'EC — full hours (~220–246h/month)' },
+  { value: 'Junior_Doctor_Overtime', label: 'OT — Junior Doctor Overtime (~64–72h/month)' },
+]
+function categoryNeedsContractChoice(cat) {
+  return cat === 'COSMO' || cat === 'Intern'
+}
 
 const SAVED_FLASH_MS = 2500
 
@@ -54,6 +65,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState('doctor')
   const [category, setCategory] = useState('')
+  const [contractType, setContractType] = useState('full')
   const [hasAdmin, setHasAdmin] = useState(false)
 
   const [saving, setSaving] = useState(false)
@@ -86,6 +98,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     setPhone(data.phone || '')
     setRole(data.role || 'doctor')
     setCategory(data.category || '')
+    setContractType(data.contract_type || 'full')
     setHasAdmin(data.is_admin === true)
     setLoading(false)
   }
@@ -130,11 +143,13 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     phone !== (profile.phone || '') ||
     role !== (profile.role || 'doctor') ||
     category !== (profile.category || '') ||
+    (categoryNeedsContractChoice(category) && contractType !== (profile.contract_type || 'full')) ||
     hasAdmin !== (profile.is_admin === true)
 
   function handleRoleChange(value) {
     setRole(value)
     setCategory('') // valid category set differs per role
+    setContractType('full')
   }
 
   function cancelEdits() {
@@ -143,6 +158,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     setPhone(profile.phone || '')
     setRole(profile.role || 'doctor')
     setCategory(profile.category || '')
+    setContractType(profile.contract_type || 'full')
     setHasAdmin(profile.is_admin === true)
     setSaveError('')
   }
@@ -156,6 +172,15 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       setSaveError('Select a category for a doctor account.')
       return
     }
+    if (role === 'doctor' && categoryNeedsContractChoice(category) && !contractType) {
+      setSaving(false)
+      setSaveError('Select EC or OT hours for this category.')
+      return
+    }
+
+    const finalContractType = role === 'doctor'
+      ? (categoryNeedsContractChoice(category) ? contractType : (profile.contract_type || 'full'))
+      : (profile.contract_type || 'full')
 
     const { error } = await supabase.from('profiles').update({
       name: firstName,
@@ -163,6 +188,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       phone: phone || null,
       role,
       category: role === 'doctor' ? category : null,
+      contract_type: finalContractType,
       is_admin: role === 'doctor' ? hasAdmin : false,
     }).eq('id', id)
 
@@ -178,6 +204,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       phone: phone || null,
       role,
       category: role === 'doctor' ? category : null,
+      contract_type: finalContractType,
       is_admin: role === 'doctor' ? hasAdmin : false,
     }))
     setJustSaved(true)
@@ -193,8 +220,11 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       finalRole === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
       null
     const isAdminFlag = finalRole === 'doctor' ? (profile.is_admin ?? false) : false
-    const hours = DEFAULT_HOURS[finalCategory] || { min: 220, max: 246 }
-    const swapGroup = DEFAULT_SWAP_GROUP[finalCategory] || 'junior'
+    const finalContractType = finalRole === 'doctor' && categoryNeedsContractChoice(finalCategory)
+      ? (profile.contract_type || 'full')
+      : 'full'
+    const hours = defaultHoursForCategory(finalCategory, finalContractType)
+    const swapGroup = defaultSwapGroupForCategory(finalCategory)
 
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
@@ -202,6 +232,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       is_active: true,
       role: finalRole,
       category: finalCategory || null,
+      contract_type: finalContractType,
       is_admin: isAdminFlag,
       min_hours: hours.min,
       max_hours: hours.max,
@@ -347,6 +378,17 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
                     onChange={setCategory}
                     placeholder="Select…"
                     options={CATEGORY_OPTIONS}
+                  />
+                </div>
+              )}
+              {role === 'doctor' && categoryNeedsContractChoice(category) && (
+                <div>
+                  <label className="label-text">Hours</label>
+                  <SelectMenu
+                    value={contractType}
+                    onChange={setContractType}
+                    placeholder="Select…"
+                    options={CONTRACT_TYPE_OPTIONS}
                   />
                 </div>
               )}

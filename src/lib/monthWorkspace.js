@@ -22,7 +22,7 @@ export function dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rota
   const all = [...(approvedByDate.get(date) || []), ...(pendingByDate.get(date) || [])]
   const byColumn = new Map()
   for (const entry of all) {
-    const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
+    const key = resolveLeaveCapacityColumn({ category: entry.category, contractType: entry.contractType, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
     if (!key) continue
     if (!byColumn.has(key)) byColumn.set(key, [])
     byColumn.get(key).push(entry)
@@ -56,7 +56,7 @@ export function dayCapacitySummary(date, countByColumnPerDateMap, maxByColumnKey
 // or a category with no capacity column at all).
 export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, maxFullTime, rotationsByDoctorId = new Map()) {
   const columnKey = resolveLeaveCapacityColumn({
-    category: request.profiles?.category, profileId: request.profile_id, date: request.date_from, rotationsByDoctorId,
+    category: request.profiles?.category, contractType: request.profiles?.contract_type, profileId: request.profile_id, date: request.date_from, rotationsByDoctorId,
   })
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return { applicable: false }
@@ -65,7 +65,7 @@ export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, 
     yearFrom: Number(request.date_from.slice(0, 4)), yearTo: Number(request.date_to.slice(0, 4)),
   })
   const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-    category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+    category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
   }))
 
   const maxConcurrent = maxByColumnKey[columnKey]

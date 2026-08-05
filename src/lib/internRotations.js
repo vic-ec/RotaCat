@@ -33,15 +33,15 @@ const COLUMN_BY_ROTATION_TYPE = { EC: 'EC_COSMO', OT: 'OT_COSMO' }
 // groupRotationsByDoctorId) or a plain { [doctorId]: rotation[] } object —
 // both are accepted since some callers build the map fresh per fetch and
 // others thread through props.
-export function resolveLeaveCapacityColumn({ category, profileId, date, rotationsByDoctorId }) {
+export function resolveLeaveCapacityColumn({ category, contractType, profileId, date, rotationsByDoctorId }) {
   try {
-    if (category !== INTERN_ROTATION_CATEGORY) return columnForLeaveCategory(category)
+    if (category !== INTERN_ROTATION_CATEGORY) return columnForLeaveCategory(category, contractType)
     const rotations = rotationsByDoctorId?.get ? rotationsByDoctorId.get(profileId) : rotationsByDoctorId?.[profileId]
     const rotation = rotationForDate(rotations, date)
-    if (!rotation) return columnForLeaveCategory(category) // no rotation assigned yet — safe default, same as today
-    return COLUMN_BY_ROTATION_TYPE[rotation.rotation_type] ?? columnForLeaveCategory(category)
+    if (!rotation) return columnForLeaveCategory(category, contractType) // no rotation assigned yet — safe default, same as today
+    return COLUMN_BY_ROTATION_TYPE[rotation.rotation_type] ?? columnForLeaveCategory(category, contractType)
   } catch {
-    return columnForLeaveCategory(category)
+    return columnForLeaveCategory(category, contractType)
   }
 }
 

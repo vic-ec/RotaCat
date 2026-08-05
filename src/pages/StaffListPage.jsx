@@ -9,7 +9,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
-import { DEFAULT_HOURS, DEFAULT_SWAP_GROUP, annualLeaveDaysForCategory } from '../lib/staffDefaults'
+import { defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory } from '../lib/staffDefaults'
 import { Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
@@ -48,8 +48,13 @@ const ROLE_BADGE = {
 
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
 
-// Only five_eighths gets a tag — full and psych_overtime show nothing extra.
-const CONTRACT_TAG_LABEL = { five_eighths: '⅝' }
+// five_eighths and Junior Doctor Overtime (formerly psych_overtime) both
+// get a tag — full shows nothing extra. The OT tag matters more than it
+// used to: COSMOPsych retiring as a category (2026-08) means a COSMO/
+// Intern's category no longer shows EC vs OT at a glance the way it did
+// when COSMOPsych was its own category — this tag is now the only
+// per-row indicator of that distinction in this list.
+const CONTRACT_TAG_LABEL = { five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }
 
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
@@ -692,8 +697,9 @@ export default function StaffListPage() {
       null
     const isAdminFlag = role === 'doctor' ? (profile.is_admin ?? false) : false
 
-    const hours    = DEFAULT_HOURS[category]    || { min: 220, max: 246 }
-    const swapGroup = DEFAULT_SWAP_GROUP[category] || 'junior'
+    const finalContractType = profile.contract_type || 'full'
+    const hours = defaultHoursForCategory(category, finalContractType)
+    const swapGroup = defaultSwapGroupForCategory(category)
 
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -702,6 +708,7 @@ export default function StaffListPage() {
       is_active:    true,
       role,
       category:     category || null,
+      contract_type: finalContractType,
       is_admin:     isAdminFlag,
       min_hours:    hours.min,
       max_hours:    hours.max,

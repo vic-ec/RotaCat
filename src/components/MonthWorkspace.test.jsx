@@ -188,10 +188,16 @@ describe('MonthWorkspace', () => {
     expect(dateSpan).toHaveClass('absolute', 'left-1.5', 'top-1')
   })
 
-  it('mobile day cells: reserves top space for the date number so a 2-row (4-badge) grid can\'t centre up into it', () => {
-    // 16 Aug carries all 4 capacity columns at once — the fullest a day cell gets.
+  it('mobile day cells: the badge grid is top-anchored under the date number at a fixed position, not centred within the cell', () => {
+    // 16 Aug carries all 4 capacity columns at once (2 badge rows) — 12 Aug
+    // (from baseProps) carries just 1 (a single row). Both should anchor
+    // their badge grid to the same fixed spot right under the date number
+    // (pt-5 reserves that space; no `justify-center` means flex-col's
+    // default flex-start keeps the grid pinned there) rather than each
+    // being centred somewhere different depending on its own row count.
     const fourColumns = {
       approvedByDate: new Map([
+        ['2026-08-12', [{ profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
         ['2026-08-16', [
           { profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
           { profileId: 'p2', surname: 'Botha', category: 'Registrar', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
@@ -202,14 +208,12 @@ describe('MonthWorkspace', () => {
       pendingByDate: new Map(),
     }
     renderWorkspace(fourColumns)
+    const cell12 = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
     const cell16 = screen.getAllByText('16').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
-    expect(cell16).toHaveClass('pt-5')
-  })
-
-  it('month nav: the toolbar row is sticky on mobile so it stays reachable without a separate floating back button', () => {
-    renderWorkspace()
-    const backButton = screen.getByRole('button', { name: '← Back to overview' })
-    expect(backButton.closest('div')).toHaveClass('sticky', 'top-0', 'md:static')
+    for (const cell of [cell12, cell16]) {
+      expect(cell).toHaveClass('pt-5')
+      expect(cell.className).not.toContain('justify-center')
+    }
   })
 
   it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {

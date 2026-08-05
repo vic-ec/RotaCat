@@ -188,6 +188,31 @@ describe('MonthWorkspace', () => {
     expect(dateSpan).toHaveClass('absolute', 'left-1.5', 'top-1')
   })
 
+  it('mobile day cells: the date number is always bold, not just on public holidays', () => {
+    renderWorkspace()
+    const cell12 = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
+    expect(within(cell12).getByText('12')).toHaveClass('font-bold')
+  })
+
+  it('toolbar: prev/next/Today/Legend all match the 30px-tall btn-secondary treatment, and the arrow buttons are exactly 30x30', () => {
+    renderWorkspace()
+    const prevMonth = screen.getByRole('button', { name: 'Previous month' })
+    const nextMonth = screen.getByRole('button', { name: 'Next month' })
+    const todayButton = screen.getByRole('button', { name: 'Today' })
+    const legendButton = screen.getByRole('button', { name: /Legend/ })
+
+    for (const button of [prevMonth, nextMonth, todayButton, legendButton]) {
+      expect(button).toHaveClass('btn-secondary', 'h-[30px]')
+    }
+    expect(prevMonth).toHaveClass('w-[30px]')
+    expect(nextMonth).toHaveClass('w-[30px]')
+    // Legend no longer has its own green tint/triangle glyph.
+    expect(legendButton.className).not.toContain('bg-accent-tint')
+    expect(legendButton).toHaveTextContent('Legend')
+    expect(legendButton).not.toHaveTextContent('▾')
+    expect(legendButton).not.toHaveTextContent('▴')
+  })
+
   it('mobile day cells: the badge grid is top-anchored under the date number at a fixed position, not centred within the cell', () => {
     // 16 Aug carries all 4 capacity columns at once (2 badge rows) — 12 Aug
     // (from baseProps) carries just 1 (a single row). Both should anchor

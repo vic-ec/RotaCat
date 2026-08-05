@@ -112,4 +112,38 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(mobileBlock(container)).not.toBeNull()
     expect(screen.getByText('Selected month')).toBeInTheDocument()
   })
+
+  it('toolbar: the year selector sits with the other nav controls on the right (before the help icon), not attached to the title, and the arrow buttons are 30x30', () => {
+    // Rendered as admin so only the one (shared) toolbar is in the DOM —
+    // the non-admin mobile block duplicates the same "Previous year"/"Next
+    // year" labels, which would otherwise make these queries ambiguous.
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO' })
+    const prevYear = screen.getByRole('button', { name: 'Previous year' })
+    const nextYear = screen.getByRole('button', { name: 'Next year' })
+    expect(prevYear).toHaveClass('h-[30px]', 'w-[30px]')
+    expect(nextYear).toHaveClass('h-[30px]', 'w-[30px]')
+
+    // Same right-hand group as the help trigger, in this order — mirrors
+    // the month view's toolbar, where the date selector and its neighbours
+    // are one cluster on the right rather than paired with the title.
+    const group = prevYear.closest('div')
+    const helpButton = screen.getByRole('button', { name: 'How it works' })
+    expect(group).toContainElement(helpButton)
+    const buttons = [...group.querySelectorAll('button')]
+    expect(buttons.indexOf(nextYear)).toBeLessThan(buttons.indexOf(helpButton))
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
+  it('the All/My leave/Pending filter switch is admin-only — a non-admin doctor already sees their own leave on My Leave, and always lands on "All" anyway', () => {
+    renderOverview({ myCategory: 'MO' })
+    expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
+
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO' })
+    expect(screen.getByRole('button', { name: 'My leave' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pending' })).toBeInTheDocument()
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
 })

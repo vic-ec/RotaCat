@@ -126,17 +126,17 @@ export default function MonthWorkspace({
           ← Overview
         </button>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
+          <button type="button" onClick={goPrevMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous month">←</button>
           <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
-          <button type="button" onClick={goNextMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Next month">→</button>
-          <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+          <button type="button" onClick={goNextMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next month">→</button>
+          <button type="button" onClick={goToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
           <button
             type="button"
             onClick={() => setLegendOpen(o => !o)}
             aria-expanded={legendOpen}
-            className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+            className="btn-secondary h-[30px] px-2.5 text-xs"
           >
-            Legend {legendOpen ? '▴' : '▾'}
+            Legend
           </button>
           <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
         </div>
@@ -356,7 +356,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
           space is left over depending on occupancy, which previously made
           the same row of badges sit at a different height from one day to
           the next. */}
-      <span className={`absolute left-1.5 top-1 ${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
+      <span className={`absolute left-1.5 top-1 font-bold ${capacityState.onFillText}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
           {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}

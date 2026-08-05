@@ -189,12 +189,12 @@ describe('AnnualLeavePlanner', () => {
     await screen.findByRole('button', { name: /August/ })
 
     await user.click(screen.getByRole('button', { name: /Open month workspace/ }))
-    expect(screen.getByRole('button', { name: '← Back to overview' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '← Overview' })).toBeInTheDocument()
     expect(screen.getByText('Sunday')).toBeInTheDocument() // full weekday name column header
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
     expect(screen.queryByText('Selected month')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '← Back to overview' }))
+    await user.click(screen.getByRole('button', { name: '← Overview' }))
     expect(await screen.findByText('Selected month')).toBeInTheDocument()
   })
 
@@ -204,7 +204,7 @@ describe('AnnualLeavePlanner', () => {
     // (see AnnualLeavePlanner.jsx's header comment for why plain useState
     // can't survive an OS-killed-and-reloaded PWA).
     renderPage(['/?ayear=2026&aview=workspace&amonth=8'])
-    expect(await screen.findByRole('button', { name: '← Back to overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '← Overview' })).toBeInTheDocument()
     expect(screen.getByText('Sunday')).toBeInTheDocument()
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
   })

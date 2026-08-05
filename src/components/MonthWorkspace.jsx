@@ -116,9 +116,15 @@ export default function MonthWorkspace({
   }
 
   return (
-    <div className="mt-4">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button type="button" onClick={onBack} className="btn-secondary text-sm">← Back to overview</button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+        >
+          ← Overview
+        </button>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
           <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
@@ -334,7 +340,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-5 text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-[23px] text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
@@ -344,7 +350,8 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
           and a no-badge day put the date number at two different heights.
           The badge grid itself is top-anchored (no `justify-center` on the
           button — flex-col defaults to flex-start), sitting right under
-          the `pt-5` reserved for the number, at the same fixed position
+          the `pt-[23px]` reserved for the number (3px of breathing room
+          under its own 20px line), at the same fixed position
           whether it holds 1 badge or 4 — not re-centred within whatever
           space is left over depending on occupancy, which previously made
           the same row of badges sit at a different height from one day to

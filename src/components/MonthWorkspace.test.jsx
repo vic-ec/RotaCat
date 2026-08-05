@@ -192,7 +192,7 @@ describe('MonthWorkspace', () => {
     // 16 Aug carries all 4 capacity columns at once (2 badge rows) — 12 Aug
     // (from baseProps) carries just 1 (a single row). Both should anchor
     // their badge grid to the same fixed spot right under the date number
-    // (pt-5 reserves that space; no `justify-center` means flex-col's
+    // (pt-[23px] reserves that space; no `justify-center` means flex-col's
     // default flex-start keeps the grid pinned there) rather than each
     // being centred somewhere different depending on its own row count.
     const fourColumns = {
@@ -211,7 +211,7 @@ describe('MonthWorkspace', () => {
     const cell12 = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
     const cell16 = screen.getAllByText('16').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
     for (const cell of [cell12, cell16]) {
-      expect(cell).toHaveClass('pt-5')
+      expect(cell).toHaveClass('pt-[23px]')
       expect(cell.className).not.toContain('justify-center')
     }
   })
@@ -486,6 +486,14 @@ describe('MonthWorkspace', () => {
     expect(screen.queryByText(/days have room for your category/)).not.toBeInTheDocument()
   })
 
+  it('back button: matches the plain text-link style used elsewhere (e.g. Account), not a bordered/backgrounded chip', () => {
+    renderWorkspace()
+    const backButton = screen.getByRole('button', { name: '← Overview' })
+    expect(backButton.className).not.toContain('border')
+    expect(backButton.className).not.toContain('btn-secondary')
+    expect(backButton).toHaveClass('text-ink-light')
+  })
+
   it('month navigation and back button call their callbacks', async () => {
     const user = userEvent.setup()
     const onMonthChange = vi.fn()
@@ -495,7 +503,7 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByRole('button', { name: 'Next month' }))
     expect(onMonthChange).toHaveBeenCalledWith(2026, 9)
 
-    await user.click(screen.getByRole('button', { name: '← Back to overview' }))
+    await user.click(screen.getByRole('button', { name: '← Overview' }))
     expect(onBack).toHaveBeenCalled()
   })
 })

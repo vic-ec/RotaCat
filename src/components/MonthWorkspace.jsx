@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
-import { useScrollReveal } from '../lib/useScrollReveal'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
   weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
@@ -57,16 +56,6 @@ export default function MonthWorkspace({
   // legend: the badges are letter-labelled now, so this is a reference for
   // anyone who wants it rather than something needed to read the grid.
   const [legendOpen, setLegendOpen] = useState(false)
-
-  // Sticky "Back to overview" + month nav — same hide-on-scroll-down,
-  // reveal-on-scroll-up pattern LeavePlannerPage's own Planners sub-nav
-  // uses (useScrollReveal), rather than a separate floating back button:
-  // by the time this bar would need to stick (scrolled well past the
-  // "Your leave" card and weekday header), that sub-nav has already
-  // hidden itself the same way, so there's nothing left at the top of the
-  // page for this to collide with. Desktop keeps it in normal flow
-  // (md:static) — there's a persistent sidebar there, nothing to escape.
-  const toolbarVisible = useScrollReveal()
 
   // The mobile day-cell grid (MobileDayCell, <lg) fills each day by the
   // viewer's own pool for a non-admin doctor with a resolvable capacity
@@ -128,11 +117,7 @@ export default function MonthWorkspace({
 
   return (
     <div className="mt-4">
-      <div
-        className={`flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10 bg-canvas py-1 transition-[transform,opacity] duration-200 md:static md:translate-y-0 md:opacity-100 ${
-          toolbarVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
-        }`}
-      >
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={onBack} className="btn-secondary text-sm">← Back to overview</button>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
@@ -349,21 +334,21 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-[64px] flex-col items-center justify-center rounded border pt-5 text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-5 text-xs ${capacityState.light} ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
       } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
     >
       {/* Pinned to the same corner on every cell via absolute positioning,
           taken out of the flex flow entirely — otherwise this shares the
-          flex-col's centering with the badge grid below it, so a 4-badge
-          day and a no-badge day put the date number at two different
-          heights (dead centre with nothing else in the cell, pushed up
-          once badges join it), which reads as the number "jumping
-          around" from one day to the next. The button's own `pt-5`
-          reserves this span's height as dead space the badge grid's own
-          centering can't encroach on — otherwise a 2-row (4-badge) grid,
-          centred across the *whole* cell height, reaches high enough to
-          overlap the number sitting right on top of it. */}
+          flex-col's layout with the badge grid below it, so a 4-badge day
+          and a no-badge day put the date number at two different heights.
+          The badge grid itself is top-anchored (no `justify-center` on the
+          button — flex-col defaults to flex-start), sitting right under
+          the `pt-5` reserved for the number, at the same fixed position
+          whether it holds 1 badge or 4 — not re-centred within whatever
+          space is left over depending on occupancy, which previously made
+          the same row of badges sit at a different height from one day to
+          the next. */}
       <span className={`absolute left-1.5 top-1 ${capacityState.onFillText} ${isPublicHoliday ? 'font-semibold' : ''}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">

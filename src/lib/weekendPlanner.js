@@ -4,17 +4,18 @@
 // planner UI and the Leave submission overlap hint.
 import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
 
-// Column groupings for the planner grid. The scheduler backend only
-// distinguishes 5 categories for weekend eligibility (MO, Registrar,
-// COSMO, COSMOPsych, Consultant) — EC_COSMO/EC_COSMO_Intern/Intern all
-// behave as COSMO, OT_COSMO/OT_COSMO_Intern behave as COSMOPsych, so the
-// grid groups the finer staff_category enum values down to match.
-// Consultant/Locum never appear (not part of weekend rotation).
+// Column groupings for the planner grid. The scheduler backend's real
+// junior-doctor split is EC (full hours) vs OT (Junior Doctor Overtime
+// hours, contract_type-driven) — COSMOPsych, EC_COSMO/OT_COSMO, and
+// EC_COSMO_Intern/OT_COSMO_Intern are all still-recognised legacy/dormant
+// category values grouped down to match those same two buckets; MO/
+// Registrar are unambiguous on their own. Consultant/Locum never appear
+// (not part of weekend rotation).
 export const CATEGORY_GROUPS = [
   { key: 'MO', label: 'MO', categories: ['MO'] },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'] },
-  { key: 'COSMO', label: 'EC COSMO / Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'] },
-  { key: 'COSMOPsych', label: 'OT COSMO / Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'] },
+  { key: 'COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'] },
+  { key: 'COSMOPsych', label: 'OT Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'] },
 ]
 
 const GROUP_BY_CATEGORY = new Map(
@@ -23,9 +24,38 @@ const GROUP_BY_CATEGORY = new Map(
 
 // Returns the grid column key for a staff_category value, or null for a
 // category that doesn't participate in weekend rotation (Consultant,
-// Locum) or isn't recognised.
+// Locum) or isn't recognised. This is safe to use directly on a raw
+// weekend_planner_entries row's own `category` — see
+// resolvedCategoryForDoctor below for why a *doctor's* category needs
+// extra handling first.
 export function groupForCategory(category) {
   return GROUP_BY_CATEGORY.get(category) ?? null
+}
+
+// Only COSMO and Intern are actually ambiguous without contract_type —
+// every other legacy value (COSMOPsych, EC_COSMO, OT_COSMO,
+// EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
+// via its own name/history. Mirrors the identical set in leaveYearGrid.js.
+const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
+const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
+
+// The effective category for a DOCTOR (a profiles row, not a raw
+// weekend_planner_entries row) — for most categories this is just
+// doctor.category unchanged, but for COSMO/Intern specifically it resolves
+// through contract_type first. Two uses: (1) filtering the assignment
+// dropdown by group (groupForCategory(resolvedCategoryForDoctor(d))), and
+// (2) the value actually WRITTEN onto a new weekend_planner_entries row —
+// entries are grouped by their own category, which can be a deliberate
+// override (see groupEntriesByWeekend below), so writing 'COSMOPsych' for
+// an OT-hours doctor here doesn't have to literally match their live
+// profile category; it just has to land in the right bucket, and doing it
+// this way means groupForCategory keeps working unmodified on every
+// existing/historical entry.
+export function resolvedCategoryForDoctor(doctor) {
+  if (AMBIGUOUS_CATEGORIES.has(doctor?.category)) {
+    return OT_HOURS_CONTRACT_TYPES.has(doctor?.contract_type) ? 'COSMOPsych' : 'COSMO'
+  }
+  return doctor?.category ?? null
 }
 
 // Every Saturday "YYYY-MM-DD" from fromDate through throughDate

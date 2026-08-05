@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
 import {
-  CATEGORY_GROUPS, groupForCategory, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
+  CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday,
 } from '../lib/weekendPlanner'
@@ -286,7 +286,7 @@ function WeekendInspector({
             {CATEGORY_GROUPS.map(group => {
               const groupEntries = bySaturday[group.key] || []
               const availableDoctors = doctors
-                .filter(d => groupForCategory(d.category) === group.key)
+                .filter(d => groupForCategory(resolvedCategoryForDoctor(d)) === group.key)
                 .filter(d => !assignedIds.has(d.id))
               return (
                 <CategoryGroupRow
@@ -375,7 +375,7 @@ export default function WeekendPlannerView() {
     const throughDate = addDays(fromDate, WEEKS_AHEAD * 7)
 
     const [profilesRes, entriesRes, myRequestsRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, category')
+      supabase.from('profiles').select('id, name, surname, category, contract_type')
         .eq('is_approved', true).eq('is_active', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
         .gte('weekend_saturday', fromDate).lte('weekend_saturday', throughDate),
@@ -387,7 +387,7 @@ export default function WeekendPlannerView() {
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
     if (myRequestsRes.error) { setError(myRequestsRes.error.message); setLoading(false); return }
 
-    setDoctors((profilesRes.data || []).filter(p => groupForCategory(p.category)))
+    setDoctors((profilesRes.data || []).filter(p => groupForCategory(resolvedCategoryForDoctor(p))))
     setEntries(entriesRes.data || [])
     setMyWeekendRequests(myRequestsRes.data || [])
     setLoading(false)
@@ -482,7 +482,7 @@ export default function WeekendPlannerView() {
     const { data, error: err } = await supabase.from('weekend_planner_entries').insert({
       weekend_saturday: saturday,
       profile_id: profileId,
-      category: doctor.category,
+      category: resolvedCategoryForDoctor(doctor),
       created_by: profile?.id ?? null,
     }).select().single()
     setSaving(false)
@@ -490,7 +490,7 @@ export default function WeekendPlannerView() {
     setOpenPicker(null)
     setEntries(prev => [...prev, data])
     await logWeekendPlannerChange({
-      weekendSaturday: saturday, category: doctor.category, action: 'add',
+      weekendSaturday: saturday, category: resolvedCategoryForDoctor(doctor), action: 'add',
       profileId, changedBy: profile?.id ?? null,
     })
   }
@@ -616,7 +616,7 @@ export default function WeekendPlannerView() {
                       {CATEGORY_GROUPS.map(group => {
                         const groupEntries = bySaturday[group.key] || []
                         const availableDoctors = doctors
-                          .filter(d => groupForCategory(d.category) === group.key)
+                          .filter(d => groupForCategory(resolvedCategoryForDoctor(d)) === group.key)
                           .filter(d => !assignedIds.has(d.id))
 
                         return (

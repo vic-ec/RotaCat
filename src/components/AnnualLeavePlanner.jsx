@@ -16,7 +16,7 @@ function reshapeByDate(byDate) {
   const reshaped = new Map()
   for (const [date, entries] of byDate) {
     reshaped.set(date, entries.map(e => ({
-      profileId: e.profile_id, surname: e.profiles?.surname ?? '?', category: e.profiles?.category, status: e.status,
+      profileId: e.profile_id, surname: e.profiles?.surname ?? '?', category: e.profiles?.category, contractType: e.profiles?.contract_type, status: e.status,
       dateFrom: e.date_from, dateTo: e.date_to, leaveType: e.leave_type, annualLeaveDays: e.annual_leave_days,
     })))
   }
@@ -107,7 +107,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     const [leaveRes, phRes, constraintsRes, headcountRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('id, profile_id, date_from, date_to, leave_type, status, annual_leave_days, notes, profiles!leave_requests_profile_id_fkey(name, surname, category)')
+        .select('id, profile_id, date_from, date_to, leave_type, status, annual_leave_days, notes, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type)')
         .eq('leave_type', 'annual')
         .in('status', ['approved', 'pending'])
         .lte('date_from', yearEnd)
@@ -153,7 +153,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     setApprovedRows(approvedRawRows)
     setPendingRows(pendingRawRows)
     setCountsByColumn(countByColumnPerDate(combinedRawByDate, entry => resolveLeaveCapacityColumn({
-      category: entry.profiles?.category, profileId: entry.profile_id, date: entry.date_from, rotationsByDoctorId: rotationsMap,
+      category: entry.profiles?.category, contractType: entry.profiles?.contract_type, profileId: entry.profile_id, date: entry.date_from, rotationsByDoctorId: rotationsMap,
     })))
     setPublicHolidaysByDate(new Map((phRes.data || []).map(ph => [ph.date, ph.name])))
     setEligibleHeadcount(headcountRes.count ?? 0)

@@ -4,10 +4,18 @@
 import { supabase } from './supabase'
 import { monthBounds } from './dateRange'
 
+// CONTRACT_CEILING_KEYS is keyed by the *current* contract_type enum value
+// (what doc.contract_type actually equals), mapped to the constraints-table
+// row that holds its ceiling. The constraints table key itself is still
+// named 'max_hours_psych_overtime' (deliberately not renamed — see the
+// 2026-08 migration notes; nothing backend-side reads it by name, but
+// several frontend places still do, so it stayed put for now). Only the
+// left-hand lookup key changed, to match contract_type's real value after
+// psych_overtime was renamed to Junior_Doctor_Overtime.
 const CONTRACT_CEILING_KEYS = {
   full: 'max_hours_full_time',
   five_eighths: 'max_hours_five_eighths',
-  psych_overtime: 'max_hours_psych_overtime',
+  Junior_Doctor_Overtime: 'max_hours_psych_overtime',
 }
 
 export async function getContractHourCeilings() {
@@ -19,7 +27,7 @@ export async function getContractHourCeilings() {
   return {
     full: byKey[CONTRACT_CEILING_KEYS.full],
     five_eighths: byKey[CONTRACT_CEILING_KEYS.five_eighths],
-    psych_overtime: byKey[CONTRACT_CEILING_KEYS.psych_overtime],
+    Junior_Doctor_Overtime: byKey[CONTRACT_CEILING_KEYS.Junior_Doctor_Overtime],
   }
 }
 

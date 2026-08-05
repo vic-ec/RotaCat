@@ -175,10 +175,10 @@ export function findDoubleBookingConflicts({ dateFrom, dateTo, existingLeaveRequ
 // (Other).
 async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
   const [profileRes, constraintsRes, overlappingRes] = await Promise.all([
-    supabase.from('profiles').select('category').eq('id', profileId).single(),
+    supabase.from('profiles').select('category, contract_type').eq('id', profileId).single(),
     supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
     supabase.from('leave_requests')
-      .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
+      .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category, contract_type)')
       .eq('leave_type', 'annual')
       .in('status', ['pending', 'approved'])
       .neq('profile_id', profileId)
@@ -204,7 +204,7 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
     // degrades gracefully to static category bucketing for every doctor
   }
 
-  const columnKey = resolveLeaveCapacityColumn({ category: profileRes.data?.category, profileId, date: dateFrom, rotationsByDoctorId })
+  const columnKey = resolveLeaveCapacityColumn({ category: profileRes.data?.category, contractType: profileRes.data?.contract_type, profileId, date: dateFrom, rotationsByDoctorId })
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return // this doctor's category has no capacity cap (Other column)
 
@@ -215,7 +215,7 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
     yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
   })
   const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-    category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+    category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
   }))
 
   const { hasBreach, breachDates } = findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate: countsByDate })
@@ -266,12 +266,12 @@ export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxBy
 // for the requester's own rotation (an Intern's pool is date-driven — see
 // internRotations.js) and is excluded from `rotationsByDoctorId`'s "other
 // doctor" fetch when already covered by its own lookup.
-export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, profileId }) {
+export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, contractType, profileId }) {
   try {
     const [constraintsRes, overlappingRes] = await Promise.all([
       supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
       supabase.from('leave_requests')
-        .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category)')
+        .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category, contract_type)')
         .eq('leave_type', 'annual')
         .in('status', ['pending', 'approved'])
         .lte('date_from', dateTo)
@@ -289,7 +289,7 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, p
       // back to static category bucketing below, same as checkAnnualLeaveCapacity
     }
 
-    const columnKey = resolveLeaveCapacityColumn({ category, profileId, date: dateFrom, rotationsByDoctorId })
+    const columnKey = resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom, rotationsByDoctorId })
     const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
     if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
 
@@ -301,7 +301,7 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, p
       yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
     })
     const countByColumnPerDateMap = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-      category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+      category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
     }))
 
     const worst = findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap })

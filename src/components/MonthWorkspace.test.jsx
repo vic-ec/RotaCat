@@ -188,6 +188,30 @@ describe('MonthWorkspace', () => {
     expect(dateSpan).toHaveClass('absolute', 'left-1.5', 'top-1')
   })
 
+  it('mobile day cells: reserves top space for the date number so a 2-row (4-badge) grid can\'t centre up into it', () => {
+    // 16 Aug carries all 4 capacity columns at once — the fullest a day cell gets.
+    const fourColumns = {
+      approvedByDate: new Map([
+        ['2026-08-16', [
+          { profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+          { profileId: 'p2', surname: 'Botha', category: 'Registrar', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+          { profileId: 'p3', surname: 'Cronje', category: 'COSMO', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+          { profileId: 'p4', surname: 'Davis', category: 'COSMOPsych', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+        ]],
+      ]),
+      pendingByDate: new Map(),
+    }
+    renderWorkspace(fourColumns)
+    const cell16 = screen.getAllByText('16').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
+    expect(cell16).toHaveClass('pt-5')
+  })
+
+  it('month nav: the toolbar row is sticky on mobile so it stays reachable without a separate floating back button', () => {
+    renderWorkspace()
+    const backButton = screen.getByRole('button', { name: '← Back to overview' })
+    expect(backButton.closest('div')).toHaveClass('sticky', 'top-0', 'md:static')
+  })
+
   it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {
     // The consolidated list omits empty categories entirely now, so a
     // Consultant entry must actually exist on this date to prove the

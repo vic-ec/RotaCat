@@ -978,8 +978,11 @@ export default function StaffListPage() {
           The mobile card list's sticky group labels further down are
           offset to clear this bar's own rendered height, which differs by
           role since the tab row only exists for admins — see the
-          isAdmin ? 'top-[93px]' : 'top-[50px]' split below. */}
-      <div className="sticky top-0 z-20 mb-4 border-b-2 border-accent bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
+          isAdmin ? 'top-[93px]' : 'top-[50px]' split below.
+          No border of its own — PageTabs already supplies the shared
+          border-slate-line baseline with a border-accent underline on the
+          active tab, so an outer border here would just double up on it. */}
+      <div className="sticky top-0 z-20 mb-4 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {isAdmin && (
           <PageTabs
             tabs={[

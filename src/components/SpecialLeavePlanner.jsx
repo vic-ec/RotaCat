@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
+import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP, countSpecialLeavePressureDaysInYear } from '../lib/leaveRequests'
 import LeaveYearGrid from './LeaveYearGrid'
 import InlineRuleHint from './InlineRuleHint'
@@ -19,6 +20,7 @@ export default function SpecialLeavePlanner() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
+  const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -52,6 +54,14 @@ export default function SpecialLeavePlanner() {
     }
     setLeaveByDate(reshaped)
     setPublicHolidaysByDate(new Map((phRes.data || []).map(ph => [ph.date, ph.name])))
+
+    try {
+      const rotations = await fetchInternRotationsForDoctorIds((leaveRes.data || []).map(e => e.profile_id))
+      setRotationsByDoctorId(groupRotationsByDoctorId(rotations))
+    } catch {
+      setRotationsByDoctorId(new Map()) // degrade to static category bucketing, same as leave_requests fetch failures elsewhere
+    }
+
     setLoading(false)
   }
 
@@ -94,6 +104,7 @@ export default function SpecialLeavePlanner() {
           onYearChange={setYear}
           leaveByDate={leaveByDate}
           publicHolidaysByDate={publicHolidaysByDate}
+          rotationsByDoctorId={rotationsByDoctorId}
           // A clerk's access here is read-only "All" only — no personal
           // leave of their own to filter to — so omitting myProfileId hides
           // the My leave/All toggle entirely for them (see LeaveYearGrid).

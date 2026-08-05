@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory, columnForLeaveCategory } from '../lib/leaveYearGrid'
+import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
@@ -68,7 +69,7 @@ const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, maxByColumnKey, myProfileId, myCategory, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId, myCategory, onOpenWorkspace,
   ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, isClerk } = useAuth()
@@ -83,8 +84,11 @@ export default function AnnualPlannerOverview({
   // capacity the month list/tiles reflect. Defaults to the viewer's own
   // column; falls back to the blended "all" reading for a category with no
   // capacity column (Consultant, or no signed-in profile) since there's
-  // nothing personal to default to.
-  const myColumnKey = columnForLeaveCategory(myCategory)
+  // nothing personal to default to. For an Intern, resolved off TODAY's
+  // date (not the month being browsed) — requirement: the planner defaults
+  // to showing their CURRENT rotation on login, regardless of which month
+  // they then navigate to.
+  const myColumnKey = resolveLeaveCapacityColumn({ category: myCategory, profileId: myProfileId, date: today, rotationsByDoctorId })
   const defaultCategoryKey = LEAVE_CAPACITY_COLUMNS.some(c => c.key === myColumnKey) ? myColumnKey : 'all'
   const [categoryKey, setCategoryKey] = useState(defaultCategoryKey)
 

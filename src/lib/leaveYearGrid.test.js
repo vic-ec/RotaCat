@@ -125,7 +125,7 @@ describe('countByColumnPerDate', () => {
         { profile_id: 'p3', category: 'Registrar' },
       ]],
     ])
-    const counts = countByColumnPerDate(byDate, e => e.category)
+    const counts = countByColumnPerDate(byDate, e => columnForLeaveCategory(e.category))
     expect(counts.get('2026-08-10').get('MO')).toBe(2)
     expect(counts.get('2026-08-10').get('Registrar')).toBe(1)
   })
@@ -137,8 +137,16 @@ describe('countByColumnPerDate', () => {
         { profile_id: 'p1', category: 'MO' }, // overlapping rows for the same doctor
       ]],
     ])
-    const counts = countByColumnPerDate(byDate, e => e.category)
+    const counts = countByColumnPerDate(byDate, e => columnForLeaveCategory(e.category))
     expect(counts.get('2026-08-10').get('MO')).toBe(1)
+  })
+
+  it('accepts a columnKeyOf callback that resolves the column directly, bypassing columnForLeaveCategory', () => {
+    const byDate = new Map([
+      ['2026-08-10', [{ profile_id: 'p1', resolvedColumn: 'EC_COSMO' }]],
+    ])
+    const counts = countByColumnPerDate(byDate, e => e.resolvedColumn)
+    expect(counts.get('2026-08-10').get('EC_COSMO')).toBe(1)
   })
 })
 

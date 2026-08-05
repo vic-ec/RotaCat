@@ -9,6 +9,7 @@ import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
 import WeekendPlannerView from '../components/WeekendPlannerView'
 import LeaveAuditReport from '../components/LeaveAuditReport'
+import InternRotationsPlanner from '../components/InternRotationsPlanner'
 import LeaveRulesPage from '../components/LeaveRulesPage'
 
 // Top-level "Leave" tabs, each a self-contained destination rather than
@@ -79,6 +80,9 @@ export default function LeavePlannerPage() {
     // to any date range, so leave taken never becomes invisible after a
     // year rolls over.
     ...(isAdmin ? [{ key: 'audit', label: 'Audit' }] : []),
+    // Admin-only rotation-block management for the Intern category (dormant
+    // until interns are reactivated) — see InternRotationsPlanner.
+    ...(isAdmin ? [{ key: 'interns', label: 'Interns' }] : []),
   ]
 
   // Tab selection lives in the URL (?tab=...&sub=...), not plain component
@@ -193,6 +197,7 @@ export default function LeavePlannerPage() {
               ) : canSubmitLeave ? <MyRequestHistory /> : null
             )}
             {plannerTab === 'audit' && isAdmin && <LeaveAuditReport />}
+            {plannerTab === 'interns' && isAdmin && <InternRotationsPlanner />}
           </>
         )}
       </div>

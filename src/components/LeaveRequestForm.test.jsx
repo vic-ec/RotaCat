@@ -95,7 +95,7 @@ describe('LeaveRequestForm', () => {
 
     expect(await screen.findByText('1 of 2 slots taken')).toBeInTheDocument()
     expect(screen.getByText('1 leave slot available for MO')).toBeInTheDocument()
-    expect(fetchAnnualCapacityPreview).toHaveBeenCalledWith({ dateFrom: '2026-08-10', dateTo: '2026-08-14', category: 'MO' })
+    expect(fetchAnnualCapacityPreview).toHaveBeenCalledWith({ dateFrom: '2026-08-10', dateTo: '2026-08-14', category: 'MO', profileId: 'doctor-1' })
   })
 
   it('annual leave: shows no banner once the preview resolves null (e.g. a category with no capacity column)', async () => {

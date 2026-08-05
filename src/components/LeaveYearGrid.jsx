@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, columnForLeaveCategory, splitForOverflow,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, splitForOverflow,
   quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
 } from '../lib/leaveYearGrid'
+import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +25,7 @@ const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 // enables the "My leave / All" filter; maxByColumnKey (optional) shows
 // "(max N)" capacity hints — pass it for Annual Leave, omit for Special
 // Leave (no concurrency cap there).
-export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicHolidaysByDate, maxByColumnKey, myProfileId }) {
+export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId }) {
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
@@ -107,6 +108,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
                     label={m.label}
                     leaveByDate={visibleLeaveByDate}
                     publicHolidaysByDate={publicHolidaysByDate}
+                    rotationsByDoctorId={rotationsByDoctorId}
                     maxByColumnKey={maxByColumnKey}
                     openPH={openPH}
                     setOpenPH={setOpenPH}
@@ -151,6 +153,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
           month={viewMonth}
           leaveByDate={visibleLeaveByDate}
           publicHolidaysByDate={publicHolidaysByDate}
+          rotationsByDoctorId={rotationsByDoctorId}
           onSelectDate={setSelectedDate}
         />
       </div>
@@ -162,6 +165,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
           phName={publicHolidaysByDate.get(selectedDate)}
           maxByColumnKey={maxByColumnKey}
           visibleColumns={legendColumns}
+          rotationsByDoctorId={rotationsByDoctorId}
           onClose={() => setSelectedDate(null)}
         />
       )}
@@ -169,7 +173,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
   )
 }
 
-function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectDate }) {
+function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, rotationsByDoctorId, onSelectDate }) {
   const weeks = weeksForMonth(year, month)
   const today = todayStr()
 
@@ -183,7 +187,9 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
           if (!date) return <div key={`blank-${i}`} />
           const phName = publicHolidaysByDate.get(date)
           const entries = leaveByDate.get(date) || []
-          const columnsPresent = [...new Set(entries.map(e => columnForLeaveCategory(e.category)).filter(Boolean))]
+          const columnsPresent = [...new Set(entries.map(e =>
+            resolveLeaveCapacityColumn({ category: e.category, profileId: e.profileId, date: e.dateFrom, rotationsByDoctorId })
+          ).filter(Boolean))]
           const { shown, overflow } = splitForOverflow(columnsPresent)
           const isToday = date === today
 
@@ -211,10 +217,10 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, onSelectD
   )
 }
 
-function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns, onClose }) {
+function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns, rotationsByDoctorId, onClose }) {
   const byColumn = new Map()
   for (const entry of entries) {
-    const key = columnForLeaveCategory(entry.category)
+    const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
     if (!key) continue
     if (!byColumn.has(key)) byColumn.set(key, [])
     byColumn.get(key).push(entry)
@@ -268,7 +274,7 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns,
   )
 }
 
-function MonthTable({ year, month, label, leaveByDate, publicHolidaysByDate, maxByColumnKey, openPH, setOpenPH }) {
+function MonthTable({ year, month, label, leaveByDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, openPH, setOpenPH }) {
   const dates = datesInMonth(year, month)
 
   return (
@@ -298,7 +304,7 @@ function MonthTable({ year, month, label, leaveByDate, publicHolidaysByDate, max
             const entries = leaveByDate.get(date) || []
             const byColumn = new Map()
             for (const entry of entries) {
-              const key = columnForLeaveCategory(entry.category)
+              const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
               if (!key) continue
               if (!byColumn.has(key)) byColumn.set(key, [])
               byColumn.get(key).push(entry)

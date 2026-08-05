@@ -5,13 +5,14 @@ import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
-  weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, columnForLeaveCategory,
+  weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
   splitForOverflow,
 } from '../lib/leaveYearGrid'
 import {
   dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
   myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates,
 } from '../lib/monthWorkspace'
+import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
@@ -42,7 +43,7 @@ function hasWarnings(w) {
 // one month by the calendar itself.
 export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
+  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
   ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, profile } = useAuth()
@@ -58,6 +59,12 @@ export default function MonthWorkspace({
   // anyone who wants it rather than something needed to read the grid.
   const [legendOpen, setLegendOpen] = useState(false)
 
+  // First of the month being VIEWED (not today) — an Intern's own column
+  // here should reflect whichever rotation covers the month this workspace
+  // is currently showing, so browsing into a future/past month with a
+  // different rotation reads correctly rather than always showing today's.
+  const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
+
   // The mobile day-cell grid (MobileDayCell, <lg) fills each day by the
   // viewer's own pool for a non-admin doctor with a resolvable capacity
   // column, instead of the generic cross-category total — see
@@ -66,7 +73,7 @@ export default function MonthWorkspace({
   // everywhere, including on their own mobile view — their job there is
   // still cross-category exception spotting, not personal planning. The
   // desktop grid (DayCell, lg+) always stays generic regardless of role.
-  const myColumnKey = columnForLeaveCategory(profile?.category)
+  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
   const personalizeFill = !isAdmin && Boolean(myColumnDef)
   const mobileLegendStates = personalizeFill ? myCategoryLegendStates(myColumnKey) : LEAVE_CAPACITY_STATES
@@ -197,7 +204,7 @@ export default function MonthWorkspace({
               date={date}
               isToday={date === today}
               phName={publicHolidaysByDate.get(date)}
-              entriesByColumn={dayEntriesByColumn(date, { approvedByDate, pendingByDate })}
+              entriesByColumn={dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
               capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
               onClick={() => setSelectedDate(date)}
             />
@@ -216,6 +223,7 @@ export default function MonthWorkspace({
           maxByColumnKey={maxByColumnKey}
           maxFullTime={maxFullTime}
           countByColumnPerDate={countByColumnPerDate}
+          rotationsByDoctorId={rotationsByDoctorId}
         />
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
@@ -227,7 +235,7 @@ export default function MonthWorkspace({
               date={date}
               isToday={date === today}
               isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
-              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }).keys()]}
+              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).keys()]}
               capacityState={
                 personalizeFill
                   ? myCategoryCapacityStateForDate(date, myColumnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
@@ -244,13 +252,14 @@ export default function MonthWorkspace({
       {selectedDate && (
         <DayReviewModal
           date={selectedDate}
-          entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate })}
+          entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
           capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
           phName={publicHolidaysByDate.get(selectedDate)}
           approvedRows={approvedRows}
           pendingRows={pendingRows}
           maxByColumnKey={maxByColumnKey}
           maxFullTime={maxFullTime}
+          rotationsByDoctorId={rotationsByDoctorId}
           onDataChanged={onDataChanged}
           onClose={() => setSelectedDate(null)}
         />
@@ -268,8 +277,9 @@ export default function MonthWorkspace({
 // personalise for them. No other-category pool pill any more — the day
 // cells below now carry that cross-category read themselves via their own
 // personalised fill, so repeating it here was redundant.
-function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate }) {
-  const columnKey = columnForLeaveCategory(profile?.category)
+function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId }) {
+  const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
+  const columnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return null
 
@@ -369,7 +379,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
 }
 
 function DayReviewModal({
-  date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, onDataChanged, onClose,
+  date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId, onDataChanged, onClose,
 }) {
   const { user, profile, isAdmin, canSubmitLeave } = useAuth()
   // See MonthWorkspace's own legendColumns above — same Consultant-privacy
@@ -441,7 +451,7 @@ function DayReviewModal({
   // back to the old generic "Full" banner below instead. Rendering itself
   // (colours/copy/the generic fallback) lives in LeaveCapacityBanner, shared
   // with LeaveRequestForm's own capacity preview.
-  const myColumnKey = columnForLeaveCategory(profile?.category)
+  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
   const mySlots = myColumnDef ? myCategoryDaySlots(myColumnKey, capacity, maxFullTime) : null
 
@@ -518,7 +528,7 @@ function DayReviewModal({
                   const w = warningsById[request.id]
                   const warned = hasWarnings(w)
                   const impact = checkApprovalCapacityImpact(
-                    request, allRows.filter(r => r.id !== request.id), maxByColumnKey, maxFullTime
+                    request, allRows.filter(r => r.id !== request.id), maxByColumnKey, maxFullTime, rotationsByDoctorId
                   )
                   const capacityWarned = impact.applicable && (impact.columnBreach || impact.fullTimeBreach)
                   const confirming = confirmingApproveId === request.id

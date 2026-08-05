@@ -3,18 +3,26 @@
 // the year overview, kept separate from the Supabase fetch so it's
 // unit-testable without mocking the client.
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_CAPACITY_STATES, columnForLeaveCategory,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_CAPACITY_STATES,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach, datesInMonth,
 } from './leaveYearGrid'
+import { resolveLeaveCapacityColumn } from './internRotations'
 
 // Every entry (approved or pending, already reshaped to { profileId,
-// surname, category, status, ... }) touching one date, grouped by capacity
-// column — the day panel's "who's on this day, by category" list.
-export function dayEntriesByColumn(date, { approvedByDate, pendingByDate }) {
+// surname, category, status, dateFrom, ... }) touching one date, grouped by
+// capacity column — the day panel's "who's on this day, by category" list.
+// Resolved off each entry's OWN dateFrom (not `date`, the day being
+// rendered) so a multi-day request straddling a rotation boundary still
+// lands in one column consistently across every day it touches, matching
+// resolveLeaveCapacityColumn's "resolve once per row" contract.
+// rotationsByDoctorId defaults to an empty map for callers that haven't
+// fetched it (e.g. tests) — resolveLeaveCapacityColumn degrades to static
+// bucketing in that case, same as no rotation being on record.
+export function dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId = new Map()) {
   const all = [...(approvedByDate.get(date) || []), ...(pendingByDate.get(date) || [])]
   const byColumn = new Map()
   for (const entry of all) {
-    const key = columnForLeaveCategory(entry.category)
+    const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
     if (!key) continue
     if (!byColumn.has(key)) byColumn.set(key, [])
     byColumn.get(key).push(entry)
@@ -43,15 +51,22 @@ export function dayCapacitySummary(date, countByColumnPerDateMap, maxByColumnKey
 // place, unless a cap was tightened after the fact. `otherRows` must
 // exclude `request` itself (raw leave_requests rows with a `profiles`
 // join, both pending and approved, for the same leave_type/year).
-export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, maxFullTime) {
-  const columnKey = columnForLeaveCategory(request.profiles?.category)
+// rotationsByDoctorId defaults to an empty map — resolveLeaveCapacityColumn
+// degrades to static category bucketing when it's not passed (e.g. tests,
+// or a category with no capacity column at all).
+export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, maxFullTime, rotationsByDoctorId = new Map()) {
+  const columnKey = resolveLeaveCapacityColumn({
+    category: request.profiles?.category, profileId: request.profile_id, date: request.date_from, rotationsByDoctorId,
+  })
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
   if (!columnDef) return { applicable: false }
 
   const byDate = buildLeaveByDate(otherRows, {
     yearFrom: Number(request.date_from.slice(0, 4)), yearTo: Number(request.date_to.slice(0, 4)),
   })
-  const countsByDate = countByColumnPerDate(byDate, e => e.profiles?.category)
+  const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
+    category: e.profiles?.category, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
+  }))
 
   const maxConcurrent = maxByColumnKey[columnKey]
   const column = findLeaveCapacityBreach({

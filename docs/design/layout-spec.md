@@ -326,21 +326,29 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 
 ## Quick build checklist
 
-- [ ] Extract `PageHeader`, `Breadcrumb`, `Toolbar`, `SectionLabel`, `ListRow`, `Tag`, `BulkActionBar` as shared components
-- [ ] Move all spacing/color/radius values into the token file above
-- [ ] Add missing H1s to Account and Staff
-- [ ] Remove redundant/incorrect breadcrumbs
-- [ ] Standardize search input to 320px with descriptive placeholders everywhere
-- [ ] Hide Clear button until a filter/search is active
-- [ ] Split role-tag and status-tag color palettes
-- [ ] Audit every `˅` vs `>` usage against the rule in §7/§10
-- [ ] Add Sort to Roster
-- [ ] Decide on master-detail panel vs. full navigation and apply consistently
-- [ ] Define breakpoints (1024px / 768px) in the token file
-- [ ] Build mobile top app bar + nav drawer reusing existing sidebar nav list
-- [ ] Make tabs horizontally scrollable on mobile
-- [ ] Collapse Sort/Filter into a single mobile "Filters" bottom sheet
-- [ ] Convert list row actions to overflow menu (or swipe actions) on mobile
-- [ ] Make bulk action bar sticky-bottom on mobile
-- [ ] Convert modals to full-screen sheets below 768px
-- [ ] Ensure all interactive elements meet 44x44px touch target minimum
+Status as of the Phase 3–5 build-out (see "Implementation notes" above and the PR history for the reasoning behind each deviation).
+
+- [x] Extract `PageHeader`, `Breadcrumb`, `Toolbar`, `SectionLabel`, `ListRow`, `Tag`, `BulkActionBar` as shared components — plus `Modal` and `SlideOverPanel`, not originally listed but built the same pass (`src/components/`)
+- [x] Move spacing/color/radius/typography values into the token file — via `tailwind.config.js`, not a separate CSS-variable file (see "Implementation notes")
+- [x] Add missing H1s to Account and Staff
+- [x] Remove redundant/incorrect breadcrumbs (Staff's "← All staff" on Pending Approvals/User Requests). Account's back-link was kept — it's dynamic ("back to wherever you came from"), not the hardcoded "← Staff" the spec assumed
+- [x] Standardize search input to 320px with descriptive placeholders — Staff's Pending/Requests toolbars, Roster's Active/Archive/Bin toolbars, and Staff's All Staff grid's own search. Placeholders describe what's searched everywhere
+- [x] Hide Clear button until a filter/search is active — everywhere it appears, including the All Staff grid's previously-always-visible one
+- [x] Split role-tag and status-tag color palettes — role tags (`Tag variant="role"`) now always neutral; status tags (`Tag variant="status"`) keep the semantic success/warning/danger palette. Fixed on Staff's Pending Approvals/User Requests rows, which were on the wrong (green/success) palette
+- [x] Audit every `˅` vs `>` usage against the rule in §7/§10 — audited on Account; already correct (SectionRow=chevron/expand, ContactRow=pencil/inline-edit). No bug found to fix
+- [x] Add Sort to Roster
+- [x] Decide on master-detail panel vs. full navigation — already implemented for Account/Pending Approval review (`SlideOverPanel`, extracted from two near-duplicate copies); Roster still fully navigates. Left as-is — adopting it for Roster is real state/routing work, flagged as separate scope in Phase 2, not attempted here
+- [x] Define breakpoints (1024px / 768px) in the token file — `tailwind.config.js`'s `screens`, matching Tailwind's own `md`/`lg` defaults
+- [ ] Build mobile top app bar + nav drawer — **not built**. The app already ships a working bottom tab bar (badges, active states) on every page below 768px; replacing it with a drawer was confirmed out of scope (a primary-navigation change for every mobile user, not a layout standardization). The tablet icon-only sidebar rail (768–1023px) was built instead, since that's additive rather than a replacement
+- [x] Make tabs horizontally scrollable on mobile — already true of the shared `PageTabs` template these pages use
+- [x] Collapse Sort/Filter into a single mobile "Filters" bottom sheet — `Toolbar`'s mobile variant
+- [x] Convert list row actions to overflow menu on mobile — `ListRow`'s `RowActions`, verified in a real render (kebab → Approve/Reject menu)
+- [x] Make bulk action bar sticky-bottom on mobile — `BulkActionBar`. Roster's per-group bulk-select header was deliberately kept as its own inline swap rather than this component — Active has two independently-selectable lists (Drafts + Published) at once, and two sticky-bottom bars would collide
+- [x] Convert modals to full-screen sheets below 768px — `Modal`, verified in a real render
+- [x] Ensure all interactive elements meet 44x44px touch target minimum — applied in `ListRow`'s mobile checkbox/kebab and `Toolbar`'s mobile sheet controls
+
+**Deferred / explicitly out of scope:**
+- Phone verification badge (Account) — no `phone_verified` field or verification flow exists anywhere in the codebase; this needs a real feature built first, a badge with nothing true to show would be misleading UI.
+- Roster-as-card-grid (§14) — optional per the spec; Roster's content width was already capped (`max-w-2xl`) before this pass, so the "sparse" problem the spec described didn't reproduce as-is.
+- Dashboard-as-landing-page and the "needs attention" badge language beyond Staff (§14) — optional structural upgrades, not part of the three named pages.
+- Mobile top app bar + nav drawer — see above.

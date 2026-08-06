@@ -112,6 +112,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [staffBadgeCount, setStaffBadgeCount] = useState(0)
+  const [pendingLeaveBadgeCount, setPendingLeaveBadgeCount] = useState(0)
   const [myOnLeave, setMyOnLeave] = useState(false)
 
   // Own on-leave status, for the status badge shown on the sidebar/top-bar
@@ -144,6 +145,18 @@ export default function AppLayout() {
       supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ]).then(([pendingRes, requestsRes]) => {
       if (!cancelled) setStaffBadgeCount((pendingRes.count || 0) + (requestsRes.count || 0))
+    })
+    return () => { cancelled = true }
+  }, [isAdmin, location.pathname])
+
+  // Pending leave requests awaiting review, for the Planners nav badge —
+  // same "needs admin attention" reasoning and refetch-on-navigation
+  // cadence as the Staff badge above, just a different queue.
+  useEffect(() => {
+    if (!isAdmin) { setPendingLeaveBadgeCount(0); return }
+    let cancelled = false
+    supabase.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
+      if (!cancelled) setPendingLeaveBadgeCount(count || 0)
     })
     return () => { cancelled = true }
   }, [isAdmin, location.pathname])
@@ -207,6 +220,9 @@ export default function AppLayout() {
                 <item.icon className="h-[18px] w-[18px]" />
                 {item.to === '/staff' && staffBadgeCount > 0 && (
                   <NavBadge count={staffBadgeCount} />
+                )}
+                {item.to === '/leave' && pendingLeaveBadgeCount > 0 && (
+                  <NavBadge count={pendingLeaveBadgeCount} />
                 )}
               </span>
               <span className="hidden lg:inline">{item.label}</span>
@@ -279,6 +295,9 @@ export default function AppLayout() {
                   <item.icon className="h-5 w-5" />
                   {item.to === '/staff' && staffBadgeCount > 0 && (
                     <NavBadge count={staffBadgeCount} />
+                  )}
+                  {item.to === '/leave' && pendingLeaveBadgeCount > 0 && (
+                    <NavBadge count={pendingLeaveBadgeCount} />
                   )}
                 </span>
                 {item.label}

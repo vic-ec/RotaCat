@@ -57,20 +57,37 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(within(mobileBlock(container)).getByText('All categories')).toBeInTheDocument()
   })
 
-  it('groups months into "Best months" and "Requires checking" by the selected category\'s own cap', () => {
+  // Sandbox clock is 2026-08-06 for this whole session, so August is
+  // "today" — the fixture's MO pressure (2 of 2 on 2026-08-10, exactly the
+  // default MO cap) lands inside the current month.
+  it('groups months by time — Current month first, then Coming months, then Previous months', () => {
     const { container } = renderOverview({ myCategory: 'MO' })
     const mobile = within(mobileBlock(container))
 
-    const bestGroup = mobile.getByText('Best months').closest('div')
-    expect(within(bestGroup).getByText('January')).toBeInTheDocument()
+    const currentGroup = mobile.getByText('Current month').closest('div')
+    expect(within(currentGroup).getByText('August')).toBeInTheDocument()
 
-    const checkingGroup = mobile.getByText('Requires checking').closest('div')
-    expect(within(checkingGroup).getByText('August')).toBeInTheDocument()
-    expect(within(checkingGroup).getByText('1 pressure day')).toBeInTheDocument()
-    expect(within(checkingGroup).getByText('At capacity')).toBeInTheDocument()
+    const comingGroup = mobile.getByText('Coming months').closest('div')
+    expect(within(comingGroup).getByText('September')).toBeInTheDocument()
+    expect(within(comingGroup).getByText('December')).toBeInTheDocument()
+    expect(within(comingGroup).queryByText('August')).not.toBeInTheDocument()
 
-    // August must not also appear in Best months.
-    expect(within(bestGroup).queryByText('August')).not.toBeInTheDocument()
+    const previousGroup = mobile.getByText('Previous months').closest('div')
+    expect(within(previousGroup).getByText('January')).toBeInTheDocument()
+    expect(within(previousGroup).getByText('July')).toBeInTheDocument()
+    expect(within(previousGroup).queryByText('August')).not.toBeInTheDocument()
+  })
+
+  it('renames the "At capacity"/"Limited" chip to spell out how many days are affected, and drops the separate "N pressure days" line', () => {
+    const { container } = renderOverview({ myCategory: 'MO' })
+    const mobile = within(mobileBlock(container))
+
+    // 2026-08-10 is the only MO-at-cap date in the fixture -> 1 red day.
+    const currentGroup = mobile.getByText('Current month').closest('div')
+    expect(within(currentGroup).getByText('No capacity on 1 day')).toBeInTheDocument()
+    expect(within(currentGroup).queryByText('At capacity')).not.toBeInTheDocument()
+    expect(mobile.queryByText(/pressure day/)).not.toBeInTheDocument()
+    expect(mobile.queryByText('No pressure days')).not.toBeInTheDocument()
   })
 
   it('tapping a month tile opens that month\'s workspace directly', async () => {
@@ -82,10 +99,9 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(onOpenWorkspace).toHaveBeenCalledWith(8)
   })
 
-  it('switching the category picker re-groups the months for the newly selected category', async () => {
+  it('switching the category picker re-reads the current month\'s chip for the newly selected category', async () => {
     const user = userEvent.setup()
-    // Registrar has no pressure anywhere in this fixture, so switching to it
-    // should move August into "Best months" too.
+    // Registrar has no pressure anywhere in this fixture, unlike MO.
     const { container } = renderOverview({ myCategory: 'MO' })
     const mobile = within(mobileBlock(container))
 
@@ -94,9 +110,9 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     // outside the scoped mobile block — query it globally instead.
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))
 
-    const bestGroup = mobile.getByText('Best months').closest('div')
-    expect(within(bestGroup).getByText('August')).toBeInTheDocument()
-    expect(mobile.queryByText('Requires checking')).not.toBeInTheDocument()
+    const currentGroup = mobile.getByText('Current month').closest('div')
+    expect(within(currentGroup).getByText('August')).toBeInTheDocument()
+    expect(within(currentGroup).getByText('Available')).toBeInTheDocument()
   })
 
   it('admin viewers do not get the category-finder mobile redesign — the full dashboard renders instead', () => {
@@ -135,15 +151,18 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('the All/My leave/Pending filter switch is admin-only — a non-admin doctor already sees their own leave on My Leave, and always lands on "All" anyway', () => {
+  it('the All/My leave/Pending/Capacity issues filter switch is gone entirely, for every role — the view is always "all"', () => {
     renderOverview({ myCategory: 'MO' })
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Capacity issues' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'All' })).not.toBeInTheDocument()
 
     mockAuth = { isAdmin: true, isClerk: false }
     renderOverview({ myCategory: 'MO' })
-    expect(screen.getByRole('button', { name: 'My leave' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pending' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pending' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Capacity issues' })).not.toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 

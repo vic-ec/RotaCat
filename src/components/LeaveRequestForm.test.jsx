@@ -11,6 +11,7 @@ vi.mock('../context/AuthContext', () => ({
 const submitLeaveRequest = vi.fn()
 const fetchAnnualCapacityPreview = vi.fn()
 const fetchSpecialLeavePressure = vi.fn()
+const fetchWeekendExceptionPreview = vi.fn()
 vi.mock('../lib/leaveRequests', async () => {
   const actual = await vi.importActual('../lib/leaveRequests')
   return {
@@ -18,6 +19,7 @@ vi.mock('../lib/leaveRequests', async () => {
     submitLeaveRequest: (...args) => submitLeaveRequest(...args),
     fetchAnnualCapacityPreview: (...args) => fetchAnnualCapacityPreview(...args),
     fetchSpecialLeavePressure: (...args) => fetchSpecialLeavePressure(...args),
+    fetchWeekendExceptionPreview: (...args) => fetchWeekendExceptionPreview(...args),
   }
 })
 
@@ -27,6 +29,7 @@ describe('LeaveRequestForm', () => {
     submitLeaveRequest.mockReset()
     fetchAnnualCapacityPreview.mockReset().mockResolvedValue(null)
     fetchSpecialLeavePressure.mockReset().mockResolvedValue(null)
+    fetchWeekendExceptionPreview.mockReset().mockResolvedValue(null)
   })
 
   it('submits a normal annual leave request with the entered date range', async () => {
@@ -137,5 +140,43 @@ describe('LeaveRequestForm', () => {
 
     await waitFor(() => expect(fetchSpecialLeavePressure).toHaveBeenCalled())
     expect(screen.queryByText(/already have special leave requests/)).not.toBeInTheDocument()
+  })
+
+  it('weekend exception: shows the static alternation-pattern note as soon as a Saturday is picked, before the coverage read resolves', async () => {
+    fetchWeekendExceptionPreview.mockReturnValue(new Promise(() => {})) // never resolves
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.click(screen.getByText('Annual leave'))
+    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.type(screen.getByLabelText('Saturday'), '2026-08-01')
+
+    expect(await screen.findByText(/pulls the doctor out of the strict day\/night alternation pattern/)).toBeInTheDocument()
+    expect(fetchWeekendExceptionPreview).toHaveBeenCalledWith({ saturday: '2026-08-01' })
+    expect(screen.queryByText(/groups planned/)).not.toBeInTheDocument()
+  })
+
+  it('weekend exception: adds the live coverage read once it resolves, and never disables submission', async () => {
+    fetchWeekendExceptionPreview.mockResolvedValue({ health: 'amber', filledGroups: 3, totalGroups: 4 })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.click(screen.getByText('Annual leave'))
+    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.type(screen.getByLabelText('Saturday'), '2026-08-01')
+
+    expect(await screen.findByText('This weekend is currently 3 of 4 groups planned.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /submit request/i })).not.toBeDisabled()
+  })
+
+  it('weekend exception: shows no advisory before a Saturday is picked', async () => {
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.click(screen.getByText('Annual leave'))
+    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+
+    expect(screen.queryByText(/pulls the doctor out of the strict day\/night alternation pattern/)).not.toBeInTheDocument()
+    expect(fetchWeekendExceptionPreview).not.toHaveBeenCalled()
   })
 })

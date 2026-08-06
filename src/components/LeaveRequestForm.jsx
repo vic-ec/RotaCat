@@ -6,6 +6,7 @@ import LeaveCapacityBanner from './LeaveCapacityBanner'
 import { datesInRange } from '../lib/dateRange'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
+  fetchWeekendExceptionPreview,
 } from '../lib/leaveRequests'
 import {
   INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote,
@@ -39,6 +40,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const [annualPreview, setAnnualPreview] = useState(null)
   const [annualPreviewLoading, setAnnualPreviewLoading] = useState(false)
   const [specialPressure, setSpecialPressure] = useState(null)
+  const [weekendPreview, setWeekendPreview] = useState(null)
   const [myRotations, setMyRotations] = useState([])
   const [myRotationsLoaded, setMyRotationsLoaded] = useState(false)
 
@@ -102,6 +104,23 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     })
     return () => { cancelled = true }
   }, [isSpecial, hasValidRange, dateFrom, dateTo])
+
+  // Live coverage read for the weekend-exception advisory banner below —
+  // purely informative (see fetchWeekendExceptionPreview's own never-throw
+  // contract), same as the annual/special previews above: a weekend
+  // exception has no capacity check at all, so this can never block or
+  // interfere with submission. Fires off dateFrom alone (the picked
+  // Saturday) rather than waiting on hasValidRange/dateTo, since
+  // handleWeekendSaturdayChange already derives dateTo from it in the same
+  // update.
+  useEffect(() => {
+    if (!isWeekendException || !dateFrom) { setWeekendPreview(null); return }
+    let cancelled = false
+    fetchWeekendExceptionPreview({ saturday: dateFrom }).then(result => {
+      if (!cancelled) setWeekendPreview(result)
+    })
+    return () => { cancelled = true }
+  }, [isWeekendException, dateFrom])
 
   function handleWeekendSaturdayChange(value) {
     setDateFrom(value)
@@ -201,6 +220,21 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
               onChange={e => setDateTo(e.target.value)}
               className="input-field w-full min-w-0"
             />
+          </div>
+        </div>
+      )}
+
+      {isWeekendException && dateFrom && (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <div className="space-y-1">
+            <p>
+              Approving this pulls the doctor out of the strict day/night alternation pattern for future weekends —
+              it doesn&rsquo;t automatically create a make-up shift elsewhere, so admin will need to compensate manually.
+            </p>
+            {weekendPreview && (
+              <p>This weekend is currently {weekendPreview.filledGroups} of {weekendPreview.totalGroups} groups planned.</p>
+            )}
           </div>
         </div>
       )}

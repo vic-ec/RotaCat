@@ -2,7 +2,7 @@
 // Supabase) plus the async submission flow that wires them together.
 import { supabase } from './supabase'
 import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from './dateRange'
-import { overlapsPlannedWeekend } from './weekendPlanner'
+import { overlapsPlannedWeekend, groupEntriesByWeekend, weekendCoverageSummary, weekendHealthState } from './weekendPlanner'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
   buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
@@ -361,6 +361,28 @@ export async function fetchSpecialLeavePressure({ dateFrom, dateTo }) {
       yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
     })
     return findWorstSpecialLeavePressure({ dateFrom, dateTo, byDate })
+  } catch {
+    return null
+  }
+}
+
+// Read-only, non-blocking counterpart for a weekend exception — how staffed
+// the affected Saturday+Sunday already is, from the Weekend Planner's own
+// weekend_planner_entries (see weekendCoverageSummary/weekendHealthState in
+// weekendPlanner.js). Same never-throw contract as fetchAnnualCapacityPreview/
+// fetchSpecialLeavePressure above: purely informative for
+// LeaveRequestForm's advisory banner, never gates submitLeaveRequest (a
+// weekend exception has no capacity check at all, unlike annual leave).
+export async function fetchWeekendExceptionPreview({ saturday }) {
+  try {
+    const { data } = await supabase
+      .from('weekend_planner_entries')
+      .select('id, weekend_saturday, profile_id, category')
+      .eq('weekend_saturday', saturday)
+
+    const bySaturday = groupEntriesByWeekend(data || []).get(saturday)
+    const { filledGroups, totalGroups } = weekendCoverageSummary(bySaturday)
+    return { health: weekendHealthState(bySaturday), filledGroups, totalGroups }
   } catch {
     return null
   }

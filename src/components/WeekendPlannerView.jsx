@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Pencil, Users, CircleCheck, CircleAlert } from 'lucide-react'
+import { Search, Pencil, Users, CircleCheck, CircleAlert, Copy, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPaste,
 } from '../lib/weekendPlanner'
 import { logWeekendPlannerChange } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
@@ -208,7 +208,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
 // a stale picker open.
 function WeekendInspector({
   saturday, weekendIndex, bySaturday, doctors, doctorById, isAdmin, saving, myRequest, canViewRequests,
-  assignedIds, openPicker, setOpenPicker, addEntry, removeEntry,
+  assignedIds, openPicker, setOpenPicker, addEntry, removeEntry, onClearWeekend,
 }) {
   const [editing, setEditing] = useState(false)
   useEffect(() => { setEditing(false) }, [saturday])
@@ -277,6 +277,16 @@ function WeekendInspector({
               <Link to="/leave?tab=planners&sub=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
                 <Users className="h-3.5 w-3.5" /> View requests
               </Link>
+            )}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => onClearWeekend(saturday)}
+                disabled={coverage.filledGroups === 0}
+                className="flex w-full items-center justify-center gap-1.5 rounded border border-flagRed px-3 py-1.5 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear weekend
+              </button>
             )}
           </div>
         </>
@@ -372,6 +382,111 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, my
   )
 }
 
+// Copy/Paste's confirmation step, styled like WeekendDriftDetailsModal.jsx
+// (fixed inset-0, bg-ink/20, items-center, card max-w-lg p-5) — nothing is
+// written until this is confirmed. Owns the fill-empty/overwrite mode
+// toggle locally and recomputes planWeekendPaste (the pure planner in
+// weekendPlanner.js) on every mode/prop change so the preview counts below
+// always match what Confirm would actually do.
+function WeekendPasteModal({ clipboard, targetSaturdays, targetLabel, existingByWeekend, activeDoctorIds, saving, onConfirm, onClose }) {
+  const [mode, setMode] = useState('fill-empty')
+  const plan = useMemo(
+    () => planWeekendPaste({ sourceWeekends: clipboard.weekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode }),
+    [clipboard, targetSaturdays, existingByWeekend, activeDoctorIds, mode]
+  )
+  const inactiveCount = plan.skipped.filter(s => s.reason === 'inactive').length
+  const alreadyAssignedCount = plan.skipped.filter(s => s.reason === 'already-assigned').length
+  const weekendCount = Math.min(clipboard.weekends.length, targetSaturdays.length)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+      <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold text-ink">Paste {clipboard.sourceLabel} into {targetLabel}</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        </div>
+
+        <div className="mt-4 flex w-fit gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
+          <button
+            type="button"
+            onClick={() => setMode('fill-empty')}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'fill-empty' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
+          >
+            Fill empty groups only
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('overwrite')}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'overwrite' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
+          >
+            Overwrite instead
+          </button>
+        </div>
+        {mode === 'overwrite' && (
+          <p className="mt-2 text-xs text-flagRed">This removes every existing assignment on each target weekend before pasting — not reversible.</p>
+        )}
+
+        {plan.unmatchedSourceCount > 0 && (
+          <p className="mt-3 text-xs text-ink-muted">
+            {clipboard.sourceLabel} had {clipboard.weekends.length} weekends, {targetLabel} has {targetSaturdays.length} — the last {plan.unmatchedSourceCount} won&rsquo;t be pasted.
+          </p>
+        )}
+
+        <p className="mt-3 text-sm text-ink">
+          Will add {plan.toInsert.length} assignment{plan.toInsert.length === 1 ? '' : 's'} across {weekendCount} weekend{weekendCount === 1 ? '' : 's'}.
+          {alreadyAssignedCount > 0 && ` ${alreadyAssignedCount} skipped (already assigned elsewhere that weekend).`}
+          {inactiveCount > 0 && ` ${inactiveCount} skipped (no longer active).`}
+          {mode === 'overwrite' && plan.toDelete.length > 0 && ` ${plan.toDelete.length} existing assignment${plan.toDelete.length === 1 ? '' : 's'} will be removed first.`}
+        </p>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button
+            type="button"
+            onClick={() => onConfirm(plan)}
+            disabled={saving || (plan.toInsert.length === 0 && plan.toDelete.length === 0)}
+            className="btn-primary text-sm"
+          >
+            {saving ? 'Pasting…' : 'Confirm paste'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Shared destructive-bulk-delete confirmation, used by both "Clear weekend"
+// and "Clear month" — same visual template as WeekendPasteModal/
+// WeekendDriftDetailsModal above. No undo, so this always requires an
+// explicit confirm click; entryCount is the caller's own pre-computed count
+// (how many weekend_planner_entries rows this specific action would delete).
+function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+      <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        </div>
+        <p className="mt-3 text-sm text-ink">
+          This removes {entryCount} assignment{entryCount === 1 ? '' : 's'}. This can&rsquo;t be undone.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={saving || entryCount === 0}
+            className="btn-primary text-sm"
+          >
+            {saving ? 'Clearing…' : 'Clear'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
 // nested inside the Leave page's "Planners" tab group — per the Planners-tabs
@@ -417,6 +532,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open
+  // Copy/Paste/Clear (admin-only) — clipboard is plain component state, not
+  // persisted: the intended flow is copy → navigate forward a month or two
+  // → paste, all within one visit, so it only needs to survive the mounted
+  // session. { sourceLabel, weekends } — see copyMonth below for the shape.
+  const [clipboard, setClipboard] = useState(null)
+  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [showClearMonthModal, setShowClearMonthModal] = useState(false)
+  const [clearWeekendTarget, setClearWeekendTarget] = useState(null) // saturday string or null
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
@@ -474,6 +597,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
+  const activeDoctorIds = useMemo(() => new Set(doctors.map(d => d.id)), [doctors])
   const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
 
   const firstFetchedSaturday = saturdays[0]
@@ -504,6 +628,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const monthSaturdays = useMemo(
     () => saturdaysInMonth(viewYear, viewMonth).filter(s => fetchedSet.has(s)),
     [viewYear, viewMonth, fetchedSet]
+  )
+  // Total assignments currently on the board across the viewed month — the
+  // "Clear month" button's disabled state and the confirm modal's count.
+  const monthEntryCount = useMemo(
+    () => monthSaturdays.reduce((sum, s) => sum + Object.values(byWeekend.get(s) || {}).flat().length, 0),
+    [monthSaturdays, byWeekend]
   )
   const visibleSaturdays = monthSaturdays.filter(saturday => {
     const bySaturday = byWeekend.get(saturday)
@@ -585,6 +715,90 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     }
   }
 
+  // Bulk-write helpers behind Copy/Paste and Clear weekend/month — same
+  // "patch local state from the write's own result, log one
+  // weekend_planner_changes row per affected entry" pattern as
+  // addEntry/removeEntry above, just batched. Reuses the existing 'add'/
+  // 'remove' actions (weekend_planner_changes.action has a CHECK constraint
+  // limited to exactly those two values) rather than introducing a new
+  // bulk-specific action. Return a boolean so callers can decide whether to
+  // proceed to a dependent second write (see handleConfirmPaste's
+  // delete-then-insert ordering for 'overwrite' mode).
+  async function deleteEntries(entriesToDelete) {
+    if (entriesToDelete.length === 0) return true
+    const ids = entriesToDelete.map(e => e.id)
+    const { error: err } = await supabase.from('weekend_planner_entries').delete().in('id', ids)
+    if (err) { setError(err.message); return false }
+    const idSet = new Set(ids)
+    setEntries(prev => prev.filter(e => !idSet.has(e.id)))
+    await Promise.all(entriesToDelete.map(e => logWeekendPlannerChange({
+      weekendSaturday: e.weekend_saturday, category: e.category, action: 'remove',
+      profileId: e.profile_id, changedBy: profile?.id ?? null,
+    })))
+    return true
+  }
+
+  async function insertEntries(toInsert) {
+    if (toInsert.length === 0) return true
+    const payload = toInsert.map(t => ({
+      weekend_saturday: t.weekendSaturday, profile_id: t.profileId, category: t.category, created_by: profile?.id ?? null,
+    }))
+    const { data, error: err } = await supabase.from('weekend_planner_entries').insert(payload).select()
+    if (err) { setError(err.message); return false }
+    setEntries(prev => [...prev, ...(data || [])])
+    await Promise.all(toInsert.map(t => logWeekendPlannerChange({
+      weekendSaturday: t.weekendSaturday, category: t.category, action: 'add',
+      profileId: t.profileId, changedBy: profile?.id ?? null,
+    })))
+    return true
+  }
+
+  // Builds the clipboard from the currently-viewed month's own weekends,
+  // indexed by POSITION (weekends[i] = the (i+1)th Saturday of this month)
+  // rather than by literal date — planWeekendPaste maps by that same
+  // position, so pasting into a month with a different actual weekend count
+  // still lines up correctly.
+  function copyMonth() {
+    const weekends = monthSaturdays.map(saturday => {
+      const bySaturday = byWeekend.get(saturday) || {}
+      return Object.entries(bySaturday).flatMap(([groupKey, groupEntries]) =>
+        groupEntries.map(e => ({ groupKey, profileId: e.profile_id, category: e.category }))
+      )
+    })
+    setClipboard({ sourceLabel: `${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, weekends })
+  }
+
+  // Delete-then-insert order matters for 'overwrite' mode: plan.toDelete
+  // clears every existing entry on each target weekend (freeing up
+  // unique(weekend_saturday, profile_id) for a copied profile who'd
+  // otherwise still collide with their own pre-paste row) before
+  // plan.toInsert writes the copied set. Clipboard is deliberately left
+  // populated afterward — the same copied month is a reasonable thing to
+  // paste into more than one future month in a row.
+  async function handleConfirmPaste(plan) {
+    setSaving(true)
+    const deleteOk = await deleteEntries(plan.toDelete)
+    if (deleteOk) await insertEntries(plan.toInsert)
+    setSaving(false)
+    setShowPasteModal(false)
+  }
+
+  async function handleConfirmClearMonth() {
+    setSaving(true)
+    const toDelete = monthSaturdays.flatMap(s => Object.values(byWeekend.get(s) || {}).flat())
+    await deleteEntries(toDelete)
+    setSaving(false)
+    setShowClearMonthModal(false)
+  }
+
+  async function handleConfirmClearWeekend() {
+    setSaving(true)
+    const toDelete = Object.values(byWeekend.get(clearWeekendTarget) || {}).flat()
+    await deleteEntries(toDelete)
+    setSaving(false)
+    setClearWeekendTarget(null)
+  }
+
   const monthNav = (
     <div className="flex flex-wrap items-center gap-2">
       {onBackToYear && (
@@ -640,6 +854,41 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
       {!loading && !error && (
         <>
+          {/* ── Copy/Paste/Clear (admin-only), shared across mobile+desktop rather
+              than duplicated per viewport — Copy/Clear month act on whichever
+              month is currently viewed; the clipboard pill (once non-null) stays
+              visible across month navigation so it's always clear what's copied
+              and what "Paste" would currently target. ── */}
+          {isAdmin && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={copyMonth} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
+                <Copy className="h-3.5 w-3.5" /> Copy {MONTH_LABELS[viewMonth - 1]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowClearMonthModal(true)}
+                disabled={monthEntryCount === 0}
+                className="flex items-center gap-1.5 rounded border border-flagRed px-3 py-1.5 text-sm font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear {MONTH_LABELS[viewMonth - 1]}
+              </button>
+            </div>
+          )}
+
+          {isAdmin && clipboard && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
+              <span>📋 {clipboard.sourceLabel} copied</span>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setShowPasteModal(true)} className="btn-primary px-3 py-1 text-xs">
+                  Paste into {MONTH_LABELS[viewMonth - 1]} {viewYear}
+                </button>
+                <button type="button" onClick={() => setClipboard(null)} className="text-xs font-medium text-accent-dark underline hover:no-underline">
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
@@ -699,6 +948,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
                             Needs planning
                           </span>
+                        )}
+                        {isAdmin && coverage.filledGroups > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setClearWeekendTarget(saturday)}
+                            aria-label={`Clear weekend ${saturday}`}
+                            className={`${scheme.text} hover:text-flagRed`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -850,6 +1109,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     setOpenPicker={setOpenPicker}
                     addEntry={addEntry}
                     removeEntry={removeEntry}
+                    onClearWeekend={saturday => setClearWeekendTarget(saturday)}
                   />
                 ) : (
                   <p className="text-sm text-ink-muted">Select a weekend to see details.</p>
@@ -870,6 +1130,39 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
           onClose={() => setDetailSaturday(null)}
+        />
+      )}
+
+      {showPasteModal && clipboard && (
+        <WeekendPasteModal
+          clipboard={clipboard}
+          targetSaturdays={monthSaturdays}
+          targetLabel={`${MONTH_LABELS[viewMonth - 1]} ${viewYear}`}
+          existingByWeekend={byWeekend}
+          activeDoctorIds={activeDoctorIds}
+          saving={saving}
+          onConfirm={handleConfirmPaste}
+          onClose={() => setShowPasteModal(false)}
+        />
+      )}
+
+      {showClearMonthModal && (
+        <WeekendClearConfirmModal
+          title={`Clear ${MONTH_LABELS[viewMonth - 1]} ${viewYear}?`}
+          entryCount={monthEntryCount}
+          saving={saving}
+          onConfirm={handleConfirmClearMonth}
+          onClose={() => setShowClearMonthModal(false)}
+        />
+      )}
+
+      {clearWeekendTarget && (
+        <WeekendClearConfirmModal
+          title={`Clear ${formatWeekendRange(clearWeekendTarget)}?`}
+          entryCount={Object.values(byWeekend.get(clearWeekendTarget) || {}).flat().length}
+          saving={saving}
+          onConfirm={handleConfirmClearWeekend}
+          onClose={() => setClearWeekendTarget(null)}
         />
       )}
     </div>

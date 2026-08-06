@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState, planWeekendPaste,
 } from './weekendPlanner'
 
 describe('groupForCategory', () => {
@@ -224,5 +224,132 @@ describe('computeWeekendPlannerDrift', () => {
     ]
     const plannerEntries = []
     expect(computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes)).toEqual([])
+  })
+})
+
+describe('planWeekendPaste', () => {
+  const targetSaturdays = ['2026-05-02', '2026-05-09', '2026-05-16', '2026-05-23']
+
+  it('fill-empty mode: inserts every copied entry into an empty target weekend', () => {
+    const sourceWeekends = [
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }],
+    ]
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([
+      { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' },
+      { weekendSaturday: '2026-05-02', groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' },
+    ])
+    expect(plan.toDelete).toEqual([])
+    expect(plan.skipped).toEqual([])
+    expect(plan.unmatchedSourceCount).toBe(0)
+  })
+
+  it('fill-empty mode: skips a group that already has someone assigned in the target, leaving other groups untouched', () => {
+    const sourceWeekends = [
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }],
+    ]
+    const existingByWeekend = new Map([
+      ['2026-05-02', { MO: [{ id: 'e9', profile_id: 'p9', category: 'MO' }] }],
+    ])
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend,
+      activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([
+      { weekendSaturday: '2026-05-02', groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' },
+    ])
+    expect(plan.toDelete).toEqual([])
+    expect(plan.skipped).toEqual([]) // a filled-group skip isn't a "skipped" anomaly, so it doesn't appear here
+  })
+
+  it('overwrite mode: deletes every existing entry on the target weekend and inserts the full copied set', () => {
+    const sourceWeekends = [
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
+    ]
+    const existing = { id: 'e9', weekend_saturday: '2026-05-02', profile_id: 'p9', category: 'Registrar' }
+    const existingByWeekend = new Map([['2026-05-02', { Registrar: [existing] }]])
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend,
+      activeDoctorIds: new Set(['p1']), mode: 'overwrite',
+    })
+    expect(plan.toDelete).toEqual([existing])
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+  })
+
+  it('overwrite mode: a copied profile can land even where they were previously assigned to a different group (that entry is being deleted anyway)', () => {
+    const sourceWeekends = [[{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }]]
+    const existingByWeekend = new Map([
+      ['2026-05-02', { MO: [{ id: 'e1', weekend_saturday: '2026-05-02', profile_id: 'p1', category: 'MO' }] }],
+    ])
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend,
+      activeDoctorIds: new Set(['p1']), mode: 'overwrite',
+    })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }])
+    expect(plan.skipped).toEqual([])
+  })
+
+  it('skips a copied doctor who is no longer active', () => {
+    const sourceWeekends = [[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]]
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.skipped).toEqual([{ reason: 'inactive', weekendIndex: 0, groupKey: 'MO', profileId: 'p1' }])
+  })
+
+  it('skips a copied doctor already assigned to a different group on the target weekend', () => {
+    const sourceWeekends = [[{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }]]
+    const existingByWeekend = new Map([
+      ['2026-05-02', { MO: [{ id: 'e1', profile_id: 'p1', category: 'MO' }] }],
+    ])
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend,
+      activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.skipped).toEqual([{ reason: 'already-assigned', weekendIndex: 0, groupKey: 'Registrar', profileId: 'p1' }])
+  })
+
+  it('maps by position, not literal date — sourceWeekends[i] always lands on targetSaturdays[i]', () => {
+    const sourceWeekends = [
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
+      [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }],
+    ]
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert.map(e => e.weekendSaturday)).toEqual(['2026-05-02', '2026-05-09'])
+  })
+
+  it("drops source weekends beyond the target month's length, without erroring", () => {
+    const sourceWeekends = [
+      [], [], [], [],
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }], // 5th weekend, no matching target
+    ]
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.unmatchedSourceCount).toBe(1)
+  })
+
+  it('within one target weekend, a profile copied into two groups only lands in the first (defensive dedupe)', () => {
+    const sourceWeekends = [[
+      { groupKey: 'MO', profileId: 'p1', category: 'MO' },
+      { groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' },
+    ]]
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+    expect(plan.skipped).toEqual([{ reason: 'already-assigned', weekendIndex: 0, groupKey: 'Registrar', profileId: 'p1' }])
   })
 })

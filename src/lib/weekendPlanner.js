@@ -220,3 +220,81 @@ export function groupEntriesByWeekend(entries) {
   }
   return byWeekend
 }
+
+// Pure planning logic behind WeekendPlannerView's Copy/Paste feature — maps
+// a copied month's weekends onto a target month's weekends BY POSITION
+// (sourceWeekends[i] always lands on targetSaturdays[i]), not by literal
+// date, so copying March into May lines up correctly even though the two
+// months' actual Saturdays never match. Kept pure/Supabase-free so the
+// component just calls this and renders/writes the result.
+//
+// sourceWeekends[i] is an array of { groupKey, profileId, category } for
+// the (i+1)th Saturday of the copied month (see WeekendPlannerView's
+// copyMonth). existingByWeekend is the { [saturday]: { [groupKey]:
+// [entry,...] } } Map from groupEntriesByWeekend, scoped to the CURRENT
+// (pre-paste) state of the target weekends. activeDoctorIds is the Set of
+// currently active/approved doctor ids (weekendPlanner_entries.profile_id
+// values that no longer resolve to one would be rejected by the DB anyway
+// — this is a client-side check to skip those cleanly instead of surfacing
+// a raw Supabase error). mode is 'fill-empty' (only insert into a group
+// that's currently empty on the target weekend — never partially merges
+// into an already-populated group) or 'overwrite' (delete every existing
+// entry on each target weekend first, then insert the full copied set).
+//
+// Returns:
+//   toInsert  — [{ weekendSaturday, groupKey, profileId, category }, ...]
+//   toDelete  — existing entry rows (from existingByWeekend) to remove
+//               first, only non-empty in 'overwrite' mode
+//   skipped   — [{ reason: 'inactive' | 'already-assigned', weekendIndex,
+//               groupKey, profileId }, ...] — profiles that would have
+//               been inserted but weren't, for the paste-confirmation
+//               modal's "X skipped" counts. A group skipped for already
+//               being filled (the normal 'fill-empty' behaviour) isn't
+//               included here — that's expected, not an anomaly.
+//   unmatchedSourceCount — how many of the source month's weekends had no
+//               matching target position (source longer than target),
+//               i.e. how many were silently dropped.
+export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
+  const toInsert = []
+  const toDelete = []
+  const skipped = []
+  const matchedCount = Math.min(sourceWeekends.length, targetSaturdays.length)
+
+  for (let i = 0; i < matchedCount; i++) {
+    const targetSaturday = targetSaturdays[i]
+    const existingBySaturday = existingByWeekend.get(targetSaturday) || {}
+
+    if (mode === 'overwrite') {
+      for (const groupEntries of Object.values(existingBySaturday)) {
+        for (const entry of groupEntries) toDelete.push(entry)
+      }
+    }
+
+    // In 'overwrite' mode every existing entry above is already queued for
+    // deletion, so nothing on the target counts as "filled" or "assigned"
+    // going into the insert pass below.
+    const filledGroups = mode === 'overwrite'
+      ? new Set()
+      : new Set(Object.keys(existingBySaturday).filter(k => (existingBySaturday[k] || []).length > 0))
+    const assignedProfileIds = mode === 'overwrite'
+      ? new Set()
+      : new Set(Object.values(existingBySaturday).flat().map(e => e.profile_id))
+
+    for (const { groupKey, profileId, category } of sourceWeekends[i]) {
+      if (!activeDoctorIds.has(profileId)) {
+        skipped.push({ reason: 'inactive', weekendIndex: i, groupKey, profileId })
+        continue
+      }
+      if (assignedProfileIds.has(profileId)) {
+        skipped.push({ reason: 'already-assigned', weekendIndex: i, groupKey, profileId })
+        continue
+      }
+      if (mode === 'fill-empty' && filledGroups.has(groupKey)) continue // expected — not counted as "skipped"
+
+      toInsert.push({ weekendSaturday: targetSaturday, groupKey, profileId, category })
+      assignedProfileIds.add(profileId)
+    }
+  }
+
+  return { toInsert, toDelete, skipped, unmatchedSourceCount: Math.max(0, sourceWeekends.length - targetSaturdays.length) }
+}

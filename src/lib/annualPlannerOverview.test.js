@@ -180,6 +180,14 @@ describe('entriesInRange', () => {
     })
   })
 
+  it('carries contractType through too, for callers that need it to label a COSMO/Intern entry correctly', () => {
+    const otApproved = new Map([
+      ['2026-08-11', [{ profileId: 'p9', surname: 'CodeSpace', category: 'COSMO', contractType: 'Junior_Doctor_Overtime', dateFrom: '2026-08-11', dateTo: '2026-08-11' }]],
+    ])
+    const entries = entriesInRange('2026-08-11', '2026-08-11', { approvedByDate: otApproved, pendingByDate: new Map() })
+    expect(entries[0].contractType).toBe('Junior_Doctor_Overtime')
+  })
+
   it('sorts approved entries before pending ones, even out of alphabetical order', () => {
     const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
     // Zilla (approved) sorts before Davis (pending) despite the alphabet.

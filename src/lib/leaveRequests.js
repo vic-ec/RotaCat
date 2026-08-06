@@ -265,8 +265,15 @@ export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxBy
 // requester's own other rows. `profileId` doubles as the resolution key
 // for the requester's own rotation (an Intern's pool is date-driven — see
 // internRotations.js) and is excluded from `rotationsByDoctorId`'s "other
-// doctor" fetch when already covered by its own lookup.
-export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, contractType, profileId }) {
+// doctor" fetch when already covered by its own lookup. `columnKeyOverride`
+// lets a caller preview a DIFFERENT column's room entirely, bypassing the
+// category/contractType/rotation resolution below — used by
+// LeaveRequestForm's "Checking capacity for" picker so a doctor (an Intern
+// especially, whose real pool is date-driven) can look ahead at a category
+// other than the one they'd actually resolve to today. This never changes
+// what a submitted request is actually checked/counted against — that still
+// always resolves fresh from the real profile at submission time.
+export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, contractType, profileId, columnKeyOverride }) {
   try {
     const [constraintsRes, overlappingRes] = await Promise.all([
       supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
@@ -289,7 +296,7 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, c
       // back to static category bucketing below, same as checkAnnualLeaveCapacity
     }
 
-    const columnKey = resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom, rotationsByDoctorId })
+    const columnKey = columnKeyOverride || resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom, rotationsByDoctorId })
     const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
     if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
 

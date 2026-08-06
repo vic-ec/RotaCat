@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Pencil, Users, CircleCheck, CircleAlert, Copy, Trash2 } from 'lucide-react'
+import { Search, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPaste,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
 } from '../lib/weekendPlanner'
-import { logWeekendPlannerChange } from '../lib/changeLog'
+import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import InlineRuleHint from './InlineRuleHint'
 
@@ -39,6 +39,30 @@ const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// The 3 consecutive months starting at (year, month) — "whichever month is
+// currently viewed, plus the next 2" — for Copy quarter/Paste quarter/Clear
+// quarter, all keyed off whatever the toolbar's month nav is currently
+// showing at the moment each is triggered.
+function quarterMonthsFrom(year, month) {
+  const months = []
+  for (let i = 0; i < 3; i++) {
+    let m = month + i
+    let y = year
+    while (m > 12) { m -= 12; y += 1 }
+    months.push({ year: y, month: m })
+  }
+  return months
+}
+
+// "Jan-Mar 2026" (same year throughout) or "Nov 2026-Jan 2027" (crosses a
+// year boundary) for a quarterMonthsFrom() result.
+function quarterLabel(quarterMonths) {
+  const [first, , last] = quarterMonths
+  const firstLabel = first.year === last.year ? MONTH_ABBR[first.month - 1] : `${MONTH_ABBR[first.month - 1]} ${first.year}`
+  return `${firstLabel}-${MONTH_ABBR[last.month - 1]} ${last.year}`
+}
 
 // Mobile's alternating card background always follows even/odd parity —
 // unrelated to the desktop badge scheme below, which deliberately doesn't
@@ -209,6 +233,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
 function WeekendInspector({
   saturday, weekendIndex, bySaturday, doctors, doctorById, isAdmin, saving, myRequest, canViewRequests,
   assignedIds, openPicker, setOpenPicker, addEntry, removeEntry, onClearWeekend,
+  onCopyWeekend, onPasteWeekend, hasWeekendClipboard,
 }) {
   const [editing, setEditing] = useState(false)
   useEffect(() => { setEditing(false) }, [saturday])
@@ -277,6 +302,27 @@ function WeekendInspector({
               <Link to="/leave?tab=planners&sub=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
                 <Users className="h-3.5 w-3.5" /> View requests
               </Link>
+            )}
+            {isAdmin && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onCopyWeekend(saturday)}
+                  disabled={coverage.filledGroups === 0}
+                  className="btn-secondary flex flex-1 items-center justify-center gap-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Copy className="h-3.5 w-3.5" /> Copy weekend
+                </button>
+                {hasWeekendClipboard && (
+                  <button
+                    type="button"
+                    onClick={() => onPasteWeekend(saturday)}
+                    className="btn-secondary flex flex-1 items-center justify-center gap-1.5 text-xs"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" /> Paste weekend
+                  </button>
+                )}
+              </div>
             )}
             {isAdmin && (
               <button
@@ -385,18 +431,20 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, my
 // Copy/Paste's confirmation step, styled like WeekendDriftDetailsModal.jsx
 // (fixed inset-0, bg-ink/20, items-center, card max-w-lg p-5) — nothing is
 // written until this is confirmed. Owns the fill-empty/overwrite mode
-// toggle locally and recomputes planWeekendPaste (the pure planner in
-// weekendPlanner.js) on every mode/prop change so the preview counts below
+// toggle locally and recomputes planWeekendPasteAcrossMonths (the pure
+// planner in weekendPlanner.js) on every mode/prop change so the preview counts below
 // always match what Confirm would actually do.
-function WeekendPasteModal({ clipboard, targetSaturdays, targetLabel, existingByWeekend, activeDoctorIds, saving, onConfirm, onClose }) {
+function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWeekend, activeDoctorIds, saving, onConfirm, onClose }) {
   const [mode, setMode] = useState('fill-empty')
   const plan = useMemo(
-    () => planWeekendPaste({ sourceWeekends: clipboard.weekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode }),
-    [clipboard, targetSaturdays, existingByWeekend, activeDoctorIds, mode]
+    () => planWeekendPasteAcrossMonths({ sourceMonths: clipboard.months, targetMonths, existingByWeekend, activeDoctorIds, mode }),
+    [clipboard, targetMonths, existingByWeekend, activeDoctorIds, mode]
   )
   const inactiveCount = plan.skipped.filter(s => s.reason === 'inactive').length
   const alreadyAssignedCount = plan.skipped.filter(s => s.reason === 'already-assigned').length
-  const weekendCount = Math.min(clipboard.weekends.length, targetSaturdays.length)
+  const sourceWeekendCount = clipboard.months.reduce((sum, m) => sum + m.length, 0)
+  const targetWeekendCount = targetMonths.reduce((sum, m) => sum + m.length, 0)
+  const weekendCount = Math.min(sourceWeekendCount, targetWeekendCount)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
@@ -428,7 +476,7 @@ function WeekendPasteModal({ clipboard, targetSaturdays, targetLabel, existingBy
 
         {plan.unmatchedSourceCount > 0 && (
           <p className="mt-3 text-xs text-ink-muted">
-            {clipboard.sourceLabel} had {clipboard.weekends.length} weekends, {targetLabel} has {targetSaturdays.length} — the last {plan.unmatchedSourceCount} won&rsquo;t be pasted.
+            {clipboard.sourceLabel} had {sourceWeekendCount} weekends, {targetLabel} has {targetWeekendCount} — the last {plan.unmatchedSourceCount} won&rsquo;t be pasted.
           </p>
         )}
 
@@ -535,11 +583,24 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // Copy/Paste/Clear (admin-only) — clipboard is plain component state, not
   // persisted: the intended flow is copy → navigate forward a month or two
   // → paste, all within one visit, so it only needs to survive the mounted
-  // session. { sourceLabel, weekends } — see copyMonth below for the shape.
+  // session. { granularity: 'weekend'|'month'|'quarter', sourceLabel, months }
+  // — months is always an array of "month blocks" (each an array of that
+  // month's weekends-by-position, each a list of {groupKey,profileId,category}
+  // entries) so planWeekendPasteAcrossMonths handles all three granularities
+  // uniformly: weekend = 1 block of 1 weekend, month = 1 block, quarter = 3
+  // blocks (see copyWeekend/copyMonth/copyQuarter below).
   const [clipboard, setClipboard] = useState(null)
-  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [pasteTarget, setPasteTarget] = useState(null) // { months, label } or null — which paste-confirmation modal (if any) is open
   const [showClearMonthModal, setShowClearMonthModal] = useState(false)
+  const [showClearQuarterModal, setShowClearQuarterModal] = useState(false)
   const [clearWeekendTarget, setClearWeekendTarget] = useState(null) // saturday string or null
+  // The post-action Undo toast (right after a paste-with-overwrite or any
+  // Clear) — { batchId, label } or null. Calls the exact same
+  // restoreWeekendPlannerBatch the "Recent actions" panel in
+  // WeekendPlannerChangeLogModal uses, per batch_id, not a separate
+  // in-memory-only code path (see changeLog.js).
+  const [undoToast, setUndoToast] = useState(null)
+  const [undoing, setUndoing] = useState(false)
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
@@ -635,6 +696,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     () => monthSaturdays.reduce((sum, s) => sum + Object.values(byWeekend.get(s) || {}).flat().length, 0),
     [monthSaturdays, byWeekend]
   )
+  // Same, across the quarter starting at the viewed month — "Clear
+  // quarter"'s disabled state and confirm-modal count.
+  const quarterEntryCount = useMemo(
+    () => quarterMonthsFrom(viewYear, viewMonth).reduce((sum, { year, month }) =>
+      sum + saturdaysInMonth(year, month).filter(s => fetchedSet.has(s)).reduce((s2, s) => s2 + Object.values(byWeekend.get(s) || {}).flat().length, 0), 0),
+    [viewYear, viewMonth, fetchedSet, byWeekend]
+  )
   const visibleSaturdays = monthSaturdays.filter(saturday => {
     const bySaturday = byWeekend.get(saturday)
     if (filter === 'needs-planning') return weekendCoverageSummary(bySaturday).openGroups.length > 0
@@ -679,7 +747,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // rather than reloading — load() flips `loading` back to true, which
   // unmounts the whole grid for a "Loading…" placeholder. A single
   // weekend_planner_entries row is simple enough to update in place
-  // without a round trip back through the full query.
+  // without a round trip back through the full query. Each gets its own
+  // fresh batch_id (a batch of one) — see deleteEntries/insertEntries below
+  // for why every write, single or bulk, is tagged this way.
   async function addEntry(saturday, groupKey, profileId) {
     const doctor = doctorById.get(profileId)
     if (!doctor) return
@@ -696,7 +766,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setEntries(prev => [...prev, data])
     await logWeekendPlannerChange({
       weekendSaturday: saturday, category: resolvedCategoryForDoctor(doctor), action: 'add',
-      profileId, changedBy: profile?.id ?? null,
+      profileId, changedBy: profile?.id ?? null, batchId: crypto.randomUUID(),
     })
   }
 
@@ -710,21 +780,22 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (removed) {
       await logWeekendPlannerChange({
         weekendSaturday: removed.weekend_saturday, category: removed.category, action: 'remove',
-        profileId: removed.profile_id, changedBy: profile?.id ?? null,
+        profileId: removed.profile_id, changedBy: profile?.id ?? null, batchId: crypto.randomUUID(),
       })
     }
   }
 
-  // Bulk-write helpers behind Copy/Paste and Clear weekend/month — same
-  // "patch local state from the write's own result, log one
+  // Bulk-write helpers behind Copy/Paste and Clear weekend/month/quarter —
+  // same "patch local state from the write's own result, log one
   // weekend_planner_changes row per affected entry" pattern as
-  // addEntry/removeEntry above, just batched. Reuses the existing 'add'/
-  // 'remove' actions (weekend_planner_changes.action has a CHECK constraint
-  // limited to exactly those two values) rather than introducing a new
-  // bulk-specific action. Return a boolean so callers can decide whether to
-  // proceed to a dependent second write (see handleConfirmPaste's
-  // delete-then-insert ordering for 'overwrite' mode).
-  async function deleteEntries(entriesToDelete) {
+  // addEntry/removeEntry above, just batched under a single shared batchId
+  // per call (the caller generates it once and passes it into both, when a
+  // paste needs both a delete and an insert leg — see handleConfirmPaste).
+  // Reuses the existing 'add'/'remove' actions (weekend_planner_changes.action
+  // has a CHECK constraint limited to exactly those two values) rather than
+  // introducing a new bulk-specific action. Return a boolean so callers can
+  // decide whether to proceed to a dependent second write.
+  async function deleteEntries(entriesToDelete, batchId) {
     if (entriesToDelete.length === 0) return true
     const ids = entriesToDelete.map(e => e.id)
     const { error: err } = await supabase.from('weekend_planner_entries').delete().in('id', ids)
@@ -733,12 +804,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setEntries(prev => prev.filter(e => !idSet.has(e.id)))
     await Promise.all(entriesToDelete.map(e => logWeekendPlannerChange({
       weekendSaturday: e.weekend_saturday, category: e.category, action: 'remove',
-      profileId: e.profile_id, changedBy: profile?.id ?? null,
+      profileId: e.profile_id, changedBy: profile?.id ?? null, batchId,
     })))
     return true
   }
 
-  async function insertEntries(toInsert) {
+  async function insertEntries(toInsert, batchId) {
     if (toInsert.length === 0) return true
     const payload = toInsert.map(t => ({
       weekend_saturday: t.weekendSaturday, profile_id: t.profileId, category: t.category, created_by: profile?.id ?? null,
@@ -748,55 +819,133 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setEntries(prev => [...prev, ...(data || [])])
     await Promise.all(toInsert.map(t => logWeekendPlannerChange({
       weekendSaturday: t.weekendSaturday, category: t.category, action: 'add',
-      profileId: t.profileId, changedBy: profile?.id ?? null,
+      profileId: t.profileId, changedBy: profile?.id ?? null, batchId,
     })))
     return true
   }
 
-  // Builds the clipboard from the currently-viewed month's own weekends,
-  // indexed by POSITION (weekends[i] = the (i+1)th Saturday of this month)
-  // rather than by literal date — planWeekendPaste maps by that same
-  // position, so pasting into a month with a different actual weekend count
-  // still lines up correctly.
+  // One weekend's own entries as the {groupKey,profileId,category} shape
+  // the clipboard/planWeekendPasteAcrossMonths use — shared by
+  // copyWeekend/copyMonth/copyQuarter below.
+  function weekendClipboardEntries(saturday) {
+    const bySaturday = byWeekend.get(saturday) || {}
+    return Object.entries(bySaturday).flatMap(([groupKey, groupEntries]) =>
+      groupEntries.map(e => ({ groupKey, profileId: e.profile_id, category: e.category }))
+    )
+  }
+
+  function copyWeekend(saturday) {
+    setClipboard({ granularity: 'weekend', sourceLabel: formatWeekendRange(saturday), months: [[weekendClipboardEntries(saturday)]] })
+  }
+
+  // Indexed by POSITION (months[0][i] = the (i+1)th Saturday of the copied
+  // month) rather than literal date — planWeekendPasteAcrossMonths maps by
+  // that same position, so pasting into a month with a different actual
+  // weekend count still lines up sensibly.
   function copyMonth() {
-    const weekends = monthSaturdays.map(saturday => {
-      const bySaturday = byWeekend.get(saturday) || {}
-      return Object.entries(bySaturday).flatMap(([groupKey, groupEntries]) =>
-        groupEntries.map(e => ({ groupKey, profileId: e.profile_id, category: e.category }))
-      )
+    const weekends = monthSaturdays.map(weekendClipboardEntries)
+    setClipboard({ granularity: 'month', sourceLabel: `${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, months: [weekends] })
+  }
+
+  // Same idea, one step up: 3 consecutive months (the currently viewed one,
+  // plus the next 2), each kept as its OWN position-mapped block rather
+  // than flattened into one long list — see planWeekendPasteAcrossMonths's
+  // own file-level comment for why that distinction matters (it's what
+  // keeps Jan's pattern landing on Apr, Feb's on May, Mar's on Jun, instead
+  // of drifting out of alignment the moment any month in between has a
+  // different weekend count).
+  function copyQuarter() {
+    const quarterMonths = quarterMonthsFrom(viewYear, viewMonth)
+    const months = quarterMonths.map(({ year, month }) =>
+      saturdaysInMonth(year, month).filter(s => fetchedSet.has(s)).map(weekendClipboardEntries)
+    )
+    setClipboard({ granularity: 'quarter', sourceLabel: quarterLabel(quarterMonths), months })
+  }
+
+  function openWeekendPaste(saturday) {
+    setPasteTarget({ months: [[saturday]], label: formatWeekendRange(saturday) })
+  }
+  function openMonthPaste() {
+    setPasteTarget({ months: [monthSaturdays], label: `${MONTH_LABELS[viewMonth - 1]} ${viewYear}` })
+  }
+  function openQuarterPaste() {
+    const quarterMonths = quarterMonthsFrom(viewYear, viewMonth)
+    setPasteTarget({
+      months: quarterMonths.map(({ year, month }) => saturdaysInMonth(year, month).filter(s => fetchedSet.has(s))),
+      label: quarterLabel(quarterMonths),
     })
-    setClipboard({ sourceLabel: `${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, weekends })
   }
 
   // Delete-then-insert order matters for 'overwrite' mode: plan.toDelete
   // clears every existing entry on each target weekend (freeing up
   // unique(weekend_saturday, profile_id) for a copied profile who'd
   // otherwise still collide with their own pre-paste row) before
-  // plan.toInsert writes the copied set. Clipboard is deliberately left
-  // populated afterward — the same copied month is a reasonable thing to
-  // paste into more than one future month in a row.
+  // plan.toInsert writes the copied set. Both legs share ONE batchId so
+  // the whole paste — deletes and inserts together — restores as a single
+  // "Undo," not weekend-by-weekend. An overwrite that actually deleted
+  // something gets the post-action Undo toast; a plain fill-empty paste
+  // (nothing lost) doesn't need one — it's still individually restorable
+  // from the Recent actions panel like everything else. Clipboard is
+  // deliberately left populated afterward — the same copied source is a
+  // reasonable thing to paste into more than one target in a row.
   async function handleConfirmPaste(plan) {
     setSaving(true)
-    const deleteOk = await deleteEntries(plan.toDelete)
-    if (deleteOk) await insertEntries(plan.toInsert)
+    const batchId = crypto.randomUUID()
+    const deleteOk = await deleteEntries(plan.toDelete, batchId)
+    if (deleteOk) await insertEntries(plan.toInsert, batchId)
     setSaving(false)
-    setShowPasteModal(false)
+    setPasteTarget(null)
+    if (plan.toDelete.length > 0) setUndoToast({ batchId, label: `Pasted into ${pasteTarget.label} (overwrite)` })
   }
 
   async function handleConfirmClearMonth() {
     setSaving(true)
+    const batchId = crypto.randomUUID()
     const toDelete = monthSaturdays.flatMap(s => Object.values(byWeekend.get(s) || {}).flat())
-    await deleteEntries(toDelete)
+    await deleteEntries(toDelete, batchId)
     setSaving(false)
     setShowClearMonthModal(false)
+    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${MONTH_LABELS[viewMonth - 1]} ${viewYear}` })
+  }
+
+  async function handleConfirmClearQuarter() {
+    setSaving(true)
+    const batchId = crypto.randomUUID()
+    const quarterMonths = quarterMonthsFrom(viewYear, viewMonth)
+    const toDelete = quarterMonths.flatMap(({ year, month }) =>
+      saturdaysInMonth(year, month).filter(s => fetchedSet.has(s)).flatMap(s => Object.values(byWeekend.get(s) || {}).flat())
+    )
+    await deleteEntries(toDelete, batchId)
+    setSaving(false)
+    setShowClearQuarterModal(false)
+    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${quarterLabel(quarterMonths)}` })
   }
 
   async function handleConfirmClearWeekend() {
     setSaving(true)
+    const batchId = crypto.randomUUID()
     const toDelete = Object.values(byWeekend.get(clearWeekendTarget) || {}).flat()
-    await deleteEntries(toDelete)
+    const label = formatWeekendRange(clearWeekendTarget)
+    await deleteEntries(toDelete, batchId)
     setSaving(false)
     setClearWeekendTarget(null)
+    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${label}` })
+  }
+
+  // The Undo toast's own action — identical to "Restore this" in
+  // WeekendPlannerChangeLogModal's Recent actions list, just triggered
+  // right after the action instead of minutes later; both call
+  // restoreWeekendPlannerBatch with nothing but the batchId (see
+  // changeLog.js for why it re-fetches everything fresh rather than
+  // trusting this component's own already-loaded state).
+  async function handleUndoToast() {
+    if (!undoToast) return
+    setUndoing(true)
+    const result = await restoreWeekendPlannerBatch({ batchId: undoToast.batchId, changedBy: profile?.id ?? null })
+    setUndoing(false)
+    if (result.error) { setError(result.error); setUndoToast(null); return }
+    setUndoToast(null)
+    await load()
   }
 
   const monthNav = (
@@ -855,14 +1004,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       {!loading && !error && (
         <>
           {/* ── Copy/Paste/Clear (admin-only), shared across mobile+desktop rather
-              than duplicated per viewport — Copy/Clear month act on whichever
-              month is currently viewed; the clipboard pill (once non-null) stays
-              visible across month navigation so it's always clear what's copied
-              and what "Paste" would currently target. ── */}
+              than duplicated per viewport — Copy/Clear month/quarter act on
+              whichever month (or quarter starting from it) is currently
+              viewed; the clipboard pill (once non-null) stays visible across
+              month navigation so it's always clear what's copied and what
+              "Paste" would currently target. Per-weekend Copy/Paste live on
+              each weekend row itself (mobile card header / desktop
+              inspector) instead, since there's no single "current weekend"
+              here to infer a target from. ── */}
           {isAdmin && (
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button type="button" onClick={copyMonth} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
                 <Copy className="h-3.5 w-3.5" /> Copy {MONTH_LABELS[viewMonth - 1]}
+              </button>
+              <button type="button" onClick={copyQuarter} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
+                <Copy className="h-3.5 w-3.5" /> Copy quarter
               </button>
               <button
                 type="button"
@@ -872,6 +1028,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               >
                 <Trash2 className="h-3.5 w-3.5" /> Clear {MONTH_LABELS[viewMonth - 1]}
               </button>
+              <button
+                type="button"
+                onClick={() => setShowClearQuarterModal(true)}
+                disabled={quarterEntryCount === 0}
+                className="flex items-center gap-1.5 rounded border border-flagRed px-3 py-1.5 text-sm font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear quarter
+              </button>
             </div>
           )}
 
@@ -879,9 +1043,19 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
               <span>📋 {clipboard.sourceLabel} copied</span>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setShowPasteModal(true)} className="btn-primary px-3 py-1 text-xs">
-                  Paste into {MONTH_LABELS[viewMonth - 1]} {viewYear}
-                </button>
+                {clipboard.granularity === 'month' && (
+                  <button type="button" onClick={openMonthPaste} className="btn-primary px-3 py-1 text-xs">
+                    Paste into {MONTH_LABELS[viewMonth - 1]} {viewYear}
+                  </button>
+                )}
+                {clipboard.granularity === 'quarter' && (
+                  <button type="button" onClick={openQuarterPaste} className="btn-primary px-3 py-1 text-xs">
+                    Paste into {quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}
+                  </button>
+                )}
+                {clipboard.granularity === 'weekend' && (
+                  <span className="text-xs text-accent-dark">Use a weekend&rsquo;s own Paste action</span>
+                )}
                 <button type="button" onClick={() => setClipboard(null)} className="text-xs font-medium text-accent-dark underline hover:no-underline">
                   Clear
                 </button>
@@ -948,6 +1122,26 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
                             Needs planning
                           </span>
+                        )}
+                        {isAdmin && coverage.filledGroups > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => copyWeekend(saturday)}
+                            aria-label={`Copy weekend ${saturday}`}
+                            className={scheme.text}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {isAdmin && clipboard?.granularity === 'weekend' && (
+                          <button
+                            type="button"
+                            onClick={() => openWeekendPaste(saturday)}
+                            aria-label={`Paste weekend into ${saturday}`}
+                            className={scheme.text}
+                          >
+                            <ClipboardPaste className="h-3.5 w-3.5" />
+                          </button>
                         )}
                         {isAdmin && coverage.filledGroups > 0 && (
                           <button
@@ -1110,6 +1304,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     addEntry={addEntry}
                     removeEntry={removeEntry}
                     onClearWeekend={saturday => setClearWeekendTarget(saturday)}
+                    onCopyWeekend={copyWeekend}
+                    onPasteWeekend={openWeekendPaste}
+                    hasWeekendClipboard={clipboard?.granularity === 'weekend'}
                   />
                 ) : (
                   <p className="text-sm text-ink-muted">Select a weekend to see details.</p>
@@ -1120,7 +1317,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         </>
       )}
 
-      {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}
+      {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} onDataChanged={load} />}
 
       {detailSaturday && (
         <WeekendDetailSheet
@@ -1133,16 +1330,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         />
       )}
 
-      {showPasteModal && clipboard && (
+      {pasteTarget && clipboard && (
         <WeekendPasteModal
           clipboard={clipboard}
-          targetSaturdays={monthSaturdays}
-          targetLabel={`${MONTH_LABELS[viewMonth - 1]} ${viewYear}`}
+          targetMonths={pasteTarget.months}
+          targetLabel={pasteTarget.label}
           existingByWeekend={byWeekend}
           activeDoctorIds={activeDoctorIds}
           saving={saving}
           onConfirm={handleConfirmPaste}
-          onClose={() => setShowPasteModal(false)}
+          onClose={() => setPasteTarget(null)}
         />
       )}
 
@@ -1156,6 +1353,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         />
       )}
 
+      {showClearQuarterModal && (
+        <WeekendClearConfirmModal
+          title={`Clear ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}?`}
+          entryCount={quarterEntryCount}
+          saving={saving}
+          onConfirm={handleConfirmClearQuarter}
+          onClose={() => setShowClearQuarterModal(false)}
+        />
+      )}
+
       {clearWeekendTarget && (
         <WeekendClearConfirmModal
           title={`Clear ${formatWeekendRange(clearWeekendTarget)}?`}
@@ -1164,6 +1371,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           onConfirm={handleConfirmClearWeekend}
           onClose={() => setClearWeekendTarget(null)}
         />
+      )}
+
+      {undoToast && (
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-lg">
+          <span>{undoToast.label}</span>
+          <button
+            type="button"
+            onClick={handleUndoToast}
+            disabled={undoing}
+            className="font-semibold text-accent-tint hover:text-white disabled:opacity-60"
+          >
+            {undoing ? 'Undoing…' : 'Undo'}
+          </button>
+          <button type="button" onClick={() => setUndoToast(null)} className="text-white/60 hover:text-white" aria-label="Dismiss">×</button>
+        </div>
       )}
     </div>
   )

@@ -4,12 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import { datesInRange } from '../lib/dateRange'
+import { LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
   fetchWeekendExceptionPreview,
 } from '../lib/leaveRequests'
 import {
-  INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote,
+  INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote, resolveLeaveCapacityColumn,
 } from '../lib/internRotations'
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
@@ -43,6 +44,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const [weekendPreview, setWeekendPreview] = useState(null)
   const [myRotations, setMyRotations] = useState([])
   const [myRotationsLoaded, setMyRotationsLoaded] = useState(false)
+  const [columnOverride, setColumnOverride] = useState(null)
 
   const isWeekendException = leaveType === 'weekend_exception'
   const isAnnual = leaveType === 'annual'
@@ -76,6 +78,26 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const noRotationAssigned = isAnnual && isIntern && hasValidRange && myRotationsLoaded
     && !myRotations.some(r => r.start_date <= dateFrom && dateFrom <= r.end_date)
 
+  // The category this request would actually be checked against today, for
+  // this exact date range — same resolution fetchAnnualCapacityPreview/
+  // checkAnnualLeaveCapacity use server-side. Drives both the default
+  // selection and the visibility of the "Checking capacity for" picker
+  // below (a category with no capacity column at all, e.g. Consultant, has
+  // nothing to preview). `columnOverride` lets the picker preview a
+  // DIFFERENT column's room without changing what actually gets submitted —
+  // useful for an Intern (or anyone) looking ahead into a month they expect
+  // to be on a different rotation for, before that rotation is confirmed on
+  // record.
+  const resolvedColumnKey = isAnnual && hasValidRange
+    ? resolveLeaveCapacityColumn({
+      category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: dateFrom,
+      rotationsByDoctorId: profile?.id ? new Map([[profile.id, myRotations]]) : new Map(),
+    })
+    : null
+  const resolvedColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === resolvedColumnKey)
+  const previewColumnKey = columnOverride ?? resolvedColumnKey
+  const isColumnOverridden = Boolean(columnOverride) && columnOverride !== resolvedColumnKey
+
   // Live capacity feedback for a range that's actually complete — a date
   // <input>'s onChange already only fires on a committed value (not per
   // keystroke the way a text field would), so reacting to dateFrom/dateTo
@@ -90,11 +112,13 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     if (!isAnnual || !hasValidRange) { setAnnualPreview(null); setAnnualPreviewLoading(false); return }
     let cancelled = false
     setAnnualPreviewLoading(true)
-    fetchAnnualCapacityPreview({ dateFrom, dateTo, category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id }).then(result => {
+    fetchAnnualCapacityPreview({
+      dateFrom, dateTo, category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, columnKeyOverride: columnOverride || undefined,
+    }).then(result => {
       if (!cancelled) { setAnnualPreview(result); setAnnualPreviewLoading(false) }
     })
     return () => { cancelled = true }
-  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.contract_type, profile?.id])
+  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.contract_type, profile?.id, columnOverride])
 
   useEffect(() => {
     if (!isSpecial || !hasValidRange) { setSpecialPressure(null); return }
@@ -236,6 +260,23 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
               <p>This weekend is currently {weekendPreview.filledGroups} of {weekendPreview.totalGroups} groups planned.</p>
             )}
           </div>
+        </div>
+      )}
+
+      {isAnnual && hasValidRange && resolvedColumnDef && (
+        <div>
+          <label className="label-text">Checking capacity for</label>
+          <SelectMenu
+            value={previewColumnKey}
+            onChange={v => setColumnOverride(v === resolvedColumnKey ? null : v)}
+            options={LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label }))}
+          />
+          {isColumnOverridden && (
+            <p className="mt-1 text-xs text-ink-muted">
+              Your own category resolves to {resolvedColumnDef.label} for these dates — this previews {LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnOverride)?.label}&rsquo;s room only.
+              Submitting still checks against your real category.
+            </p>
+          )}
         </div>
       )}
 

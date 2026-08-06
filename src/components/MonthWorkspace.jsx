@@ -19,6 +19,7 @@ import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import InlineRuleHint from './InlineRuleHint'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
+import SelectMenu from './SelectMenu'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -73,7 +74,7 @@ export default function MonthWorkspace({
   // everywhere, including on their own mobile view — their job there is
   // still cross-category exception spotting, not personal planning. The
   // desktop grid (DayCell, lg+) always stays generic regardless of role.
-  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
+  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
   const personalizeFill = !isAdmin && Boolean(myColumnDef)
   const mobileLegendStates = personalizeFill ? myCategoryLegendStates(myColumnKey) : LEAVE_CAPACITY_STATES
@@ -121,6 +122,19 @@ export default function MonthWorkspace({
   function goToday() {
     const now = new Date()
     onMonthChange(now.getFullYear(), now.getMonth() + 1)
+  }
+
+  // "Request leave" from the mobile Your Leave card (below) should open the
+  // same in-context form as tapping a day and hitting "Request annual leave
+  // for this day" — not send the doctor off to the separate My Leave tab.
+  // Picks today if it falls in the month being viewed, else the 1st, so the
+  // date fields still start prefilled with something sensible for a future
+  // month the doctor is just browsing ahead into.
+  const [openRequestFormOnOpen, setOpenRequestFormOnOpen] = useState(false)
+  function openRequestLeave() {
+    const isCurrentMonth = year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7))
+    setOpenRequestFormOnOpen(true)
+    setSelectedDate(isCurrentMonth ? today : `${year}-${String(month).padStart(2, '0')}-01`)
   }
 
   return (
@@ -224,6 +238,7 @@ export default function MonthWorkspace({
           maxFullTime={maxFullTime}
           countByColumnPerDate={countByColumnPerDate}
           rotationsByDoctorId={rotationsByDoctorId}
+          onRequestLeave={openRequestLeave}
         />
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
@@ -251,6 +266,7 @@ export default function MonthWorkspace({
 
       {selectedDate && (
         <DayReviewModal
+          key={selectedDate}
           date={selectedDate}
           entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
           capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
@@ -260,8 +276,9 @@ export default function MonthWorkspace({
           maxByColumnKey={maxByColumnKey}
           maxFullTime={maxFullTime}
           rotationsByDoctorId={rotationsByDoctorId}
+          initialShowRequestForm={openRequestFormOnOpen}
           onDataChanged={onDataChanged}
-          onClose={() => setSelectedDate(null)}
+          onClose={() => { setSelectedDate(null); setOpenRequestFormOnOpen(false) }}
         />
       )}
     </div>
@@ -274,14 +291,31 @@ export default function MonthWorkspace({
 // this month still have room in *their own* category, not a generic
 // headcount. Renders nothing for a viewer whose category has no capacity
 // column (Consultant, Locum, or no signed-in profile) — there's nothing to
-// personalise for them. No other-category pool pill any more — the day
-// cells below now carry that cross-category read themselves via their own
-// personalised fill, so repeating it here was redundant.
-function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId }) {
+// personalise for them.
+//
+// "Check other" lets the viewer preview a DIFFERENT column's room for this
+// same month — useful for an Intern browsing ahead into a month they expect
+// to be on a different EC/OT rotation for, without waiting for their
+// intern_rotations row to be updated first. Purely a display override: it
+// doesn't change which pool a submitted request actually lands in (that's
+// always resolved fresh off the real profile/rotation at submission time —
+// see resolveLeaveCapacityColumn) — a note below makes that explicit
+// whenever an override is active, and it resets on every month change so a
+// stale "previewing OT" state can't silently follow the viewer around.
+function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave }) {
+  const { canSubmitLeave } = useAuth()
   const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
-  const columnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
-  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
-  if (!columnDef) return null
+  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
+  const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [overrideColumnKey, setOverrideColumnKey] = useState(null)
+  useEffect(() => { setOverrideColumnKey(null); setPickerOpen(false) }, [year, month])
+
+  if (!myColumnDef) return null
+
+  const columnKey = overrideColumnKey ?? myColumnKey
+  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey) ?? myColumnDef
+  const isOverridden = overrideColumnKey && overrideColumnKey !== myColumnKey
 
   const stat = daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
   const state = categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
@@ -289,14 +323,42 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
 
   return (
     <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">
-        For {COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · {monthLabel}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">
+          For {COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · {monthLabel}
+        </p>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(o => !o)}
+          className="flex-shrink-0 text-[10px] font-semibold text-accent-dark underline decoration-dotted"
+        >
+          {isOverridden ? 'Change' : 'Check other'}
+        </button>
+      </div>
+      {pickerOpen && (
+        <div className="mt-1.5">
+          <SelectMenu
+            value={columnKey}
+            onChange={v => { setOverrideColumnKey(v === myColumnKey ? null : v); setPickerOpen(false) }}
+            options={LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label }))}
+          />
+        </div>
+      )}
+      {isOverridden && (
+        <p className="mt-1 text-[10px] text-ink-muted">
+          Previewing {columnDef.label} — your own category is {myColumnDef.label}. Submitting still counts against your real category.{' '}
+          <button type="button" onClick={() => setOverrideColumnKey(null)} className="underline">Reset</button>
+        </p>
+      )}
       <p className="mt-1.5 flex items-baseline gap-1.5">
         <span className={`font-display text-3xl font-bold tabular-nums ${state.text}`}>{stat.withRoom}</span>
-        <span className="text-xs text-ink-muted">of {stat.total} days have room for your category</span>
+        <span className="text-xs text-ink-muted">of {stat.total} days have room for {isOverridden ? 'that' : 'your'} category</span>
       </p>
-      <a href="/leave?tab=my-leave" className="btn-primary mt-2 block w-full text-center text-xs">Request leave</a>
+      {canSubmitLeave && (
+        <button type="button" onClick={onRequestLeave} className="btn-primary mt-2 block w-full text-center text-xs">
+          Request leave
+        </button>
+      )}
     </div>
   )
 }
@@ -379,7 +441,8 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
 }
 
 function DayReviewModal({
-  date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId, onDataChanged, onClose,
+  date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
+  initialShowRequestForm = false, onDataChanged, onClose,
 }) {
   const { user, profile, isAdmin, canSubmitLeave } = useAuth()
   // See MonthWorkspace's own legendColumns above — same Consultant-privacy
@@ -392,7 +455,7 @@ function DayReviewModal({
   const [rejectingId, setRejectingId] = useState(null)
   const [rejectNotes, setRejectNotes] = useState('')
   const [error, setError] = useState('')
-  const [showRequestForm, setShowRequestForm] = useState(false)
+  const [showRequestForm, setShowRequestForm] = useState(initialShowRequestForm)
 
   const pendingRequestsThisDate = pendingRows.filter(r => r.date_from <= date && r.date_to >= date)
   const allRows = [...approvedRows, ...pendingRows]
@@ -451,7 +514,7 @@ function DayReviewModal({
   // back to the old generic "Full" banner below instead. Rendering itself
   // (colours/copy/the generic fallback) lives in LeaveCapacityBanner, shared
   // with LeaveRequestForm's own capacity preview.
-  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, profileId: profile?.id, date, rotationsByDoctorId })
+  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
   const mySlots = myColumnDef ? myCategoryDaySlots(myColumnKey, capacity, maxFullTime) : null
 

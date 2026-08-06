@@ -496,13 +496,16 @@ describe('MonthWorkspace', () => {
     expect(screen.getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
   })
 
-  it('"Your leave" card: shows a personalised days-with-room stat and a Request leave link for the viewer\'s own category', async () => {
+  it('"Your leave" card: shows a personalised days-with-room stat, and Request leave opens the same in-context form as the day view', async () => {
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    const user = userEvent.setup()
     renderWorkspace()
 
     expect(await screen.findByText('For Medical Officer · August')).toBeInTheDocument()
     expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
+
+    await user.click(screen.getByRole('button', { name: 'Request leave' }))
+    expect(screen.getByText(/LeaveRequestFormStub: 2026-08-06 to 2026-08-06/)).toBeInTheDocument()
   })
 
   it('"Your leave" card: renders nothing for a category with no capacity column (e.g. Consultant)', () => {

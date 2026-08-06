@@ -69,7 +69,7 @@ const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId, myCategory, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId, myCategory, myContractType, onOpenWorkspace,
   ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, isClerk } = useAuth()
@@ -88,7 +88,7 @@ export default function AnnualPlannerOverview({
   // date (not the month being browsed) — requirement: the planner defaults
   // to showing their CURRENT rotation on login, regardless of which month
   // they then navigate to.
-  const myColumnKey = resolveLeaveCapacityColumn({ category: myCategory, profileId: myProfileId, date: today, rotationsByDoctorId })
+  const myColumnKey = resolveLeaveCapacityColumn({ category: myCategory, contractType: myContractType, profileId: myProfileId, date: today, rotationsByDoctorId })
   const defaultCategoryKey = LEAVE_CAPACITY_COLUMNS.some(c => c.key === myColumnKey) ? myColumnKey : 'all'
   const [categoryKey, setCategoryKey] = useState(defaultCategoryKey)
 

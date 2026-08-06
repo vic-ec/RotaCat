@@ -240,6 +240,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             eligibleHeadcount={eligibleHeadcount}
             myProfileId={profile?.id}
             myCategory={profile?.category}
+            myContractType={profile?.contract_type}
             onOpenWorkspace={openWorkspace}
             ruleHintIntro={ruleHintIntro}
             ruleHintBullets={ruleHintBullets}

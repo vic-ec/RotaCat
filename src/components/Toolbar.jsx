@@ -151,7 +151,7 @@ function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
           </button>
         </div>
         <div className="space-y-5 px-5 py-4">
-          {facets.map(f => <ToolbarFacetInline key={f.key} {...f} />)}
+          {facets.map(({ key, ...f }) => <ToolbarFacetInline key={key} {...f} />)}
         </div>
         {active && onClearAll && (
           <div className="border-t border-slate-line px-5 py-3">
@@ -201,7 +201,7 @@ export default function Toolbar({
             icon={<SearchIcon className="h-4 w-4" />}
           />
         </div>
-        {facets.map(f => <ToolbarFacet key={f.key} {...f} />)}
+        {facets.map(({ key, ...f }) => <ToolbarFacet key={key} {...f} />)}
         {active && onClearAll && (
           <button
             type="button"

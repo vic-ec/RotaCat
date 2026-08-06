@@ -3,6 +3,7 @@ import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState, planWeekendPaste,
+  planWeekendPasteAcrossMonths, planBatchRestore,
 } from './weekendPlanner'
 
 describe('groupForCategory', () => {
@@ -351,5 +352,154 @@ describe('planWeekendPaste', () => {
     })
     expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
     expect(plan.skipped).toEqual([{ reason: 'already-assigned', weekendIndex: 0, groupKey: 'Registrar', profileId: 'p1' }])
+  })
+})
+
+describe('planWeekendPasteAcrossMonths', () => {
+  it('weekend granularity: a single source weekend maps onto a single target weekend', () => {
+    const sourceMonths = [[[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]]]
+    const targetMonths = [['2026-05-02']]
+    const plan = planWeekendPasteAcrossMonths({
+      sourceMonths, targetMonths, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+    expect(plan.unmatchedSourceCount).toBe(0)
+  })
+
+  it('month granularity: behaves exactly like a single call to planWeekendPaste', () => {
+    const sourceMonths = [[
+      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
+      [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }],
+    ]]
+    const targetMonths = [['2026-05-02', '2026-05-09']]
+    const plan = planWeekendPasteAcrossMonths({
+      sourceMonths, targetMonths, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert.map(e => e.weekendSaturday)).toEqual(['2026-05-02', '2026-05-09'])
+  })
+
+  it('quarter granularity: each month is position-mapped against the SAME-INDEX target month only, never flattened across the quarter', () => {
+    // Month 1 (Jan) has 2 weekends, month 2 (Feb) has 1 — a flattened
+    // cross-month index would slide Feb's paste into March's target slot;
+    // per-month mapping keeps Feb -> Feb regardless.
+    const sourceMonths = [
+      [
+        [{ groupKey: 'MO', profileId: 'jan1', category: 'MO' }],
+        [{ groupKey: 'MO', profileId: 'jan2', category: 'MO' }],
+      ],
+      [
+        [{ groupKey: 'MO', profileId: 'feb1', category: 'MO' }],
+      ],
+      [
+        [{ groupKey: 'MO', profileId: 'mar1', category: 'MO' }],
+      ],
+    ]
+    const targetMonths = [
+      ['2026-04-04', '2026-04-11'], // April (month 1 of target quarter)
+      ['2026-05-02'], // May (month 2)
+      ['2026-06-06'], // June (month 3)
+    ]
+    const plan = planWeekendPasteAcrossMonths({
+      sourceMonths, targetMonths, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['jan1', 'jan2', 'feb1', 'mar1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([
+      { weekendSaturday: '2026-04-04', groupKey: 'MO', profileId: 'jan1', category: 'MO' },
+      { weekendSaturday: '2026-04-11', groupKey: 'MO', profileId: 'jan2', category: 'MO' },
+      { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'feb1', category: 'MO' },
+      { weekendSaturday: '2026-06-06', groupKey: 'MO', profileId: 'mar1', category: 'MO' },
+    ])
+  })
+
+  it('counts a whole dropped source month (quarter longer than the target) toward unmatchedSourceCount', () => {
+    const sourceMonths = [
+      [[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]],
+      [[{ groupKey: 'MO', profileId: 'p2', category: 'MO' }], [{ groupKey: 'MO', profileId: 'p3', category: 'MO' }]],
+    ]
+    const targetMonths = [['2026-04-04']] // only one target month available
+    const plan = planWeekendPasteAcrossMonths({
+      sourceMonths, targetMonths, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1', 'p2', 'p3']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-04-04', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+    expect(plan.unmatchedSourceCount).toBe(2) // the entire 2nd source month's weekends dropped wholesale
+  })
+})
+
+describe('planBatchRestore', () => {
+  it('restores a pure-remove batch (a Clear) by re-inserting every row', () => {
+    const batchChanges = [
+      { weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'remove' },
+      { weekend_saturday: '2026-05-02', category: 'Registrar', profile_id: 'p2', action: 'remove' },
+    ]
+    const plan = planBatchRestore({ batchChanges, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1', 'p2']) })
+    expect(plan.toInsert).toEqual([
+      { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' },
+      { weekendSaturday: '2026-05-02', groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' },
+    ])
+    expect(plan.toDelete).toEqual([])
+  })
+
+  it('restores a pure-add batch (a paste) by removing every row that\'s still there', () => {
+    const stillThere = { id: 'e1', profile_id: 'p1', category: 'MO' }
+    const batchChanges = [{ weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'add' }]
+    const existingByWeekend = new Map([['2026-05-02', { MO: [stillThere] }]])
+    const plan = planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds: new Set(['p1']) })
+    expect(plan.toDelete).toEqual([stillThere])
+    expect(plan.toInsert).toEqual([])
+  })
+
+  it('a no-longer-there add row is a silent no-op, not an error', () => {
+    const batchChanges = [{ weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'add' }]
+    const plan = planBatchRestore({ batchChanges, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1']) })
+    expect(plan.toDelete).toEqual([])
+    expect(plan.skipped).toEqual([])
+  })
+
+  it('restores a MIXED batch (an overwrite paste) correctly: re-inserts the removed rows AND removes the added rows', () => {
+    const stillThere = { id: 'e9', profile_id: 'p3', category: 'Registrar' }
+    const batchChanges = [
+      { weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'remove' }, // was overwritten away
+      { weekend_saturday: '2026-05-02', category: 'Registrar', profile_id: 'p3', action: 'add' }, // the overwrite's own insert
+    ]
+    const existingByWeekend = new Map([['2026-05-02', { Registrar: [stillThere] }]])
+    const plan = planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds: new Set(['p1', 'p3']) })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+    expect(plan.toDelete).toEqual([stillThere])
+  })
+
+  it('skips restoring a doctor no longer active', () => {
+    const batchChanges = [{ weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'remove' }]
+    const plan = planBatchRestore({ batchChanges, existingByWeekend: new Map(), activeDoctorIds: new Set() })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.skipped).toEqual([{ reason: 'inactive', saturday: '2026-05-02', groupKey: 'MO', profileId: 'p1' }])
+  })
+
+  it('skips restoring a doctor already assigned to a different group on that weekend now', () => {
+    const batchChanges = [{ weekend_saturday: '2026-05-02', category: 'Registrar', profile_id: 'p1', action: 'remove' }]
+    const existingByWeekend = new Map([['2026-05-02', { MO: [{ id: 'e1', profile_id: 'p1', category: 'MO' }] }]])
+    const plan = planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds: new Set(['p1']) })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.skipped).toEqual([{ reason: 'already-assigned', saturday: '2026-05-02', groupKey: 'Registrar', profileId: 'p1' }])
+  })
+
+  it('silently (uncounted) skips restoring into a group someone else has since filled', () => {
+    const batchChanges = [{ weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'remove' }]
+    const existingByWeekend = new Map([['2026-05-02', { MO: [{ id: 'e2', profile_id: 'p9', category: 'MO' }] }]])
+    const plan = planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds: new Set(['p1']) })
+    expect(plan.toInsert).toEqual([])
+    expect(plan.skipped).toEqual([])
+  })
+
+  it('re-inserts multiple removed doctors in the same group on the same weekend (all absent from the live snapshot)', () => {
+    const batchChanges = [
+      { weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p1', action: 'remove' },
+      { weekend_saturday: '2026-05-02', category: 'MO', profile_id: 'p2', action: 'remove' },
+    ]
+    const plan = planBatchRestore({ batchChanges, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1', 'p2']) })
+    expect(plan.toInsert).toEqual([
+      { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' },
+      { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p2', category: 'MO' },
+    ])
   })
 })

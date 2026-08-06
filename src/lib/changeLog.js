@@ -8,7 +8,7 @@
 // actual edit it's recording.
 import { supabase } from './supabase'
 import { parseLocalDate } from './dateRange'
-import { CATEGORY_GROUPS } from './weekendPlanner'
+import { CATEGORY_GROUPS, groupEntriesByWeekend, planBatchRestore } from './weekendPlanner'
 
 export async function logRosterEntryChange({
   rosterMonthId, rosterEntryId = null, entryDate, shiftCode, action,
@@ -32,13 +32,21 @@ export async function logRosterEntryChange({
   if (error) console.error('Failed to log roster entry change:', error.message)
 }
 
-export async function logWeekendPlannerChange({ weekendSaturday, category, action, profileId, changedBy }) {
+// batchId groups every row written by one user action (a single manual
+// add/remove is a batch of one; a paste/clear covering many
+// weekends/groups shares one batchId across all of them) so the whole
+// action can be found and reversed together later — see
+// fetchWeekendPlannerBatches/restoreWeekendPlannerBatch below. Optional
+// (defaults to null) only because historical rows predate the column;
+// every call site in this codebase should pass one.
+export async function logWeekendPlannerChange({ weekendSaturday, category, action, profileId, changedBy, batchId = null }) {
   const { error } = await supabase.from('weekend_planner_changes').insert({
     weekend_saturday: weekendSaturday,
     category,
     action,
     profile_id: profileId,
     changed_by: changedBy,
+    batch_id: batchId,
   })
   if (error) console.error('Failed to log weekend planner change:', error.message)
 }
@@ -209,4 +217,128 @@ export function weekendChangeDetail(change, nameById) {
 export function formatWeekendPlannerChangeLine(change, nameById) {
   const actor = nameById.get(change.changed_by) || 'Unknown'
   return `[${formatTimestamp(change.changed_at)}] ${actor} ${weekendChangeDetail(change, nameById)}`
+}
+
+// ── Durable undo (batch_id) ──────────────────────────────────────────────
+// The Weekend Planner's Copy/Paste/Clear tools write every affected row
+// with a shared batch_id (see logWeekendPlannerChange above). Undo reads
+// this table directly rather than any in-memory React state, so restoring
+// a batch still works minutes later, across navigation, or after a page
+// reload — the incident this replaces was exactly an in-memory-only undo
+// that vanished the moment the admin moved on.
+
+// Most recent batches (grouped client-side, since Postgres has no
+// unbounded array_agg-and-limit-by-group in one simple query here) — the
+// "Recent actions" list WeekendPlannerChangeLogModal shows above its
+// existing per-row searchable table. `limit` bounds the RAW ROW fetch, not
+// the batch count, so it needs to be generous enough that even a
+// whole-quarter clear/paste (dozens of rows) doesn't get truncated
+// mid-batch; batches are then sorted by their own most-recent row.
+export async function fetchWeekendPlannerBatches({ limit = 500 } = {}) {
+  const { data, error } = await supabase
+    .from('weekend_planner_changes')
+    .select('*')
+    .not('batch_id', 'is', null)
+    .order('changed_at', { ascending: false })
+    .limit(limit)
+  if (error) return { batches: [], error: error.message }
+
+  const byBatch = new Map()
+  for (const row of data || []) {
+    if (!byBatch.has(row.batch_id)) byBatch.set(row.batch_id, [])
+    byBatch.get(row.batch_id).push(row)
+  }
+  const batches = [...byBatch.entries()]
+    .map(([batchId, changes]) => ({
+      batchId,
+      changes,
+      changedAt: changes.reduce((latest, c) => (c.changed_at > latest ? c.changed_at : latest), changes[0].changed_at),
+      changedBy: changes[0].changed_by,
+    }))
+    .sort((a, b) => b.changedAt.localeCompare(a.changedAt))
+
+  return { batches, error: null }
+}
+
+// "Cleared Sat 3 Jan 2026 (9 removed)" / "Added to 4 weekends (12 added)" /
+// "Overwrote Sat 3 Jan 2026 (4 added, 9 removed)" for a mixed
+// (overwrite-paste) batch — the one-line summary "Recent actions" shows per
+// batch. Multiple weekends collapse to a count rather than listing every
+// date, matching monthSummaryLine's own "don't enumerate, summarize" approach
+// elsewhere in this codebase.
+export function summarizeWeekendPlannerBatch({ changes }) {
+  const addCount = changes.filter(c => c.action === 'add').length
+  const removeCount = changes.filter(c => c.action === 'remove').length
+  const weekends = [...new Set(changes.map(c => c.weekend_saturday))].sort()
+  const weekendLabel = weekends.length === 1 ? formatDisplayDate(weekends[0]) : `${weekends.length} weekends`
+
+  if (addCount > 0 && removeCount > 0) return `Overwrote ${weekendLabel} (${addCount} added, ${removeCount} removed)`
+  if (removeCount > 0) return `Cleared ${weekendLabel} (${removeCount} removed)`
+  return `Added to ${weekendLabel} (${addCount} added)`
+}
+
+// "2 min ago" / "3 hrs ago" / "5 days ago" for a batch's timestamp — `now`
+// is injectable so callers (and tests) don't depend on the real clock.
+export function formatRelativeTime(iso, now = new Date()) {
+  const diffMin = Math.round((now - new Date(iso)) / 60000)
+  if (diffMin < 1) return 'just now'
+  if (diffMin < 60) return `${diffMin} min ago`
+  const diffHr = Math.round(diffMin / 60)
+  if (diffHr < 24) return `${diffHr} hr${diffHr === 1 ? '' : 's'} ago`
+  const diffDay = Math.round(diffHr / 24)
+  return `${diffDay} day${diffDay === 1 ? '' : 's'} ago`
+}
+
+// Restores one batch by its id — reverses each row by its OWN action (see
+// planBatchRestore in weekendPlanner.js), so a mixed batch (an
+// overwrite-paste's delete-then-insert) restores correctly in one call, not
+// two. Used identically by the post-action Undo toast (right after a
+// paste/clear) and "Restore this" in the Recent actions list minutes/days
+// later — both just need a batchId, nothing carried over in memory.
+// weekend_planner_entries/profiles are fetched fresh here (never reused
+// from a caller's already-loaded state), since the affected weekends can
+// fall well outside whatever window the caller currently has loaded — the
+// exact gap that let today's incident go unrecovered in the UI.
+// The restore itself is logged under a brand-new batchId, so an undo is
+// itself undoable the same way as anything else.
+export async function restoreWeekendPlannerBatch({ batchId, changedBy }) {
+  const { data: batchChanges, error: fetchErr } = await supabase
+    .from('weekend_planner_changes')
+    .select('weekend_saturday, category, profile_id, action')
+    .eq('batch_id', batchId)
+  if (fetchErr) return { error: fetchErr.message }
+  if (!batchChanges || batchChanges.length === 0) return { error: 'Nothing to restore — this batch no longer exists.' }
+
+  const saturdays = [...new Set(batchChanges.map(c => c.weekend_saturday))]
+  const [entriesRes, profilesRes] = await Promise.all([
+    supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category').in('weekend_saturday', saturdays),
+    supabase.from('profiles').select('id').eq('is_approved', true).eq('is_active', true),
+  ])
+  if (entriesRes.error) return { error: entriesRes.error.message }
+  if (profilesRes.error) return { error: profilesRes.error.message }
+
+  const existingByWeekend = groupEntriesByWeekend(entriesRes.data || [])
+  const activeDoctorIds = new Set((profilesRes.data || []).map(p => p.id))
+  const plan = planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds })
+  const restoreBatchId = crypto.randomUUID()
+
+  if (plan.toDelete.length > 0) {
+    const { error: delErr } = await supabase.from('weekend_planner_entries').delete().in('id', plan.toDelete.map(e => e.id))
+    if (delErr) return { error: delErr.message }
+    await Promise.all(plan.toDelete.map(e => logWeekendPlannerChange({
+      weekendSaturday: e.weekend_saturday, category: e.category, action: 'remove', profileId: e.profile_id, changedBy, batchId: restoreBatchId,
+    })))
+  }
+  if (plan.toInsert.length > 0) {
+    const payload = plan.toInsert.map(t => ({
+      weekend_saturday: t.weekendSaturday, profile_id: t.profileId, category: t.category, created_by: changedBy,
+    }))
+    const { error: insErr } = await supabase.from('weekend_planner_entries').insert(payload)
+    if (insErr) return { error: insErr.message }
+    await Promise.all(plan.toInsert.map(t => logWeekendPlannerChange({
+      weekendSaturday: t.weekendSaturday, category: t.category, action: 'add', profileId: t.profileId, changedBy, batchId: restoreBatchId,
+    })))
+  }
+
+  return { error: null, inserted: plan.toInsert.length, deleted: plan.toDelete.length, skipped: plan.skipped.length }
 }

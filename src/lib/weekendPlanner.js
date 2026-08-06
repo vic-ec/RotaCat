@@ -298,3 +298,110 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
 
   return { toInsert, toDelete, skipped, unmatchedSourceCount: Math.max(0, sourceWeekends.length - targetSaturdays.length) }
 }
+
+// Scales planWeekendPaste up to a copied month or quarter without changing
+// its own per-month position-mapping logic — the single shared entry point
+// WeekendPlannerView uses for weekend/month/quarter paste alike:
+//   weekend: sourceMonths = [[oneWeekendsEntries]], targetMonths = [[oneTargetSaturday]]
+//   month:   sourceMonths = [monthWeekends],        targetMonths = [targetMonthSaturdays]
+//   quarter: sourceMonths = [month1, month2, month3] (each a source month's own
+//            weekends array), targetMonths = the target quarter's 3 months'
+//            own Saturday lists, in the same order.
+// Each source month is position-mapped ONLY against the target month at the
+// same index — never flattened into one long cross-month list — so pasting
+// a Jan-Mar quarter onto Apr-Jun reproduces Jan's pattern on Apr, Feb's on
+// May, and Mar's on Jun, rather than sliding out of alignment the moment
+// any month in between has a different weekend count. Results from each
+// month are concatenated; a whole source month with no matching target
+// month (quarter longer than what's available to paste into) has its
+// weekends counted in unmatchedSourceCount same as planWeekendPaste's own
+// per-weekend case.
+export function planWeekendPasteAcrossMonths({ sourceMonths, targetMonths, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
+  const toInsert = []
+  const toDelete = []
+  const skipped = []
+  let unmatchedSourceCount = 0
+  const matchedMonthCount = Math.min(sourceMonths.length, targetMonths.length)
+
+  for (let i = 0; i < matchedMonthCount; i++) {
+    const monthPlan = planWeekendPaste({
+      sourceWeekends: sourceMonths[i], targetSaturdays: targetMonths[i], existingByWeekend, activeDoctorIds, mode,
+    })
+    toInsert.push(...monthPlan.toInsert)
+    toDelete.push(...monthPlan.toDelete)
+    skipped.push(...monthPlan.skipped)
+    unmatchedSourceCount += monthPlan.unmatchedSourceCount
+  }
+  for (let i = matchedMonthCount; i < sourceMonths.length; i++) {
+    unmatchedSourceCount += sourceMonths[i].length
+  }
+
+  return { toInsert, toDelete, skipped, unmatchedSourceCount }
+}
+
+// The durable-undo diffing behind "Restore this" (WeekendPlannerChangeLogModal)
+// and the post-action Undo toast — both call this the same way, whether the
+// batch's rows were just fetched fresh from weekend_planner_changes (works
+// minutes later, across navigation, or after a reload, since it never reads
+// from transient React state) or were the very rows a paste/clear just wrote.
+// batchChanges is raw weekend_planner_changes rows: { weekend_saturday,
+// category, profile_id, action }. Reverses EACH row by its own action, not
+// a single action for the whole batch — restoring a pure-remove batch
+// (a "Clear") re-inserts every row; a pure-add batch (a plain paste) removes
+// every row; a MIXED batch (an overwrite paste, which deletes old entries
+// then inserts new ones under one batch_id) correctly does both, restoring
+// the pre-paste state exactly. Same collision handling as planWeekendPaste's
+// fill-empty mode: skip re-inserting a doctor no longer active, or already
+// assigned to a different group on that weekend now; silently skip (not
+// counted) if the group itself has since been filled by someone else. An
+// 'add' row whose entry no longer exists (already removed some other way)
+// is silently a no-op, not an error.
+export function planBatchRestore({ batchChanges, existingByWeekend, activeDoctorIds }) {
+  const toInsert = []
+  const toDelete = []
+  const skipped = []
+  const assignedBySaturday = new Map()
+  const filledBySaturday = new Map()
+
+  function assignedFor(saturday) {
+    if (!assignedBySaturday.has(saturday)) {
+      const bySaturday = existingByWeekend.get(saturday) || {}
+      assignedBySaturday.set(saturday, new Set(Object.values(bySaturday).flat().map(e => e.profile_id)))
+    }
+    return assignedBySaturday.get(saturday)
+  }
+  function filledFor(saturday) {
+    if (!filledBySaturday.has(saturday)) {
+      const bySaturday = existingByWeekend.get(saturday) || {}
+      filledBySaturday.set(saturday, new Set(Object.keys(bySaturday).filter(k => (bySaturday[k] || []).length > 0)))
+    }
+    return filledBySaturday.get(saturday)
+  }
+
+  for (const change of batchChanges) {
+    const saturday = change.weekend_saturday
+    const profileId = change.profile_id
+    const groupKey = groupForCategory(change.category)
+
+    if (change.action === 'remove') {
+      if (!activeDoctorIds.has(profileId)) { skipped.push({ reason: 'inactive', saturday, groupKey, profileId }); continue }
+      const assigned = assignedFor(saturday)
+      if (assigned.has(profileId)) { skipped.push({ reason: 'already-assigned', saturday, groupKey, profileId }); continue }
+      // Checked against the pre-restore snapshot only (never updated as this
+      // same pass inserts more restored rows) — a group can legitimately
+      // hold several doctors, so restoring two removed entries back into the
+      // same group must not treat the first restore as "filling" it against
+      // the second.
+      if (filledFor(saturday).has(groupKey)) continue // group filled by someone else since — expected, not counted as "skipped"
+
+      toInsert.push({ weekendSaturday: saturday, groupKey, profileId, category: change.category })
+      assigned.add(profileId)
+    } else if (change.action === 'add') {
+      const bySaturday = existingByWeekend.get(saturday) || {}
+      const stillThere = (bySaturday[groupKey] || []).find(e => e.profile_id === profileId)
+      if (stillThere) toDelete.push(stillThere)
+    }
+  }
+
+  return { toInsert, toDelete, skipped }
+}

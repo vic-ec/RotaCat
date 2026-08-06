@@ -11,8 +11,10 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
 
+const restoreWeekendPlannerBatch = vi.fn()
 vi.mock('../lib/changeLog', () => ({
   logWeekendPlannerChange: vi.fn().mockResolvedValue(undefined),
+  restoreWeekendPlannerBatch: (...args) => restoreWeekendPlannerBatch(...args),
 }))
 
 vi.mock('./WeekendPlannerChangeLogModal', () => ({
@@ -116,6 +118,7 @@ describe('WeekendPlannerView', () => {
     mockResponses['weekend_planner_entries:delete'] = { data: null, error: null }
     mockResponses['leave_requests:select'] = { data: MY_WEEKEND_REQUESTS, error: null }
     mockAuth = { isAdmin: false, canSubmitLeave: true, profile: { id: 'p1' } }
+    restoreWeekendPlannerBatch.mockReset().mockResolvedValue({ error: null, inserted: 0, deleted: 0, skipped: 0 })
   })
 
   describe('mobile layout', () => {
@@ -744,6 +747,103 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).queryByRole('button', { name: 'Clear weekend' })).not.toBeInTheDocument()
+    })
+
+    it('admin: Copy weekend + Paste weekend targets the specific weekend selected, not the whole month', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      // Inspector defaults to next weekend (2026-08-08), fully covered.
+      const inspector = screen.getByTestId('weekend-inspector')
+      await user.click(within(inspector).getByRole('button', { name: 'Copy weekend' }))
+
+      const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
+      await user.click(aug15Cell.closest('tr'))
+
+      await user.click(within(inspector).getByRole('button', { name: 'Paste weekend' }))
+      await screen.findByRole('heading', { name: 'Paste Sat 8 - Sun 9 Aug 2026 into Sat 15 - Sun 16 Aug 2026' })
+      expect(screen.getByText(/Will add/).textContent).toContain('Will add 4 assignments across 1 weekend.')
+
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: /Paste Sat 8/ })).not.toBeInTheDocument())
+
+      const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
+      expect(within(aug15Row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(aug15Row).getByText('Botha')).toBeInTheDocument()
+    })
+
+    it('admin: Copy quarter builds a clipboard pill labelled with the quarter (current month + next 2)', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      await screen.findByRole('button', { name: 'Copy quarter' })
+
+      await user.click(screen.getByRole('button', { name: 'Copy quarter' }))
+
+      expect(screen.getByText('📋 Aug-Oct 2026 copied')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Paste into Aug-Oct 2026' })).toBeInTheDocument()
+    })
+
+    it('admin: Clear quarter opens a confirmation stating the total entries across all 3 months', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      await screen.findByRole('button', { name: 'Clear quarter' })
+
+      await user.click(screen.getByRole('button', { name: 'Clear quarter' }))
+
+      // ENTRIES only has assignments in August (4, all at Aug 8) within Aug/Sep/Oct.
+      const heading = await screen.findByRole('heading', { name: 'Clear Aug-Oct 2026?' })
+      expect(heading.closest('.card')).toHaveTextContent('This removes 4 assignments.')
+    })
+
+    it('admin: Clear month shows an Undo toast; clicking Undo calls restoreWeekendPlannerBatch and dismisses the toast', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await screen.findByRole('heading', { name: 'Clear August 2026?' })
+      await user.click(screen.getByRole('button', { name: 'Clear' }))
+
+      expect(await screen.findByText('Cleared August 2026')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Undo' }))
+
+      expect(restoreWeekendPlannerBatch).toHaveBeenCalledWith(expect.objectContaining({ changedBy: 'admin-1' }))
+      await waitFor(() => expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument())
+    })
+
+    it('admin: only an overwrite paste (not a fill-empty one) shows the Undo toast', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Copy August' }))
+      await user.click(view.getByRole('button', { name: 'Next month' }))
+      await view.findByText('September 2026')
+
+      // First paste: fill-empty (default) — nothing to overwrite, no toast.
+      await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
+      await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: 'Paste August 2026 into September 2026' })).not.toBeInTheDocument())
+      expect(screen.queryByText(/^Pasted into/)).not.toBeInTheDocument()
+
+      // Second paste: overwrite — September now has entries from the first
+      // paste, so this one actually deletes something first.
+      await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
+      await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
+      await user.click(screen.getByRole('button', { name: 'Overwrite instead' }))
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+
+      expect(await screen.findByText('Pasted into September 2026 (overwrite)')).toBeInTheDocument()
     })
   })
 })

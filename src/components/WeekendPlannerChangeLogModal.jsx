@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
   nameMapFromProfiles, queryWeekendPlannerChanges, weekendChangeDetail, WEEKEND_ACTION_OPTIONS, WEEKEND_CATEGORY_FILTER_OPTIONS,
+  fetchWeekendPlannerBatches, summarizeWeekendPlannerBatch, formatRelativeTime, restoreWeekendPlannerBatch,
 } from '../lib/changeLog'
 import CompactDateField from './CompactDateField'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
@@ -9,6 +11,7 @@ import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
 const RECENT_LIMIT = 300
+const RECENT_BATCH_DISPLAY_LIMIT = 15
 const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', categoryGroup: '' }
 
 function formatTimestampParts(iso) {
@@ -21,8 +24,14 @@ function formatTimestampParts(iso) {
 // Searchable, filterable audit trail of add/remove edits to
 // weekend_planner_entries. The planner is one continuous calendar rather
 // than per-month like the roster, so this shows recent activity across it
-// rather than being scoped to a single log.
-export default function WeekendPlannerChangeLogModal({ onClose }) {
+// rather than being scoped to a single log. onDataChanged (optional) lets
+// the caller refresh its own already-loaded state after a restore — this
+// modal's own batch/restore logic never depends on it: restoreWeekendPlannerBatch
+// re-fetches everything it needs fresh, so a restore is correct even if
+// this modal is the only thing open (e.g. reached straight after a page
+// reload with nothing else mounted).
+export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged }) {
+  const { profile } = useAuth()
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [changes, setChanges] = useState([])
   const [profilesById, setProfilesById] = useState(new Map())
@@ -30,10 +39,16 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
   const [doctorOptions, setDoctorOptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [batches, setBatches] = useState([])
+  const [batchesLoading, setBatchesLoading] = useState(true)
+  const [batchNameById, setBatchNameById] = useState(new Map())
+  const [restoringBatchId, setRestoringBatchId] = useState(null)
+  const [restoreMessage, setRestoreMessage] = useState(null) // { type: 'error' | 'success', text }
 
   useEffect(() => {
     fetchAdminOptions().then(setAdminOptions)
     fetchDoctorOptions().then(setDoctorOptions)
+    loadBatches()
   }, [])
 
   useEffect(() => {
@@ -53,6 +68,32 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
     setLoading(false)
   }
 
+  async function loadBatches() {
+    setBatchesLoading(true)
+    const { batches: fetched } = await fetchWeekendPlannerBatches()
+    const ids = fetched.flatMap(b => b.changes.flatMap(c => [c.changed_by, c.profile_id]))
+    setBatchNameById(nameMapFromProfiles(await fetchProfilesById(ids)))
+    setBatches(fetched)
+    setBatchesLoading(false)
+  }
+
+  async function handleRestore(batchId) {
+    setRestoringBatchId(batchId)
+    setRestoreMessage(null)
+    const result = await restoreWeekendPlannerBatch({ batchId, changedBy: profile?.id ?? null })
+    setRestoringBatchId(null)
+    if (result.error) { setRestoreMessage({ type: 'error', text: result.error }); return }
+
+    const parts = []
+    if (result.inserted > 0) parts.push(`${result.inserted} restored`)
+    if (result.deleted > 0) parts.push(`${result.deleted} removed`)
+    if (result.skipped > 0) parts.push(`${result.skipped} skipped (since changed elsewhere)`)
+    setRestoreMessage({ type: 'success', text: parts.length ? parts.join(', ') : 'Nothing left to restore.' })
+
+    await loadBatches()
+    onDataChanged?.()
+  }
+
   const filtersActive = Object.values(filters).some(Boolean)
   const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.categoryGroup].filter(Boolean).length
   const nameById = nameMapFromProfiles(profilesById)
@@ -65,6 +106,45 @@ export default function WeekendPlannerChangeLogModal({ onClose }) {
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close review log">×</button>
         </div>
         <p className="mt-1 text-xs text-ink-muted">Most recent {RECENT_LIMIT} matching edits.</p>
+
+        {/* Recent actions (restorable) — grouped by batch_id, newest first.
+            Sits above the searchable per-row table below since this is the
+            actionable "undo" surface; the table remains the full audit
+            detail for anything not covered by a recent batch. */}
+        <div className="mt-4 border-t border-slate-line pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Recent actions</p>
+          {restoreMessage && (
+            <p className={`mt-1 text-xs ${restoreMessage.type === 'error' ? 'text-flagRed' : 'text-success'}`} role="status">
+              {restoreMessage.text}
+            </p>
+          )}
+          {batchesLoading ? (
+            <p className="mt-1 text-sm text-ink-muted">Loading…</p>
+          ) : batches.length === 0 ? (
+            <p className="mt-1 text-sm text-ink-muted">No recent actions to restore.</p>
+          ) : (
+            <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+              {batches.slice(0, RECENT_BATCH_DISPLAY_LIMIT).map(batch => (
+                <li key={batch.batchId} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-ink">
+                    {summarizeWeekendPlannerBatch(batch)}
+                    <span className="ml-1.5 text-xs text-ink-muted">
+                      — {batchNameById.get(batch.changedBy) || 'Unknown'}, {formatRelativeTime(batch.changedAt)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRestore(batch.batchId)}
+                    disabled={restoringBatchId !== null}
+                    className="btn-secondary flex-shrink-0 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {restoringBatchId === batch.batchId ? 'Restoring…' : 'Restore this'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <CompactDateField label="From" value={filters.dateFrom} max={filters.dateTo || undefined}

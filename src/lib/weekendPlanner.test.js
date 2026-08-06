@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState,
 } from './weekendPlanner'
 
 describe('groupForCategory', () => {
@@ -108,6 +108,24 @@ describe('weekendCoverageSummary', () => {
 
   it('handles undefined (no entries fetched for this weekend at all)', () => {
     expect(weekendCoverageSummary(undefined).filledGroups).toBe(0)
+  })
+})
+
+describe('weekendHealthState', () => {
+  it('is red when no group is filled', () => {
+    expect(weekendHealthState({})).toBe('red')
+    expect(weekendHealthState(undefined)).toBe('red')
+  })
+
+  it('is amber when some but not all groups are filled', () => {
+    expect(weekendHealthState({ MO: [{ profile_id: 'p1' }] })).toBe('amber')
+  })
+
+  it('is green when every group is filled', () => {
+    expect(weekendHealthState({
+      MO: [{ profile_id: 'p1' }], Registrar: [{ profile_id: 'p2' }],
+      COSMO: [{ profile_id: 'p3' }], COSMOPsych: [{ profile_id: 'p4' }],
+    })).toBe('green')
   })
 })
 

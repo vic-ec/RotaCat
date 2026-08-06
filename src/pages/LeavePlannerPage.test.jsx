@@ -41,7 +41,7 @@ vi.mock('../components/AnnualLeavePlanner', () => ({
   ),
 }))
 vi.mock('../components/SpecialLeavePlanner', () => ({ default: () => <div>SpecialStub</div> }))
-vi.mock('../components/WeekendPlannerView', () => ({ default: () => <div>WeekendsStub</div> }))
+vi.mock('../components/WeekendPlanner', () => ({ default: () => <div>WeekendsStub</div> }))
 vi.mock('../components/LeaveAuditReport', () => ({ default: () => <div>AuditStub</div> }))
 vi.mock('../components/InternRotationsPlanner', () => ({ default: () => <div>InternRotationsStub</div> }))
 vi.mock('../components/LeaveRulesPage', () => ({ default: () => <div>RulesStub</div> }))

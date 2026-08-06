@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Search, Pencil, Users, CircleCheck, CircleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
+import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
@@ -337,7 +337,14 @@ function WeekendInspector({
 // editing behind an explicit "Edit assignments" action. Still a fixed
 // two-pane split (not drag-resizable) and still one month at a time — those
 // scope cuts from the previous round stand.
-export default function WeekendPlannerView() {
+// initialYear/initialMonth seed the starting viewYear/viewMonth instead of
+// always defaulting to today — set when WeekendPlanner.jsx opens this from
+// its year overview at a specific month, possibly outside today's rolling
+// WEEKS_AHEAD window (a past/future year an admin navigated to). onBackToYear,
+// when present, renders a "← Year view" link back to that overview — absent
+// when this is reached directly (the standalone /weekend route, or a caller
+// with no year overview of its own).
+export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [entries, setEntries] = useState([])
@@ -355,8 +362,8 @@ export default function WeekendPlannerView() {
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const today = todayStr()
-  const [viewYear, setViewYear] = useState(() => Number(today.slice(0, 4)))
-  const [viewMonth, setViewMonth] = useState(() => Number(today.slice(5, 7)))
+  const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
+  const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
 
   // The Requests planner tab only exists for admins (approval queue) and
   // doctors (their own history) — matches the same condition LeavePlannerPage
@@ -366,22 +373,34 @@ export default function WeekendPlannerView() {
 
   const filters = isAdmin ? ADMIN_FILTERS : isClerk ? CLERK_FILTERS : FILTERS_BASE
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile) changes within a session
+  // The default rolling window (today through WEEKS_AHEAD later), widened
+  // to also cover initialYear/initialMonth's whole month when that's
+  // seeded from further away — otherwise a month the year overview opened
+  // from a past/future year would fetch a range that never includes it.
+  // Computed once from stable inputs (today/initialYear/initialMonth never
+  // change after mount, matching viewYear/viewMonth's own useState
+  // initializers above), reused by both load() and the saturdays memo below
+  // so what's fetched and what's considered "in range" for prev/next-month
+  // bounds always agree.
+  const seededBounds = initialYear && initialMonth ? monthBounds(initialYear, initialMonth) : null
+  const defaultThroughDate = addDays(today, WEEKS_AHEAD * 7)
+  const fetchFromDate = seededBounds && seededBounds.start < today ? seededBounds.start : today
+  const fetchThroughDate = seededBounds && seededBounds.end > defaultThroughDate ? seededBounds.end : defaultThroughDate
+
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile, fetchFromDate/fetchThroughDate) changes within a session
 
   async function load() {
     setLoading(true)
     setError('')
-    const fromDate = todayStr()
-    const throughDate = addDays(fromDate, WEEKS_AHEAD * 7)
 
     const [profilesRes, entriesRes, myRequestsRes] = await Promise.all([
       supabase.from('profiles').select('id, name, surname, category, contract_type')
         .eq('is_approved', true).eq('is_active', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
-        .gte('weekend_saturday', fromDate).lte('weekend_saturday', throughDate),
+        .gte('weekend_saturday', fetchFromDate).lte('weekend_saturday', fetchThroughDate),
       supabase.from('leave_requests').select('id, date_from, status')
         .eq('profile_id', profile?.id ?? '').eq('leave_type', 'weekend_exception')
-        .gte('date_from', fromDate).lte('date_from', throughDate),
+        .gte('date_from', fetchFromDate).lte('date_from', fetchThroughDate),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
@@ -394,8 +413,8 @@ export default function WeekendPlannerView() {
   }
 
   const saturdays = useMemo(
-    () => saturdaysInRange(todayStr(), addDays(todayStr(), WEEKS_AHEAD * 7)),
-    []
+    () => saturdaysInRange(fetchFromDate, fetchThroughDate),
+    [fetchFromDate, fetchThroughDate]
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
@@ -511,7 +530,12 @@ export default function WeekendPlannerView() {
   }
 
   const monthNav = (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {onBackToYear && (
+        <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
+          ← Year view
+        </button>
+      )}
       <button type="button" onClick={goPrevMonth} disabled={!canGoPrevMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous month">←</button>
       <span className="font-display text-base font-semibold text-ink">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
       <button type="button" onClick={goNextMonth} disabled={!canGoNextMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next month">→</button>

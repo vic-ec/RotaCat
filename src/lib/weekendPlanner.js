@@ -100,6 +100,18 @@ export function weekendCoverageSummary(bySaturdayEntries) {
   return { filledGroups: CATEGORY_GROUPS.length - openGroups.length, totalGroups: CATEGORY_GROUPS.length, openGroups }
 }
 
+// 3-state staffing read for one weekend — 'red' (nothing planned yet),
+// 'green' (every rotation group filled), 'amber' (anything in between).
+// Derived from weekendCoverageSummary rather than re-deriving filled/total
+// itself, so the two never disagree about what "filled" means. Powers the
+// Weekend Planner's year-overview month cards (weekendYearOverview.js).
+export function weekendHealthState(bySaturdayEntries) {
+  const { filledGroups, totalGroups } = weekendCoverageSummary(bySaturdayEntries)
+  if (filledGroups === 0) return 'red'
+  if (filledGroups === totalGroups) return 'green'
+  return 'amber'
+}
+
 // True if profileId is assigned to any group of this weekend — powers the
 // "My Schedule" filter and the "Next weekend" card's "you're on rotation"
 // messaging. bySaturdayEntries is the same shape as weekendCoverageSummary.

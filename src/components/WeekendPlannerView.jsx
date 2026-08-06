@@ -317,6 +317,61 @@ function WeekendInspector({
   )
 }
 
+// Mobile-only read-only quick-glance for a weekend, opened by tapping a
+// card's date header — mirrors LeaveYearGrid.jsx's DayDetailSheet (fixed
+// inset-0, bg-ink/20, items-end on mobile / items-center on desktop). This
+// is deliberately NOT a replacement for the mobile card's own
+// always-expanded, fully editable breakdown below it (which stays exactly
+// as-is): that inline view already has everything, admin controls
+// included, so a sheet re-showing the identical thing behind an extra tap
+// would just be a redundant detour. This is a condensed alternative for a
+// fast glance — status + assignments only, reusing WeekendInspector's own
+// read-only AssignmentSummaryRow rather than rebuilding that breakdown a
+// second time.
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, myRequest, onClose }) {
+  const coverage = weekendCoverageSummary(bySaturday)
+  const needsPlanning = coverage.openGroups.length > 0
+  const badge = weekendBadge(saturday, weekendIndex)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2 className="font-display text-base font-bold text-ink">{formatWeekendRange(saturday)}</h2>
+            <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
+          </div>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-line pt-3">
+          <span className="text-sm text-ink-muted">Overall status</span>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+            needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+          }`}>
+            {needsPlanning ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
+            {needsPlanning
+              ? `${coverage.openGroups.length} ${coverage.openGroups.length === 1 ? 'gap' : 'gaps'}`
+              : `${coverage.filledGroups} of ${coverage.totalGroups} groups planned`}
+          </span>
+        </div>
+
+        {myRequest && (
+          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+          </p>
+        )}
+
+        <div className="mt-3 divide-y divide-slate-line">
+          {CATEGORY_GROUPS.map(group => (
+            <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
 // nested inside the Leave page's "Planners" tab group — per the Planners-tabs
@@ -361,6 +416,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [filter, setFilter] = useState(isAdmin || isClerk ? 'all' : 'mine')
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
+  const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
@@ -622,7 +678,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     className={`card p-4 ${scheme.bg}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className={`text-sm font-medium ${scheme.text}`}>{formatWeekendRange(saturday)}</p>
+                      {/* Tapping the date opens a read-only quick-glance sheet
+                          (WeekendDetailSheet) — a condensed alternative to
+                          scrolling this card's own always-expanded, fully
+                          editable breakdown below, not a replacement for it. */}
+                      <button
+                        type="button"
+                        onClick={() => setDetailSaturday(saturday)}
+                        className={`text-sm font-medium underline decoration-dotted underline-offset-2 ${scheme.text}`}
+                      >
+                        {formatWeekendRange(saturday)}
+                      </button>
                       <div className="flex items-center gap-2">
                         {myRequest && (
                           <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -795,6 +861,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       )}
 
       {showChangeLog && <WeekendPlannerChangeLogModal onClose={() => setShowChangeLog(false)} />}
+
+      {detailSaturday && (
+        <WeekendDetailSheet
+          saturday={detailSaturday}
+          weekendIndex={monthSaturdays.indexOf(detailSaturday) + 1}
+          bySaturday={byWeekend.get(detailSaturday) || {}}
+          doctorById={doctorById}
+          myRequest={myRequestsBySaturday.get(detailSaturday)}
+          onClose={() => setDetailSaturday(null)}
+        />
+      )}
     </div>
   )
 }

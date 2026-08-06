@@ -1247,8 +1247,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           aria-selected={isSelected}
                           className={`group cursor-pointer transition-colors ${isSelected ? 'bg-accent-tint/50' : 'hover:bg-canvas-sunken/40'}`}
                         >
+                          {/* Sticky column needs an OPAQUE background — unlike the rest of
+                              the row, it must occlude the non-sticky cells (e.g. MO) that
+                              scroll underneath it, so it can't reuse the row's translucent
+                              tint opacity modifier (that let their text ghost through
+                              beneath the date). */}
                           <td className={`sticky left-0 z-10 border-l-4 px-3 py-2.5 font-medium text-ink ${
-                            isSelected ? 'border-l-accent bg-accent-tint/50' : 'border-l-transparent bg-canvas-raised group-hover:bg-canvas-sunken/40'
+                            isSelected ? 'border-l-accent bg-accent-tint' : 'border-l-transparent bg-canvas-raised group-hover:bg-canvas-sunken'
                           }`}>
                             <div className="flex flex-col gap-1">
                               <span>{formatWeekendRange(saturday)}</span>

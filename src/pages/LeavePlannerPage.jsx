@@ -8,7 +8,7 @@ import MyRequestHistory from '../components/MyRequestHistory'
 import LeaveListView from '../components/LeaveListView'
 import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
-import WeekendPlannerView from '../components/WeekendPlannerView'
+import WeekendPlanner from '../components/WeekendPlanner'
 import LeaveAuditReport from '../components/LeaveAuditReport'
 import InternRotationsPlanner from '../components/InternRotationsPlanner'
 import LeaveRulesPage from '../components/LeaveRulesPage'
@@ -166,7 +166,7 @@ export default function LeavePlannerPage() {
               />
             )}
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}
-            {plannerTab === 'weekends' && <WeekendPlannerView />}
+            {plannerTab === 'weekends' && <WeekendPlanner />}
             {plannerTab === 'requests' && (
               isAdmin ? (
                 <div className="mx-auto md:max-w-2xl">

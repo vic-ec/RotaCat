@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import WeekendPlannerView from '../components/WeekendPlannerView'
+import WeekendPlanner from '../components/WeekendPlanner'
 
 export default function WeekendPlannerPage() {
   const { isLocum, isAdmin } = useAuth()
@@ -17,7 +17,7 @@ export default function WeekendPlannerPage() {
           ? 'Who works which weekend — the scheduler reads this directly when generating a roster. Every weekend must be filled in before its month can be generated.'
           : 'Who works which weekend, as planned by admin.'}
       </p>
-      <WeekendPlannerView />
+      <WeekendPlanner />
     </div>
   )
 }

@@ -1,23 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ClearableInput from '../components/ClearableInput'
-import SelectMenu from '../components/SelectMenu'
 import PageTabs from '../components/PageTabs'
+import PageHeader from '../components/PageHeader'
+import Toolbar from '../components/Toolbar'
+import SectionLabel from '../components/SectionLabel'
+import Tag from '../components/Tag'
+import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
-import { useDismissablePopover } from '../lib/useDismissablePopover'
-import { computeAnchoredPosition } from '../lib/popoverPosition'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-const STATUS_STYLES = {
-  draft:     'bg-flagAmber-bg text-flagAmber',
-  published: 'bg-success-bg text-success',
-  archived:  'bg-canvas-sunken text-ink-muted',
+// Tag's semantic status tones — see docs/design/layout-spec.md §9.
+const STATUS_TONE = {
+  draft:     'warning',
+  published: 'success',
+  archived:  'neutral',
 }
 
 const STATUS_LABELS = {
@@ -66,12 +68,15 @@ export default function RosterDashboardPage() {
   const [activeSearch, setActiveSearch] = useState('')
   const [activeFilterMonth, setActiveFilterMonth] = useState('')
   const [activeFilterYear, setActiveFilterYear] = useState('')
+  const [activeSortDir, setActiveSortDir] = useState('desc')
   const [search, setSearch] = useState('')
   const [filterMonth, setFilterMonth] = useState('')
   const [filterYear, setFilterYear] = useState('')
+  const [archiveSortDir, setArchiveSortDir] = useState('desc')
   const [binSearch, setBinSearch] = useState('')
   const [binFilterMonth, setBinFilterMonth] = useState('')
   const [binFilterYear, setBinFilterYear] = useState('')
+  const [binSortDir, setBinSortDir] = useState('desc')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
@@ -156,44 +161,44 @@ export default function RosterDashboardPage() {
     return true
   }
   const activeYears = [...new Set([...drafts, ...published].map(r => r.year))].sort((a, b) => b - a)
-  const filteredDrafts = drafts.filter(matchesActiveFilters)
-  const filteredPublished = published.filter(matchesActiveFilters)
+  // The query's own order (year/month desc = newest first) is the 'desc'
+  // direction; Sort's "Oldest first" just reverses the already-filtered
+  // list rather than re-querying.
+  const applyActiveSort = list => activeSortDir === 'asc' ? [...list].reverse() : list
+  const filteredDrafts = applyActiveSort(drafts.filter(matchesActiveFilters))
+  const filteredPublished = applyActiveSort(published.filter(matchesActiveFilters))
 
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
-  const filteredArchived = archived.filter(r => {
+  const filteredArchived0 = archived.filter(r => {
     if (filterMonth && r.month !== Number(filterMonth)) return false
     if (filterYear && r.year !== Number(filterYear)) return false
     if (search && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+  const filteredArchived = archiveSortDir === 'asc' ? [...filteredArchived0].reverse() : filteredArchived0
 
   const binYears = [...new Set(binned.map(r => r.year))].sort((a, b) => b - a)
-  const filteredBinned = binned.filter(r => {
+  const filteredBinned0 = binned.filter(r => {
     if (binFilterMonth && r.month !== Number(binFilterMonth)) return false
     if (binFilterYear && r.year !== Number(binFilterYear)) return false
     if (binSearch && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(binSearch.toLowerCase())) return false
     return true
   })
+  // binned is already newest-deleted-first; Bin's Sort axis is deletion
+  // recency (matches its own "Deleted X · auto-deletes in Y days" meta),
+  // not roster month/year like the Active/Archive tabs.
+  const filteredBinned = binSortDir === 'asc' ? [...filteredBinned0].reverse() : filteredBinned0
 
   return (
     <div className="mx-auto max-w-7xl md:max-w-2xl">
-      {/* Header — title + Create roster (admin, Active tab only) live in
-          their own row now that the tab row below is the shared PageTabs
-          underline template, not a fixed-width segmented pill; there's no
-          layout-jitter concern that requires keeping the button always
-          mounted any more (see the old comment this replaced). */}
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-ink">Rosters</h1>
-        {isAdmin && tab === 'active' && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto"
-          >
-            <PencilSparklesIcon className="h-4 w-4" />
-            Create roster
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Rosters"
+        action={isAdmin && tab === 'active' ? {
+          label: 'Create roster',
+          icon: <PencilSparklesIcon className="h-4 w-4" />,
+          onClick: () => setShowCreateModal(true),
+        } : null}
+      />
 
       <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Rosters" />
 
@@ -207,15 +212,12 @@ export default function RosterDashboardPage() {
         {tab === 'active' && (
           <>
             {((isAdmin && drafts.length > 0) || published.length > 0) && (
-              <RosterSearchFilter
-                search={activeSearch}
-                onSearchChange={setActiveSearch}
-                filterMonth={activeFilterMonth}
-                onFilterMonthChange={setActiveFilterMonth}
-                filterYear={activeFilterYear}
-                onFilterYearChange={setActiveFilterYear}
+              <RosterToolbar
+                search={activeSearch} onSearchChange={setActiveSearch}
+                filterMonth={activeFilterMonth} onFilterMonthChange={setActiveFilterMonth}
+                filterYear={activeFilterYear} onFilterYearChange={setActiveFilterYear}
                 years={activeYears}
-                ariaLabel="Filter active rosters"
+                sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
               />
             )}
             {isAdmin && (
@@ -248,15 +250,12 @@ export default function RosterDashboardPage() {
 
         {tab === 'archive' && (
           <>
-            <RosterSearchFilter
-              search={search}
-              onSearchChange={setSearch}
-              filterMonth={filterMonth}
-              onFilterMonthChange={setFilterMonth}
-              filterYear={filterYear}
-              onFilterYearChange={setFilterYear}
+            <RosterToolbar
+              search={search} onSearchChange={setSearch}
+              filterMonth={filterMonth} onFilterMonthChange={setFilterMonth}
+              filterYear={filterYear} onFilterYearChange={setFilterYear}
               years={years}
-              ariaLabel="Filter archived rosters"
+              sortDir={archiveSortDir} onSortDirChange={setArchiveSortDir}
             />
             <RosterSection
               title="Archived"
@@ -273,15 +272,13 @@ export default function RosterDashboardPage() {
 
         {isAdmin && tab === 'bin' && (
           <>
-            <RosterSearchFilter
-              search={binSearch}
-              onSearchChange={setBinSearch}
-              filterMonth={binFilterMonth}
-              onFilterMonthChange={setBinFilterMonth}
-              filterYear={binFilterYear}
-              onFilterYearChange={setBinFilterYear}
+            <RosterToolbar
+              search={binSearch} onSearchChange={setBinSearch}
+              filterMonth={binFilterMonth} onFilterMonthChange={setBinFilterMonth}
+              filterYear={binFilterYear} onFilterYearChange={setBinFilterYear}
               years={binYears}
-              ariaLabel="Filter bin"
+              sortDir={binSortDir} onSortDirChange={setBinSortDir}
+              sortLabels={{ asc: 'Oldest deleted first', desc: 'Newest deleted first' }}
             />
             <RosterSection
               title="Bin"
@@ -311,149 +308,77 @@ export default function RosterDashboardPage() {
   )
 }
 
-// Search + Filter row shared by the Archive and Bin tabs — the search box
-// takes 75% of the row's width and the Filter button the other 25%
-// (mobile only; desktop keeps them content-sized via the row's max-w-4xl
-// cap already being narrow enough that the split barely shows). The Month/
-// Year popover itself is local state, since only one of these rows is ever
-// mounted at a time — the search/filter *values* stay lifted so each tab
-// keeps its own independent filters.
-function RosterSearchFilter({ search, onSearchChange, filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years, ariaLabel }) {
-  const [open, setOpen] = useState(false)
-  const [anchor, setAnchor] = useState(null)
-  const ref = useRef(null)
-  useDismissablePopover(open, () => setOpen(false), ref)
-  const activeCount = [filterMonth, filterYear].filter(Boolean).length
-  const filterActive = open || activeCount > 0
-
-  // Clears search + both dropdown filters in one go — the reset icon
-  // embedded in the pill below is a full reset, same as the Staff page's.
-  function resetAll() {
-    onSearchChange('')
-    onFilterMonthChange('')
-    onFilterYearChange('')
-  }
-
+// Search/Sort/Filter row shared by the Active, Archive, and Bin tabs — a
+// thin wrapper around the shared Toolbar template (search/sort/filter/
+// clear, collapsing to a mobile "Filters" sheet). Month and Year are two
+// independent filter facets; Sort defaults to "Oldest first"/"Newest
+// first" (the roster-month axis) but Bin can override the labels to
+// describe its own deletion-recency axis instead.
+function RosterToolbar({
+  search, onSearchChange,
+  filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years,
+  sortDir, onSortDirChange,
+  sortLabels = { asc: 'Oldest first', desc: 'Newest first' },
+}) {
   return (
-    <>
-      {/* Left-aligned, not stretched full-width — matches the Staff list's
-          search+filter toolbar (fixed-width search box on desktop, filter
-          pill sized to its own content), sitting directly under the
-          PageTabs row rather than spanning the whole row. */}
-      <div className="mb-4 flex items-center gap-2">
-        <div className="min-w-0 flex-1 md:w-64 md:flex-none">
-          <ClearableInput
-            type="text"
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search by month or year…"
-            className="input-field"
-            clearLabel="Clear search"
-            icon={<SearchIcon className="h-4 w-4" />}
-          />
-        </div>
-        {/* Matches the Staff page's Filters pill: no "· N" count (it made
-            the pill wide enough to wrap), and the reset icon sits inside
-            the pill itself — as a sibling button, not nested inside the
-            "Filter" trigger — in the count's old spot, white against the
-            teal active background, once a filter is applied. Sized to its
-            own content (flex-shrink-0, no fixed width fraction) rather than
-            a rigid w-1/4 — a hard fraction left no room for the reset icon
-            once a filter was active, so it spilled out past the row's right
-            edge instead of the pill just growing to fit it. */}
-        <div
-          className={`flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded border text-sm font-medium transition-colors ${
-            filterActive
-              ? 'border-transparent bg-accent text-white'
-              : 'border-slate-line bg-canvas-raised text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
-          }`}
-        >
-          <button
-            onClick={e => {
-              setAnchor(e.currentTarget.getBoundingClientRect())
-              setOpen(o => !o)
-            }}
-            className="flex items-center justify-center gap-1 whitespace-nowrap px-4 py-1"
-          >
-            <ListFilterIcon className="h-4 w-4" />
-            Filter
-          </button>
-          {activeCount > 0 && (
-            <button
-              onClick={e => { e.stopPropagation(); resetAll() }}
-              aria-label="Reset filters"
-              title="Reset filters"
-              className="mr-1 flex-shrink-0 rounded p-1 hover:bg-accent-dark active:bg-accent-dark"
-            >
-              <ResetIcon className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {open && anchor && (() => {
-        const menuWidth = 220
-        const positionStyle = computeAnchoredPosition(anchor, menuWidth)
-        return (
-          <div
-            ref={ref}
-            role="dialog"
-            aria-label={ariaLabel}
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 space-y-3 rounded-xl border border-slate-line bg-canvas-raised p-4 shadow-raised"
-          >
-            <div>
-              <label className="label-text">Month</label>
-              <SelectMenu
-                value={filterMonth}
-                onChange={onFilterMonthChange}
-                placeholder="All months"
-                options={MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))}
-                alwaysDown
-              />
-            </div>
-            <div>
-              <label className="label-text">Year</label>
-              <SelectMenu
-                value={filterYear}
-                onChange={onFilterYearChange}
-                placeholder="All years"
-                options={years.map(y => ({ value: String(y), label: String(y) }))}
-                alwaysDown
-              />
-            </div>
-          </div>
-        )
-      })()}
-    </>
+    <Toolbar
+      searchValue={search}
+      onSearchChange={onSearchChange}
+      searchPlaceholder="Search by month or year…"
+      sortFacets={[{
+        key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
+        value: sortDir, onChange: onSortDirChange,
+        options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
+        isActive: sortDir !== 'desc',
+      }]}
+      filterFacets={[
+        {
+          key: 'month', icon: <CalendarIcon className="h-4 w-4" />, label: 'Month',
+          value: filterMonth, onChange: onFilterMonthChange,
+          options: [{ value: '', label: 'All months' }, ...MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))],
+          isActive: Boolean(filterMonth),
+        },
+        {
+          key: 'year', icon: <CalendarIcon className="h-4 w-4" />, label: 'Year',
+          value: filterYear, onChange: onFilterYearChange,
+          options: [{ value: '', label: 'All years' }, ...years.map(y => ({ value: String(y), label: String(y) }))],
+          isActive: Boolean(filterYear),
+        },
+      ]}
+      active={Boolean(search) || Boolean(filterMonth) || Boolean(filterYear)}
+      onClearAll={() => { onSearchChange(''); onFilterMonthChange(''); onFilterYearChange('') }}
+    />
   )
 }
 
 function EmptyState({ isAdmin, onCreate }) {
   if (!isAdmin) {
     return (
-      <div className="card p-12 text-center">
-        <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
-        <p className="font-medium text-ink">No rosters yet</p>
-        <p className="mt-1 text-sm text-ink-muted">Check back once a roster has been published.</p>
-      </div>
+      <ListEmptyState
+        icon={<CalendarIcon className="h-10 w-10" />}
+        message="No rosters yet. Check back once a roster has been published."
+      />
     )
   }
   return (
-    <div className="card p-12 text-center">
-      <CalendarIcon className="mx-auto mb-3 h-10 w-10 text-ink-muted opacity-40" />
-      <p className="font-medium text-ink">No rosters yet</p>
-      <p className="mt-1 text-sm text-ink-muted">
-        Click &quot;Create roster&quot; to create your first one.
-      </p>
-      <button onClick={onCreate} className="btn-primary mx-auto mt-5">
-        <PencilSparklesIcon className="h-4 w-4" />
-        Create roster
-      </button>
-    </div>
+    <ListEmptyState
+      icon={<CalendarIcon className="h-10 w-10" />}
+      message='No rosters yet. Click "Create roster" to create your first one.'
+      actionLabel="Create roster"
+      onAction={onCreate}
+    />
   )
 }
 
+// Group header uses the shared SectionLabel for its text half; the
+// "select all in this group" checkbox stays alongside it (not dropped)
+// since bulk-selecting a whole group is a real, used feature here — see
+// docs/design/layout-spec.md §6's carve-out for exactly this case. The
+// header swaps to the bulk-action row (count + contextual actions) the
+// moment anything's selected, in place of the plain label (§8) — each
+// group (Drafts/Published/Archived/Bin) selects independently, so this
+// stays a per-group inline swap rather than the page-level sticky
+// BulkActionBar Staff uses, which assumes one list per tab, not two.
 function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText }) {
   if (rosters.length === 0) {
     return emptyText ? (
@@ -477,14 +402,15 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
   return (
     <div className="mb-6">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-sm font-medium text-ink-light">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={allSelected}
             onChange={toggleAll}
+            aria-label={`Select all in ${title}`}
             className="h-4 w-4 rounded border-slate-line accent-accent"
           />
-          {title} ({rosters.length})
+          <SectionLabel count={rosters.length} className="mb-0">{title}</SectionLabel>
         </label>
         {selected.size > 0 && (
           <div className="flex gap-2">
@@ -502,29 +428,16 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
       </div>
       <div className="card divide-y divide-slate-line overflow-hidden">
         {rosters.map(roster => (
-          <div key={roster.id} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken">
-            <input
-              type="checkbox"
-              checked={selected.has(roster.id)}
-              onChange={() => toggleOne(roster.id)}
-              className="h-4 w-4 shrink-0 rounded border-slate-line accent-accent"
-            />
-            <button
-              onClick={() => navigate(`/roster/${roster.id}`)}
-              className="flex flex-1 items-center justify-between text-left"
-            >
-              <div>
-                <p className="text-sm font-medium text-ink">{MONTH_NAMES[roster.month]} {roster.year}</p>
-                <p className="mt-0.5 text-xs text-ink-muted">{metaFn(roster)}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[roster.status]}`}>
-                  {STATUS_LABELS[roster.status]}
-                </span>
-                <ChevronRightIcon className="h-4 w-4 text-ink-muted" />
-              </div>
-            </button>
-          </div>
+          <ListRowRecord
+            key={roster.id}
+            checked={selected.has(roster.id)}
+            onToggleCheck={() => toggleOne(roster.id)}
+            selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
+            title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
+            subtitle={metaFn(roster)}
+            statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
+            onClick={() => navigate(`/roster/${roster.id}`)}
+          />
         ))}
       </div>
     </div>
@@ -555,33 +468,10 @@ function CalendarIcon(props) {
     </svg>
   )
 }
-function SearchIcon(props) {
+function SortIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
-    </svg>
-  )
-}
-function ListFilterIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18M7 12h10M10 18h4" />
-    </svg>
-  )
-}
-function ResetIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  )
-}
-function ChevronRightIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
     </svg>
   )
 }

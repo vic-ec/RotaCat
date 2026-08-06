@@ -4,7 +4,44 @@ import plugin from 'tailwindcss/plugin'
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
+    // Explicit rather than relying on Tailwind's implicit defaults — these
+    // are the values docs/design/layout-spec.md's §15 breakpoint table
+    // means by "tablet"/"desktop" (768px/1024px), and they already match
+    // Tailwind's own md/lg out of the box. Spelling them out here means a
+    // future reader doesn't have to know that to trust it, and it's a no-op
+    // today (identical values), so it changes nothing visually.
+    screens: {
+      sm: '640px',
+      md: '768px',   // spec's mobile/tablet boundary
+      lg: '1024px',  // spec's tablet/desktop boundary
+      xl: '1280px'
+    },
     extend: {
+      // ── docs/design/layout-spec.md §1 typography tokens ──────────────
+      // Opt-in named text styles (`text-h1`, `text-section-label`, …) for
+      // the shared PageHeader/SectionLabel/etc. components to build on —
+      // additive only, nothing existing switches to these automatically.
+      // Where the spec's px size would visually clash with what's already
+      // shipped everywhere (e.g. body text is `text-sm`/14px app-wide, spec
+      // asks for the same 14px `--font-body`), the value here matches the
+      // existing app convention rather than introducing a second, slightly
+      // different "standard" size.
+      fontSize: {
+        h1: ['26px', { lineHeight: '1.3', fontWeight: '600' }],
+        h2: ['15px', { lineHeight: '1.4', fontWeight: '600' }],
+        'section-label': ['11px', { lineHeight: '1.4', fontWeight: '600', letterSpacing: '0.04em' }],
+        body: ['14px', { lineHeight: '1.5', fontWeight: '400' }],
+        meta: ['12px', { lineHeight: '1.4', fontWeight: '400' }]
+      },
+      // Matches AppLayout's existing desktop sidebar (`w-60`) — named here
+      // so the new mobile NavDrawer/TopAppBar can reference the same value
+      // by name instead of a second hardcoded `60`.
+      width: {
+        sidebar: '15rem' // 240px
+      },
+      spacing: {
+        sidebar: '15rem' // 240px — for padding/margin offsets, not just width
+      },
       colors: {
         // Base palette — clinical-operations UI: high-legibility text on a
         // cool mint-teal ground (RotaCat v2 tokens).

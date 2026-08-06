@@ -5,6 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import ClearableInput from '../components/ClearableInput'
 import PageTabs from '../components/PageTabs'
+import PageHeader from '../components/PageHeader'
+import Toolbar from '../components/Toolbar'
+import Tag from '../components/Tag'
+import { ListRowIdentity } from '../components/ListRow'
+import BulkActionBar from '../components/BulkActionBar'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
@@ -38,12 +43,6 @@ const REQUEST_TYPE_LABELS = {
   role: 'Role change',
   category: 'Category change',
   deletion: 'Account deletion',
-}
-
-const ROLE_BADGE = {
-  doctor: 'bg-success-bg text-success',
-  locum:  'bg-canvas-sunken text-ink-muted',
-  clerk:  'bg-flagAmber-bg text-flagAmber',
 }
 
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
@@ -212,104 +211,14 @@ function SheetActionButton({ icon, label, href, onClick, onMissing }) {
   )
 }
 
-// Shared Search/Sort/Filter toolbar for the Approvals and User Requests
-// views — icon-only on mobile, icon + persistent label on desktop (one
-// element with responsive classes, not duplicated mobile/desktop copies,
-// since the search input here is always visible rather than the accounts
-// tab's own click-to-expand icon button). Sort is a single button that
-// flips between oldest/newest first rather than opening a menu, since
-// it's a plain binary choice. Filter opens a small single-level popover
-// (role only) — there's no equivalent to the accounts tab's role/category/
-// status/admin filter set for these two views.
-function SimpleListToolbar({
-  searchValue, onSearchChange, searchPlaceholder,
-  sortTitle, onToggleSort,
-  filterOpen, filterActive, onToggleFilter, filterAnchor, filterMenuRef,
-  filterOptions, filterValue, onFilterChange,
-  onClearAll,
-}) {
-  const menuWidth = 160
-  const positionStyle = filterAnchor ? computeAnchoredPosition(filterAnchor, menuWidth) : null
-  return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1 md:w-56 md:flex-none">
-        <ClearableInput
-          type="text"
-          value={searchValue}
-          onChange={e => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="input-field h-[30px] py-1"
-          clearLabel="Clear search"
-          icon={<SearchIcon className="h-4 w-4" />}
-        />
-      </div>
-      <button
-        type="button"
-        onClick={onToggleSort}
-        title={sortTitle}
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 bg-canvas text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink md:w-24"
-      >
-        <ZapIcon className="h-4 w-4 flex-shrink-0" />
-        <span className="hidden md:inline">Sort</span>
-      </button>
-      <div className="relative flex-shrink-0">
-        <button
-          type="button"
-          onClick={onToggleFilter}
-          aria-haspopup="menu"
-          aria-expanded={filterOpen}
-          className={`flex h-[30px] w-[30px] items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors md:w-24 ${
-            filterOpen || filterActive
-              ? 'bg-accent text-white'
-              : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-          }`}
-        >
-          <ListFilterIcon className="h-4 w-4 flex-shrink-0" />
-          <span className="hidden md:inline">Filter</span>
-        </button>
-        {filterOpen && positionStyle && (
-          <div
-            ref={filterMenuRef}
-            role="menu"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
-          >
-            {filterOptions.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onFilterChange(opt.value)}
-                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
-                  opt.value === filterValue
-                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
-                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={onClearAll}
-        aria-label="Clear all filters"
-        title="Clear all filters"
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-      >
-        <CircleX className="h-4 w-4" />
-      </button>
-    </div>
-  )
-}
-
 // One row of the Pending-approval list. Selection checkbox feeds the bulk
-// action bar above the list; clicking anywhere in the row (or the Eye
-// button specifically) navigates to the dedicated review page rather than
-// expanding an inline panel — editing a pending registration's details
-// happens there, including its mobile number, which is left out of this
-// collapsed row to keep it scannable.
+// action bar above the list; clicking anywhere in the row navigates to the
+// dedicated review page rather than expanding an inline panel — editing a
+// pending registration's details happens there, including its mobile
+// number, which is left out of this collapsed row to keep it scannable.
+// Built on the shared ListRowIdentity template; the standalone "view" icon
+// this used to also carry was dropped since the row click already goes to
+// the exact same place (docs/design/layout-spec.md §7/§13).
 function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
@@ -319,94 +228,31 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
     : (ROLE_LABELS[person.role] || person.role)
   const registeredDate = person.created_at?.slice(0, 10).split('-').reverse().join('-')
   const registeredTime = person.created_at?.slice(11, 16)
+  const fullName = `${person.name ? `${person.name} ` : ''}${person.surname}`
 
   return (
-    <div
+    <ListRowIdentity
+      checked={checked}
+      onToggleCheck={onToggleCheck}
+      selectLabel={`Select ${fullName}`.trim()}
+      avatar={<ProfileAvatar profile={person} size={32} />}
+      name={fullName}
+      tag={secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
+      meta={
+        <>
+          Registered {registeredDate} at {registeredTime} with{' '}
+          <span className="font-medium text-accent">{email || '—'}</span>
+          {person.email_verified && (
+            <CircleCheck title="Email verified" className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-success" />
+          )}
+        </>
+      }
+      actions={[
+        { label: 'Approve', icon: <CircleCheck className="h-5 w-5" />, onClick: () => approveAccount(person) },
+        { label: 'Reject', icon: <CircleX className="h-5 w-5" />, onClick: () => rejectAccount(person.id), tone: 'danger' },
+      ]}
       onClick={() => onEdit(person.id)}
-      className="cursor-pointer px-5 py-4 transition-colors hover:bg-canvas-sunken active:bg-slate-line"
-    >
-      <div className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onToggleCheck}
-          onClick={e => e.stopPropagation()}
-          aria-label={`Select ${person.name || ''} ${person.surname}`.trim()}
-          className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent md:mt-1"
-        />
-        <ProfileAvatar profile={person} size={32} className="mt-0.5 flex-shrink-0" />
-
-        <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
-          <div className="min-w-0 flex-1">
-            {/* Mobile: name · category/role, plain text (line 1) */}
-            <p className="text-sm font-medium text-ink md:hidden">
-              {person.name ? `${person.name} ` : ''}{person.surname}
-              <span className="font-normal text-ink-muted"> · {secondaryLabel}</span>
-            </p>
-
-            {/* Desktop: name + pillbox badge */}
-            <div className="hidden items-center gap-2 flex-wrap md:flex">
-              <p className="font-medium text-ink text-sm">
-                {person.name ? `${person.name} ` : ''}{person.surname}
-              </p>
-              {person.role === 'doctor' ? (
-                person.category && (
-                  <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
-                    {CATEGORY_LABELS[person.category] || person.category}
-                  </span>
-                )
-              ) : (
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_BADGE[person.role] || 'bg-canvas-sunken text-ink-muted'}`}>
-                  {ROLE_LABELS[person.role] || person.role}
-                </span>
-              )}
-            </div>
-
-            {/* Line 2 (both breakpoints) */}
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Registered {registeredDate} at {registeredTime} with{' '}
-              <span className="font-medium text-accent">{email || '—'}</span>
-              {person.email_verified && (
-                <CircleCheck title="Email verified" className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-success" />
-              )}
-            </p>
-          </div>
-
-          {/* Line 3 on mobile, right-aligned column on desktop — icon/size/
-              color treatment matches the Leave requests approval queue's
-              Approve/Reject/View buttons exactly (see LeaveApprovalQueue). */}
-          <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); approveAccount(person) }}
-              title="Approve"
-              aria-label="Approve"
-              className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <CircleCheck className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); rejectAccount(person.id) }}
-              title="Reject"
-              aria-label="Reject"
-              className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <CircleX className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onEdit(person.id) }}
-              title="View request"
-              aria-label="View request"
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
-            >
-              <Eye className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    />
   )
 }
 
@@ -442,19 +288,12 @@ export default function StaffListPage() {
 
   // Approvals/User Requests toolbars — each view gets its own search text
   // and role filter, independent of the accounts tab's own accountFilters.
+  // Popover open/anchor state now lives inside the shared Toolbar component.
   const [pendingSearchQuery, setPendingSearchQuery] = useState('')
   const [pendingRoleFilter, setPendingRoleFilter] = useState('all')
-  const [pendingFilterOpen, setPendingFilterOpen] = useState(false)
-  const [pendingFilterAnchor, setPendingFilterAnchor] = useState(null)
-  const pendingFilterMenuRef = useRef(null)
-  useDismissablePopover(pendingFilterOpen, () => setPendingFilterOpen(false), pendingFilterMenuRef)
 
   const [requestsSearchQuery, setRequestsSearchQuery] = useState('')
   const [requestsRoleFilter, setRequestsRoleFilter] = useState('all')
-  const [requestsFilterOpen, setRequestsFilterOpen] = useState(false)
-  const [requestsFilterAnchor, setRequestsFilterAnchor] = useState(null)
-  const requestsFilterMenuRef = useRef(null)
-  useDismissablePopover(requestsFilterOpen, () => setRequestsFilterOpen(false), requestsFilterMenuRef)
 
   // Sort / group — persisted locally so it doesn't reset every visit
   const [sortMode, setSortMode] = useState(() => {
@@ -974,6 +813,7 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
+      <PageHeader title="Staff" />
       {/* Sticky header — tab row (admin-only: All Staff / Pending Approvals /
           User Requests, via the shared PageTabs template) plus the Search/
           Sort/Filter toolbar (every viewer, only while on the accounts tab).
@@ -1068,22 +908,27 @@ export default function StaffListPage() {
                 <ListFilterIcon className="h-4 w-4" />
               </button>
 
-              <button
-                onClick={resetDesktopFilters}
-                aria-label="Clear all filters"
-                title="Clear all filters"
-                className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-              >
-                <CircleX className="h-4 w-4" />
-              </button>
+              {accountFiltersActive && (
+                <button
+                  onClick={resetDesktopFilters}
+                  aria-label="Clear all filters"
+                  title="Clear all filters"
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+                >
+                  <CircleX className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             {/* Desktop toolbar — Search, Sort, and Filter all at fixed,
                 stable widths (not flex-1/hugging) so the row never reflows;
                 Sort/Filter always show their icon + label. Clear-all is
-                icon-only at the fixed 30x30 size on both breakpoints. */}
+                icon-only at the fixed 30x30 size on both breakpoints, and
+                (per docs/design/layout-spec.md §5) only rendered once a
+                search/filter is actually active. Search is 320px (w-80),
+                the spec's standardized desktop search width. */}
             <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
-              <div ref={searchWrapRef} className="w-56 flex-shrink-0">
+              <div ref={searchWrapRef} className="w-80 flex-shrink-0">
                 {searchOpen ? (
                   <ClearableInput
                     autoFocus
@@ -1138,62 +983,64 @@ export default function StaffListPage() {
                 Filter
               </button>
 
-              <button
-                onClick={resetDesktopFilters}
-                aria-label="Clear all filters"
-                title="Clear all filters"
-                className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-              >
-                <CircleX className="h-4 w-4" />
-              </button>
+              {accountFiltersActive && (
+                <button
+                  onClick={resetDesktopFilters}
+                  aria-label="Clear all filters"
+                  title="Clear all filters"
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+                >
+                  <CircleX className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </>
         )}
 
         {tab === 'pending' && (
           <div className={isAdmin ? 'mt-2' : ''}>
-            <SimpleListToolbar
+            <Toolbar
               searchValue={pendingSearchQuery}
               onSearchChange={setPendingSearchQuery}
-              searchPlaceholder="Surname or first name…"
-              sortTitle={pendingSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
-              onToggleSort={() => setPendingSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
-              filterOpen={pendingFilterOpen}
-              filterActive={pendingRoleFilter !== 'all'}
-              onToggleFilter={e => {
-                if (pendingFilterOpen) { setPendingFilterOpen(false) }
-                else { setPendingFilterAnchor(e.currentTarget.getBoundingClientRect()); setPendingFilterOpen(true) }
-              }}
-              filterAnchor={pendingFilterAnchor}
-              filterMenuRef={pendingFilterMenuRef}
-              filterOptions={[{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
-              filterValue={pendingRoleFilter}
-              onFilterChange={v => { setPendingRoleFilter(v); setPendingFilterOpen(false) }}
-              onClearAll={() => { setPendingSearchQuery(''); setPendingRoleFilter('all'); setPendingFilterOpen(false) }}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={[{
+                key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+                value: pendingSortDirection, onChange: setPendingSortDirection,
+                options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
+                isActive: pendingSortDirection !== 'asc',
+              }]}
+              filterFacets={[{
+                key: 'role', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+                value: pendingRoleFilter, onChange: setPendingRoleFilter,
+                options: [{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
+                isActive: pendingRoleFilter !== 'all',
+              }]}
+              active={Boolean(pendingSearchQuery) || pendingRoleFilter !== 'all'}
+              onClearAll={() => { setPendingSearchQuery(''); setPendingRoleFilter('all') }}
             />
           </div>
         )}
 
         {tab === 'requests' && (
           <div className={isAdmin ? 'mt-2' : ''}>
-            <SimpleListToolbar
+            <Toolbar
               searchValue={requestsSearchQuery}
               onSearchChange={setRequestsSearchQuery}
-              searchPlaceholder="Surname or first name…"
-              sortTitle={requestsSortDirection === 'asc' ? 'Oldest first — click for newest first' : 'Newest first — click for oldest first'}
-              onToggleSort={() => setRequestsSortDirection(d => (d === 'asc' ? 'desc' : 'asc'))}
-              filterOpen={requestsFilterOpen}
-              filterActive={requestsRoleFilter !== 'all'}
-              onToggleFilter={e => {
-                if (requestsFilterOpen) { setRequestsFilterOpen(false) }
-                else { setRequestsFilterAnchor(e.currentTarget.getBoundingClientRect()); setRequestsFilterOpen(true) }
-              }}
-              filterAnchor={requestsFilterAnchor}
-              filterMenuRef={requestsFilterMenuRef}
-              filterOptions={[{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))]}
-              filterValue={requestsRoleFilter}
-              onFilterChange={v => { setRequestsRoleFilter(v); setRequestsFilterOpen(false) }}
-              onClearAll={() => { setRequestsSearchQuery(''); setRequestsRoleFilter('all'); setRequestsFilterOpen(false) }}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={[{
+                key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+                value: requestsSortDirection, onChange: setRequestsSortDirection,
+                options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
+                isActive: requestsSortDirection !== 'asc',
+              }]}
+              filterFacets={[{
+                key: 'role', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+                value: requestsRoleFilter, onChange: setRequestsRoleFilter,
+                options: [{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
+                isActive: requestsRoleFilter !== 'all',
+              }]}
+              active={Boolean(requestsSearchQuery) || requestsRoleFilter !== 'all'}
+              onClearAll={() => { setRequestsSearchQuery(''); setRequestsRoleFilter('all') }}
             />
           </div>
         )}
@@ -1549,17 +1396,10 @@ export default function StaffListPage() {
       )}
 
       {/* ── Tab: pending account approvals (admin only) ── */}
+      {/* No breadcrumb here — "← All staff" duplicated the already-active
+          "Pending Approvals" tab above it (docs/design/layout-spec.md §4). */}
       {!loading && isAdmin && tab === 'pending' && (
         <div className="mx-auto md:max-w-2xl">
-          <div className="mb-4">
-            <button
-              onClick={() => setTab('accounts')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-            >
-              <ArrowLeftIcon className="h-4 w-4" />
-              All staff
-            </button>
-          </div>
           {pending.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No accounts pending approval.</p>
@@ -1570,29 +1410,14 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              {selectedPendingIds.size > 0 && (
-                <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
-                  <span className="flex-1">{selectedPendingIds.size} selected</span>
-                  <button
-                    onClick={bulkApprovePending}
-                    className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85"
-                  >
-                    Approve selected
-                  </button>
-                  <button
-                    onClick={bulkRejectPending}
-                    className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10"
-                  >
-                    Reject selected
-                  </button>
-                  <button
-                    onClick={() => setSelectedPendingIds(new Set())}
-                    className="text-xs font-medium text-white/60 hover:text-white/90"
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
+              <BulkActionBar
+                count={selectedPendingIds.size}
+                actions={[
+                  { label: 'Approve selected', onClick: bulkApprovePending },
+                  { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
+                ]}
+                onCancel={() => setSelectedPendingIds(new Set())}
+              />
 
               <div className="card overflow-hidden divide-y divide-slate-line">
                 <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
@@ -1626,16 +1451,6 @@ export default function StaffListPage() {
       {/* ── Tab: pending account change requests (admin only) ── */}
       {!loading && isAdmin && tab === 'requests' && (
         <div className="mx-auto md:max-w-2xl">
-          <div className="mb-4">
-            <button
-              onClick={() => setTab('accounts')}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-            >
-              <ArrowLeftIcon className="h-4 w-4" />
-              All staff
-            </button>
-          </div>
-
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
               <p className="text-sm text-ink-muted">No account requests pending review.</p>
@@ -1646,29 +1461,14 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              {selectedRequestIds.size > 0 && (
-                <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
-                  <span className="flex-1">{selectedRequestIds.size} selected</span>
-                  <button
-                    onClick={bulkApproveRequests}
-                    className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85"
-                  >
-                    Approve selected
-                  </button>
-                  <button
-                    onClick={bulkRejectRequests}
-                    className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10"
-                  >
-                    Reject selected
-                  </button>
-                  <button
-                    onClick={() => setSelectedRequestIds(new Set())}
-                    className="text-xs font-medium text-white/60 hover:text-white/90"
-                  >
-                    Clear
-                  </button>
-                </div>
-              )}
+              <BulkActionBar
+                count={selectedRequestIds.size}
+                actions={[
+                  { label: 'Approve selected', onClick: bulkApproveRequests },
+                  { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
+                ]}
+                onCancel={() => setSelectedRequestIds(new Set())}
+              />
 
               <div className="card overflow-hidden divide-y divide-slate-line">
                 <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
@@ -1704,14 +1504,8 @@ export default function StaffListPage() {
                               <p className="font-medium text-ink text-sm">
                                 {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
                               </p>
-                              {secondaryLabel && (
-                                <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
-                                  {secondaryLabel}
-                                </span>
-                              )}
-                              <span className="rounded-full bg-canvas-sunken px-2 py-0.5 text-xs font-medium text-ink-light">
-                                {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
-                              </span>
+                              {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
+                              <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
                             </div>
                             {r.request_type !== 'deletion' && (
                               <p className="mt-1 text-xs text-ink-light">
@@ -2137,14 +1931,6 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
-    </svg>
-  )
-}
-
-function ArrowLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
     </svg>
   )
 }

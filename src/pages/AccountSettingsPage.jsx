@@ -10,6 +10,9 @@ import { LAST_PATH_KEY } from '../components/AppLayout'
 import { navLabelForPath } from '../lib/navLabels'
 import ClearableInput from '../components/ClearableInput'
 import SelectMenu from '../components/SelectMenu'
+import PageHeader from '../components/PageHeader'
+import Breadcrumb from '../components/Breadcrumb'
+import SectionLabel from '../components/SectionLabel'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -149,14 +152,6 @@ function ChevronDownIcon(props) {
   )
 }
 
-function ArrowLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  )
-}
-
 function PencilIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -262,12 +257,6 @@ function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon
       <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? 'rotate-180' : ''}` : ''}`} />
     </button>
   )
-}
-
-// All-caps muted label shown above (and outside) each group's bordered
-// panel — "CONTACT DETAILS", "SECURITY & ACCESS", "PREFERENCES", "DANGER ZONE".
-function GroupLabel({ children }) {
-  return <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{children}</p>
 }
 
 // Single-value contact field shown as an icon + value row, with a small
@@ -1146,13 +1135,14 @@ export default function AccountSettingsPage() {
 
   return (
     <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
-      <button
-        onClick={() => navigate(lastPath)}
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-      >
-        <ArrowLeftIcon className="h-4 w-4" />
-        {backLabel}
-      </button>
+      <PageHeader title="Account" />
+      {/* Dynamic "back to wherever you came from" link, not a fixed
+          hierarchical breadcrumb — Account is a top-level nav destination,
+          not a drill-down from Staff, so this deliberately doesn't say
+          "← Staff" unless that's genuinely where the viewer came from (see
+          navLabelForPath). Restyled onto the shared Breadcrumb component;
+          the underlying behavior is unchanged. */}
+      <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />
 
       {cropSrc && (
         <AvatarCropModal
@@ -1230,7 +1220,12 @@ export default function AccountSettingsPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <h1 className="font-display text-lg font-bold leading-tight text-ink">{profile.name} {profile.surname}</h1>
+                {/* Not the page's H1 — PageHeader above already carries that
+                    ("Account"). This is the specific profile being viewed
+                    (which may not be the viewer's own, e.g. an admin
+                    reviewing a colleague's account), so it stays its own
+                    prominent line without claiming the page-title role. */}
+                <p className="font-display text-lg font-bold leading-tight text-ink">{profile.name} {profile.surname}</p>
                 <p className="mt-1 text-xs text-ink-muted">
                   {roleCategoryLabel}
                   {permissionLabel && (
@@ -1319,7 +1314,7 @@ export default function AccountSettingsPage() {
 
         {/* ── Contact details ───────────────────────────────────── */}
         <div>
-          <GroupLabel>Contact Details</GroupLabel>
+          <SectionLabel>Contact Details</SectionLabel>
           {/* pt-[3px] pb-[5px] on the phone/email inputs below (same 8px
               total as the display <p>'s py-1, just redistributed) nudges
               their text up ~1px — browsers vertically center text inside an
@@ -1403,7 +1398,7 @@ export default function AccountSettingsPage() {
 
         {/* ── Security & access ─────────────────────────────────── */}
         <div>
-        <GroupLabel>Security &amp; Access</GroupLabel>
+        <SectionLabel>Security &amp; Access</SectionLabel>
         <div className="card overflow-hidden divide-y divide-slate-line">
           {/* ── Change password (own account only) ──────────────── */}
           {isOwnAccount && (
@@ -1735,7 +1730,7 @@ export default function AccountSettingsPage() {
         {/* ── Preferences (own account only — nothing here for an admin viewing someone else) ── */}
         {isOwnAccount && (
         <div>
-        <GroupLabel>Preferences</GroupLabel>
+        <SectionLabel>Preferences</SectionLabel>
         <div className="card overflow-hidden divide-y divide-slate-line">
             <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
           <div className="mb-5 flex items-center gap-4">
@@ -1884,7 +1879,7 @@ export default function AccountSettingsPage() {
         {/* ── Danger zone ───────────────────────────────────────── */}
         {isOwnAccount && (
           <div>
-            <GroupLabel>Danger Zone</GroupLabel>
+            <SectionLabel>Danger Zone</SectionLabel>
             <div className="card overflow-hidden border-flagRed/30">
               <SectionRow icon={<TrashIcon className="h-5 w-5" />} title="Delete Account" danger>
                 {pendingDeletion ? (

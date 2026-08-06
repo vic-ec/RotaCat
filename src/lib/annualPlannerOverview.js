@@ -153,11 +153,11 @@ export function entriesInRange(from, to, { approvedByDate, pendingByDate }) {
   for (const date of datesInRange(from, to)) {
     for (const e of pendingByDate.get(date) || []) {
       if (!byProfile.has(e.profileId)) {
-        byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, status: 'pending', dateFrom: e.dateFrom, dateTo: e.dateTo })
+        byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, contractType: e.contractType, status: 'pending', dateFrom: e.dateFrom, dateTo: e.dateTo })
       }
     }
     for (const e of approvedByDate.get(date) || []) {
-      byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, status: 'approved', dateFrom: e.dateFrom, dateTo: e.dateTo })
+      byProfile.set(e.profileId, { profileId: e.profileId, surname: e.surname, category: e.category, contractType: e.contractType, status: 'approved', dateFrom: e.dateFrom, dateTo: e.dateTo })
     }
   }
   return [...byProfile.values()].sort((a, b) => {

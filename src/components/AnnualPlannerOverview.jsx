@@ -340,7 +340,7 @@ export default function AnnualPlannerOverview({
                         }`}>
                           {e.surname}
                         </span>
-                        <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category)}</span>
+                        <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
                       </span>
                       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'

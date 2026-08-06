@@ -167,31 +167,36 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-dvh bg-canvas">
-      {/* Sidebar — desktop */}
-      <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-accent/50 bg-canvas-raised md:flex">
-        <div className="px-5 py-6">
-          <div className="flex items-center gap-2">
+      {/* Sidebar — desktop + tablet. Tablet (md, 768-1023px) collapses to an
+          icon-only rail (labels hidden, `lg:inline`/`lg:block` gate them
+          back in at >=1024px) per docs/design/layout-spec.md §15 — nothing
+          is removed at that width, nav items keep a `title` tooltip and
+          stay fully clickable, just narrower. */}
+      <aside className="sticky top-0 hidden h-dvh w-16 flex-col border-r border-accent/50 bg-canvas-raised md:flex lg:w-60">
+        <div className="px-3 py-6 lg:px-5">
+          <div className="flex items-center justify-center gap-2 lg:justify-start">
             <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
-            <h1 className="font-serif text-2xl font-semibold text-ink"><RotaCat /></h1>
+            <h1 className="hidden font-serif text-2xl font-semibold text-ink lg:block"><RotaCat /></h1>
           </div>
           {profile && (
-            <p className="mt-3 text-center text-xs text-ink-muted">
+            <p className="mt-3 hidden text-center text-xs text-ink-muted lg:block">
               {profile.name} {profile.surname} · {subtitle}
             </p>
           )}
           {!profile?.is_approved && (
-            <p className="mt-1 text-center text-xs text-flagAmber">Pending approval</p>
+            <p className="mt-1 hidden text-center text-xs text-flagAmber lg:block">Pending approval</p>
           )}
         </div>
 
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className="flex-1 space-y-1 px-2 lg:px-3">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end ?? false}
+              title={item.label}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors ${
+                `flex items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start ${
                   isActive
                     ? 'bg-accent text-canvas-raised'
                     : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised'
@@ -204,18 +209,19 @@ export default function AppLayout() {
                   <NavBadge count={staffBadgeCount} />
                 )}
               </span>
-              {item.label}
+              <span className="hidden lg:inline">{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
-        <div className="border-t border-accent/25 p-3">
+        <div className="border-t border-accent/25 p-2 lg:p-3">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised"
+            title="Sign out"
+            className="flex w-full items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised lg:justify-start"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
-            Sign out
+            <span className="hidden lg:inline">Sign out</span>
           </button>
         </div>
       </aside>
@@ -242,7 +248,10 @@ export default function AppLayout() {
           </header>
         )}
 
-        <main className="min-w-0 flex-1 px-4 pb-6 pt-4 md:px-8 md:pb-8 md:pt-5">
+        {/* Content padding follows the spec's 32/24/16px desktop/tablet/
+            mobile scale (§15) — md (768-1023px, tablet) sits at 24px,
+            lg (>=1024px, desktop) at the original 32px. */}
+        <main className="min-w-0 flex-1 px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5 lg:px-8">
           <Outlet />
         </main>
       </div>

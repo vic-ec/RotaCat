@@ -331,6 +331,72 @@ describe('WeekendPlannerView', () => {
 
       expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
     })
+
+    it('tapping a card\'s date opens a read-only quick-glance sheet, additive to (not replacing) the card\'s own inline breakdown', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      const aug8Button = await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' })
+      await user.click(aug8Button)
+
+      // The sheet mounts as a sibling of the mobile section, not nested
+      // inside it — its own heading (an <h2>, not the card's <button>)
+      // scopes the assertions below.
+      const heading = await screen.findByRole('heading', { name: 'Sat 8 - Sun 9 Aug 2026' })
+      const sheet = heading.closest('.card')
+      // Weekend-index numbering is relative to the fetched window, which
+      // shifts as "today" moves forward — assert the parity label alone,
+      // not a specific "Wknd N" number.
+      expect(within(sheet).getByText(new RegExp(`Wknd \\d+ · ${isEvenWeekend('2026-08-08') ? 'Even' : 'Odd'}`))).toBeInTheDocument()
+      expect(within(sheet).getByText('4 of 4 groups planned')).toBeInTheDocument()
+      expect(within(sheet).getByText('Anderson')).toBeInTheDocument()
+      expect(within(sheet).getByText('Botha')).toBeInTheDocument()
+      expect(within(sheet).getByText('Cosmo')).toBeInTheDocument()
+      expect(within(sheet).getByText('Della')).toBeInTheDocument()
+      // Read-only even for an admin — no remove (x) controls in the sheet,
+      // unlike the card's own always-editable inline breakdown below it.
+      expect(within(sheet).queryByLabelText(/Remove/)).not.toBeInTheDocument()
+      expect(within(sheet).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+
+      // The card's own inline breakdown is untouched — still showing (and
+      // still editable) right where it always was.
+      const card = aug8Button.closest('.card')
+      expect(within(card).getByText('Anderson')).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Remove Anderson from 2026-08-08' })).toBeInTheDocument()
+    })
+
+    it('quick-glance sheet: shows open groups and gap count for an unplanned weekend', async () => {
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      await user.click(await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' }))
+
+      const heading = await screen.findByRole('heading', { name: 'Sat 15 - Sun 16 Aug 2026' })
+      const sheet = heading.closest('.card')
+      expect(within(sheet).getByText('4 gaps')).toBeInTheDocument()
+      expect(within(sheet).getAllByText('Open')).toHaveLength(4)
+    })
+
+    it('quick-glance sheet: closes via the close button', async () => {
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      await user.click(await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' }))
+      await screen.findByRole('heading', { name: 'Sat 8 - Sun 9 Aug 2026' })
+
+      await user.click(screen.getByLabelText('Close'))
+      expect(screen.queryByRole('heading', { name: 'Sat 8 - Sun 9 Aug 2026' })).not.toBeInTheDocument()
+    })
   })
 
   describe('desktop layout', () => {

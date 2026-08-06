@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useScrollReveal } from '../lib/useScrollReveal'
 import PageTabs from '../components/PageTabs'
 import LeaveDashboard from '../components/LeaveDashboard'
@@ -45,6 +47,20 @@ export default function LeavePlannerPage() {
   // (mobile only — see its md:hidden gating) — called unconditionally here,
   // ahead of the locum early-return, per the rules of hooks.
   const subnavVisible = useScrollReveal()
+  // Same count AppLayout's own Planners nav badge fetches (see NavBadge
+  // there), independently — this page and the app shell don't share state,
+  // so each fetches its own copy rather than introducing shared context
+  // just for one badge. Fetched once on mount; called unconditionally
+  // ahead of the locum early-return, per the rules of hooks.
+  const [pendingRequestsBadge, setPendingRequestsBadge] = useState(0)
+  useEffect(() => {
+    if (!isAdmin) { setPendingRequestsBadge(0); return }
+    let cancelled = false
+    supabase.from('leave_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').then(({ count }) => {
+      if (!cancelled) setPendingRequestsBadge(count || 0)
+    })
+    return () => { cancelled = true }
+  }, [isAdmin])
   // Clerks get read-only "all" visibility into Annual/Special too — same
   // grid every other year-planner viewer sees, they just can't submit.
   const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
@@ -75,7 +91,7 @@ export default function LeavePlannerPage() {
   const plannerTabs = [
     ...(canViewYearPlanners ? [{ key: 'annual', label: 'Annual' }, { key: 'special', label: 'Special' }] : []),
     { key: 'weekends', label: 'Weekends' },
-    ...(isAdmin || canSubmitLeave ? [{ key: 'requests', label: 'Requests' }] : []),
+    ...(isAdmin || canSubmitLeave ? [{ key: 'requests', label: 'Requests', badge: pendingRequestsBadge, badgeColor: 'red' }] : []),
     // Cumulative HR-audit view, admin-only — unlike the doctor-facing "My
     // leave" tracker (always the current calendar year), this is filterable
     // to any date range, so leave taken never becomes invisible after a

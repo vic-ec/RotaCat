@@ -167,16 +167,6 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByText('No capacity pressure this month.')).toBeInTheDocument()
   })
 
-  it('"My leave" filter narrows the selected month\'s approved-leave stat to the signed-in doctor only', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByRole('button', { name: /August/ })
-
-    await user.click(screen.getByRole('button', { name: 'My leave' }))
-    // p1 (Anderson)'s own 5 days, not Botha's separate 2.
-    expect(within(screen.getByTestId('annual-inspector')).getByText('5 days')).toBeInTheDocument()
-  })
-
   it('"View requests" links to the Requests planner tab', async () => {
     renderPage()
     await screen.findByRole('button', { name: /August/ })

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LeavePlannerPage from './LeavePlannerPage'
@@ -17,6 +17,27 @@ function renderPage() {
 let mockAuth = {}
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
+}))
+
+// Only used for the Requests tab's own pending-count badge — a plain
+// thenable builder mock (same shape as AnnualLeavePlanner.test.jsx's) so
+// that fetch resolves predictably instead of hitting the real client.
+const { mockResponses } = vi.hoisted(() => ({ mockResponses: {} }))
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from(table) {
+      let method = null
+      const builder = {
+        select() { if (!method) method = 'select'; return builder },
+        eq() { return builder },
+        then(resolve, reject) {
+          const result = mockResponses[`${table}:${method}`] || { count: 0, error: null }
+          return Promise.resolve(result).then(resolve, reject)
+        },
+      }
+      return builder
+    },
+  },
 }))
 
 vi.mock('../components/LeaveDashboard', () => ({ default: () => <div>MyLeaveStub</div> }))
@@ -47,6 +68,10 @@ vi.mock('../components/InternRotationsPlanner', () => ({ default: () => <div>Int
 vi.mock('../components/LeaveRulesPage', () => ({ default: () => <div>RulesStub</div> }))
 
 describe('LeavePlannerPage', () => {
+  beforeEach(() => {
+    for (const key of Object.keys(mockResponses)) delete mockResponses[key]
+  })
+
   it('locum: redirected away, nothing rendered', () => {
     mockAuth = { isLocum: true, isAdmin: false, canSubmitLeave: false }
     const { container } = renderPage()
@@ -83,6 +108,26 @@ describe('LeavePlannerPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Audit' }))
     expect(screen.getByText('AuditStub')).toBeInTheDocument()
+  })
+
+  it('admin: the Requests sub-tab shows a red badge with the pending-leave-request count', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    mockResponses['leave_requests:select'] = { count: 4, error: null }
+    renderPage()
+
+    const requestsTab = await screen.findByRole('button', { name: /Requests/ })
+    expect(within(requestsTab).getByText('4')).toBeInTheDocument()
+    expect(within(requestsTab).getByText('4')).toHaveClass('bg-flagRed')
+  })
+
+  it('doctor: the Requests sub-tab (their own history, not the approval queue) never shows the admin badge', async () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
+    mockResponses['leave_requests:select'] = { count: 4, error: null }
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
+    const requestsTab = screen.getByRole('button', { name: 'Requests' })
+    expect(within(requestsTab).queryByText('4')).not.toBeInTheDocument()
   })
 
   it('doctor: does not see the admin-only Audit tab', async () => {

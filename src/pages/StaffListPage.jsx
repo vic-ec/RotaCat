@@ -834,7 +834,7 @@ export default function StaffListPage() {
           <PageTabs
             tabs={[
               { key: 'accounts', label: 'All Staff' },
-              { key: 'pending', label: 'Pending Approvals', badge: pending.length },
+              { key: 'pending', label: 'Pending Approvals', badge: pending.length, badgeColor: 'red' },
               { key: 'requests', label: 'User Requests', badge: accountRequests.length },
             ]}
             active={tab}

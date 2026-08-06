@@ -4,7 +4,11 @@
 // underline plus bold text; inactive tabs sit flush against the shared
 // bottom border. Scrolls horizontally instead of wrapping if the row
 // doesn't fit, and each tab can carry an optional numeric badge (e.g. a
-// pending-count) rendered as a small pill after its label.
+// pending-count) rendered as a small pill after its label. Badge colour
+// defaults to the brand accent; pass `badgeColor: 'red'` for a count that
+// specifically needs admin attention/review (matching the bottom-nav
+// badge's own red — see NavBadge in AppLayout.jsx) rather than a routine
+// informational count.
 //
 // `size="sub"` is the smaller nested-tab variant (Leave Planner's own
 // Planners sub-tabs) — same mechanics, lighter weight/size.
@@ -28,7 +32,9 @@ export default function PageTabs({ tabs, active, onChange, ariaLabel, size = 'de
         >
           {t.label}
           {t.badge > 0 && (
-            <span className="flex h-4 min-w-[16px] flex-shrink-0 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
+            <span className={`flex h-4 min-w-[16px] flex-shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white ${
+              t.badgeColor === 'red' ? 'bg-flagRed' : 'bg-accent'
+            }`}>
               {t.badge}
             </span>
           )}

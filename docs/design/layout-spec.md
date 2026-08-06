@@ -6,6 +6,20 @@ Purpose: a single reference for building new pages and refactoring existing ones
 
 ---
 
+## Implementation notes (deviations from the v1.0 tokens below)
+
+Recorded during the Phase 1 audit / Phase 2 plan, before Phase 3 build-out. Where the app's existing, already-tuned values conflict with §1's literal numbers, the app's values won — introduced net-new here would mean either a much larger app-wide visual change than a 3-page layout pass, or a redundant second "standard" living next to the one already shipped everywhere.
+
+- **Spacing**: no separate `--space-*` scale was added — Tailwind's default spacing scale (`1`=4px, `2`=8px, `4`=16px, `6`=24px, `8`=32px) already covers §1's xs/sm/md/lg/xl exactly, so it *is* the token system. "Never hardcode a value" means "use the Tailwind spacing utility," not "invent a parallel named scale."
+- **Sidebar width**: 240px (`w-60`, AppLayout's existing sidebar), not 190px — the current width is already fitted to the nav's icons/labels/badges; shrinking it is a separate, app-wide visual decision outside this pass. Tokenized as `w-sidebar`/`spacing.sidebar` in `tailwind.config.js` at 240px (15rem).
+- **Radius**: kept at the app's existing `rounded` (8px) / `rounded-lg` (12px), not shrunk to the spec's 6px/10px — those two values are already used on effectively every button, input, tag, and card in the app, so changing them is an app-wide restyle, not a 3-page one.
+- **Content max-width**: two tiers instead of one flat 1120px — `max-w-2xl` (672px) for list/detail/form pages (Roster, Account, Staff's Pending Approvals/User Requests), `max-w-7xl` (1280px) for the Staff data table, which needs the extra width for its columns. 1120px sat awkwardly between both and fit neither.
+- **Role/category tag color**: reuses the app's existing neutral `bg-canvas-sunken text-ink-muted` pairing (already used for the Locum/Clerk badges) rather than introducing the spec's `#EEF1F6`/`#3A4560` as new hex values — one neutral pairing, not two near-identical ones.
+- **Typography**: added as opt-in Tailwind `fontSize` tokens (`text-h1`, `text-h2`, `text-section-label`, `text-body`, `text-meta`) for the new shared components to build on — additive, nothing existing was switched over automatically. `--font-body`'s 14px already matches the app's existing `text-sm` body-copy convention, so no separate value was needed there.
+- **Breakpoints**: Tailwind's default `md` (768px) / `lg` (1024px) already match the spec's tablet/desktop split exactly, spelled out explicitly in `tailwind.config.js`'s `screens` for clarity rather than left implicit.
+
+---
+
 ## 1. Design tokens
 
 Define these once (CSS variables / theme file) and reference everywhere — never hardcode values in a page component.

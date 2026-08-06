@@ -1,0 +1,332 @@
+# RotaCat — Page Layout Specification
+
+Version 1.0 — derived from review of Account, Staff (Pending Approvals), and Roster pages.
+
+Purpose: a single reference for building new pages and refactoring existing ones so headers, toolbars, lists, tags, and forms behave and look identical everywhere.
+
+---
+
+## 1. Design tokens
+
+Define these once (CSS variables / theme file) and reference everywhere — never hardcode values in a page component.
+
+```css
+:root {
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Layout */
+  --sidebar-width: 190px;
+  --content-max-width: 1120px;   /* prevents sparse pages like Roster from over-stretching */
+  --content-padding-x: 32px;
+  --content-padding-top: 32px;
+
+  /* Breakpoints */
+  --bp-mobile-max: 599px;   /* phones */
+  --bp-tablet-max: 1023px;  /* tablets / small laptops */
+  /* Desktop = >= 1024px, the layouts already reviewed */
+
+  /* Radius */
+  --radius-sm: 6px;   /* buttons, tags, inputs */
+  --radius-md: 10px;  /* cards, rows, panels */
+
+  /* Typography */
+  --font-h1: 600 26px/1.3 var(--font-family);
+  --font-h2: 600 15px/1.4 var(--font-family);       /* section labels use this at smaller size, see below */
+  --font-section-label: 600 11px/1.4 var(--font-family); /* all-caps, letter-spacing 0.04em */
+  --font-body: 400 14px/1.5 var(--font-family);
+  --font-meta: 400 12px/1.4 var(--font-family);      /* timestamps, subtext */
+
+  /* Color — role vs status kept in separate palettes */
+  --color-role-bg: #EEF1F6;   --color-role-text: #3A4560;      /* neutral, used for role/category tags */
+  --color-status-success-bg: #E3F5EC; --color-status-success-text: #1E8A5A; /* Published / Approved */
+  --color-status-warning-bg: #FDF3E1; --color-status-warning-text: #B5790C; /* Draft / Pending */
+  --color-status-danger-bg:  #FCEAEA; --color-status-danger-text:  #C23B3B; /* Rejected / Delete */
+
+  --color-border: #E7E9EE;
+  --color-text-primary: #1A1D24;
+  --color-text-secondary: #6B7280;
+  --color-accent: #1E8A73; /* RotaCat teal */
+}
+```
+
+**Rule:** role/category tags (e.g. "Registrar", "Consultant") always use the neutral role palette. Status tags (e.g. "Published", "Draft", "Pending") always use the semantic success/warning/danger palette. Never reuse green for both — this was the bug found on the current Staff and Roster pages.
+
+---
+
+## 2. Page shell (applies to every page)
+
+```
+┌─────────────┬──────────────────────────────────────────────┐
+│             │  PageHeader                                   │
+│   Sidebar   │  Breadcrumb (optional)                        │
+│  (fixed,    │  Toolbar (optional: search / sort / filter)   │
+│  190px)     │  Section label + content list/grid/form       │
+│             │                                                │
+└─────────────┴──────────────────────────────────────────────┘
+```
+
+- Content column max-width: `1120px`, left-aligned with `32px` padding — do not let single-column lists stretch full-bleed on wide monitors (this is what makes Roster look sparse). If a page has few items, either cap the column width or switch to a card/grid layout (see §7).
+- Vertical rhythm between header → breadcrumb → toolbar → content: `24px` each.
+
+---
+
+## 3. Component: PageHeader
+
+Every page gets exactly one, at the very top of the content column.
+
+| Slot | Rule |
+|---|---|
+| Title (H1) | Always present. Plain text, no icon. e.g. "Rosters", "Staff", "Account" |
+| Primary action button | Top-right, only if the page has one clear primary create/add action (e.g. "Create roster"). Omit entirely rather than adding a decorative one. |
+| Count badge | Optional, inline next to title or on a tab (e.g. "Pending Approvals ①") — reserved for items needing attention, not general counts |
+
+**Fix required:** Account and Pending Approvals currently have no H1 — add "Account" and "Staff" respectively.
+
+---
+
+## 4. Component: Breadcrumb
+
+Use only when it adds navigation info not already available from tabs or the sidebar.
+
+- Style: `← Label` in `--color-text-secondary`, `14px`, sits directly under the H1 (or under tabs if tabs exist).
+- **Do not** show a breadcrumb that duplicates an active tab (current bug: "← All staff" under the "All Staff" tab on Pending Approvals — remove).
+- **Do not** show "← Staff" on the Account page — Account is a top-level destination, not a drill-down from Staff.
+- Valid use case: drilling into a specific record, e.g. `Roster > August 2026 > Shift #12`.
+
+---
+
+## 5. Component: Toolbar
+
+Fixed left-to-right order, used identically on every list page:
+
+```
+[ Search input ] [ Sort ▾ ] [ Filter ▾ ] [ × Clear (conditional) ]
+```
+
+| Element | Spec |
+|---|---|
+| Search input | Fixed width **320px** on desktop. Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
+| Sort | Include on every list with more than ~5 items and a meaningful order (name, date, status). Add to Roster (currently missing). |
+| Filter | Opens a dropdown/panel of filter chips. |
+| Clear (×) | **Only rendered when a search term or filter is active.** Currently always visible on Pending Approvals with nothing to clear — hide by default. |
+| Active filter chips | Render below the toolbar as removable pills when filters are applied. |
+
+---
+
+## 6. Component: Section label
+
+Use to group related items within a page (Drafts vs Published, Contact Details vs Security).
+
+```
+DRAFTS (2)                                    ← --font-section-label, all-caps, --color-text-secondary
+┌──────────────────────────────────────────┐
+│ row                                       │
+│ row                                       │
+└──────────────────────────────────────────┘
+```
+
+- Replace Roster's current bare checkbox-and-label row with this styled label (borrowed from Account's CONTACT DETAILS / SECURITY & ACCESS pattern).
+- Optional leading checkbox only if bulk "select all in group" is a real feature — otherwise drop it from the label row and keep checkboxes only on individual rows.
+
+---
+
+## 7. Component: List row
+
+Two accepted row variants — pick one per data type, never mix within the same list.
+
+**Variant A — Identity row** (people): checkbox → avatar → name → role tag → meta subtext → actions, right-aligned.
+**Variant B — Record row** (rosters, documents): checkbox → title → subtitle/date → status tag → chevron, right-aligned.
+
+| Property | Spec |
+|---|---|
+| Row height | 56px minimum, consistent across all lists |
+| Padding | 16px horizontal |
+| Hover state | Light background tint (`#F7F8FA`), applies to every list row app-wide |
+| Selected state | `--color-accent` tinted background + border, same on every list |
+| Trailing icon | `>` chevron = navigates to a new screen/panel. Never mix with `˅` (expand) inside the same row type. |
+| Row-level actions | Max 2–3 icon buttons; always include a `title` tooltip. If clicking the row already opens detail, drop a redundant standalone "view" icon (currently duplicated on Pending Approvals). |
+
+**Empty state:** every list needs one — icon/illustration + one-line message + primary action if applicable (e.g. no rosters yet → "Create roster" button inline).
+
+---
+
+## 8. Component: Bulk action toolbar
+
+Appears in place of (or pinned above) the section label the moment ≥1 row is checked. Same position and styling everywhere "select all" exists.
+
+```
+3 selected     [ Approve ]  [ Reject ]  [ Cancel ]
+```
+
+- Left: live count of selected items.
+- Right: contextual actions relevant to that list (Approve/Reject for approvals, Archive/Delete for rosters).
+- Always include a "Cancel selection" affordance.
+
+---
+
+## 9. Component: Tag / Pill
+
+| Type | Palette | Examples |
+|---|---|---|
+| Role / category tag | Neutral (`--color-role-*`) | Registrar, Consultant, Nurse |
+| Status tag | Semantic (`--color-status-*`) | Draft (warning), Published (success), Pending (warning), Rejected (danger) |
+
+Shape: `--radius-sm`, `4px 10px` padding, `12px` medium-weight text, no border.
+
+---
+
+## 10. Component: Settings-style grouped list (Account page pattern)
+
+Reusable for any "list of expandable/navigable settings" page:
+
+```
+SECTION LABEL
+┌───────────────────────────────────────────┐
+│ 🔒  Change password                     ˅  │
+│ 🛡  Roles & Permissions                  ˅  │
+└───────────────────────────────────────────┘
+```
+
+- Icon (left) + label + trailing indicator (right).
+- **Trailing indicator rule:** `˅` = expands inline in place; `>` = navigates to a new screen or opens a modal. Audit every row on Account and correct — several currently use `˅` but likely navigate.
+- "Danger Zone" treatment (tinted red border/background) is reserved for destructive-action groups only — reuse this exact style anywhere else a destructive action exists (e.g. deleting a roster, removing a staff member).
+
+---
+
+## 11. Component: Form / Modal (for future build-out)
+
+Standardize now before more forms get built:
+
+| Property | Spec |
+|---|---|
+| Max width | 520px, centered if modal; single column always |
+| Label position | Above input, `--font-meta` weight 600 |
+| Field spacing | 16px vertical between fields |
+| Footer | Right-aligned, secondary button ("Cancel") then primary button, 8px gap |
+| Validation | Inline below field, red text, no color-only signaling (add icon too) |
+
+---
+
+## 12. Component: Master–detail panel (recommended new pattern)
+
+For Staff and Roster, replace full navigation to a new page with a right-hand slide-in panel (40% width, min 420px) when a row is clicked:
+
+- Keeps list context visible while reviewing a record.
+- Gives Pending Approvals a natural home for the "preview" action without a dedicated eye icon — clicking the row opens the panel.
+- Panel gets its own mini-header (name/title + close ×) but does not duplicate the page's PageHeader.
+
+---
+
+## 13. Page-to-template mapping
+
+| Page | Template | Fixes to apply |
+|---|---|---|
+| Account | Settings-style grouped list (§10) | Add H1 "Account"; remove "← Staff" breadcrumb; fix chevron vs pencil consistency; add phone verification badge |
+| Staff → Pending Approvals | List page w/ tabs (§3–§9) | Add H1 "Staff"; remove redundant breadcrumb; widen search to 320px; hide Clear button when idle; neutral-color the role tag; add tooltips to action icons; consider dropping standalone "view" icon in favor of row-click → detail panel |
+| Roster | List page w/ tabs (§3–§9) + consider grid variant | Apply section-label styling to Drafts/Published; add Sort control; cap content width or switch to card grid (§14) to remove excess whitespace; add Sort |
+
+---
+
+## 14. Optional structural upgrades
+
+- **Roster as a card grid** instead of single-column list once space feels sparse: 2–3 columns, each card showing month, status tag, and a mini-stat line (e.g. "18 shifts · 12 staff · edited 2 days ago").
+- **Dashboard as a real landing page**: surface "Pending approvals (1)", "Drafts awaiting publish (2)" as jump-link cards rather than requiring the admin to check each section manually.
+- **Consistent "needs attention" badge language**: the red numeric badge used on Staff should be the one and only pattern used anywhere something needs action (Roster drafts, Planners, etc.).
+- **Shared `<PageHeader>` and `<Toolbar>` components**: enforce this spec in code by extracting these as components used by every page, rather than re-implemented per page — this is what caused the current drift between pages.
+
+---
+
+## 15. Responsive / mobile layout
+
+All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Every shared component must also define tablet and mobile behavior — do not treat mobile as an afterthought bolted on later.
+
+### Breakpoints
+
+| Range | Target | Behavior |
+|---|---|---|
+| >=1024px | Desktop | Current layouts, unchanged |
+| 768-1023px | Tablet | Sidebar collapses to an icon-only rail (no labels); content padding drops to 24px; toolbar stays one row if it fits, search width may shrink to ~240px |
+| <768px | Mobile | Full mobile pattern described below |
+
+### Navigation
+
+- Sidebar is replaced below 768px by a **top app bar**: logo mark + hamburger icon (left) + avatar (right), fixed height 56px.
+- Hamburger opens a **full-height slide-in drawer** reusing the existing sidebar's nav list (same items, badges, and order) rather than building a second nav component — this keeps Dashboard/Roster/Staff/Planners/Account/Settings/Sign out consistent between breakpoints.
+- Do not switch to a bottom tab bar unless explicitly requested later — with 6 nav items plus badges, a drawer is more consistent with the current information density than trying to compress everything into 4-5 bottom icons.
+- Badge counts (e.g. Staff's red "1") carry over unchanged inside the drawer.
+
+### PageHeader (mobile)
+
+- H1 font size drops to ~20-22px.
+- Primary action button (e.g. "Create roster"): if the label + icon no longer fits comfortably next to the H1, collapse to an icon-only button in the header, or promote it to a fixed bottom-right floating action button (FAB). Pick one pattern and use it for every page with a primary action — don't mix.
+
+### Breadcrumb (mobile)
+
+- Same rules as desktop (§4) — only show when it adds information tabs/nav don't already provide. Truncate long labels with ellipsis rather than wrapping.
+
+### Tabs (mobile)
+
+- Convert to a horizontally scrollable, non-wrapping tab strip (e.g. All Staff / Pending Approvals / User Requests). Never wrap tabs onto a second line.
+
+### Toolbar (mobile)
+
+- Search input becomes full-width on its own row.
+- Sort and Filter collapse into a single **"Filters"** button below the search row, which opens a bottom sheet containing both sort options and filter chips — don't keep three separate controls competing for a narrow row.
+- Clear button: same conditional rule as desktop (§5), shown inside the bottom sheet and/or as a small "Clear all" text action once something is active.
+
+### List rows (mobile)
+
+- Variant A (identity rows, e.g. Staff): stack avatar + name + role tag on the first line, meta subtext on the line below. Replace the 2-3 separate inline action icons with a single overflow (kebab) menu, or support swipe-to-approve/swipe-to-reject gestures if the codebase already has a swipe-action pattern — do not cram 3 icon buttons into a narrow row.
+- Variant B (record rows, e.g. Roster): title + subtitle already stack vertically, so this variant mostly just needs full-width rows; if the status pill no longer fits beside the title on very narrow screens, drop it onto its own line below the title rather than truncating it.
+- Row minimum height increases to accommodate a 44x44px minimum touch target per interactive element (checkbox, action icon, chevron) — this applies to every tappable element app-wide, not just list rows.
+
+### Bulk selection & bulk action bar (mobile)
+
+- Hide row checkboxes by default; add a "Select" toggle in the toolbar/header that reveals them (avoids cluttering already-tight rows).
+- When items are selected, the bulk action bar (§8) becomes a **sticky bar fixed to the bottom of the viewport** (thumb-reachable) instead of replacing the section label inline.
+
+### Section labels & grouped lists (mobile)
+
+- Same styling as desktop (§6, §10). If a page has many groups/rows, make each section collapsible (accordion) to manage scroll length — optional, only add if a page's mobile scroll becomes unreasonably long.
+
+### Forms / modals (mobile)
+
+- Centered 520px modals (§11) become **full-screen sheets** below 768px: header with title + close (×), scrollable body, and a sticky footer with Cancel/Primary buttons — never show a small centered dialog on a phone-width screen.
+
+### Master-detail panel (mobile)
+
+- The optional split-pane pattern in §12 has no room on mobile. Below 768px it always collapses to single-column: tapping a row navigates to a full-screen detail view with a back button, regardless of what happens on desktop.
+
+### Typography & spacing scale (mobile)
+
+- Content padding: 32px (desktop) -> 24px (tablet) -> 16px (mobile).
+- Body text stays 14-16px (don't shrink below 14px for legibility).
+- All touch targets >=44x44px (iOS HIG / Material guidance), including checkboxes, tag chips if tappable, and chevrons.
+
+---
+
+## Quick build checklist
+
+- [ ] Extract `PageHeader`, `Breadcrumb`, `Toolbar`, `SectionLabel`, `ListRow`, `Tag`, `BulkActionBar` as shared components
+- [ ] Move all spacing/color/radius values into the token file above
+- [ ] Add missing H1s to Account and Staff
+- [ ] Remove redundant/incorrect breadcrumbs
+- [ ] Standardize search input to 320px with descriptive placeholders everywhere
+- [ ] Hide Clear button until a filter/search is active
+- [ ] Split role-tag and status-tag color palettes
+- [ ] Audit every `˅` vs `>` usage against the rule in §7/§10
+- [ ] Add Sort to Roster
+- [ ] Decide on master-detail panel vs. full navigation and apply consistently
+- [ ] Define breakpoints (1024px / 768px) in the token file
+- [ ] Build mobile top app bar + nav drawer reusing existing sidebar nav list
+- [ ] Make tabs horizontally scrollable on mobile
+- [ ] Collapse Sort/Filter into a single mobile "Filters" bottom sheet
+- [ ] Convert list row actions to overflow menu (or swipe actions) on mobile
+- [ ] Make bulk action bar sticky-bottom on mobile
+- [ ] Convert modals to full-screen sheets below 768px
+- [ ] Ensure all interactive elements meet 44x44px touch target minimum

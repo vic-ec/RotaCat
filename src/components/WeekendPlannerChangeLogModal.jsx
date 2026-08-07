@@ -95,7 +95,6 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   }
 
   const filtersActive = Object.values(filters).some(Boolean)
-  const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.categoryGroup].filter(Boolean).length
   const nameById = nameMapFromProfiles(profilesById)
 
   return (
@@ -167,7 +166,6 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
               value: filters.categoryGroup,
               onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
             }}
-            activeCount={activeCount}
           />
           {filtersActive && (
             <button type="button" className="text-sm text-accent hover:underline" onClick={() => setFilters(EMPTY_FILTERS)}>

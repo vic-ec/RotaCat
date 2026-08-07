@@ -6,7 +6,7 @@ import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileA
 import ClearableInput from '../components/ClearableInput'
 import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
-import Toolbar from '../components/Toolbar'
+import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import FilterPanel from '../components/FilterPanel'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
@@ -338,24 +338,22 @@ export default function StaffListPage() {
     try { localStorage.setItem(SORT_MODE_KEY, sortMode) } catch { /* ignore */ }
   }, [sortMode])
 
-  // A-Z sort direction — its own small popover (ascending/descending) opened
-  // from the "A–Z" toggle instead of switching straight to that mode.
+  // A-Z sort direction — folded into the same flat Sort facet as
+  // category/role (see sortFacetOptions below) rather than its own
+  // cascading secondary popover.
   const [azDirection, setAzDirection] = useState(() => {
     try { return localStorage.getItem(AZ_DIRECTION_KEY) || 'asc' } catch { return 'asc' }
   })
   useEffect(() => {
     try { localStorage.setItem(AZ_DIRECTION_KEY, azDirection) } catch { /* ignore */ }
   }, [azDirection])
-  const [sortDirectionAnchor, setSortDirectionAnchor] = useState(null)
-  const sortDirectionMenuRef = useRef(null)
 
   // ── Selector switch: Search / Quick Sort / Filter ──
   // One shared set of state/popovers for both breakpoints — mobile and
   // desktop each render their own copy of the trigger buttons (shown/hidden
   // via CSS, not conditional rendering, so both exist in the DOM at once,
   // but only one is ever visible/interactive). Quick Sort reads/writes the
-  // same sortMode/azDirection state used by buildGroups() and reuses the
-  // A–Z direction popover as its own cascading secondary; Filter reads/
+  // same sortMode/azDirection state used by buildGroups(); Filter reads/
   // writes the same accountFilters state the grid itself filters on.
   // Only the Search wrapper needs its own ref per breakpoint, since a
   // single ref can't track two simultaneously-mounted DOM nodes.
@@ -364,24 +362,23 @@ export default function StaffListPage() {
   const mobileSearchWrapRef = useRef(null)
   useDismissablePopover(searchOpen, () => setSearchOpen(false), searchWrapRef, [mobileSearchWrapRef])
 
-  const [desktopSortOpen, setDesktopSortOpen] = useState(false)
-  const [desktopSortAnchor, setDesktopSortAnchor] = useState(null)
-  const desktopSortMenuRef = useRef(null)
-  useDismissablePopover(desktopSortOpen, () => closeDesktopSort(), desktopSortMenuRef, [sortDirectionMenuRef])
-  // Exclude the desktop Quick Sort popover too, so clicking a different row
-  // there while the direction popover happens to be open doesn't get
-  // swallowed as an "outside" click on the direction popover first.
-  useDismissablePopover(!!sortDirectionAnchor, () => setSortDirectionAnchor(null), sortDirectionMenuRef, [desktopSortMenuRef])
+  // Single flat Sort facet — category/role select the mode directly, the
+  // two A–Z options fold direction into the same list instead of a nested
+  // secondary popover (ToolbarFacet, same shape as every other quick-select
+  // pill in the app).
+  const sortFacetValue = sortMode === 'az' ? (azDirection === 'desc' ? 'az_desc' : 'az_asc') : sortMode
+  const sortFacetOptions = [
+    { value: 'category', label: 'Category' },
+    { value: 'role', label: 'Role' },
+    { value: 'az_asc', label: 'A–Z ascending' },
+    { value: 'az_desc', label: 'Z–A descending' },
+  ]
+  function handleSortFacetChange(value) {
+    if (value === 'az_asc') { setSortMode('az'); setAzDirection('asc') }
+    else if (value === 'az_desc') { setSortMode('az'); setAzDirection('desc') }
+    else setSortMode(value)
+  }
 
-  function openDesktopSort(anchorEl) {
-    setDesktopSortAnchor(anchorEl.getBoundingClientRect())
-    setDesktopSortOpen(true)
-  }
-  function closeDesktopSort() {
-    setDesktopSortOpen(false)
-    setDesktopSortAnchor(null)
-    setSortDirectionAnchor(null)
-  }
   // Per-dimension setter for the Filter panel — each group's onChange gets
   // its own setter bound to that dimension's key, rather than the panel
   // needing to know accountFilters' shape.
@@ -896,11 +893,12 @@ export default function StaffListPage() {
 
         {tab === 'accounts' && (
           <>
-            {/* Mobile toolbar — Search hugs to fill the remaining width,
-                Sort/Filter/Clear-all are fixed-size icon-only buttons
-                pinned to the right. Shares state/popovers with the desktop
-                toolbar below (only the visible copy is ever interactive),
-                so picking anything here behaves identically. */}
+            {/* Mobile toolbar — Search hugs to fill the remaining width;
+                Sort/Filter show icon + label (ToolbarFacet/FilterPanel),
+                Clear-all is icon-only, all pinned to the right. Shares
+                state/popovers with the desktop toolbar below (only the
+                visible copy is ever interactive), so picking anything here
+                behaves identically. */}
             <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
               <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
                 {searchOpen ? (
@@ -929,20 +927,14 @@ export default function StaffListPage() {
                 )}
               </div>
 
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                aria-label="Quick Sort"
-                title="Quick Sort"
-                className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4" />
-              </button>
+              <ToolbarFacet
+                icon={<ZapIcon className="h-4 w-4" />}
+                label="Sort"
+                value={sortFacetValue}
+                onChange={handleSortFacetChange}
+                options={sortFacetOptions}
+                isActive={sortMode !== 'category'}
+              />
 
               <FilterPanel groups={filterGroups} />
 
@@ -993,19 +985,14 @@ export default function StaffListPage() {
                 )}
               </div>
 
-              <button
-                onClick={e => openDesktopSort(e.currentTarget)}
-                aria-haspopup="menu"
-                aria-expanded={desktopSortOpen}
-                className={`flex h-[30px] w-24 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
-                  desktopSortOpen
-                    ? 'bg-accent text-white'
-                    : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                }`}
-              >
-                <ZapIcon className="h-4 w-4 flex-shrink-0" />
-                Sort
-              </button>
+              <ToolbarFacet
+                icon={<ZapIcon className="h-4 w-4" />}
+                label="Sort"
+                value={sortFacetValue}
+                onChange={handleSortFacetChange}
+                options={sortFacetOptions}
+                isActive={sortMode !== 'category'}
+              />
 
               <FilterPanel groups={filterGroups} />
 
@@ -1583,75 +1570,6 @@ export default function StaffListPage() {
         </div>
       )}
 
-      {/* ── A–Z sort direction popover ──────────────────────── */}
-      {sortDirectionAnchor && (() => {
-        const menuWidth = 160
-        const positionStyle = computeAnchoredPosition(sortDirectionAnchor, menuWidth)
-        function pick(direction) {
-          setSortMode('az')
-          setAzDirection(direction)
-          setSortDirectionAnchor(null)
-          setDesktopSortOpen(false)
-        }
-        return (
-          <div
-            ref={sortDirectionMenuRef}
-            role="menu"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
-          >
-            <QuickActionRow
-              label="A–Z ascending"
-              expanded={sortMode === 'az' && azDirection === 'asc'}
-              onClick={() => pick('asc')}
-            />
-            <QuickActionRow
-              label="Z–A descending"
-              expanded={sortMode === 'az' && azDirection === 'desc'}
-              onClick={() => pick('desc')}
-            />
-          </div>
-        )
-      })()}
-
-      {/* ── Desktop Quick Sort popover (primary) — Category/Role select
-           instantly and close, same as the mobile pills; A–Z instead opens
-           the direction popover above as a secondary cascading on top,
-           leaving this primary menu open behind it. ── */}
-      {desktopSortOpen && desktopSortAnchor && (() => {
-        const menuWidth = 200
-        const positionStyle = computeAnchoredPosition(desktopSortAnchor, menuWidth)
-        const isDesc = sortMode === 'az' && azDirection === 'desc'
-        return (
-          <div
-            ref={desktopSortMenuRef}
-            role="menu"
-            style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
-          >
-            <QuickActionRow
-              icon={<CategoryIcon className="h-5 w-5" />}
-              label="Category"
-              expanded={sortMode === 'category'}
-              onClick={() => { setSortMode('category'); closeDesktopSort() }}
-            />
-            <QuickActionRow
-              icon={<RoleIcon className="h-5 w-5" />}
-              label="Role"
-              expanded={sortMode === 'role'}
-              onClick={() => { setSortMode('role'); closeDesktopSort() }}
-            />
-            <QuickActionRow
-              icon={<AZIcon flipped={isDesc} className="h-5 w-5" />}
-              label={isDesc ? 'Z–A' : 'A–Z'}
-              expandable
-              expanded={!!sortDirectionAnchor}
-              onClick={e => { setSortMode('az'); setSortDirectionAnchor(e.currentTarget.getBoundingClientRect()) }}
-            />
-          </div>
-        )
-      })()}
-
       {/* ── Per-row quick-action popover — shared by both the mobile and
            desktop kebab triggers, visible to any canContact viewer (admin,
            clerk, locum, or MO/Registrar doctor). iOS Contacts-style:
@@ -1845,41 +1763,6 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
-    </svg>
-  )
-}
-
-// Price-tag shape — the "group by category" sort icon.
-function CategoryIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11.5 3H5a2 2 0 00-2 2v6.5a2 2 0 00.586 1.414l8.5 8.5a2 2 0 002.828 0l6.086-6.086a2 2 0 000-2.828l-8.5-8.5A2 2 0 0011.5 3z" />
-      <circle cx="8" cy="8" r="1.3" />
-    </svg>
-  )
-}
-
-// Same two-person mark as the bottom-nav Staff icon — the "group by role" sort icon.
-function RoleIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <circle cx="9" cy="8" r="3" />
-      <path strokeLinecap="round" d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 8a3 3 0 100-6M16.5 14c2.5.2 4.5 2.6 4.5 6" />
-    </svg>
-  )
-}
-
-// Small boxed "A/Z" mark — the alphabetical sort icon (flips to Z/A via `flipped`).
-function AZIcon({ flipped, ...props }) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3" y="3" width="18" height="18" rx="4" />
-      <text x="12" y="10.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
-        {flipped ? 'Z' : 'A'}
-      </text>
-      <text x="12" y="19" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">
-        {flipped ? 'A' : 'Z'}
-      </text>
     </svg>
   )
 }

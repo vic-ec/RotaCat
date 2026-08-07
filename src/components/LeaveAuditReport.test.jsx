@@ -35,15 +35,10 @@ const LEAVE_REQUESTS = [
   { id: 'r3', profile_id: 'p1', leave_type: 'study', date_from: '2026-04-01', date_to: '2026-04-02', status: 'approved' },
 ]
 
-async function openFilters(user) {
-  await user.click(screen.getByRole('button', { name: 'Filters' }))
-}
-
-// Opens the primary Filter popover and then the given dimension's cascading
-// options flyout (e.g. "Category", "Doctor", "Status", "Leave type").
-async function openFilterDimension(user, dimensionLabel) {
-  await openFilters(user)
-  await user.click(screen.getByRole('button', { name: new RegExp(`^${dimensionLabel} ·`) }))
+// Opens one dimension's own quick-select facet popover (Category/Doctor/
+// Status/Leave type each render as an independent ToolbarFacet pill).
+async function openFacet(user, label) {
+  await user.click(screen.getByRole('button', { name: label }))
 }
 
 describe('LeaveAuditReport (admin HR-audit view)', () => {
@@ -73,19 +68,19 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(rows[2]).queryByText('Other')).not.toBeInTheDocument()
   })
 
-  it('filter controls are tucked behind a Filter button, not shown by default', async () => {
+  it('facet option lists are not shown until their pill is opened', async () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
     expect(screen.queryByText('All categories')).not.toBeInTheDocument()
     expect(screen.queryByText('All doctors')).not.toBeInTheDocument()
   })
 
-  it('narrows the table when a category filter is applied, via the Filter panel', async () => {
+  it('narrows the table when a category filter is applied, via the Category facet', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilterDimension(user, 'Category')
+    await openFacet(user, 'Category')
     await user.click(await screen.findByRole('button', { name: 'MO' }))
 
     expect(screen.getByText('Zephyr, Ada')).toBeInTheDocument()
@@ -98,7 +93,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilterDimension(user, 'Status')
+    await openFacet(user, 'Status')
     await user.click(await screen.findByRole('button', { name: 'Inactive' }))
 
     expect(screen.getByText('Consult, Cy')).toBeInTheDocument()
@@ -113,7 +108,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     // Ada has 5 annual + 2 study (special) days = 7 total before filtering
     expect(within(rows.find(r => within(r).queryByText('Zephyr, Ada'))).getByText('7')).toBeInTheDocument()
 
-    await openFilterDimension(user, 'Leave type')
+    await openFacet(user, 'Leave type')
     await user.click(await screen.findByRole('button', { name: 'Study leave' }))
 
     const filteredRows = screen.getAllByRole('row')
@@ -123,15 +118,17 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(adaRow).getAllByText('0')).toHaveLength(2) // annual + sick buckets
   })
 
-  it('shows an active-filter count badge and clears filters', async () => {
+  it('shows a Clear filters link once a filter is active, and clears it', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilterDimension(user, 'Category')
+    expect(screen.queryByText('Clear filters')).not.toBeInTheDocument()
+
+    await openFacet(user, 'Category')
     await user.click(await screen.findByRole('button', { name: 'MO' }))
 
-    expect(screen.getByRole('button', { name: 'Filters' })).toHaveTextContent('1')
+    expect(screen.queryByText('Adams, Bo')).not.toBeInTheDocument()
     await user.click(screen.getByText('Clear filters'))
     expect(screen.getByText('Adams, Bo')).toBeInTheDocument() // Registrar is back
   })
@@ -141,7 +138,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFilterDimension(user, 'Doctor')
+    await openFacet(user, 'Doctor')
     await user.click(await screen.findByRole('button', { name: 'Zephyr, Ada' }))
 
     expect(await screen.findByText('Individual requests in range')).toBeInTheDocument()

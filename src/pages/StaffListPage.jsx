@@ -943,7 +943,7 @@ export default function StaffListPage() {
                   onClick={clearAllFilters}
                   aria-label="Clear all filters"
                   title="Clear all filters"
-                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
                 >
                   <CircleX className="h-4 w-4" />
                 </button>
@@ -1001,7 +1001,7 @@ export default function StaffListPage() {
                   onClick={clearAllFilters}
                   aria-label="Clear all filters"
                   title="Clear all filters"
-                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
                 >
                   <CircleX className="h-4 w-4" />
                 </button>

@@ -19,7 +19,7 @@ export default function SortDirectionToggle({ value, onChange, className = '' })
       onClick={() => onChange(flipTo)}
       title={label}
       aria-label={`Sort order: ${label}. Tap to switch to ${DIRECTION[flipTo].label.toLowerCase()}.`}
-      className={`flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-accent/25 bg-canvas px-3 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken ${className}`}
+      className={`flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded border border-accent/25 bg-canvas px-3 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken ${className}`}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
       {label}

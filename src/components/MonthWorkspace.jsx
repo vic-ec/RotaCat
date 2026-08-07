@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
@@ -548,8 +548,13 @@ function DayReviewModal({
 
         {showRequestForm ? (
           <div className="mt-4">
-            <button type="button" onClick={() => setShowRequestForm(false)} className="text-xs font-medium text-ink-light hover:text-ink">
-              {'<- Back'}
+            <button
+              type="button"
+              onClick={() => setShowRequestForm(false)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Back
             </button>
             <div className="mt-2">
               <LeaveRequestForm
@@ -569,11 +574,7 @@ function DayReviewModal({
                   <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
                       <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                      }`}>
-                        {e.surname}
-                      </span>
+                      <span className="flex-shrink-0 text-sm font-medium text-ink">{e.surname}</span>
                       <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                     </span>
                     <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>

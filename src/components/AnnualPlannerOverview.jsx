@@ -274,11 +274,7 @@ export default function AnnualPlannerOverview({
                       className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
                     >
                       <span className="flex items-center gap-1.5">
-                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
-                        }`}>
-                          {e.surname}
-                        </span>
+                        <span className="text-sm font-medium text-ink">{e.surname}</span>
                         <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
                       </span>
                       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -118,6 +118,16 @@ describe('MonthWorkspace', () => {
     getApprovalWarnings.mockReset()
     createNotification.mockClear()
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
+    // Fixtures below assume "today" is 6 Aug 2026 (the "Your leave" card
+    // test prefills the leave-request form with todayStr()) — pin the
+    // clock rather than relying on the real wall-clock date, which would
+    // otherwise silently break this suite once the real date moves past
+    // this fixed point.
+    vi.setSystemTime(new Date(2026, 7, 6, 12, 0, 0))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders a full calendar grid with full weekday names and the month label', () => {
@@ -322,15 +332,17 @@ describe('MonthWorkspace', () => {
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
   })
 
-  it('shows each surname in a pillbox coloured by that request\'s status', async () => {
+  it('shows each surname as plain text, never coloured by that request\'s status', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
     const heading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
     const modal = within(heading.closest('.card'))
 
-    expect(modal.getByText('Anderson')).toHaveClass('bg-success-bg', 'text-success')
-    expect(modal.getByText('Botha')).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
+    expect(modal.getByText('Anderson')).not.toHaveClass('bg-success-bg', 'text-success')
+    expect(modal.getByText('Botha')).not.toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
+    expect(modal.getByText('Anderson')).toHaveClass('text-ink')
+    expect(modal.getByText('Botha')).toHaveClass('text-ink')
   })
 
   it('reviewing pending requests: admin sees the pending request detail with its note', async () => {

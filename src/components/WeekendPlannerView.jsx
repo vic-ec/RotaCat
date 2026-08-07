@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2 } from 'lucide-react'
+import { Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
@@ -12,6 +12,7 @@ import {
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import InlineRuleHint from './InlineRuleHint'
+import Toolbar from './Toolbar'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 // My weekends is both the default landing filter and leftmost chip for a
@@ -711,11 +712,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     return true
   })
 
-  // Desktop-only: the surname search narrows the grid further still (any
-  // doctor assigned to that weekend, in any group), on top of whichever
-  // filter chip is active.
+  // The surname search (shared Toolbar, both breakpoints) narrows the
+  // visible weekends further still (any doctor assigned to that weekend, in
+  // any group), on top of whichever filter chip is active.
   const searchTerm = searchQuery.trim().toLowerCase()
-  const desktopSaturdays = !searchTerm ? visibleSaturdays : visibleSaturdays.filter(saturday => {
+  const searchedSaturdays = !searchTerm ? visibleSaturdays : visibleSaturdays.filter(saturday => {
     const bySaturday = byWeekend.get(saturday) || {}
     return Object.values(bySaturday).flat().some(e => doctorById.get(e.profile_id)?.surname?.toLowerCase().includes(searchTerm))
   })
@@ -729,9 +730,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // urgent question is answered the moment the page loads — otherwise the
   // first visible row, and whatever the admin last clicked as long as it's
   // still in view after a filter/search/month change.
-  const inspectorSaturday = (selectedSaturday && desktopSaturdays.includes(selectedSaturday))
+  const inspectorSaturday = (selectedSaturday && searchedSaturdays.includes(selectedSaturday))
     ? selectedSaturday
-    : (desktopSaturdays.includes(nextWeekend) ? nextWeekend : desktopSaturdays[0]) ?? null
+    : (searchedSaturdays.includes(nextWeekend) ? nextWeekend : searchedSaturdays[0]) ?? null
 
   // Doctors already placed SOMEWHERE this weekend (any group) — the DB's
   // unique(weekend_saturday, profile_id) means a doctor can only fill one
@@ -962,21 +963,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     </div>
   )
 
-  const filterChips = (
-    <div className="flex gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
-      {filters.map(f => (
-        <button
-          key={f.key}
-          type="button"
-          onClick={() => setFilter(f.key)}
-          className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-            filter === f.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
-    </div>
+  const defaultFilter = isAdmin || isClerk ? 'all' : 'mine'
+  const toolbar = (
+    <Toolbar
+      searchValue={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search by surname…"
+      filterFacets={[{
+        key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
+        value: filter, onChange: setFilter,
+        options: filters.map(f => ({ value: f.key, label: f.label })),
+        isActive: filter !== defaultFilter,
+      }]}
+      active={Boolean(searchQuery) || filter !== defaultFilter}
+      onClearAll={() => { setSearchQuery(''); setFilter(defaultFilter) }}
+    />
   )
 
   return (
@@ -1063,6 +1064,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             </div>
           )}
 
+          <div className="mt-4">{toolbar}</div>
+
           {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
@@ -1077,17 +1080,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-4">
               {monthNav}
-              {filterChips}
             </div>
 
             <div className="mt-3 space-y-3">
-              {visibleSaturdays.length === 0 ? (
+              {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
-                  {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter.'}
+                  {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}
                 </p>
-              ) : visibleSaturdays.map(saturday => {
+              ) : searchedSaturdays.map(saturday => {
                 const bySaturday = byWeekend.get(saturday) || {}
                 const coverage = weekendCoverageSummary(bySaturday)
                 const needsPlanning = coverage.openGroups.length > 0
@@ -1190,23 +1192,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {/* ── Desktop: weekend-first summary table + inspector (see file-level comment for rationale) ── */}
           <div className="hidden lg:block" data-testid="weekend-desktop">
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
               {monthNav}
-              <span className="relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search surname…"
-                  aria-label="Search by surname"
-                  className="input-field w-48 py-1.5 pl-7 text-sm"
-                />
-              </span>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
-              {filterChips}
               {isAdmin && (
                 <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
                   Review log
@@ -1227,13 +1214,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-line">
-                    {desktopSaturdays.length === 0 ? (
+                    {searchedSaturdays.length === 0 ? (
                       <tr>
                         <td colSpan={CATEGORY_GROUPS.length + 2} className="px-3 py-6 text-center text-ink-muted">
                           {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}
                         </td>
                       </tr>
-                    ) : desktopSaturdays.map(saturday => {
+                    ) : searchedSaturdays.map(saturday => {
                       const bySaturday = byWeekend.get(saturday) || {}
                       const coverage = weekendCoverageSummary(bySaturday)
                       const needsPlanning = coverage.openGroups.length > 0

@@ -35,12 +35,20 @@ function CloseIcon(props) {
   )
 }
 
-// One Sort/Filter facet's desktop trigger + popover menu — same anchored-
-// popover mechanics as SelectMenu (portalled to <body>, positioned off the
-// trigger's own rect), just styled as a compact icon+label button rather
-// than a full-width form field, matching the Sort/Filter buttons Staff's
-// toolbar already used before this component existed.
-function ToolbarFacet({ icon, label, value, onChange, options, isActive }) {
+// The app's one "quick-select pill" pattern — icon + label, a rectangle
+// with rounded corners (never a full pill), opening a small anchored
+// popover that closes on pick or on an outside click. This is what
+// Roster's Sort/Month/Year controls (RosterDashboardPage.jsx) already look
+// like; Toolbar's own `sortFacets`/`filterFacets` props render one of
+// these per entry, so several independent single-select facets already
+// sit side by side out of the box — reach for those props first. Exported
+// here too (as `QuickSelectButton`) for the rarer case of a single
+// standalone quick-select control living outside a full Toolbar (e.g. a
+// page-specific single-select filter that isn't part of a search/sort/
+// filter row). Same anchored-popover mechanics as SelectMenu (portalled to
+// <body>, positioned off the trigger's own rect), just styled as a compact
+// icon+label button rather than a full-width form field.
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const triggerRef = useRef(null)
@@ -253,3 +261,6 @@ export default function Toolbar({
     </div>
   )
 }
+
+// Named alias for standalone use — see ToolbarFacet's own comment above.
+export const QuickSelectButton = ToolbarFacet

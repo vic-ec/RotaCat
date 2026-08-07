@@ -1,17 +1,21 @@
-// Solid teal circle badge (brand accent #0F766E, white border, white
-// letters) used everywhere a leave-planner grid marks which staff category
-// a doctor belongs to. Replaces the old per-category coloured dots
-// (COLUMN_DOT_COLOR) — every category now renders in the same colour, so it
-// can never be mistaken for the Annual planner's capacity heat map
-// (available/limited/near/at-capacity), which is the only place colour
-// still carries planner-specific meaning. Category identity lives entirely
-// in the letter now.
+// Solid neutral-slate circle badge (white border, white letters) used
+// everywhere a leave-planner grid marks which staff category a doctor
+// belongs to. Replaces the old per-category coloured dots (COLUMN_DOT_COLOR)
+// — every category renders in the same neutral colour, so it can never be
+// mistaken for the Annual planner's capacity heat map (available/limited/
+// near/at-capacity), which is the only place colour still carries
+// planner-specific meaning. Category identity lives entirely in the letter,
+// and the badge itself stays neutral per the app's category/status badge
+// convention (see Tag.jsx's ROLE_CLASS) — category is identity, not status,
+// so it never competes with the app's status/heat-map colour palette.
 //
-// Hardcodes the app's real accent hex (#0F766E) rather than a Tailwind
-// class/CSS var — this badge represents the product's own fixed-light UI,
-// so it must render identically regardless of the (currently unused,
-// unwired) dark theme tokens living elsewhere in tailwind.config.js.
+// Hardcodes a fixed neutral hex (#4B5563, matching the `ink.light` token)
+// rather than a Tailwind class/CSS var — this badge represents the
+// product's own fixed-light UI, so it must render identically regardless of
+// the (currently unused, unwired) dark theme tokens living elsewhere in
+// tailwind.config.js.
 const FONT_SIZE_BY_LENGTH = { 1: 17, 2: 14, 3: 12.5 }
+const NEUTRAL_FILL = '#4B5563'
 
 export default function CategoryBadge({ label, size = 20, className = '' }) {
   const fontSize = FONT_SIZE_BY_LENGTH[label.length] ?? 12.5
@@ -30,9 +34,9 @@ export default function CategoryBadge({ label, size = 20, className = '' }) {
           between the fill's edge and the ring that showed through to
           whatever was behind the badge (visible as a mismatched colour
           ring on the capacity-tinted day cells). Stroke is fully opaque
-          white — a translucent stroke let the teal fill show through it,
+          white — a translucent stroke let the fill show through it,
           reading as a muted/greyed border instead of a crisp white one. */}
-      <circle cx="22" cy="22" r="19" fill="#0F766E" stroke="#FFFFFF" strokeWidth="1" />
+      <circle cx="22" cy="22" r="19" fill={NEUTRAL_FILL} stroke="#FFFFFF" strokeWidth="1" />
       <text
         x="22" y="22" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
         textAnchor="middle" dominantBaseline="central" fontFamily="inherit"
@@ -53,7 +57,7 @@ export function CategoryOverflowChip({ count, size = 16 }) {
   return (
     <span
       className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
-      style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.5)), background: '#0F766E', border: '1px solid #FFFFFF' }}
+      style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.5)), background: NEUTRAL_FILL, border: '1px solid #FFFFFF' }}
     >
       +{count}
     </span>

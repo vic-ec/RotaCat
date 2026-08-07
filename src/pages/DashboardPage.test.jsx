@@ -56,7 +56,9 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />)
 
-    expect(await screen.findByText(/Annual leave — 2026-08-10/)).toBeInTheDocument()
+    expect(await screen.findByText('Annual leave')).toBeInTheDocument()
+    expect(screen.getByText('5 days')).toBeInTheDocument()
+    expect(screen.getByText('Approved')).toBeInTheDocument()
     expect(eqCalls).toContainEqual(['leave_requests', 'profile_id', 'doctor-1'])
   })
 
@@ -92,7 +94,7 @@ describe('DashboardPage', () => {
 
     render(<DashboardPage />)
 
-    expect(await screen.findByText(/- 08:00 - 18:00/)).toBeInTheDocument()
+    expect(await screen.findByText('08:00 - 18:00')).toBeInTheDocument()
     expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
     expect(screen.getByText('Your Shift Swaps')).toBeInTheDocument()
     expect(eqCalls).toContainEqual(['roster_entries', 'profile_id', 'locum-1'])

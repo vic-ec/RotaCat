@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { CircleCheck, CircleX } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -185,6 +186,105 @@ export function ListRowRecord({
         {subtitle && <p className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</p>}
       </div>
       {chevron && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
+    </div>
+  )
+}
+
+// One circular-outline icon action — teal-outline check (approve),
+// red-outline X (reject), or a neutral accent-outline extra action (e.g.
+// "view in calendar"). Always inline, never collapsed to a kebab menu —
+// unlike RowActions' secondary actions, approve/reject/extra are the whole
+// reason an approval row exists, on every viewport.
+const APPROVAL_ACTION_TONE_CLASS = {
+  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success active:text-white',
+  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger active:text-white',
+  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white',
+}
+function ApprovalAction({ icon, label, tone = 'neutral', onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${APPROVAL_ACTION_TONE_CLASS[tone]}`}
+    >
+      {icon}
+    </button>
+  )
+}
+
+// Row for an approve/reject queue (Staff's Pending Approvals, Leave
+// Requests review) — the same identity shell as ListRowIdentity (checkbox,
+// avatar, name, neutral role/category tag, one-line meta), but Approve/
+// Reject/extra render as always-visible circular-outline buttons rather
+// than going through ListRowIdentity's kebab-collapsing RowActions.
+// `children`, when given, renders below the identity row (inside the same
+// selected/hover shell) — for a page that needs extra per-row content
+// (warnings, an inline reject-reason field) that doesn't fit the fixed
+// checkbox/avatar/name/tag/meta/actions shape.
+export function ApprovalRow({
+  checked, onToggleCheck, selectLabel,
+  avatar, name, tag, meta,
+  onApprove, onReject, approveLabel = 'Approve', rejectLabel = 'Reject',
+  approveDisabled = false, rejectDisabled = false,
+  extraAction, onClick, selected = false, children,
+}) {
+  const clickable = Boolean(onClick)
+  return (
+    <div className={selected ? ROW_SELECTED : ''}>
+      <div
+        onClick={onClick}
+        className={`min-h-[56px] ${ROW_BASE} ${clickable ? 'cursor-pointer' : ''}`}
+      >
+        {onToggleCheck && (
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggleCheck}
+            onClick={e => e.stopPropagation()}
+            aria-label={selectLabel}
+            className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+            style={{ minWidth: 16 }}
+          />
+        )}
+        {avatar && <span className="flex-shrink-0">{avatar}</span>}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium text-ink">{name}</p>
+            {tag}
+          </div>
+          {meta && <p className="mt-0.5 truncate text-xs text-ink-muted">{meta}</p>}
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {extraAction && (
+            <ApprovalAction icon={extraAction.icon} label={extraAction.label} tone="neutral" onClick={extraAction.onClick} disabled={extraAction.disabled} />
+          )}
+          <ApprovalAction icon={<CircleCheck className="h-5 w-5" />} label={approveLabel} tone="success" onClick={onApprove} disabled={approveDisabled} />
+          <ApprovalAction icon={<CircleX className="h-5 w-5" />} label={rejectLabel} tone="danger" onClick={onReject} disabled={rejectDisabled} />
+        </div>
+      </div>
+      {children && <div className="px-4 pb-3">{children}</div>}
+    </div>
+  )
+}
+
+// Select-all header for a bulk-selection list — white/plain when nothing's
+// checked, teal-tinted once anything is, so a partially or fully selected
+// list stays visually distinct from the idle state (rather than always
+// tinted, or never tinted, depending on which page you're on).
+export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+  return (
+    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggleCheck}
+        aria-label={selectLabel}
+        className="h-4 w-4 rounded border-slate-line accent-accent"
+      />
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
     </div>
   )
 }

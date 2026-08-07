@@ -103,7 +103,8 @@ describe('LeaveYearGrid', () => {
         year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} myProfileId="doc-1"
       />
     )
-    await userEvent.click(screen.getByRole('button', { name: 'My leave' }))
+    await userEvent.click(screen.getByRole('button', { name: 'View' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'My leave' }))
 
     const grid = mobileDayGrid(container)
     const dayButton = within(grid).getByText('10').closest('button')

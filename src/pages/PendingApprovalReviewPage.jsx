@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from '../components/ProfileAvatar'
 import SelectMenu from '../components/SelectMenu'
+import Tag from '../components/Tag'
 import { formatPhoneProgressive } from '../lib/phone'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
@@ -320,9 +321,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
                   className="input-field"
                 />
               </div>
-              <span className="inline-block rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
-                {atAGlanceLabel}
-              </span>
+              <Tag variant="role">{atAGlanceLabel}</Tag>
             </div>
           </div>
         </div>

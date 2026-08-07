@@ -97,6 +97,25 @@ export default {
           DEFAULT: '#22A06B',
           bg: '#E3F5EC'
         },
+        // Dedicated destructive-action red for .btn-danger/.btn-danger-outline
+        // — deliberately its own token rather than reusing flagRed, which is
+        // reserved strictly for roster-state semantics (see that token's own
+        // comment above). This one means "this button does something
+        // destructive," not "this roster entry conflicts."
+        danger: {
+          DEFAULT: '#DC2626',
+          dark: '#B91C1C',
+          bg: '#FEE2E2'
+        },
+        // DateCard's weekend tone — a genuinely neutral light gray, distinct
+        // from every other tint in this palette (all mint/teal or
+        // rose-tinted), so a weekend date reads as neutral rather than
+        // another shade of teal. `ink` is verified >=4.5:1 against `tint`
+        // (9.37:1) — see the contrast check run for this component.
+        dateWeekend: {
+          tint: '#F3F4F6',
+          ink: '#374151'
+        },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state
         // semantics like draft/published/conflict), since this marks a

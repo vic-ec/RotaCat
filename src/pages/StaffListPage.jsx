@@ -915,7 +915,7 @@ export default function StaffListPage() {
                 ) : (
                   <button
                     onClick={() => setSearchOpen(true)}
-                    className={`flex h-[30px] w-full items-center justify-center gap-1 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                    className={`flex h-[30px] w-full items-center justify-center gap-1 rounded border border-accent/25 text-sm font-medium transition-colors ${
                       accountFilters.q
                         ? 'bg-accent text-white'
                         : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
@@ -973,7 +973,7 @@ export default function StaffListPage() {
                 ) : (
                   <button
                     onClick={() => setSearchOpen(true)}
-                    className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+                    className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
                       accountFilters.q
                         ? 'bg-accent text-white'
                         : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert, CalendarArrowDown, CalendarArrowUp } from 'lucide-react'
+import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert, ListFilter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
+import Toolbar from './Toolbar'
+import SortDirectionToggle from './SortDirectionToggle'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange } from '../lib/leaveRequests'
 
@@ -45,6 +47,8 @@ export default function LeaveApprovalQueue({ onBack }) {
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [sortDirection, setSortDirection] = useState('asc')
   const [bulkActioning, setBulkActioning] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
 
   useEffect(() => { loadQueue() }, [])
 
@@ -126,7 +130,7 @@ export default function LeaveApprovalQueue({ onBack }) {
 
   function toggleSelectAll() {
     setSelectedIds(prev =>
-      prev.size === requests.length ? new Set() : new Set(requests.map(r => r.id))
+      prev.size === displayedRequests.length ? new Set() : new Set(displayedRequests.map(r => r.id))
     )
   }
 
@@ -148,7 +152,17 @@ export default function LeaveApprovalQueue({ onBack }) {
     setBulkActioning(false)
   }
 
-  const displayedRequests = sortDirection === 'asc' ? requests : [...requests].reverse()
+  const filteredRequests = requests.filter(r => {
+    if (leaveTypeFilter !== 'all' && r.leave_type !== leaveTypeFilter) return false
+    if (searchQuery) {
+      const q = searchQuery.trim().toLowerCase()
+      const fullName = `${r.profiles?.surname || ''} ${r.profiles?.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    return true
+  })
+  const displayedRequests = sortDirection === 'asc' ? filteredRequests : [...filteredRequests].reverse()
+  const filtersActive = Boolean(searchQuery) || leaveTypeFilter !== 'all'
 
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
@@ -164,33 +178,34 @@ export default function LeaveApprovalQueue({ onBack }) {
     <div>
       {backLink}
 
-      <div className="mb-3 flex items-center justify-end gap-1">
-        <button
-          type="button"
-          onClick={() => setSortDirection('asc')}
-          title="Old to new"
-          className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-            sortDirection === 'asc'
-              ? 'border-transparent bg-accent text-white'
-              : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-          }`}
-        >
-          <CalendarArrowDown className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setSortDirection('desc')}
-          title="New to old"
-          className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-            sortDirection === 'desc'
-              ? 'border-transparent bg-accent text-white'
-              : 'border-slate-line text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-          }`}
-        >
-          <CalendarArrowUp className="h-4 w-4" />
-        </button>
+      <div className="mb-2 flex justify-end">
+        <SortDirectionToggle value={sortDirection} onChange={setSortDirection} />
       </div>
+      <Toolbar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by surname or first name…"
+        filterFacets={[{
+          key: 'leaveType', icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
+          value: leaveTypeFilter, onChange: setLeaveTypeFilter,
+          options: [{ value: 'all', label: 'All leave types' }, ...LEAVE_TYPE_OPTIONS],
+          isActive: leaveTypeFilter !== 'all',
+        }]}
+        active={filtersActive}
+        onClearAll={() => { setSearchQuery(''); setLeaveTypeFilter('all') }}
+      />
 
+      {displayedRequests.length === 0 ? (
+        <div className="card p-10 text-center">
+          <p className="mb-3 text-sm text-ink-muted">No pending requests match these filters.</p>
+          {filtersActive && (
+            <button onClick={() => { setSearchQuery(''); setLeaveTypeFilter('all') }} className="btn-secondary">
+              Clear filters
+            </button>
+          )}
+        </div>
+      ) : (
+      <>
       {selectedIds.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
           <span className="flex-1">{selectedIds.size} selected</span>
@@ -220,7 +235,7 @@ export default function LeaveApprovalQueue({ onBack }) {
       <div className="card mb-3 flex items-center gap-3 overflow-hidden px-5 py-2.5">
         <input
           type="checkbox"
-          checked={selectedIds.size === requests.length}
+          checked={selectedIds.size === displayedRequests.length}
           onChange={toggleSelectAll}
           aria-label="Select all pending leave requests"
           className="h-4 w-4 rounded border-slate-line accent-accent"
@@ -347,6 +362,8 @@ export default function LeaveApprovalQueue({ onBack }) {
           )
         })}
       </div>
+      </>
+      )}
     </div>
   )
 }

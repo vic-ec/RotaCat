@@ -5,7 +5,7 @@ import {
   nameMapFromProfiles, queryWeekendPlannerChanges, weekendChangeDetail, WEEKEND_ACTION_OPTIONS, WEEKEND_CATEGORY_FILTER_OPTIONS,
   fetchWeekendPlannerBatches, summarizeWeekendPlannerBatch, formatRelativeTime, restoreWeekendPlannerBatch,
 } from '../lib/changeLog'
-import CompactDateField from './CompactDateField'
+import DateFieldButton from './DateFieldButton'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
 import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
@@ -147,9 +147,9 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <CompactDateField label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
+          <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
             onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
-          <CompactDateField label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
+          <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
             onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
           <ChangeLogFilterMenu
             adminOptions={adminOptions}

@@ -5,15 +5,18 @@ import { todayStr } from '../lib/dateRange'
 import {
   fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation,
 } from '../lib/internRotations'
+import { ListFilter } from 'lucide-react'
 import DoctorDropdown from './DoctorDropdown'
 import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
+import Toolbar from './Toolbar'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 
 const ROTATION_TYPE_OPTIONS = [
   { value: 'EC', label: 'EC' },
   { value: 'OT', label: 'OT' },
 ]
+const ROTATION_TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'All rotations' }, ...ROTATION_TYPE_OPTIONS]
 
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -61,6 +64,9 @@ export default function InternRotationsPlanner() {
   const [openDoctorPickerFor, setOpenDoctorPickerFor] = useState(null) // rotation id, or 'new'
   const [doctorSearch, setDoctorSearch] = useState('')
   const [newRow, setNewRow] = useState(null) // draft row before it's created
+  // Table view only — search/filter over the rotation-block rows.
+  const [tableSearch, setTableSearch] = useState('')
+  const [rotationTypeFilter, setRotationTypeFilter] = useState('all')
   const today = todayStr()
   const [timelineStart, setTimelineStart] = useState(() => {
     const [y, m] = today.split('-').map(Number)
@@ -86,6 +92,18 @@ export default function InternRotationsPlanner() {
   }
 
   const internById = new Map(interns.map(i => [i.id, i]))
+
+  const filteredRotations = rotations.filter(rotation => {
+    if (rotationTypeFilter !== 'all' && rotation.rotation_type !== rotationTypeFilter) return false
+    const q = tableSearch.trim().toLowerCase()
+    if (q) {
+      const intern = internById.get(rotation.doctor_id)
+      const fullName = `${intern?.surname || ''} ${intern?.name || ''}`.toLowerCase()
+      if (!fullName.includes(q)) return false
+    }
+    return true
+  })
+  const tableFiltersActive = Boolean(tableSearch) || rotationTypeFilter !== 'all'
 
   async function handleAddRow() {
     if (!newRow?.doctorId || !newRow?.startDate) return
@@ -166,7 +184,21 @@ export default function InternRotationsPlanner() {
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
       {!loading && view === 'table' && (
-        <div className="mt-4 card overflow-x-auto p-0">
+        <div className="mt-4">
+          <Toolbar
+            searchValue={tableSearch}
+            onSearchChange={setTableSearch}
+            searchPlaceholder="Search by doctor surname or first name…"
+            filterFacets={[{
+              key: 'rotationType', icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
+              value: rotationTypeFilter, onChange: setRotationTypeFilter,
+              options: ROTATION_TYPE_FILTER_OPTIONS,
+              isActive: rotationTypeFilter !== 'all',
+            }]}
+            active={tableFiltersActive}
+            onClearAll={() => { setTableSearch(''); setRotationTypeFilter('all') }}
+          />
+          <div className="card overflow-x-auto p-0">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-slate-line text-left text-xs text-ink-muted">
@@ -182,7 +214,10 @@ export default function InternRotationsPlanner() {
               {rotations.length === 0 && !newRow && (
                 <tr><td colSpan={6} className="px-3 py-4 text-center text-ink-muted">No rotation blocks yet.</td></tr>
               )}
-              {rotations.map(rotation => {
+              {rotations.length > 0 && filteredRotations.length === 0 && (
+                <tr><td colSpan={6} className="px-3 py-4 text-center text-ink-muted">No rotation blocks match this filter/search.</td></tr>
+              )}
+              {filteredRotations.map(rotation => {
                 const intern = internById.get(rotation.doctor_id)
                 const rowSaving = savingId === rotation.id
                 return (
@@ -323,6 +358,7 @@ export default function InternRotationsPlanner() {
               </button>
             </div>
           )}
+          </div>
         </div>
       )}
 

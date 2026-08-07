@@ -3,7 +3,7 @@ import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
   nameMapFromProfiles, queryRosterChanges, rosterChangeDetail, ROSTER_ACTION_OPTIONS, ROLE_FILTER_OPTIONS,
 } from '../lib/changeLog'
-import CompactDateField from './CompactDateField'
+import DateFieldButton from './DateFieldButton'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
 import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
@@ -84,9 +84,9 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <CompactDateField label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
+          <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
             onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
-          <CompactDateField label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
+          <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
             onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
           <ChangeLogFilterMenu
             adminOptions={adminOptions}

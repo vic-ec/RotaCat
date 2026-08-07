@@ -7,15 +7,7 @@ import { buildAuditRows } from '../lib/leaveAudit'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-
-function CalendarIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <rect x="3" y="5" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v4M16 3v4M3 10h18" />
-    </svg>
-  )
-}
+import DateFieldButton from './DateFieldButton'
 
 function FilterIcon(props) {
   return (
@@ -228,32 +220,16 @@ export default function LeaveAuditReport() {
         Cumulative leave for HR auditing — pick any date range; this never resets, unlike the per-doctor tracker on My leave.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        {/* Date pair shares a shrinkable grid track so it can never grow
-            wide enough to overlap the fixed-size filter button beside it
-            on narrow mobile screens — same fix as LeaveRequestForm's
-            From/To pair. */}
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
-          <div className="min-w-0">
-            <label htmlFor="audit-date-from" className="label-text flex items-center gap-1">
-              <CalendarIcon className="h-3.5 w-3.5" /> From
-            </label>
-            <input id="audit-date-from" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input-field w-full min-w-0" />
-          </div>
-          <div className="min-w-0">
-            <label htmlFor="audit-date-to" className="label-text flex items-center gap-1">
-              <CalendarIcon className="h-3.5 w-3.5" /> To
-            </label>
-            <input id="audit-date-to" type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)} className="input-field w-full min-w-0" />
-          </div>
-        </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <DateFieldButton label="From" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+        <DateFieldButton label="To" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
         <button
           type="button"
           onClick={e => (filtersOpen ? closeFilters() : openFilters(e.currentTarget))}
           aria-haspopup="menu"
           aria-expanded={filtersOpen}
           aria-label="Filters"
-          className={`relative flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded border transition-colors ${
+          className={`relative flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border transition-colors ${
             filtersOpen ? 'border-accent bg-accent-tint text-accent' : 'border-slate-line text-ink-muted hover:bg-canvas-sunken hover:text-ink'
           }`}
         >

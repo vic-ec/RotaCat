@@ -12,17 +12,9 @@ import {
 import {
   INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote, resolveLeaveCapacityColumn,
 } from '../lib/internRotations'
+import DateFieldButton from './DateFieldButton'
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
-
-function CalendarIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <rect x="3" y="5" width="18" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v4M16 3v4M3 10h18" />
-    </svg>
-  )
-}
 
 // initialDateFrom/initialDateTo: optional prefill for a specific date (or
 // range) — used by the Annual planner's month workspace when someone opens
@@ -201,50 +193,19 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
 
       {isWeekendException ? (
         <div>
-          <label htmlFor="leave-date-saturday" className="label-text">Saturday</label>
-          <input
+          <DateFieldButton
             id="leave-date-saturday"
-            type="date"
+            label="Saturday"
             required
             value={dateFrom}
-            onChange={e => handleWeekendSaturdayChange(e.target.value)}
-            className="input-field w-full"
+            onChange={handleWeekendSaturdayChange}
           />
           <p className="mt-1 text-xs text-ink-muted">{WEEKEND_EXCEPTION_HINT}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {/* min-w-0 on each grid item: a native date input's intrinsic
-              content width doesn't shrink on its own inside a grid track,
-              which was pushing the two fields wide enough to overlap on
-              narrow mobile screens. */}
-          <div className="min-w-0">
-            <label htmlFor="leave-date-from" className="label-text flex items-center gap-1">
-              <CalendarIcon className="h-3.5 w-3.5" /> From
-            </label>
-            <input
-              id="leave-date-from"
-              type="date"
-              required
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              className="input-field w-full min-w-0"
-            />
-          </div>
-          <div className="min-w-0">
-            <label htmlFor="leave-date-to" className="label-text flex items-center gap-1">
-              <CalendarIcon className="h-3.5 w-3.5" /> To
-            </label>
-            <input
-              id="leave-date-to"
-              type="date"
-              required
-              min={dateFrom || undefined}
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              className="input-field w-full min-w-0"
-            />
-          </div>
+        <div className="flex gap-3">
+          <DateFieldButton id="leave-date-from" label="From" required value={dateFrom} onChange={setDateFrom} />
+          <DateFieldButton id="leave-date-to" label="To" required min={dateFrom || undefined} value={dateTo} onChange={setDateTo} />
         </div>
       )}
 

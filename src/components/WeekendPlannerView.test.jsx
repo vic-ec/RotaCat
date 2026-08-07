@@ -108,8 +108,19 @@ async function desktop() {
   return within(await screen.findByTestId('weekend-desktop'))
 }
 
+// Filter is now the shared Toolbar's single-select quick-pill facet (see
+// Toolbar.jsx's ToolbarFacet) — collapsed behind one "Filter" trigger
+// rather than always-visible chips, so picking an option is a two-step
+// open-then-pick. Toolbar renders outside the mobile/desktop testid-scoped
+// sections (it's shared, not duplicated per breakpoint), so this queries
+// `screen` directly rather than the `view` passed in.
+async function pickFilter(user, label) {
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  await user.click(await screen.findByRole('button', { name: label }))
+}
+
 async function showAll(view, user) {
-  await user.click(view.getByRole('button', { name: 'All weekends' }))
+  await pickFilter(user, 'All weekends')
 }
 
 describe('WeekendPlannerView', () => {
@@ -142,13 +153,16 @@ describe('WeekendPlannerView', () => {
     })
 
     it('defaults to the "My weekends" filter, leftmost of the chips', async () => {
+      const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
-      const chips = view.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
+      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
       expect(chips.map(c => c.textContent)).toEqual(['My weekends', 'My requests', 'All weekends'])
-      expect(view.getByRole('button', { name: 'My weekends' })).toHaveClass('bg-accent')
+      expect(screen.getByRole('button', { name: 'My weekends' })).toHaveClass('bg-accent')
+      await user.keyboard('{Escape}')
 
       // Only p1's own two weekends show by default
       expect(view.getAllByText('Sat 1 - Sun 2 Aug 2026')).toHaveLength(2) // next-weekend card + list card
@@ -231,28 +245,32 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'Needs planning' }))
+      await pickFilter(user, 'Needs planning')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
       expect(view.getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
 
     it('admin: "All weekends" leads the filter chips, ahead of "My weekends"', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
-      const chips = view.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
+      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
       expect(chips.map(c => c.textContent)).toEqual(['All weekends', 'My weekends', 'My requests', 'Needs planning'])
     })
 
     it('admin: lands on "All weekends" by default; non-admin still lands on "My weekends"', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
-      expect(view.getByRole('button', { name: 'All weekends' })).toHaveClass('bg-accent')
-      expect(view.getByRole('button', { name: 'My weekends' })).not.toHaveClass('bg-accent')
+      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      expect(screen.getByRole('button', { name: 'All weekends' })).toHaveClass('bg-accent')
+      expect(screen.getByRole('button', { name: 'My weekends' })).not.toHaveClass('bg-accent')
     })
 
     it('non-admin: "Needs planning" filter does not exist', async () => {
@@ -268,7 +286,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      await user.click(view.getByRole('button', { name: 'My weekends' }))
+      await pickFilter(user, 'My weekends')
 
       expect(view.getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument() // p1 assigned
       expect(view.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument() // nobody assigned
@@ -280,7 +298,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'My requests' }))
+      await pickFilter(user, 'My requests')
       const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
       expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
@@ -508,7 +526,7 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
       await view.findByText('Sat 15 - Sun 16 Aug 2026')
 
-      await user.type(view.getByLabelText('Search by surname'), 'Anderson')
+      await user.type(screen.getAllByPlaceholderText('Search by surname…')[0], 'Anderson')
 
       const table = within(view.getByRole('table'))
       expect(table.getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
@@ -600,13 +618,13 @@ describe('WeekendPlannerView', () => {
     })
   })
 
-  // Session clock is 2026-08-06 (a Thursday), so the fetch's rolling window
-  // starts from the next Saturday on/after it — 2026-08-01 (with e1) falls
-  // outside that window and is excluded from monthSaturdays/monthEntryCount
-  // throughout this block; only 2026-08-08/15/22/29 (4 weekends) are in
-  // view for August, same as September's 4 (05/12/19/26), so position-based
-  // paste mapping lines up 1:1 without needing to account for a mismatched
-  // weekend count.
+  // Session clock is 2026-08-01 (a Saturday, see the top-of-file beforeEach)
+  // — August's own 5 Saturdays (01/08/15/22/29) don't line up 1:1 with
+  // September's 4 (05/12/19/26), so position-based paste mapping puts
+  // August's 1st weekend (Aug 1, just Anderson/MO) onto September's 1st
+  // (Sept 5), and August's 2nd weekend (Aug 8, all 4 groups) onto Sept 12
+  // — the assertions below account for that split rather than assuming a
+  // 1:1 weekend-count match.
   describe('Copy/Paste/Clear (admin-only)', () => {
     it('admin: Copy month builds a clipboard pill with a Paste action for the currently viewed month', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }

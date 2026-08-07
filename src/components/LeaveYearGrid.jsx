@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Users } from 'lucide-react'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, splitForOverflow,
   quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
@@ -8,9 +9,11 @@ import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import { QuickSelectButton } from './Toolbar'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
+const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', label: 'All' }]
 
 // Shared leave-planner grid for the Annual Leave and Special Leave tabs.
 // Desktop (lg+) gets the full year-at-a-glance spreadsheet-style layout (4
@@ -71,19 +74,15 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
   return (
     <div className="mt-4">
       {myProfileId && (
-        <div className="mb-3 flex justify-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit mx-auto">
-          {[{ key: true, label: 'My leave' }, { key: false, label: 'All' }].map(opt => (
-            <button
-              key={String(opt.key)}
-              type="button"
-              onClick={() => setShowMineOnly(opt.key)}
-              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                showMineOnly === opt.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="mb-3 flex justify-center">
+          <QuickSelectButton
+            icon={<Users className="h-4 w-4" />}
+            label="View"
+            value={showMineOnly ? 'mine' : 'all'}
+            onChange={v => setShowMineOnly(v === 'mine')}
+            options={VIEW_OPTIONS}
+            isActive={showMineOnly}
+          />
         </div>
       )}
 

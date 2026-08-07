@@ -37,6 +37,30 @@ export const DEFAULT_SWAP_GROUP = {
 const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
 const OT_HOURS = { min: 64, max: 72 }
 
+// Single source of truth for the EC/OT "Hours" picker — previously
+// duplicated inline in PendingApprovalReviewPage.jsx, now also used by
+// AccountSettingsPage.jsx (admin edit + self-service request) and
+// StaffListPage.jsx (request approval + display).
+export function categoryNeedsContractChoice(category) {
+  return AMBIGUOUS_CATEGORIES.has(category)
+}
+
+export const CONTRACT_TYPE_OPTIONS = [
+  { value: 'full', label: 'EC — full hours (~220–246h/month)' },
+  { value: 'Junior_Doctor_Overtime', label: 'OT — Junior Doctor Overtime (~64–72h/month)' },
+]
+
+// Only meaningful when contract_type is Junior_Doctor_Overtime — matches
+// intern_rotations.subtype / profiles.psych_subcategory / the backend's
+// PsychSubcategory enum exactly, so these values pass through untranslated.
+export const OT_SUBTYPE_OPTIONS = [
+  { value: 'LRCHC',   label: 'LRCHC' },
+  { value: 'DPM_BCH', label: 'DPM/BCH' },
+  { value: 'PSYCH',   label: 'Psych' },
+]
+
+export const OT_SUBTYPE_LABELS = Object.fromEntries(OT_SUBTYPE_OPTIONS.map(o => [o.value, o.label]))
+
 // Contract-type-aware hours lookup — the one PendingApprovalReviewPage and
 // StaffListPage should actually call now. Category alone is only enough
 // for MO/Registrar/Consultant/Locum and the already-unambiguous legacy OT/

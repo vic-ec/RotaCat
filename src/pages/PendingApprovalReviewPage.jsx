@@ -6,7 +6,10 @@ import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from '../components/ProfileAvatar'
 import SelectMenu from '../components/SelectMenu'
 import { formatPhoneProgressive } from '../lib/phone'
-import { defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory } from '../lib/staffDefaults'
+import {
+  defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
+  categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS,
+} from '../lib/staffDefaults'
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
@@ -19,18 +22,6 @@ const CATEGORY_LABELS = {
   Consultant: 'Consultant',
 }
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-
-// COSMOPsych retired from active assignment (2026-08) — folded into
-// COSMO/Intern + contract_type=='Junior_Doctor_Overtime' instead of its
-// own category. These two categories need a second choice (which hours
-// band) that no longer follows from category alone.
-const CONTRACT_TYPE_OPTIONS = [
-  { value: 'full', label: 'EC — full hours (~220–246h/month)' },
-  { value: 'Junior_Doctor_Overtime', label: 'OT — Junior Doctor Overtime (~64–72h/month)' },
-]
-function categoryNeedsContractChoice(cat) {
-  return cat === 'COSMO' || cat === 'Intern'
-}
 
 const SAVED_FLASH_MS = 2500
 
@@ -66,6 +57,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   const [role, setRole] = useState('doctor')
   const [category, setCategory] = useState('')
   const [contractType, setContractType] = useState('full')
+  const [subtype, setSubtype] = useState(null)
   const [hasAdmin, setHasAdmin] = useState(false)
 
   const [saving, setSaving] = useState(false)
@@ -99,6 +91,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     setRole(data.role || 'doctor')
     setCategory(data.category || '')
     setContractType(data.contract_type || 'full')
+    setSubtype(data.psych_subcategory || null)
     setHasAdmin(data.is_admin === true)
     setLoading(false)
   }
@@ -144,12 +137,14 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     role !== (profile.role || 'doctor') ||
     category !== (profile.category || '') ||
     (categoryNeedsContractChoice(category) && contractType !== (profile.contract_type || 'full')) ||
+    (categoryNeedsContractChoice(category) && contractType === 'Junior_Doctor_Overtime' && subtype !== (profile.psych_subcategory || null)) ||
     hasAdmin !== (profile.is_admin === true)
 
   function handleRoleChange(value) {
     setRole(value)
     setCategory('') // valid category set differs per role
     setContractType('full')
+    setSubtype(null)
   }
 
   function cancelEdits() {
@@ -159,6 +154,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     setRole(profile.role || 'doctor')
     setCategory(profile.category || '')
     setContractType(profile.contract_type || 'full')
+    setSubtype(profile.psych_subcategory || null)
     setHasAdmin(profile.is_admin === true)
     setSaveError('')
   }
@@ -181,6 +177,9 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     const finalContractType = role === 'doctor'
       ? (categoryNeedsContractChoice(category) ? contractType : (profile.contract_type || 'full'))
       : (profile.contract_type || 'full')
+    const finalSubtype = role === 'doctor' && categoryNeedsContractChoice(category) && finalContractType === 'Junior_Doctor_Overtime'
+      ? (subtype || null)
+      : null
 
     const { error } = await supabase.from('profiles').update({
       name: firstName,
@@ -189,6 +188,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       role,
       category: role === 'doctor' ? category : null,
       contract_type: finalContractType,
+      psych_subcategory: finalSubtype,
       is_admin: role === 'doctor' ? hasAdmin : false,
     }).eq('id', id)
 
@@ -205,6 +205,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       role,
       category: role === 'doctor' ? category : null,
       contract_type: finalContractType,
+      psych_subcategory: finalSubtype,
       is_admin: role === 'doctor' ? hasAdmin : false,
     }))
     setJustSaved(true)
@@ -223,6 +224,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     const finalContractType = finalRole === 'doctor' && categoryNeedsContractChoice(finalCategory)
       ? (profile.contract_type || 'full')
       : 'full'
+    const finalSubtype = finalContractType === 'Junior_Doctor_Overtime' ? (profile.psych_subcategory || null) : null
     const hours = defaultHoursForCategory(finalCategory, finalContractType)
     const swapGroup = defaultSwapGroupForCategory(finalCategory)
 
@@ -233,6 +235,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       role: finalRole,
       category: finalCategory || null,
       contract_type: finalContractType,
+      psych_subcategory: finalSubtype,
       is_admin: isAdminFlag,
       min_hours: hours.min,
       max_hours: hours.max,
@@ -386,9 +389,20 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
                   <label className="label-text">Hours</label>
                   <SelectMenu
                     value={contractType}
-                    onChange={setContractType}
+                    onChange={v => { setContractType(v); if (v !== 'Junior_Doctor_Overtime') setSubtype(null) }}
                     placeholder="Select…"
                     options={CONTRACT_TYPE_OPTIONS}
+                  />
+                </div>
+              )}
+              {role === 'doctor' && categoryNeedsContractChoice(category) && contractType === 'Junior_Doctor_Overtime' && (
+                <div>
+                  <label className="label-text">OT subtype</label>
+                  <SelectMenu
+                    value={subtype || ''}
+                    onChange={setSubtype}
+                    placeholder="Not yet assigned…"
+                    options={OT_SUBTYPE_OPTIONS}
                   />
                 </div>
               )}

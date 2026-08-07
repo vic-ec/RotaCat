@@ -14,7 +14,10 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
-import { defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory } from '../lib/staffDefaults'
+import {
+  defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory, OT_SUBTYPE_LABELS,
+} from '../lib/staffDefaults'
+import { applyHoursChange } from '../lib/internRotations'
 import { Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
@@ -42,7 +45,22 @@ const ROLE_LABELS = {
 const REQUEST_TYPE_LABELS = {
   role: 'Role change',
   category: 'Category change',
+  hours: 'Hours change',
   deletion: 'Account deletion',
+}
+
+// 'hours' requests store a JSON-encoded {contract_type, subtype} in both
+// current_value and requested_value (role/category requests just store the
+// plain string) — renders either shape into a short human label.
+function formatRequestValue(value, requestType) {
+  if (requestType !== 'hours' || !value) return value
+  try {
+    const { contract_type, subtype } = JSON.parse(value)
+    const hoursLabel = contract_type === 'Junior_Doctor_Overtime' ? 'OT' : 'EC'
+    return subtype ? `${hoursLabel} (${OT_SUBTYPE_LABELS[subtype] || subtype})` : hoursLabel
+  } catch {
+    return value
+  }
 }
 
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
@@ -54,6 +72,18 @@ const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
 // when COSMOPsych was its own category — this tag is now the only
 // per-row indicator of that distinction in this list.
 const CONTRACT_TAG_LABEL = { five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }
+const CONTRACT_TAG_TITLE = { five_eighths: 'Part-time (⅝ contract)', Junior_Doctor_Overtime: 'Junior Doctor Overtime' }
+
+// "OT" alone, or "OT · LRCHC" once a subtype has been assigned (via the
+// Intern Rotations Planner or the Accounts page Hours selector).
+function contractTagText(person) {
+  const base = CONTRACT_TAG_LABEL[person.contract_type]
+  if (!base) return null
+  if (person.contract_type === 'Junior_Doctor_Overtime' && person.psych_subcategory) {
+    return `${base} · ${OT_SUBTYPE_LABELS[person.psych_subcategory] || person.psych_subcategory}`
+  }
+  return base
+}
 
 const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
@@ -656,6 +686,21 @@ export default function StaffListPage() {
         if (promote) patch.role = 'doctor'
       }
       await supabase.from('profiles').update(patch).eq('id', request.profile_id)
+    } else if (request.request_type === 'hours') {
+      try {
+        const { contract_type, subtype } = JSON.parse(request.requested_value)
+        await applyHoursChange({
+          profileId: request.profile_id,
+          category: request.requester?.category,
+          contractType: contract_type,
+          subtype,
+          actorId: user.id,
+        })
+      } catch (err) {
+        alert('Could not apply hours change: ' + err.message)
+        setRequestActioningId(null)
+        return
+      }
     } else if (request.request_type === 'deletion') {
       // Client-side keys can't delete an auth user directly (needs service role).
       // Deactivate the account now; remove the auth user manually in Supabase if required.
@@ -1106,7 +1151,7 @@ export default function StaffListPage() {
                       const secondaryLabel = person.role === 'doctor'
                         ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
                         : (ROLE_LABELS[person.role] || person.role)
-                      const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                      const contractTag = contractTagText(person)
                       const isMe = person.id === user?.id
                       return (
                         <div
@@ -1144,7 +1189,7 @@ export default function StaffListPage() {
                               {contractTag && (
                                 <span
                                   className="flex-shrink-0 rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
-                                  title="Part-time (⅝ contract)"
+                                  title={CONTRACT_TAG_TITLE[person.contract_type]}
                                 >
                                   {contractTag}
                                 </span>
@@ -1223,7 +1268,7 @@ export default function StaffListPage() {
                       {(!group.label || !collapsedGroups[group.key]) && group.items.map(person => {
                         const isToggling = togglingId === person.id
                         const formattedPhone = formatPhoneDisplay(person.phone)
-                        const contractTag = CONTRACT_TAG_LABEL[person.contract_type]
+                        const contractTag = contractTagText(person)
                         // Same "category if doctor, else role" pick as the mobile
                         // card list and the Pending-approval row — one primary
                         // identity label, not a separate Role column and a
@@ -1257,7 +1302,7 @@ export default function StaffListPage() {
                                     {contractTag && (
                                       <span
                                         className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
-                                        title="Part-time (⅝ contract)"
+                                        title={CONTRACT_TAG_TITLE[person.contract_type]}
                                       >
                                         {contractTag}
                                       </span>
@@ -1509,7 +1554,7 @@ export default function StaffListPage() {
                             </div>
                             {r.request_type !== 'deletion' && (
                               <p className="mt-1 text-xs text-ink-light">
-                                {r.current_value || '—'} → <span className="font-medium text-ink">{r.requested_value}</span>
+                                {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
                               </p>
                             )}
                             {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}

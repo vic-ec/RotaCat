@@ -348,19 +348,16 @@ export default function StaffListPage() {
     try { localStorage.setItem(AZ_DIRECTION_KEY, azDirection) } catch { /* ignore */ }
   }, [azDirection])
 
-  // ── Selector switch: Search / Quick Sort / Filter ──
+  // ── Selector switch: Quick Sort / Filter ──
   // One shared set of state/popovers for both breakpoints — mobile and
   // desktop each render their own copy of the trigger buttons (shown/hidden
   // via CSS, not conditional rendering, so both exist in the DOM at once,
   // but only one is ever visible/interactive). Quick Sort reads/writes the
   // same sortMode/azDirection state used by buildGroups(); Filter reads/
   // writes the same accountFilters state the grid itself filters on.
-  // Only the Search wrapper needs its own ref per breakpoint, since a
-  // single ref can't track two simultaneously-mounted DOM nodes.
-  const [searchOpen, setSearchOpen] = useState(false)
-  const searchWrapRef = useRef(null)
-  const mobileSearchWrapRef = useRef(null)
-  useDismissablePopover(searchOpen, () => setSearchOpen(false), searchWrapRef, [mobileSearchWrapRef])
+  // Search itself is always a plain visible ClearableInput below, same as
+  // the Pending Approvals/User Requests tabs' Toolbar search — no
+  // click-to-open toggle state needed.
 
   // Single flat Sort facet — category/role select the mode directly, the
   // two A–Z options fold direction into the same list instead of a nested
@@ -896,35 +893,20 @@ export default function StaffListPage() {
             {/* Mobile toolbar — Search hugs to fill the remaining width;
                 Sort/Filter show icon + label (ToolbarFacet/FilterPanel),
                 Clear-all is icon-only, all pinned to the right. Shares
-                state/popovers with the desktop toolbar below (only the
+                Sort/Filter state with the desktop toolbar below (only the
                 visible copy is ever interactive), so picking anything here
                 behaves identically. */}
             <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
-              <div ref={mobileSearchWrapRef} className="min-w-0 flex-1">
-                {searchOpen ? (
-                  <ClearableInput
-                    autoFocus
-                    type="text"
-                    value={accountFilters.q}
-                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                    placeholder="Surname or first name…"
-                    className="input-field h-[30px] py-1"
-                    clearLabel="Clear search"
-                    icon={<SearchIcon className="h-4 w-4" />}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setSearchOpen(true)}
-                    className={`flex h-[30px] w-full items-center justify-center gap-1 rounded border border-accent/25 text-sm font-medium transition-colors ${
-                      accountFilters.q
-                        ? 'bg-accent text-white'
-                        : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                    }`}
-                  >
-                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                    Search
-                  </button>
-                )}
+              <div className="min-w-0 flex-1">
+                <ClearableInput
+                  type="text"
+                  value={accountFilters.q}
+                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                  placeholder="Surname or first name…"
+                  className="input-field h-[30px] py-1"
+                  clearLabel="Clear search"
+                  icon={<SearchIcon className="h-4 w-4" />}
+                />
               </div>
 
               <ToolbarFacet
@@ -958,31 +940,16 @@ export default function StaffListPage() {
                 search/filter is actually active. Search is 320px (w-80),
                 the spec's standardized desktop search width. */}
             <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
-              <div ref={searchWrapRef} className="w-80 flex-shrink-0">
-                {searchOpen ? (
-                  <ClearableInput
-                    autoFocus
-                    type="text"
-                    value={accountFilters.q}
-                    onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                    placeholder="Surname or first name…"
-                    className="input-field h-[30px] py-1"
-                    clearLabel="Clear search"
-                    icon={<SearchIcon className="h-4 w-4" />}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setSearchOpen(true)}
-                    className={`flex h-[30px] w-full items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
-                      accountFilters.q
-                        ? 'bg-accent text-white'
-                        : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-                    }`}
-                  >
-                    <SearchIcon className="h-4 w-4 flex-shrink-0" />
-                    Search
-                  </button>
-                )}
+              <div className="w-80 flex-shrink-0">
+                <ClearableInput
+                  type="text"
+                  value={accountFilters.q}
+                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
+                  placeholder="Surname or first name…"
+                  className="input-field h-[30px] py-1"
+                  clearLabel="Clear search"
+                  icon={<SearchIcon className="h-4 w-4" />}
+                />
               </div>
 
               <ToolbarFacet
@@ -1432,24 +1399,28 @@ export default function StaffListPage() {
                 onCancel={() => setSelectedPendingIds(new Set())}
               />
 
-              <div className="card overflow-hidden divide-y divide-slate-line">
+              <div className="card mb-3 overflow-hidden">
                 <SelectAllRow
                   checked={selectedPendingIds.size === pending.length}
                   onToggleCheck={toggleSelectAllPending}
                   selectLabel="Select all pending accounts"
                   active={selectedPendingIds.size > 0}
                 />
+              </div>
+
+              <div className="space-y-3">
                 {orderedPending.map((person) => (
-                  <PendingApprovalRow
-                    key={person.id}
-                    person={person}
-                    email={emailById[person.id]}
-                    checked={selectedPendingIds.has(person.id)}
-                    onToggleCheck={() => togglePendingSelected(person.id)}
-                    approveAccount={approveAccount}
-                    rejectAccount={rejectAccount}
-                    onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
-                  />
+                  <div key={person.id} className="card overflow-hidden">
+                    <PendingApprovalRow
+                      person={person}
+                      email={emailById[person.id]}
+                      checked={selectedPendingIds.has(person.id)}
+                      onToggleCheck={() => togglePendingSelected(person.id)}
+                      approveAccount={approveAccount}
+                      rejectAccount={rejectAccount}
+                      onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                    />
+                  </div>
                 ))}
               </div>
             </>

@@ -35,10 +35,15 @@ const LEAVE_REQUESTS = [
   { id: 'r3', profile_id: 'p1', leave_type: 'study', date_from: '2026-04-01', date_to: '2026-04-02', status: 'approved' },
 ]
 
-// Opens one dimension's own quick-select facet popover (Category/Doctor/
-// Status/Leave type each render as an independent ToolbarFacet pill).
-async function openFacet(user, label) {
-  await user.click(screen.getByRole('button', { name: label }))
+// Opens the single Filter button and expands one dimension's group
+// (Category/Doctor/Status/Leave type), same FilterPanel pattern as Staff.
+async function openGroup(user, groupLabel) {
+  await user.click(screen.getByRole('button', { name: 'Filter' }))
+  await user.click(screen.getByRole('button', { name: groupLabel }))
+}
+
+async function pickOption(user, optionLabel) {
+  await user.click(await screen.findByRole('checkbox', { name: optionLabel }))
 }
 
 describe('LeaveAuditReport (admin HR-audit view)', () => {
@@ -68,20 +73,19 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(rows[2]).queryByText('Other')).not.toBeInTheDocument()
   })
 
-  it('facet option lists are not shown until their pill is opened', async () => {
+  it('filter options are not shown until the Filter button is opened', async () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
-    expect(screen.queryByText('All categories')).not.toBeInTheDocument()
-    expect(screen.queryByText('All doctors')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('narrows the table when a category filter is applied, via the Category facet', async () => {
+  it('narrows the table when a category filter is applied, via the Category group', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFacet(user, 'Category')
-    await user.click(await screen.findByRole('button', { name: 'MO' }))
+    await openGroup(user, 'Category')
+    await pickOption(user, 'MO')
 
     expect(screen.getByText('Zephyr, Ada')).toBeInTheDocument()
     expect(screen.queryByText('Adams, Bo')).not.toBeInTheDocument()
@@ -93,8 +97,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFacet(user, 'Status')
-    await user.click(await screen.findByRole('button', { name: 'Inactive' }))
+    await openGroup(user, 'Status')
+    await pickOption(user, 'Inactive')
 
     expect(screen.getByText('Consult, Cy')).toBeInTheDocument()
     expect(screen.queryByText('Zephyr, Ada')).not.toBeInTheDocument()
@@ -108,8 +112,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     // Ada has 5 annual + 2 study (special) days = 7 total before filtering
     expect(within(rows.find(r => within(r).queryByText('Zephyr, Ada'))).getByText('7')).toBeInTheDocument()
 
-    await openFacet(user, 'Leave type')
-    await user.click(await screen.findByRole('button', { name: 'Study leave' }))
+    await openGroup(user, 'Leave type')
+    await pickOption(user, 'Study leave')
 
     const filteredRows = screen.getAllByRole('row')
     const adaRow = filteredRows.find(r => within(r).queryByText('Zephyr, Ada'))
@@ -125,10 +129,15 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
 
     expect(screen.queryByText('Clear filters')).not.toBeInTheDocument()
 
-    await openFacet(user, 'Category')
-    await user.click(await screen.findByRole('button', { name: 'MO' }))
+    await openGroup(user, 'Category')
+    await pickOption(user, 'MO')
 
     expect(screen.queryByText('Adams, Bo')).not.toBeInTheDocument()
+    // The Filter popover is still open at this point — same as every other
+    // dismissable popover in the app, its first outside click only closes
+    // it (see useDismissablePopover), so close it explicitly before the
+    // "Clear filters" click can actually land.
+    await user.keyboard('{Escape}')
     await user.click(screen.getByText('Clear filters'))
     expect(screen.getByText('Adams, Bo')).toBeInTheDocument() // Registrar is back
   })
@@ -138,8 +147,8 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr, Ada')
 
-    await openFacet(user, 'Doctor')
-    await user.click(await screen.findByRole('button', { name: 'Zephyr, Ada' }))
+    await openGroup(user, 'Doctor')
+    await pickOption(user, 'Zephyr, Ada')
 
     expect(await screen.findByText('Individual requests in range')).toBeInTheDocument()
     expect(screen.getByText(/Annual leave — 2026-03-10 → 2026-03-14/)).toBeInTheDocument()

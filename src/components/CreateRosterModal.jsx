@@ -38,7 +38,7 @@ function RosterOptionButton({ label, tooltip, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group relative flex-1 rounded-lg border border-slate-line bg-canvas-raised p-5 text-center transition-colors hover:border-accent hover:bg-accent-tint"
+      className="group relative flex-1 rounded-lg border border-slate-line bg-canvas-raised p-5 text-center transition-colors hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent-tint"
     >
       <p className="text-sm font-semibold text-ink">{label}</p>
       <span

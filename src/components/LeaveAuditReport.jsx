@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Tag, Stethoscope, Activity, ListFilter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
@@ -7,7 +6,7 @@ import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRota
 import { buildAuditRows } from '../lib/leaveAudit'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
-import { ToolbarFacet } from './Toolbar'
+import FilterPanel from './FilterPanel'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -16,17 +15,14 @@ const STATUS_BADGE = {
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 const CATEGORY_OPTIONS = [
-  { value: 'all', label: 'All categories' },
   ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),
   { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
 ]
-const COLUMN_LABEL_BY_KEY = Object.fromEntries(CATEGORY_OPTIONS.filter(o => o.value !== 'all').map(o => [o.value, o.label]))
+const COLUMN_LABEL_BY_KEY = Object.fromEntries(CATEGORY_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All statuses' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ]
-const LEAVE_TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'All leave types' }, ...LEAVE_TYPE_OPTIONS]
 
 function yearStartStr() {
   return `${new Date().getFullYear()}-01-01`
@@ -47,16 +43,20 @@ function BucketCell({ bucket }) {
 // never deleted or reset, this just aggregates them differently). Filterable
 // by category (the same MO/Registrar/EC COSMO+Intern/OT COSMO+Intern/
 // Consultant grouping the Annual Leave planner uses), doctor, active/inactive
-// status, and leave type — each its own single-select quick-select facet
-// (ToolbarFacet, same shape as every other filter row in the app) rather
-// than four permanently-visible selects, since most visits don't need them.
+// status, and leave type — all behind one Filter button (FilterPanel, same
+// multi-select grouped-facet pattern as the Staff list) rather than four
+// permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [doctorFilter, setDoctorFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
+  // Each a Set of selected values — empty means "All" for that dimension
+  // (see FilterPanel.jsx). Doctor is still effectively single-select in
+  // practice: the drill-down below only activates when exactly one doctor
+  // is selected, same as the old dedicated single-select control.
+  const [categoryFilter, setCategoryFilter] = useState(new Set())
+  const [doctorFilter, setDoctorFilter] = useState(new Set())
+  const [statusFilter, setStatusFilter] = useState(new Set())
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState(new Set())
   const [profiles, setProfiles] = useState([])
   const [leaveRequests, setLeaveRequests] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -104,18 +104,20 @@ export default function LeaveAuditReport() {
   )
 
   const statusFilteredProfiles = useMemo(
-    () => profiles.filter(p => statusFilter === 'all' || (statusFilter === 'active') === Boolean(p.is_active)),
+    () => profiles.filter(p => statusFilter.size === 0 || statusFilter.has(p.is_active ? 'active' : 'inactive')),
     [profiles, statusFilter]
   )
 
   const doctorOptions = useMemo(() => {
     const eligible = statusFilteredProfiles
-      .filter(p => categoryFilter === 'all' || columnByProfileId.get(p.id) === categoryFilter)
+      .filter(p => categoryFilter.size === 0 || categoryFilter.has(columnByProfileId.get(p.id)))
       .sort((a, b) => a.surname.localeCompare(b.surname))
-    return [{ value: 'all', label: 'All doctors' }, ...eligible.map(p => ({ value: p.id, label: `${p.surname}, ${p.name}` }))]
+    return eligible.map(p => ({ value: p.id, label: `${p.surname}, ${p.name}` }))
   }, [statusFilteredProfiles, categoryFilter, columnByProfileId])
 
-  const typeFilteredRequests = leaveTypeFilter === 'all' ? leaveRequests : leaveRequests.filter(lr => lr.leave_type === leaveTypeFilter)
+  const typeFilteredRequests = leaveTypeFilter.size === 0
+    ? leaveRequests
+    : leaveRequests.filter(lr => leaveTypeFilter.has(lr.leave_type))
 
   const rows = useMemo(
     () => buildAuditRows(statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo),
@@ -123,29 +125,39 @@ export default function LeaveAuditReport() {
   )
 
   const filteredRows = rows.filter(r => {
-    if (categoryFilter !== 'all' && columnByProfileId.get(r.profileId) !== categoryFilter) return false
-    if (doctorFilter !== 'all' && r.profileId !== doctorFilter) return false
+    if (categoryFilter.size > 0 && !categoryFilter.has(columnByProfileId.get(r.profileId))) return false
+    if (doctorFilter.size > 0 && !doctorFilter.has(r.profileId)) return false
     return true
   })
 
-  const drillDownRequests = doctorFilter === 'all'
-    ? []
-    : typeFilteredRequests.filter(lr => lr.profile_id === doctorFilter).sort((a, b) => b.date_from.localeCompare(a.date_from))
+  // Drill-down only makes sense for exactly one doctor — a multi-doctor
+  // selection just narrows the table above, same as every other dimension.
+  const selectedDoctorId = doctorFilter.size === 1 ? [...doctorFilter][0] : null
+  const drillDownRequests = selectedDoctorId
+    ? typeFilteredRequests.filter(lr => lr.profile_id === selectedDoctorId).sort((a, b) => b.date_from.localeCompare(a.date_from))
+    : []
 
-  // A doctor filter from a previous category/status no longer necessarily
-  // applies once either changes — clear it rather than silently showing a
-  // stale single-doctor drill-down that doesn't match the new filters.
-  function handleCategoryChange(value) { setCategoryFilter(value); setDoctorFilter('all') }
-  function handleStatusChange(value) { setStatusFilter(value); setDoctorFilter('all') }
+  // A doctor selection from a previous category/status no longer
+  // necessarily applies once either changes — clear it rather than
+  // silently keeping a stale, now-irrelevant doctor selected.
+  function handleCategoryChange(next) { setCategoryFilter(next); setDoctorFilter(new Set()) }
+  function handleStatusChange(next) { setStatusFilter(next); setDoctorFilter(new Set()) }
 
   function clearFilters() {
-    setCategoryFilter('all')
-    setDoctorFilter('all')
-    setStatusFilter('all')
-    setLeaveTypeFilter('all')
+    setCategoryFilter(new Set())
+    setDoctorFilter(new Set())
+    setStatusFilter(new Set())
+    setLeaveTypeFilter(new Set())
   }
 
-  const activeFilterCount = [categoryFilter, doctorFilter, statusFilter, leaveTypeFilter].filter(v => v !== 'all').length
+  const filterGroups = [
+    { key: 'category', label: 'Category', options: CATEGORY_OPTIONS, selected: categoryFilter, onChange: handleCategoryChange },
+    { key: 'doctor', label: 'Doctor', options: doctorOptions, selected: doctorFilter, onChange: setDoctorFilter },
+    { key: 'status', label: 'Status', options: STATUS_OPTIONS, selected: statusFilter, onChange: handleStatusChange },
+    { key: 'leaveType', label: 'Leave type', options: LEAVE_TYPE_OPTIONS, selected: leaveTypeFilter, onChange: setLeaveTypeFilter },
+  ]
+
+  const activeFilterCount = categoryFilter.size + doctorFilter.size + statusFilter.size + leaveTypeFilter.size
 
   return (
     <div>
@@ -156,38 +168,7 @@ export default function LeaveAuditReport() {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <DateFieldButton label="From" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         <DateFieldButton label="To" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-        <ToolbarFacet
-          icon={<Tag className="h-4 w-4" />}
-          label="Category"
-          value={categoryFilter}
-          onChange={handleCategoryChange}
-          options={CATEGORY_OPTIONS}
-          isActive={categoryFilter !== 'all'}
-        />
-        <ToolbarFacet
-          icon={<Stethoscope className="h-4 w-4" />}
-          label="Doctor"
-          value={doctorFilter}
-          onChange={setDoctorFilter}
-          options={doctorOptions}
-          isActive={doctorFilter !== 'all'}
-        />
-        <ToolbarFacet
-          icon={<Activity className="h-4 w-4" />}
-          label="Status"
-          value={statusFilter}
-          onChange={handleStatusChange}
-          options={STATUS_OPTIONS}
-          isActive={statusFilter !== 'all'}
-        />
-        <ToolbarFacet
-          icon={<ListFilter className="h-4 w-4" />}
-          label="Leave type"
-          value={leaveTypeFilter}
-          onChange={setLeaveTypeFilter}
-          options={LEAVE_TYPE_FILTER_OPTIONS}
-          isActive={leaveTypeFilter !== 'all'}
-        />
+        <FilterPanel groups={filterGroups} />
         {activeFilterCount > 0 && (
           <button type="button" onClick={clearFilters} className="text-sm font-medium text-accent hover:underline">
             Clear filters
@@ -230,7 +211,7 @@ export default function LeaveAuditReport() {
             </table>
           </div>
 
-          {doctorFilter !== 'all' && (
+          {selectedDoctorId && (
             <div className="mt-4 card p-4">
               <h3 className="text-sm font-semibold text-ink">Individual requests in range</h3>
               {drillDownRequests.length === 0 ? (

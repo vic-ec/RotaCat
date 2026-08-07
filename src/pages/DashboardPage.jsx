@@ -3,19 +3,13 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-import { todayStr, addDays, parseLocalDate } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
-import PublicHolidayButton from '../components/PublicHolidayButton'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
+import DateCard, { LeaveDateRange } from '../components/DateCard'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
-
-const STATUS_BADGE = {
-  pending: 'bg-flagAmber-bg text-flagAmber',
-  approved: 'bg-success-bg text-success',
-  rejected: 'bg-flagRed-bg text-flagRed',
-}
 
 // Swap requests aren't finalized (still awaiting the other doctor and/or
 // admin) for these two statuses — accepted/rejected/admin_approved/
@@ -25,16 +19,6 @@ const SWAP_STATUS_LABELS = { pending: 'Pending', accepted: 'Awaiting admin' }
 const SWAP_STATUS_BADGE = {
   pending: 'bg-flagAmber-bg text-flagAmber',
   accepted: 'bg-flagBlue-bg text-flagBlue',
-}
-
-// "Mon, 3 Aug 2026 - 08:00 - 18:00"
-function formatShiftDateTime(dateStr, startTime, endTime) {
-  const date = parseLocalDate(dateStr)
-  const weekday = date.toLocaleDateString('en-GB', { weekday: 'short' })
-  const day = date.getDate()
-  const month = date.toLocaleDateString('en-GB', { month: 'short' })
-  const year = date.getFullYear()
-  return `${weekday}, ${day} ${month} ${year} - ${startTime?.slice(0, 5)} - ${endTime?.slice(0, 5)}`
 }
 
 export default function DashboardPage() {
@@ -246,17 +230,20 @@ export default function DashboardPage() {
             {myShifts.length === 0 ? (
               <p className="mt-2 text-sm text-ink-muted">No upcoming shifts in the next 7 days.</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-sm">
+              <div className="mt-3 flex flex-wrap gap-3">
                 {myShifts.map(e => {
                   const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
                   return (
-                    <li key={`${e.date}-${e.shift_type?.code}`} className={`flex items-center ${isPH ? 'text-rose' : 'text-ink-light'}`}>
-                      {formatShiftDateTime(e.date, e.shift_type?.start_time, e.shift_type?.end_time)}
-                      {isPH && <PublicHolidayButton name={phByDate[e.date]} />}
-                    </li>
+                    <DateCard
+                      key={`${e.date}-${e.shift_type?.code}`}
+                      date={e.date}
+                      startTime={e.shift_type?.start_time}
+                      endTime={e.shift_type?.end_time}
+                      publicHoliday={isPH && (phByDate[e.date] || true)}
+                    />
                   )
                 })}
-              </ul>
+              </div>
             )}
           </div>
 
@@ -266,15 +253,11 @@ export default function DashboardPage() {
               {myLeave.length === 0 ? (
                 <p className="mt-2 text-sm text-ink-muted">No leave requests on record.</p>
               ) : (
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 space-y-4">
                   {myLeave.map(lr => (
-                    <div key={lr.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-ink">
-                        {LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                        {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
-                      </span>
+                    <div key={lr.id}>
+                      <p className="mb-1 text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]}</p>
+                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} />
                     </div>
                   ))}
                 </div>

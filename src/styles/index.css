@@ -116,6 +116,48 @@
            disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* For approve-type confirmations specifically (e.g. an "Approve" button)
+     — distinct from .btn-primary's brand teal, so approving something reads
+     as its own affirmative action rather than just "the default button". */
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
+           text-sm font-medium text-white shadow-sm transition-opacity
+           hover:opacity-85 active:opacity-85
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Solid destructive action — uses the dedicated `danger` token, never
+     `flagRed` (reserved for roster-state semantics, see tailwind.config.js). */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-danger px-4 py-1
+           text-sm font-medium text-white shadow-sm transition-colors
+           hover:bg-danger-dark active:bg-danger-dark
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Same box model as .btn-secondary (border + white bg + tinted hover), red
+     instead of slate — for a negative action paired next to a solid positive
+     one (e.g. "Reject" next to "Approve"), deliberately quieter than
+     .btn-danger so two actions with asymmetric consequences don't compete
+     equally for attention. */
+  .btn-danger-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-danger
+           bg-canvas-raised px-4 py-1 text-sm font-medium text-danger transition-colors
+           hover:bg-danger-bg active:bg-danger-bg
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Transparent background, minimal (fully transparent) border — for
+     low-emphasis actions that shouldn't compete visually with a page's real
+     primary/secondary buttons. Border stays in the box model (transparent,
+     same as .btn-primary) purely to keep the shared 30px height formula. */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent
+           bg-transparent px-4 py-1 text-sm font-medium text-ink-light transition-colors
+           hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   .card {
     @apply rounded-lg border border-slate-line bg-canvas-raised shadow-card;
   }

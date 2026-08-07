@@ -569,11 +569,7 @@ function DayReviewModal({
                   <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
                       <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                      }`}>
-                        {e.surname}
-                      </span>
+                      <span className="flex-shrink-0 text-sm font-medium text-ink">{e.surname}</span>
                       <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                     </span>
                     <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>

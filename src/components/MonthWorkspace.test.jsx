@@ -322,15 +322,17 @@ describe('MonthWorkspace', () => {
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
   })
 
-  it('shows each surname in a pillbox coloured by that request\'s status', async () => {
+  it('shows each surname as plain text, never coloured by that request\'s status', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
     const heading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
     const modal = within(heading.closest('.card'))
 
-    expect(modal.getByText('Anderson')).toHaveClass('bg-success-bg', 'text-success')
-    expect(modal.getByText('Botha')).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
+    expect(modal.getByText('Anderson')).not.toHaveClass('bg-success-bg', 'text-success')
+    expect(modal.getByText('Botha')).not.toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
+    expect(modal.getByText('Anderson')).toHaveClass('text-ink')
+    expect(modal.getByText('Botha')).toHaveClass('text-ink')
   })
 
   it('reviewing pending requests: admin sees the pending request detail with its note', async () => {

@@ -97,6 +97,16 @@ export default {
           DEFAULT: '#22A06B',
           bg: '#E3F5EC'
         },
+        // Dedicated destructive-action red for .btn-danger/.btn-danger-outline
+        // — deliberately its own token rather than reusing flagRed, which is
+        // reserved strictly for roster-state semantics (see that token's own
+        // comment above). This one means "this button does something
+        // destructive," not "this roster entry conflicts."
+        danger: {
+          DEFAULT: '#DC2626',
+          dark: '#B91C1C',
+          bg: '#FEE2E2'
+        },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state
         // semantics like draft/published/conflict), since this marks a

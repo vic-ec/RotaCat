@@ -4,6 +4,7 @@ import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert, Calenda
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
+import Tag from './Tag'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange } from '../lib/leaveRequests'
 
@@ -255,11 +256,7 @@ export default function LeaveApprovalQueue({ onBack }) {
                       <p className="text-sm font-medium text-ink">
                         {request.profiles?.name} {request.profiles?.surname}
                       </p>
-                      {categoryLabel && (
-                        <span className="rounded-full bg-success-bg px-2 py-0.5 text-xs font-bold text-success">
-                          {categoryLabel}
-                        </span>
-                      )}
+                      {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
                     </div>
                     <p className="mt-0.5 text-xs text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]} - {rangeLabel}</p>
                     {daysTotalLine && <p className="text-xs text-ink-muted">{daysTotalLine}</p>}

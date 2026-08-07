@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -118,6 +118,16 @@ describe('MonthWorkspace', () => {
     getApprovalWarnings.mockReset()
     createNotification.mockClear()
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
+    // Fixtures below assume "today" is 6 Aug 2026 (the "Your leave" card
+    // test prefills the leave-request form with todayStr()) — pin the
+    // clock rather than relying on the real wall-clock date, which would
+    // otherwise silently break this suite once the real date moves past
+    // this fixed point.
+    vi.setSystemTime(new Date(2026, 7, 6, 12, 0, 0))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders a full calendar grid with full weekday names and the month label', () => {

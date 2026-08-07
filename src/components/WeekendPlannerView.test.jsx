@@ -1,11 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import WeekendPlannerView from './WeekendPlannerView'
 import { isEvenWeekend } from '../lib/weekendPlanner'
 
-// Sandbox clock is 2026-08-01 (a Saturday) throughout this session.
+// Fixtures below assume "today" is 2026-08-01 (a Saturday) — pinned via
+// vi.setSystemTime in beforeEach rather than relying on the real wall-clock
+// date, which would otherwise silently break this suite (built entirely
+// around current/next-weekend logic) once the real date moved past it.
 let mockAuth = { isAdmin: false, canSubmitLeave: true, profile: { id: 'p1' } }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
@@ -111,6 +114,7 @@ async function showAll(view, user) {
 
 describe('WeekendPlannerView', () => {
   beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
     insertedRows.length = 0
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['profiles:select'] = { data: PROFILES, error: null }
@@ -119,6 +123,10 @@ describe('WeekendPlannerView', () => {
     mockResponses['leave_requests:select'] = { data: MY_WEEKEND_REQUESTS, error: null }
     mockAuth = { isAdmin: false, canSubmitLeave: true, profile: { id: 'p1' } }
     restoreWeekendPlannerBatch.mockReset().mockResolvedValue({ error: null, inserted: 0, deleted: 0, skipped: 0 })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   describe('mobile layout', () => {

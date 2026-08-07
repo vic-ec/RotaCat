@@ -148,7 +148,7 @@ export default function FilterPanel({ groups, className = '' }) {
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-accent/25 px-3 text-sm font-medium transition-colors ${
+        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors ${
           open || activeCount > 0 ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         } ${className}`}
       >

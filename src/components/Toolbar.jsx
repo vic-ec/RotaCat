@@ -74,7 +74,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-accent/25 px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           open || isActive ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         }`}
       >
@@ -86,7 +86,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
         >
           {options.map(opt => (
             <button
@@ -124,7 +124,7 @@ function ToolbarFacetInline({ icon, label, value, onChange, options }) {
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`min-h-[44px] rounded-lg border px-3 text-sm font-medium transition-colors ${
+            className={`min-h-[44px] rounded border px-3 text-sm font-medium transition-colors ${
               opt.value === value
                 ? 'border-transparent bg-accent text-white'
                 : 'border-accent/25 bg-canvas text-ink-light hover:bg-canvas-sunken'
@@ -218,7 +218,7 @@ export default function Toolbar({
             onClick={onClearAll}
             aria-label="Clear all filters"
             title="Clear all filters"
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
           >
             <ClearIcon className="h-4 w-4" />
           </button>
@@ -241,7 +241,7 @@ export default function Toolbar({
           <button
             type="button"
             onClick={() => setMobileSheetOpen(true)}
-            className={`flex h-11 items-center justify-center gap-1.5 rounded-lg border border-accent/25 text-sm font-medium transition-colors ${
+            className={`flex h-11 items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
               active ? 'bg-accent text-white' : 'bg-canvas text-ink-light'
             }`}
           >

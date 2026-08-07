@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CircleCheck, CircleX, CalendarSearch, TriangleAlert, ListFilter } from 'lucide-react'
+import { ArrowLeft, CalendarSearch, TriangleAlert, ListFilter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
 import Toolbar from './Toolbar'
 import SortDirectionToggle from './SortDirectionToggle'
+import { ApprovalRow, SelectAllRow } from './ListRow'
+import BulkActionBar from './BulkActionBar'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange } from '../lib/leaveRequests'
 
@@ -206,41 +208,23 @@ export default function LeaveApprovalQueue({ onBack }) {
         </div>
       ) : (
       <>
-      {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white">
-          <span className="flex-1">{selectedIds.size} selected</span>
-          <button
-            onClick={bulkApprove}
-            disabled={bulkActioning}
-            className="rounded-md bg-success px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:opacity-50"
-          >
-            Approve selected
-          </button>
-          <button
-            onClick={bulkReject}
-            disabled={bulkActioning}
-            className="rounded-md border border-white/40 px-3 py-1.5 text-xs font-bold text-white/90 transition-colors hover:bg-white/10 active:bg-white/10 disabled:opacity-50"
-          >
-            Reject selected
-          </button>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="text-xs font-medium text-white/60 hover:text-white/90"
-          >
-            Clear
-          </button>
-        </div>
-      )}
+      <BulkActionBar
+        count={selectedIds.size}
+        disabled={bulkActioning}
+        actions={[
+          { label: 'Approve selected', onClick: bulkApprove },
+          { label: 'Reject selected', onClick: bulkReject, tone: 'danger' },
+        ]}
+        onCancel={() => setSelectedIds(new Set())}
+      />
 
-      <div className="card mb-3 flex items-center gap-3 overflow-hidden px-5 py-2.5">
-        <input
-          type="checkbox"
+      <div className="card mb-3 overflow-hidden">
+        <SelectAllRow
           checked={selectedIds.size === displayedRequests.length}
-          onChange={toggleSelectAll}
-          aria-label="Select all pending leave requests"
-          className="h-4 w-4 rounded border-slate-line accent-accent"
+          onToggleCheck={toggleSelectAll}
+          selectLabel="Select all pending leave requests"
+          active={selectedIds.size > 0}
         />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
       </div>
 
       <div className="space-y-3">
@@ -255,109 +239,81 @@ export default function LeaveApprovalQueue({ onBack }) {
           const daysTotalLine = approvalDaysTotalLine(request)
 
           return (
-            <div key={request.id} className="card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(request.id)}
-                    onChange={() => toggleSelected(request.id)}
-                    aria-label={`Select ${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
-                    className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-                  />
-                  <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} className="mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-ink">
-                        {request.profiles?.name} {request.profiles?.surname}
+            <div key={request.id} className="card overflow-hidden">
+              <ApprovalRow
+                checked={selectedIds.has(request.id)}
+                onToggleCheck={() => toggleSelected(request.id)}
+                selectLabel={`Select ${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
+                avatar={<ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} />}
+                name={`${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
+                tag={categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
+                meta={`${LEAVE_TYPE_LABELS[request.leave_type]} - ${rangeLabel}`}
+                onApprove={() => (warned && !confirming) ? setConfirmingApproveId(request.id) : approve(request)}
+                onReject={() => setRejectingId(request.id)}
+                approveLabel={approveLabel}
+                approveDisabled={isActioning || w === undefined}
+                rejectDisabled={isActioning}
+                extraAction={{
+                  label: 'View Calendar',
+                  icon: <CalendarSearch className="h-5 w-5" />,
+                  onClick: () => openInCalendar(request),
+                }}
+              >
+                {(daysTotalLine || request.notes) && (
+                  <p className="text-xs text-ink-muted">
+                    {daysTotalLine}
+                    {daysTotalLine && request.notes && ' — '}
+                    {request.notes && <span className="italic text-ink-light">&quot;{request.notes}&quot;</span>}
+                  </p>
+                )}
+
+                {w === undefined ? (
+                  <p className="mt-2 text-xs text-ink-muted">Checking for conflicts…</p>
+                ) : warned && (
+                  <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-3">
+                    {w.supervisionBreaches.length > 0 && (
+                      <p className="text-xs text-flagAmber">
+                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                        Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
                       </p>
-                      {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
+                    )}
+                    {w.balanceWarnings.map(bw => (
+                      <p key={bw.year} className="text-xs text-flagAmber">
+                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                        {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
+                      </p>
+                    ))}
+                    {w.hourCeilingWarning && (
+                      <p className="text-xs text-flagAmber">
+                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                        Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {rejectingId === request.id && (
+                  <div className="mt-2 space-y-2">
+                    <textarea
+                      value={rejectNotes}
+                      onChange={e => setRejectNotes(e.target.value)}
+                      placeholder="Reason (optional, visible to the doctor)…"
+                      rows={2}
+                      className="input-field w-full"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary">Cancel</button>
+                      <button
+                        onClick={() => reject(request)}
+                        disabled={isActioning}
+                        className="btn-danger-outline"
+                      >
+                        {isActioning ? 'Rejecting…' : 'Confirm reject'}
+                      </button>
                     </div>
-                    <p className="mt-0.5 text-xs text-ink-muted">{LEAVE_TYPE_LABELS[request.leave_type]} - {rangeLabel}</p>
-                    {daysTotalLine && <p className="text-xs text-ink-muted">{daysTotalLine}</p>}
-                    {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
                   </div>
-                </div>
-
-                <div className="flex flex-shrink-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => (warned && !confirming) ? setConfirmingApproveId(request.id) : approve(request)}
-                    disabled={isActioning || w === undefined}
-                    title={approveLabel}
-                    aria-label={isActioning ? 'Approving…' : approveLabel}
-                    className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <CircleCheck className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRejectingId(request.id)}
-                    disabled={isActioning}
-                    title="Reject"
-                    aria-label="Reject"
-                    className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <CircleX className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openInCalendar(request)}
-                    title="View Calendar"
-                    aria-label="View Calendar"
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
-                  >
-                    <CalendarSearch className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {w === undefined ? (
-                <p className="mt-2 text-xs text-ink-muted">Checking for conflicts…</p>
-              ) : warned && (
-                <div className="mt-3 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-3">
-                  {w.supervisionBreaches.length > 0 && (
-                    <p className="text-xs text-flagAmber">
-                      <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                      Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
-                    </p>
-                  )}
-                  {w.balanceWarnings.map(bw => (
-                    <p key={bw.year} className="text-xs text-flagAmber">
-                      <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                      {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
-                    </p>
-                  ))}
-                  {w.hourCeilingWarning && (
-                    <p className="text-xs text-flagAmber">
-                      <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                      Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {rejectingId === request.id && (
-                <div className="mt-3 space-y-2">
-                  <textarea
-                    value={rejectNotes}
-                    onChange={e => setRejectNotes(e.target.value)}
-                    placeholder="Reason (optional, visible to the doctor)…"
-                    rows={2}
-                    className="input-field w-full"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary">Cancel</button>
-                    <button
-                      onClick={() => reject(request)}
-                      disabled={isActioning}
-                      className="rounded border border-flagRed px-4 py-1 text-sm font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isActioning ? 'Rejecting…' : 'Confirm reject'}
-                    </button>
-                  </div>
-                </div>
-              )}
+                )}
+              </ApprovalRow>
             </div>
           )
         })}

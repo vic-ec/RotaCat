@@ -9,7 +9,7 @@ import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import FilterPanel from '../components/FilterPanel'
 import Tag from '../components/Tag'
-import { ListRowIdentity } from '../components/ListRow'
+import { ApprovalRow, SelectAllRow } from '../components/ListRow'
 import BulkActionBar from '../components/BulkActionBar'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
@@ -247,9 +247,10 @@ function SheetActionButton({ icon, label, href, onClick, onMissing }) {
 // dedicated review page rather than expanding an inline panel — editing a
 // pending registration's details happens there, including its mobile
 // number, which is left out of this collapsed row to keep it scannable.
-// Built on the shared ListRowIdentity template; the standalone "view" icon
-// this used to also carry was dropped since the row click already goes to
-// the exact same place (docs/design/layout-spec.md §7/§13).
+// Built on the shared ApprovalRow template (same shell Leave Requests
+// uses) — the standalone "view" icon this used to also carry was dropped
+// since the row click already goes to the exact same place
+// (docs/design/layout-spec.md §7/§13).
 function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
@@ -262,7 +263,7 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
   const fullName = `${person.name ? `${person.name} ` : ''}${person.surname}`
 
   return (
-    <ListRowIdentity
+    <ApprovalRow
       checked={checked}
       onToggleCheck={onToggleCheck}
       selectLabel={`Select ${fullName}`.trim()}
@@ -278,10 +279,8 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
           )}
         </>
       }
-      actions={[
-        { label: 'Approve', icon: <CircleCheck className="h-5 w-5" />, onClick: () => approveAccount(person) },
-        { label: 'Reject', icon: <CircleX className="h-5 w-5" />, onClick: () => rejectAccount(person.id), tone: 'danger' },
-      ]}
+      onApprove={() => approveAccount(person)}
+      onReject={() => rejectAccount(person.id)}
       onClick={() => onEdit(person.id)}
     />
   )
@@ -1447,16 +1446,12 @@ export default function StaffListPage() {
               />
 
               <div className="card overflow-hidden divide-y divide-slate-line">
-                <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selectedPendingIds.size === pending.length}
-                    onChange={toggleSelectAllPending}
-                    aria-label="Select all pending accounts"
-                    className="h-4 w-4 rounded border-slate-line accent-accent"
-                  />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
-                </div>
+                <SelectAllRow
+                  checked={selectedPendingIds.size === pending.length}
+                  onToggleCheck={toggleSelectAllPending}
+                  selectLabel="Select all pending accounts"
+                  active={selectedPendingIds.size > 0}
+                />
                 {orderedPending.map((person) => (
                   <PendingApprovalRow
                     key={person.id}
@@ -1498,16 +1493,12 @@ export default function StaffListPage() {
               />
 
               <div className="card overflow-hidden divide-y divide-slate-line">
-                <div className="flex items-center gap-3 bg-canvas-sunken px-5 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={selectedRequestIds.size === accountRequests.length}
-                    onChange={toggleSelectAllRequests}
-                    aria-label="Select all account requests"
-                    className="h-4 w-4 rounded border-slate-line accent-accent"
-                  />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
-                </div>
+                <SelectAllRow
+                  checked={selectedRequestIds.size === accountRequests.length}
+                  onToggleCheck={toggleSelectAllRequests}
+                  selectLabel="Select all account requests"
+                  active={selectedRequestIds.size > 0}
+                />
                 {displayedRequests.map((r) => {
                   const isActioning = requestActioningId === r.id
                   const secondaryLabel = r.requester?.role === 'doctor'

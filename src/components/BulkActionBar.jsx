@@ -7,8 +7,11 @@
 //
 // `actions`: `[{ label, onClick, tone }]` — contextual actions for this
 // list (Approve/Reject, Archive/Delete, …). `tone: 'danger'` gets the
-// outlined treatment, anything else gets the filled one.
-export default function BulkActionBar({ count, actions, onCancel }) {
+// outlined treatment, anything else gets the filled one. `disabled` (e.g.
+// while a bulk action is already in flight) disables every action button
+// at once, matching the single in-flight guard callers actually need —
+// Cancel stays enabled so a stuck action can still be dismissed.
+export default function BulkActionBar({ count, actions, onCancel, disabled = false }) {
   if (!count) return null
   return (
     <div className="fixed inset-x-0 bottom-[54px] z-20 bg-ink px-4 py-3 md:static md:z-auto md:mb-3 md:rounded-lg md:px-4 md:py-2.5">
@@ -19,7 +22,8 @@ export default function BulkActionBar({ count, actions, onCancel }) {
             key={a.label}
             type="button"
             onClick={a.onClick}
-            className={`rounded-md px-3 py-2 text-xs font-bold transition-opacity hover:opacity-85 active:opacity-85 ${
+            disabled={disabled}
+            className={`rounded-md px-3 py-2 text-xs font-bold transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50 ${
               a.tone === 'danger' ? 'border border-white/40 text-white/90' : 'bg-success text-white'
             }`}
           >

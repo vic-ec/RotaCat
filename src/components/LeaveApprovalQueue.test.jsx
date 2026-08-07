@@ -88,7 +88,7 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
-  it('renders Approve/Reject as bare icons (no background box) and View Calendar as a bordered icon button, all the same size', async () => {
+  it('renders Approve/Reject/View Calendar as matching circular-outline icon buttons, all the same size', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
@@ -96,11 +96,17 @@ describe('LeaveApprovalQueue', () => {
     const rejectBtn = screen.getByRole('button', { name: 'Reject' })
     const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
 
-    expect(approveBtn.className).not.toMatch(/\bbg-|\bborder\b/)
-    expect(rejectBtn.className).not.toMatch(/\bbg-|\bborder\b/)
-    expect(viewCalendarBtn).toHaveClass('border', 'bg-success-bg')
+    // Same circular-outline shape for all three — teal for approve, red
+    // for reject, neutral accent for the page-specific extra action.
+    for (const btn of [approveBtn, rejectBtn, viewCalendarBtn]) {
+      expect(btn).toHaveClass('rounded-full', 'border')
+    }
+    expect(approveBtn.className).toMatch(/text-success/)
+    expect(rejectBtn.className).toMatch(/text-danger/)
+    expect(viewCalendarBtn.className).toMatch(/text-accent/)
 
     for (const btn of [approveBtn, rejectBtn, viewCalendarBtn]) {
+      expect(btn).toHaveClass('h-8', 'w-8')
       expect(btn.querySelector('svg')).toHaveClass('h-5', 'w-5')
     }
   })

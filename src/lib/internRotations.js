@@ -11,6 +11,7 @@
 import { supabase } from './supabase'
 import { columnForLeaveCategory } from './leaveYearGrid'
 import { todayStr, addDays } from './dateRange'
+import { defaultHoursForCategory } from './staffDefaults'
 
 // Doctor categories whose EC/OT status is tracked as a rotation timeline
 // rather than a fixed profiles field — mirrors categoryNeedsContractChoice's
@@ -161,38 +162,53 @@ export async function deleteInternRotation(id, doctorId) {
 }
 
 // The single place that resolves "what is this doctor's rotation right
-// now" and pushes it onto profiles.contract_type/psych_subcategory —
-// called after every intern_rotations write (create/update/delete above)
-// so Staff List and Accounts never need to join intern_rotations just to
-// show current status. Deliberately does nothing if no rotation covers
-// today (e.g. a gap between blocks, or the doctor's very first block is
-// still in the future) — it never blanks out a doctor's last-known
-// status just because the planner has a hole in it right now.
+// now" and pushes it onto profiles.contract_type/psych_subcategory/
+// min_hours/max_hours — called after every intern_rotations write
+// (create/update/delete above) so Staff List and Accounts never need to
+// join intern_rotations just to show current status. min_hours/max_hours
+// matter here, not just contract_type/psych_subcategory: the scheduling
+// backend treats them as the doctor's real hard hour bounds
+// (RosterSolver, e.g. add_hours_bounds) — leaving EC's ~220-246h on a
+// doctor whose contract_type just flipped to OT would have the solver
+// scheduling them against the wrong band entirely. Deliberately does
+// nothing if no rotation covers today (e.g. a gap between blocks, or the
+// doctor's very first block is still in the future) — it never blanks
+// out a doctor's last-known status just because the planner has a hole
+// in it right now.
 //
 // Known limitation (no DB trigger, no daily cron): a future-dated block
 // planned weeks ahead only "activates" here if something writes to
 // intern_rotations that day. Roster generation itself does not depend on
 // this cache — the scheduling backend resolves the target month directly
 // against intern_rotations (see RotaCatScheduler's loader.py) — so this
-// only affects how fresh the Staff List/Accounts display is between edits.
+// only affects how fresh the Staff List/Accounts display (and these
+// cached hour bounds) are between edits.
 export async function syncProfileFromCurrentRotation(doctorId) {
   const today = todayStr()
-  const { data, error } = await supabase
-    .from('intern_rotations')
-    .select('rotation_type, subtype')
-    .eq('doctor_id', doctorId)
-    .lte('start_date', today)
-    .or(`end_date.is.null,end_date.gte.${today}`)
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const [{ data, error }, { data: profileRow, error: profileFetchError }] = await Promise.all([
+    supabase
+      .from('intern_rotations')
+      .select('rotation_type, subtype')
+      .eq('doctor_id', doctorId)
+      .lte('start_date', today)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+      .order('start_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('profiles').select('category').eq('id', doctorId).single(),
+  ])
   if (error) throw new Error(error.message)
   if (!data) return
+  if (profileFetchError) throw new Error(profileFetchError.message)
 
   const contractType = data.rotation_type === 'OT' ? 'Junior_Doctor_Overtime' : 'full'
   const psychSubcategory = data.rotation_type === 'OT' ? (data.subtype || null) : null
+  const hours = defaultHoursForCategory(profileRow.category, contractType)
   const { error: profileError } = await supabase.from('profiles')
-    .update({ contract_type: contractType, psych_subcategory: psychSubcategory })
+    .update({
+      contract_type: contractType, psych_subcategory: psychSubcategory,
+      min_hours: hours.min, max_hours: hours.max,
+    })
     .eq('id', doctorId)
   if (profileError) throw new Error(profileError.message)
 }
@@ -204,12 +220,16 @@ export async function syncProfileFromCurrentRotation(doctorId) {
 // whatever's currently open, then opening a new current block from today)
 // so the Intern Rotations Planner immediately reflects the change — an
 // Accounts-page edit "feeds" the planner, same as the planner feeds
-// Accounts. Any other category has no rotation timeline to speak of, so
-// it falls back to the old direct profiles.contract_type write.
+// Accounts; syncProfileFromCurrentRotation (called by createInternRotation
+// below) is what then pushes contract_type/psych_subcategory/min_hours/
+// max_hours onto profiles. Any other category has no rotation timeline to
+// speak of, so it falls back to a direct profiles write, updating the
+// same four fields itself.
 export async function applyHoursChange({ profileId, category, contractType, subtype, actorId }) {
   if (!ROTATION_TRACKED_CATEGORIES.has(category)) {
+    const hours = defaultHoursForCategory(category, contractType)
     const { error } = await supabase.from('profiles')
-      .update({ contract_type: contractType, psych_subcategory: null })
+      .update({ contract_type: contractType, psych_subcategory: null, min_hours: hours.min, max_hours: hours.max })
       .eq('id', profileId)
     if (error) throw new Error(error.message)
     return

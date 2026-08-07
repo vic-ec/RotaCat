@@ -72,7 +72,6 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   }
 
   const filtersActive = Object.values(filters).some(Boolean)
-  const activeCount = [filters.adminId, filters.doctorId, filters.action, filters.role].filter(Boolean).length
   const nameById = nameMapFromProfiles(profilesById)
 
   return (
@@ -105,7 +104,6 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
               onChange: v => setFilters(f => ({ ...f, role: v })),
               disabled: !!filters.doctorId,
             }}
-            activeCount={activeCount}
           />
           {filtersActive && (
             <button type="button" className="text-sm text-accent hover:underline" onClick={() => setFilters(EMPTY_FILTERS)}>

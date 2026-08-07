@@ -48,7 +48,7 @@ function CloseIcon(props) {
 // filter row). Same anchored-popover mechanics as SelectMenu (portalled to
 // <body>, positioned off the trigger's own rect), just styled as a compact
 // icon+label button rather than a full-width form field.
-export function ToolbarFacet({ icon, label, value, onChange, options, isActive }) {
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const triggerRef = useRef(null)
@@ -56,6 +56,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive }
   useDismissablePopover(open, () => setOpen(false), menuRef, [triggerRef])
 
   function toggle() {
+    if (disabled) return
     if (open) { setOpen(false); return }
     setAnchor(triggerRef.current.getBoundingClientRect())
     setOpen(true)
@@ -70,9 +71,10 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive }
         ref={triggerRef}
         type="button"
         onClick={toggle}
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-accent/25 px-3 text-sm font-medium transition-colors ${
+        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-accent/25 px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           open || isActive ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         }`}
       >

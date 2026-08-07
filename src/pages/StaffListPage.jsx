@@ -1399,24 +1399,28 @@ export default function StaffListPage() {
                 onCancel={() => setSelectedPendingIds(new Set())}
               />
 
-              <div className="card overflow-hidden divide-y divide-slate-line">
+              <div className="card mb-3 overflow-hidden">
                 <SelectAllRow
                   checked={selectedPendingIds.size === pending.length}
                   onToggleCheck={toggleSelectAllPending}
                   selectLabel="Select all pending accounts"
                   active={selectedPendingIds.size > 0}
                 />
+              </div>
+
+              <div className="space-y-3">
                 {orderedPending.map((person) => (
-                  <PendingApprovalRow
-                    key={person.id}
-                    person={person}
-                    email={emailById[person.id]}
-                    checked={selectedPendingIds.has(person.id)}
-                    onToggleCheck={() => togglePendingSelected(person.id)}
-                    approveAccount={approveAccount}
-                    rejectAccount={rejectAccount}
-                    onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
-                  />
+                  <div key={person.id} className="card overflow-hidden">
+                    <PendingApprovalRow
+                      person={person}
+                      email={emailById[person.id]}
+                      checked={selectedPendingIds.has(person.id)}
+                      onToggleCheck={() => togglePendingSelected(person.id)}
+                      approveAccount={approveAccount}
+                      rejectAccount={rejectAccount}
+                      onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                    />
+                  </div>
                 ))}
               </div>
             </>

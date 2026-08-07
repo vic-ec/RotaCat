@@ -124,7 +124,7 @@ function ToolbarFacetInline({ icon, label, value, onChange, options }) {
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`min-h-[44px] rounded border px-3 text-sm font-medium transition-colors ${
+            className={`h-[30px] rounded border px-3 text-sm font-medium transition-colors ${
               opt.value === value
                 ? 'border-transparent bg-accent text-white'
                 : 'border-accent/25 bg-canvas text-ink-light hover:bg-canvas-sunken'
@@ -241,7 +241,7 @@ export default function Toolbar({
           <button
             type="button"
             onClick={() => setMobileSheetOpen(true)}
-            className={`flex h-11 items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
+            className={`flex h-[30px] items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
               active ? 'bg-accent text-white' : 'bg-canvas text-ink-light'
             }`}
           >

@@ -137,7 +137,7 @@ describe('WeekendPlannerView', () => {
       const card = heading.closest('.card')
       expect(within(card).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
       expect(within(card).getByText(/1 of 4 groups planned/)).toBeInTheDocument()
-      expect(within(card).getByText(/Registrar, EC COSMO \/ Intern, OT COSMO \/ Intern still open/)).toBeInTheDocument()
+      expect(within(card).getByText(/Registrar, EC Intern, OT Intern still open/)).toBeInTheDocument()
       expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
     })
 
@@ -297,7 +297,8 @@ describe('WeekendPlannerView', () => {
       await user.click(view.getByRole('button', { name: 'Next month' }))
 
       expect(await view.findByText('September 2026')).toBeInTheDocument()
-      expect(view.getByText('Sat 5 - Sun 6 Sep 2026')).toBeInTheDocument()
+      // en-GB's short month name for September is "Sept" (4 letters), not "Sep".
+      expect(view.getByText('Sat 5 - Sun 6 Sept 2026')).toBeInTheDocument()
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
     })
 
@@ -641,7 +642,7 @@ describe('WeekendPlannerView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
       await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
-      expect(screen.getByText(/Will add/).textContent).toContain('Will add 4 assignments across 4 weekends.')
+      expect(screen.getByText(/Will add/).textContent).toContain('Will add 5 assignments across 4 weekends.')
 
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Paste August 2026 into September 2026' })).not.toBeInTheDocument())
@@ -650,18 +651,28 @@ describe('WeekendPlannerView', () => {
       expect(screen.getByText('📋 August 2026 copied')).toBeInTheDocument()
 
       // en-GB's short month name for September is "Sept" (4 letters), not "Sep".
+      // August's 1st weekend (Aug 1, just Anderson/MO) maps onto September's
+      // 1st weekend (Sept 5); August's 2nd weekend (Aug 8, the other 3) maps
+      // onto Sept 12 — paste is by weekend index within the month, not by
+      // day-of-month, so the two source weekends land on different targets.
       const sep5Row = within(view.getByRole('table')).getByText('Sat 5 - Sun 6 Sept 2026').closest('tr')
       expect(within(sep5Row).getByText('Anderson')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Botha')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Cosmo')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Della')).toBeInTheDocument()
+
+      const sep12Row = within(view.getByRole('table')).getByText('Sat 12 - Sun 13 Sept 2026').closest('tr')
+      expect(within(sep12Row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(sep12Row).getByText('Botha')).toBeInTheDocument()
+      expect(within(sep12Row).getByText('Cosmo')).toBeInTheDocument()
+      expect(within(sep12Row).getByText('Della')).toBeInTheDocument()
     })
 
     it('admin: paste modal counts an already-assigned skip under fill-empty, and switches to a delete-first note under Overwrite', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      // p1 is already on 2026-09-05 (Registrar) — their copied MO entry from
-      // August 8 collides (already assigned to that weekend), and Registrar
-      // is already filled there too (silent group-filled skip, not counted).
+      // p1 is already on 2026-09-05 (Registrar) — August's 1st weekend (Aug
+      // 1, index 0) maps onto September's 1st weekend (Sept 5, index 0), and
+      // that weekend's only copied entry is p1's MO slot, which collides
+      // (already assigned to that weekend). August's 2nd weekend (Aug 8, 4
+      // entries) maps onto Sept 12, which has nothing pre-existing, so all 4
+      // of those insert cleanly.
       mockResponses['weekend_planner_entries:select'] = {
         data: [...ENTRIES, { id: 'e6', weekend_saturday: '2026-09-05', profile_id: 'p1', category: 'Registrar' }],
         error: null,
@@ -678,12 +689,12 @@ describe('WeekendPlannerView', () => {
       await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
 
       const summary = screen.getByText(/Will add/).textContent
-      expect(summary).toContain('Will add 2 assignments across 4 weekends.')
+      expect(summary).toContain('Will add 4 assignments across 4 weekends.')
       expect(summary).toContain('1 skipped (already assigned elsewhere that weekend).')
 
       await user.click(screen.getByRole('button', { name: 'Overwrite instead' }))
       const overwriteSummary = screen.getByText(/Will add/).textContent
-      expect(overwriteSummary).toContain('Will add 4 assignments across 4 weekends.')
+      expect(overwriteSummary).toContain('Will add 5 assignments across 4 weekends.')
       expect(overwriteSummary).toContain('1 existing assignment will be removed first.')
     })
 
@@ -696,7 +707,8 @@ describe('WeekendPlannerView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Clear August' }))
       const heading = await screen.findByRole('heading', { name: 'Clear August 2026?' })
-      expect(heading.closest('.card')).toHaveTextContent('This removes 4 assignments.')
+      // ENTRIES has 5 assignments in August: 1 at Aug 1, 4 at Aug 8.
+      expect(heading.closest('.card')).toHaveTextContent('This removes 5 assignments.')
 
       await user.click(screen.getByRole('button', { name: 'Clear' }))
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Clear August 2026?' })).not.toBeInTheDocument())
@@ -713,8 +725,11 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      // Inspector defaults to next weekend (2026-08-08, this session's
-      // "today"), fully covered in ENTRIES.
+      // Inspector defaults to next weekend (2026-08-01, this session's
+      // "today") — select the fully-covered Aug 8 weekend explicitly instead.
+      const aug8Cell = await view.findByText('Sat 8 - Sun 9 Aug 2026')
+      await user.click(aug8Cell.closest('tr'))
+
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: 'Clear weekend' }))
 
@@ -764,7 +779,11 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      // Inspector defaults to next weekend (2026-08-08), fully covered.
+      // Inspector defaults to next weekend (2026-08-01) — select the
+      // fully-covered Aug 8 weekend explicitly as the copy source.
+      const aug8Cell = await view.findByText('Sat 8 - Sun 9 Aug 2026')
+      await user.click(aug8Cell.closest('tr'))
+
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: 'Copy weekend' }))
 
@@ -803,9 +822,9 @@ describe('WeekendPlannerView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Clear quarter' }))
 
-      // ENTRIES only has assignments in August (4, all at Aug 8) within Aug/Sep/Oct.
+      // ENTRIES only has assignments in August within Aug/Sep/Oct: 1 at Aug 1, 4 at Aug 8.
       const heading = await screen.findByRole('heading', { name: 'Clear Aug-Oct 2026?' })
-      expect(heading.closest('.card')).toHaveTextContent('This removes 4 assignments.')
+      expect(heading.closest('.card')).toHaveTextContent('This removes 5 assignments.')
     })
 
     it('admin: Clear month shows an Undo toast; clicking Undo calls restoreWeekendPlannerBatch and dismisses the toast', async () => {

@@ -10,6 +10,14 @@
 // the other.
 import { supabase } from './supabase'
 import { columnForLeaveCategory } from './leaveYearGrid'
+import { todayStr, addDays } from './dateRange'
+
+// Doctor categories whose EC/OT status is tracked as a rotation timeline
+// rather than a fixed profiles field — mirrors categoryNeedsContractChoice's
+// AMBIGUOUS_CATEGORIES in staffDefaults.js. Real intern_rotations rows
+// already exist for both COSMO and Intern doctors (the OT/72h band is
+// shared between them), so both are in scope here, not just Intern.
+const ROTATION_TRACKED_CATEGORIES = new Set(['COSMO', 'Intern'])
 
 // The only profiles.category value that needs a rotation lookup at all —
 // see leaveYearGrid.js's LEAVE_CAPACITY_COLUMNS: every other category
@@ -51,7 +59,10 @@ export function resolveLeaveCapacityColumn({ category, contractType, profileId, 
 // requested range, not the login date).
 export function rotationForDate(rotations, date) {
   if (!rotations || !date) return null
-  return rotations.find(r => r.start_date <= date && date <= r.end_date) ?? null
+  // null end_date = current/ongoing, no scheduled end yet — matches any
+  // date on or after start_date, not "before every date" (a naive
+  // `date <= r.end_date` would treat null as smaller than any string).
+  return rotations.find(r => r.start_date <= date && (r.end_date === null || date <= r.end_date)) ?? null
 }
 
 // True if [dateFrom, dateTo] extends past the end of the rotation covering
@@ -61,7 +72,7 @@ export function rotationForDate(rotations, date) {
 // day-by-day); this only flags it for display.
 export function straddlesRotationBoundary(rotations, dateFrom, dateTo) {
   const current = rotationForDate(rotations, dateFrom)
-  return Boolean(current) && dateTo > current.end_date
+  return Boolean(current) && current.end_date !== null && dateTo > current.end_date
 }
 
 // The inline note LeaveRequestForm shows when a requested range straddles
@@ -72,7 +83,7 @@ export function straddlesRotationBoundary(rotations, dateFrom, dateTo) {
 // rotation their pool is being counted against.
 export function rotationBoundaryNote(rotations, dateFrom, dateTo) {
   const current = rotationForDate(rotations, dateFrom)
-  if (!current || dateTo <= current.end_date) return null
+  if (!current || current.end_date === null || dateTo <= current.end_date) return null
   const next = (rotations || [])
     .filter(r => r.start_date > current.end_date)
     .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]
@@ -104,7 +115,7 @@ export async function fetchInternRotationsForDoctorIds(doctorIds) {
   if (ids.length === 0) return []
   const { data, error } = await supabase
     .from('intern_rotations')
-    .select('id, doctor_id, rotation_type, start_date, end_date')
+    .select('id, doctor_id, rotation_type, subtype, start_date, end_date')
     .in('doctor_id', ids)
   if (error) throw new Error(error.message)
   return data || []
@@ -117,27 +128,121 @@ export async function fetchInternRotationsForDoctorIds(doctorIds) {
 export async function fetchAllInternRotations() {
   const { data, error } = await supabase
     .from('intern_rotations')
-    .select('id, doctor_id, rotation_type, start_date, end_date')
+    .select('id, doctor_id, rotation_type, subtype, start_date, end_date')
     .order('start_date', { ascending: true })
   if (error) throw new Error(error.message)
   return data || []
 }
 
-export async function createInternRotation({ doctorId, rotationType, startDate, endDate, createdBy }) {
+export async function createInternRotation({ doctorId, rotationType, subtype, startDate, endDate, createdBy }) {
   const { error } = await supabase.from('intern_rotations').insert({
-    doctor_id: doctorId, rotation_type: rotationType, start_date: startDate, end_date: endDate, created_by: createdBy,
+    doctor_id: doctorId, rotation_type: rotationType, subtype: rotationType === 'OT' ? (subtype || null) : null,
+    start_date: startDate, end_date: endDate, created_by: createdBy,
   })
   if (error) throw new Error(error.message)
+  await syncProfileFromCurrentRotation(doctorId)
 }
 
-export async function updateInternRotation(id, { doctorId, rotationType, startDate, endDate }) {
+export async function updateInternRotation(id, { doctorId, rotationType, subtype, startDate, endDate }) {
   const { error } = await supabase.from('intern_rotations')
-    .update({ doctor_id: doctorId, rotation_type: rotationType, start_date: startDate, end_date: endDate })
+    .update({
+      doctor_id: doctorId, rotation_type: rotationType, subtype: rotationType === 'OT' ? (subtype || null) : null,
+      start_date: startDate, end_date: endDate,
+    })
     .eq('id', id)
   if (error) throw new Error(error.message)
+  await syncProfileFromCurrentRotation(doctorId)
 }
 
-export async function deleteInternRotation(id) {
+export async function deleteInternRotation(id, doctorId) {
   const { error } = await supabase.from('intern_rotations').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  if (doctorId) await syncProfileFromCurrentRotation(doctorId)
+}
+
+// The single place that resolves "what is this doctor's rotation right
+// now" and pushes it onto profiles.contract_type/psych_subcategory —
+// called after every intern_rotations write (create/update/delete above)
+// so Staff List and Accounts never need to join intern_rotations just to
+// show current status. Deliberately does nothing if no rotation covers
+// today (e.g. a gap between blocks, or the doctor's very first block is
+// still in the future) — it never blanks out a doctor's last-known
+// status just because the planner has a hole in it right now.
+//
+// Known limitation (no DB trigger, no daily cron): a future-dated block
+// planned weeks ahead only "activates" here if something writes to
+// intern_rotations that day. Roster generation itself does not depend on
+// this cache — the scheduling backend resolves the target month directly
+// against intern_rotations (see RotaCatScheduler's loader.py) — so this
+// only affects how fresh the Staff List/Accounts display is between edits.
+export async function syncProfileFromCurrentRotation(doctorId) {
+  const today = todayStr()
+  const { data, error } = await supabase
+    .from('intern_rotations')
+    .select('rotation_type, subtype')
+    .eq('doctor_id', doctorId)
+    .lte('start_date', today)
+    .or(`end_date.is.null,end_date.gte.${today}`)
+    .order('start_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  if (!data) return
+
+  const contractType = data.rotation_type === 'OT' ? 'Junior_Doctor_Overtime' : 'full'
+  const psychSubcategory = data.rotation_type === 'OT' ? (data.subtype || null) : null
+  const { error: profileError } = await supabase.from('profiles')
+    .update({ contract_type: contractType, psych_subcategory: psychSubcategory })
+    .eq('id', doctorId)
+  if (profileError) throw new Error(profileError.message)
+}
+
+// Applies an EC/OT (+ subtype) change for one doctor — the single write
+// path shared by AccountSettingsPage's admin edit and StaffListPage's
+// approval of a self-service 'hours' request. For a rotation-tracked
+// category (COSMO/Intern) this writes into intern_rotations (closing out
+// whatever's currently open, then opening a new current block from today)
+// so the Intern Rotations Planner immediately reflects the change — an
+// Accounts-page edit "feeds" the planner, same as the planner feeds
+// Accounts. Any other category has no rotation timeline to speak of, so
+// it falls back to the old direct profiles.contract_type write.
+export async function applyHoursChange({ profileId, category, contractType, subtype, actorId }) {
+  if (!ROTATION_TRACKED_CATEGORIES.has(category)) {
+    const { error } = await supabase.from('profiles')
+      .update({ contract_type: contractType, psych_subcategory: null })
+      .eq('id', profileId)
+    if (error) throw new Error(error.message)
+    return
+  }
+
+  const rotationType = contractType === 'Junior_Doctor_Overtime' ? 'OT' : 'EC'
+  const today = todayStr()
+
+  const { data: current, error: fetchError } = await supabase
+    .from('intern_rotations')
+    .select('id, rotation_type, subtype, start_date')
+    .eq('doctor_id', profileId)
+    .is('end_date', null)
+    .maybeSingle()
+  if (fetchError) throw new Error(fetchError.message)
+
+  if (current && current.rotation_type === rotationType && (current.subtype || null) === (subtype || null)) {
+    return // already this — nothing to change
+  }
+  if (current) {
+    if (current.start_date >= today) {
+      // Started today (or, oddly, in the future) — nothing to truncate to,
+      // just replace it outright rather than writing an end_date before
+      // its own start_date (which the DB range check would reject).
+      await deleteInternRotation(current.id, profileId)
+    } else {
+      await updateInternRotation(current.id, {
+        doctorId: profileId, rotationType: current.rotation_type, subtype: current.subtype,
+        startDate: current.start_date, endDate: addDays(today, -1),
+      })
+    }
+  }
+  await createInternRotation({
+    doctorId: profileId, rotationType, subtype, startDate: today, endDate: null, createdBy: actorId,
+  })
 }

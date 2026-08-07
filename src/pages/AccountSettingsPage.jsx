@@ -19,6 +19,8 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
+import { categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
+import { applyHoursChange } from '../lib/internRotations'
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -44,6 +46,21 @@ function categoryOptionsForRole(role) {
   if (role === 'doctor') return DOCTOR_CATEGORY_OPTIONS
   if (role === 'locum') return LOCUM_CATEGORY_OPTIONS
   return []
+}
+
+// 'hours' requests store a JSON-encoded {contract_type, subtype} in
+// requested_value (role/category requests just store the plain string) —
+// this renders either shape back into a short human label for the pending
+// banner and request-history list below.
+function formatRequestedValue(request) {
+  if (request.request_type !== 'hours') return request.requested_value
+  try {
+    const { contract_type, subtype } = JSON.parse(request.requested_value)
+    const hoursLabel = contract_type === 'Junior_Doctor_Overtime' ? 'OT' : 'EC'
+    return subtype ? `${hoursLabel} (${OT_SUBTYPE_LABELS[subtype] || subtype})` : hoursLabel
+  } catch {
+    return request.requested_value
+  }
 }
 
 const NOTIFICATION_LABELS = {
@@ -477,6 +494,8 @@ export default function AccountSettingsPage() {
   // Admin: direct edit of role / category / admin flag for the account being viewed
   const [adminRole, setAdminRole] = useState('')
   const [adminCategory, setAdminCategory] = useState('')
+  const [adminContractType, setAdminContractType] = useState('full')
+  const [adminSubtype, setAdminSubtype] = useState(null)
   const [adminIsAdmin, setAdminIsAdmin] = useState(false)
   const [adminIsActive, setAdminIsActive] = useState(true)
   const [adminSaving, setAdminSaving] = useState(false)
@@ -505,7 +524,7 @@ export default function AccountSettingsPage() {
 
   // Non-admin: request role/category changes
   const [myRequests, setMyRequests] = useState([])
-  const [requestForm, setRequestForm] = useState({ type: 'role', value: '', reason: '' })
+  const [requestForm, setRequestForm] = useState({ type: 'role', value: '', subtype: null, reason: '' })
   const [requestSaving, setRequestSaving] = useState(false)
   const [requestMsg, setRequestMsg] = useState(null)
 
@@ -550,6 +569,8 @@ export default function AccountSettingsPage() {
     setPrefs(profile.notification_prefs || {})
     setAdminRole(profile.role || '')
     setAdminCategory(profile.category || '')
+    setAdminContractType(profile.contract_type || 'full')
+    setAdminSubtype(profile.psych_subcategory || null)
     setAdminIsAdmin(profile.is_admin === true)
     setAdminIsActive(profile.is_active !== false)
     setColorForm({
@@ -636,7 +657,7 @@ export default function AccountSettingsPage() {
 
   const pendingDeletion = myRequests.some(r => r.request_type === 'deletion' && r.status === 'pending')
   const pendingRoleOrCategory = myRequests.find(
-    r => (r.request_type === 'role' || r.request_type === 'category') && r.status === 'pending'
+    r => (r.request_type === 'role' || r.request_type === 'category' || r.request_type === 'hours') && r.status === 'pending'
   )
 
   // ── Profile details ─────────────────────────────────────────
@@ -977,11 +998,23 @@ export default function AccountSettingsPage() {
   function handleAdminRoleChange(value) {
     setAdminRole(value)
     setAdminCategory('') // clear — the valid category set differs per role
+    setAdminContractType('full')
+    setAdminSubtype(null)
+  }
+
+  function handleAdminCategoryChange(value) {
+    setAdminCategory(value)
+    if (!categoryNeedsContractChoice(value)) {
+      setAdminContractType('full')
+      setAdminSubtype(null)
+    }
   }
 
   const adminFieldsDirty =
     adminRole !== (profile?.role || '') ||
     adminCategory !== (profile?.category || '') ||
+    (categoryNeedsContractChoice(adminCategory) && adminContractType !== (profile?.contract_type || 'full')) ||
+    (categoryNeedsContractChoice(adminCategory) && adminContractType === 'Junior_Doctor_Overtime' && adminSubtype !== (profile?.psych_subcategory || null)) ||
     adminIsAdmin !== (profile?.is_admin === true)
 
   async function saveAdminAccountFields() {
@@ -993,23 +1026,49 @@ export default function AccountSettingsPage() {
       setAdminMsg({ type: 'error', text: 'Select a category for a doctor account.' })
       return
     }
+    if (adminRole === 'doctor' && categoryNeedsContractChoice(adminCategory) && !adminContractType) {
+      setAdminSaving(false)
+      setAdminMsg({ type: 'error', text: 'Select EC or OT hours for this category.' })
+      return
+    }
+
+    const finalCategory = adminRole === 'clerk' ? null : (adminCategory || null)
+    const needsHours = adminRole === 'doctor' && categoryNeedsContractChoice(finalCategory)
 
     const { error } = await supabase
       .from('profiles')
       .update({
         role: adminRole,
-        category: adminRole === 'clerk' ? null : (adminCategory || null),
+        category: finalCategory,
         is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
       })
       .eq('id', targetId)
 
-    setAdminSaving(false)
     if (error) {
+      setAdminSaving(false)
       setAdminMsg({ type: 'error', text: error.message })
-    } else {
-      flashSaved(setAdminJustSaved)
-      reloadTarget()
+      return
     }
+
+    if (needsHours) {
+      try {
+        await applyHoursChange({
+          profileId: targetId,
+          category: finalCategory,
+          contractType: adminContractType,
+          subtype: adminContractType === 'Junior_Doctor_Overtime' ? adminSubtype : null,
+          actorId: user.id,
+        })
+      } catch (err) {
+        setAdminSaving(false)
+        setAdminMsg({ type: 'error', text: err.message })
+        return
+      }
+    }
+
+    setAdminSaving(false)
+    flashSaved(setAdminJustSaved)
+    reloadTarget()
   }
 
   // ── Status: active/inactive (admin-editable, its own section) ──
@@ -1059,13 +1118,32 @@ export default function AccountSettingsPage() {
       return
     }
 
+    if (requestForm.type === 'hours' && requestForm.value === 'Junior_Doctor_Overtime' && !requestForm.subtype) {
+      setRequestMsg({ type: 'error', text: 'Choose an OT subtype.' })
+      return
+    }
+
     setRequestSaving(true)
-    const currentValue = requestForm.type === 'role' ? profile.role : profile.category
+    let currentValue, requestedValue
+    if (requestForm.type === 'role') {
+      currentValue = profile.role
+      requestedValue = requestForm.value
+    } else if (requestForm.type === 'category') {
+      currentValue = profile.category
+      requestedValue = requestForm.value
+    } else {
+      currentValue = JSON.stringify({ contract_type: profile.contract_type || 'full', subtype: profile.psych_subcategory || null })
+      requestedValue = JSON.stringify({
+        contract_type: requestForm.value,
+        subtype: requestForm.value === 'Junior_Doctor_Overtime' ? requestForm.subtype : null,
+      })
+    }
+
     const { error } = await supabase.from('account_change_requests').insert({
       profile_id: user.id,
       request_type: requestForm.type,
       current_value: currentValue,
-      requested_value: requestForm.value,
+      requested_value: requestedValue,
       reason: requestForm.reason.trim() || null,
     })
     setRequestSaving(false)
@@ -1074,7 +1152,7 @@ export default function AccountSettingsPage() {
       setRequestMsg({ type: 'error', text: error.message })
     } else {
       setRequestMsg({ type: 'success', text: 'Request submitted — an admin will review it.' })
-      setRequestForm({ type: 'role', value: '', reason: '' })
+      setRequestForm({ type: 'role', value: '', subtype: null, reason: '' })
       loadMyRequests()
     }
   }
@@ -1504,9 +1582,35 @@ export default function AccountSettingsPage() {
                 <label className="label-text">Category</label>
                 <SelectMenu
                   value={adminCategory}
-                  onChange={setAdminCategory}
+                  onChange={handleAdminCategoryChange}
                   placeholder={adminRole === 'locum' ? 'None' : 'Select…'}
                   options={categoryOptionsForRole(adminRole)}
+                />
+              </div>
+            )}
+
+            {adminRole !== 'clerk' && categoryNeedsContractChoice(adminCategory) && (
+              <div>
+                <label className="label-text">Hours</label>
+                <SelectMenu
+                  value={adminContractType}
+                  onChange={v => { setAdminContractType(v); if (v !== 'Junior_Doctor_Overtime') setAdminSubtype(null) }}
+                  placeholder="Select…"
+                  options={CONTRACT_TYPE_OPTIONS}
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  Changing this opens a new current rotation block for {profile.name || 'this doctor'} in the Intern Rotations Planner — it doesn&apos;t overwrite any future blocks already planned there.
+                </p>
+              </div>
+            )}
+            {adminRole !== 'clerk' && categoryNeedsContractChoice(adminCategory) && adminContractType === 'Junior_Doctor_Overtime' && (
+              <div>
+                <label className="label-text">OT subtype</label>
+                <SelectMenu
+                  value={adminSubtype || ''}
+                  onChange={setAdminSubtype}
+                  placeholder="Not yet assigned…"
+                  options={OT_SUBTYPE_OPTIONS}
                 />
               </div>
             )}
@@ -1641,7 +1745,7 @@ export default function AccountSettingsPage() {
 
             {pendingRoleOrCategory ? (
               <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
-                A {pendingRoleOrCategory.request_type} change to &quot;{pendingRoleOrCategory.requested_value}&quot; is pending admin review.
+                A {pendingRoleOrCategory.request_type} change to &quot;{formatRequestedValue(pendingRoleOrCategory)}&quot; is pending admin review.
               </div>
             ) : (
               <form onSubmit={submitChangeRequest} className="space-y-3 rounded-lg border border-slate-line bg-canvas-sunken p-4">
@@ -1650,10 +1754,11 @@ export default function AccountSettingsPage() {
                     <label className="label-text">Change</label>
                     <SelectMenu
                       value={requestForm.type}
-                      onChange={v => setRequestForm(f => ({ ...f, type: v, value: '' }))}
+                      onChange={v => setRequestForm(f => ({ ...f, type: v, value: '', subtype: null }))}
                       options={[
                         { value: 'role', label: 'Role' },
                         ...(profile.role === 'doctor' || profile.role === 'locum' ? [{ value: 'category', label: 'Category' }] : []),
+                        ...(categoryNeedsContractChoice(profile.category) ? [{ value: 'hours', label: 'Hours (EC/OT)' }] : []),
                       ]}
                     />
                   </div>
@@ -1661,8 +1766,12 @@ export default function AccountSettingsPage() {
                     <label className="label-text">New value</label>
                     <SelectMenu
                       value={requestForm.value}
-                      onChange={v => setRequestForm(f => ({ ...f, value: v }))}
-                      options={requestForm.type === 'role' ? ROLE_OPTIONS : categoryOptionsForRole(profile.role)}
+                      onChange={v => setRequestForm(f => ({ ...f, value: v, subtype: v === 'Junior_Doctor_Overtime' ? f.subtype : null }))}
+                      options={
+                        requestForm.type === 'role' ? ROLE_OPTIONS
+                          : requestForm.type === 'category' ? categoryOptionsForRole(profile.role)
+                          : CONTRACT_TYPE_OPTIONS
+                      }
                     />
                   </div>
                 </div>
@@ -1670,6 +1779,17 @@ export default function AccountSettingsPage() {
                   <p className="text-xs text-ink-muted">
                     Once this is approved, you&apos;ll be able to submit a separate request to set your clinical category.
                   </p>
+                )}
+                {requestForm.type === 'hours' && requestForm.value === 'Junior_Doctor_Overtime' && (
+                  <div>
+                    <label className="label-text">OT subtype</label>
+                    <SelectMenu
+                      value={requestForm.subtype || ''}
+                      onChange={v => setRequestForm(f => ({ ...f, subtype: v }))}
+                      placeholder="Select…"
+                      options={OT_SUBTYPE_OPTIONS}
+                    />
+                  </div>
                 )}
                 <div>
                   <label className="label-text">Reason (optional)</label>
@@ -1708,7 +1828,7 @@ export default function AccountSettingsPage() {
                   <div key={r.id} className="flex items-center justify-between py-2.5 text-sm">
                     <div>
                       <span className="font-medium text-ink capitalize">{r.request_type}</span>
-                      {r.requested_value && <span className="text-ink-muted"> → {r.requested_value}</span>}
+                      {r.requested_value && <span className="text-ink-muted"> → {formatRequestedValue(r)}</span>}
                       <p className="text-xs text-ink-muted">{new Date(r.created_at).toLocaleDateString()}</p>
                       {r.status !== 'pending' && r.reviewed_at && (
                         <p className="text-xs text-ink-muted">

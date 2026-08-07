@@ -8,6 +8,7 @@ import {
 import DoctorDropdown from './DoctorDropdown'
 import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
+import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 
 const ROTATION_TYPE_OPTIONS = [
   { value: 'EC', label: 'EC' },
@@ -37,7 +38,9 @@ function monthKey(year, month) {
 function rotationTouchesMonth(rotation, year, month) {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-31` // string comparison is safe here — YYYY-MM-DD sorts lexically, and no real date exceeds 31
-  return rotation.start_date <= monthEnd && rotation.end_date >= monthStart
+  // null end_date = current/ongoing, no scheduled end yet — treat as
+  // extending past every month being shown, not as "before monthStart".
+  return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
 }
 
 // Admin-only intern rotation management (dormant until the Intern category
@@ -70,7 +73,10 @@ export default function InternRotationsPlanner() {
     setLoading(true)
     setError('')
     const [profilesRes, rotationsData] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, color_code, category').eq('category', 'Intern'),
+      // COSMO, not just Intern -- the OT/72h band (and its LRCHC/DPM-BCH/
+      // Psych subtypes) is shared between the two categories, and real
+      // rotation rows already exist for COSMO doctors.
+      supabase.from('profiles').select('id, name, surname, color_code, category').in('category', ['COSMO', 'Intern']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -82,12 +88,14 @@ export default function InternRotationsPlanner() {
   const internById = new Map(interns.map(i => [i.id, i]))
 
   async function handleAddRow() {
-    if (!newRow?.doctorId || !newRow?.startDate || !newRow?.endDate) return
+    if (!newRow?.doctorId || !newRow?.startDate) return
+    if (newRow.endDate && newRow.startDate > newRow.endDate) { setError('Start date must be on or before the end date.'); return }
     setSavingId('new')
     setError('')
     try {
       await createInternRotation({
-        doctorId: newRow.doctorId, rotationType: newRow.rotationType, startDate: newRow.startDate, endDate: newRow.endDate,
+        doctorId: newRow.doctorId, rotationType: newRow.rotationType, subtype: newRow.subtype,
+        startDate: newRow.startDate, endDate: newRow.endDate || null,
         createdBy: profile?.id,
       })
       setNewRow(null)
@@ -99,8 +107,11 @@ export default function InternRotationsPlanner() {
   }
 
   async function handleUpdateRow(rotation, patch) {
-    const next = { doctorId: rotation.doctor_id, rotationType: rotation.rotation_type, startDate: rotation.start_date, endDate: rotation.end_date, ...patch }
-    if (next.startDate > next.endDate) { setError('Start date must be on or before the end date.'); return }
+    const next = {
+      doctorId: rotation.doctor_id, rotationType: rotation.rotation_type, subtype: rotation.subtype,
+      startDate: rotation.start_date, endDate: rotation.end_date, ...patch,
+    }
+    if (next.endDate && next.startDate > next.endDate) { setError('Start date must be on or before the end date.'); return }
     setSavingId(rotation.id)
     setError('')
     try {
@@ -116,7 +127,7 @@ export default function InternRotationsPlanner() {
     setSavingId(rotation.id)
     setError('')
     try {
-      await deleteInternRotation(rotation.id)
+      await deleteInternRotation(rotation.id, rotation.doctor_id)
       await load()
     } catch (err) {
       setError(err.message)
@@ -132,7 +143,7 @@ export default function InternRotationsPlanner() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
           <p className="text-xs text-ink-muted">
-            EC/OT rotation blocks for the Intern category — drives which capacity pool an intern&apos;s leave counts against on any given date.
+            EC/OT rotation blocks for COSMO/Intern doctors — drives which leave capacity pool a doctor&apos;s leave counts against, and (via the OT subtype) which shift restrictions the scheduling backend applies for that block. Leave End date blank for a block that&apos;s current/ongoing with no known end yet.
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit">
@@ -161,6 +172,7 @@ export default function InternRotationsPlanner() {
               <tr className="border-b border-slate-line text-left text-xs text-ink-muted">
                 <th className="px-3 py-2 font-medium">Doctor</th>
                 <th className="px-3 py-2 font-medium">Rotation</th>
+                <th className="px-3 py-2 font-medium">OT subtype</th>
                 <th className="px-3 py-2 font-medium">Start date</th>
                 <th className="px-3 py-2 font-medium">End date</th>
                 <th className="px-3 py-2 font-medium"></th>
@@ -168,7 +180,7 @@ export default function InternRotationsPlanner() {
             </thead>
             <tbody className="divide-y divide-slate-line">
               {rotations.length === 0 && !newRow && (
-                <tr><td colSpan={5} className="px-3 py-4 text-center text-ink-muted">No rotation blocks yet.</td></tr>
+                <tr><td colSpan={6} className="px-3 py-4 text-center text-ink-muted">No rotation blocks yet.</td></tr>
               )}
               {rotations.map(rotation => {
                 const intern = internById.get(rotation.doctor_id)
@@ -187,9 +199,21 @@ export default function InternRotationsPlanner() {
                     <td className="px-3 py-2">
                       <SelectMenu
                         value={rotation.rotation_type}
-                        onChange={v => handleUpdateRow(rotation, { rotationType: v })}
+                        onChange={v => handleUpdateRow(rotation, { rotationType: v, subtype: v === 'OT' ? rotation.subtype : null })}
                         options={ROTATION_TYPE_OPTIONS}
                       />
+                    </td>
+                    <td className="px-3 py-2">
+                      {rotation.rotation_type === 'OT' ? (
+                        <SelectMenu
+                          value={rotation.subtype || ''}
+                          onChange={v => handleUpdateRow(rotation, { subtype: v })}
+                          placeholder="Not yet assigned…"
+                          options={OT_SUBTYPE_OPTIONS}
+                        />
+                      ) : (
+                        <span className="text-ink-muted">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <input
@@ -203,10 +227,11 @@ export default function InternRotationsPlanner() {
                     <td className="px-3 py-2">
                       <input
                         type="date"
-                        value={rotation.end_date}
-                        onChange={e => handleUpdateRow(rotation, { endDate: e.target.value })}
+                        value={rotation.end_date || ''}
+                        onChange={e => handleUpdateRow(rotation, { endDate: e.target.value || null })}
                         className="input-field"
                         disabled={rowSaving}
+                        placeholder="Ongoing"
                       />
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -237,9 +262,21 @@ export default function InternRotationsPlanner() {
                   <td className="px-3 py-2">
                     <SelectMenu
                       value={newRow.rotationType}
-                      onChange={v => setNewRow(r => ({ ...r, rotationType: v }))}
+                      onChange={v => setNewRow(r => ({ ...r, rotationType: v, subtype: v === 'OT' ? r.subtype : null }))}
                       options={ROTATION_TYPE_OPTIONS}
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    {newRow.rotationType === 'OT' ? (
+                      <SelectMenu
+                        value={newRow.subtype || ''}
+                        onChange={v => setNewRow(r => ({ ...r, subtype: v }))}
+                        placeholder="Not yet assigned…"
+                        options={OT_SUBTYPE_OPTIONS}
+                      />
+                    ) : (
+                      <span className="text-ink-muted">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <input
@@ -252,16 +289,17 @@ export default function InternRotationsPlanner() {
                   <td className="px-3 py-2">
                     <input
                       type="date"
-                      value={newRow.endDate}
-                      onChange={e => setNewRow(r => ({ ...r, endDate: e.target.value }))}
+                      value={newRow.endDate || ''}
+                      onChange={e => setNewRow(r => ({ ...r, endDate: e.target.value || null }))}
                       className="input-field"
+                      placeholder="Ongoing"
                     />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
                       onClick={handleAddRow}
-                      disabled={savingId === 'new' || !newRow.doctorId || !newRow.startDate || !newRow.endDate}
+                      disabled={savingId === 'new' || !newRow.doctorId || !newRow.startDate}
                       className="btn-primary px-2 py-1 text-xs disabled:opacity-50"
                     >
                       {savingId === 'new' ? 'Saving…' : 'Add'}
@@ -278,7 +316,7 @@ export default function InternRotationsPlanner() {
             <div className="border-t border-slate-line p-2">
               <button
                 type="button"
-                onClick={() => setNewRow({ doctorId: null, rotationType: 'EC', startDate: today, endDate: today })}
+                onClick={() => setNewRow({ doctorId: null, rotationType: 'EC', subtype: null, startDate: today, endDate: null })}
                 className="btn-secondary text-xs"
               >
                 + Add rotation block
@@ -327,7 +365,12 @@ export default function InternRotationsPlanner() {
                           <span className="text-xs text-ink-muted">—</span>
                         ) : (
                           inThisMonth.filter(r => r.rotation_type === type).map(r => (
-                            <DoctorChip key={r.id} profile={internById.get(r.doctor_id)} />
+                            <span key={r.id} className="inline-flex items-center gap-1">
+                              <DoctorChip profile={internById.get(r.doctor_id)} />
+                              {type === 'OT' && r.subtype && (
+                                <span className="text-[10px] font-medium text-ink-muted">{OT_SUBTYPE_LABELS[r.subtype] || r.subtype}</span>
+                              )}
+                            </span>
                           ))
                         )}
                       </div>

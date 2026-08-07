@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TriangleAlert } from 'lucide-react'
+import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
@@ -548,8 +548,13 @@ function DayReviewModal({
 
         {showRequestForm ? (
           <div className="mt-4">
-            <button type="button" onClick={() => setShowRequestForm(false)} className="text-xs font-medium text-ink-light hover:text-ink">
-              {'<- Back'}
+            <button
+              type="button"
+              onClick={() => setShowRequestForm(false)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Back
             </button>
             <div className="mt-2">
               <LeaveRequestForm

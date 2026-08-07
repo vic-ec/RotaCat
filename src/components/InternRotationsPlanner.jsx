@@ -164,14 +164,14 @@ export default function InternRotationsPlanner() {
             EC/OT rotation blocks for COSMO/Intern doctors — drives which leave capacity pool a doctor&apos;s leave counts against, and (via the OT subtype) which shift restrictions the scheduling backend applies for that block. Leave End date blank for a block that&apos;s current/ongoing with no known end yet.
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5 w-fit">
+        <div className="flex overflow-hidden rounded-lg border border-slate-line bg-canvas-raised">
           {[{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }].map(t => (
             <button
               key={t.key}
               type="button"
               onClick={() => setView(t.key)}
-              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-                view === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                view === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               {t.label}

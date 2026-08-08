@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import LeaveApprovalQueue from './LeaveApprovalQueue'
@@ -117,8 +117,14 @@ describe('LeaveApprovalQueue', () => {
 
     await openPanel(user)
 
-    // 2026-08-10 is a Monday, 2026-08-14 a Friday.
-    expect(await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
+    // Period now renders as a LeaveDateRange (two DateCards) rather than
+    // plain text — 2026-08-10 is a Monday, 2026-08-14 a Friday.
+    const periodSection = (await screen.findByText('Period')).closest('div')
+    expect(within(periodSection).getByText('Mon')).toBeInTheDocument()
+    expect(within(periodSection).getByText('10')).toBeInTheDocument()
+    expect(within(periodSection).getByText('Fri')).toBeInTheDocument()
+    expect(within(periodSection).getByText('14')).toBeInTheDocument()
+    expect(within(periodSection).getByText('5 days')).toBeInTheDocument()
     expect(screen.getByText('5 days total')).toBeInTheDocument()
 
     // Approve (left) and Reject (right) share the footer row evenly, same

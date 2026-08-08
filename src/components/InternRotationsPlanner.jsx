@@ -11,7 +11,10 @@ import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
 import CompactToolbarRow from './CompactToolbarRow'
 import Modal from './Modal'
+import ViewToggle from './ViewToggle'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
+
+const VIEW_OPTIONS = [{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }]
 
 const ROTATION_TYPE_OPTIONS = [
   { value: 'EC', label: 'EC' },
@@ -45,28 +48,6 @@ function rotationTouchesMonth(rotation, year, month) {
   // null end_date = current/ongoing, no scheduled end yet — treat as
   // extending past every month being shown, not as "before monthStart".
   return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
-}
-
-// Table/Timeline switch, sized to match the 30px controls in
-// CompactToolbarRow's search+Filter row (it renders as that row's
-// `trailing` slot) rather than the header's own line-height.
-function ViewToggle({ view, onChange }) {
-  return (
-    <div className="flex h-[30px] flex-shrink-0 overflow-hidden rounded border border-slate-line bg-canvas-raised">
-      {[{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }].map(t => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => onChange(t.key)}
-          className={`px-3 text-xs font-medium transition-colors ${
-            view === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-          }`}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 // Admin-only intern rotation management (dormant until the Intern category
@@ -216,7 +197,7 @@ export default function InternRotationsPlanner() {
           isActive: rotationTypeFilter !== 'all',
         }
         const onClearAll = () => { setTableSearch(''); setRotationTypeFilter('all') }
-        const toggle = <ViewToggle view={view} onChange={setView} />
+        const toggle = <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
         return (
           <div className="mt-4">
             <CompactToolbarRow

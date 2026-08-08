@@ -5,11 +5,12 @@ import { todayStr } from '../lib/dateRange'
 import {
   fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation,
 } from '../lib/internRotations'
-import { ListFilter } from 'lucide-react'
+import { CircleQuestionMark, ListFilter, X } from 'lucide-react'
 import DoctorDropdown from './DoctorDropdown'
 import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
 import CompactToolbarRow from './CompactToolbarRow'
+import Modal from './Modal'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 
 const ROTATION_TYPE_OPTIONS = [
@@ -46,6 +47,28 @@ function rotationTouchesMonth(rotation, year, month) {
   return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
 }
 
+// Table/Timeline switch, sized to match the 30px controls in
+// CompactToolbarRow's search+Filter row (it renders as that row's
+// `trailing` slot) rather than the header's own line-height.
+function ViewToggle({ view, onChange }) {
+  return (
+    <div className="flex h-[30px] flex-shrink-0 overflow-hidden rounded border border-slate-line bg-canvas-raised">
+      {[{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }].map(t => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={`px-3 text-xs font-medium transition-colors ${
+            view === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // Admin-only intern rotation management (dormant until the Intern category
 // is reactivated, same as the rest of that machinery) — two views over the
 // same intern_rotations table: an editable table (add/edit/delete blocks)
@@ -56,6 +79,7 @@ function rotationTouchesMonth(rotation, year, month) {
 export default function InternRotationsPlanner() {
   const { profile } = useAuth()
   const [view, setView] = useState('table')
+  const [showInfo, setShowInfo] = useState(false)
   const [interns, setInterns] = useState([])
   const [rotations, setRotations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -157,66 +181,71 @@ export default function InternRotationsPlanner() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
-          <p className="text-xs text-ink-muted">
+      <div className="flex items-center gap-1.5">
+        <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
+        <button
+          type="button"
+          onClick={() => setShowInfo(true)}
+          aria-label="About intern rotations"
+          title="About intern rotations"
+          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+        >
+          <CircleQuestionMark className="h-4 w-4" />
+        </button>
+      </div>
+
+      {showInfo && (
+        <Modal title="Intern rotations" onClose={() => setShowInfo(false)}>
+          <p className="text-sm text-ink-light">
             EC/OT rotation blocks for COSMO/Intern doctors — drives which leave capacity pool a doctor&apos;s leave counts against, and (via the OT subtype) which shift restrictions the scheduling backend applies for that block. Leave End date blank for a block that&apos;s current/ongoing with no known end yet.
           </p>
-        </div>
-        <div className="flex overflow-hidden rounded-lg border border-slate-line bg-canvas-raised">
-          {[{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }].map(t => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setView(t.key)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                view === t.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        </Modal>
+      )}
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
+      {/* Search+Filter+view-toggle stay on one row across both views (not
+          scoped to view === 'table') so the Table/Timeline toggle — needed
+          to switch back out of Timeline — is always reachable. */}
+      {!loading && (() => {
+        const filterFacet = {
+          icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
+          value: rotationTypeFilter, onChange: setRotationTypeFilter,
+          options: ROTATION_TYPE_FILTER_OPTIONS,
+          isActive: rotationTypeFilter !== 'all',
+        }
+        const onClearAll = () => { setTableSearch(''); setRotationTypeFilter('all') }
+        const toggle = <ViewToggle view={view} onChange={setView} />
+        return (
+          <div className="mt-4">
+            <CompactToolbarRow
+              className="mb-4"
+              searchValue={tableSearch}
+              onSearchChange={setTableSearch}
+              searchPlaceholder="Search by doctor surname or first name…"
+              filterFacet={filterFacet}
+              trailing={toggle}
+              clearActive={tableFiltersActive}
+              onClearAll={onClearAll}
+            />
+            <CompactToolbarRow
+              desktop
+              className="mb-4"
+              searchValue={tableSearch}
+              onSearchChange={setTableSearch}
+              searchPlaceholder="Search by doctor surname or first name…"
+              filterFacet={filterFacet}
+              trailing={toggle}
+              clearActive={tableFiltersActive}
+              onClearAll={onClearAll}
+            />
+          </div>
+        )
+      })()}
+
       {!loading && view === 'table' && (
-        <div className="mt-4">
-          {(() => {
-            const filterFacet = {
-              icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
-              value: rotationTypeFilter, onChange: setRotationTypeFilter,
-              options: ROTATION_TYPE_FILTER_OPTIONS,
-              isActive: rotationTypeFilter !== 'all',
-            }
-            const onClearAll = () => { setTableSearch(''); setRotationTypeFilter('all') }
-            return (
-              <>
-                <CompactToolbarRow
-                  className="mb-4"
-                  searchValue={tableSearch}
-                  onSearchChange={setTableSearch}
-                  searchPlaceholder="Search by doctor surname or first name…"
-                  filterFacet={filterFacet}
-                  clearActive={tableFiltersActive}
-                  onClearAll={onClearAll}
-                />
-                <CompactToolbarRow
-                  desktop
-                  className="mb-4"
-                  searchValue={tableSearch}
-                  onSearchChange={setTableSearch}
-                  searchPlaceholder="Search by doctor surname or first name…"
-                  filterFacet={filterFacet}
-                  clearActive={tableFiltersActive}
-                  onClearAll={onClearAll}
-                />
-              </>
-            )
-          })()}
+        <div>
           <div className="card overflow-x-auto p-0">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>
@@ -274,7 +303,7 @@ export default function InternRotationsPlanner() {
                         type="date"
                         value={rotation.start_date}
                         onChange={e => handleUpdateRow(rotation, { startDate: e.target.value })}
-                        className="input-field"
+                        className="input-field max-w-[130px]"
                         disabled={rowSaving}
                       />
                     </td>
@@ -283,7 +312,7 @@ export default function InternRotationsPlanner() {
                         type="date"
                         value={rotation.end_date || ''}
                         onChange={e => handleUpdateRow(rotation, { endDate: e.target.value || null })}
-                        className="input-field"
+                        className="input-field max-w-[130px]"
                         disabled={rowSaving}
                         placeholder="Ongoing"
                       />
@@ -293,9 +322,11 @@ export default function InternRotationsPlanner() {
                         type="button"
                         onClick={() => handleDeleteRow(rotation)}
                         disabled={rowSaving}
-                        className="text-xs font-medium text-flagRed hover:underline disabled:opacity-50"
+                        title="Remove"
+                        aria-label="Remove"
+                        className="flex h-7 w-7 items-center justify-center rounded text-flagRed transition-colors hover:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {rowSaving ? 'Saving…' : 'Remove'}
+                        <X className="h-4 w-4" />
                       </button>
                     </td>
                   </tr>
@@ -337,7 +368,7 @@ export default function InternRotationsPlanner() {
                       type="date"
                       value={newRow.startDate}
                       onChange={e => setNewRow(r => ({ ...r, startDate: e.target.value }))}
-                      className="input-field"
+                      className="input-field max-w-[130px]"
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -345,7 +376,7 @@ export default function InternRotationsPlanner() {
                       type="date"
                       value={newRow.endDate || ''}
                       onChange={e => setNewRow(r => ({ ...r, endDate: e.target.value || null }))}
-                      className="input-field"
+                      className="input-field max-w-[130px]"
                       placeholder="Ongoing"
                     />
                   </td>
@@ -382,7 +413,7 @@ export default function InternRotationsPlanner() {
       )}
 
       {!loading && view === 'timeline' && (
-        <div className="mt-4">
+        <div>
           <div className="flex items-center justify-center gap-2">
             <button
               type="button"

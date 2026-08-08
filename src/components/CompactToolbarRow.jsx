@@ -22,10 +22,14 @@ function SearchIcon(props) {
 // for a page with only a Filter (e.g. Intern rotations). `desktop` picks
 // which breakpoint's copy this instance renders; mount one of each (both
 // exist in the DOM, only one is ever visible via CSS) the same way the
-// accounts tab's own mobile/desktop toolbar pair already does.
+// accounts tab's own mobile/desktop toolbar pair already does. `trailing`
+// is an optional extra control rendered after Filter and before the clear
+// button — for a page-specific control that isn't a Sort/Filter facet
+// (e.g. Intern rotations' Table/Timeline view toggle).
 export default function CompactToolbarRow({
   searchValue, onSearchChange, searchPlaceholder,
   sortFacet, filterFacet, clearActive, onClearAll,
+  trailing,
   desktop = false, className = '',
 }) {
   return (
@@ -43,6 +47,7 @@ export default function CompactToolbarRow({
       </div>
       {sortFacet && <ToolbarFacet {...sortFacet} />}
       {filterFacet && <ToolbarFacet {...filterFacet} />}
+      {trailing}
       {clearActive && (
         <button
           onClick={onClearAll}

@@ -108,6 +108,7 @@ export default function RosterSummaryPage() {
     }, { replace: true })
   }
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
+  const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0
   const query = searchQuery.trim().toLowerCase()
   const filteredRows = rows
     .filter(r =>
@@ -173,23 +174,35 @@ export default function RosterSummaryPage() {
         {/* Category and Contract type as independent multi-select facets
             (replacing the old always-visible category chip row); name
             search above covers what would otherwise be a "name" facet
-            here. Swaps its icon to CircleX once a filter is active, same
-            bg-accent active styling the trigger already uses. */}
-        <FilterPanel
-          activeIcon={<CircleX className="h-4 w-4" />}
-          groups={[
-            {
-              key: 'category', label: 'Category',
-              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
-              selected: selectedCategories, onChange: setSelectedCategories,
-            },
-            {
-              key: 'contractType', label: 'Contract type',
-              options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
-              selected: selectedContractTypes, onChange: setSelectedContractTypes,
-            },
-          ]}
-        />
+            here. */}
+        <FilterPanel groups={[
+          {
+            key: 'category', label: 'Category',
+            options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
+            selected: selectedCategories, onChange: setSelectedCategories,
+          },
+          {
+            key: 'contractType', label: 'Contract type',
+            options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
+            selected: selectedContractTypes, onChange: setSelectedContractTypes,
+          },
+        ]} />
+        {/* Standalone clear-all — matches Toolbar.jsx's own clear-all
+            button exactly (icon, sizing, hover/active fills), positioned
+            outside the Filter trigger itself rather than swapping its icon
+            in place, which read as "click the Filter button to clear"
+            (misleading, since clicking it opens the popover either way). */}
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
+            aria-label="Clear all filters"
+            title="Clear all filters"
+            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+          >
+            <CircleX className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <button

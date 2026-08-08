@@ -12,6 +12,7 @@ import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
 const adminNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/roster-summary', label: 'Summary', icon: SummaryIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
@@ -23,6 +24,7 @@ const adminNav = [
 const doctorNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/roster-summary', label: 'Summary', icon: SummaryIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
@@ -47,6 +49,7 @@ const locumNav = [
 const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
+  { to: '/roster-summary', label: 'Summary', icon: SummaryIcon },
   { to: '/staff',  label: 'Staff',       icon: UsersIcon },
   { to: '/leave',  label: 'Planner',     icon: ClipboardIcon },
   { to: '/account', label: 'Account',    icon: UserIcon },
@@ -339,6 +342,13 @@ function CalendarIcon(props) {
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  )
+}
+function SummaryIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20V10M12 20V4M20 20v-7" />
     </svg>
   )
 }

@@ -121,8 +121,14 @@ describe('LeaveApprovalQueue', () => {
     expect(await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
     expect(screen.getByText('5 days total')).toBeInTheDocument()
 
+    // Approve (left) and Reject (right) share the footer row evenly, same
+    // full-width side-by-side style as the pending-registration review
+    // page's own Approve/Reject pair.
     const approveBtn = screen.getByRole('button', { name: 'Approve' })
-    expect(approveBtn).toHaveClass('btn-primary')
+    const rejectBtn = screen.getByRole('button', { name: 'Reject' })
+    expect(approveBtn.className).toMatch(/bg-success/)
+    expect(rejectBtn.className).toMatch(/text-flagRed/)
+    for (const btn of [approveBtn, rejectBtn]) expect(btn).toHaveClass('flex-1')
     expect(screen.queryByText(/drop supervision/i)).not.toBeInTheDocument()
   })
 
@@ -134,6 +140,19 @@ describe('LeaveApprovalQueue', () => {
     await openPanel(user)
     await screen.findByRole('button', { name: 'Approve' })
     await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+    expect(fromCalls).not.toContain('roster_entries')
+  })
+
+  it('closes the panel via the footer Cancel button without approving or rejecting', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+
+    await openPanel(user)
+    await screen.findByRole('button', { name: 'Approve' })
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
     expect(fromCalls).not.toContain('roster_entries')

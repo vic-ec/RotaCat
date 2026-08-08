@@ -247,10 +247,16 @@ export default function RosterSummaryPage() {
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
 
+      {/* max-h + overflow-auto (not just overflow-x-auto) so this div is the
+          table's actual vertical scroll container too — the thead's sticky
+          positioning below needs a real scrolling ancestor to stick
+          against, and a container that only scrolls horizontally (with
+          unconstrained height) never provides one; the page would just
+          scroll past it instead. */}
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-line">
+        <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
           <table className="w-full min-w-[1400px] border-collapse text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-canvas-sunken">
               <tr className="bg-canvas-sunken text-[10px] uppercase tracking-wide text-ink-muted">
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-left" rowSpan={2}>Doctor</th>
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={3}>Totals</th>

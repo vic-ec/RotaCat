@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Search, CircleX } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
-import Toolbar from '../components/Toolbar'
+import { QuickSelectButton } from '../components/Toolbar'
+import ClearableInput from '../components/ClearableInput'
+import FilterPanel from '../components/FilterPanel'
 import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
@@ -99,16 +102,16 @@ export default function RosterDashboardPage() {
   const [binSel, setBinSel] = useState(new Set())
 
   const [activeSearch, setActiveSearch] = useState('')
-  const [activeFilterMonth, setActiveFilterMonth] = useState('')
-  const [activeFilterYear, setActiveFilterYear] = useState('')
+  const [activeFilterMonth, setActiveFilterMonth] = useState(new Set())
+  const [activeFilterYear, setActiveFilterYear] = useState(new Set())
   const [activeSortDir, setActiveSortDir] = useState('desc')
   const [search, setSearch] = useState('')
-  const [filterMonth, setFilterMonth] = useState('')
-  const [filterYear, setFilterYear] = useState('')
+  const [filterMonth, setFilterMonth] = useState(new Set())
+  const [filterYear, setFilterYear] = useState(new Set())
   const [archiveSortDir, setArchiveSortDir] = useState('desc')
   const [binSearch, setBinSearch] = useState('')
-  const [binFilterMonth, setBinFilterMonth] = useState('')
-  const [binFilterYear, setBinFilterYear] = useState('')
+  const [binFilterMonth, setBinFilterMonth] = useState(new Set())
+  const [binFilterYear, setBinFilterYear] = useState(new Set())
   const [binSortDir, setBinSortDir] = useState('desc')
   const [showCreateModal, setShowCreateModal] = useState(false)
   // Shared across Active/Archive/Bin — switching once holds across tabs,
@@ -193,8 +196,8 @@ export default function RosterDashboardPage() {
   const binned = [...rosters.filter(r => r.deleted_at)].sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at))
 
   function matchesActiveFilters(r) {
-    if (activeFilterMonth && r.month !== Number(activeFilterMonth)) return false
-    if (activeFilterYear && r.year !== Number(activeFilterYear)) return false
+    if (activeFilterMonth.size > 0 && !activeFilterMonth.has(String(r.month))) return false
+    if (activeFilterYear.size > 0 && !activeFilterYear.has(String(r.year))) return false
     if (activeSearch && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(activeSearch.toLowerCase())) return false
     return true
   }
@@ -208,8 +211,8 @@ export default function RosterDashboardPage() {
 
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
   const filteredArchived0 = archived.filter(r => {
-    if (filterMonth && r.month !== Number(filterMonth)) return false
-    if (filterYear && r.year !== Number(filterYear)) return false
+    if (filterMonth.size > 0 && !filterMonth.has(String(r.month))) return false
+    if (filterYear.size > 0 && !filterYear.has(String(r.year))) return false
     if (search && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
@@ -217,8 +220,8 @@ export default function RosterDashboardPage() {
 
   const binYears = [...new Set(binned.map(r => r.year))].sort((a, b) => b - a)
   const filteredBinned0 = binned.filter(r => {
-    if (binFilterMonth && r.month !== Number(binFilterMonth)) return false
-    if (binFilterYear && r.year !== Number(binFilterYear)) return false
+    if (binFilterMonth.size > 0 && !binFilterMonth.has(String(r.month))) return false
+    if (binFilterYear.size > 0 && !binFilterYear.has(String(r.year))) return false
     if (binSearch && !`${MONTH_NAMES[r.month]} ${r.year}`.toLowerCase().includes(binSearch.toLowerCase())) return false
     return true
   })
@@ -378,12 +381,16 @@ export default function RosterDashboardPage() {
   )
 }
 
-// Search/Sort/Filter row shared by the Active, Archive, and Bin tabs — a
-// thin wrapper around the shared Toolbar template (search/sort/filter/
-// clear, collapsing to a mobile "Filters" sheet). Month and Year are two
-// independent filter facets; Sort defaults to "Oldest first"/"Newest
-// first" (the roster-month axis) but Bin can override the labels to
-// describe its own deletion-recency axis instead.
+// Search/Sort/Filter row shared by the Active, Archive, and Bin tabs. Month
+// and Year are condensed into one Filter trigger (FilterPanel, the app's
+// standard grouped multi-select popover — e.g. a doctor can filter to
+// "March or April" in one go, rather than picking a single month at a
+// time) instead of two separate single-select facet buttons. Sort defaults
+// to "Oldest first"/"Newest first" (the roster-month axis) but Bin can
+// override the labels to describe its own deletion-recency axis instead.
+// Not built on the shared Toolbar template — Toolbar's filterFacets render
+// one button per facet and can't be condensed into one, and its layout has
+// no slot for an extra component like FilterPanel alongside it.
 function RosterToolbar({
   search, onSearchChange,
   filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years,
@@ -391,37 +398,58 @@ function RosterToolbar({
   sortLabels = { asc: 'Oldest first', desc: 'Newest first' },
   view, onViewChange,
 }) {
+  const filtersActive = filterMonth.size > 0 || filterYear.size > 0
+
+  function clearAll() {
+    onSearchChange('')
+    onFilterMonthChange(new Set())
+    onFilterYearChange(new Set())
+  }
+
   return (
-    <div className="flex items-start gap-2">
-      <div className="min-w-0 flex-1">
-        <Toolbar
-          searchValue={search}
-          onSearchChange={onSearchChange}
-          searchPlaceholder="Search by month or year…"
-          sortFacets={[{
-            key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
-            value: sortDir, onChange: onSortDirChange,
-            options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
-            isActive: sortDir !== 'desc',
-          }]}
-          filterFacets={[
-            {
-              key: 'month', icon: <CalendarIcon className="h-4 w-4" />, label: 'Month',
-              value: filterMonth, onChange: onFilterMonthChange,
-              options: [{ value: '', label: 'All months' }, ...MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))],
-              isActive: Boolean(filterMonth),
-            },
-            {
-              key: 'year', icon: <CalendarIcon className="h-4 w-4" />, label: 'Year',
-              value: filterYear, onChange: onFilterYearChange,
-              options: [{ value: '', label: 'All years' }, ...years.map(y => ({ value: String(y), label: String(y) }))],
-              isActive: Boolean(filterYear),
-            },
-          ]}
-          active={Boolean(search) || Boolean(filterMonth) || Boolean(filterYear)}
-          onClearAll={() => { onSearchChange(''); onFilterMonthChange(''); onFilterYearChange('') }}
+    <div className="mb-4 flex items-center gap-2 overflow-x-auto">
+      <div className="w-80 flex-shrink-0">
+        <ClearableInput
+          type="text"
+          value={search}
+          onChange={e => onSearchChange(e.target.value)}
+          placeholder="Search by month or year…"
+          className="input-field"
+          clearLabel="Clear search"
+          icon={<Search className="h-4 w-4" />}
         />
       </div>
+      <QuickSelectButton
+        icon={<SortIcon className="h-4 w-4" />}
+        label="Sort"
+        value={sortDir}
+        onChange={onSortDirChange}
+        options={[{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }]}
+        isActive={sortDir !== 'desc'}
+      />
+      <FilterPanel groups={[
+        {
+          key: 'month', label: 'Month',
+          options: MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name })),
+          selected: filterMonth, onChange: onFilterMonthChange,
+        },
+        {
+          key: 'year', label: 'Year',
+          options: years.map(y => ({ value: String(y), label: String(y) })),
+          selected: filterYear, onChange: onFilterYearChange,
+        },
+      ]} />
+      {(Boolean(search) || filtersActive) && (
+        <button
+          type="button"
+          onClick={clearAll}
+          aria-label="Clear all filters"
+          title="Clear all filters"
+          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+        >
+          <CircleX className="h-4 w-4" />
+        </button>
+      )}
       <ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />
     </div>
   )

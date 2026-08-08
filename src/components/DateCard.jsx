@@ -11,11 +11,15 @@ import Tag from './Tag'
 // failed on its own tint (~3.1-4.4:1) and needed the one-shade-darker
 // variant to clear 4.5:1, so the label/icon colors below are deliberately
 // the `dark` shades, not the plain brand colors used elsewhere.
+// `divider` (shift cards only, between the month row and the time row)
+// reuses each tone's own already-contrast-verified `label` color at low
+// opacity, rather than one generic grey — a faint line that still reads
+// as "this tone's own divider" instead of a neutral rule dropped on top.
 const TONE = {
-  weekday: { bg: 'bg-accent-tint', label: 'text-accent-dark' },
-  weekend: { bg: 'bg-dateWeekend-tint', label: 'text-dateWeekend-ink' },
-  publicHoliday: { bg: 'bg-rose-tint', label: 'text-rose-dark' },
-  flagged: { bg: 'bg-flagRed-bg', label: 'text-flagRed' },
+  weekday: { bg: 'bg-accent-tint', label: 'text-accent-dark', divider: 'bg-accent-dark/20' },
+  weekend: { bg: 'bg-dateWeekend-tint', label: 'text-dateWeekend-ink', divider: 'bg-dateWeekend-ink/20' },
+  publicHoliday: { bg: 'bg-rose-tint', label: 'text-rose-dark', divider: 'bg-rose-dark/20' },
+  flagged: { bg: 'bg-flagRed-bg', label: 'text-flagRed', divider: 'bg-flagRed/20' },
 }
 
 function hourOnly(time) {
@@ -41,6 +45,7 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
   const parsed = parseLocalDate(date)
   const dayAbbr = parsed.toLocaleDateString('en-GB', { weekday: 'short' })
   const dateNum = parsed.getDate()
+  const monthAbbr = parsed.toLocaleDateString('en-GB', { month: 'short' })
   const isWeekend = [0, 6].includes(dayOfWeek(date))
 
   const toneKey = flagged ? 'flagged' : publicHoliday ? 'publicHoliday' : isWeekend ? 'weekend' : 'weekday'
@@ -55,11 +60,15 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
         {dayAbbr}
       </span>
       <span className="font-display text-2xl font-bold leading-none text-ink">{dateNum}</span>
+      <span className={`text-[10px] font-semibold uppercase tracking-wide ${tone.label}`}>{monthAbbr}</span>
       {hasTime && (
-        <span className="text-[11px] font-semibold text-ink-light">
-          <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
-          <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
-        </span>
+        <>
+          <div className={`h-px w-8 ${tone.divider}`} />
+          <span className="text-[11px] font-semibold text-ink-light">
+            <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
+            <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
+          </span>
+        </>
       )}
     </div>
   )

@@ -8,7 +8,24 @@ import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
+import ViewToggle from '../components/ViewToggle'
 import RosterSummaryPage from './RosterSummaryPage'
+
+const ROSTER_VIEW_OPTIONS = [{ key: 'list', label: 'List' }, { key: 'grid', label: 'Grid' }]
+
+// Reuses the exact same status tokens as the small Tag variant="status"
+// pill below (STATUS_TONE/Tag.jsx's STATUS_TONE_CLASS) rather than picking
+// new colors — draft's flagAmber-bg, published's success-bg, archived's
+// canvas-sunken. Verified (real numbers, not eyeballed): text-ink clears
+// 12-13:1 and text-ink-light clears 6.2-6.8:1 against all three at this
+// larger full-card-wash size; text-ink-muted (the usual small-meta-text
+// choice) only clears 4.0-4.3:1 — under 4.5:1 — so the card's meta line
+// uses text-ink-light instead, not the smaller text's usual color.
+const STATUS_CARD_BG = {
+  draft:     'bg-flagAmber-bg',
+  published: 'bg-success-bg',
+  archived:  'bg-canvas-sunken',
+}
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -94,6 +111,11 @@ export default function RosterDashboardPage() {
   const [binFilterYear, setBinFilterYear] = useState('')
   const [binSortDir, setBinSortDir] = useState('desc')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  // Shared across Active/Archive/Bin — switching once holds across tabs,
+  // same as Toolbar's own search/sort/filter state being per-tab but this
+  // display-mode choice being page-wide. Defaults to 'list' so nothing
+  // changes for anyone until they switch it.
+  const [rosterView, setRosterView] = useState('list')
 
   useEffect(() => {
     loadRosters()
@@ -257,6 +279,7 @@ export default function RosterDashboardPage() {
                 filterYear={activeFilterYear} onFilterYearChange={setActiveFilterYear}
                 years={activeYears}
                 sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
+                view={rosterView} onViewChange={setRosterView}
               />
             )}
             {isAdmin && (
@@ -269,6 +292,7 @@ export default function RosterDashboardPage() {
                 metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
                 actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
+                view={rosterView}
               />
             )}
             <RosterSection
@@ -280,6 +304,7 @@ export default function RosterDashboardPage() {
               metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
+              view={rosterView}
             />
             {(!isAdmin || drafts.length === 0) && published.length === 0 && (
               <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
@@ -295,6 +320,7 @@ export default function RosterDashboardPage() {
               filterYear={filterYear} onFilterYearChange={setFilterYear}
               years={years}
               sortDir={archiveSortDir} onSortDirChange={setArchiveSortDir}
+              view={rosterView} onViewChange={setRosterView}
             />
             <RosterSection
               title="Archived"
@@ -305,6 +331,7 @@ export default function RosterDashboardPage() {
               metaFn={r => `Archived ${formatDate(r.archived_at || r.updated_at)}`}
               actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
               emptyText="No archived rosters match these filters."
+              view={rosterView}
             />
           </>
         )}
@@ -318,6 +345,7 @@ export default function RosterDashboardPage() {
               years={binYears}
               sortDir={binSortDir} onSortDirChange={setBinSortDir}
               sortLabels={{ asc: 'Oldest deleted first', desc: 'Newest deleted first' }}
+              view={rosterView} onViewChange={setRosterView}
             />
             <RosterSection
               title="Bin"
@@ -331,6 +359,7 @@ export default function RosterDashboardPage() {
                 { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
               ]}
               emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
+              view={rosterView}
             />
           </>
         )}
@@ -360,35 +389,41 @@ function RosterToolbar({
   filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years,
   sortDir, onSortDirChange,
   sortLabels = { asc: 'Oldest first', desc: 'Newest first' },
+  view, onViewChange,
 }) {
   return (
-    <Toolbar
-      searchValue={search}
-      onSearchChange={onSearchChange}
-      searchPlaceholder="Search by month or year…"
-      sortFacets={[{
-        key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
-        value: sortDir, onChange: onSortDirChange,
-        options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
-        isActive: sortDir !== 'desc',
-      }]}
-      filterFacets={[
-        {
-          key: 'month', icon: <CalendarIcon className="h-4 w-4" />, label: 'Month',
-          value: filterMonth, onChange: onFilterMonthChange,
-          options: [{ value: '', label: 'All months' }, ...MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))],
-          isActive: Boolean(filterMonth),
-        },
-        {
-          key: 'year', icon: <CalendarIcon className="h-4 w-4" />, label: 'Year',
-          value: filterYear, onChange: onFilterYearChange,
-          options: [{ value: '', label: 'All years' }, ...years.map(y => ({ value: String(y), label: String(y) }))],
-          isActive: Boolean(filterYear),
-        },
-      ]}
-      active={Boolean(search) || Boolean(filterMonth) || Boolean(filterYear)}
-      onClearAll={() => { onSearchChange(''); onFilterMonthChange(''); onFilterYearChange('') }}
-    />
+    <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
+        <Toolbar
+          searchValue={search}
+          onSearchChange={onSearchChange}
+          searchPlaceholder="Search by month or year…"
+          sortFacets={[{
+            key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
+            value: sortDir, onChange: onSortDirChange,
+            options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
+            isActive: sortDir !== 'desc',
+          }]}
+          filterFacets={[
+            {
+              key: 'month', icon: <CalendarIcon className="h-4 w-4" />, label: 'Month',
+              value: filterMonth, onChange: onFilterMonthChange,
+              options: [{ value: '', label: 'All months' }, ...MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name }))],
+              isActive: Boolean(filterMonth),
+            },
+            {
+              key: 'year', icon: <CalendarIcon className="h-4 w-4" />, label: 'Year',
+              value: filterYear, onChange: onFilterYearChange,
+              options: [{ value: '', label: 'All years' }, ...years.map(y => ({ value: String(y), label: String(y) }))],
+              isActive: Boolean(filterYear),
+            },
+          ]}
+          active={Boolean(search) || Boolean(filterMonth) || Boolean(filterYear)}
+          onClearAll={() => { onSearchChange(''); onFilterMonthChange(''); onFilterYearChange('') }}
+        />
+      </div>
+      <ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />
+    </div>
   )
 }
 
@@ -420,7 +455,7 @@ function EmptyState({ isAdmin, onCreate }) {
 // group (Drafts/Published/Archived/Bin) selects independently, so this
 // stays a per-group inline swap rather than the page-level sticky
 // BulkActionBar Staff uses, which assumes one list per tab, not two.
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText }) {
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list' }) {
   if (rosters.length === 0) {
     return emptyText ? (
       <div className="card p-8 text-center text-sm text-ink-muted">{emptyText}</div>
@@ -467,20 +502,71 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
           </div>
         )}
       </div>
-      <div className="card divide-y divide-slate-line overflow-hidden">
-        {rosters.map(roster => (
-          <ListRowRecord
-            key={roster.id}
-            checked={selected.has(roster.id)}
-            onToggleCheck={() => toggleOne(roster.id)}
-            selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
-            title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
-            subtitle={metaFn(roster)}
-            statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
-            onClick={() => navigate(`/roster/${roster.id}`)}
-          />
-        ))}
+      {view === 'grid' ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {rosters.map(roster => (
+            <RosterCard
+              key={roster.id}
+              checked={selected.has(roster.id)}
+              onToggleCheck={() => toggleOne(roster.id)}
+              selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
+              month={MONTH_NAMES[roster.month]}
+              year={roster.year}
+              meta={metaFn(roster)}
+              status={roster.status}
+              onClick={() => navigate(`/roster/${roster.id}`)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="card divide-y divide-slate-line overflow-hidden">
+          {rosters.map(roster => (
+            <ListRowRecord
+              key={roster.id}
+              checked={selected.has(roster.id)}
+              onToggleCheck={() => toggleOne(roster.id)}
+              selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
+              title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
+              subtitle={metaFn(roster)}
+              statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
+              onClick={() => navigate(`/roster/${roster.id}`)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Roughly-square status-tinted card for the grid view — checkbox top-left
+// (bulk-select works identically to list view, same selected/toggleOne
+// wiring from RosterSection above), Month+Year bold stacked below it,
+// meta text (whatever RosterSection's own metaFn produces for this tab —
+// "Created …", "Archived …", or "Deleted … auto-deletes …") in small text
+// at the bottom. aspect-square is a sized-by-estimation default (checkbox
+// + two bold lines + one small line comfortably fits well under 100px of
+// content height at any grid-card width this page's md:max-w-2xl
+// container produces) — worth a live look in case it ever reads cramped,
+// but nothing here forces it to stay square if that turns out wrong.
+function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, status, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex aspect-square cursor-pointer flex-col justify-between rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggleCheck}
+        onClick={e => e.stopPropagation()}
+        aria-label={selectLabel}
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+      />
+      <div className="min-w-0">
+        <p className="truncate font-display text-lg font-bold leading-tight text-ink">{month}</p>
+        <p className="font-display text-lg font-bold leading-tight text-ink">{year}</p>
       </div>
+      <p className="truncate text-xs text-ink-light">{meta}</p>
     </div>
   )
 }

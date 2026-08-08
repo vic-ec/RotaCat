@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, RefreshCw, Search, ArrowUpDown, CircleX } from 'lucide-react'
+import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronLeft, RefreshCw, Search, ArrowUpDown, CircleX } from 'lucide-react'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
@@ -75,6 +75,23 @@ export default function RosterSummaryPage() {
   const year = Number(searchParams.get('year')) || new Date().getFullYear()
   const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
 
+  // Set only when reached via a specific roster's own "Hours Summary"
+  // button (see RosterGridPage.jsx) — not when landing here via the
+  // Rosters/Hours Summary tab directly, a reload, or a bookmarked link,
+  // none of which have "the previous page" this is meant to return to.
+  // Captured once on mount (useState initializer, not a reactive read) —
+  // setYearMonth's own setSearchParams call below replaces the current
+  // location on every month/year change, which drops location.state along
+  // with it, so reading it reactively would make the button vanish the
+  // moment the viewer so much as steps to a different month.
+  const navigate = useNavigate()
+  const { state: initialLocationState } = useLocation()
+  const [backTo] = useState(() => (
+    initialLocationState?.fromRosterId
+      ? { id: initialLocationState.fromRosterId, label: initialLocationState.fromRosterLabel }
+      : null
+  ))
+
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -120,6 +137,18 @@ export default function RosterSummaryPage() {
 
   return (
     <div className="mx-auto max-w-full">
+      {/* Back to the specific roster this was opened from — same format/
+          position as RosterGridPage's own "← Rosters" back link. */}
+      {backTo && (
+        <button
+          type="button"
+          onClick={() => navigate(`/roster/${backTo.id}`)}
+          className="mb-2 flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
+        >
+          <ChevronLeft className="h-4 w-4" /> {backTo.label || 'Roster'}
+        </button>
+      )}
+
       {/* Month/year stepper (with built-in Today) + Refresh + search + sort
           + filter, all on one row — horizontal scroll as a fallback rather
           than wrapping, so it fits on desktop without scrolling and still

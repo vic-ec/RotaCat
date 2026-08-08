@@ -9,10 +9,13 @@ function CloseIcon(props) {
   )
 }
 
-// Shared form/modal shell — centered 520px card on desktop, a full-screen
-// sheet below 768px (header with title + close, scrollable body, sticky
-// footer) rather than a small centered dialog on a phone-width screen
-// (§15). See docs/design/layout-spec.md §11.
+// Shared form/modal shell — centered 520px card on desktop, a genuine
+// bottom sheet below 768px (capped at 85vh, rounded top corners, square
+// bottom corners flush with the screen edge — not a full-screen sheet)
+// with a header (title + close), scrollable body, and sticky footer.
+// Matches MonthWorkspace.jsx's day-view popup, the app's other instance of
+// this exact centered-popup/bottom-sheet pattern. See
+// docs/design/layout-spec.md §11.
 //
 // `footer`: right-aligned buttons (Cancel then Primary, per spec) — pass
 // them as children of a `<div className="flex justify-end gap-2">`-shaped
@@ -28,10 +31,10 @@ export default function Modal({ title, onClose, children, footer, maxWidthClassN
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`flex h-full w-full flex-col overflow-hidden bg-canvas-raised md:h-auto md:max-h-[85vh] md:rounded-xl md:shadow-raised ${maxWidthClassName}`}
+        className={`flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-xl rounded-b-none bg-canvas-raised md:rounded-b-xl md:shadow-raised ${maxWidthClassName}`}
       >
         <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-line px-5 py-4">
-          <p className="text-base font-semibold text-ink">{title}</p>
+          <h2 className="text-base font-semibold text-ink">{title}</h2>
           <button
             type="button"
             onClick={onClose}

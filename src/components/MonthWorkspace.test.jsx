@@ -267,14 +267,14 @@ describe('MonthWorkspace', () => {
     const admin = renderWorkspace(withConsultant)
     await user.click(screen.getByText('Anderson'))
     const adminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
-    expect(within(adminHeading.closest('.card')).getByText('Smith')).toBeInTheDocument()
+    expect(within(adminHeading.closest('[role="dialog"]')).getByText('Smith')).toBeInTheDocument()
     admin.unmount()
 
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
     renderWorkspace(withConsultant)
     await user.click(screen.getByText('Anderson'))
     const nonAdminHeading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
-    expect(within(nonAdminHeading.closest('.card')).queryByText('Smith')).not.toBeInTheDocument()
+    expect(within(nonAdminHeading.closest('[role="dialog"]')).queryByText('Smith')).not.toBeInTheDocument()
   })
 
   it('reading surnames: shows approved plainly and pending in italics directly on the grid', () => {
@@ -337,7 +337,7 @@ describe('MonthWorkspace', () => {
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
     const heading = await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
-    const modal = within(heading.closest('.card'))
+    const modal = within(heading.closest('[role="dialog"]'))
 
     expect(modal.getByText('Anderson')).not.toHaveClass('bg-success-bg', 'text-success')
     expect(modal.getByText('Botha')).not.toHaveClass('bg-flagAmber-bg', 'text-flagAmber')

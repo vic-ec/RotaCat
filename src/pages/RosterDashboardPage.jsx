@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
-import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
+import RosterSummaryPage from './RosterSummaryPage'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -42,6 +42,11 @@ const TABS_DOCTOR = [
   { key: 'archive', label: 'Archive' },
 ]
 
+// Hours Summary is hidden from locums entirely (same rule as the Summary
+// content itself, see rosterSummary.js) — a locum's outer tab row collapses
+// to a single "Rosters" tab, so it isn't shown at all (see the render below).
+const OUTER_TABS = [{ key: 'rosters', label: 'Rosters' }, { key: 'summary', label: 'Hours Summary' }]
+
 function formatDate(value) {
   return new Date(value).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
 }
@@ -53,7 +58,18 @@ function daysRemaining(deletedAt) {
 
 export default function RosterDashboardPage() {
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isLocum } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const outerTabs = isLocum ? OUTER_TABS.filter(t => t.key !== 'summary') : OUTER_TABS
+  const requestedView = searchParams.get('view')
+  const view = outerTabs.some(t => t.key === requestedView) ? requestedView : 'rosters'
+  function setView(nextView) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('view', nextView)
+      return next
+    }, { replace: true })
+  }
   const [rosters, setRosters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -189,27 +205,49 @@ export default function RosterDashboardPage() {
   // not roster month/year like the Active/Archive tabs.
   const filteredBinned = binSortDir === 'asc' ? [...filteredBinned0].reverse() : filteredBinned0
 
+  // The roster list reads best at the narrower md:max-w-2xl cap already
+  // used throughout this tab; the Hours Summary table is a wide grid that
+  // needs the full-width room RosterSummaryPage gives itself instead — so
+  // the width constraint below wraps the Rosters view's content only, not
+  // this whole page.
   return (
-    <div className="mx-auto max-w-7xl md:max-w-2xl">
-      <PageHeader
-        title="Rosters"
-        action={isAdmin && tab === 'active' ? {
-          label: 'Create roster',
-          icon: <PencilSparklesIcon className="h-4 w-4" />,
-          onClick: () => setShowCreateModal(true),
-        } : null}
-      />
+    <div className="mx-auto max-w-7xl">
+      {/* outerTabs is length 1 for a locum (Hours Summary hidden) — nothing
+          to switch between, so the row (and its Create-roster action, which
+          only ever applies to the Rosters tab) doesn't render at all rather
+          than showing a single dead tab. */}
+      {outerTabs.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 md:max-w-2xl">
+          <PageTabs tabs={outerTabs} active={view} onChange={setView} ariaLabel="Rosters" />
+          {isAdmin && view === 'rosters' && tab === 'active' && (
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(true)}
+              aria-label="Create roster"
+              title="Create roster"
+              className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto"
+            >
+              <PencilSparklesIcon className="h-4 w-4" />
+              <span className="hidden md:inline">Create roster</span>
+            </button>
+          )}
+        </div>
+      )}
 
-      <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Rosters" />
+      {view === 'summary' ? (
+        <RosterSummaryPage />
+      ) : (
+      <div className="md:max-w-2xl">
+        <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
-      <div className="mt-4">
-        {actionError && (
-          <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
-            <p className="text-sm text-flagRed">{actionError}</p>
-          </div>
-        )}
+        <div className="mt-4">
+          {actionError && (
+            <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
+              <p className="text-sm text-flagRed">{actionError}</p>
+            </div>
+          )}
 
-        {tab === 'active' && (
+          {tab === 'active' && (
           <>
             {((isAdmin && drafts.length > 0) || published.length > 0) && (
               <RosterToolbar
@@ -296,6 +334,8 @@ export default function RosterDashboardPage() {
           </>
         )}
       </div>
+      </div>
+      )}
 
       {showCreateModal && (
         <CreateRosterModal

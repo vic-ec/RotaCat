@@ -16,7 +16,6 @@ import RosterDashboardPage from './pages/RosterDashboardPage'
 import GenerationConfigPage from './pages/GenerationConfigPage'
 import BlankRosterConfigPage from './pages/BlankRosterConfigPage'
 import RosterGridPage from './pages/RosterGridPage'
-import RosterSummaryPage from './pages/RosterSummaryPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
 import LeavePlannerPage from './pages/LeavePlannerPage'
@@ -69,11 +68,10 @@ function AppRoutes() {
           <Route path="roster/generate" element={<GenerationConfigPage />} />
           <Route path="roster/build" element={<BlankRosterConfigPage />} />
           <Route path="roster/:id" element={<RosterGridPage />} />
-          {/* Own top-level path (not roster/summary) so its bottom-bar/
-              sidebar nav item highlights independently of Roster — NavLink's
-              default (non-`end`) matching is prefix-based, so a path nested
-              under roster/* would light up both tabs at once. */}
-          <Route path="roster-summary" element={<RosterSummaryPage />} />
+          {/* Hours Summary now lives inside RosterDashboardPage as a tab
+              (?view=summary) rather than its own route — this redirects
+              anyone with the old standalone URL bookmarked/cached. */}
+          <Route path="roster-summary" element={<Navigate to="/roster?view=summary" replace />} />
 
           <Route path="staff" element={<StaffListPage />} />
           <Route path="staff/pending/:id" element={<PendingApprovalReviewPage />} />

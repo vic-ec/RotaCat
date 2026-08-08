@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { ClipboardClock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { contrastTextColor } from '../lib/color'
@@ -67,7 +68,7 @@ function getShiftsForDay(dayType) {
 export default function RosterGridPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAdmin, user } = useAuth()
+  const { isAdmin, isLocum, user } = useAuth()
 
   const [rosterMonth, setRosterMonth] = useState(null)
   const [entries, setEntries] = useState([])    // all roster_entries for this month
@@ -444,6 +445,20 @@ export default function RosterGridPage() {
               Week
             </button>
           </div>
+
+          {/* Hours Summary — visible to every role that can view this page
+              except locum (matches Roster Hours Summary's own visibility
+              rule); pre-seeds the summary's month/year to this roster's own,
+              rather than landing on the current month. */}
+          {!isLocum && (
+            <button
+              onClick={() => navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`)}
+              className="btn-secondary text-sm"
+            >
+              <ClipboardClock className="h-4 w-4" />
+              Hours Summary
+            </button>
+          )}
 
           {/* Review log */}
           {isAdmin && (

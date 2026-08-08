@@ -18,7 +18,6 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ valu
 const CATEGORY_LABELS = {
   MO:         'Medical Officer',
   Registrar:  'Registrar',
-  COSMO:      'COSMO (legacy)',
   Intern:     'Intern',
   Consultant: 'Consultant',
 }

@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ChevronDown, RefreshCw } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
-import PageHeader from '../components/PageHeader'
 import DateStepper from '../components/DateStepper'
 import Tag from '../components/Tag'
 
@@ -14,11 +12,12 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // Display order/labels for the category filter chips — a fixed order reads
 // better than however profiles happen to sort, and only categories actually
 // present among this month's rows render as chips at all.
-const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Consultant', 'Locum']
+// Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
+const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
 const CATEGORY_LABEL = {
   MO: 'MO', Registrar: 'Registrar', COSMO: 'COSMO', COSMOPsych: 'COSMO Psych',
   EC_Intern: 'EC Intern', OT_Intern: 'OT Intern', EC_COSMO_Intern: 'EC COSMO Intern',
-  OT_COSMO_Intern: 'OT COSMO Intern', Intern: 'Intern', Consultant: 'Consultant', Locum: 'Locum',
+  OT_COSMO_Intern: 'OT COSMO Intern', Intern: 'Intern', Locum: 'Locum',
 }
 
 const WEEKDAY_COLUMNS = [{ code: 'WD_08', label: '08h00' }, { code: 'WD_12', label: '12h00' }, { code: 'WD_15', label: '15h00' }, { code: 'WD_22', label: '22h00' }]
@@ -36,7 +35,6 @@ function hoursBand(row) {
 }
 
 export default function RosterSummaryPage() {
-  const { isLocum } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('year')) || new Date().getFullYear()
   const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -65,10 +63,6 @@ export default function RosterSummaryPage() {
     setLoading(false)
   }
 
-  // Locums never see this page at all — everyone else (doctor, admin, and
-  // clerk in its existing read-only capacity) can.
-  if (isLocum) return <Navigate to="/" replace />
-
   function setYearMonth(newYear, newMonth) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -91,9 +85,9 @@ export default function RosterSummaryPage() {
 
   return (
     <div className="mx-auto max-w-full">
-      <PageHeader title="Roster Summary" />
+      <h2 className="font-display text-lg font-semibold text-ink">Roster Hours Summary</h2>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <DateStepper unit="month" year={year} month={month} onChange={setYearMonth}>
           {/* No live subscription to roster_entries — see RosterSummaryPage's
               own note on this. This is the manual escape hatch: re-pull this

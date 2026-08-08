@@ -45,14 +45,17 @@ function emptyRow(profile) {
 // locum-tagged shift covering a normally-contracted doctor (the Bottomley/
 // Baerends case, roster_entries.counts_toward_contract_hours=false on a row
 // that still has a real profile_id) lands as locumHours on THEIR row
-// instead of a separate locum row.
+// instead of a separate locum row. Also excludes Consultant-category
+// profiles — they get their own roster/planner/summary in a future phase,
+// and aren't tracked via roster_entries.profile_id today anyway (the grid's
+// Consultant column stores consultant_profile_id instead).
 export async function fetchRosterSummary({ month, year }) {
   const { start: monthStart, end: monthEnd } = monthBounds(year, month)
 
   const [profilesRes, rosterMonthsRes, leaveRes, ledgerRes] = await Promise.all([
     supabase.from('profiles')
       .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code')
-      .eq('role', 'doctor').eq('is_approved', true).eq('is_active', true)
+      .eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant')
       .order('surname'),
     supabase.from('roster_months').select('id').eq('year', year).eq('month', month).is('deleted_at', null),
     supabase.from('leave_requests')

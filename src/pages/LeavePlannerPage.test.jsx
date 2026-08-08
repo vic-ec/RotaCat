@@ -19,9 +19,9 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
 
-// Only used for the Requests tab's own pending-count badge — a plain
-// thenable builder mock (same shape as AnnualLeavePlanner.test.jsx's) so
-// that fetch resolves predictably instead of hitting the real client.
+// Only used for the top-level Requests tab's own pending-count badge — a
+// plain thenable builder mock (same shape as AnnualLeavePlanner.test.jsx's)
+// so that fetch resolves predictably instead of hitting the real client.
 const { mockResponses } = vi.hoisted(() => ({ mockResponses: {} }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -78,31 +78,44 @@ describe('LeavePlannerPage', () => {
     expect(container).not.toHaveTextContent(/Leave/)
   })
 
-  it('doctor: defaults to My leave, does not see Approval-queue-only Requests view or the redundant Team leave tab', async () => {
+  it('doctor: defaults to My leave, does not see the redundant Team Leave tab, and Requests is a top-level tab (their own history)', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
     renderPage()
     expect(screen.getByText('MyLeaveStub')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'My leave' })).toBeInTheDocument()
     // A doctor already gets the "who's off" picture from the Annual/Special
-    // planners' All view, so Team is redundant and hidden for them.
-    expect(screen.queryByRole('button', { name: 'Team' })).not.toBeInTheDocument()
+    // planners' All view, so Team Leave is redundant and hidden for them.
+    expect(screen.queryByRole('button', { name: 'Team Leave' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Planners' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Requests' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rules' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument() // doctor's planner default is Annual
-    expect(screen.getByRole('button', { name: 'Requests' })).toBeInTheDocument()
+
+    // Requests is a top-level tab now — reachable directly, no need to
+    // enter Planners first.
     await userEvent.click(screen.getByRole('button', { name: 'Requests' }))
     expect(screen.getByText('MyRequestHistoryStub')).toBeInTheDocument()
   })
 
-  it('admin: defaults to Planners > Requests (approval queue), no My leave tab, keeps Team', async () => {
+  it('admin: with no pending requests, defaults to Team Leave (not an empty queue)', async () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    mockResponses['leave_requests:select'] = { count: 0, error: null }
     renderPage()
-    expect(screen.getByText('ApprovalQueueStub')).toBeInTheDocument()
+    expect(await screen.findByText('TeamLeaveStub')).toBeInTheDocument()
+    expect(screen.queryByText('ApprovalQueueStub')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Team' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Team Leave' })).toBeInTheDocument()
+  })
 
+  it('admin: with pending requests, defaults to Requests (approval queue)', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    mockResponses['leave_requests:select'] = { count: 3, error: null }
+    renderPage()
+    expect(await screen.findByText('ApprovalQueueStub')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
     await userEvent.click(screen.getByRole('button', { name: 'Annual' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument()
 
@@ -110,7 +123,7 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('AuditStub')).toBeInTheDocument()
   })
 
-  it('admin: the Requests sub-tab shows a red badge with the pending-leave-request count', async () => {
+  it('admin: the top-level Requests tab shows a red badge with the pending-leave-request count', async () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
     mockResponses['leave_requests:select'] = { count: 4, error: null }
     renderPage()
@@ -120,12 +133,11 @@ describe('LeavePlannerPage', () => {
     expect(within(requestsTab).getByText('4')).toHaveClass('bg-flagRed')
   })
 
-  it('doctor: the Requests sub-tab (their own history, not the approval queue) never shows the admin badge', async () => {
+  it('doctor: the Requests tab (their own history, not the approval queue) never shows the admin badge', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
     mockResponses['leave_requests:select'] = { count: 4, error: null }
     renderPage()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
     const requestsTab = screen.getByRole('button', { name: 'Requests' })
     expect(within(requestsTab).queryByText('4')).not.toBeInTheDocument()
   })
@@ -137,19 +149,19 @@ describe('LeavePlannerPage', () => {
     expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
   })
 
-  it('clerk: defaults to Planners > Annual, no My leave/Team leave/Requests/Audit', async () => {
+  it('clerk: defaults to Planners > Annual, no My leave/Team Leave/Requests/Audit', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: true }
     renderPage()
-    expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team leave
+    expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team Leave
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()
     // Clerks get the same All-view visibility into Annual/Special/Weekends
-    // a plain doctor gets from those tabs, so Team is redundant and
+    // a plain doctor gets from those tabs, so Team Leave is redundant and
     // hidden for them too — same as it already is for doctors.
-    expect(screen.queryByRole('button', { name: 'Team' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Team Leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Requests' })).not.toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Special' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weekends' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Requests' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Weekends' }))
@@ -163,12 +175,20 @@ describe('LeavePlannerPage', () => {
     expect(screen.getByText('RulesStub')).toBeInTheDocument()
   })
 
+  it('top-level tabs render in order: My leave, Team Leave, Planners, Requests, Rules', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: true }
+    renderPage()
+    const nav = screen.getByRole('navigation', { name: 'Leave' })
+    const labels = within(nav).getAllByRole('button').map(b => b.textContent.replace(/\d+$/, '').trim())
+    expect(labels).toEqual(['My leave', 'Team Leave', 'Planners', 'Requests', 'Rules'])
+  })
+
   // A page reload (e.g. a backgrounded mobile browser/PWA getting killed
   // and reloaded by the OS) remounts this component fresh — the tab must
   // come back from the URL, not silently reset to the role's default. An
   // admin who's also a doctor (e.g. an admin Consultant) is exactly the
-  // case that surfaced this: their role default is Planners > Requests,
-  // which would otherwise clobber "My leave" on every reload.
+  // case that surfaced this: their role default depends on the pending-
+  // request count, which would otherwise clobber "My leave" on every reload.
   it('resumes the tab requested via the URL instead of the role default', () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: true }
     render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=my-leave']}>{children}</MemoryRouter> })
@@ -183,13 +203,13 @@ describe('LeavePlannerPage', () => {
     expect(screen.queryByText('AnnualStub')).not.toBeInTheDocument()
   })
 
-  it('admin Requests view: narrows/centres the queue and its back link returns to Annual', async () => {
+  it('admin Requests view: narrows/centres the queue, with no back link now that it is a top-level tab', async () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    mockResponses['leave_requests:select'] = { count: 2, error: null } // lands on Requests by default
     renderPage()
+    expect(await screen.findByText('ApprovalQueueStub')).toBeInTheDocument()
     expect(screen.getByText('ApprovalQueueStub').closest('.mx-auto.md\\:max-w-2xl')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByText('QueueBackStub'))
-    expect(screen.getByText('AnnualStub')).toBeInTheDocument()
+    expect(screen.queryByText('QueueBackStub')).not.toBeInTheDocument()
   })
 
   it('passes the month/highlight deep-link query params through to AnnualLeavePlanner and clears them once consumed', async () => {

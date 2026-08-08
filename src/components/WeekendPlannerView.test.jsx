@@ -542,7 +542,7 @@ describe('WeekendPlannerView', () => {
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).queryByRole('button', { name: /Edit assignments/ })).not.toBeInTheDocument()
       const link = within(inspector).getByRole('link', { name: /View requests/ })
-      expect(link).toHaveAttribute('href', '/leave?tab=planners&sub=requests')
+      expect(link).toHaveAttribute('href', '/leave?tab=requests')
     })
 
     it('admin: Edit assignments reveals per-category +/x controls, which Done editing hides again', async () => {

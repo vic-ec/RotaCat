@@ -298,7 +298,7 @@ export default function AnnualPlannerOverview({
             <button type="button" onClick={() => onOpenWorkspace(selectedMonth)} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
               <ExternalLink className="h-3.5 w-3.5" /> Open month workspace
             </button>
-            <Link to="/leave?tab=planners&sub=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
+            <Link to="/leave?tab=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
               <ListChecks className="h-3.5 w-3.5" /> View requests
             </Link>
           </div>

@@ -15,7 +15,7 @@ function LocationProbe() {
 
 function renderQueueWithLocationProbe(props) {
   return render(
-    <MemoryRouter initialEntries={['/leave?tab=planners&sub=requests']}>
+    <MemoryRouter initialEntries={['/leave?tab=requests']}>
       <Routes>
         <Route path="/leave" element={<><LeaveApprovalQueue {...props} /><LocationProbe /></>} />
       </Routes>

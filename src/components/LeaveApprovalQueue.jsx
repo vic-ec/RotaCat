@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarSearch, TriangleAlert, ListFilter } from 'lucide-react'
+import { ArrowLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
 import Toolbar from './Toolbar'
-import SortDirectionToggle from './SortDirectionToggle'
-import { ApprovalRow, SelectAllRow } from './ListRow'
+import Modal from './Modal'
+import LeaveCapacityBanner from './LeaveCapacityBanner'
+import { SelectAllRow } from './ListRow'
 import BulkActionBar from './BulkActionBar'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange, fetchAnnualCapacityPreview } from '../lib/leaveRequests'
+import { datesInRange } from '../lib/dateRange'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -26,6 +28,185 @@ const CATEGORY_LABELS = {
 
 function hasWarnings(w) {
   return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
+}
+
+// One row of the pending-requests list — checkbox, avatar, name, category
+// tag, and a one-line "Requesting X" summary. Approve/reject now live in
+// the detail panel (LeaveRequestDetailPanel below) opened by tapping the
+// row, so the row itself only keeps the always-visible View Calendar
+// action — deliberately a plain button, not ListRow's RowActions, since
+// RowActions collapses even a single action behind a kebab on mobile and
+// this one wants to stay visible on every viewport.
+function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, checked, onToggleCheck, onOpen, onViewCalendar }) {
+  return (
+    <div
+      onClick={onOpen}
+      className="flex min-h-[56px] cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggleCheck}
+        onClick={e => e.stopPropagation()}
+        aria-label={`Select ${fullName}`}
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+        style={{ minWidth: 16 }}
+      />
+      <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} className="flex-shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-medium text-ink">{fullName}</p>
+          {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
+        </div>
+        <p className="mt-0.5 truncate text-xs text-ink-muted">Requesting {leaveTypeLabel}</p>
+      </div>
+      <button
+        type="button"
+        title="View Calendar"
+        aria-label="View Calendar"
+        onClick={e => { e.stopPropagation(); onViewCalendar() }}
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-accent/40 text-accent transition-colors hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white"
+      >
+        <CalendarSearch className="h-5 w-5" />
+      </button>
+    </div>
+  )
+}
+
+// The tap-to-expand detail panel for one pending request — built on the
+// shared Modal shell (muted background, dismiss on outside click or the
+// corner ×, per docs/design/layout-spec.md §11). Shows the full identity,
+// leave type/period, any conflicts the planner already flags (capacity
+// slots for annual leave, plus the existing supervision/balance/hour-
+// ceiling warnings), a link to the specific month in the leave planner, and
+// approve/reject at the bottom. Rejecting here requires a reason — unlike
+// the bulk-reject action above the list, which stays reason-optional.
+function LeaveRequestDetailPanel({
+  request, fullName, categoryLabel, leaveTypeLabel, rangeLabel, daysLine,
+  warnings, warned, warningsLoading, capacityPreview, capacityLoading,
+  onClose, onOpenCalendar,
+  rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
+  approveLabel, onApprove, isActioning,
+}) {
+  return (
+    <Modal
+      title="Leave request"
+      onClose={onClose}
+      footer={rejecting ? (
+        <>
+          <button type="button" onClick={onRejectCancel} className="btn-secondary">Cancel</button>
+          <button
+            type="button"
+            onClick={onRejectConfirm}
+            disabled={isActioning || !rejectNotes.trim()}
+            className="btn-danger-outline"
+          >
+            {isActioning ? 'Rejecting…' : 'Confirm reject'}
+          </button>
+        </>
+      ) : (
+        <>
+          <button type="button" onClick={onRejectStart} disabled={isActioning} className="btn-danger-outline">
+            Reject
+          </button>
+          <button type="button" onClick={onApprove} disabled={isActioning || warningsLoading} className="btn-primary">
+            {approveLabel}
+          </button>
+        </>
+      )}
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={40} />
+          <div>
+            <p className="text-sm font-semibold text-ink">{fullName}</p>
+            {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
+          </div>
+        </div>
+
+        <div>
+          <p className="label-text">Leave type</p>
+          <p className="text-sm text-ink">{leaveTypeLabel}</p>
+        </div>
+
+        <div>
+          <p className="label-text">Period</p>
+          <p className="text-sm text-ink">{rangeLabel}</p>
+          {daysLine && <p className="mt-0.5 text-xs text-ink-muted">{daysLine}</p>}
+        </div>
+
+        <div>
+          <p className="label-text">Conflicts in the planner</p>
+          {capacityLoading ? (
+            <p className="mt-1 text-xs text-ink-muted">Checking capacity…</p>
+          ) : capacityPreview ? (
+            <div className="mt-1">
+              <LeaveCapacityBanner
+                mySlots={{ taken: capacityPreview.taken, max: capacityPreview.max }}
+                columnLabel={capacityPreview.columnLabel}
+              />
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-ink-muted">No leave-slot limit applies to this category/leave type.</p>
+          )}
+
+          {warningsLoading ? (
+            <p className="mt-2 text-xs text-ink-muted">Checking for other conflicts…</p>
+          ) : warned && (
+            <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-3">
+              {warnings.supervisionBreaches.length > 0 && (
+                <p className="text-xs text-flagAmber">
+                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                  Approving would drop supervision below the required minimum on {warnings.supervisionBreaches.length} shift{warnings.supervisionBreaches.length !== 1 ? 's' : ''}.
+                </p>
+              )}
+              {warnings.balanceWarnings.map(bw => (
+                <p key={bw.year} className="text-xs text-flagAmber">
+                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                  {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
+                </p>
+              ))}
+              {warnings.hourCeilingWarning && (
+                <p className="text-xs text-flagAmber">
+                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+                  Five-eighths doctor already has {warnings.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {warnings.hourCeilingWarning.maxHours}h).
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {request.notes && (
+          <div>
+            <p className="label-text">Note from doctor</p>
+            <p className="text-sm italic text-ink-light">&quot;{request.notes}&quot;</p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onOpenCalendar}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+        >
+          <CalendarSearch className="h-4 w-4" /> View Calendar
+        </button>
+
+        {rejecting && (
+          <div className="space-y-1.5">
+            <label htmlFor="rejectNotes" className="label-text">Reason for rejection</label>
+            <textarea
+              id="rejectNotes"
+              value={rejectNotes}
+              onChange={e => onRejectNotesChange(e.target.value)}
+              placeholder="Required — visible to the doctor…"
+              rows={3}
+              className="input-field w-full"
+            />
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
 }
 
 // The admin approval inbox — every pending leave_requests row, of any leave
@@ -51,8 +232,30 @@ export default function LeaveApprovalQueue({ onBack }) {
   const [bulkActioning, setBulkActioning] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
+  // The request whose detail panel (Modal) is currently open, if any.
+  const [expandedId, setExpandedId] = useState(null)
+  // Per-request annual-leave capacity preview, fetched lazily the first
+  // time its panel opens (undefined = not fetched yet, null = fetched but
+  // no capacity column applies to this category/leave type).
+  const [capacityByRequestId, setCapacityByRequestId] = useState({})
 
   useEffect(() => { loadQueue() }, [])
+
+  useEffect(() => {
+    if (!expandedId) return
+    const request = requests.find(r => r.id === expandedId)
+    if (!request || request.leave_type !== 'annual' || capacityByRequestId[expandedId] !== undefined) return
+    let cancelled = false
+    fetchAnnualCapacityPreview({
+      dateFrom: request.date_from,
+      dateTo: request.date_to,
+      category: request.profiles?.category,
+      contractType: request.profiles?.contract_type,
+      profileId: request.profile_id,
+    }).then(preview => { if (!cancelled) setCapacityByRequestId(prev => ({ ...prev, [expandedId]: preview })) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- requests/capacityByRequestId read via closure; re-running once they change would refetch in a loop
+  }, [expandedId])
 
   async function loadQueue() {
     setLoading(true)
@@ -122,6 +325,13 @@ export default function LeaveApprovalQueue({ onBack }) {
     setActioningId(null)
   }
 
+  function closePanel() {
+    setExpandedId(null)
+    setRejectingId(null)
+    setRejectNotes('')
+    setConfirmingApproveId(null)
+  }
+
   function toggleSelected(id) {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -176,17 +386,33 @@ export default function LeaveApprovalQueue({ onBack }) {
   if (error) return <>{backLink}<p className="text-sm text-flagRed">{error}</p></>
   if (requests.length === 0) return <>{backLink}<p className="text-sm text-ink-muted">No pending leave requests.</p></>
 
+  const expandedRequest = requests.find(r => r.id === expandedId) || null
+  const expandedWarnings = expandedRequest ? warningsById[expandedRequest.id] : undefined
+  const expandedWarningsLoading = Boolean(expandedRequest) && expandedWarnings === undefined
+  const expandedWarned = hasWarnings(expandedWarnings)
+  const expandedCapacityPreview = expandedRequest ? capacityByRequestId[expandedRequest.id] : undefined
+  const expandedCapacityLoading = Boolean(expandedRequest) && expandedRequest.leave_type === 'annual' && expandedCapacityPreview === undefined
+  const expandedConfirming = Boolean(expandedRequest) && confirmingApproveId === expandedRequest.id
+  const expandedApproveLabel = expandedWarned ? (expandedConfirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'
+  const expandedIsActioning = Boolean(expandedRequest) && actioningId === expandedRequest.id
+  const expandedRejecting = Boolean(expandedRequest) && rejectingId === expandedRequest.id
+
   return (
     <div>
       {backLink}
 
-      <div className="mb-2 flex justify-end">
-        <SortDirectionToggle value={sortDirection} onChange={setSortDirection} />
-      </div>
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search by surname or first name…"
+        sortFacets={[{
+          key: 'sort',
+          icon: sortDirection === 'desc' ? <CalendarArrowUp className="h-4 w-4" /> : <CalendarArrowDown className="h-4 w-4" />,
+          label: 'Sort',
+          value: sortDirection, onChange: setSortDirection,
+          options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
+          isActive: sortDirection !== 'asc',
+        }]}
         filterFacets={[{
           key: 'leaveType', icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
           value: leaveTypeFilter, onChange: setLeaveTypeFilter,
@@ -218,108 +444,70 @@ export default function LeaveApprovalQueue({ onBack }) {
         onCancel={() => setSelectedIds(new Set())}
       />
 
-      <div className="card mb-3 overflow-hidden">
+      <div className="card overflow-hidden">
         <SelectAllRow
           checked={selectedIds.size === displayedRequests.length}
           onToggleCheck={toggleSelectAll}
           selectLabel="Select all pending leave requests"
           active={selectedIds.size > 0}
         />
-      </div>
-
-      <div className="space-y-3">
-        {displayedRequests.map(request => {
-          const w = warningsById[request.id]
-          const warned = hasWarnings(w)
-          const confirming = confirmingApproveId === request.id
-          const isActioning = actioningId === request.id
-          const { rangeLabel } = formatRequestDateRange(request.date_from, request.date_to, publicHolidayDates)
-          const approveLabel = warned ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'
-          const categoryLabel = request.profiles?.category ? (CATEGORY_LABELS[request.profiles.category] || request.profiles.category) : null
-          const daysTotalLine = approvalDaysTotalLine(request)
-
-          return (
-            <div key={request.id} className="card overflow-hidden">
-              <ApprovalRow
+        <div className="divide-y divide-slate-line">
+          {displayedRequests.map(request => {
+            const fullName = `${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()
+            const categoryLabel = request.profiles?.category ? (CATEGORY_LABELS[request.profiles.category] || request.profiles.category) : null
+            return (
+              <LeaveRequestRow
+                key={request.id}
+                request={request}
+                fullName={fullName}
+                categoryLabel={categoryLabel}
+                leaveTypeLabel={LEAVE_TYPE_LABELS[request.leave_type]}
                 checked={selectedIds.has(request.id)}
                 onToggleCheck={() => toggleSelected(request.id)}
-                selectLabel={`Select ${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
-                avatar={<ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} />}
-                name={`${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()}
-                tag={categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
-                meta={`${LEAVE_TYPE_LABELS[request.leave_type]} - ${rangeLabel}`}
-                onApprove={() => (warned && !confirming) ? setConfirmingApproveId(request.id) : approve(request)}
-                onReject={() => setRejectingId(request.id)}
-                approveLabel={approveLabel}
-                approveDisabled={isActioning || w === undefined}
-                rejectDisabled={isActioning}
-                extraAction={{
-                  label: 'View Calendar',
-                  icon: <CalendarSearch className="h-5 w-5" />,
-                  onClick: () => openInCalendar(request),
-                }}
-              >
-                {(daysTotalLine || request.notes) && (
-                  <p className="text-xs text-ink-muted">
-                    {daysTotalLine}
-                    {daysTotalLine && request.notes && ' — '}
-                    {request.notes && <span className="italic text-ink-light">&quot;{request.notes}&quot;</span>}
-                  </p>
-                )}
-
-                {w === undefined ? (
-                  <p className="mt-2 text-xs text-ink-muted">Checking for conflicts…</p>
-                ) : warned && (
-                  <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-3">
-                    {w.supervisionBreaches.length > 0 && (
-                      <p className="text-xs text-flagAmber">
-                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                        Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
-                      </p>
-                    )}
-                    {w.balanceWarnings.map(bw => (
-                      <p key={bw.year} className="text-xs text-flagAmber">
-                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                        {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
-                      </p>
-                    ))}
-                    {w.hourCeilingWarning && (
-                      <p className="text-xs text-flagAmber">
-                        <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                        Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {rejectingId === request.id && (
-                  <div className="mt-2 space-y-2">
-                    <textarea
-                      value={rejectNotes}
-                      onChange={e => setRejectNotes(e.target.value)}
-                      placeholder="Reason (optional, visible to the doctor)…"
-                      rows={2}
-                      className="input-field w-full"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary">Cancel</button>
-                      <button
-                        onClick={() => reject(request)}
-                        disabled={isActioning}
-                        className="btn-danger-outline"
-                      >
-                        {isActioning ? 'Rejecting…' : 'Confirm reject'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </ApprovalRow>
-            </div>
-          )
-        })}
+                onOpen={() => setExpandedId(request.id)}
+                onViewCalendar={() => openInCalendar(request)}
+              />
+            )
+          })}
+        </div>
       </div>
       </>
       )}
+
+      {expandedRequest && (() => {
+        const fullName = `${expandedRequest.profiles?.name || ''} ${expandedRequest.profiles?.surname || ''}`.trim()
+        const categoryLabel = expandedRequest.profiles?.category ? (CATEGORY_LABELS[expandedRequest.profiles.category] || expandedRequest.profiles.category) : null
+        const { rangeLabel } = formatRequestDateRange(expandedRequest.date_from, expandedRequest.date_to, publicHolidayDates)
+        const totalDays = datesInRange(expandedRequest.date_from, expandedRequest.date_to).length
+        const daysLine = approvalDaysTotalLine(expandedRequest) || `${totalDays} day${totalDays === 1 ? '' : 's'} total`
+
+        return (
+          <LeaveRequestDetailPanel
+            request={expandedRequest}
+            fullName={fullName}
+            categoryLabel={categoryLabel}
+            leaveTypeLabel={LEAVE_TYPE_LABELS[expandedRequest.leave_type]}
+            rangeLabel={rangeLabel}
+            daysLine={daysLine}
+            warnings={expandedWarnings}
+            warned={expandedWarned}
+            warningsLoading={expandedWarningsLoading}
+            capacityPreview={expandedCapacityPreview}
+            capacityLoading={expandedCapacityLoading}
+            onClose={closePanel}
+            onOpenCalendar={() => openInCalendar(expandedRequest)}
+            rejecting={expandedRejecting}
+            rejectNotes={rejectNotes}
+            onRejectNotesChange={setRejectNotes}
+            onRejectStart={() => setRejectingId(expandedRequest.id)}
+            onRejectCancel={() => { setRejectingId(null); setRejectNotes('') }}
+            onRejectConfirm={() => reject(expandedRequest)}
+            approveLabel={expandedApproveLabel}
+            onApprove={() => (expandedWarned && !expandedConfirming) ? setConfirmingApproveId(expandedRequest.id) : approve(expandedRequest)}
+            isActioning={expandedIsActioning}
+          />
+        )
+      })()}
     </div>
   )
 }

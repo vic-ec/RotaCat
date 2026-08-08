@@ -49,6 +49,8 @@ vi.mock('../lib/supabase', () => ({
         update() { method = 'update'; return builder },
         insert() { method = 'insert'; return builder },
         eq() { return builder },
+        neq() { return builder },
+        in() { return builder },
         gte() { return builder },
         lte() { return builder },
         not() { return builder },
@@ -76,6 +78,13 @@ const PENDING_REQUEST = {
   profiles: { name: 'Jane', surname: 'Doe', category: 'MO', contract_type: 'full' },
 }
 
+// Opens the row's detail panel — approve/reject/period/warnings all now
+// live there rather than inline on the row (see LeaveApprovalQueue.jsx).
+// Clicking the visible name text bubbles up to the row's own onClick.
+async function openPanel(user, name = 'Jane Doe') {
+  await user.click(await screen.findByText(name))
+}
+
 describe('LeaveApprovalQueue', () => {
   beforeEach(() => {
     getApprovalWarnings.mockReset()
@@ -88,55 +97,46 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
-  it('renders Approve/Reject/View Calendar as matching circular-outline icon buttons, all the same size', async () => {
+  it('row shows name, category, "Requesting <leave type>", and a circular View Calendar icon button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
-    const approveBtn = await screen.findByRole('button', { name: 'Approve' })
-    const rejectBtn = screen.getByRole('button', { name: 'Reject' })
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.getByText('Medical Officer')).toBeInTheDocument()
+    expect(screen.getByText('Requesting Annual leave')).toBeInTheDocument()
+
     const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
-
-    // Same circular-outline shape for all three — teal for approve, red
-    // for reject, neutral accent for the page-specific extra action.
-    for (const btn of [approveBtn, rejectBtn, viewCalendarBtn]) {
-      expect(btn).toHaveClass('rounded-full', 'border')
-    }
-    expect(approveBtn.className).toMatch(/text-success/)
-    expect(rejectBtn.className).toMatch(/text-danger/)
+    expect(viewCalendarBtn).toHaveClass('rounded-full', 'border', 'h-8', 'w-8')
     expect(viewCalendarBtn.className).toMatch(/text-accent/)
-
-    for (const btn of [approveBtn, rejectBtn, viewCalendarBtn]) {
-      expect(btn).toHaveClass('h-8', 'w-8')
-      expect(btn.querySelector('svg')).toHaveClass('h-5', 'w-5')
-    }
   })
 
-  it('clean case: no warnings shows a single-click Approve button', async () => {
+  it('clicking a row opens the detail panel with the period, days total, and a single-click Approve button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
     renderQueue()
 
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument())
+    await openPanel(user)
+
+    // 2026-08-10 is a Monday, 2026-08-14 a Friday.
+    expect(await screen.findByText('Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
+    expect(screen.getByText('5 days total')).toBeInTheDocument()
+
+    const approveBtn = screen.getByRole('button', { name: 'Approve' })
+    expect(approveBtn).toHaveClass('btn-primary')
     expect(screen.queryByText(/drop supervision/i)).not.toBeInTheDocument()
   })
 
-  it('formats the row as "{leave type} - DDD dd MMM YYYY to DDD dd MMM YYYY", with no weekend/Sat/Sun/PH count', async () => {
+  it('closes the panel via the corner × without approving or rejecting', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
-    mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-12' }], error: null }
+    const user = userEvent.setup()
     renderQueue()
 
-    // 2026-08-10 is a Monday, 2026-08-14 a Friday — a plain working week
-    // except for the one public holiday on the 12th, which no longer gets
-    // its own summary line.
-    expect(await screen.findByText('Annual leave - Mon 10 Aug 2026 to Fri 14 Aug 2026')).toBeInTheDocument()
-    expect(screen.queryByText(/included$/)).not.toBeInTheDocument()
-  })
+    await openPanel(user)
+    await screen.findByRole('button', { name: 'Approve' })
+    await user.click(screen.getByRole('button', { name: 'Close' }))
 
-  it('does not show a summary line for a plain range with no weekend days or public holidays', async () => {
-    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
-    renderQueue()
-
-    await screen.findByText('Annual leave - Mon 10 Aug 2026 to Fri 14 Aug 2026')
-    expect(screen.queryByText(/included$/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+    expect(fromCalls).not.toContain('roster_entries')
   })
 
   it('renders a back link that calls onBack when provided, and omits it otherwise', async () => {
@@ -145,11 +145,7 @@ describe('LeaveApprovalQueue', () => {
     const user = userEvent.setup()
     renderQueue({ onBack })
 
-    // Wait for the queue to finish loading first — the back link also
-    // renders during the loading state, but as a different DOM node (the
-    // loading/loaded branches return different root elements), so querying
-    // it before the swap risks clicking a node about to be unmounted.
-    await screen.findByRole('button', { name: 'Approve' })
+    await screen.findByText('Jane Doe')
     await user.click(screen.getByRole('button', { name: /Back to Annual planner/ }))
     expect(onBack).toHaveBeenCalled()
   })
@@ -158,11 +154,11 @@ describe('LeaveApprovalQueue', () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
-    await screen.findByRole('button', { name: 'Approve' })
+    await screen.findByText('Jane Doe')
     expect(screen.queryByRole('button', { name: /Back to Annual planner/ })).not.toBeInTheDocument()
   })
 
-  it('flags a supervision-floor breach and requires a second click to approve', async () => {
+  it('flags a supervision-floor breach in the panel and requires a second click to approve', async () => {
     getApprovalWarnings.mockResolvedValue({
       supervisionBreaches: [{ date: '2026-08-10', shiftTypeId: 'wd08', remainingSupervisors: 0 }],
       balanceWarnings: [],
@@ -171,32 +167,37 @@ describe('LeaveApprovalQueue', () => {
     const user = userEvent.setup()
     renderQueue()
 
+    await openPanel(user)
     expect(await screen.findByText(/drop supervision below the required minimum/i)).toBeInTheDocument()
     const approveBtn = await screen.findByRole('button', { name: 'Approve anyway' })
     await user.click(approveBtn)
     expect(await screen.findByRole('button', { name: 'Confirm approval' })).toBeInTheDocument()
   })
 
-  it('flags a negative annual leave balance', async () => {
+  it('flags a negative annual leave balance in the panel', async () => {
     getApprovalWarnings.mockResolvedValue({
       supervisionBreaches: [],
       balanceWarnings: [{ year: 2026, remainingAfter: -3, daysAllotted: 22, daysAlreadyApproved: 20, daysRequested: 5 }],
       hourCeilingWarning: null,
     })
+    const user = userEvent.setup()
     renderQueue()
 
+    await openPanel(user)
     expect(await screen.findByText(/2026 annual leave balance would go negative/i)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Approve anyway' })).toBeInTheDocument()
   })
 
-  it('flags a five_eighths doctor already at their hour ceiling', async () => {
+  it('flags a five_eighths doctor already at their hour ceiling in the panel', async () => {
     getApprovalWarnings.mockResolvedValue({
       supervisionBreaches: [],
       balanceWarnings: [],
       hourCeilingWarning: { year: 2026, month: 8, alreadyRosteredHours: 122, maxHours: 118 },
     })
+    const user = userEvent.setup()
     renderQueue()
 
+    await openPanel(user)
     expect(await screen.findByText(/already has 122h rostered this month/i)).toBeInTheDocument()
     expect(await screen.findByRole('button', { name: 'Approve anyway' })).toBeInTheDocument()
   })
@@ -223,13 +224,30 @@ describe('LeaveApprovalQueue', () => {
     expect(screen.getByTestId('location-probe')).toHaveTextContent('/leave?tab=planners&sub=special')
   })
 
+  it('rejecting requires a non-empty reason before the confirm button is enabled', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+
+    await openPanel(user)
+    await user.click(await screen.findByRole('button', { name: 'Reject' }))
+
+    const confirmBtn = screen.getByRole('button', { name: 'Confirm reject' })
+    expect(confirmBtn).toBeDisabled()
+
+    await user.type(screen.getByLabelText('Reason for rejection'), 'Overlaps a staffing gap')
+    expect(confirmBtn).toBeEnabled()
+  })
+
   it('rejecting only updates leave_requests, never touches roster_entries (availability)', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
     renderQueue()
 
+    await openPanel(user)
     await user.click(await screen.findByRole('button', { name: 'Reject' }))
-    await user.click(await screen.findByRole('button', { name: 'Confirm reject' }))
+    await user.type(screen.getByLabelText('Reason for rejection'), 'Overlaps a staffing gap')
+    await user.click(screen.getByRole('button', { name: 'Confirm reject' }))
 
     await waitFor(() => expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'leave_rejected' })))
     expect(fromCalls).not.toContain('roster_entries')

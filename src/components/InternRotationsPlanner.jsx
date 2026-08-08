@@ -9,7 +9,7 @@ import { ListFilter } from 'lucide-react'
 import DoctorDropdown from './DoctorDropdown'
 import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
-import Toolbar from './Toolbar'
+import CompactToolbarRow from './CompactToolbarRow'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 
 const ROTATION_TYPE_OPTIONS = [
@@ -185,19 +185,38 @@ export default function InternRotationsPlanner() {
 
       {!loading && view === 'table' && (
         <div className="mt-4">
-          <Toolbar
-            searchValue={tableSearch}
-            onSearchChange={setTableSearch}
-            searchPlaceholder="Search by doctor surname or first name…"
-            filterFacets={[{
-              key: 'rotationType', icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
+          {(() => {
+            const filterFacet = {
+              icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
               value: rotationTypeFilter, onChange: setRotationTypeFilter,
               options: ROTATION_TYPE_FILTER_OPTIONS,
               isActive: rotationTypeFilter !== 'all',
-            }]}
-            active={tableFiltersActive}
-            onClearAll={() => { setTableSearch(''); setRotationTypeFilter('all') }}
-          />
+            }
+            const onClearAll = () => { setTableSearch(''); setRotationTypeFilter('all') }
+            return (
+              <>
+                <CompactToolbarRow
+                  className="mb-4"
+                  searchValue={tableSearch}
+                  onSearchChange={setTableSearch}
+                  searchPlaceholder="Search by doctor surname or first name…"
+                  filterFacet={filterFacet}
+                  clearActive={tableFiltersActive}
+                  onClearAll={onClearAll}
+                />
+                <CompactToolbarRow
+                  desktop
+                  className="mb-4"
+                  searchValue={tableSearch}
+                  onSearchChange={setTableSearch}
+                  searchPlaceholder="Search by doctor surname or first name…"
+                  filterFacet={filterFacet}
+                  clearActive={tableFiltersActive}
+                  onClearAll={onClearAll}
+                />
+              </>
+            )
+          })()}
           <div className="card overflow-x-auto p-0">
           <table className="w-full min-w-[640px] border-collapse text-sm">
             <thead>

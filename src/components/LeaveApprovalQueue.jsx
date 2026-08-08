@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
-import Toolbar from './Toolbar'
+import CompactToolbarRow from './CompactToolbarRow'
 import Modal from './Modal'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import { SelectAllRow } from './ListRow'
@@ -424,27 +424,47 @@ export default function LeaveApprovalQueue({ onBack }) {
     <div>
       {backLink}
 
-      <Toolbar
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search by surname or first name…"
-        sortFacets={[{
-          key: 'sort',
+      {(() => {
+        const sortFacet = {
           icon: sortDirection === 'desc' ? <CalendarArrowUp className="h-4 w-4" /> : <CalendarArrowDown className="h-4 w-4" />,
           label: 'Sort',
           value: sortDirection, onChange: setSortDirection,
           options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
           isActive: sortDirection !== 'asc',
-        }]}
-        filterFacets={[{
-          key: 'leaveType', icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
+        }
+        const filterFacet = {
+          icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
           value: leaveTypeFilter, onChange: setLeaveTypeFilter,
           options: [{ value: 'all', label: 'All leave types' }, ...LEAVE_TYPE_OPTIONS],
           isActive: leaveTypeFilter !== 'all',
-        }]}
-        active={filtersActive}
-        onClearAll={() => { setSearchQuery(''); setLeaveTypeFilter('all') }}
-      />
+        }
+        const onClearAll = () => { setSearchQuery(''); setLeaveTypeFilter('all') }
+        return (
+          <>
+            <CompactToolbarRow
+              className="mb-4"
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacet={sortFacet}
+              filterFacet={filterFacet}
+              clearActive={filtersActive}
+              onClearAll={onClearAll}
+            />
+            <CompactToolbarRow
+              desktop
+              className="mb-4"
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacet={sortFacet}
+              filterFacet={filterFacet}
+              clearActive={filtersActive}
+              onClearAll={onClearAll}
+            />
+          </>
+        )
+      })()}
 
       {displayedRequests.length === 0 ? (
         <div className="card p-10 text-center">

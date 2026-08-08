@@ -80,8 +80,8 @@ annual leave request, not just displayed after the fact:
 | --- | --- | --- |
 | MO | MO | 2 |
 | Registrar | Registrar | 1 |
-| EC COSMO / Intern | COSMO, EC_COSMO, EC_COSMO_Intern, Intern | 2 |
-| OT COSMO / Intern | COSMOPsych, OT_COSMO, OT_COSMO_Intern | 1 |
+| EC COSMO / Intern | COSMO, EC_Intern, EC_COSMO_Intern, Intern | 2 |
+| OT COSMO / Intern | COSMOPsych, OT_Intern, OT_COSMO_Intern | 1 |
 
 **Combined cap — no more than 2 full-time EC doctors (MO + Registrar + EC
 COSMO/Intern combined) on leave at once.** OT COSMO/Intern is a separate

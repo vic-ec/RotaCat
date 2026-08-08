@@ -28,7 +28,7 @@ const ROTATION_TRACKED_CATEGORIES = new Set(['COSMO', 'Intern'])
 // fixed column on its own, with no date dependency.
 export const INTERN_ROTATION_CATEGORY = 'Intern'
 
-const COLUMN_BY_ROTATION_TYPE = { EC: 'EC_COSMO', OT: 'OT_COSMO' }
+const COLUMN_BY_ROTATION_TYPE = { EC: 'EC_Intern', OT: 'OT_Intern' }
 
 // The shared resolver behind every "which capacity column does this
 // doctor's leave belong to" decision in the app, from LeaveRequestForm's

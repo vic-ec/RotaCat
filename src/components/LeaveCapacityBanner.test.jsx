@@ -21,6 +21,13 @@ describe('LeaveCapacityBanner', () => {
     expect(screen.getByText('0 leave slots available for OT COSMO / Intern')).toBeInTheDocument()
   })
 
+  it('pooled: names the shared full-time pool instead of implying this column has its own quota', () => {
+    render(<LeaveCapacityBanner mySlots={{ taken: 2, max: 2 }} columnLabel="EC Intern" pooled />)
+    expect(screen.getByText('2 of 2 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('0 leave slots available — shared pool: MO, Registrar, EC Intern')).toBeInTheDocument()
+    expect(screen.queryByText(/available for EC Intern/)).not.toBeInTheDocument()
+  })
+
   it('falls back to the generic full-capacity banner when mySlots is absent and the day is full', () => {
     render(
       <LeaveCapacityBanner

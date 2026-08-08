@@ -228,7 +228,7 @@ describe('formatRequestDateRange', () => {
 })
 
 describe('findWorstAnnualCapacitySlot', () => {
-  const maxByColumnKey = { OT_COSMO: 1 }
+  const maxByColumnKey = { OT_Intern: 1 }
   const maxFullTime = 2
 
   it('picks the date with the least headroom in the shared full-time pool, not just the first date', () => {
@@ -240,7 +240,7 @@ describe('findWorstAnnualCapacitySlot', () => {
     const result = findWorstAnnualCapacitySlot({
       dateFrom: '2026-08-10', dateTo: '2026-08-11', columnKey: 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
     })
-    expect(result).toEqual({ date: '2026-08-11', taken: 2, max: 2, atCapacity: true })
+    expect(result).toEqual({ date: '2026-08-11', taken: 2, max: 2, atCapacity: true, pooled: true })
   })
 
   it('reads OT COSMO/Intern from its own independent column, not the full-time pool', () => {
@@ -248,9 +248,9 @@ describe('findWorstAnnualCapacitySlot', () => {
       ['2026-08-10', new Map([['MO', 2], ['Registrar', 1]])], // full-time pool full, OT untouched
     ])
     const result = findWorstAnnualCapacitySlot({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_COSMO', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_Intern', maxByColumnKey, maxFullTime, countByColumnPerDateMap,
     })
-    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 1, atCapacity: false })
+    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 1, atCapacity: false, pooled: false })
   })
 
   it('breaks a tie between equally-constrained dates in favour of the earliest one', () => {
@@ -268,7 +268,7 @@ describe('findWorstAnnualCapacitySlot', () => {
     const result = findWorstAnnualCapacitySlot({
       dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap: new Map(),
     })
-    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 2, atCapacity: false })
+    expect(result).toEqual({ date: '2026-08-10', taken: 0, max: 2, atCapacity: false, pooled: true })
   })
 })
 

@@ -179,6 +179,7 @@ function LeaveRequestDetailPanel({
               <LeaveCapacityBanner
                 mySlots={{ taken: capacityPreview.taken, max: capacityPreview.max }}
                 columnLabel={capacityPreview.columnLabel}
+                pooled={capacityPreview.pooled}
               />
             </div>
           ) : (

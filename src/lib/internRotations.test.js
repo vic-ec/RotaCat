@@ -11,7 +11,7 @@ describe('resolveLeaveCapacityColumn', () => {
   it('is a pure pass-through to columnForLeaveCategory for every non-Intern category', () => {
     expect(resolveLeaveCapacityColumn({ category: 'MO', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('MO')
     expect(resolveLeaveCapacityColumn({ category: 'Registrar', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('Registrar')
-    expect(resolveLeaveCapacityColumn({ category: 'COSMO', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_COSMO')
+    expect(resolveLeaveCapacityColumn({ category: 'COSMO', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
     expect(resolveLeaveCapacityColumn({ category: 'Consultant', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('Other')
     expect(resolveLeaveCapacityColumn({ category: 'Locum', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBeNull()
   })
@@ -22,38 +22,38 @@ describe('resolveLeaveCapacityColumn', () => {
     expect(resolveLeaveCapacityColumn({ category: 'MO', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId })).toBe('MO')
   })
 
-  it('resolves an Intern to EC_COSMO during their EC rotation block', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_COSMO')
+  it('resolves an Intern to EC_Intern during their EC rotation block', () => {
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
   })
 
-  it('resolves an Intern to OT_COSMO during their OT rotation block', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-03-15', rotationsByDoctorId })).toBe('OT_COSMO')
+  it('resolves an Intern to OT_Intern during their OT rotation block', () => {
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-03-15', rotationsByDoctorId })).toBe('OT_Intern')
   })
 
-  it('falls back to the static default (EC_COSMO) when no rotation covers the date', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-06-01', rotationsByDoctorId })).toBe('EC_COSMO')
+  it('falls back to the static default (EC_Intern) when no rotation covers the date', () => {
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-06-01', rotationsByDoctorId })).toBe('EC_Intern')
   })
 
   it('falls back to the static default when the doctor has no rotation rows at all', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-2', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_COSMO')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-2', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
   })
 
   it('resolves off the given date, not today — a past/future rotation still resolves correctly', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-02-01', rotationsByDoctorId })).toBe('EC_COSMO')
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-04-01', rotationsByDoctorId })).toBe('OT_COSMO')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-02-01', rotationsByDoctorId })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-04-01', rotationsByDoctorId })).toBe('OT_Intern')
   })
 
   it('never throws on malformed rotationsByDoctorId, degrading to the static default', () => {
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: null })).toBe('EC_COSMO')
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: undefined })).toBe('EC_COSMO')
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: 'not-a-map' })).toBe('EC_COSMO')
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: undefined, date: '2027-01-15', rotationsByDoctorId })).toBe('EC_COSMO')
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: undefined, rotationsByDoctorId })).toBe('EC_COSMO')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: null })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: undefined })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: 'not-a-map' })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: undefined, date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: undefined, rotationsByDoctorId })).toBe('EC_Intern')
   })
 
   it('accepts a plain object keyed by doctorId in addition to a Map', () => {
     const plainObject = { 'intern-1': [EC_ROTATION] }
-    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: plainObject })).toBe('EC_COSMO')
+    expect(resolveLeaveCapacityColumn({ category: 'Intern', profileId: 'intern-1', date: '2027-01-15', rotationsByDoctorId: plainObject })).toBe('EC_Intern')
   })
 })
 

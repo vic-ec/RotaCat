@@ -29,9 +29,9 @@ const CATEGORY_LABELS = {
   Intern:     'Intern',
   Consultant: 'Consultant',
   // Future values (dormant until Jan 2027)
-  EC_COSMO:       'EC COSMO',
+  EC_Intern:      'EC Intern',
   EC_COSMO_Intern:'EC Intern',
-  OT_COSMO:       'OT COSMO',
+  OT_Intern:      'OT Intern',
   OT_COSMO_Intern:'OT Intern',
 }
 
@@ -40,7 +40,7 @@ const CATEGORY_LABELS = {
 const SCHEDULABLE_CATEGORIES = [
   'MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern',
   // Future values included so they work automatically when activated
-  'EC_COSMO', 'EC_COSMO_Intern', 'OT_COSMO', 'OT_COSMO_Intern',
+  'EC_Intern', 'EC_COSMO_Intern', 'OT_Intern', 'OT_COSMO_Intern',
 ]
 
 export default function GenerationConfigPage() {

@@ -300,7 +300,7 @@ function WeekendInspector({
               </button>
             )}
             {canViewRequests && (
-              <Link to="/leave?tab=planners&sub=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
+              <Link to="/leave?tab=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
                 <Users className="h-3.5 w-3.5" /> View requests
               </Link>
             )}

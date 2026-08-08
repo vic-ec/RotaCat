@@ -18,10 +18,15 @@ import LeaveRulesPage from '../components/LeaveRulesPage'
 // Top-level "Leave" tabs, each a self-contained destination rather than
 // variants of one generic view — mirrors a mobile UX review's recommended
 // structure: My leave (personal, doctor-only) | Team leave (who's off) |
-// Planners (a nested tab group of reference/admin views) | Rules (the full
-// written policy, in-app instead of only linking out).
-function defaultTopTab({ isAdmin, canSubmitLeave, isClerk }) {
-  if (isAdmin) return 'planners'
+// Planners (a nested tab group of reference/admin views) | Requests
+// (approval queue for admins, submission history for doctors) | Rules (the
+// full written policy, in-app instead of only linking out).
+//
+// An admin's most actionable landing is the Requests queue whenever
+// there's something in it; with nothing pending, Team leave (who's
+// currently off) is more useful than an empty queue.
+function defaultTopTab({ isAdmin, canSubmitLeave, isClerk, hasPendingRequests }) {
+  if (isAdmin) return hasPendingRequests ? 'requests' : 'team'
   // A clerk's Planner nav link IS this page — land them straight on the
   // Planners tab group (Annual) rather than Team leave, which is now just
   // a secondary tab for them, not the entry point.
@@ -30,12 +35,11 @@ function defaultTopTab({ isAdmin, canSubmitLeave, isClerk }) {
   return 'team'
 }
 
-// Planners' own default sub-tab: an admin's most actionable landing is the
-// Requests queue; a doctor/clerk/locum-excluded-already viewer without
-// queue access lands on Annual if they can see it, otherwise Weekends (the
-// one planner every non-locum role can always see).
-function defaultPlannerTab({ isAdmin, canViewYearPlanners }) {
-  if (isAdmin) return 'requests'
+// Planners' own default sub-tab (Requests now lives at the top level, not
+// nested here) — a doctor/clerk/locum-excluded-already viewer lands on
+// Annual if they can see it, otherwise Weekends (the one planner every
+// non-locum role can always see).
+function defaultPlannerTab({ canViewYearPlanners }) {
   if (canViewYearPlanners) return 'annual'
   return 'weekends'
 }
@@ -76,22 +80,24 @@ export default function LeavePlannerPage() {
   // visibility into Annual/Special/Weekends now too, so Team leave is
   // redundant for them as well and stays hidden; admins keep it, unaffected.
   const showTeamLeaveTab = isAdmin || (!canSubmitLeave && !isClerk)
+  // Requests: admins get the approval queue, doctors get their own full
+  // history. Neither applies to a clerk, so the tab (and its content) just
+  // doesn't exist for them — not rendered as an empty/disabled option. Now
+  // a top-level tab (was previously nested inside Planners) so it's
+  // reachable in one tap instead of two, and so its own pending-count
+  // badge is visible without opening Planners first.
+  const showRequestsTab = isAdmin || canSubmitLeave
   const tabs = [
     ...(canSubmitLeave ? [{ key: 'my-leave', label: 'My leave' }] : []),
-    // "Team", not "Team leave" — the "Leave" module context is already
-    // established by the page itself, so the tab label doesn't need to repeat it.
-    ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team' }] : []),
+    ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team Leave' }] : []),
     { key: 'planners', label: 'Planners' },
+    ...(showRequestsTab ? [{ key: 'requests', label: 'Requests', badge: pendingRequestsBadge, badgeColor: 'red' }] : []),
     { key: 'rules', label: 'Rules' },
   ]
 
-  // Requests: admins get the approval queue, doctors get their own full
-  // history. Neither applies to a clerk, so the tab (and its content) just
-  // doesn't exist for them — not rendered as an empty/disabled option.
   const plannerTabs = [
     ...(canViewYearPlanners ? [{ key: 'annual', label: 'Annual' }, { key: 'special', label: 'Special' }] : []),
     { key: 'weekends', label: 'Weekends' },
-    ...(isAdmin || canSubmitLeave ? [{ key: 'requests', label: 'Requests', badge: pendingRequestsBadge, badgeColor: 'red' }] : []),
     // Cumulative HR-audit view, admin-only — unlike the doctor-facing "My
     // leave" tracker (always the current calendar year), this is filterable
     // to any date range, so leave taken never becomes invisible after a
@@ -111,9 +117,9 @@ export default function LeavePlannerPage() {
   // role-appropriate default when the param is missing or no longer valid
   // for this role (e.g. a stale link to a tab that's since been removed).
   const requestedTab = searchParams.get('tab')
-  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave, isClerk })
+  const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave, isClerk, hasPendingRequests: pendingRequestsBadge > 0 })
   const requestedPlannerTab = searchParams.get('sub')
-  const plannerTab = plannerTabs.some(t => t.key === requestedPlannerTab) ? requestedPlannerTab : defaultPlannerTab({ isAdmin, canViewYearPlanners })
+  const plannerTab = plannerTabs.some(t => t.key === requestedPlannerTab) ? requestedPlannerTab : defaultPlannerTab({ canViewYearPlanners })
 
   function setTab(nextTab) {
     setSearchParams(prev => {
@@ -171,6 +177,13 @@ export default function LeavePlannerPage() {
       <div className="mt-6">
         {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
         {tab === 'team' && <LeaveListView />}
+        {tab === 'requests' && (
+          isAdmin ? (
+            <div className="mx-auto md:max-w-2xl">
+              <LeaveApprovalQueue />
+            </div>
+          ) : canSubmitLeave ? <MyRequestHistory /> : null
+        )}
         {tab === 'rules' && <div className="mx-auto md:max-w-2xl"><LeaveRulesPage /></div>}
         {tab === 'planners' && (
           <>
@@ -183,13 +196,6 @@ export default function LeavePlannerPage() {
             )}
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}
             {plannerTab === 'weekends' && <WeekendPlanner />}
-            {plannerTab === 'requests' && (
-              isAdmin ? (
-                <div className="mx-auto md:max-w-2xl">
-                  <LeaveApprovalQueue onBack={() => setPlannerTab('annual')} />
-                </div>
-              ) : canSubmitLeave ? <MyRequestHistory /> : null
-            )}
             {plannerTab === 'audit' && isAdmin && <LeaveAuditReport />}
             {plannerTab === 'interns' && isAdmin && <InternRotationsPlanner />}
           </>

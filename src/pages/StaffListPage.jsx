@@ -7,6 +7,7 @@ import ClearableInput from '../components/ClearableInput'
 import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
 import { ToolbarFacet } from '../components/Toolbar'
+import CompactToolbarRow from '../components/CompactToolbarRow'
 import FilterPanel from '../components/FilterPanel'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
@@ -149,45 +150,6 @@ function computeFlyoutPosition(anchorRect, width) {
   const left = Math.min(Math.max(8, anchorRect.right - width), vw - width - 8)
   return { left, top: anchorRect.bottom + 6 }
 }
-
-// Search + Sort + Filter, all on one row at a fixed 30px control height —
-// the All Staff tab's own toolbar layout, extracted so Pending Approvals
-// and User Requests can reuse it exactly rather than the generic Toolbar
-// component, whose mobile view collapses Sort+Filter into a single
-// "Filters" sheet trigger instead of keeping them as two always-visible
-// buttons. `desktop` picks which breakpoint's copy this instance renders
-// (both are mounted, only one ever visible via CSS — same pattern as the
-// accounts tab's own mobile/desktop toolbar pair below).
-function CompactToolbarRow({ searchValue, onSearchChange, searchPlaceholder, sortFacet, filterFacet, clearActive, onClearAll, desktop = false, className = '' }) {
-  return (
-    <div className={`${desktop ? 'hidden items-center gap-2 md:flex' : 'flex items-center gap-2 md:hidden'} ${className}`}>
-      <div className={desktop ? 'w-80 flex-shrink-0' : 'min-w-0 flex-1'}>
-        <ClearableInput
-          type="text"
-          value={searchValue}
-          onChange={e => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="input-field h-[30px] py-1"
-          clearLabel="Clear search"
-          icon={<SearchIcon className="h-4 w-4" />}
-        />
-      </div>
-      <ToolbarFacet {...sortFacet} />
-      <ToolbarFacet {...filterFacet} />
-      {clearActive && (
-        <button
-          onClick={onClearAll}
-          aria-label="Clear all filters"
-          title="Clear all filters"
-          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-        >
-          <CircleX className="h-4 w-4" />
-        </button>
-      )}
-    </div>
-  )
-}
-
 
 // One row of the quick-action popover — a link when `href` is set (opens
 // the relevant app directly), otherwise a button (toggle an accordion

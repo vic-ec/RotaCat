@@ -449,10 +449,14 @@ export default function RosterGridPage() {
           {/* Hours Summary — visible to every role that can view this page
               except locum (matches Roster Hours Summary's own visibility
               rule); pre-seeds the summary's month/year to this roster's own,
-              rather than landing on the current month. */}
+              rather than landing on the current month. Passes this roster's
+              id/label via navigation state so Hours Summary can show its own
+              back button straight to this page — see RosterSummaryPage.jsx. */}
           {!isLocum && (
             <button
-              onClick={() => navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`)}
+              onClick={() => navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
+                state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
+              })}
               className="btn-secondary text-sm"
             >
               <ClipboardClock className="h-4 w-4" />

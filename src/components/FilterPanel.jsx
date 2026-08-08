@@ -116,7 +116,11 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
 // onChange(nextSet) }]. The trigger's own active state and badge count are
 // derived from the groups' selected sets, so callers never compute that
 // separately.
-export default function FilterPanel({ groups, className = '' }) {
+//
+// `activeIcon` (optional): swapped in for the default funnel icon once
+// activeCount > 0 — the trigger's own bg-accent active styling is
+// unaffected either way, this only changes the glyph.
+export default function FilterPanel({ groups, className = '', activeIcon }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
@@ -152,7 +156,7 @@ export default function FilterPanel({ groups, className = '' }) {
           open || activeCount > 0 ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         } ${className}`}
       >
-        <FilterIcon className="h-4 w-4" />
+        {activeCount > 0 && activeIcon ? activeIcon : <FilterIcon className="h-4 w-4" />}
         Filter
         {activeCount > 0 && (
           <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-white/25 text-[10px] font-semibold">

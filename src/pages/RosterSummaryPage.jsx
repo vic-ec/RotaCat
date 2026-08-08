@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronDown, RefreshCw, Search, ArrowUpDown } from 'lucide-react'
+import { ChevronDown, RefreshCw, Search, ArrowUpDown, CircleX } from 'lucide-react'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
@@ -52,6 +52,17 @@ function compareByCategoryPriority(a, b) {
   const [bp, bs] = categorySortRank(b.category)
   return ap !== bp ? ap - bp : as - bs
 }
+function compareByName(a, b) {
+  const an = `${a.surname} ${a.name}`.toLowerCase()
+  const bn = `${b.surname} ${b.name}`.toLowerCase()
+  return an < bn ? -1 : an > bn ? 1 : 0
+}
+const SORT_COMPARATORS = {
+  'category-asc': compareByCategoryPriority,
+  'category-desc': (a, b) => compareByCategoryPriority(b, a),
+  'name-asc': compareByName,
+  'name-desc': (a, b) => compareByName(b, a),
+}
 
 function hoursBand(row) {
   if (row.totalHours < row.minHours) return 'under'
@@ -70,12 +81,8 @@ export default function RosterSummaryPage() {
   const [selectedCategories, setSelectedCategories] = useState(new Set())
   const [selectedContractTypes, setSelectedContractTypes] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  // 'asc' = MO → Registrar → Intern (the default/neutral order); 'desc' reverses it.
-  const [categorySortDir, setCategorySortDir] = useState('asc')
-  // Which hours column reads as the emphasised one — a display preference
-  // only, never a row filter (Bottomley/Baerends-style split-hours doctors
-  // always show both columns regardless of this toggle).
-  const [hoursMode, setHoursMode] = useState('contracted')
+  // 'category-asc' (MO → Registrar → Intern) is the default/neutral order.
+  const [sortMode, setSortMode] = useState('category-asc')
   const [leaveOpen, setLeaveOpen] = useState(false)
 
   useEffect(() => { load() }, [year, month]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; including it would refetch in a loop
@@ -108,16 +115,17 @@ export default function RosterSummaryPage() {
       (selectedCategories.size === 0 || selectedCategories.has(r.category)) &&
       (selectedContractTypes.size === 0 || selectedContractTypes.has(r.contractType))
     )
-    .sort((a, b) => categorySortDir === 'asc' ? compareByCategoryPriority(a, b) : compareByCategoryPriority(b, a))
+    .sort(SORT_COMPARATORS[sortMode])
 
   return (
     <div className="mx-auto max-w-full">
-      <h2 className="font-display text-lg font-semibold text-ink">Roster Hours Summary</h2>
-
-      {/* Row 1: month/year stepper (with built-in Today) + Refresh + the
-          Contract/Locum emphasis toggle — kept on one row (horizontal
-          scroll as a fallback rather than wrapping) even on mobile, where
-          Refresh drops to icon-only to make room. */}
+      {/* Month/year stepper (with built-in Today) + Refresh + search + sort
+          + filter, all on one row — horizontal scroll as a fallback rather
+          than wrapping, so it fits on desktop without scrolling and still
+          works (via scroll) on a narrow phone. Refresh drops to icon-only
+          below md to leave more room. No page title here — which tab is
+          active (the highlighted "Hours Summary" tab above) already says
+          what this is. */}
       <div className="mt-3 flex items-center gap-2 overflow-x-auto">
         <div className="flex-shrink-0">
           <DateStepper unit="month" year={year} month={month} onChange={setYearMonth} />
@@ -138,29 +146,7 @@ export default function RosterSummaryPage() {
           <span className="hidden md:inline">Refresh</span>
         </button>
 
-        {/* Contracted/Locum emphasis toggle — a display preference, not a filter (see hoursMode). */}
-        <div className="flex flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised overflow-hidden">
-          <button
-            onClick={() => setHoursMode('contracted')}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${hoursMode === 'contracted' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
-          >
-            Contract
-          </button>
-          <button
-            onClick={() => setHoursMode('locum')}
-            className={`px-3 py-1.5 text-xs font-medium transition-colors ${hoursMode === 'locum' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
-          >
-            Locum
-          </button>
-        </div>
-      </div>
-
-      {/* Row 2: search + sort + filter, also kept to one row. Category and
-          Contract type are multi-select facets inside the Filter popover
-          (replacing the old always-visible category chip row); name search
-          covers the filter's "name" facet instead of duplicating it there. */}
-      <div className="mt-3 flex items-center gap-2 overflow-x-auto">
-        <div className="min-w-[140px] flex-1">
+        <div className="w-80 flex-shrink-0">
           <ClearableInput
             type="text"
             value={searchQuery}
@@ -174,26 +160,36 @@ export default function RosterSummaryPage() {
         <QuickSelectButton
           icon={<ArrowUpDown className="h-4 w-4" />}
           label="Sort"
-          value={categorySortDir}
-          onChange={setCategorySortDir}
+          value={sortMode}
+          onChange={setSortMode}
           options={[
-            { value: 'asc', label: 'MO → Registrar → Intern' },
-            { value: 'desc', label: 'Intern → Registrar → MO' },
+            { value: 'category-asc', label: 'MO → Registrar → Intern' },
+            { value: 'category-desc', label: 'Intern → Registrar → MO' },
+            { value: 'name-asc', label: 'Name (A–Z)' },
+            { value: 'name-desc', label: 'Name (Z–A)' },
           ]}
-          isActive={categorySortDir !== 'asc'}
+          isActive={sortMode !== 'category-asc'}
         />
-        <FilterPanel groups={[
-          {
-            key: 'category', label: 'Category',
-            options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
-            selected: selectedCategories, onChange: setSelectedCategories,
-          },
-          {
-            key: 'contractType', label: 'Contract type',
-            options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
-            selected: selectedContractTypes, onChange: setSelectedContractTypes,
-          },
-        ]} />
+        {/* Category and Contract type as independent multi-select facets
+            (replacing the old always-visible category chip row); name
+            search above covers what would otherwise be a "name" facet
+            here. Swaps its icon to CircleX once a filter is active, same
+            bg-accent active styling the trigger already uses. */}
+        <FilterPanel
+          activeIcon={<CircleX className="h-4 w-4" />}
+          groups={[
+            {
+              key: 'category', label: 'Category',
+              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
+              selected: selectedCategories, onChange: setSelectedCategories,
+            },
+            {
+              key: 'contractType', label: 'Contract type',
+              options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
+              selected: selectedContractTypes, onChange: setSelectedContractTypes,
+            },
+          ]}
+        />
       </div>
 
       <button
@@ -261,12 +257,12 @@ export default function RosterSummaryPage() {
                       <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABEL[row.category] || row.category}</p>
                     </td>
                     <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
-                    <td className={`border-r border-slate-line px-2 py-1.5 text-center font-medium ${
+                    <td className={`border-r border-slate-line px-2 py-1.5 text-center font-semibold ${
                       band === 'over' ? 'bg-flagRed-bg text-flagRed' : band === 'under' ? 'bg-flagAmber-bg text-flagAmber' : 'text-ink'
-                    } ${hoursMode === 'contracted' ? 'font-semibold' : ''}`}>
+                    }`}>
                       {row.totalHours}
                     </td>
-                    <td className={`border-r border-slate-line px-2 py-1.5 text-center ${hoursMode === 'locum' ? 'font-semibold text-ink' : 'text-ink-muted'}`}>
+                    <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-muted">
                       {row.locumHours > 0 ? row.locumHours : '—'}
                     </td>
                     {WEEKDAY_COLUMNS.map(c => (

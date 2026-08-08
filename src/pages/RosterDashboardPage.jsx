@@ -217,7 +217,7 @@ export default function RosterDashboardPage() {
           only ever applies to the Rosters tab) doesn't render at all rather
           than showing a single dead tab. */}
       {outerTabs.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 md:max-w-2xl">
+        <div className="mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 md:max-w-2xl">
           <PageTabs tabs={outerTabs} active={view} onChange={setView} ariaLabel="Rosters" />
           {isAdmin && view === 'rosters' && tab === 'active' && (
             <button
@@ -237,7 +237,7 @@ export default function RosterDashboardPage() {
       {view === 'summary' ? (
         <RosterSummaryPage />
       ) : (
-      <div className="md:max-w-2xl">
+      <div className="mx-auto md:max-w-2xl">
         <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
         <div className="mt-4">

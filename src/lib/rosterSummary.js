@@ -5,12 +5,15 @@
 import { supabase } from './supabase'
 import { monthBounds, datesInRange } from './dateRange'
 
-// The Public Holiday breakdown mirrors the physical sheet's 3-slot PH
-// columns only (PH_08/13/20) — a PH falling on a weekday uses the separate
-// PHW_* 4-slot code set (see CLAUDE.md's roster domain model) and isn't
-// broken out into its own shiftsByCode key here, though it's still counted
-// in totalPH below.
-export const SUMMARY_SHIFT_CODES = ['WD_08', 'WD_12', 'WD_15', 'WD_22', 'WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 'PH_20']
+// PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
+// set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
+// both are broken out into their own shiftsByCode keys.
+export const SUMMARY_SHIFT_CODES = [
+  'WD_08', 'WD_12', 'WD_15', 'WD_22',
+  'WE_08', 'WE_13', 'WE_20',
+  'PHW_08', 'PHW_12', 'PHW_15', 'PHW_22',
+  'PH_08', 'PH_13', 'PH_20',
+]
 
 function emptyRow(profile) {
   return {

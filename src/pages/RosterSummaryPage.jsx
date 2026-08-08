@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { monthsForYear } from '../lib/leaveYearGrid'
@@ -23,7 +23,11 @@ const CATEGORY_LABEL = {
 
 const WEEKDAY_COLUMNS = [{ code: 'WD_08', label: '08h00' }, { code: 'WD_12', label: '12h00' }, { code: 'WD_15', label: '15h00' }, { code: 'WD_22', label: '22h00' }]
 const WEEKEND_COLUMNS = [{ code: 'WE_08', label: '08h00' }, { code: 'WE_13', label: '13h00' }, { code: 'WE_20', label: '20h00' }]
-const PH_COLUMNS = [{ code: 'PH_08', label: '08h00' }, { code: 'PH_13', label: '13h00' }, { code: 'PH_20', label: '20h00' }]
+// PH falling on a weekday uses the 4-slot PHW_* code set; PH falling on a
+// weekend uses the 3-slot PH_* set — same weekday/weekend shift-count split
+// as the ordinary Weekday/Weekend sections above, just for PH days.
+const PH_WEEKDAY_COLUMNS = [{ code: 'PHW_08', label: '08h00' }, { code: 'PHW_12', label: '12h00' }, { code: 'PHW_15', label: '15h00' }, { code: 'PHW_22', label: '22h00' }]
+const PH_WEEKEND_COLUMNS = [{ code: 'PH_08', label: '08h00' }, { code: 'PH_13', label: '13h00' }, { code: 'PH_20', label: '20h00' }]
 
 function hoursBand(row) {
   if (row.totalHours < row.minHours) return 'under'
@@ -100,6 +104,19 @@ export default function RosterSummaryPage() {
           <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
           <button type="button" onClick={goNextMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next month"><ChevronRight className="h-4 w-4" /></button>
           <button type="button" onClick={goToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+          {/* No live subscription to roster_entries — see RosterSummaryPage's
+              own note on this. This is the manual escape hatch: re-pull this
+              month's numbers without navigating away and back. */}
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="btn-secondary flex h-[30px] items-center gap-1.5 px-2 text-xs disabled:opacity-60"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         {/* Contracted/Locum emphasis toggle — a display preference, not a filter (see hoursMode). */}
@@ -153,14 +170,16 @@ export default function RosterSummaryPage() {
 
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto rounded-lg border border-slate-line">
-          <table className="w-full min-w-[1100px] border-collapse text-xs">
+          <table className="w-full min-w-[1400px] border-collapse text-xs">
             <thead>
               <tr className="bg-canvas-sunken text-[10px] uppercase tracking-wide text-ink-muted">
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-left" rowSpan={2}>Doctor</th>
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={3}>Totals</th>
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={WEEKDAY_COLUMNS.length}>Weekday</th>
                 <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={WEEKEND_COLUMNS.length}>Weekend</th>
-                <th className={`border-b px-2 py-1.5 text-center ${leaveOpen ? 'border-r border-slate-line' : ''}`} colSpan={PH_COLUMNS.length + 2}>Public Holiday</th>
+                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={PH_WEEKDAY_COLUMNS.length}>PH (Weekday)</th>
+                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={PH_WEEKEND_COLUMNS.length}>PH (Weekend)</th>
+                <th className={`border-b px-2 py-1.5 text-center ${leaveOpen ? 'border-r border-slate-line' : ''}`} colSpan={2}>PH Lieu</th>
                 {leaveOpen && (
                   <th className="border-b border-slate-line px-2 py-1.5 text-center" colSpan={1 + Object.keys(LEAVE_TYPE_LABELS).length}>Leave</th>
                 )}
@@ -171,7 +190,8 @@ export default function RosterSummaryPage() {
                 <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Locum</th>
                 {WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
                 {WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
-                {PH_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
                 <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Lieu Owed</th>
                 <th className={`border-b px-2 py-1 font-medium ${leaveOpen ? 'border-r border-slate-line' : ''}`}>Lieu Taken</th>
                 {leaveOpen && (
@@ -214,7 +234,10 @@ export default function RosterSummaryPage() {
                     {WEEKEND_COLUMNS.map(c => (
                       <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
-                    {PH_COLUMNS.map(c => (
+                    {PH_WEEKDAY_COLUMNS.map(c => (
+                      <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                    ))}
+                    {PH_WEEKEND_COLUMNS.map(c => (
                       <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.phLieuOwed || '—'}</td>

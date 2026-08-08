@@ -75,6 +75,7 @@ const PENDING_REQUEST = {
   date_to: '2026-08-14',
   notes: null,
   status: 'pending',
+  created_at: '2026-08-05T14:32:00.000Z',
   profiles: { name: 'Jane', surname: 'Doe', category: 'MO', contract_type: 'full' },
 }
 
@@ -117,6 +118,12 @@ describe('LeaveApprovalQueue', () => {
 
     await openPanel(user)
 
+    // Title, and the "Received <date> at <time>" line — same DD-MM-YYYY at
+    // HH:MM template as the pending-registration review page's own
+    // "Registered X at Y" line.
+    expect(await screen.findByRole('heading', { name: 'New Leave Request for Review' })).toBeInTheDocument()
+    expect(screen.getByText('Received 05-08-2026 at 14:32')).toBeInTheDocument()
+
     // Period now renders as a LeaveDateRange (two DateCards) rather than
     // plain text — 2026-08-10 is a Monday, 2026-08-14 a Friday.
     const periodSection = (await screen.findByText('Period')).closest('div')
@@ -151,17 +158,39 @@ describe('LeaveApprovalQueue', () => {
     expect(fromCalls).not.toContain('roster_entries')
   })
 
-  it('closes the panel via the footer Cancel button without approving or rejecting', async () => {
+  it('closes the panel via the "Back to Requests" breadcrumb without approving or rejecting', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()
     renderQueue()
 
     await openPanel(user)
     await screen.findByRole('button', { name: 'Approve' })
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: /Back to Requests/ }))
 
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
     expect(fromCalls).not.toContain('roster_entries')
+  })
+
+  it('the footer no longer carries a separate Cancel button in the main (non-rejecting) state', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+
+    await openPanel(user)
+    await screen.findByRole('button', { name: 'Approve' })
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+  })
+
+  it('the panel\'s "View Calendar" button is a full-width bordered secondary button', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+
+    await openPanel(user)
+    const buttons = await screen.findAllByRole('button', { name: /View Calendar/ })
+    const panelButton = buttons.find(b => b.className.includes('btn-secondary'))
+    expect(panelButton).toBeDefined()
+    expect(panelButton).toHaveClass('w-full')
   })
 
   it('renders a back link that calls onBack when provided, and omits it otherwise', async () => {

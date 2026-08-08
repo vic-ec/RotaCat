@@ -83,7 +83,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
 // approve/reject at the bottom. Rejecting here requires a reason — unlike
 // the bulk-reject action above the list, which stays reason-optional.
 function LeaveRequestDetailPanel({
-  request, fullName, categoryLabel, leaveTypeLabel, publicHolidayFrom, publicHolidayTo, daysLine,
+  request, fullName, categoryLabel, leaveTypeLabel, receivedDate, receivedTime, publicHolidayFrom, publicHolidayTo, daysLine,
   warnings, warned, warningsLoading, capacityPreview, capacityLoading,
   onClose, onOpenCalendar,
   rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
@@ -91,16 +91,16 @@ function LeaveRequestDetailPanel({
 }) {
   return (
     <Modal
-      title="Leave request"
+      title="New Leave Request for Review"
       onClose={onClose}
       // Approve/Reject render as the same full-width, side-by-side pair
       // used at the bottom of the pending-registration review page
       // (PendingApprovalReviewPage.jsx) — Approve (solid success, left),
-      // Reject (outlined danger, right), both sharing the row evenly —
-      // plus a plain Cancel underneath that just closes the panel with no
-      // action, for anyone who'd rather not use the corner ×. The
-      // rejecting sub-state keeps its own Cancel (backs out of just the
-      // reject flow, not the whole panel) next to Confirm reject.
+      // Reject (outlined danger, right), both sharing the row evenly. The
+      // corner × and the "Back to Requests" breadcrumb up top already cover
+      // "leave without acting", so there's no separate Cancel button down
+      // here too. The rejecting sub-state keeps its own Cancel (backs out
+      // of just the reject flow, not the whole panel) next to Confirm reject.
       footer={rejecting ? (
         <div className="flex w-full items-center gap-3">
           <button type="button" onClick={onRejectCancel} className="flex-1 btn-secondary">Cancel</button>
@@ -114,32 +114,38 @@ function LeaveRequestDetailPanel({
           </button>
         </div>
       ) : (
-        <div className="flex w-full flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onApprove}
-              disabled={isActioning || warningsLoading}
-              className="flex-1 rounded bg-success px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {approveLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onRejectStart}
-              disabled={isActioning}
-              className="flex-1 rounded border border-flagRed px-4 py-2 text-sm font-semibold text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reject
-            </button>
-          </div>
-          <button type="button" onClick={onClose} className="btn-secondary w-full">
-            Cancel
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={isActioning || warningsLoading}
+            className="flex-1 rounded bg-success px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {approveLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onRejectStart}
+            disabled={isActioning}
+            className="flex-1 rounded border border-flagRed px-4 py-2 text-sm font-semibold text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reject
           </button>
         </div>
       )}
     >
       <div className="space-y-4">
+        <div>
+          <p className="text-sm text-ink-muted">Received {receivedDate} at {receivedTime}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to Requests
+          </button>
+        </div>
+
         <div className="flex items-center gap-3">
           <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={40} />
           <div>
@@ -212,7 +218,7 @@ function LeaveRequestDetailPanel({
           </div>
         )}
 
-        <button type="button" onClick={onOpenCalendar} className="btn-ghost">
+        <button type="button" onClick={onOpenCalendar} className="btn-secondary w-full">
           <CalendarSearch className="h-4 w-4" /> View Calendar
         </button>
 
@@ -526,6 +532,10 @@ export default function LeaveApprovalQueue({ onBack }) {
         const publicHolidayTo = publicHolidayDates.has(expandedRequest.date_to)
         const totalDays = datesInRange(expandedRequest.date_from, expandedRequest.date_to).length
         const daysLine = approvalDaysTotalLine(expandedRequest) || `${totalDays} day${totalDays === 1 ? '' : 's'} total`
+        // Same "DD-MM-YYYY at HH:MM" template as the pending-registration
+        // review page's own "Registered X at Y" line.
+        const receivedDate = expandedRequest.created_at?.slice(0, 10).split('-').reverse().join('-')
+        const receivedTime = expandedRequest.created_at?.slice(11, 16)
 
         return (
           <LeaveRequestDetailPanel
@@ -533,6 +543,8 @@ export default function LeaveApprovalQueue({ onBack }) {
             fullName={fullName}
             categoryLabel={categoryLabel}
             leaveTypeLabel={LEAVE_TYPE_LABELS[expandedRequest.leave_type]}
+            receivedDate={receivedDate}
+            receivedTime={receivedTime}
             publicHolidayFrom={publicHolidayFrom}
             publicHolidayTo={publicHolidayTo}
             daysLine={daysLine}

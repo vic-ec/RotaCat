@@ -205,11 +205,12 @@ export default function RosterDashboardPage() {
   // not roster month/year like the Active/Archive tabs.
   const filteredBinned = binSortDir === 'asc' ? [...filteredBinned0].reverse() : filteredBinned0
 
-  // The roster list reads best at the narrower md:max-w-2xl cap already
-  // used throughout this tab; the Hours Summary table is a wide grid that
-  // needs the full-width room RosterSummaryPage gives itself instead — so
-  // the width constraint below wraps the Rosters view's content only, not
-  // this whole page.
+  // Header/sub-header (the tab rows) span the full page width, left-aligned
+  // — only the search/sort/filter toolbar and the roster list panels
+  // themselves read at the narrower, centered md:max-w-2xl width. The Hours
+  // Summary table also needs the full-width room RosterSummaryPage gives
+  // itself, so the width constraint below wraps the Rosters view's list
+  // content only, not the tabs above it or this whole page.
   return (
     <div className="mx-auto max-w-7xl">
       {/* outerTabs is length 1 for a locum (Hours Summary hidden) — nothing
@@ -217,7 +218,7 @@ export default function RosterDashboardPage() {
           only ever applies to the Rosters tab) doesn't render at all rather
           than showing a single dead tab. */}
       {outerTabs.length > 1 && (
-        <div className="mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 md:max-w-2xl">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <PageTabs tabs={outerTabs} active={view} onChange={setView} ariaLabel="Rosters" />
           {isAdmin && view === 'rosters' && tab === 'active' && (
             <button
@@ -237,10 +238,10 @@ export default function RosterDashboardPage() {
       {view === 'summary' ? (
         <RosterSummaryPage />
       ) : (
-      <div className="mx-auto md:max-w-2xl">
-        <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
+      <>
+      <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
-        <div className="mt-4">
+      <div className="mx-auto mt-4 md:max-w-2xl">
           {actionError && (
             <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
               <p className="text-sm text-flagRed">{actionError}</p>
@@ -334,7 +335,7 @@ export default function RosterDashboardPage() {
           </>
         )}
       </div>
-      </div>
+      </>
       )}
 
       {showCreateModal && (

@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react'
-import { Search, ArrowUpDown, CircleX } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Search, ArrowUpDown, CircleX, CalendarClock, CalendarCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { datesInRange } from '../lib/dateRange'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 import ClearableInput from './ClearableInput'
 import { ToolbarFacet } from './Toolbar'
 import FilterPanel from './FilterPanel'
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -83,6 +91,66 @@ function categoryLabel(lr) {
   return lr.profiles?.category ? labelForLeaveCategory(lr.profiles.category, lr.profiles.contract_type) : '—'
 }
 
+// Icon-only trigger for a timestamp cell (Date Requested/Date Approved) —
+// keeps the grid's rows compact instead of spelling out "DD-MM-YYYY at
+// HH:MM" in every cell. Click opens a small fixed-positioned popover with
+// the full date+time, dismissed the same standard way as every other
+// popover in the app (outside click or Escape — see useDismissablePopover).
+// Portal-rendered to <body> like FilterPanel's own menu, so it isn't
+// clipped by the grid's overflow-x-auto scroll container.
+function DateTimePopoverButton({ iso, Icon, label }) {
+  const [open, setOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+
+  function close() {
+    setOpen(false)
+    setAnchorRect(null)
+  }
+  useDismissablePopover(open, close, panelRef, [triggerRef])
+
+  if (!iso) return <span className="text-ink-muted">—</span>
+
+  function toggle() {
+    if (open) { close(); return }
+    setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+
+  const panelWidth = 190
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, panelWidth) : null
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+      {open && positionStyle && createPortal(
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label={label}
+          style={{ ...positionStyle, width: panelWidth }}
+          className="fixed z-50 rounded-xl border border-slate-line bg-canvas-raised px-3 py-2 text-sm font-medium text-ink shadow-raised"
+        >
+          {formatDateTime(iso)}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // Team-wide leave list. Intentionally has NO role-conditional filtering —
 // the leave_select RLS policy already scopes rows correctly per role
 // (requester sees own always; other doctors see others' only once approved;
@@ -103,7 +171,9 @@ export default function LeaveListView() {
   const [sortMode, setSortMode] = useState('date_desc')
   // Every filter dimension but q is a Set of selected values — empty means
   // "All" for that dimension (see FilterPanel.jsx).
-  const [filters, setFilters] = useState({ q: '', name: new Set(), category: new Set(), leaveType: new Set(), status: new Set(), admin: new Set() })
+  const [filters, setFilters] = useState({
+    q: '', name: new Set(), category: new Set(), leaveType: new Set(), month: new Set(), year: new Set(), status: new Set(), admin: new Set(),
+  })
 
   useEffect(() => { load() }, [])
 
@@ -124,7 +194,9 @@ export default function LeaveListView() {
   }
 
   function clearAllFilters() {
-    setFilters({ q: '', name: new Set(), category: new Set(), leaveType: new Set(), status: new Set(), admin: new Set() })
+    setFilters({
+      q: '', name: new Set(), category: new Set(), leaveType: new Set(), month: new Set(), year: new Set(), status: new Set(), admin: new Set(),
+    })
   }
 
   if (loading) return <p className="text-sm text-ink-muted">Loading…</p>
@@ -151,14 +223,26 @@ export default function LeaveListView() {
     return [...seen.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))
   })()
 
+  const monthOptions = [...new Set(requests.map(r => r.date_from?.slice(5, 7)).filter(Boolean))]
+    .sort()
+    .map(m => ({ value: m, label: MONTH_NAMES[Number(m) - 1] }))
+
+  const yearOptions = [...new Set(requests.map(r => r.date_from?.slice(0, 4)).filter(Boolean))]
+    .sort()
+    .reverse()
+    .map(y => ({ value: y, label: y }))
+
   // Primary items match the grid's own column headers; secondary items are
   // each column's meaningful discrete values (e.g. Status → Approved /
-  // Pending / Rejected) — dates and day-counts have no sensible discrete
-  // set, so they stay search/sort-only, not filter dimensions.
+  // Pending / Rejected) — Month/Year proxy the From/To date columns, which
+  // have no sensible discrete set of their own; the day-count columns
+  // likewise stay search/sort-only, not filter dimensions.
   const filterGroups = [
     { key: 'name', label: 'Name', options: nameOptions, selected: filters.name, onChange: next => setFilterDimension('name', next) },
     { key: 'category', label: 'Category', options: CATEGORY_OPTIONS, selected: filters.category, onChange: next => setFilterDimension('category', next) },
     { key: 'leaveType', label: 'Leave Type', options: LEAVE_TYPE_OPTIONS, selected: filters.leaveType, onChange: next => setFilterDimension('leaveType', next) },
+    { key: 'month', label: 'Month', options: monthOptions, selected: filters.month, onChange: next => setFilterDimension('month', next) },
+    { key: 'year', label: 'Year', options: yearOptions, selected: filters.year, onChange: next => setFilterDimension('year', next) },
     { key: 'status', label: 'Status', options: STATUS_OPTIONS, selected: filters.status, onChange: next => setFilterDimension('status', next) },
     { key: 'admin', label: 'Approved By', options: adminOptions, selected: filters.admin, onChange: next => setFilterDimension('admin', next) },
   ]
@@ -175,12 +259,15 @@ export default function LeaveListView() {
       if (!columnKey || !filters.category.has(columnKey)) return false
     }
     if (filters.leaveType.size > 0 && !filters.leaveType.has(lr.leave_type)) return false
+    if (filters.month.size > 0 && !filters.month.has(lr.date_from?.slice(5, 7))) return false
+    if (filters.year.size > 0 && !filters.year.has(lr.date_from?.slice(0, 4))) return false
     if (filters.status.size > 0 && !filters.status.has(lr.status)) return false
     if (filters.admin.size > 0 && !filters.admin.has(lr.reviewed_by)) return false
     return true
   })
   const displayedRequests = sortRequests(filteredRequests, sortMode)
-  const filtersActive = Boolean(filters.q) || filters.name.size > 0 || filters.category.size > 0 || filters.leaveType.size > 0 || filters.status.size > 0 || filters.admin.size > 0
+  const filtersActive = Boolean(filters.q) || filters.name.size > 0 || filters.category.size > 0 || filters.leaveType.size > 0 ||
+    filters.month.size > 0 || filters.year.size > 0 || filters.status.size > 0 || filters.admin.size > 0
 
   return (
     <div>
@@ -265,18 +352,18 @@ export default function LeaveListView() {
         <div className="card mt-4 overflow-x-auto">
           <table className="w-full min-w-[1500px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-slate-line text-left text-xs text-ink-muted">
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Leave Type</th>
-                <th className="px-3 py-2 font-medium">From</th>
-                <th className="px-3 py-2 font-medium">To</th>
-                <th className="px-3 py-2 font-medium">Total Calendar Days</th>
-                <th className="px-3 py-2 font-medium">Total Leave Days</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Requested</th>
-                <th className="px-3 py-2 font-medium">Approved By</th>
-                <th className="px-3 py-2 font-medium">Date Approved</th>
+              <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Category</th>
+                <th className="px-3 py-2">Leave Type</th>
+                <th className="px-3 py-2">From</th>
+                <th className="px-3 py-2">To</th>
+                <th className="px-3 py-2">Total Calendar Days</th>
+                <th className="px-3 py-2">Total Leave Days</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Date Requested</th>
+                <th className="px-3 py-2">Date Approved</th>
+                <th className="px-3 py-2">Approved By</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-line">
@@ -294,9 +381,13 @@ export default function LeaveListView() {
                       {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-ink-muted">{formatDateTime(lr.created_at) || '—'}</td>
+                  <td className="px-3 py-2">
+                    <DateTimePopoverButton iso={lr.created_at} Icon={CalendarClock} label="View date and time requested" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <DateTimePopoverButton iso={lr.reviewed_at} Icon={CalendarCheck} label="View date and time approved" />
+                  </td>
                   <td className="px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
-                  <td className="px-3 py-2 text-ink-muted">{formatDateTime(lr.reviewed_at) || '—'}</td>
                 </tr>
               ))}
             </tbody>

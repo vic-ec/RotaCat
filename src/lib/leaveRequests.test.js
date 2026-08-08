@@ -185,18 +185,28 @@ describe('overlapsPlannedWeekend', () => {
 })
 
 describe('formatRequestDateRange', () => {
-  it('formats a multi-day range as "DDD dd MMM YYYY to DDD dd MMM YYYY" with a weekend/Sat/Sun/PH summary', () => {
-    // 2026-08-15 is a Saturday, 2026-08-30 is a Sunday — 3 full weekends,
-    // 3 Saturdays, 3 Sundays in between.
-    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-15', '2026-08-30', ['2026-08-24'])
-    expect(rangeLabel).toBe('Sat 15 Aug 2026 to Sun 30 Aug 2026')
-    expect(extraLine).toBe('3 weekends, 3 Saturdays, 3 Sundays, 1 Public Holiday included')
-  })
-
   it('formats a single-day request as one date, not a repeated range', () => {
     const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-12', '2026-08-12')
     expect(rangeLabel).toBe('Wed 12 Aug 2026')
     expect(extraLine).toBeNull()
+  })
+
+  it('compacts a same-month, same-year range to "DDD dd - DDD dd MMM YYYY", with a weekend/Sat/Sun/PH summary', () => {
+    // 2026-08-15 is a Saturday, 2026-08-30 is a Sunday — 3 full weekends,
+    // 3 Saturdays, 3 Sundays in between.
+    const { rangeLabel, extraLine } = formatRequestDateRange('2026-08-15', '2026-08-30', ['2026-08-24'])
+    expect(rangeLabel).toBe('Sat 15 - Sun 30 Aug 2026')
+    expect(extraLine).toBe('3 weekends, 3 Saturdays, 3 Sundays, 1 Public Holiday included')
+  })
+
+  it('spells out both full dates with a dash (not "to") when the range crosses a month', () => {
+    const { rangeLabel } = formatRequestDateRange('2026-08-28', '2026-09-02')
+    expect(rangeLabel).toBe('Fri 28 Aug 2026 - Wed 2 Sep 2026')
+  })
+
+  it('spells out both full dates with a dash when the range crosses a year', () => {
+    const { rangeLabel } = formatRequestDateRange('2026-12-29', '2027-01-02')
+    expect(rangeLabel).toBe('Tue 29 Dec 2026 - Sat 2 Jan 2027')
   })
 
   it('counts a lone Saturday without its Sunday toward Saturdays but not weekends', () => {

@@ -79,18 +79,37 @@ function formatDDDddMMMYYYY(dateStr) {
   return `${WEEKDAY_ABBR[d.getDay()]} ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
 }
 
-// "Sat 15 Aug 2026 to Sun 30 Aug 2026" (just the one date, unrepeated, for a
-// single-day request) plus a second summary line counting weekends,
-// Saturdays, Sundays, and public holidays the range touches — detail a plain
-// YYYY-MM-DD → YYYY-MM-DD range doesn't surface, e.g. "does approving this
-// also grant a public holiday, or span two weekends unnecessarily." A
-// "weekend" here means a Saturday in the range whose very next day (Sunday)
-// is also in the range — a lone trailing/leading Saturday or Sunday still
-// counts toward the Saturday/Sunday tallies but not the weekend one.
+// Day-of-week + bare date, no month/year — the compact half of a same-month
+// range below (e.g. "Sat 3" in "Sat 3 - Sun 11 Oct 2026").
+function formatDDDdd(dateStr) {
+  const d = parseLocalDate(dateStr)
+  return `${WEEKDAY_ABBR[d.getDay()]} ${d.getDate()}`
+}
+
+// "Sat 15 Aug 2026" (just the one date, unrepeated, for a single-day
+// request); "Sat 3 - Sun 11 Oct 2026" when both dates share a month and
+// year (month/year stated once, at the end, not repeated on the first
+// date); "Sat 29 Aug 2026 - Wed 2 Sep 2026" otherwise (a dash, not the
+// word "to", between two fully-spelled-out dates) — plus a second summary
+// line counting weekends, Saturdays, Sundays, and public holidays the
+// range touches — detail a plain YYYY-MM-DD → YYYY-MM-DD range doesn't
+// surface, e.g. "does approving this also grant a public holiday, or span
+// two weekends unnecessarily." A "weekend" here means a Saturday in the
+// range whose very next day (Sunday) is also in the range — a lone
+// trailing/leading Saturday or Sunday still counts toward the
+// Saturday/Sunday tallies but not the weekend one.
 export function formatRequestDateRange(dateFrom, dateTo, publicHolidayDates = []) {
-  const rangeLabel = dateFrom === dateTo
-    ? formatDDDddMMMYYYY(dateFrom)
-    : `${formatDDDddMMMYYYY(dateFrom)} to ${formatDDDddMMMYYYY(dateTo)}`
+  let rangeLabel
+  if (dateFrom === dateTo) {
+    rangeLabel = formatDDDddMMMYYYY(dateFrom)
+  } else {
+    const from = parseLocalDate(dateFrom)
+    const to = parseLocalDate(dateTo)
+    const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()
+    rangeLabel = sameMonth
+      ? `${formatDDDdd(dateFrom)} - ${formatDDDddMMMYYYY(dateTo)}`
+      : `${formatDDDddMMMYYYY(dateFrom)} - ${formatDDDddMMMYYYY(dateTo)}`
+  }
 
   const phSet = publicHolidayDates instanceof Set ? publicHolidayDates : new Set(publicHolidayDates)
   const dates = datesInRange(dateFrom, dateTo)

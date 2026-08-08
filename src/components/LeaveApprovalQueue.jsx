@@ -8,10 +8,11 @@ import Tag from './Tag'
 import CompactToolbarRow from './CompactToolbarRow'
 import Modal from './Modal'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
+import { LeaveDateRange } from './DateCard'
 import { SelectAllRow } from './ListRow'
 import BulkActionBar from './BulkActionBar'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, formatRequestDateRange, fetchAnnualCapacityPreview } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, fetchAnnualCapacityPreview } from '../lib/leaveRequests'
 import { datesInRange } from '../lib/dateRange'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -82,7 +83,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
 // approve/reject at the bottom. Rejecting here requires a reason — unlike
 // the bulk-reject action above the list, which stays reason-optional.
 function LeaveRequestDetailPanel({
-  request, fullName, categoryLabel, leaveTypeLabel, rangeLabel, daysLine,
+  request, fullName, categoryLabel, leaveTypeLabel, publicHolidayFrom, publicHolidayTo, daysLine,
   warnings, warned, warningsLoading, capacityPreview, capacityLoading,
   onClose, onOpenCalendar,
   rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
@@ -154,8 +155,13 @@ function LeaveRequestDetailPanel({
 
         <div>
           <p className="label-text">Period</p>
-          <p className="text-sm text-ink">{rangeLabel}</p>
-          {daysLine && <p className="mt-0.5 text-xs text-ink-muted">{daysLine}</p>}
+          <LeaveDateRange
+            dateFrom={request.date_from}
+            dateTo={request.date_to}
+            publicHolidayFrom={publicHolidayFrom}
+            publicHolidayTo={publicHolidayTo}
+          />
+          {daysLine && <p className="mt-1.5 text-xs text-ink-muted">{daysLine}</p>}
         </div>
 
         <div>
@@ -206,11 +212,7 @@ function LeaveRequestDetailPanel({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenCalendar}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
-        >
+        <button type="button" onClick={onOpenCalendar} className="btn-ghost">
           <CalendarSearch className="h-4 w-4" /> View Calendar
         </button>
 
@@ -520,7 +522,8 @@ export default function LeaveApprovalQueue({ onBack }) {
       {expandedRequest && (() => {
         const fullName = `${expandedRequest.profiles?.name || ''} ${expandedRequest.profiles?.surname || ''}`.trim()
         const categoryLabel = expandedRequest.profiles?.category ? (CATEGORY_LABELS[expandedRequest.profiles.category] || expandedRequest.profiles.category) : null
-        const { rangeLabel } = formatRequestDateRange(expandedRequest.date_from, expandedRequest.date_to, publicHolidayDates)
+        const publicHolidayFrom = publicHolidayDates.has(expandedRequest.date_from)
+        const publicHolidayTo = publicHolidayDates.has(expandedRequest.date_to)
         const totalDays = datesInRange(expandedRequest.date_from, expandedRequest.date_to).length
         const daysLine = approvalDaysTotalLine(expandedRequest) || `${totalDays} day${totalDays === 1 ? '' : 's'} total`
 
@@ -530,7 +533,8 @@ export default function LeaveApprovalQueue({ onBack }) {
             fullName={fullName}
             categoryLabel={categoryLabel}
             leaveTypeLabel={LEAVE_TYPE_LABELS[expandedRequest.leave_type]}
-            rangeLabel={rangeLabel}
+            publicHolidayFrom={publicHolidayFrom}
+            publicHolidayTo={publicHolidayTo}
             daysLine={daysLine}
             warnings={expandedWarnings}
             warned={expandedWarned}

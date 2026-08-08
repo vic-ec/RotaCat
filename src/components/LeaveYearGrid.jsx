@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { Users } from 'lucide-react'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, splitForOverflow,
-  quartersForYear, datesInMonth, weeksForMonth, monthsForYear,
+  quartersForYear, datesInMonth, weeksForMonth,
 } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { dayOfWeek, todayStr } from '../lib/dateRange'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import DateStepper from './DateStepper'
 import { QuickSelectButton } from './Toolbar'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -57,18 +58,9 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
     return filtered
   }, [leaveByDate, showMineOnly, myProfileId])
 
-  function goPrevMonth() {
-    if (viewMonth === 1) { onYearChange(year - 1); setViewMonth(12) }
-    else setViewMonth(m => m - 1)
-  }
-  function goNextMonth() {
-    if (viewMonth === 12) { onYearChange(year + 1); setViewMonth(1) }
-    else setViewMonth(m => m + 1)
-  }
-  function goToday() {
-    const now = new Date()
-    if (now.getFullYear() !== year) onYearChange(now.getFullYear())
-    setViewMonth(now.getMonth() + 1)
+  function goToMonth(newYear, newMonth) {
+    if (newYear !== year) onYearChange(newYear)
+    setViewMonth(newMonth)
   }
 
   return (
@@ -88,10 +80,8 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
 
       {/* Desktop: full year, 4 quarters of 3 months */}
       <div className="hidden lg:block">
-        <div className="flex items-center justify-center gap-3">
-          <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous year">←</button>
-          <span className="font-display text-lg font-semibold text-ink">{year}</span>
-          <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary px-2 py-1 text-sm" aria-label="Next year">→</button>
+        <div className="flex items-center justify-center">
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
         </div>
 
         <div className="mt-4 space-y-6">
@@ -121,19 +111,17 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
 
       {/* Mobile: one month at a time, tap a day for detail */}
       <div className="lg:hidden">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button type="button" onClick={goPrevMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Previous month">←</button>
-          <span className="font-display text-base font-semibold text-ink">{monthsForYear(year)[viewMonth - 1].label} {year}</span>
-          <button type="button" onClick={goNextMonth} className="btn-secondary px-2 py-1 text-sm" aria-label="Next month">→</button>
-          <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
-          <button
-            type="button"
-            onClick={() => setLegendOpen(o => !o)}
-            aria-expanded={legendOpen}
-            className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
-          >
-            Legend {legendOpen ? '▴' : '▾'}
-          </button>
+        <div className="flex flex-wrap items-center justify-center">
+          <DateStepper unit="month" year={year} month={viewMonth} onChange={goToMonth}>
+            <button
+              type="button"
+              onClick={() => setLegendOpen(o => !o)}
+              aria-expanded={legendOpen}
+              className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+            >
+              Legend {legendOpen ? '▴' : '▾'}
+            </button>
+          </DateStepper>
         </div>
 
         {legendOpen && (

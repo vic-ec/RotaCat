@@ -6,7 +6,7 @@ import {
 } from './annualPlannerOverview'
 import { LEAVE_CAPACITY_STATES } from './leaveYearGrid'
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 1, OT_COSMO: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 1, OT_Intern: 1 }
 
 describe('pressureDatesInYear', () => {
   it('flags a date where any column is at its cap', () => {
@@ -25,7 +25,7 @@ describe('pressureDatesInYear', () => {
   })
 
   it('ignores columns with no configured max', () => {
-    const counts = new Map([['2026-08-08', new Map([['OT_COSMO', 5]])]])
+    const counts = new Map([['2026-08-08', new Map([['OT_Intern', 5]])]])
     expect(pressureDatesInYear(counts, { MO: 2 }).has('2026-08-08')).toBe(false)
   })
 })
@@ -134,7 +134,7 @@ describe('monthTotalCapacityBreakdown', () => {
   })
 
   it('clamps a day whose combined total exceeds 3 into the "3 of 3" bucket', () => {
-    const counts = new Map([['2026-08-08', new Map([['MO', 2], ['Registrar', 1], ['OT_COSMO', 1]])]]) // 4 total
+    const counts = new Map([['2026-08-08', new Map([['MO', 2], ['Registrar', 1], ['OT_Intern', 1]])]]) // 4 total
     const result = monthTotalCapacityBreakdown(2026, 8, counts)
     expect(result.find(r => r.level === 3).days).toBe(1)
   })
@@ -231,7 +231,7 @@ describe('categoryDayCapacityState', () => {
 })
 
 describe('monthCapacityMarkers', () => {
-  const maxByColumnKey = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+  const maxByColumnKey = { MO: 2, Registrar: 1, EC_Intern: 2, OT_Intern: 1 }
 
   it('reads each day against just the given column\'s own cap', () => {
     const countByColumnPerDate = new Map([

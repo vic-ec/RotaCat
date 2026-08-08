@@ -254,12 +254,16 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
 
 // Pure per-date scan behind fetchAnnualCapacityPreview below — the single
 // most-constrained date in [dateFrom, dateTo] for `columnKey`'s pool (the
-// shared full-time pool for MO/Registrar/EC COSMO, or the column's own
+// shared full-time pool for MO/Registrar/EC Intern, or the column's own
 // count otherwise — see slotsForColumnOnDate in monthWorkspace.js, reused
 // rather than reimplemented here). Ties go to the earliest date, matching
 // findLeaveCapacityBreach/findFullTimeAggregateBreach's own
 // earliest-first convention. Returns null only for an empty range (never
 // happens in practice — callers already validate dateFrom <= dateTo).
+// `pooled` tells LeaveCapacityBanner whether `taken`/`max` are this column's
+// own count, or the shared full-time pool's (see LEAVE_FULL_TIME_POOL_LABEL)
+// — without it, a pooled reading (e.g. a Registrar's own leave using up the
+// EC Intern column's "slot") reads as that category's own quota being full.
 export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap }) {
   let worst = null
   for (const date of datesInRange(dateFrom, dateTo)) {
@@ -268,7 +272,7 @@ export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxBy
       worst = { date, taken, max }
     }
   }
-  return worst ? { ...worst, atCapacity: worst.taken >= worst.max } : null
+  return worst ? { ...worst, atCapacity: worst.taken >= worst.max, pooled: LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey) } : null
 }
 
 // Read-only, non-blocking counterpart to checkAnnualLeaveCapacity above —

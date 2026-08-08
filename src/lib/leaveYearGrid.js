@@ -21,14 +21,14 @@ const MONTH_LABELS = [
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
-  { key: 'EC_COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_cosmo', defaultMax: 2 },
-  { key: 'OT_COSMO', label: 'OT Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_cosmo', defaultMax: 1 },
+  { key: 'EC_Intern', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
+  { key: 'OT_Intern', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
 ]
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
 // Only COSMO and Intern are actually ambiguous without contractType —
-// every other legacy value (COSMOPsych, EC_COSMO, OT_COSMO,
+// every other legacy value (COSMOPsych, EC_Intern, OT_Intern,
 // EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
 // via its own name/history, so it resolves through the static
 // COLUMN_BY_CATEGORY map unchanged, same as before 2026-08.
@@ -47,7 +47,7 @@ const COLUMN_BY_CATEGORY = new Map(
 // EC-specific values) ignores contractType entirely.
 export function columnForLeaveCategory(category, contractType) {
   if (AMBIGUOUS_CATEGORIES.has(category)) {
-    return OT_HOURS_CONTRACT_TYPES.has(contractType) ? 'OT_COSMO' : 'EC_COSMO'
+    return OT_HOURS_CONTRACT_TYPES.has(contractType) ? 'OT_Intern' : 'EC_Intern'
   }
   return COLUMN_BY_CATEGORY.get(category) ?? null
 }
@@ -63,8 +63,8 @@ export function columnForLeaveCategory(category, contractType) {
 export const COLUMN_BADGE_LABEL = {
   MO: 'MO',
   Registrar: 'Reg',
-  EC_COSMO: 'EC',
-  OT_COSMO: 'OT',
+  EC_Intern: 'EC',
+  OT_Intern: 'OT',
   Other: 'C',
 }
 
@@ -76,8 +76,8 @@ export const COLUMN_BADGE_LABEL = {
 export const COLUMN_FULL_LABEL = {
   MO: 'Medical Officer',
   Registrar: 'Registrar',
-  EC_COSMO: 'EC Intern',
-  OT_COSMO: 'OT Intern',
+  EC_Intern: 'EC Intern',
+  OT_Intern: 'OT Intern',
 }
 
 // Four-state "how full is this day" read for the mobile planner's day/month
@@ -155,9 +155,21 @@ export function capacityStateForCount(count) {
 // COSMO/Intern is a separate stream with its own cap (1) and isn't part of
 // this aggregate — it's additive on top, giving an overall ceiling of 3
 // doctors (any category) on leave at once (see totalLeaveCeiling below).
-export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_COSMO']
+export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_Intern']
 export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
 export const LEAVE_FULL_TIME_DEFAULT_MAX = 2
+
+// "MO, Registrar, EC Intern" — every column sharing the combined pool
+// above, by name. LeaveCapacityBanner uses this so a pooled cap reads as
+// "this shared pool is full" rather than "this one category's own quota is
+// full" — a request resolving to e.g. EC Intern can show 0 slots available
+// even when no other EC Intern doctor is on leave, because MO/Registrar
+// leave draws from the same pool. Naming the pool up front is what avoids
+// the confusion (see the Requests queue's capacity banner).
+export const LEAVE_FULL_TIME_POOL_LABEL = LEAVE_CAPACITY_COLUMNS
+  .filter(c => LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key))
+  .map(c => c.label)
+  .join(', ')
 
 // Splits a list of column keys into "shown" (max 4) and an overflow count
 // for a 5th+ — shared by every day-glance-style cluster (LeaveYearGrid's

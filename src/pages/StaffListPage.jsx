@@ -32,9 +32,9 @@ const CATEGORY_LABELS = {
   Consultant:     'Consultant',
   Locum:          'Locum',
   // Future values (dormant until Jan 2027)
-  EC_COSMO:       'EC COSMO',
+  EC_Intern:      'EC Intern',
   EC_COSMO_Intern:'EC Intern',
-  OT_COSMO:       'OT COSMO',
+  OT_Intern:      'OT Intern',
   OT_COSMO_Intern:'OT Intern',
 }
 

@@ -4,7 +4,7 @@ import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
   weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
   splitForOverflow,
 } from '../lib/leaveYearGrid'
@@ -534,6 +534,7 @@ function DayReviewModal({
       <LeaveCapacityBanner
         mySlots={mySlots}
         columnLabel={myColumnDef?.label}
+        pooled={Boolean(myColumnKey) && LEAVE_FULL_TIME_GROUP_KEYS.includes(myColumnKey)}
         atFullCapacity={atFullCapacity}
         dayCapacityState={dayCapacityState}
         totalSlots={totalSlots}

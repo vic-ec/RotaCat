@@ -9,7 +9,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 2, OT_COSMO: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 2, OT_Intern: 1 }
 
 // August 10 has 2 MOs on leave — exactly the MO cap — so August is the one
 // "Requires checking" month for an MO viewer; every other month is clear.

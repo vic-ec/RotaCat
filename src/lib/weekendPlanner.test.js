@@ -11,11 +11,11 @@ describe('groupForCategory', () => {
     expect(groupForCategory('MO')).toBe('MO')
     expect(groupForCategory('Registrar')).toBe('Registrar')
     expect(groupForCategory('COSMO')).toBe('COSMO')
-    expect(groupForCategory('EC_COSMO')).toBe('COSMO')
+    expect(groupForCategory('EC_Intern')).toBe('COSMO')
     expect(groupForCategory('EC_COSMO_Intern')).toBe('COSMO')
     expect(groupForCategory('Intern')).toBe('COSMO')
     expect(groupForCategory('COSMOPsych')).toBe('COSMOPsych')
-    expect(groupForCategory('OT_COSMO')).toBe('COSMOPsych')
+    expect(groupForCategory('OT_Intern')).toBe('COSMOPsych')
     expect(groupForCategory('OT_COSMO_Intern')).toBe('COSMOPsych')
   })
 

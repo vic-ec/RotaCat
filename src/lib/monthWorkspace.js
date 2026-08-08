@@ -99,7 +99,7 @@ function hasCapacityColumn(columnKey, maxByColumnKey) {
   return LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey) || maxByColumnKey[columnKey] != null
 }
 
-// MO/Registrar/EC_COSMO draw from one shared pool (maxFullTime, default 2
+// MO/Registrar/EC_Intern draw from one shared pool (maxFullTime, default 2
 // — see LEAVE_FULL_TIME_GROUP_KEYS/totalLeaveCeiling in leaveYearGrid.js):
 // a day with 1 MO + 1 Registrar already has zero room left for a 3rd
 // MO/Registrar/EC COSMO doctor, even though neither individual column's own

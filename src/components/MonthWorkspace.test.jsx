@@ -55,7 +55,7 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_COSMO: 1, OT_COSMO: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 1, OT_Intern: 1 }
 
 // p1 (Anderson, MO) approved on 12 Aug; p2 (Botha, Registrar) pending on
 // 12 Aug — Registrar's cap is 1, so that pending request alone already
@@ -93,7 +93,7 @@ function baseProps(overrides = {}) {
     countByColumnPerDate,
     publicHolidaysByDate: new Map(),
     maxByColumnKey: MAX_BY_COLUMN,
-    maxFullTime: 2, // the EC full-time (MO+Registrar+EC_COSMO) sub-cap — combined with OT_COSMO's own cap of 1, the day's real ceiling is 3
+    maxFullTime: 2, // the EC full-time (MO+Registrar+EC_Intern) sub-cap — combined with OT_Intern's own cap of 1, the day's real ceiling is 3
     onDataChanged: vi.fn(),
     onBack: vi.fn(),
     ...overrides,
@@ -327,7 +327,8 @@ describe('MonthWorkspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(screen.getByText('2 of 2 slots taken')).toBeInTheDocument()
-    expect(screen.getByText('0 leave slots available for MO')).toBeInTheDocument()
+    expect(screen.getByText('0 leave slots available — shared pool: MO, Registrar, EC Intern')).toBeInTheDocument()
+    expect(screen.queryByText(/available for MO/)).not.toBeInTheDocument() // pooled wording, not the column-alone read
     expect(screen.queryByText(/Full —/)).not.toBeInTheDocument() // personalised banner replaces the generic one, not both
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }
   })

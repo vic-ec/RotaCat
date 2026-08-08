@@ -6,7 +6,7 @@ import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
 
 // Column groupings for the planner grid. The scheduler backend's real
 // junior-doctor split is EC (full hours) vs OT (Junior Doctor Overtime
-// hours, contract_type-driven) — COSMOPsych, EC_COSMO/OT_COSMO, and
+// hours, contract_type-driven) — COSMOPsych, EC_Intern/OT_Intern, and
 // EC_COSMO_Intern/OT_COSMO_Intern are all still-recognised legacy/dormant
 // category values grouped down to match those same two buckets; MO/
 // Registrar are unambiguous on their own. Consultant/Locum never appear
@@ -14,8 +14,8 @@ import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
 export const CATEGORY_GROUPS = [
   { key: 'MO', label: 'MO', categories: ['MO'] },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'] },
-  { key: 'COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_COSMO', 'EC_COSMO_Intern', 'Intern'] },
-  { key: 'COSMOPsych', label: 'OT Intern', categories: ['COSMOPsych', 'OT_COSMO', 'OT_COSMO_Intern'] },
+  { key: 'COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'] },
+  { key: 'COSMOPsych', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'] },
 ]
 
 const GROUP_BY_CATEGORY = new Map(
@@ -33,7 +33,7 @@ export function groupForCategory(category) {
 }
 
 // Only COSMO and Intern are actually ambiguous without contract_type —
-// every other legacy value (COSMOPsych, EC_COSMO, OT_COSMO,
+// every other legacy value (COSMOPsych, EC_Intern, OT_Intern,
 // EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
 // via its own name/history. Mirrors the identical set in leaveYearGrid.js.
 const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])

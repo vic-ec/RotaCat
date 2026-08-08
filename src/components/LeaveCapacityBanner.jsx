@@ -1,4 +1,5 @@
 import { bannerStateForSlots } from '../lib/monthWorkspace'
+import { LEAVE_FULL_TIME_POOL_LABEL } from '../lib/leaveYearGrid'
 
 // The "can I actually get annual leave here" banner — extracted from
 // MonthWorkspace's DayReviewModal so it and LeaveRequestForm's capacity
@@ -8,7 +9,12 @@ import { bannerStateForSlots } from '../lib/monthWorkspace'
 // Two shapes, matching the two callers:
 //   - `mySlots` present ({ taken, max } for the viewer's own capacity
 //     pool on the worst date in view) -> the personalised banner, with
-//     `columnLabel` naming that pool ("MO", "OT COSMO / Intern", etc).
+//     `columnLabel` naming that pool ("MO", "OT Intern", etc). `pooled`
+//     (true for MO/Registrar/EC Intern) means `taken`/`max` are the shared
+//     full-time pool's count, not this column's own — named explicitly
+//     (LEAVE_FULL_TIME_POOL_LABEL) so "0 available" doesn't read as "EC
+//     Intern's own quota is full" when it's really a doctor from a
+//     different pooled category who filled it.
 //   - `mySlots` null/undefined -> falls back to the generic cross-
 //     category banner (DayReviewModal only — a viewer with no capacity
 //     column, e.g. Consultant/admin), shown only once `atFullCapacity`;
@@ -16,7 +22,7 @@ import { bannerStateForSlots } from '../lib/monthWorkspace'
 //     since its own preview never sets mySlots without a resolvable
 //     column in the first place.
 export default function LeaveCapacityBanner({
-  mySlots, columnLabel, atFullCapacity, dayCapacityState, totalSlots, totalCeiling,
+  mySlots, columnLabel, pooled, atFullCapacity, dayCapacityState, totalSlots, totalCeiling,
 }) {
   if (mySlots) {
     const available = mySlots.max - mySlots.taken
@@ -30,9 +36,15 @@ export default function LeaveCapacityBanner({
           <p className={`text-sm font-bold ${state.text}`}>
             {mySlots.taken} of {mySlots.max} slot{mySlots.max !== 1 ? 's' : ''} taken
           </p>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            {available} leave slot{available !== 1 ? 's' : ''} available for {columnLabel}
-          </p>
+          {pooled ? (
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {available} leave slot{available !== 1 ? 's' : ''} available — shared pool: {LEAVE_FULL_TIME_POOL_LABEL}
+            </p>
+          ) : (
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {available} leave slot{available !== 1 ? 's' : ''} available for {columnLabel}
+            </p>
+          )}
         </div>
       </div>
     )

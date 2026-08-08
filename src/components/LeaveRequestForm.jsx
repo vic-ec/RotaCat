@@ -248,6 +248,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           <LeaveCapacityBanner
             mySlots={{ taken: annualPreview.taken, max: annualPreview.max }}
             columnLabel={annualPreview.columnLabel}
+            pooled={annualPreview.pooled}
           />
         )
       )}

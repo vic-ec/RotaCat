@@ -12,16 +12,16 @@ describe('columnForLeaveCategory', () => {
   })
 
   it('collapses EC COSMO variants into one column', () => {
-    expect(columnForLeaveCategory('COSMO')).toBe('EC_COSMO')
-    expect(columnForLeaveCategory('EC_COSMO')).toBe('EC_COSMO')
-    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('EC_COSMO')
-    expect(columnForLeaveCategory('Intern')).toBe('EC_COSMO')
+    expect(columnForLeaveCategory('COSMO')).toBe('EC_Intern')
+    expect(columnForLeaveCategory('EC_Intern')).toBe('EC_Intern')
+    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('EC_Intern')
+    expect(columnForLeaveCategory('Intern')).toBe('EC_Intern')
   })
 
   it('collapses OT COSMO variants into one column', () => {
-    expect(columnForLeaveCategory('COSMOPsych')).toBe('OT_COSMO')
-    expect(columnForLeaveCategory('OT_COSMO')).toBe('OT_COSMO')
-    expect(columnForLeaveCategory('OT_COSMO_Intern')).toBe('OT_COSMO')
+    expect(columnForLeaveCategory('COSMOPsych')).toBe('OT_Intern')
+    expect(columnForLeaveCategory('OT_Intern')).toBe('OT_Intern')
+    expect(columnForLeaveCategory('OT_COSMO_Intern')).toBe('OT_Intern')
   })
 
   it('buckets Consultant into Other', () => {
@@ -143,10 +143,10 @@ describe('countByColumnPerDate', () => {
 
   it('accepts a columnKeyOf callback that resolves the column directly, bypassing columnForLeaveCategory', () => {
     const byDate = new Map([
-      ['2026-08-10', [{ profile_id: 'p1', resolvedColumn: 'EC_COSMO' }]],
+      ['2026-08-10', [{ profile_id: 'p1', resolvedColumn: 'EC_Intern' }]],
     ])
     const counts = countByColumnPerDate(byDate, e => e.resolvedColumn)
-    expect(counts.get('2026-08-10').get('EC_COSMO')).toBe(1)
+    expect(counts.get('2026-08-10').get('EC_Intern')).toBe(1)
   })
 })
 
@@ -173,7 +173,7 @@ describe('findLeaveCapacityBreach', () => {
 
   it('treats a date with no existing entries as zero', () => {
     const result = findLeaveCapacityBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_COSMO', maxConcurrent: 1, existingCountsByDate: new Map(),
+      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_Intern', maxConcurrent: 1, existingCountsByDate: new Map(),
     })
     expect(result.hasBreach).toBe(false)
   })
@@ -181,7 +181,7 @@ describe('findLeaveCapacityBreach', () => {
 
 describe('findFullTimeAggregateBreach', () => {
   const counts = (mo, registrar, ecCosmo) => new Map([
-    ['2026-08-10', new Map([['MO', mo], ['Registrar', registrar], ['EC_COSMO', ecCosmo]])],
+    ['2026-08-10', new Map([['MO', mo], ['Registrar', registrar], ['EC_Intern', ecCosmo]])],
   ])
 
   it('breaches once 1 MO + 1 Registrar (the 2-total cap) is already reached', () => {
@@ -210,12 +210,12 @@ describe('findFullTimeAggregateBreach', () => {
 
   it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
     const existingCountsByDate = new Map([
-      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_COSMO', 1]])],
+      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_Intern', 1]])],
     ])
     const result = findFullTimeAggregateBreach({
       dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
     })
-    // If OT_COSMO counted, the full-time total would already be 3 and a 4th
+    // If OT_Intern counted, the full-time total would already be 3 and a 4th
     // would breach a maxTotal of 3; excluded, it's only 2 (MO+Registrar), so
     // a 3rd full-time doctor still fits exactly at the cap.
     expect(result.hasBreach).toBe(false)
@@ -224,17 +224,17 @@ describe('findFullTimeAggregateBreach', () => {
 
 describe('totalLeaveCeiling', () => {
   it('adds every non-full-time column\'s own max on top of the full-time combined cap', () => {
-    expect(totalLeaveCeiling(2, { OT_COSMO: 1 })).toBe(3)
+    expect(totalLeaveCeiling(2, { OT_Intern: 1 })).toBe(3)
   })
 
   it('falls back to a column\'s defaultMax when it is missing from maxByColumnKey', () => {
-    expect(totalLeaveCeiling(2, {})).toBe(3) // OT_COSMO defaults to 1
+    expect(totalLeaveCeiling(2, {})).toBe(3) // OT_Intern defaults to 1
   })
 })
 
 describe('totalLeaveSlotsForDate', () => {
   it('sums every capacity column for a date', () => {
-    const counts = new Map([['2026-08-10', new Map([['MO', 2], ['Registrar', 1], ['OT_COSMO', 1]])]])
+    const counts = new Map([['2026-08-10', new Map([['MO', 2], ['Registrar', 1], ['OT_Intern', 1]])]])
     expect(totalLeaveSlotsForDate('2026-08-10', counts)).toBe(4)
   })
 

@@ -55,8 +55,8 @@ const clerkNav = [
 const ROLE_CATEGORY_LABEL = {
   MO:          'EC Medical Officer',
   Registrar:   'Registrar',
-  EC_COSMO:    'EC Intern / COSMO',
-  OT_COSMO:    'OT Intern / COSMO',
+  EC_Intern:   'EC Intern',
+  OT_Intern:   'OT Intern',
   COSMO_Psych: 'OT Intern / COSMO (Psych)',
   Consultant:  'Consultant',
   Locum:       'Locum',

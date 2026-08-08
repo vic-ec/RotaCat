@@ -19,6 +19,7 @@ import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import InlineRuleHint from './InlineRuleHint'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
+import Modal from './Modal'
 import SelectMenu from './SelectMenu'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -529,175 +530,169 @@ function DayReviewModal({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
-      <div className="card max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <LeaveCapacityBanner
-          mySlots={mySlots}
-          columnLabel={myColumnDef?.label}
-          atFullCapacity={atFullCapacity}
-          dayCapacityState={dayCapacityState}
-          totalSlots={totalSlots}
-          totalCeiling={totalCeiling}
-        />
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-base font-bold text-ink">{formattedDate}</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
-        </div>
-        {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
-        {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
+    <Modal title={formattedDate} onClose={onClose} maxWidthClassName="md:max-w-lg">
+      <LeaveCapacityBanner
+        mySlots={mySlots}
+        columnLabel={myColumnDef?.label}
+        atFullCapacity={atFullCapacity}
+        dayCapacityState={dayCapacityState}
+        totalSlots={totalSlots}
+        totalCeiling={totalCeiling}
+      />
+      {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
+      {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
 
-        {showRequestForm ? (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setShowRequestForm(false)}
-              className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Back
-            </button>
-            <div className="mt-2">
-              <LeaveRequestForm
-                initialDateFrom={date}
-                initialDateTo={date}
-                onSubmitted={() => { setShowRequestForm(false); onDataChanged() }}
-              />
-            </div>
+      {showRequestForm ? (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowRequestForm(false)}
+            className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+          <div className="mt-2">
+            <LeaveRequestForm
+              initialDateFrom={date}
+              initialDateTo={date}
+              onSubmitted={() => { setShowRequestForm(false); onDataChanged() }}
+            />
           </div>
-        ) : (
-          <>
-            {allEntries.length === 0 ? (
-              <p className="mt-4 text-sm text-ink-muted">No one is on annual leave today</p>
-            ) : (
-              <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-                {allEntries.map(e => (
-                  <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                      <span className="flex-shrink-0 text-sm font-medium text-ink">{e.surname}</span>
-                      <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
-                    </span>
-                    <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
-                      {e.status === 'pending' ? 'Pending' : 'Approved'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+        </div>
+      ) : (
+        <>
+          {allEntries.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-muted">No one is on annual leave today</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
+              {allEntries.map(e => (
+                <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
+                    <span className="flex-shrink-0 text-sm font-medium text-ink">{e.surname}</span>
+                    <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
+                  </span>
+                  <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
+                    {e.status === 'pending' ? 'Pending' : 'Approved'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
-            {isAdmin && pendingRequestsThisDate.length > 0 && (
-              <div className="mt-4 space-y-3 border-t border-slate-line pt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Pending requests</p>
-                {pendingRequestsThisDate.map(request => {
-                  const w = warningsById[request.id]
-                  const warned = hasWarnings(w)
-                  const impact = checkApprovalCapacityImpact(
-                    request, allRows.filter(r => r.id !== request.id), maxByColumnKey, maxFullTime, rotationsByDoctorId
-                  )
-                  const capacityWarned = impact.applicable && (impact.columnBreach || impact.fullTimeBreach)
-                  const confirming = confirmingApproveId === request.id
-                  const isActioning = actioningId === request.id
+          {isAdmin && pendingRequestsThisDate.length > 0 && (
+            <div className="mt-4 space-y-3 border-t border-slate-line pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Pending requests</p>
+              {pendingRequestsThisDate.map(request => {
+                const w = warningsById[request.id]
+                const warned = hasWarnings(w)
+                const impact = checkApprovalCapacityImpact(
+                  request, allRows.filter(r => r.id !== request.id), maxByColumnKey, maxFullTime, rotationsByDoctorId
+                )
+                const capacityWarned = impact.applicable && (impact.columnBreach || impact.fullTimeBreach)
+                const confirming = confirmingApproveId === request.id
+                const isActioning = actioningId === request.id
 
-                  return (
-                    <div key={request.id} className="rounded-lg border border-slate-line p-3">
-                      <p className="text-sm font-medium text-ink">
-                        {request.profiles?.name} {request.profiles?.surname}
-                      </p>
-                      <p className="text-xs text-ink-muted">
-                        {request.date_from === request.date_to
-                          ? formatWeekdayDate(request.date_from)
-                          : `${formatWeekdayDate(request.date_from)} → ${formatWeekdayDate(request.date_to)}`}
-                      </p>
-                      {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
-                      {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
+                return (
+                  <div key={request.id} className="rounded-lg border border-slate-line p-3">
+                    <p className="text-sm font-medium text-ink">
+                      {request.profiles?.name} {request.profiles?.surname}
+                    </p>
+                    <p className="text-xs text-ink-muted">
+                      {request.date_from === request.date_to
+                        ? formatWeekdayDate(request.date_from)
+                        : `${formatWeekdayDate(request.date_from)} → ${formatWeekdayDate(request.date_to)}`}
+                    </p>
+                    {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
+                    {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
 
-                      {capacityWarned && (
-                        <div className="mt-2 flex items-start gap-1.5 rounded border border-flagAmber bg-flagAmber-bg p-2 text-xs text-flagAmber">
-                          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                          <span>
-                            Approving would breach the {impact.fullTimeBreach ? 'full-time doctor' : impact.columnLabel} cap on {(impact.columnBreachDates[0] || impact.fullTimeBreachDates[0])}.
-                          </span>
-                        </div>
-                      )}
-                      {warned && (
-                        <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-2">
-                          {w.supervisionBreaches.length > 0 && (
-                            <p className="text-xs text-flagAmber">
-                              ⚠ Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
-                            </p>
-                          )}
-                          {w.balanceWarnings.map(bw => (
-                            <p key={bw.year} className="text-xs text-flagAmber">
-                              ⚠ {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
-                            </p>
-                          ))}
-                          {w.hourCeilingWarning && (
-                            <p className="text-xs text-flagAmber">
-                              ⚠ Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
-                            </p>
-                          )}
-                        </div>
-                      )}
+                    {capacityWarned && (
+                      <div className="mt-2 flex items-start gap-1.5 rounded border border-flagAmber bg-flagAmber-bg p-2 text-xs text-flagAmber">
+                        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                        <span>
+                          Approving would breach the {impact.fullTimeBreach ? 'full-time doctor' : impact.columnLabel} cap on {(impact.columnBreachDates[0] || impact.fullTimeBreachDates[0])}.
+                        </span>
+                      </div>
+                    )}
+                    {warned && (
+                      <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-2">
+                        {w.supervisionBreaches.length > 0 && (
+                          <p className="text-xs text-flagAmber">
+                            ⚠ Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
+                          </p>
+                        )}
+                        {w.balanceWarnings.map(bw => (
+                          <p key={bw.year} className="text-xs text-flagAmber">
+                            ⚠ {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
+                          </p>
+                        ))}
+                        {w.hourCeilingWarning && (
+                          <p className="text-xs text-flagAmber">
+                            ⚠ Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
+                          </p>
+                        )}
+                      </div>
+                    )}
 
-                      {rejectingId === request.id ? (
-                        <div className="mt-2 space-y-2">
-                          <textarea
-                            value={rejectNotes}
-                            onChange={e => setRejectNotes(e.target.value)}
-                            placeholder="Reason (optional, visible to the doctor)…"
-                            rows={2}
-                            className="input-field w-full"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleReject(request)}
-                              disabled={isActioning}
-                              className="rounded border border-flagRed px-3 py-1 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isActioning ? 'Rejecting…' : 'Confirm reject'}
-                            </button>
-                            <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary text-xs">Cancel</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-2 flex gap-2">
+                    {rejectingId === request.id ? (
+                      <div className="mt-2 space-y-2">
+                        <textarea
+                          value={rejectNotes}
+                          onChange={e => setRejectNotes(e.target.value)}
+                          placeholder="Reason (optional, visible to the doctor)…"
+                          rows={2}
+                          className="input-field w-full"
+                        />
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => (warned || capacityWarned) && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
-                            disabled={isActioning || warningsById[request.id] === undefined}
-                            className="btn-primary text-xs"
+                            onClick={() => handleReject(request)}
+                            disabled={isActioning}
+                            className="rounded border border-flagRed px-3 py-1 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {isActioning ? 'Approving…' : (warned || capacityWarned) ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'}
+                            {isActioning ? 'Rejecting…' : 'Confirm reject'}
                           </button>
-                          <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-secondary text-xs">
-                            Reject
-                          </button>
+                          <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary text-xs">Cancel</button>
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          onClick={() => (warned || capacityWarned) && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
+                          disabled={isActioning || warningsById[request.id] === undefined}
+                          className="btn-primary text-xs"
+                        >
+                          {isActioning ? 'Approving…' : (warned || capacityWarned) ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'}
+                        </button>
+                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-secondary text-xs">
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
-            {canSubmitLeave && (
-              <>
-                {atFullCapacity && (
-                  <p className="mt-4 text-xs text-ink-muted">
-                    This day is already at capacity for annual leave — a request for it will be blocked at submission unless the dates change or an admin frees up a slot.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowRequestForm(true)}
-                  className={`btn-primary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
-                >
-                  Request annual leave for this day
-                </button>
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+          {canSubmitLeave && (
+            <>
+              {atFullCapacity && (
+                <p className="mt-4 text-xs text-ink-muted">
+                  This day is already at capacity for annual leave — a request for it will be blocked at submission unless the dates change or an admin frees up a slot.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowRequestForm(true)}
+                className={`btn-primary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
+              >
+                Request annual leave for this day
+              </button>
+            </>
+          )}
+        </>
+      )}
+    </Modal>
   )
 }

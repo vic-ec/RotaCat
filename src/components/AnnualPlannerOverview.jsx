@@ -12,6 +12,7 @@ import {
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 import SelectMenu from './SelectMenu'
 import InlineRuleHint from './InlineRuleHint'
+import DateStepper from './DateStepper'
 
 // Every capacity column plus a blended "All categories" option — the mobile
 // non-admin overview's category picker, defaulting to the viewer's own
@@ -123,12 +124,9 @@ export default function AnnualPlannerOverview({
         <div className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous year">←</button>
-              <span className="font-display text-base font-semibold text-ink">{year}</span>
-              <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next year">→</button>
+            <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
               <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
-            </div>
+            </DateStepper>
           </div>
 
           <div className="mt-3">
@@ -178,13 +176,9 @@ export default function AnnualPlannerOverview({
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous year">←</button>
-          <span className="font-display text-base font-semibold text-ink">{year}</span>
-          <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next year">→</button>
-          <button type="button" onClick={() => onYearChange(Number(today.slice(0, 4)))} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+        <DateStepper unit="year" year={year} onChange={onYearChange}>
           <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
-        </div>
+        </DateStepper>
       </div>
 
       {/* Day-block fill legend — matches the capacity-state colouring each

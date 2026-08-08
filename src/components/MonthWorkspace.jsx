@@ -16,6 +16,7 @@ import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import DateStepper from './DateStepper'
 import InlineRuleHint from './InlineRuleHint'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -112,19 +113,6 @@ export default function MonthWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, consuming whatever highlightDate this instance was seeded with
   }, [])
 
-  function goPrevMonth() {
-    if (month === 1) onMonthChange(year - 1, 12)
-    else onMonthChange(year, month - 1)
-  }
-  function goNextMonth() {
-    if (month === 12) onMonthChange(year + 1, 1)
-    else onMonthChange(year, month + 1)
-  }
-  function goToday() {
-    const now = new Date()
-    onMonthChange(now.getFullYear(), now.getMonth() + 1)
-  }
-
   // "Request leave" from the mobile Your Leave card (below) should open the
   // same in-context form as tapping a day and hitting "Request annual leave
   // for this day" — not send the doctor off to the separate My Leave tab.
@@ -148,11 +136,7 @@ export default function MonthWorkspace({
         >
           ← Overview
         </button>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={goPrevMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous month">←</button>
-          <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
-          <button type="button" onClick={goNextMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next month">→</button>
-          <button type="button" onClick={goToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+        <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
           <button
             type="button"
             onClick={() => setLegendOpen(o => !o)}
@@ -162,7 +146,7 @@ export default function MonthWorkspace({
             Legend
           </button>
           <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
-        </div>
+        </DateStepper>
       </div>
 
       {legendOpen && (

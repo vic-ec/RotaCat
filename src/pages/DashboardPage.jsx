@@ -362,7 +362,7 @@ export default function DashboardPage() {
                     <p className="mb-1 text-xs font-medium text-ink-muted">
                       {lr.profiles?.name} {lr.profiles?.surname} — {LEAVE_TYPE_LABELS[lr.leave_type]}
                     </p>
-                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} />
+                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} compact />
                   </div>
                 ))}
               </div>
@@ -380,7 +380,7 @@ export default function DashboardPage() {
                     <p className="mb-1 text-xs font-medium text-ink-muted">
                       {lr.profiles?.name} {lr.profiles?.surname} — {LEAVE_TYPE_LABELS[lr.leave_type]}
                     </p>
-                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} />
+                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} compact />
                   </div>
                 ))}
               </div>

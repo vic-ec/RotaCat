@@ -94,6 +94,35 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
   )
 }
 
+// One date, one row — day abbreviation, date number, month abbreviation, all
+// inline on one baseline, plus the public-holiday calendar icon inline too
+// when applicable. Same TONE map and icon-color-inheritance structure as
+// DateCard's own plain (no start/end time) layout above — a layout change
+// for contexts too dense for the full-height card, not a new color
+// treatment.
+export function DateCardOneLine({ date, publicHoliday, flagged, className = '' }) {
+  const parsed = parseLocalDate(date)
+  const dayAbbr = parsed.toLocaleDateString('en-GB', { weekday: 'short' })
+  const dateNum = parsed.getDate()
+  const monthAbbr = parsed.toLocaleDateString('en-GB', { month: 'short' })
+  const isWeekend = [0, 6].includes(dayOfWeek(date))
+
+  const toneKey = flagged ? 'flagged' : publicHoliday ? 'publicHoliday' : isWeekend ? 'weekend' : 'weekday'
+  const tone = TONE[toneKey]
+  const holidayName = typeof publicHoliday === 'string' ? publicHoliday : 'Public holiday'
+
+  return (
+    <div className={`inline-flex flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 ${tone.bg} ${className}`}>
+      <span className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide ${tone.label}`}>
+        {publicHoliday && <Calendar className="h-3 w-3 flex-shrink-0" title={holidayName} />}
+        {dayAbbr}
+      </span>
+      <span className="text-sm font-bold leading-none text-ink">{dateNum}</span>
+      <span className={`text-[11px] font-bold uppercase tracking-wide ${tone.label}`}>{monthAbbr}</span>
+    </div>
+  )
+}
+
 const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger' }
 
 // A leave request's date range — two DateCards (no start/end time, leave
@@ -101,17 +130,21 @@ const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger
 // status Tag (Phase 1) alongside. `publicHolidayFrom`/`publicHolidayTo`
 // and `flaggedFrom`/`flaggedTo` pass straight through to each card, since
 // a public holiday or conflict can land on the start date, the end date,
-// both, or neither independently.
+// both, or neither independently. `compact` (default false, so every
+// existing caller is unaffected) swaps in the one-row DateCardOneLine for
+// contexts with many rows at once (e.g. the admin dashboard's "On leave
+// now"/"On leave next" lists) — same arrow/day-count/status layout either way.
 export function LeaveDateRange({
   dateFrom, dateTo, status, statusLabel,
-  publicHolidayFrom, publicHolidayTo, flaggedFrom, flaggedTo,
+  publicHolidayFrom, publicHolidayTo, flaggedFrom, flaggedTo, compact = false,
 }) {
   const dayCount = datesInRange(dateFrom, dateTo).length
+  const Card = compact ? DateCardOneLine : DateCard
   return (
     <div className="flex items-center gap-2.5">
-      <DateCard date={dateFrom} publicHoliday={publicHolidayFrom} flagged={flaggedFrom} />
+      <Card date={dateFrom} publicHoliday={publicHolidayFrom} flagged={flaggedFrom} />
       <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
-      <DateCard date={dateTo} publicHoliday={publicHolidayTo} flagged={flaggedTo} />
+      <Card date={dateTo} publicHoliday={publicHolidayTo} flagged={flaggedTo} />
       <div className="ml-1 min-w-0">
         <p className="text-sm text-ink">{dayCount} day{dayCount === 1 ? '' : 's'}</p>
         {status && (

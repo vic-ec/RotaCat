@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react'
+import { ChevronDown, RefreshCw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
-import { monthsForYear } from '../lib/leaveYearGrid'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
 import PageHeader from '../components/PageHeader'
+import DateStepper from '../components/DateStepper'
 import Tag from '../components/Tag'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -40,7 +40,6 @@ export default function RosterSummaryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('year')) || new Date().getFullYear()
   const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
-  const monthLabel = monthsForYear(year)[month - 1].label
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -78,10 +77,6 @@ export default function RosterSummaryPage() {
       return next
     }, { replace: true })
   }
-  function goPrevMonth() { month === 1 ? setYearMonth(year - 1, 12) : setYearMonth(year, month - 1) }
-  function goNextMonth() { month === 12 ? setYearMonth(year + 1, 1) : setYearMonth(year, month + 1) }
-  function goToday() { const now = new Date(); setYearMonth(now.getFullYear(), now.getMonth() + 1) }
-
   function toggleCategory(category) {
     setSelectedCategories(prev => {
       const next = new Set(prev)
@@ -99,11 +94,7 @@ export default function RosterSummaryPage() {
       <PageHeader title="Roster Summary" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={goPrevMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous month"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="font-display text-base font-semibold text-ink">{monthLabel} {year}</span>
-          <button type="button" onClick={goNextMonth} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next month"><ChevronRight className="h-4 w-4" /></button>
-          <button type="button" onClick={goToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+        <DateStepper unit="month" year={year} month={month} onChange={setYearMonth}>
           {/* No live subscription to roster_entries — see RosterSummaryPage's
               own note on this. This is the manual escape hatch: re-pull this
               month's numbers without navigating away and back. */}
@@ -117,7 +108,7 @@ export default function RosterSummaryPage() {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
-        </div>
+        </DateStepper>
 
         {/* Contracted/Locum emphasis toggle — a display preference, not a filter (see hoursMode). */}
         <div className="flex rounded-lg border border-slate-line bg-canvas-raised overflow-hidden">

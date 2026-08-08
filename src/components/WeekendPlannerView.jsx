@@ -11,6 +11,7 @@ import {
 } from '../lib/weekendPlanner'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
+import DateStepper from './DateStepper'
 import InlineRuleHint from './InlineRuleHint'
 import Toolbar from './Toolbar'
 
@@ -669,17 +670,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const canGoNextMonth = lastFetchedSaturday
     && !(viewYear === Number(lastFetchedSaturday.slice(0, 4)) && viewMonth === Number(lastFetchedSaturday.slice(5, 7)))
 
-  function goPrevMonth() {
-    if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12) }
-    else setViewMonth(m => m - 1)
-  }
-  function goNextMonth() {
-    if (viewMonth === 12) { setViewYear(y => y + 1); setViewMonth(1) }
-    else setViewMonth(m => m + 1)
-  }
-  function goToday() {
-    setViewYear(Number(today.slice(0, 4)))
-    setViewMonth(Number(today.slice(5, 7)))
+  function goToMonth(newYear, newMonth) {
+    setViewYear(newYear)
+    setViewMonth(newMonth)
   }
 
   // Only Saturdays actually in the fetched window are shown — this
@@ -956,10 +949,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           ← Year view
         </button>
       )}
-      <button type="button" onClick={goPrevMonth} disabled={!canGoPrevMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Previous month">←</button>
-      <span className="font-display text-base font-semibold text-ink">{MONTH_LABELS[viewMonth - 1]} {viewYear}</span>
-      <button type="button" onClick={goNextMonth} disabled={!canGoNextMonth} className="btn-secondary px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40" aria-label="Next month">→</button>
-      <button type="button" onClick={goToday} className="btn-secondary px-2 py-1 text-xs">Today</button>
+      <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} canGoPrev={canGoPrevMonth} canGoNext={canGoNextMonth} />
     </div>
   )
 

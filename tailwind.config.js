@@ -83,7 +83,10 @@ export default {
         // Reserved STRICTLY for roster-state semantics — never general UI
         flagRed: {
           DEFAULT: '#C0362C',
-          bg: '#FBEAE8'
+          bg: '#FBEAE8',
+          // One step more saturated than `bg` — same role as accent.light/
+          // rose.light, for the shift DateCard's two-panel split.
+          deep: '#F1DBD9'
         },
         flagAmber: {
           DEFAULT: '#B7791F',
@@ -114,7 +117,12 @@ export default {
         // (9.37:1) — see the contrast check run for this component.
         dateWeekend: {
           tint: '#F3F4F6',
-          ink: '#374151'
+          ink: '#374151',
+          // One step more saturated than `tint`, for the shift DateCard's
+          // two-panel split (top: date, bottom: time) — same neutral-gray
+          // family, just deeper, so the two panels read as distinct
+          // without a divider line. Matches Tailwind's own gray-200.
+          deep: '#E5E7EB'
         },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state

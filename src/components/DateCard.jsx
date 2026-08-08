@@ -11,15 +11,17 @@ import Tag from './Tag'
 // failed on its own tint (~3.1-4.4:1) and needed the one-shade-darker
 // variant to clear 4.5:1, so the label/icon colors below are deliberately
 // the `dark` shades, not the plain brand colors used elsewhere.
-// `divider` (shift cards only, between the month row and the time row)
-// reuses each tone's own already-contrast-verified `label` color at low
-// opacity, rather than one generic grey — a faint line that still reads
-// as "this tone's own divider" instead of a neutral rule dropped on top.
+// `bgDeep` (shift cards only, the bottom "time" panel) is one step more
+// saturated than `bg`, within the same tone family — reuses accent.light/
+// rose.light where those already exist; dateWeekend/flagRed each needed a
+// new `deep` token added to tailwind.config.js since neither had an
+// intermediate shade. This is what lets the two panels read as visually
+// distinct without a divider line between them.
 const TONE = {
-  weekday: { bg: 'bg-accent-tint', label: 'text-accent-dark', divider: 'bg-accent-dark/20' },
-  weekend: { bg: 'bg-dateWeekend-tint', label: 'text-dateWeekend-ink', divider: 'bg-dateWeekend-ink/20' },
-  publicHoliday: { bg: 'bg-rose-tint', label: 'text-rose-dark', divider: 'bg-rose-dark/20' },
-  flagged: { bg: 'bg-flagRed-bg', label: 'text-flagRed', divider: 'bg-flagRed/20' },
+  weekday: { bg: 'bg-accent-tint', bgDeep: 'bg-accent-light', label: 'text-accent-dark' },
+  weekend: { bg: 'bg-dateWeekend-tint', bgDeep: 'bg-dateWeekend-deep', label: 'text-dateWeekend-ink' },
+  publicHoliday: { bg: 'bg-rose-tint', bgDeep: 'bg-rose-light', label: 'text-rose-dark' },
+  flagged: { bg: 'bg-flagRed-bg', bgDeep: 'bg-flagRed-deep', label: 'text-flagRed' },
 }
 
 function hourOnly(time) {
@@ -53,6 +55,33 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
   const hasTime = Boolean(startTime && endTime)
   const holidayName = typeof publicHoliday === 'string' ? publicHoliday : 'Public holiday'
 
+  // Shift cards (hasTime): two flush panels, no divider — date+month on
+  // top (tone.bg), time on its own panel below (tone.bgDeep). Leave cards
+  // (LeaveDateRange, never passes startTime/endTime) keep the original
+  // single-panel three-row layout below untouched.
+  if (hasTime) {
+    return (
+      <div className={`flex w-16 flex-shrink-0 flex-col overflow-hidden rounded-lg md:w-20 ${className}`}>
+        <div className={`flex flex-col items-center gap-0.5 py-2 ${tone.bg}`}>
+          <span className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone.label}`}>
+            {publicHoliday && <Calendar className="h-3 w-3 flex-shrink-0" title={holidayName} />}
+            {dayAbbr}
+          </span>
+          <span className="flex items-baseline gap-0.5">
+            <span className="font-display text-2xl font-bold leading-none text-ink">{dateNum}</span>
+            <span className="font-display text-sm font-bold leading-none text-ink">{monthAbbr}</span>
+          </span>
+        </div>
+        <div className={`flex items-center justify-center py-1.5 ${tone.bgDeep}`}>
+          <span className="text-[11px] font-semibold text-ink-light">
+            <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
+            <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`flex w-16 flex-shrink-0 flex-col items-center gap-0.5 rounded-lg py-2 md:w-20 ${tone.bg} ${className}`}>
       <span className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone.label}`}>
@@ -61,15 +90,6 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
       </span>
       <span className="font-display text-2xl font-bold leading-none text-ink">{dateNum}</span>
       <span className={`text-[10px] font-semibold uppercase tracking-wide ${tone.label}`}>{monthAbbr}</span>
-      {hasTime && (
-        <>
-          <div className={`h-px w-8 ${tone.divider}`} />
-          <span className="text-[11px] font-semibold text-ink-light">
-            <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
-            <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
-          </span>
-        </>
-      )}
     </div>
   )
 }

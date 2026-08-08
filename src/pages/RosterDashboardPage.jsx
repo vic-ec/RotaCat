@@ -71,6 +71,10 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function formatDateTime(value) {
+  return new Date(value).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function daysRemaining(deletedAt) {
   const elapsed = (Date.now() - new Date(deletedAt).getTime()) / 86400000
   return Math.max(0, Math.ceil(30 - elapsed))
@@ -94,6 +98,14 @@ export default function RosterDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionError, setActionError] = useState('')
+  // roster_month_id -> most recent roster_entry_changes.changed_at, for
+  // published rosters only — powers the Published/Updated meta line below
+  // (see loadRosters). Never populated for non-admins if RLS restricts
+  // read access to the audit log the same way it already restricts the
+  // Review log modal in RosterGridPage.jsx — those rosters just always
+  // read as "Published [date]" for that viewer, which degrades gracefully
+  // rather than erroring.
+  const [lastEditByRosterId, setLastEditByRosterId] = useState({})
 
   const [tab, setTab] = useState('active')
   const [draftSel, setDraftSel] = useState(new Set())
@@ -141,8 +153,29 @@ export default function RosterDashboardPage() {
 
     if (error) {
       setError(error.message)
+      setLoading(false)
+      return
+    }
+    setRosters(data)
+
+    // Published rosters only — a draft has no "was this edited after
+    // going live" question to answer, and archived/bin keep their own
+    // existing meta text untouched.
+    const publishedIds = data.filter(r => r.status === 'published' && !r.deleted_at).map(r => r.id)
+    if (publishedIds.length === 0) {
+      setLastEditByRosterId({})
     } else {
-      setRosters(data)
+      const { data: changes } = await supabase
+        .from('roster_entry_changes')
+        .select('roster_month_id, changed_at')
+        .in('roster_month_id', publishedIds)
+      const lastEdit = {}
+      for (const c of changes || []) {
+        if (!lastEdit[c.roster_month_id] || c.changed_at > lastEdit[c.roster_month_id]) {
+          lastEdit[c.roster_month_id] = c.changed_at
+        }
+      }
+      setLastEditByRosterId(lastEdit)
     }
     setLoading(false)
   }
@@ -208,6 +241,16 @@ export default function RosterDashboardPage() {
   const applyActiveSort = list => activeSortDir === 'asc' ? [...list].reverse() : list
   const filteredDrafts = applyActiveSort(drafts.filter(matchesActiveFilters))
   const filteredPublished = applyActiveSort(published.filter(matchesActiveFilters))
+
+  // "Published [date]" by default; if roster_entry_changes shows an edit
+  // after publish, that supersedes it with "Updated [date and time]" of
+  // the most recent one instead — a published roster with no edits since
+  // going live has nothing to say beyond when it was published.
+  function publishedMetaFn(r) {
+    const lastEdit = lastEditByRosterId[r.id]
+    if (lastEdit && lastEdit > r.published_at) return `Updated ${formatDateTime(lastEdit)}`
+    return `Published ${formatDate(r.published_at || r.updated_at)}`
+  }
 
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
   const filteredArchived0 = archived.filter(r => {
@@ -304,7 +347,7 @@ export default function RosterDashboardPage() {
               selected={pubSel}
               setSelected={setPubSel}
               navigate={navigate}
-              metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
+              metaFn={publishedMetaFn}
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
               view={rosterView}
@@ -407,8 +450,14 @@ function RosterToolbar({
   }
 
   return (
-    <div className="mb-4 flex items-center gap-2 overflow-x-auto">
-      <div className="w-80 flex-shrink-0">
+    // flex-wrap (not overflow-x-auto/no-wrap) so a too-narrow row reflows
+    // instead of forcing horizontal scroll: search+Sort+Filter(+Clear all)
+    // are small enough to reliably fit one line even on a narrow phone once
+    // search itself can shrink, so in practice only ViewToggle — last in
+    // DOM order — ever drops to its own row underneath, landing left-
+    // aligned under the search box as a natural consequence of wrapping.
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="min-w-[120px] max-w-[320px] flex-1">
         <ClearableInput
           type="text"
           value={search}

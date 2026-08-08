@@ -92,27 +92,50 @@ function LeaveRequestDetailPanel({
     <Modal
       title="Leave request"
       onClose={onClose}
+      // Approve/Reject render as the same full-width, side-by-side pair
+      // used at the bottom of the pending-registration review page
+      // (PendingApprovalReviewPage.jsx) — Approve (solid success, left),
+      // Reject (outlined danger, right), both sharing the row evenly —
+      // plus a plain Cancel underneath that just closes the panel with no
+      // action, for anyone who'd rather not use the corner ×. The
+      // rejecting sub-state keeps its own Cancel (backs out of just the
+      // reject flow, not the whole panel) next to Confirm reject.
       footer={rejecting ? (
-        <>
-          <button type="button" onClick={onRejectCancel} className="btn-secondary">Cancel</button>
+        <div className="flex w-full items-center gap-3">
+          <button type="button" onClick={onRejectCancel} className="flex-1 btn-secondary">Cancel</button>
           <button
             type="button"
             onClick={onRejectConfirm}
             disabled={isActioning || !rejectNotes.trim()}
-            className="btn-danger-outline"
+            className="flex-1 btn-danger-outline"
           >
             {isActioning ? 'Rejecting…' : 'Confirm reject'}
           </button>
-        </>
+        </div>
       ) : (
-        <>
-          <button type="button" onClick={onRejectStart} disabled={isActioning} className="btn-danger-outline">
-            Reject
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onApprove}
+              disabled={isActioning || warningsLoading}
+              className="flex-1 rounded bg-success px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {approveLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onRejectStart}
+              disabled={isActioning}
+              className="flex-1 rounded border border-flagRed px-4 py-2 text-sm font-semibold text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reject
+            </button>
+          </div>
+          <button type="button" onClick={onClose} className="btn-secondary w-full">
+            Cancel
           </button>
-          <button type="button" onClick={onApprove} disabled={isActioning || warningsLoading} className="btn-primary">
-            {approveLabel}
-          </button>
-        </>
+        </div>
       )}
     >
       <div className="space-y-4">

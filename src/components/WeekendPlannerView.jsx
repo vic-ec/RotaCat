@@ -181,7 +181,7 @@ function CategoryGroupRow({
       )}
 
       {isAdmin && (
-        <div className="mt-1.5 flex justify-end">
+        <div className="mt-1.5">
           {openPicker === pickerKey ? (
             <select
               autoFocus
@@ -204,7 +204,7 @@ function CategoryGroupRow({
               type="button"
               onClick={() => setOpenPicker(pickerKey)}
               disabled={saving || availableDoctors.length === 0}
-              className={`rounded border border-dashed border-slate-line px-2 py-1 text-xs ${textClass} hover:bg-canvas-sunken disabled:opacity-40`}
+              className="btn-primary w-full text-sm"
             >
               Add doctor
             </button>
@@ -228,7 +228,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
       <span className="text-sm text-ink-muted">{group.label}</span>
       <div className="flex items-center gap-2">
         {filled ? (
-          <span className="text-sm text-ink">
+          <span className="text-right text-sm text-ink">
             {groupEntries.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}
           </span>
         ) : (
@@ -262,12 +262,9 @@ function WeekendInspector({
 
   return (
     <div data-testid="weekend-inspector">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected weekend</p>
-          <p className="mt-0.5 text-base font-semibold text-ink">{formatWeekendRange(saturday)}</p>
-        </div>
-        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
+      <div>
+        <p className="whitespace-nowrap text-base font-semibold text-ink">{formatWeekendRange(saturday)}</p>
+        <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-line pt-3">
@@ -277,7 +274,7 @@ function WeekendInspector({
         }`}>
           {needsPlanning ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
           {needsPlanning
-            ? `${coverage.openGroups.length} ${coverage.openGroups.length === 1 ? 'gap' : 'gaps'}`
+            ? `${coverage.openGroups.length} role${coverage.openGroups.length === 1 ? '' : 's'} open`
             : `${coverage.filledGroups} of ${coverage.totalGroups} groups planned`}
         </span>
       </div>

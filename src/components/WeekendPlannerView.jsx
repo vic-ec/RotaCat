@@ -767,7 +767,8 @@ function WeekendOverflowMenu({
 // always defaulting to today — set when WeekendPlanner.jsx opens this from
 // its year overview at a specific month, possibly outside today's rolling
 // WEEKS_AHEAD window (a past/future year an admin navigated to). onBackToYear,
-// when present, renders a "← Year view" link back to that overview — absent
+// when present, renders a "← Overview" link back to that overview (matching
+// MonthWorkspace.jsx's own back-link wording) — absent
 // when this is reached directly (the standalone /weekend route, or a caller
 // with no year overview of its own).
 export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear } = {}) {
@@ -1282,7 +1283,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       <div className="flex flex-wrap items-center gap-2">
         {onBackToYear && (
           <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-            ← Year view
+            ← Overview
           </button>
         )}
         <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} canGoPrev={canGoPrevMonth} canGoNext={canGoNextMonth}>

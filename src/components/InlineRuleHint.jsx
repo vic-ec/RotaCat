@@ -25,7 +25,12 @@ const DEFAULT_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_
 // round accent-tint button (same treatment as MonthWorkspace's "Legend"
 // chip) so a caller can drop it directly into an existing row (e.g. right
 // next to that Legend chip) instead of it claiming a line of its own.
-export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFAULT_RULES_URL, compact = false, iconOnly = false }) {
+// `icon`: overrides the default "?" trigger icon (CircleQuestionMark) —
+// most iconOnly callers want that default, but a caller styling this as
+// part of its own icon row (e.g. WeekendPlannerView's month-view toolbar,
+// which uses a plain <Info/> to sit alongside its own other neutral
+// toolbar icons) can swap it in without a second copy of this component.
+export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFAULT_RULES_URL, compact = false, iconOnly = false, icon }) {
   const [showModal, setShowModal] = useState(false)
 
   if (iconOnly) {
@@ -37,7 +42,7 @@ export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFA
           aria-label="How it works"
           className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent"
         >
-          <CircleQuestionMark className="h-4 w-4" />
+          {icon ?? <CircleQuestionMark className="h-4 w-4" />}
         </button>
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={() => setShowModal(false)}>

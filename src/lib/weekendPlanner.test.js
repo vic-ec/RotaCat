@@ -228,12 +228,27 @@ describe('computeWeekendPlannerDrift', () => {
   })
 })
 
+// A date exactly `weeks` weeks from `dateStr` — an EVEN weeks shift always
+// preserves isEvenWeekend parity (each week shifts the underlying
+// days-since-epoch/7 count by exactly 1), which several tests below use to
+// build a single source weekend guaranteed to share its target's parity
+// without hand-computing/hardcoding which real dates are odd vs even.
+function shiftWeeks(dateStr, weeks) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() + weeks * 7)
+  return d.toISOString().slice(0, 10)
+}
+
 describe('planWeekendPaste', () => {
   const targetSaturdays = ['2026-05-02', '2026-05-09', '2026-05-16', '2026-05-23']
+  // Same parity as targetSaturdays[0] (2 weeks earlier) — the single-source
+  // tests below all use this so a source weekend lands on targetSaturdays[0]
+  // exactly like before parity-based matching existed.
+  const sourceSaturday = shiftWeeks(targetSaturdays[0], -2)
 
   it('fill-empty mode: inserts every copied entry into an empty target weekend', () => {
     const sourceWeekends = [
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }],
+      { saturday: sourceSaturday, entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }] },
     ]
     const plan = planWeekendPaste({
       sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
@@ -250,7 +265,7 @@ describe('planWeekendPaste', () => {
 
   it('fill-empty mode: skips a group that already has someone assigned in the target, leaving other groups untouched', () => {
     const sourceWeekends = [
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }],
+      { saturday: sourceSaturday, entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }, { groupKey: 'Registrar', profileId: 'p2', category: 'Registrar' }] },
     ]
     const existingByWeekend = new Map([
       ['2026-05-02', { MO: [{ id: 'e9', profile_id: 'p9', category: 'MO' }] }],
@@ -268,7 +283,7 @@ describe('planWeekendPaste', () => {
 
   it('overwrite mode: deletes every existing entry on the target weekend and inserts the full copied set', () => {
     const sourceWeekends = [
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
+      { saturday: sourceSaturday, entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] },
     ]
     const existing = { id: 'e9', weekend_saturday: '2026-05-02', profile_id: 'p9', category: 'Registrar' }
     const existingByWeekend = new Map([['2026-05-02', { Registrar: [existing] }]])
@@ -281,7 +296,7 @@ describe('planWeekendPaste', () => {
   })
 
   it('overwrite mode: a copied profile can land even where they were previously assigned to a different group (that entry is being deleted anyway)', () => {
-    const sourceWeekends = [[{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }]]
+    const sourceWeekends = [{ saturday: sourceSaturday, entries: [{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }] }]
     const existingByWeekend = new Map([
       ['2026-05-02', { MO: [{ id: 'e1', weekend_saturday: '2026-05-02', profile_id: 'p1', category: 'MO' }] }],
     ])
@@ -294,7 +309,7 @@ describe('planWeekendPaste', () => {
   })
 
   it('skips a copied doctor who is no longer active', () => {
-    const sourceWeekends = [[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]]
+    const sourceWeekends = [{ saturday: sourceSaturday, entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] }]
     const plan = planWeekendPaste({
       sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
       activeDoctorIds: new Set(), mode: 'fill-empty',
@@ -304,7 +319,7 @@ describe('planWeekendPaste', () => {
   })
 
   it('skips a copied doctor already assigned to a different group on the target weekend', () => {
-    const sourceWeekends = [[{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }]]
+    const sourceWeekends = [{ saturday: sourceSaturday, entries: [{ groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' }] }]
     const existingByWeekend = new Map([
       ['2026-05-02', { MO: [{ id: 'e1', profile_id: 'p1', category: 'MO' }] }],
     ])
@@ -316,23 +331,63 @@ describe('planWeekendPaste', () => {
     expect(plan.skipped).toEqual([{ reason: 'already-assigned', weekendIndex: 0, groupKey: 'Registrar', profileId: 'p1' }])
   })
 
-  it('maps by position, not literal date — sourceWeekends[i] always lands on targetSaturdays[i]', () => {
-    const sourceWeekends = [
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
-      [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }],
-    ]
-    const plan = planWeekendPaste({
-      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
-      activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
+  it('matches by real calendar parity, not raw position — a 5-Saturday source month copied onto a 4-Saturday target keeps each group on the correct doctors', () => {
+    // Mirrors the actual reported bug: August 2026 has 5 Saturdays (1, 8,
+    // 15, 22, 29), September 2026 has 4 (5, 12, 19, 26) — the extra
+    // Saturday shifts which index is odd/even between the two months, so
+    // naive position-mapping (source[i] -> target[i]) put the wrong group
+    // on every single September weekend.
+    const augSaturdays = ['2026-08-01', '2026-08-08', '2026-08-15', '2026-08-22', '2026-08-29']
+    const sepSaturdays = ['2026-09-05', '2026-09-12', '2026-09-19', '2026-09-26']
+    const augFirstIsEven = isEvenWeekend(augSaturdays[0])
+
+    // Group A works every Saturday of augSaturdays[0]'s own parity (3 of
+    // the 5); Group B works the other parity (the remaining 2) — whichever
+    // those actually are, isEvenWeekend decides, not this test.
+    const sourceWeekends = augSaturdays.map(saturday => {
+      const isGroupA = isEvenWeekend(saturday) === augFirstIsEven
+      return { saturday, entries: [{ groupKey: isGroupA ? 'MO' : 'Registrar', profileId: isGroupA ? 'groupA' : 'groupB', category: isGroupA ? 'MO' : 'Registrar' }] }
     })
-    expect(plan.toInsert.map(e => e.weekendSaturday)).toEqual(['2026-05-02', '2026-05-09'])
+
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays: sepSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['groupA', 'groupB']), mode: 'fill-empty',
+    })
+
+    // Every inserted entry lands on a September Saturday of the SAME
+    // parity as the doctor's own group actually worked in August.
+    expect(plan.toInsert.length).toBeGreaterThan(0)
+    for (const insert of plan.toInsert) {
+      const shouldBeEven = insert.profileId === 'groupA' ? augFirstIsEven : !augFirstIsEven
+      expect(isEvenWeekend(insert.weekendSaturday)).toBe(shouldBeEven)
+    }
+    // 5 source weekends, 4 targets — one parity's extra weekend has nowhere
+    // to land.
+    expect(plan.unmatchedSourceCount).toBe(1)
   })
 
-  it("drops source weekends beyond the target month's length, without erroring", () => {
-    const sourceWeekends = [
-      [], [], [], [],
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }], // 5th weekend, no matching target
-    ]
+  it('a single copied weekend (weekend granularity) pastes onto the specific chosen target regardless of parity', () => {
+    // Adjacent Saturdays are always opposite parity — copying one specific
+    // weekend and pasting it one week over is an extremely common case,
+    // and must still work: there's no ambiguity to resolve for a single
+    // source weekend, so parity bucketing doesn't apply to it at all.
+    const source = '2026-08-01'
+    const target = '2026-08-08' // guaranteed opposite parity from source
+    expect(isEvenWeekend(source)).not.toBe(isEvenWeekend(target))
+
+    const plan = planWeekendPaste({
+      sourceWeekends: [{ saturday: source, entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] }],
+      targetSaturdays: [target], existingByWeekend: new Map(), activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.toInsert).toEqual([{ weekendSaturday: target, groupKey: 'MO', profileId: 'p1', category: 'MO' }])
+    expect(plan.unmatchedSourceCount).toBe(0)
+  })
+
+  it("drops source weekends beyond the target's same-parity length, without erroring", () => {
+    const sourceWeekends = [0, 1, 2, 3, 4].map(i => ({
+      saturday: shiftWeeks(sourceSaturday, i),
+      entries: i === 4 ? [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] : [], // 5th weekend, no matching same-parity target
+    }))
     const plan = planWeekendPaste({
       sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
       activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
@@ -342,10 +397,13 @@ describe('planWeekendPaste', () => {
   })
 
   it('within one target weekend, a profile copied into two groups only lands in the first (defensive dedupe)', () => {
-    const sourceWeekends = [[
-      { groupKey: 'MO', profileId: 'p1', category: 'MO' },
-      { groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' },
-    ]]
+    const sourceWeekends = [{
+      saturday: sourceSaturday,
+      entries: [
+        { groupKey: 'MO', profileId: 'p1', category: 'MO' },
+        { groupKey: 'Registrar', profileId: 'p1', category: 'Registrar' },
+      ],
+    }]
     const plan = planWeekendPaste({
       sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
       activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
@@ -357,8 +415,9 @@ describe('planWeekendPaste', () => {
 
 describe('planWeekendPasteAcrossMonths', () => {
   it('weekend granularity: a single source weekend maps onto a single target weekend', () => {
-    const sourceMonths = [[[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]]]
-    const targetMonths = [['2026-05-02']]
+    const targetSaturday = '2026-05-02'
+    const sourceMonths = [[{ saturday: shiftWeeks(targetSaturday, -2), entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] }]]
+    const targetMonths = [[targetSaturday]]
     const plan = planWeekendPasteAcrossMonths({
       sourceMonths, targetMonths, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
     })
@@ -367,56 +426,61 @@ describe('planWeekendPasteAcrossMonths', () => {
   })
 
   it('month granularity: behaves exactly like a single call to planWeekendPaste', () => {
+    const targetSaturdays = ['2026-05-02', '2026-05-09']
     const sourceMonths = [[
-      [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
-      [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }],
+      { saturday: shiftWeeks(targetSaturdays[0], -2), entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] },
+      { saturday: shiftWeeks(targetSaturdays[1], -2), entries: [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }] },
     ]]
-    const targetMonths = [['2026-05-02', '2026-05-09']]
+    const targetMonths = [targetSaturdays]
     const plan = planWeekendPasteAcrossMonths({
       sourceMonths, targetMonths, existingByWeekend: new Map(), activeDoctorIds: new Set(['p1', 'p2']), mode: 'fill-empty',
     })
-    expect(plan.toInsert.map(e => e.weekendSaturday)).toEqual(['2026-05-02', '2026-05-09'])
+    expect(plan.toInsert.map(e => e.weekendSaturday).sort()).toEqual([...targetSaturdays].sort())
   })
 
-  it('quarter granularity: each month is position-mapped against the SAME-INDEX target month only, never flattened across the quarter', () => {
+  it('quarter granularity: each month is matched against the SAME-INDEX target month only, never flattened across the quarter', () => {
     // Month 1 (Jan) has 2 weekends, month 2 (Feb) has 1 — a flattened
     // cross-month index would slide Feb's paste into March's target slot;
     // per-month mapping keeps Feb -> Feb regardless.
-    const sourceMonths = [
-      [
-        [{ groupKey: 'MO', profileId: 'jan1', category: 'MO' }],
-        [{ groupKey: 'MO', profileId: 'jan2', category: 'MO' }],
-      ],
-      [
-        [{ groupKey: 'MO', profileId: 'feb1', category: 'MO' }],
-      ],
-      [
-        [{ groupKey: 'MO', profileId: 'mar1', category: 'MO' }],
-      ],
-    ]
     const targetMonths = [
       ['2026-04-04', '2026-04-11'], // April (month 1 of target quarter)
       ['2026-05-02'], // May (month 2)
       ['2026-06-06'], // June (month 3)
     ]
+    const sourceMonths = [
+      [
+        { saturday: shiftWeeks(targetMonths[0][0], -2), entries: [{ groupKey: 'MO', profileId: 'jan1', category: 'MO' }] },
+        { saturday: shiftWeeks(targetMonths[0][1], -2), entries: [{ groupKey: 'MO', profileId: 'jan2', category: 'MO' }] },
+      ],
+      [
+        { saturday: shiftWeeks(targetMonths[1][0], -2), entries: [{ groupKey: 'MO', profileId: 'feb1', category: 'MO' }] },
+      ],
+      [
+        { saturday: shiftWeeks(targetMonths[2][0], -2), entries: [{ groupKey: 'MO', profileId: 'mar1', category: 'MO' }] },
+      ],
+    ]
     const plan = planWeekendPasteAcrossMonths({
       sourceMonths, targetMonths, existingByWeekend: new Map(),
       activeDoctorIds: new Set(['jan1', 'jan2', 'feb1', 'mar1']), mode: 'fill-empty',
     })
-    expect(plan.toInsert).toEqual([
+    expect(plan.toInsert).toEqual(expect.arrayContaining([
       { weekendSaturday: '2026-04-04', groupKey: 'MO', profileId: 'jan1', category: 'MO' },
       { weekendSaturday: '2026-04-11', groupKey: 'MO', profileId: 'jan2', category: 'MO' },
       { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'feb1', category: 'MO' },
       { weekendSaturday: '2026-06-06', groupKey: 'MO', profileId: 'mar1', category: 'MO' },
-    ])
+    ]))
+    expect(plan.toInsert).toHaveLength(4)
   })
 
   it('counts a whole dropped source month (quarter longer than the target) toward unmatchedSourceCount', () => {
-    const sourceMonths = [
-      [[{ groupKey: 'MO', profileId: 'p1', category: 'MO' }]],
-      [[{ groupKey: 'MO', profileId: 'p2', category: 'MO' }], [{ groupKey: 'MO', profileId: 'p3', category: 'MO' }]],
-    ]
     const targetMonths = [['2026-04-04']] // only one target month available
+    const sourceMonths = [
+      [{ saturday: shiftWeeks(targetMonths[0][0], -2), entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }] }],
+      [
+        { saturday: '2026-01-03', entries: [{ groupKey: 'MO', profileId: 'p2', category: 'MO' }] },
+        { saturday: '2026-01-10', entries: [{ groupKey: 'MO', profileId: 'p3', category: 'MO' }] },
+      ],
+    ]
     const plan = planWeekendPasteAcrossMonths({
       sourceMonths, targetMonths, existingByWeekend: new Map(),
       activeDoctorIds: new Set(['p1', 'p2', 'p3']), mode: 'fill-empty',
@@ -606,3 +670,4 @@ describe('resolveWeekendCategoryForDoctor', () => {
       .toEqual({ category: 'Consultant', groupKey: null, resolved: true })
   })
 })
+

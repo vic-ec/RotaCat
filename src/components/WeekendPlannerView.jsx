@@ -14,6 +14,7 @@ import {
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
 } from '../lib/weekendPlanner'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import DateStepper from './DateStepper'
@@ -22,6 +23,25 @@ import Toolbar from './Toolbar'
 import Tag from './Tag'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
+const MONTHS_PADDING = 3 // either side of a freshly-navigated-to month — see boundsAroundMonth below
+
+// (year, month) shifted by `delta` months, handling year rollover for any
+// delta (not just ±1 — unlike DateStepper's own stepMonth, this needs to
+// jump straight to a month several steps away for boundsAroundMonth below).
+function shiftMonth(year, month, delta) {
+  const d = new Date(year, month - 1 + delta, 1)
+  return [d.getFullYear(), d.getMonth() + 1]
+}
+
+// A fresh (not ever-growing) fetch window centred on (year, month), used
+// whenever navigation lands somewhere outside what's currently loaded — see
+// goToMonth's own comment for why this is recomputed from scratch each time
+// rather than merged with whatever was already loaded.
+function boundsAroundMonth(year, month) {
+  const [fromYear, fromMonth] = shiftMonth(year, month, -MONTHS_PADDING)
+  const [throughYear, throughMonth] = shiftMonth(year, month, MONTHS_PADDING)
+  return { from: monthBounds(fromYear, fromMonth).start, through: monthBounds(throughYear, throughMonth).end }
+}
 // My weekends is both the default landing filter and leftmost chip for a
 // non-admin viewer. Needs planning is admin-only (nothing a non-admin
 // viewer can act on) and sits at the far right, appended only for admins
@@ -140,7 +160,7 @@ function chunkInPairs(items) {
 // the desktop inspector's edit mode so the edit logic exists in exactly one
 // place.
 function CategoryGroupRow({
-  group, groupEntries, doctorById, availableDoctors, isAdmin, saving, textClass,
+  group, groupEntries, doctorById, displayNames, availableDoctors, isAdmin, saving, textClass,
   saturday, pickerKey, openPicker, setOpenPicker, addEntry, removeEntry,
 }) {
   const rows = chunkInPairs(groupEntries)
@@ -157,16 +177,17 @@ function CategoryGroupRow({
             <div key={i} className="flex items-center gap-3">
               {row.map(entry => {
                 const doctor = doctorById.get(entry.profile_id)
+                const label = doctor ? (displayNames.get(doctor.id) ?? doctor.surname) : '(unknown)'
                 return (
                   <span key={entry.id} className={`flex items-center gap-1 text-sm ${textClass}`}>
-                    {doctor ? doctor.surname : '(unknown)'}
+                    {label}
                     {isAdmin && (
                       <button
                         type="button"
                         onClick={() => removeEntry(entry.id)}
                         disabled={saving}
                         className={`${textClass} hover:text-flagRed`}
-                        aria-label={`Remove ${doctor?.surname ?? 'doctor'} from ${saturday}`}
+                        aria-label={`Remove ${label} from ${saturday}`}
                       >
                         <XIcon className="h-3 w-3" />
                       </button>
@@ -220,7 +241,7 @@ function CategoryGroupRow({
 // action instead of always-visible +/x controls, per a desktop UX review
 // ("quick actions only on hover/select, not always-visible plus icons
 // everywhere").
-function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
+function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames }) {
   const filled = groupEntries.length > 0
   return (
     <div className="flex items-center justify-between gap-3 py-2">
@@ -228,7 +249,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
       <div className="flex items-center gap-2">
         {filled ? (
           <span className="text-right text-sm text-ink">
-            {groupEntries.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}
+            {groupEntries.map(e => displayNames.get(e.profile_id) ?? doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}
           </span>
         ) : (
           <span className="rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
@@ -248,7 +269,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, doctors, doctorById, isAdmin, saving, myRequest, canViewRequests,
+  saturday, weekendIndex, bySaturday, doctors, doctorById, displayNames, isAdmin, saving, myRequest, canViewRequests,
   assignedIds, openPicker, setOpenPicker, addEntry, removeEntry, onClearWeekend,
   onCopyWeekend, onPasteWeekend, hasWeekendClipboard, rotationsByDoctorId,
 }) {
@@ -289,7 +310,7 @@ function WeekendInspector({
           <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">Assignments</p>
           <div className="mt-1 divide-y divide-slate-line">
             {CATEGORY_GROUPS.map(group => (
-              <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} />
+              <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
             ))}
           </div>
 
@@ -364,6 +385,7 @@ function WeekendInspector({
                   group={group}
                   groupEntries={groupEntries}
                   doctorById={doctorById}
+                  displayNames={displayNames}
                   availableDoctors={availableDoctors}
                   isAdmin={isAdmin}
                   saving={saving}
@@ -398,7 +420,7 @@ function WeekendInspector({
 // fast glance — status + assignments only, reusing WeekendInspector's own
 // read-only AssignmentSummaryRow rather than rebuilding that breakdown a
 // second time.
-function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, myRequest, onClose }) {
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, onClose }) {
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
   const badge = weekendBadge(saturday, weekendIndex)
@@ -434,7 +456,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, my
 
         <div className="mt-3 divide-y divide-slate-line">
           {CATEGORY_GROUPS.map(group => (
-            <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} />
+            <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
           ))}
         </div>
       </div>
@@ -607,7 +629,7 @@ function weekendStatusPill(coverage) {
 // doctors (e.g. 3-4 MOs on rotation together), and the "Open" pill alone
 // only ever covered the very first name; without this there was no way to
 // add a second one short of removing everyone and starting over.
-function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker, onOpenRemove }) {
+function MobileRoleRow({ group, groupEntries, doctorById, displayNames, isAdmin, onOpenPicker, onOpenRemove }) {
   return (
     <div className="flex items-center justify-between gap-2 py-2">
       <span className="text-sm text-ink-muted">{group.label}</span>
@@ -627,7 +649,7 @@ function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker,
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
           {groupEntries.map(entry => {
             const doctor = doctorById.get(entry.profile_id)
-            const name = doctor ? doctor.surname : '(unknown)'
+            const name = doctor ? (displayNames.get(doctor.id) ?? doctor.surname) : '(unknown)'
             return isAdmin ? (
               <button
                 key={entry.id}
@@ -828,8 +850,11 @@ function WeekendOverflowMenu({
 // scope cuts from the previous round stand.
 // initialYear/initialMonth seed the starting viewYear/viewMonth instead of
 // always defaulting to today — set when WeekendPlanner.jsx opens this from
-// its year overview at a specific month, possibly outside today's rolling
-// WEEKS_AHEAD window (a past/future year an admin navigated to). onBackToYear,
+// its year overview at a specific month, possibly outside today's default
+// fetch window (a past/future year an admin navigated to); goToMonth widens
+// the fetch on demand so browsing freely from there (in either direction,
+// same as the year overview itself) doesn't run out of loaded months.
+// onBackToYear,
 // when present, renders a "← Overview" link back to that overview (matching
 // MonthWorkspace.jsx's own back-link wording) — absent
 // when this is reached directly (the standalone /weekend route, or a caller
@@ -903,21 +928,28 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
   const filters = isAdmin ? ADMIN_FILTERS : isClerk ? CLERK_FILTERS : FILTERS_BASE
 
-  // The default rolling window (today through WEEKS_AHEAD later), widened
-  // to also cover initialYear/initialMonth's whole month when that's
-  // seeded from further away — otherwise a month the year overview opened
-  // from a past/future year would fetch a range that never includes it.
-  // Computed once from stable inputs (today/initialYear/initialMonth never
-  // change after mount, matching viewYear/viewMonth's own useState
-  // initializers above), reused by both load() and the saturdays memo below
-  // so what's fetched and what's considered "in range" for prev/next-month
-  // bounds always agree.
-  const seededBounds = initialYear && initialMonth ? monthBounds(initialYear, initialMonth) : null
-  const defaultThroughDate = addDays(today, WEEKS_AHEAD * 7)
-  const fetchFromDate = seededBounds && seededBounds.start < today ? seededBounds.start : today
-  const fetchThroughDate = seededBounds && seededBounds.end > defaultThroughDate ? seededBounds.end : defaultThroughDate
+  // What's actually fetched — a window around whichever month is being
+  // viewed, not the whole calendar (year view's own fetch, in
+  // WeekendPlanner.jsx, already covers a full year on its own; duplicating
+  // that here for every month visited would be wasteful). Starts as today
+  // through WEEKS_AHEAD later by default (the common "just landed on
+  // /weekend" case wants a planning runway, not history), widened to also
+  // cover initialYear/initialMonth's whole month when that's seeded from
+  // further away (the year overview's "Open month" action) — otherwise the
+  // very month this opens on could itself be outside what's loaded.
+  // Navigating further than this window, in either direction, re-centres it
+  // on the newly-viewed month instead (goToMonth below) rather than it ever
+  // growing without bound.
+  const [fetchBounds, setFetchBounds] = useState(() => {
+    const seededBounds = initialYear && initialMonth ? monthBounds(initialYear, initialMonth) : null
+    const defaultThroughDate = addDays(today, WEEKS_AHEAD * 7)
+    return {
+      from: seededBounds && seededBounds.start < today ? seededBounds.start : today,
+      through: seededBounds && seededBounds.end > defaultThroughDate ? seededBounds.end : defaultThroughDate,
+    }
+  })
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; nothing it closes over (profile, fetchFromDate/fetchThroughDate) changes within a session
+  useEffect(() => { load() }, [fetchBounds]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; fetchBounds is the only input that should trigger a refetch
 
   async function load() {
     setLoading(true)
@@ -927,10 +959,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       supabase.from('profiles').select('id, name, surname, category, contract_type')
         .eq('is_approved', true).eq('is_active', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
-        .gte('weekend_saturday', fetchFromDate).lte('weekend_saturday', fetchThroughDate),
+        .gte('weekend_saturday', fetchBounds.from).lte('weekend_saturday', fetchBounds.through),
       supabase.from('leave_requests').select('id, date_from, status')
         .eq('profile_id', profile?.id ?? '').eq('leave_type', 'weekend_exception')
-        .gte('date_from', fetchFromDate).lte('date_from', fetchThroughDate),
+        .gte('date_from', fetchBounds.from).lte('date_from', fetchBounds.through),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
@@ -958,22 +990,29 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }
 
   const saturdays = useMemo(
-    () => saturdaysInRange(fetchFromDate, fetchThroughDate),
-    [fetchFromDate, fetchThroughDate]
+    () => saturdaysInRange(fetchBounds.from, fetchBounds.through),
+    [fetchBounds]
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
+  // Surname alone, unless it collides with another rotation-eligible
+  // doctor (any category — MO/Registrar/EC/OT all share one namespace
+  // here), in which case a first initial (or, if that collides too, the
+  // full first name) disambiguates — see buildDoctorDisplayNames.
+  const displayNames = useMemo(() => buildDoctorDisplayNames(doctors), [doctors])
   const activeDoctorIds = useMemo(() => new Set(doctors.map(d => d.id)), [doctors])
   const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
 
-  const firstFetchedSaturday = saturdays[0]
-  const lastFetchedSaturday = saturdays[saturdays.length - 1]
-  const canGoPrevMonth = firstFetchedSaturday
-    && !(viewYear === Number(firstFetchedSaturday.slice(0, 4)) && viewMonth === Number(firstFetchedSaturday.slice(5, 7)))
-  const canGoNextMonth = lastFetchedSaturday
-    && !(viewYear === Number(lastFetchedSaturday.slice(0, 4)) && viewMonth === Number(lastFetchedSaturday.slice(5, 7)))
-
+  // Free browsing in either direction, matching the year overview's own
+  // unbounded prev/next — widens (re-centres, really) fetchBounds the
+  // moment navigation lands on a month outside what's currently loaded, so
+  // there's no artificial edge to hit the way the old fixed rolling window
+  // had one. A month already inside fetchBounds is a no-op state update
+  // (same object reference back), so stepping through already-loaded months
+  // doesn't refetch on every click.
   function goToMonth(newYear, newMonth) {
+    const target = monthBounds(newYear, newMonth)
+    setFetchBounds(prev => (target.start >= prev.from && target.end <= prev.through) ? prev : boundsAroundMonth(newYear, newMonth))
     setViewYear(newYear)
     setViewMonth(newMonth)
   }
@@ -1138,7 +1177,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       profileId, changedBy: profile?.id ?? null, batchId,
     })
     const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
-    pushUndo(batchId, `Added ${doctor.surname} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`)
+    pushUndo(batchId, `Added ${displayNames.get(profileId) ?? doctor.surname} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`)
   }
 
   // Multi-select counterpart to addEntry above, behind WeekendAddDoctorsSheet
@@ -1158,7 +1197,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (!ok) return
     const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
     const label = profileIds.length === 1
-      ? `Added ${doctorById.get(profileIds[0])?.surname ?? 'doctor'} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`
+      ? `Added ${displayNames.get(profileIds[0]) ?? 'doctor'} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`
       : `Added ${profileIds.length} doctors to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`
     pushUndo(batchId, label)
   }
@@ -1176,9 +1215,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         weekendSaturday: removed.weekend_saturday, category: removed.category, action: 'remove',
         profileId: removed.profile_id, changedBy: profile?.id ?? null, batchId,
       })
-      const doctor = doctorById.get(removed.profile_id)
       const group = CATEGORY_GROUPS.find(g => g.key === groupForCategory(removed.category))
-      pushUndo(batchId, `Removed ${doctor?.surname ?? 'doctor'} from ${group?.label ?? removed.category} (${formatWeekendRange(removed.weekend_saturday)})`)
+      pushUndo(batchId, `Removed ${displayNames.get(removed.profile_id) ?? 'doctor'} from ${group?.label ?? removed.category} (${formatWeekendRange(removed.weekend_saturday)})`)
     }
   }
 
@@ -1221,14 +1259,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     return true
   }
 
-  // One weekend's own entries as the {groupKey,profileId,category} shape
-  // the clipboard/planWeekendPasteAcrossMonths use — shared by
+  // One weekend's own { saturday, entries } — entries in the
+  // {groupKey,profileId,category} shape planWeekendPaste uses. The
+  // saturday itself travels with its entries (not just their position in
+  // the copied month) because planWeekendPaste now matches by real
+  // calendar parity, not raw position — see its own comment. Shared by
   // copyWeekend/copyMonth/copyQuarter below.
   function weekendClipboardEntries(saturday) {
     const bySaturday = byWeekend.get(saturday) || {}
-    return Object.entries(bySaturday).flatMap(([groupKey, groupEntries]) =>
+    const entries = Object.entries(bySaturday).flatMap(([groupKey, groupEntries]) =>
       groupEntries.map(e => ({ groupKey, profileId: e.profile_id, category: e.category }))
     )
+    return { saturday, entries }
   }
 
   function copyWeekend(saturday) {
@@ -1238,10 +1280,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     })
   }
 
-  // Indexed by POSITION (months[0][i] = the (i+1)th Saturday of the copied
-  // month) rather than literal date — planWeekendPasteAcrossMonths maps by
-  // that same position, so pasting into a month with a different actual
-  // weekend count still lines up sensibly.
+  // Each weekend keeps its own saturday alongside its entries (see
+  // weekendClipboardEntries) — planWeekendPasteAcrossMonths matches by real
+  // calendar parity rather than position, so pasting into a month with a
+  // different weekend count still lands each group on the correct parity.
   function copyMonth() {
     const weekends = monthSaturdays.map(weekendClipboardEntries)
     setClipboard({ granularity: 'month', sourceLabel: `${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, months: [weekends] })
@@ -1371,7 +1413,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             ← Overview
           </button>
         )}
-        <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} canGoPrev={canGoPrevMonth} canGoNext={canGoNextMonth}>
+        <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth}>
           {extra}
         </DateStepper>
       </div>
@@ -1591,6 +1633,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           group={group}
                           groupEntries={bySaturday[group.key] || []}
                           doctorById={doctorById}
+                          displayNames={displayNames}
                           isAdmin={isAdmin}
                           onOpenPicker={() => setOpenRolePicker({ saturday, groupKey: group.key })}
                           onOpenRemove={entry => setRemoveSheetEntry({ entry, saturday, groupLabel: group.label })}
@@ -1697,7 +1740,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                 ) : (
                                   <div className="space-y-0.5">
                                     {chunkInPairs(groupEntries).map((row, i) => (
-                                      <div key={i} className="text-ink">{row.map(e => doctorById.get(e.profile_id)?.surname ?? '(unknown)').join(', ')}</div>
+                                      <div key={i} className="text-ink">{row.map(e => displayNames.get(e.profile_id) ?? '(unknown)').join(', ')}</div>
                                     ))}
                                   </div>
                                 )}
@@ -1727,6 +1770,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     bySaturday={byWeekend.get(inspectorSaturday) || {}}
                     doctors={doctors}
                     doctorById={doctorById}
+                    displayNames={displayNames}
                     isAdmin={isAdmin}
                     saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
@@ -1759,6 +1803,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           weekendIndex={monthSaturdays.indexOf(detailSaturday) + 1}
           bySaturday={byWeekend.get(detailSaturday) || {}}
           doctorById={doctorById}
+          displayNames={displayNames}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
           onClose={() => setDetailSaturday(null)}
         />

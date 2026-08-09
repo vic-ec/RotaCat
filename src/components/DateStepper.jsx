@@ -21,9 +21,10 @@ function stepMonth(year, month, delta) {
 // ignores the second argument.
 //
 // Bounds-checking (canGoPrev/canGoNext) is opt-in and defaults to always-
-// enabled: only WeekendPlannerView's rolling fetch window has real edges to
-// disable at — the other call sites can browse freely, so forcing bounds
-// checks on them would be pretending a constraint they don't have.
+// enabled — no current caller has a real edge to disable at (WeekendPlannerView
+// used to, before its own fetch window learned to follow navigation instead
+// of gating it), but a future one might, so the capability stays available
+// rather than assuming every caller can browse freely forever.
 //
 // Page-specific extras (a "← Back" link, a Legend toggle, a rule-hint icon)
 // are deliberately NOT part of this component's API — pass them as

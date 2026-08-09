@@ -307,17 +307,41 @@ export function groupEntriesByWeekend(entries) {
 //               modal's "X skipped" counts. A group skipped for already
 //               being filled (the normal 'fill-empty' behaviour) isn't
 //               included here — that's expected, not an anomaly.
-//   unmatchedSourceCount — how many of the source month's weekends had no
-//               matching target position (source longer than target),
-//               i.e. how many were silently dropped.
+//               weekendIndex is a position within the matched source's own
+//               odd/even bucket (see below), not the month — it's only
+//               ever used to COUNT skips per reason, never to look a
+//               weekend back up, so its exact numbering doesn't matter.
+//   unmatchedSourceCount — how many source weekends had no same-parity
+//               target to land on (that parity ran longer on the source
+//               side than the target), i.e. how many were silently dropped.
+//
+// `sourceWeekends` is [{ saturday, entries }, ...] — each source weekend's
+// OWN date, not just its entries, matters here: once there's more than one
+// source weekend to place, matching is by real calendar parity
+// (isEvenWeekend), not raw position. A group's rotation is a continuous
+// odd/even alternation across month boundaries (see isEvenWeekend's own
+// comment) — pairing "1st source weekend with 1st target weekend" silently
+// swaps which group lands where the moment a month's weekend count shifts
+// that alignment (a 5-Saturday month copied into/from a 4-Saturday one,
+// which is the common case, not an edge case, since months alternate
+// between the two). Splitting both the source and target into their own
+// odd/even bucket and matching within each bucket keeps every copied group
+// on doctors of the same real parity it was already on, regardless of
+// month length.
+//
+// A SINGLE source weekend (the "copy this weekend, paste onto that one"
+// granularity) skips parity bucketing entirely and maps straight onto
+// targetSaturdays[0] — there's no ambiguity to resolve, and adjacent
+// Saturdays are always opposite parity, so parity-matching a lone weekend
+// would often refuse to paste at all (any target one week away from the
+// source would land in a parity bucket the source doesn't occupy).
 export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
   const toInsert = []
   const toDelete = []
   const skipped = []
-  const matchedCount = Math.min(sourceWeekends.length, targetSaturdays.length)
+  let unmatchedSourceCount = 0
 
-  for (let i = 0; i < matchedCount; i++) {
-    const targetSaturday = targetSaturdays[i]
+  function processPair(sourceEntries, targetSaturday, weekendIndex) {
     const existingBySaturday = existingByWeekend.get(targetSaturday) || {}
 
     if (mode === 'overwrite') {
@@ -326,9 +350,9 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
       }
     }
 
-    // In 'overwrite' mode every existing entry above is already queued for
-    // deletion, so nothing on the target counts as "filled" or "assigned"
-    // going into the insert pass below.
+    // In 'overwrite' mode every existing entry above is already queued
+    // for deletion, so nothing on the target counts as "filled" or
+    // "assigned" going into the insert pass below.
     const filledGroups = mode === 'overwrite'
       ? new Set()
       : new Set(Object.keys(existingBySaturday).filter(k => (existingBySaturday[k] || []).length > 0))
@@ -336,13 +360,13 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
       ? new Set()
       : new Set(Object.values(existingBySaturday).flat().map(e => e.profile_id))
 
-    for (const { groupKey, profileId, category } of sourceWeekends[i]) {
+    for (const { groupKey, profileId, category } of sourceEntries) {
       if (!activeDoctorIds.has(profileId)) {
-        skipped.push({ reason: 'inactive', weekendIndex: i, groupKey, profileId })
+        skipped.push({ reason: 'inactive', weekendIndex, groupKey, profileId })
         continue
       }
       if (assignedProfileIds.has(profileId)) {
-        skipped.push({ reason: 'already-assigned', weekendIndex: i, groupKey, profileId })
+        skipped.push({ reason: 'already-assigned', weekendIndex, groupKey, profileId })
         continue
       }
       if (mode === 'fill-empty' && filledGroups.has(groupKey)) continue // expected — not counted as "skipped"
@@ -352,26 +376,53 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
     }
   }
 
-  return { toInsert, toDelete, skipped, unmatchedSourceCount: Math.max(0, sourceWeekends.length - targetSaturdays.length) }
+  if (sourceWeekends.length <= 1) {
+    if (sourceWeekends.length === 1 && targetSaturdays.length > 0) {
+      processPair(sourceWeekends[0].entries, targetSaturdays[0], 0)
+    } else if (sourceWeekends.length === 1) {
+      unmatchedSourceCount = 1
+    }
+    return { toInsert, toDelete, skipped, unmatchedSourceCount }
+  }
+
+  const sourceByParity = { true: [], false: [] }
+  for (const weekend of sourceWeekends) sourceByParity[isEvenWeekend(weekend.saturday)].push(weekend)
+  const targetByParity = { true: [], false: [] }
+  for (const saturday of targetSaturdays) targetByParity[isEvenWeekend(saturday)].push(saturday)
+
+  for (const parity of [true, false]) {
+    const sources = sourceByParity[parity]
+    const targets = targetByParity[parity]
+    const matchedCount = Math.min(sources.length, targets.length)
+    unmatchedSourceCount += Math.max(0, sources.length - targets.length)
+
+    for (let i = 0; i < matchedCount; i++) {
+      processPair(sources[i].entries, targets[i], i)
+    }
+  }
+
+  return { toInsert, toDelete, skipped, unmatchedSourceCount }
 }
 
 // Scales planWeekendPaste up to a copied month or quarter without changing
-// its own per-month position-mapping logic — the single shared entry point
+// its own per-month grouping — the single shared entry point
 // WeekendPlannerView uses for weekend/month/quarter paste alike:
-//   weekend: sourceMonths = [[oneWeekendsEntries]], targetMonths = [[oneTargetSaturday]]
-//   month:   sourceMonths = [monthWeekends],        targetMonths = [targetMonthSaturdays]
+//   weekend: sourceMonths = [[oneWeekend]],   targetMonths = [[oneTargetSaturday]]
+//   month:   sourceMonths = [monthWeekends],  targetMonths = [targetMonthSaturdays]
 //   quarter: sourceMonths = [month1, month2, month3] (each a source month's own
-//            weekends array), targetMonths = the target quarter's 3 months'
-//            own Saturday lists, in the same order.
-// Each source month is position-mapped ONLY against the target month at the
-// same index — never flattened into one long cross-month list — so pasting
-// a Jan-Mar quarter onto Apr-Jun reproduces Jan's pattern on Apr, Feb's on
+//            weekends array — see planWeekendPaste for the { saturday, entries }
+//            shape each weekend takes), targetMonths = the target quarter's 3
+//            months' own Saturday lists, in the same order.
+// Each source month is matched ONLY against the target month at the same
+// index — never flattened into one long cross-month list — so pasting a
+// Jan-Mar quarter onto Apr-Jun reproduces Jan's pattern on Apr, Feb's on
 // May, and Mar's on Jun, rather than sliding out of alignment the moment
-// any month in between has a different weekend count. Results from each
-// month are concatenated; a whole source month with no matching target
-// month (quarter longer than what's available to paste into) has its
-// weekends counted in unmatchedSourceCount same as planWeekendPaste's own
-// per-weekend case.
+// any month in between has a different weekend count. WITHIN each matched
+// month pair, planWeekendPaste's own parity-based matching applies — see
+// its comment. Results from each month are concatenated; a whole source
+// month with no matching target month (quarter longer than what's
+// available to paste into) has its weekends counted in unmatchedSourceCount
+// same as planWeekendPaste's own per-weekend case.
 export function planWeekendPasteAcrossMonths({ sourceMonths, targetMonths, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
   const toInsert = []
   const toDelete = []

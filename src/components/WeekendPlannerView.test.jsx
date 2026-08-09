@@ -316,6 +316,41 @@ describe('WeekendPlannerView', () => {
       expect(openPills[0]).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
     })
 
+    it('disambiguates two doctors sharing a surname with a first initial', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['profiles:select'] = {
+        data: [
+          ...PROFILES,
+          { id: 'p6', name: 'James', surname: 'Naidoo', category: 'Registrar' },
+          { id: 'p7', name: 'Priya', surname: 'Naidoo', category: 'Registrar' },
+        ],
+        error: null,
+      }
+      mockResponses['weekend_planner_entries:select'] = {
+        data: [
+          ...ENTRIES,
+          { id: 'e7', weekend_saturday: '2026-08-15', profile_id: 'p6', category: 'Registrar' },
+          { id: 'e8', weekend_saturday: '2026-08-15', profile_id: 'p7', category: 'Registrar' },
+        ],
+        error: null,
+      }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
+      // Bare "Naidoo" would be ambiguous between the two — every other
+      // doctor's surname stays untouched (Anderson, unaffected by this
+      // unrelated collision, still shows plain).
+      expect(within(aug15Card).getByText('J. Naidoo')).toBeInTheDocument()
+      expect(within(aug15Card).getByText('P. Naidoo')).toBeInTheDocument()
+      expect(within(aug15Card).queryByText('Naidoo')).not.toBeInTheDocument()
+      const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
+      expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
+    })
+
     it('"Needs planning" filter (admin-only) hides fully-covered weekends', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
@@ -382,20 +417,40 @@ describe('WeekendPlannerView', () => {
       expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
     })
 
-    it('month navigation moves forward and the Previous button is disabled on the starting (current) month', async () => {
+    it('month navigation moves forward, and back again past the starting month — browsing is unbounded, like the year overview', async () => {
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      expect(view.getByRole('button', { name: 'Previous month' })).toBeDisabled()
+      // Previous/Next are never disabled — the fetch window follows
+      // navigation instead of gating it (see WeekendPlannerView's own
+      // fetchBounds/goToMonth comments).
+      expect(view.getByRole('button', { name: 'Previous month' })).not.toBeDisabled()
       await user.click(view.getByRole('button', { name: 'Next month' }))
 
       expect(await view.findByText('September 2026')).toBeInTheDocument()
       // en-GB's short month name for September is "Sept" (4 letters), not "Sep".
       expect(view.getByText('Sat 5 - Sun 6 Sept 2026')).toBeInTheDocument()
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
+
+      // Stepping back past August (the starting/current month) into July —
+      // previously impossible, since the old rolling fetch window floored
+      // at "today" and never widened again. This crosses out of the
+      // currently-loaded window, which triggers a refetch (the whole
+      // section briefly unmounts behind "Loading…" — see WeekendPlannerView's
+      // own loading-gate render), so re-scope queries to a freshly-found
+      // section afterward rather than reusing the pre-reload `view`.
+      await user.click(view.getByRole('button', { name: 'Previous month' }))
+      await user.click(view.getByRole('button', { name: 'Previous month' }))
+      // Both viewports render in jsdom (see this file's own top comment), so
+      // "July 2026" now matches twice (mobile + desktop nav) — findAllByText
+      // just to wait out the reload, then re-scope to mobile below.
+      await screen.findAllByText('July 2026')
+      const viewAfterReload = await mobile()
+      expect(viewAfterReload.getByText('July 2026')).toBeInTheDocument()
+      expect(viewAfterReload.getByRole('button', { name: 'Previous month' })).not.toBeDisabled()
     })
 
     it('non-admin: no add/remove controls on any card', async () => {
@@ -928,28 +983,31 @@ describe('WeekendPlannerView', () => {
       expect(screen.getByText('📋 August 2026 copied')).toBeInTheDocument()
 
       // en-GB's short month name for September is "Sept" (4 letters), not "Sep".
-      // August's 1st weekend (Aug 1, just Anderson/MO) maps onto September's
-      // 1st weekend (Sept 5); August's 2nd weekend (Aug 8, the other 3) maps
-      // onto Sept 12 — paste is by weekend index within the month, not by
-      // day-of-month, so the two source weekends land on different targets.
+      // August has 5 Saturdays (1,8,15,22,29), September has 4 (5,12,19,26)
+      // — paste now matches by real calendar parity, not weekend index, so
+      // August 1's group (parity shared with Aug 15/29) lands on Sept 12
+      // (the same parity), while August 8's group (shared with Aug 22)
+      // lands on Sept 5 — see planWeekendPaste's own comment for why.
       const sep5Row = within(view.getByRole('table')).getByText('Sat 5 - Sun 6 Sept 2026').closest('tr')
       expect(within(sep5Row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(sep5Row).getByText('Botha')).toBeInTheDocument()
+      expect(within(sep5Row).getByText('Cosmo')).toBeInTheDocument()
+      expect(within(sep5Row).getByText('Della')).toBeInTheDocument()
 
       const sep12Row = within(view.getByRole('table')).getByText('Sat 12 - Sun 13 Sept 2026').closest('tr')
       expect(within(sep12Row).getByText('Anderson')).toBeInTheDocument()
-      expect(within(sep12Row).getByText('Botha')).toBeInTheDocument()
-      expect(within(sep12Row).getByText('Cosmo')).toBeInTheDocument()
-      expect(within(sep12Row).getByText('Della')).toBeInTheDocument()
     })
 
     it('admin: paste modal counts an already-assigned skip under fill-empty, and switches to a delete-first note under Overwrite', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      // p1 is already on 2026-09-05 (Registrar) — August's 1st weekend (Aug
-      // 1, index 0) maps onto September's 1st weekend (Sept 5, index 0), and
-      // that weekend's only copied entry is p1's MO slot, which collides
-      // (already assigned to that weekend). August's 2nd weekend (Aug 8, 4
-      // entries) maps onto Sept 12, which has nothing pre-existing, so all 4
-      // of those insert cleanly.
+      // p1 is already on 2026-09-05 (Registrar). Parity-based matching (see
+      // planWeekendPaste) lands August 8's whole 4-entry block on Sept 5:
+      // its own MO/p1 entry collides with the pre-existing Registrar/p1
+      // (same profile, counted as "already assigned"), and its Registrar
+      // entry is silently skipped too (that group is already filled on
+      // Sept 5 — the normal, uncounted fill-empty behaviour) — leaving
+      // just COSMO and COSMOPsych to insert on Sept 5. August 1's single
+      // MO/p1 entry lands cleanly on Sept 12 (nothing pre-existing there).
       mockResponses['weekend_planner_entries:select'] = {
         data: [...ENTRIES, { id: 'e6', weekend_saturday: '2026-09-05', profile_id: 'p1', category: 'Registrar' }],
         error: null,
@@ -966,7 +1024,7 @@ describe('WeekendPlannerView', () => {
       await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
 
       const summary = screen.getByText(/Will add/).textContent
-      expect(summary).toContain('Will add 4 assignments across 4 weekends.')
+      expect(summary).toContain('Will add 3 assignments across 4 weekends.')
       expect(summary).toContain('1 skipped (already assigned elsewhere that weekend).')
 
       await user.click(screen.getByRole('button', { name: 'Overwrite instead' }))

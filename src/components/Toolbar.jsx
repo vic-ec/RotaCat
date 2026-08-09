@@ -48,6 +48,14 @@ function CloseIcon(props) {
 // filter row). Same anchored-popover mechanics as SelectMenu (portalled to
 // <body>, positioned off the trigger's own rect), just styled as a compact
 // icon+label button rather than a full-width form field.
+//
+// The label hides below `sm` (icon-only) so this and its siblings (e.g.
+// Filter, a ViewToggle) don't crowd out a narrow-phone search box that
+// sits next to them — CompactToolbarRow's mobile row is the main case,
+// same idea as ViewToggle's own responsive label. `aria-label` keeps the
+// button properly named once the visible text is hidden; the active/open
+// state stays visible icon-only too, since it's the whole button's own
+// background (bg-accent) flipping, not something carried by the label text.
 export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
@@ -74,12 +82,13 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label}
         className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           open || isActive ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         }`}
       >
         {icon}
-        {label}
+        <span className="hidden sm:inline">{label}</span>
       </button>
       {open && positionStyle && createPortal(
         <div
@@ -165,7 +174,12 @@ function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
         </div>
         {active && onClearAll && (
           <div className="border-t border-slate-line px-5 py-3">
-            <button type="button" onClick={() => { onClearAll(); onClose() }} className="text-sm font-medium text-accent">
+            <button
+              type="button"
+              onClick={() => { onClearAll(); onClose() }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent"
+            >
+              <ClearIcon className="h-4 w-4" />
               Clear all
             </button>
           </div>

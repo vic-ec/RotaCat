@@ -44,6 +44,14 @@ function renderModal(overrides = {}) {
   return render(<WeekendPlannerChangeLogModal onClose={vi.fn()} {...overrides} />)
 }
 
+// "Restore this" now opens a confirm dialog ("Are you sure...? This
+// action is permanent.") before actually restoring — clicks through both
+// steps for the common-path tests below.
+async function confirmRestore(user, restoreButton) {
+  await user.click(restoreButton)
+  await user.click(await screen.findByRole('button', { name: 'Restore' }))
+}
+
 describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
   beforeEach(() => {
     mockAuth = { profile: { id: 'admin-1' } }
@@ -70,15 +78,30 @@ describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
     expect(await screen.findByText('No recent actions to restore.')).toBeInTheDocument()
   })
 
-  it('clicking Restore calls restoreWeekendPlannerBatch with the batch id and the signed-in admin, then shows a result message', async () => {
+  it('clicking Restore this opens a confirmation, which calls restoreWeekendPlannerBatch with the batch id and the signed-in admin, then shows a result message', async () => {
+    const user = userEvent.setup()
+    renderModal()
+    await screen.findByText(/Cleared 3 Jan 2026/)
+
+    await confirmRestore(user, screen.getByRole('button', { name: 'Restore this' }))
+
+    expect(restoreWeekendPlannerBatch).toHaveBeenCalledWith({ batchId: 'batch-1', changedBy: 'admin-1' })
+    expect(await screen.findByText('1 restored')).toBeInTheDocument()
+  })
+
+  it('the confirmation names the action and warns it is permanent, and Cancel backs out without restoring', async () => {
     const user = userEvent.setup()
     renderModal()
     await screen.findByText(/Cleared 3 Jan 2026/)
 
     await user.click(screen.getByRole('button', { name: 'Restore this' }))
+    expect(await screen.findByText(/Are you sure you want to restore/)).toHaveTextContent('This action is permanent.')
+    expect(screen.getByText(/Are you sure you want to restore/)).toHaveTextContent('Cleared 3 Jan 2026')
 
-    expect(restoreWeekendPlannerBatch).toHaveBeenCalledWith({ batchId: 'batch-1', changedBy: 'admin-1' })
-    expect(await screen.findByText('1 restored')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByText(/Are you sure you want to restore/)).not.toBeInTheDocument()
+    expect(restoreWeekendPlannerBatch).not.toHaveBeenCalled()
   })
 
   it('a restore failure shows the error inline instead of a success message', async () => {
@@ -87,7 +110,7 @@ describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
     renderModal()
     await screen.findByText(/Cleared 3 Jan 2026/)
 
-    await user.click(screen.getByRole('button', { name: 'Restore this' }))
+    await confirmRestore(user, screen.getByRole('button', { name: 'Restore this' }))
 
     expect(await screen.findByText('Nothing to restore — this batch no longer exists.')).toBeInTheDocument()
   })
@@ -98,7 +121,7 @@ describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
     renderModal({ onDataChanged })
     await screen.findByText(/Cleared 3 Jan 2026/)
 
-    await user.click(screen.getByRole('button', { name: 'Restore this' }))
+    await confirmRestore(user, screen.getByRole('button', { name: 'Restore this' }))
 
     await waitFor(() => expect(onDataChanged).toHaveBeenCalled())
   })
@@ -109,7 +132,7 @@ describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
     await screen.findByText(/Cleared 3 Jan 2026/)
     expect(fetchWeekendPlannerBatches).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('button', { name: 'Restore this' }))
+    await confirmRestore(user, screen.getByRole('button', { name: 'Restore this' }))
 
     await waitFor(() => expect(fetchWeekendPlannerBatches).toHaveBeenCalledTimes(2))
   })
@@ -127,7 +150,7 @@ describe('WeekendPlannerChangeLogModal — Recent actions (restore)', () => {
     await screen.findAllByText(/Cleared 3 Jan 2026/)
 
     const restoreButtons = screen.getAllByRole('button', { name: /Restore this|Restoring…/ })
-    await user.click(restoreButtons[0])
+    await confirmRestore(user, restoreButtons[0])
 
     expect(screen.getByRole('button', { name: 'Restoring…' })).toBeDisabled()
     expect(screen.getAllByRole('button', { name: /Restoring…|Restore this/ }).every(b => b.disabled)).toBe(true)

@@ -1464,7 +1464,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     type="button"
                     onClick={() => setShowChangeLog(true)}
                     aria-label="Review log"
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                    className="btn-secondary flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center p-0"
                   >
                     <ScrollText className="h-4 w-4" />
                   </button>

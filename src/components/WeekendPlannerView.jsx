@@ -19,6 +19,7 @@ import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/chan
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import DateStepper from './DateStepper'
 import InlineRuleHint from './InlineRuleHint'
+import { ActionSheet, ActionSheetButton } from './ActionSheet'
 import Toolbar from './Toolbar'
 import Tag from './Tag'
 
@@ -568,44 +569,6 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
         </div>
       </div>
     </div>
-  )
-}
-
-// Shared bottom-sheet action-list shell — the same visual template as
-// WeekendDetailSheet/WeekendPasteModal (fixed inset-0, bg-ink/20, items-end
-// on mobile / items-center on desktop, rounded-b-none sm:rounded-b-lg) —
-// for the new short action lists this rebuild adds (per-card ⋮ menu, the
-// page-level ••• overflow menu, the doctor-remove confirmation) rather than
-// inventing a second sheet pattern.
-function ActionSheet({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="card w-full max-w-sm rounded-b-none p-2 sm:rounded-b-lg"
-        onClick={e => e.stopPropagation()}
-      >
-        {title && <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>}
-        <div className="divide-y divide-slate-line">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-function ActionSheetButton({ icon, danger, disabled, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        danger ? 'text-flagRed hover:bg-flagRed-bg' : 'text-ink hover:bg-canvas-sunken'
-      }`}
-    >
-      {icon}{children}
-    </button>
   )
 }
 

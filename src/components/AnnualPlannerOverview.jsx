@@ -33,7 +33,7 @@ const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.
 // profiles join), needed for the day-count maths in leaveDashboard.js.
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId, myCategory, myContractType, onOpenWorkspace,
+  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, displayNames = new Map(), maxByColumnKey, myProfileId, myCategory, myContractType, onOpenWorkspace,
   ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin } = useAuth()
@@ -268,7 +268,7 @@ export default function AnnualPlannerOverview({
                       className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
                     >
                       <span className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-ink">{e.surname}</span>
+                        <span className="text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
                         <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
                       </span>
                       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${

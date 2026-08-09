@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -7,6 +7,7 @@ import {
   buildLeaveByDate, countByColumnPerDate,
 } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import AnnualPlannerOverview from './AnnualPlannerOverview'
 import MonthWorkspace from './MonthWorkspace'
 
@@ -166,6 +167,19 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     setLoading(false)
   }
 
+  // Surname alone, unless it collides with another doctor who's had annual
+  // leave approved/pending sometime this year (any category — this fetch
+  // already spans all of them in one query, never partitioned) — see
+  // buildDoctorDisplayNames. Built from the same combined approved+pending
+  // rows already fetched for the year, not a separate roster fetch.
+  const displayNames = useMemo(() => {
+    const byId = new Map()
+    for (const r of [...approvedRows, ...pendingRows]) {
+      if (!byId.has(r.profile_id)) byId.set(r.profile_id, { id: r.profile_id, name: r.profiles?.name, surname: r.profiles?.surname })
+    }
+    return buildDoctorDisplayNames([...byId.values()])
+  }, [approvedRows, pendingRows])
+
   function setYear(newYear) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -235,6 +249,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             countByColumnPerDate={countsByColumn}
             publicHolidaysByDate={publicHolidaysByDate}
             rotationsByDoctorId={rotationsByDoctorId}
+            displayNames={displayNames}
             maxByColumnKey={maxByColumnKey}
             maxFullTime={maxFullTime}
             eligibleHeadcount={eligibleHeadcount}
@@ -257,6 +272,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
             countByColumnPerDate={countsByColumn}
             publicHolidaysByDate={publicHolidaysByDate}
             rotationsByDoctorId={rotationsByDoctorId}
+            displayNames={displayNames}
             highlightDate={highlightDate}
             onHighlightConsumed={() => setHighlightDate(null)}
             maxByColumnKey={maxByColumnKey}

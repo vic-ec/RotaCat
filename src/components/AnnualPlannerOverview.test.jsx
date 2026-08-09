@@ -129,7 +129,7 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.getByText('Selected month')).toBeInTheDocument()
   })
 
-  it('toolbar: the year selector sits with the other nav controls on the right (before the help icon), not attached to the title, and the arrow buttons are 30x30', () => {
+  it('toolbar: the year selector sits with the other nav controls on the right (before the Legend trigger), not attached to the title, and the arrow buttons are 30x30', () => {
     // Rendered as admin so only the one (shared) toolbar is in the DOM —
     // the non-admin mobile block duplicates the same "Previous year"/"Next
     // year" labels, which would otherwise make these queries ambiguous.
@@ -140,14 +140,14 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(prevYear).toHaveClass('h-[30px]', 'w-[30px]')
     expect(nextYear).toHaveClass('h-[30px]', 'w-[30px]')
 
-    // Same right-hand group as the help trigger, in this order — mirrors
+    // Same right-hand group as the Legend trigger, in this order — mirrors
     // the month view's toolbar, where the date selector and its neighbours
     // are one cluster on the right rather than paired with the title.
     const group = prevYear.closest('div')
-    const helpButton = screen.getByRole('button', { name: 'How it works' })
-    expect(group).toContainElement(helpButton)
+    const legendButton = screen.getByRole('button', { name: 'Legend' })
+    expect(group).toContainElement(legendButton)
     const buttons = [...group.querySelectorAll('button')]
-    expect(buttons.indexOf(nextYear)).toBeLessThan(buttons.indexOf(helpButton))
+    expect(buttons.indexOf(nextYear)).toBeLessThan(buttons.indexOf(legendButton))
     mockAuth = { isAdmin: false, isClerk: false }
   })
 

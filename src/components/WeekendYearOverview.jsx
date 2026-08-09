@@ -4,6 +4,7 @@ import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { monthWeekendMarkers, yearWeekendTotals } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
+import LegendSheet from './LegendSheet'
 
 // Small square fill + legend swatch + label per health state — kept to the
 // flagRed/flagAmber-bg+flagAmber/success-bg+success roster-state tokens
@@ -53,14 +54,31 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
         <DateStepper unit="year" year={year} onChange={onYearChange} />
       </div>
 
-      {/* ── Legend ── */}
-      <div data-testid="weekend-year-legend" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {Object.values(HEALTH_STYLE).map(state => (
-          <span key={state.label} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${state.swatch}`} /> {state.label}
-          </span>
-        ))}
-      </div>
+      {/* ── Legend: a live-count chip (real year-wide numbers), same
+          pattern as the month view's own MonthLegendTrigger — surfaces
+          "how many gaps right now" without opening anything. ── */}
+      <LegendSheet
+        trigger={onClick => (
+          <button
+            type="button"
+            onClick={onClick}
+            data-testid="weekend-year-legend"
+            className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted hover:text-ink"
+          >
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {totals.fullyPlanned} planned</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagAmber" /> {totals.partial} need staff</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagRed" /> {totals.empty} empty</span>
+          </button>
+        )}
+      >
+        <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
+          {Object.values(HEALTH_STYLE).map(state => (
+            <span key={state.label} className="flex items-center gap-2">
+              <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
+            </span>
+          ))}
+        </div>
+      </LegendSheet>
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">

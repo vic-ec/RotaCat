@@ -31,12 +31,14 @@ function renderOverview(overrides = {}) {
 }
 
 describe('WeekendYearOverview', () => {
-  it('renders the 3-state legend', () => {
+  it('renders the 3-state legend inside its sheet, opened via the live-count trigger', async () => {
+    const user = userEvent.setup()
     renderOverview()
-    const legend = within(screen.getByTestId('weekend-year-legend'))
-    expect(legend.getByText('Fully planned')).toBeInTheDocument()
-    expect(legend.getByText('Needs staff')).toBeInTheDocument()
-    expect(legend.getByText('Empty')).toBeInTheDocument()
+    await user.click(screen.getByTestId('weekend-year-legend'))
+    const sheet = within(screen.getByRole('dialog'))
+    expect(sheet.getByText('Fully planned')).toBeInTheDocument()
+    expect(sheet.getByText('Needs staff')).toBeInTheDocument()
+    expect(sheet.getByText('Empty')).toBeInTheDocument()
   })
 
   it('defaults the inspector/selection to the current month (August) and shows its per-health counts', () => {

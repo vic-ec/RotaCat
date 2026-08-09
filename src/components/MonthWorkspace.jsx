@@ -17,7 +17,7 @@ import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '..
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
-import InlineRuleHint from './InlineRuleHint'
+import LegendSheet from './LegendSheet'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
@@ -57,10 +57,6 @@ export default function MonthWorkspace({
   // (which has its own identical filter, since it gets isAdmin from its
   // own useAuth() call rather than as a prop from here).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
-  // Collapsed by default — same reasoning as LeaveYearGrid.jsx's mobile
-  // legend: the badges are letter-labelled now, so this is a reference for
-  // anyone who wants it rather than something needed to read the grid.
-  const [legendOpen, setLegendOpen] = useState(false)
 
   // First of the month being VIEWED (not today) — an Intern's own column
   // here should reflect whichever rotation covers the month this workspace
@@ -137,52 +133,48 @@ export default function MonthWorkspace({
           ← Overview
         </button>
         <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
-          <button
-            type="button"
-            onClick={() => setLegendOpen(o => !o)}
-            aria-expanded={legendOpen}
-            className="btn-secondary h-[30px] px-2.5 text-xs"
+          <LegendSheet
+            trigger={onClick => (
+              <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2.5 text-xs">
+                Legend
+              </button>
+            )}
+            ruleIntro={ruleHintIntro}
+            ruleBullets={ruleHintBullets}
           >
-            Legend
-          </button>
-          <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
+              {legendColumns.map(col => (
+                <span key={col.key} className="flex items-center gap-1.5">
+                  <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
+                  {col.label}
+                </span>
+              ))}
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+            </div>
+            {/* Two variants, gated by viewport rather than role directly —
+                this mirrors which day-cell grid (DayCell vs MobileDayCell)
+                each breakpoint actually shows below, so the legend always
+                matches the fill colours the viewer can currently see: the
+                desktop grid stays generic for everyone, so its legend does
+                too, while the mobile grid personalises for a non-admin
+                viewer with a category, so its legend follows suit. */}
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
+              {mobileLegendStates.map(state => (
+                <span key={state.key} className="flex items-center gap-1.5">
+                  <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+                </span>
+              ))}
+            </div>
+            <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
+              {LEAVE_CAPACITY_STATES.map(state => (
+                <span key={state.key} className="flex items-center gap-1.5">
+                  <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+                </span>
+              ))}
+            </div>
+          </LegendSheet>
         </DateStepper>
       </div>
-
-      {legendOpen && (
-        <>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ink-muted">
-            {legendColumns.map(col => (
-              <span key={col.key} className="flex items-center gap-1.5">
-                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
-                {col.label}
-              </span>
-            ))}
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
-          </div>
-          {/* Two variants, gated by viewport rather than role directly —
-              this mirrors which day-cell grid (DayCell vs MobileDayCell)
-              each breakpoint actually shows below, so the legend always
-              matches the fill colours the viewer can currently see: the
-              desktop grid stays generic for everyone, so its legend does
-              too, while the mobile grid personalises for a non-admin
-              viewer with a category, so its legend follows suit. */}
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted lg:hidden">
-            {mobileLegendStates.map(state => (
-              <span key={state.key} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
-              </span>
-            ))}
-          </div>
-          <div className="mt-1.5 hidden flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted lg:flex">
-            {LEAVE_CAPACITY_STATES.map(state => (
-              <span key={state.key} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
-              </span>
-            ))}
-          </div>
-        </>
-      )}
 
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
           Mobile (<lg): a compact glance grid (day number + category dots

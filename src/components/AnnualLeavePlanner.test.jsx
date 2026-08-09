@@ -199,13 +199,13 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
   })
 
-  it('"How it works" opens a popup with the concurrency-cap detail, closable via the × button', async () => {
+  it('the Legend sheet\'s "How it works" footer shows the concurrency-cap detail, closable via the × button', async () => {
     const user = userEvent.setup()
     renderPage()
     await screen.findByRole('button', { name: /August/ })
 
     expect(screen.queryByText(/Never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'How it works' }))
+    await user.click(screen.getByRole('button', { name: 'Legend' }))
     expect(screen.getByText(/Never more than 3 doctors on leave at a time/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Close' }))

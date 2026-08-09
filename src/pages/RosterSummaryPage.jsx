@@ -79,18 +79,28 @@ export default function RosterSummaryPage() {
   // button (see RosterGridPage.jsx) — not when landing here via the
   // Rosters/Hours Summary tab directly, a reload, or a bookmarked link,
   // none of which have "the previous page" this is meant to return to.
-  // Captured once on mount (useState initializer, not a reactive read) —
+  // Initialized from location.state on first mount, then kept in sync by
+  // the effect below whenever a *fresh* fromRosterId arrives — this page
+  // now stays mounted across tab switches (see RosterDashboardPage.jsx),
+  // so a second "Hours Summary" click from a different roster later in the
+  // same session needs to update it, not just the very first mount. The
+  // effect deliberately never clears backTo when location.state is empty:
   // setYearMonth's own setSearchParams call below replaces the current
   // location on every month/year change, which drops location.state along
-  // with it, so reading it reactively would make the button vanish the
-  // moment the viewer so much as steps to a different month.
+  // with it — that's a step within this same page, not a new "previous
+  // page" to forget the old one for.
   const navigate = useNavigate()
-  const { state: initialLocationState } = useLocation()
-  const [backTo] = useState(() => (
-    initialLocationState?.fromRosterId
-      ? { id: initialLocationState.fromRosterId, label: initialLocationState.fromRosterLabel }
+  const location = useLocation()
+  const [backTo, setBackTo] = useState(() => (
+    location.state?.fromRosterId
+      ? { id: location.state.fromRosterId, label: location.state.fromRosterLabel }
       : null
   ))
+  useEffect(() => {
+    if (location.state?.fromRosterId) {
+      setBackTo({ id: location.state.fromRosterId, label: location.state.fromRosterLabel })
+    }
+  }, [location.state])
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -149,89 +159,95 @@ export default function RosterSummaryPage() {
         </button>
       )}
 
-      {/* Month/year stepper (with built-in Today) + Refresh + search + sort
-          + filter, all on one row — horizontal scroll as a fallback rather
-          than wrapping, so it fits on desktop without scrolling and still
-          works (via scroll) on a narrow phone. Refresh drops to icon-only
+      {/* Two groups: month/year stepper (with built-in Today) + Refresh, and
+          search + sort + filter (+ clear-all). Side by side on one row on
+          desktop (md:flex-row, wrapping/scrolling as a fallback if it's
+          ever tight); stacked as two rows on mobile, search+sort+filter
+          beneath the stepper and above "Show leave breakdown" below —
+          there's no room for both groups on one line at phone widths, and
+          forcing it would mean either an unreadably-narrow search box or
+          horizontal scroll to reach Sort/Filter. Refresh drops to icon-only
           below md to leave more room. No page title here — which tab is
           active (the highlighted "Hours Summary" tab above) already says
           what this is. */}
-      <div className="mt-3 flex items-center gap-2 overflow-x-auto">
-        <div className="flex-shrink-0">
+      <div className="mt-3 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex flex-shrink-0 items-center gap-2">
           <DateStepper unit="month" year={year} month={month} onChange={setYearMonth} />
-        </div>
 
-        {/* No live subscription to roster_entries — see RosterSummaryPage's
-            own note on this. This is the manual escape hatch: re-pull this
-            month's numbers without navigating away and back. */}
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="btn-secondary flex h-[30px] flex-shrink-0 items-center gap-1.5 px-2 text-xs disabled:opacity-60"
-          aria-label="Refresh"
-          title="Refresh"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          <span className="hidden md:inline">Refresh</span>
-        </button>
-
-        <div className="w-80 flex-shrink-0">
-          <ClearableInput
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by name…"
-            className="input-field"
-            clearLabel="Clear search"
-            icon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        <QuickSelectButton
-          icon={<ArrowUpDown className="h-4 w-4" />}
-          label="Sort"
-          value={sortMode}
-          onChange={setSortMode}
-          options={[
-            { value: 'category-asc', label: 'MO → Registrar → Intern' },
-            { value: 'category-desc', label: 'Intern → Registrar → MO' },
-            { value: 'name-asc', label: 'Name (A–Z)' },
-            { value: 'name-desc', label: 'Name (Z–A)' },
-          ]}
-          isActive={sortMode !== 'category-asc'}
-        />
-        {/* Category and Contract type as independent multi-select facets
-            (replacing the old always-visible category chip row); name
-            search above covers what would otherwise be a "name" facet
-            here. */}
-        <FilterPanel groups={[
-          {
-            key: 'category', label: 'Category',
-            options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
-            selected: selectedCategories, onChange: setSelectedCategories,
-          },
-          {
-            key: 'contractType', label: 'Contract type',
-            options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
-            selected: selectedContractTypes, onChange: setSelectedContractTypes,
-          },
-        ]} />
-        {/* Standalone clear-all — matches Toolbar.jsx's own clear-all
-            button exactly (icon, sizing, hover/active fills), positioned
-            outside the Filter trigger itself rather than swapping its icon
-            in place, which read as "click the Filter button to clear"
-            (misleading, since clicking it opens the popover either way). */}
-        {filtersActive && (
+          {/* No live subscription to roster_entries — see RosterSummaryPage's
+              own note on this. This is the manual escape hatch: re-pull this
+              month's numbers without navigating away and back. */}
           <button
             type="button"
-            onClick={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
-            aria-label="Clear all filters"
-            title="Clear all filters"
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+            onClick={load}
+            disabled={loading}
+            className="btn-secondary flex h-[30px] flex-shrink-0 items-center gap-1.5 px-2 text-xs disabled:opacity-60"
+            aria-label="Refresh"
+            title="Refresh"
           >
-            <CircleX className="h-4 w-4" />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden md:inline">Refresh</span>
           </button>
-        )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-80 flex-shrink-0">
+            <ClearableInput
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name…"
+              className="input-field"
+              clearLabel="Clear search"
+              icon={<Search className="h-4 w-4" />}
+            />
+          </div>
+          <QuickSelectButton
+            icon={<ArrowUpDown className="h-4 w-4" />}
+            label="Sort"
+            value={sortMode}
+            onChange={setSortMode}
+            options={[
+              { value: 'category-asc', label: 'MO → Registrar → Intern' },
+              { value: 'category-desc', label: 'Intern → Registrar → MO' },
+              { value: 'name-asc', label: 'Name (A–Z)' },
+              { value: 'name-desc', label: 'Name (Z–A)' },
+            ]}
+            isActive={sortMode !== 'category-asc'}
+          />
+          {/* Category and Contract type as independent multi-select facets
+              (replacing the old always-visible category chip row); name
+              search above covers what would otherwise be a "name" facet
+              here. */}
+          <FilterPanel groups={[
+            {
+              key: 'category', label: 'Category',
+              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
+              selected: selectedCategories, onChange: setSelectedCategories,
+            },
+            {
+              key: 'contractType', label: 'Contract type',
+              options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
+              selected: selectedContractTypes, onChange: setSelectedContractTypes,
+            },
+          ]} />
+          {/* Standalone clear-all — matches Toolbar.jsx's own clear-all
+              button exactly (icon, sizing, hover/active fills), positioned
+              outside the Filter trigger itself rather than swapping its icon
+              in place, which read as "click the Filter button to clear"
+              (misleading, since clicking it opens the popover either way). */}
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
+              aria-label="Clear all filters"
+              title="Clear all filters"
+              className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+            >
+              <CircleX className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <button

@@ -94,6 +94,15 @@ export default function RosterDashboardPage() {
       return next
     }, { replace: true })
   }
+  // Lazy-mounts RosterSummaryPage the first time the Hours Summary tab is
+  // visited, then keeps it mounted (hidden via CSS, not unmounted) for the
+  // rest of the session — switching tabs used to fully remount it every
+  // time, silently discarding its own search/sort/filter state and
+  // triggering a fresh data fetch even when nothing had changed. Its own
+  // Refresh button (and a real month/year change) are the actual signals
+  // for "pull fresh numbers" now, not "did I glance away and back."
+  const [hasVisitedSummary, setHasVisitedSummary] = useState(view === 'summary')
+  useEffect(() => { if (view === 'summary') setHasVisitedSummary(true) }, [view])
   const [rosters, setRosters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -303,9 +312,17 @@ export default function RosterDashboardPage() {
         </div>
       )}
 
-      {view === 'summary' ? (
-        <RosterSummaryPage />
-      ) : (
+      {/* Mounted once (on first visit) and kept alive from then on — hidden
+          via CSS rather than unmounted when switching away, so its data
+          and search/sort/filter state survive tab switches instead of
+          resetting every time. See hasVisitedSummary above. */}
+      {hasVisitedSummary && (
+        <div className={view === 'summary' ? '' : 'hidden'}>
+          <RosterSummaryPage />
+        </div>
+      )}
+
+      {view !== 'summary' && (
       <>
       <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 

@@ -64,14 +64,14 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-legend')).getByText('Fully planned')).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-legend')).getByText(/need staff/)).toBeInTheDocument()
   })
 
   it('clerk: also lands on the staffing year overview', async () => {
     mockAuth = { isAdmin: false, isClerk: true, profile: { id: 'clerk-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-legend')).getByText('Fully planned')).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-legend')).getByText(/need staff/)).toBeInTheDocument()
   })
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {

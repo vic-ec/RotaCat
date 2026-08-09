@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CircleQuestionMark } from 'lucide-react'
 
-const DEFAULT_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md'
+export const DEFAULT_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md'
 
 // Perplexity's "3-layer rules" recommendation, applied: one plain-language
 // sentence always visible at the decision point, a "How it works" popup

@@ -10,6 +10,7 @@ import { annualDaysSummary } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
+import LegendSheet from './LegendSheet'
 import { QuickSelectButton } from './Toolbar'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -43,10 +44,6 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
   const [showMineOnly, setShowMineOnly] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState(null)
-  // Collapsed by default — the grid's badges are letter-labelled now, so the
-  // legend is a reference for anyone who wants it rather than something
-  // needed to read the grid at a glance.
-  const [legendOpen, setLegendOpen] = useState(false)
 
   const visibleLeaveByDate = useMemo(() => {
     if (!showMineOnly || !myProfileId) return leaveByDate
@@ -114,27 +111,28 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
       <div className="lg:hidden">
         <div className="flex flex-wrap items-center justify-center">
           <DateStepper unit="month" year={year} month={viewMonth} onChange={goToMonth}>
-            <button
-              type="button"
-              onClick={() => setLegendOpen(o => !o)}
-              aria-expanded={legendOpen}
-              className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+            <LegendSheet
+              trigger={onClick => (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-medium text-accent"
+                >
+                  Legend
+                </button>
+              )}
             >
-              Legend {legendOpen ? '▴' : '▾'}
-            </button>
+              <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-sm text-ink-muted">
+                {legendColumns.map(col => (
+                  <span key={col.key} className="flex items-center gap-1.5">
+                    <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={16} />
+                    {col.label}
+                  </span>
+                ))}
+              </div>
+            </LegendSheet>
           </DateStepper>
         </div>
-
-        {legendOpen && (
-          <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-[11px] text-ink-muted">
-            {legendColumns.map(col => (
-              <span key={col.key} className="flex items-center gap-1.5">
-                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={16} />
-                {col.label}
-              </span>
-            ))}
-          </div>
-        )}
 
         <MonthGlance
           year={year}

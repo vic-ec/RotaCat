@@ -11,7 +11,7 @@ import {
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 import SelectMenu from './SelectMenu'
-import InlineRuleHint from './InlineRuleHint'
+import LegendSheet from './LegendSheet'
 import DateStepper from './DateStepper'
 
 // Every capacity column plus a blended "All categories" option — the mobile
@@ -125,7 +125,7 @@ export default function AnnualPlannerOverview({
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
             <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
-              <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
+              <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
             </DateStepper>
           </div>
 
@@ -177,20 +177,8 @@ export default function AnnualPlannerOverview({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
         <DateStepper unit="year" year={year} onChange={onYearChange}>
-          <InlineRuleHint iconOnly intro={ruleHintIntro} bullets={ruleHintBullets} />
+          <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
         </DateStepper>
-      </div>
-
-      {/* Day-block fill legend — matches the capacity-state colouring each
-          month card's day blocks use below (item 3 of the mobile revision:
-          background fill by occupied slots, not by approved/pending). */}
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {LEAVE_CAPACITY_STATES.map(state => (
-          <span key={state.key} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} /> {state.label}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
@@ -300,6 +288,34 @@ export default function AnnualPlannerOverview({
       </div>
       </div>
     </div>
+  )
+}
+
+// The Annual planner's Legend — a static "Legend" trigger (the day-block
+// fill states don't change tick to tick the way Weekend's live gap-count
+// does, so there's nothing to surface inline the way MonthLegendTrigger
+// does), shared by both the non-admin mobile toolbar and the admin/desktop
+// one so neither carries a separate InlineRuleHint icon alongside it.
+function AnnualLegendTrigger({ ruleHintIntro, ruleHintBullets }) {
+  return (
+    <LegendSheet
+      trigger={onClick => (
+        <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2.5 text-xs">
+          Legend
+        </button>
+      )}
+      ruleIntro={ruleHintIntro}
+      ruleBullets={ruleHintBullets}
+    >
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
+        {LEAVE_CAPACITY_STATES.map(state => (
+          <span key={state.key} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} /> {state.label}
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+      </div>
+    </LegendSheet>
   )
 }
 

@@ -198,31 +198,32 @@ describe('WeekendPlannerView', () => {
       expect(row.className).not.toContain('flex-col')
     })
 
-    it('mobile: Review log is an icon-only button next to Today, and still opens the review log', async () => {
+    it('mobile: Review log lives inside the More actions kebab, and still opens the review log', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
-      const reviewLogButton = view.getByRole('button', { name: 'Review log' })
-      expect(within(reviewLogButton).queryByText('Review log')).not.toBeInTheDocument() // icon only, no visible text
-
-      await user.click(reviewLogButton)
+      await user.click(view.getByRole('button', { name: 'More actions' }))
+      const menu = await screen.findByRole('dialog', { name: 'More actions' })
+      await user.click(within(menu).getByRole('button', { name: 'Review log' }))
       expect(await screen.findByText('ChangeLogStub')).toBeInTheDocument()
     })
 
-    it('mobile: the Info icon opens "How it works", and it is no longer duplicated inside the More Actions menu', async () => {
+    it('mobile: the Legend trigger opens a sheet with "How it works" as its footer, not duplicated inside the More Actions menu', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'How it works' }))
-      expect(await screen.findByRole('heading', { name: 'How it works' })).toBeInTheDocument()
-      expect(screen.getByText(/No more than one person per slot/)).toBeInTheDocument()
-      await user.click(screen.getByLabelText('Close'))
+      await user.click(view.getByRole('button', { name: 'Legend and how it works' }))
+      const sheet = await screen.findByRole('dialog', { name: 'Legend' })
+      expect(within(sheet).getByText('How it works')).toBeInTheDocument()
+      expect(within(sheet).getByText(/No more than one person per slot/)).toBeInTheDocument()
+      expect(within(sheet).getByText('Fully planned')).toBeInTheDocument()
+      await user.click(within(sheet).getByLabelText('Close'))
 
       await user.click(view.getByRole('button', { name: 'More actions' }))
       const menu = await screen.findByRole('dialog', { name: 'More actions' })
@@ -898,13 +899,16 @@ describe('WeekendPlannerView', () => {
       expect(within(inspector).queryByRole('button', { name: 'Remove Anderson from 2026-08-01' })).not.toBeInTheDocument()
     })
 
-    it('desktop: Review log button keeps its text label (with an icon added), unlike mobile\'s icon-only version', async () => {
+    it('desktop: Review log lives inside the More Actions kebab too, same as mobile', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
-      expect(within(view.getByRole('button', { name: 'Review log' })).getByText('Review log')).toBeInTheDocument()
+      await user.click(view.getByRole('button', { name: 'More Actions' }))
+      const menu = await screen.findByRole('dialog', { name: 'More actions' })
+      expect(within(menu).getByRole('button', { name: 'Review log' })).toBeInTheDocument()
     })
 
     it('desktop: search and Filter share one row without wrapping, and Filter renders icon-only', async () => {
@@ -920,15 +924,16 @@ describe('WeekendPlannerView', () => {
       expect(row.className).toContain('flex-nowrap')
     })
 
-    it('desktop: the Info icon opens "How it works" next to More Actions', async () => {
+    it('desktop: the Legend trigger next to More Actions opens a sheet with "How it works" as its footer', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'How it works' }))
-      expect(await screen.findByRole('heading', { name: 'How it works' })).toBeInTheDocument()
+      await user.click(view.getByRole('button', { name: 'Legend and how it works' }))
+      const sheet = await screen.findByRole('dialog', { name: 'Legend' })
+      expect(within(sheet).getByText('How it works')).toBeInTheDocument()
     })
   })
 

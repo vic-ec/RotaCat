@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Info, Plus,
+  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Plus,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -18,7 +18,9 @@ import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import DateStepper from './DateStepper'
-import InlineRuleHint from './InlineRuleHint'
+import LegendSheet from './LegendSheet'
+import PageActionsMenu from './PageActionsMenu'
+import { ActionSheet, ActionSheetButton } from './ActionSheet'
 import Toolbar from './Toolbar'
 import Tag from './Tag'
 
@@ -68,9 +70,8 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-// The "How it works" explanation, now a single <Info/> icon trigger (not a
-// permanently-open banner) shared by both viewports — see the InlineRuleHint
-// iconOnly instances in the render below.
+// The "How it works" explanation — the Legend sheet's own footer (see
+// MonthLegendTrigger) on both viewports, not a separate standalone banner.
 const RULE_BULLETS = [
   'No more than one person per slot.',
   'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
@@ -571,44 +572,6 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
   )
 }
 
-// Shared bottom-sheet action-list shell — the same visual template as
-// WeekendDetailSheet/WeekendPasteModal (fixed inset-0, bg-ink/20, items-end
-// on mobile / items-center on desktop, rounded-b-none sm:rounded-b-lg) —
-// for the new short action lists this rebuild adds (per-card ⋮ menu, the
-// page-level ••• overflow menu, the doctor-remove confirmation) rather than
-// inventing a second sheet pattern.
-function ActionSheet({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="card w-full max-w-sm rounded-b-none p-2 sm:rounded-b-lg"
-        onClick={e => e.stopPropagation()}
-      >
-        {title && <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>}
-        <div className="divide-y divide-slate-line">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-function ActionSheetButton({ icon, danger, disabled, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        danger ? 'text-flagRed hover:bg-flagRed-bg' : 'text-ink hover:bg-canvas-sunken'
-      }`}
-    >
-      {icon}{children}
-    </button>
-  )
-}
-
 // Live status pill for a weekend's own coverage — Complete (success) / "N
 // roles open" (flagAmber) / Empty (flagRed) — always derived fresh from
 // weekendCoverageSummary rather than cached, so it updates the instant a
@@ -618,6 +581,33 @@ function weekendStatusPill(coverage) {
   if (coverage.filledGroups === coverage.totalGroups) return { label: 'Complete', tone: 'success' }
   if (coverage.filledGroups === 0) return { label: 'Empty', tone: 'danger' }
   return { label: `${coverage.openGroups.length} role${coverage.openGroups.length === 1 ? '' : 's'} open`, tone: 'warning' }
+}
+
+// The month view's Legend — a live-count chip (real numbers, not a static
+// swatch key, since "how many gaps right now" is worth surfacing without
+// opening anything) shared by both viewports rather than each rolling its
+// own. Doubles as the "How it works" entry point via LegendSheet's footer,
+// replacing the separate Info icon each viewport used to render alongside
+// this — one trigger, not two.
+function MonthLegendTrigger({ counts, triggerClassName }) {
+  return (
+    <LegendSheet
+      ruleBullets={RULE_BULLETS}
+      trigger={onClick => (
+        <button type="button" onClick={onClick} aria-label="Legend and how it works" className={triggerClassName}>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{counts.complete} planned</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagAmber" />{counts.open} need staff</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagRed" />{counts.empty} empty</span>
+        </button>
+      )}
+    >
+      <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
+        <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-success" /> Fully planned</span>
+        <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-flagAmber" /> Needs staff</span>
+        <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-flagRed" /> Empty</span>
+      </div>
+    </LegendSheet>
+  )
 }
 
 // One role row on the mobile card (Part 3/5) — label left, value right,
@@ -798,35 +788,6 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
   )
 }
 
-// The page-level "More actions" menu — collapses the bulk Copy/Clear
-// month+quarter actions behind one trigger instead of 4 always-visible
-// buttons. Shared by both viewports (mobile's ⋮ icon and desktop's "More
-// Actions" button both open this same sheet/dialog — see ActionSheet's own
-// responsive items-end/items-center split for why one component covers
-// both). The instructions ("How it works") used to be embedded here too;
-// it's now its own Info icon next to this trigger on both viewports, so
-// it isn't duplicated inside this menu as well.
-function WeekendOverflowMenu({
-  viewMonth, copyDisabled, clearMonthDisabled, clearQuarterDisabled,
-  onCopyMonth, onCopyQuarter, onClearMonth, onClearQuarter, onClose,
-}) {
-  return (
-    <ActionSheet title="More actions" onClose={onClose}>
-      <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={copyDisabled} onClick={onCopyMonth}>
-        Copy {MONTH_LABELS[viewMonth - 1]}
-      </ActionSheetButton>
-      <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={copyDisabled} onClick={onCopyQuarter}>
-        Copy quarter
-      </ActionSheetButton>
-      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} disabled={clearMonthDisabled} onClick={onClearMonth}>
-        Clear {MONTH_LABELS[viewMonth - 1]}
-      </ActionSheetButton>
-      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} disabled={clearQuarterDisabled} onClick={onClearQuarter}>
-        Clear quarter
-      </ActionSheetButton>
-    </ActionSheet>
-  )
-}
 
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
@@ -876,7 +837,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
-  const [showOverflowMenu, setShowOverflowMenu] = useState(false) // page-level ••• menu (mobile)
   // An admin's default concern is the whole roster, not their own rotation
   // (they may not even be on it) — lands on "All weekends" rather than
   // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
@@ -1401,10 +1361,24 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (toDelete.length > 0) pushUndo(batchId, `Cleared ${label}`)
   }
 
+  // Weekend's page-level "More actions" kebab (PageActionsMenu) — the bulk
+  // Copy/Clear month+quarter actions as one group, Review log as its own
+  // group after a divider (previously a separate always-visible button on
+  // both viewports; now this menu's one home instead of two entry points
+  // to the same action). Shared by both viewports' own trigger instances.
+  const weekendMenuItems = [
+    { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]}`, disabled: monthSaturdays.length === 0, onClick: copyMonth },
+    { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: 'Copy quarter', disabled: monthSaturdays.length === 0, onClick: copyQuarter },
+    { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
+    { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: 'Clear quarter', danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
+    'divider',
+    { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', onClick: () => setShowChangeLog(true) },
+  ]
+
   // `extra` renders right after the Today button (DateStepper's own
-  // extension point) — different per viewport (mobile: an icon-only Review
-  // log button; desktop: More Actions + the How-it-works Info icon), so
-  // this stays a function rather than one shared JSX constant.
+  // extension point) — different per viewport (mobile: the More actions
+  // kebab; desktop: More Actions + the Legend trigger), so this stays a
+  // function rather than one shared JSX constant.
   function renderMonthNav(extra) {
     return (
       <div className="flex flex-wrap items-center gap-2">
@@ -1448,9 +1422,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           {/* ── Copy/Paste/Clear (admin-only), shared across mobile+desktop rather
               than duplicated per viewport — Copy/Clear month/quarter act on
               whichever month (or quarter starting from it) is currently
-              viewed, both reached through the "More Actions" trigger in
-              monthNav (WeekendOverflowMenu, shared by both viewports — see
-              its own comment). The clipboard pill (once non-null) stays
+              viewed, both reached through the "More actions" kebab
+              (PageActionsMenu, shared by both viewports — see
+              weekendMenuItems above). The clipboard pill (once non-null) stays
               visible across month navigation so it's always clear what's
               copied and what "Paste" would currently target. Per-weekend
               Copy/Paste live on each weekend row itself (mobile card header
@@ -1531,43 +1505,30 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 cross-tab chrome this rebuild doesn't own); this row simply
                 sticks at top-0 in its own right rather than reserving space
                 for wherever that sub-nav happens to be.
-                Month nav + actions on their own row; the coverage dot
-                legend is information, not an action, so it gets its own
-                caption line below instead of competing with icon buttons
-                for space in the same row. */}
+                Month nav + actions on their own row; the coverage-count
+                Legend trigger is information, not an action, so it gets
+                its own caption line below instead of competing with icon
+                buttons for space in the same row. */}
             <div className="sticky top-0 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {renderMonthNav(isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowChangeLog(true)}
-                    aria-label="Review log"
-                    className="btn-secondary flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center p-0"
-                  >
-                    <ScrollText className="h-4 w-4" />
-                  </button>
-                ))}
-                <div className="flex items-center gap-2">
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setShowOverflowMenu(true)}
-                      aria-label="More actions"
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
-                    >
-                      <EllipsisVertical className="h-4 w-4" />
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <InlineRuleHint iconOnly icon={<Info className="h-4 w-4" />} bullets={RULE_BULLETS} />
-                  )}
-                </div>
+                {renderMonthNav()}
+                {isAdmin && (
+                  <PageActionsMenu
+                    items={weekendMenuItems}
+                    trigger={onClick => (
+                      <button
+                        type="button"
+                        onClick={onClick}
+                        aria-label="More actions"
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                      >
+                        <EllipsisVertical className="h-4 w-4" />
+                      </button>
+                    )}
+                  />
+                )}
               </div>
-              <div className="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted">
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{monthStatusCounts.complete}</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagAmber" />{monthStatusCounts.open}</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagRed" />{monthStatusCounts.empty}</span>
-              </div>
+              <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
 
             <div className="mt-3 space-y-3">
@@ -1667,22 +1628,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           <div className="hidden lg:block" data-testid="weekend-desktop">
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
               {renderMonthNav(isAdmin && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowOverflowMenu(true)}
-                    className="btn-secondary flex items-center gap-1.5 text-sm"
-                  >
-                    <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
-                  </button>
-                  <InlineRuleHint iconOnly icon={<Info className="h-4 w-4" />} bullets={RULE_BULLETS} />
+                <div className="flex items-center gap-3">
+                  <PageActionsMenu
+                    items={weekendMenuItems}
+                    trigger={onClick => (
+                      <button type="button" onClick={onClick} className="btn-secondary flex items-center gap-1.5 text-sm">
+                        <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
+                      </button>
+                    )}
+                  />
+                  <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
                 </div>
               ))}
-              {isAdmin && (
-                <button onClick={() => setShowChangeLog(true)} className="btn-secondary flex items-center gap-1.5 text-sm">
-                  <ScrollText className="h-3.5 w-3.5" /> Review log
-                </button>
-              )}
             </div>
 
             <div className="mt-4 flex items-start gap-4">
@@ -1842,20 +1799,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           onPaste={() => { openWeekendPaste(cardMenuSaturday); setCardMenuSaturday(null) }}
           onClear={() => { setClearWeekendTarget(cardMenuSaturday); setCardMenuSaturday(null) }}
           onClose={() => setCardMenuSaturday(null)}
-        />
-      )}
-
-      {showOverflowMenu && (
-        <WeekendOverflowMenu
-          viewMonth={viewMonth}
-          copyDisabled={monthSaturdays.length === 0}
-          clearMonthDisabled={monthEntryCount === 0}
-          clearQuarterDisabled={quarterEntryCount === 0}
-          onCopyMonth={() => { copyMonth(); setShowOverflowMenu(false) }}
-          onCopyQuarter={() => { copyQuarter(); setShowOverflowMenu(false) }}
-          onClearMonth={() => { setShowClearMonthModal(true); setShowOverflowMenu(false) }}
-          onClearQuarter={() => { setShowClearQuarterModal(true); setShowOverflowMenu(false) }}
-          onClose={() => setShowOverflowMenu(false)}
         />
       )}
 

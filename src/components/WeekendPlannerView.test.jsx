@@ -123,6 +123,15 @@ async function showAll(view, user) {
   await pickFilter(user, 'All weekends')
 }
 
+// Bulk Copy/Clear month+quarter now live behind desktop's "More Actions"
+// trigger (the same menu mobile's ⋮ opens) rather than 4 always-visible
+// buttons — opens it, clicks the action by its label, and returns (the
+// menu closes itself on click, same as every ActionSheet action here).
+async function clickMoreAction(user, label) {
+  await user.click(screen.getByRole('button', { name: 'More Actions' }))
+  await user.click(await screen.findByRole('button', { name: label }))
+}
+
 describe('WeekendPlannerView', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
@@ -150,6 +159,70 @@ describe('WeekendPlannerView', () => {
       expect(within(card).getByText(/1 of 4 groups planned/)).toBeInTheDocument()
       expect(within(card).getByText(/Registrar, EC Intern, OT Intern still open/)).toBeInTheDocument()
       expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
+    })
+
+    it('the Next weekend card\'s "plan" arrow never targets an already-passed weekend, even after navigating back to view a past month', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      // "Today" is now Sept 5 2026 — Aug 1 (only MO filled in ENTRIES) has
+      // already passed, but seeding the view at August (as if an admin
+      // navigated back to it) widens the fetch to include it again. Sept 5
+      // is itself a Saturday with nothing planned.
+      vi.setSystemTime(new Date(2026, 8, 5, 9, 0, 0))
+      render(<WeekendPlannerView initialYear={2026} initialMonth={8} />, { wrapper: MemoryRouter })
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      expect(screen.queryByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })).not.toBeInTheDocument()
+      expect(await view.findByRole('button', { name: /Plan next open weekend — Sat 5 - Sun 6 Sept 2026/ })).toBeInTheDocument()
+    })
+
+    it('mobile: search and Filter share one non-wrapping row, and Filter renders icon-only', async () => {
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      // Toolbar's mobile trigger is named "Filters" (its default
+      // mobileSheetTitle) — distinct from the desktop facet's "Filter", so
+      // this unambiguously targets the true-mobile block even though
+      // Toolbar itself renders outside the weekend-mobile testid section.
+      const filterButton = screen.getByRole('button', { name: 'Filters' })
+      expect(within(filterButton).queryByText('Filters')).not.toBeInTheDocument() // icon only — name comes from aria-label, no visible text child
+      expect(filterButton.className).toContain('w-[30px]')
+
+      const row = filterButton.closest('div.md\\:hidden')
+      expect(row.className).toContain('flex-nowrap')
+      expect(row.className).not.toContain('flex-col')
+    })
+
+    it('mobile: Review log is an icon-only button next to Today, and still opens the review log', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const reviewLogButton = view.getByRole('button', { name: 'Review log' })
+      expect(within(reviewLogButton).queryByText('Review log')).not.toBeInTheDocument() // icon only, no visible text
+
+      await user.click(reviewLogButton)
+      expect(await screen.findByText('ChangeLogStub')).toBeInTheDocument()
+    })
+
+    it('mobile: the Info icon opens "How it works", and it is no longer duplicated inside the More Actions menu', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      await user.click(view.getByRole('button', { name: 'How it works' }))
+      expect(await screen.findByRole('heading', { name: 'How it works' })).toBeInTheDocument()
+      expect(screen.getByText(/No more than one person per slot/)).toBeInTheDocument()
+      await user.click(screen.getByLabelText('Close'))
+
+      await user.click(view.getByRole('button', { name: 'More actions' }))
+      const menu = await screen.findByRole('dialog', { name: 'More actions' })
+      expect(within(menu).queryByText(/No more than one person per slot/)).not.toBeInTheDocument()
     })
 
     it('defaults to the "My weekends" filter, leftmost of the chips', async () => {
@@ -649,6 +722,39 @@ describe('WeekendPlannerView', () => {
 
       expect(within(inspector).queryByRole('button', { name: 'Remove Anderson from 2026-08-01' })).not.toBeInTheDocument()
     })
+
+    it('desktop: Review log button keeps its text label (with an icon added), unlike mobile\'s icon-only version', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      expect(within(view.getByRole('button', { name: 'Review log' })).getByText('Review log')).toBeInTheDocument()
+    })
+
+    it('desktop: search and Filter share one row without wrapping, and Filter renders icon-only', async () => {
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      const filterButton = screen.getByRole('button', { name: 'Filter' })
+      const label = within(filterButton).getByText('Filter')
+      expect(label.className).toBe('hidden')
+
+      const row = filterButton.closest('div.md\\:flex')
+      expect(row.className).toContain('flex-nowrap')
+    })
+
+    it('desktop: the Info icon opens "How it works" next to More Actions', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      await user.click(view.getByRole('button', { name: 'How it works' }))
+      expect(await screen.findByRole('heading', { name: 'How it works' })).toBeInTheDocument()
+    })
   })
 
   // Session clock is 2026-08-01 (a Saturday, see the top-of-file beforeEach)
@@ -663,9 +769,9 @@ describe('WeekendPlannerView', () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
-      await screen.findByRole('button', { name: 'Copy August' })
+      await screen.findByRole('button', { name: 'More Actions' })
 
-      await user.click(screen.getByRole('button', { name: 'Copy August' }))
+      await clickMoreAction(user, 'Copy August')
 
       expect(screen.getByText('📋 August 2026 copied')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Paste into August 2026' })).toBeInTheDocument()
@@ -687,7 +793,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Copy August' }))
+      await clickMoreAction(user, 'Copy August')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
 
@@ -733,7 +839,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Copy August' }))
+      await clickMoreAction(user, 'Copy August')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
       await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
@@ -756,7 +862,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await clickMoreAction(user, 'Clear August')
       const heading = await screen.findByRole('heading', { name: 'Clear August 2026?' })
       // ENTRIES has 5 assignments in August: 1 at Aug 1, 4 at Aug 8.
       expect(heading.closest('.card')).toHaveTextContent('This removes 5 assignments.')
@@ -885,9 +991,9 @@ describe('WeekendPlannerView', () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
-      await screen.findByRole('button', { name: 'Copy quarter' })
+      await screen.findByRole('button', { name: 'More Actions' })
 
-      await user.click(screen.getByRole('button', { name: 'Copy quarter' }))
+      await clickMoreAction(user, 'Copy quarter')
 
       expect(screen.getByText('📋 Aug-Oct 2026 copied')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Paste into Aug-Oct 2026' })).toBeInTheDocument()
@@ -897,9 +1003,9 @@ describe('WeekendPlannerView', () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
-      await screen.findByRole('button', { name: 'Clear quarter' })
+      await screen.findByRole('button', { name: 'More Actions' })
 
-      await user.click(screen.getByRole('button', { name: 'Clear quarter' }))
+      await clickMoreAction(user, 'Clear quarter')
 
       // ENTRIES only has assignments in August within Aug/Sep/Oct: 1 at Aug 1, 4 at Aug 8.
       const heading = await screen.findByRole('heading', { name: 'Clear Aug-Oct 2026?' })
@@ -913,7 +1019,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await clickMoreAction(user, 'Clear August')
       await screen.findByRole('heading', { name: 'Clear August 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
 
@@ -931,7 +1037,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Copy August' }))
+      await clickMoreAction(user, 'Copy August')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
 
@@ -961,7 +1067,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await clickMoreAction(user, 'Clear August')
       await screen.findByRole('heading', { name: 'Clear August 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
       await screen.findByText('Cleared August 2026')
@@ -979,7 +1085,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await clickMoreAction(user, 'Clear August')
       await screen.findByRole('heading', { name: 'Clear August 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
       await screen.findByText('Cleared August 2026')

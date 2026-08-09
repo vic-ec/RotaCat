@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, History, Sparkles,
+  MoreVertical, EllipsisVertical, History, ChevronRight, ScrollText, Info,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -49,6 +49,14 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// The "How it works" explanation, now a single <Info/> icon trigger (not a
+// permanently-open banner) shared by both viewports — see the InlineRuleHint
+// iconOnly instances in the render below.
+const RULE_BULLETS = [
+  'No more than one person per slot.',
+  'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
+  'Use surnames when populating the planner.',
+]
 
 // The 3 consecutive months starting at (year, month) — "whichever month is
 // currently viewed, plus the next 2" — for Copy quarter/Paste quarter/Clear
@@ -709,27 +717,20 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
   )
 }
 
-// Part 4's page-level ••• overflow menu — collapses the instructions
-// banner (reusing InlineRuleHint's own "How it works" modal, not a second
-// copy of its bullets) and the bulk Copy/Clear month+quarter actions,
-// mobile only; desktop keeps its own always-visible row unchanged.
+// The page-level "More actions" menu — collapses the bulk Copy/Clear
+// month+quarter actions behind one trigger instead of 4 always-visible
+// buttons. Shared by both viewports (mobile's ⋮ icon and desktop's "More
+// Actions" button both open this same sheet/dialog — see ActionSheet's own
+// responsive items-end/items-center split for why one component covers
+// both). The instructions ("How it works") used to be embedded here too;
+// it's now its own Info icon next to this trigger on both viewports, so
+// it isn't duplicated inside this menu as well.
 function WeekendOverflowMenu({
   viewMonth, copyDisabled, clearMonthDisabled, clearQuarterDisabled,
   onCopyMonth, onCopyQuarter, onClearMonth, onClearQuarter, onClose,
 }) {
   return (
     <ActionSheet title="More actions" onClose={onClose}>
-      <div className="px-3 py-2.5">
-        <InlineRuleHint
-          compact
-          inline="No more than one person per slot — a colour marks which weekends you're on for the month."
-          bullets={[
-            'No more than one person per slot.',
-            'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
-            'Use surnames when populating the planner.',
-          ]}
-        />
-      </div>
       <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={copyDisabled} onClick={onCopyMonth}>
         Copy {MONTH_LABELS[viewMonth - 1]}
       </ActionSheetButton>
@@ -1040,13 +1041,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
   const nextWeekendScheme = weekendColorScheme(nextWeekend)
 
-  // Part 9's "Plan next open weekend" shortcut — the first weekend (date
-  // order) with ANY open role, across the whole fetched window (not just
-  // the currently viewed month/filter), recomputed on every entries/
-  // saturdays change so it's never a stale target once a role gets filled.
+  // Part 9's "Plan next open weekend" shortcut — the first FUTURE weekend
+  // (today or later; date order) with ANY open role, across the whole
+  // fetched window (not just the currently viewed month/filter),
+  // recomputed on every entries/saturdays change so it's never a stale
+  // target once a role gets filled. `saturdays` itself can widen to
+  // include past dates once an admin navigates to view a past month (see
+  // fetchFromDate above) — filtering to `>= today` here is what keeps this
+  // always pointing forward instead of surfacing an already-passed,
+  // never-filled weekend as if it still needed planning.
   const nextOpenWeekend = useMemo(
-    () => saturdays.find(s => weekendCoverageSummary(byWeekend.get(s)).openGroups.length > 0) ?? null,
-    [saturdays, byWeekend]
+    () => saturdays.find(s => s >= today && weekendCoverageSummary(byWeekend.get(s)).openGroups.length > 0) ?? null,
+    [saturdays, byWeekend, today]
   )
   const cardRefs = useRef(new Map())
   // Set right after navigating to nextOpenWeekend's month (if it isn't
@@ -1323,20 +1329,29 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (toDelete.length > 0) pushUndo(batchId, `Cleared ${label}`)
   }
 
-  const monthNav = (
-    <div className="flex flex-wrap items-center gap-2">
-      {onBackToYear && (
-        <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-          ← Year view
-        </button>
-      )}
-      <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} canGoPrev={canGoPrevMonth} canGoNext={canGoNextMonth} />
-    </div>
-  )
+  // `extra` renders right after the Today button (DateStepper's own
+  // extension point) — different per viewport (mobile: an icon-only Review
+  // log button; desktop: More Actions + the How-it-works Info icon), so
+  // this stays a function rather than one shared JSX constant.
+  function renderMonthNav(extra) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {onBackToYear && (
+          <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
+            ← Year view
+          </button>
+        )}
+        <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} canGoPrev={canGoPrevMonth} canGoNext={canGoNextMonth}>
+          {extra}
+        </DateStepper>
+      </div>
+    )
+  }
 
   const defaultFilter = isAdmin || isClerk ? 'all' : 'mine'
   const toolbar = (
     <Toolbar
+      compact
       searchValue={searchQuery}
       onSearchChange={setSearchQuery}
       searchPlaceholder="Search by surname…"
@@ -1353,27 +1368,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
   return (
     <div>
-      {isAdmin && (
-        <div className="flex justify-end lg:hidden">
-          <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
-            Review log
-          </button>
-        </div>
-      )}
-
-      {/* Desktop only — mobile gets the same rule text inside the ••• overflow
-          menu (WeekendOverflowMenu, Part 4), not a second always-visible copy. */}
-      <div className="hidden lg:block">
-        <InlineRuleHint
-          inline="No more than one person per slot — a colour marks which weekends you're on for the month."
-          bullets={[
-            'No more than one person per slot.',
-            'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
-            'Use surnames when populating the planner.',
-          ]}
-        />
-      </div>
-
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
 
@@ -1382,40 +1376,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           {/* ── Copy/Paste/Clear (admin-only), shared across mobile+desktop rather
               than duplicated per viewport — Copy/Clear month/quarter act on
               whichever month (or quarter starting from it) is currently
-              viewed; the clipboard pill (once non-null) stays visible across
-              month navigation so it's always clear what's copied and what
-              "Paste" would currently target. Per-weekend Copy/Paste live on
-              each weekend row itself (mobile card header / desktop
-              inspector) instead, since there's no single "current weekend"
-              here to infer a target from. ── */}
-          {/* Desktop only — mobile reaches the same Copy/Clear month+quarter
-              actions through the ••• overflow menu below (Part 4). */}
-          {isAdmin && (
-            <div className="mt-4 hidden flex-wrap items-center gap-2 lg:flex">
-              <button type="button" onClick={copyMonth} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
-                <Copy className="h-3.5 w-3.5" /> Copy {MONTH_LABELS[viewMonth - 1]}
-              </button>
-              <button type="button" onClick={copyQuarter} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
-                <Copy className="h-3.5 w-3.5" /> Copy quarter
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowClearMonthModal(true)}
-                disabled={monthEntryCount === 0}
-                className="flex items-center gap-1.5 rounded border border-flagRed px-3 py-1.5 text-sm font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Clear {MONTH_LABELS[viewMonth - 1]}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowClearQuarterModal(true)}
-                disabled={quarterEntryCount === 0}
-                className="flex items-center gap-1.5 rounded border border-flagRed px-3 py-1.5 text-sm font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Clear quarter
-              </button>
-            </div>
-          )}
+              viewed, both reached through the "More Actions" trigger in
+              monthNav (WeekendOverflowMenu, shared by both viewports — see
+              its own comment). The clipboard pill (once non-null) stays
+              visible across month navigation so it's always clear what's
+              copied and what "Paste" would currently target. Per-weekend
+              Copy/Paste live on each weekend row itself (mobile card header
+              / desktop inspector) instead, since there's no single "current
+              weekend" here to infer a target from. ── */}
 
           {isAdmin && clipboard && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
@@ -1443,52 +1411,67 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-              <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
-              <p className="mt-1 text-sm text-ink-light">
-                {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
-                {nextWeekendCoverage.openGroups.length > 0 && (
-                  <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
+                  <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
+                  <p className="mt-1 text-sm text-ink-light">
+                    {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
+                    {nextWeekendCoverage.openGroups.length > 0 && (
+                      <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
+                    )}
+                  </p>
+                  {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
+                  {/* nextOpenWeekend can differ from the literal "next
+                      weekend" above (e.g. this one's already fully covered,
+                      but a later one within the fetched window still has a
+                      gap) — call that out by name so the arrow doesn't read
+                      as pointing at the weekend already described above it. */}
+                  {isAdmin && nextOpenWeekend && nextOpenWeekend !== nextWeekend && (
+                    <p className="mt-1 text-sm text-ink-light">
+                      Next open weekend: <span className="font-medium">{formatWeekendRange(nextOpenWeekend)}</span>
+                    </p>
+                  )}
+                </div>
+                {/* Part 9 — jumps to and opens the picker for the nearest
+                    still-open weekend (today or later), which may or may not
+                    be this literal "next weekend" — folded into this one
+                    card instead of a second panel below it. Nothing renders
+                    once nothing needs planning. */}
+                {isAdmin && nextOpenWeekend && (
+                  <button
+                    type="button"
+                    onClick={handlePlanNextOpenWeekend}
+                    aria-label={`Plan next open weekend — ${formatWeekendRange(nextOpenWeekend)}`}
+                    className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full hover:bg-white/40 ${nextWeekendScheme.text}`}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
                 )}
-              </p>
-              {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
+              </div>
             </div>
 
-            {/* Part 9 — a teal action banner (brand accent, deliberately not
-                groupEven/groupOdd or a status colour) when something still
-                needs planning; a static green confirmation once nothing
-                does. Distinct from "Next weekend" above: this targets the
-                nearest UNPLANNED weekend, chronologically, which may or may
-                not be the same one. */}
-            {isAdmin && (
-              nextOpenWeekend ? (
-                <button
-                  type="button"
-                  onClick={handlePlanNextOpenWeekend}
-                  className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2.5 text-left text-sm text-accent-dark"
-                >
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 flex-shrink-0" />
-                    Plan next open weekend — {formatWeekendRange(nextOpenWeekend)}
-                  </span>
-                  <span className="flex-shrink-0 text-xs font-semibold">→</span>
-                </button>
-              ) : (
-                <div className="mt-3 flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2.5 text-sm text-success">
-                  <CircleCheck className="h-4 w-4 flex-shrink-0" /> All weekends fully planned
-                </div>
-              )
-            )}
-
             {/* Part 4's sticky mobile toolbar — month stepper + a compact
-                dot+count coverage read, pinned while scrolling. Offset below
-                the Planners sub-nav (LeavePlannerPage.jsx), which already
-                has its own sticky/hide-on-scroll behaviour shared across
-                every planner tab — deliberately not touched here, since
-                that's shared cross-tab chrome this rebuild doesn't own. */}
-            <div className="sticky top-12 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
+                dot+count coverage read, pinned flush to the top of the
+                viewport while scrolling — the Planners sub-nav
+                (LeavePlannerPage.jsx) has its own separate sticky/
+                hide-on-scroll behaviour shared across every planner tab
+                (deliberately not touched here, since that's shared
+                cross-tab chrome this rebuild doesn't own); this row simply
+                sticks at top-0 in its own right rather than reserving space
+                for wherever that sub-nav happens to be. */}
+            <div className="sticky top-0 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {monthNav}
+                {renderMonthNav(isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowChangeLog(true)}
+                    aria-label="Review log"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                  >
+                    <ScrollText className="h-4 w-4" />
+                  </button>
+                ))}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2.5 text-xs text-ink-muted">
                     <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{monthStatusCounts.complete}</span>
@@ -1519,6 +1502,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     >
                       <EllipsisVertical className="h-4 w-4" />
                     </button>
+                  )}
+                  {isAdmin && (
+                    <InlineRuleHint iconOnly icon={<Info className="h-4 w-4" />} bullets={RULE_BULLETS} />
                   )}
                 </div>
               </div>
@@ -1612,10 +1598,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           {/* ── Desktop: weekend-first summary table + inspector (see file-level comment for rationale) ── */}
           <div className="hidden lg:block" data-testid="weekend-desktop">
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
-              {monthNav}
+              {renderMonthNav(isAdmin && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowOverflowMenu(true)}
+                    className="btn-secondary flex items-center gap-1.5 text-sm"
+                  >
+                    <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
+                  </button>
+                  <InlineRuleHint iconOnly icon={<Info className="h-4 w-4" />} bullets={RULE_BULLETS} />
+                </div>
+              ))}
               {isAdmin && (
-                <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
-                  Review log
+                <button onClick={() => setShowChangeLog(true)} className="btn-secondary flex items-center gap-1.5 text-sm">
+                  <ScrollText className="h-3.5 w-3.5" /> Review log
                 </button>
               )}
             </div>

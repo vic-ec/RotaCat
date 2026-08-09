@@ -56,7 +56,11 @@ function CloseIcon(props) {
 // button properly named once the visible text is hidden; the active/open
 // state stays visible icon-only too, since it's the whole button's own
 // background (bg-accent) flipping, not something carried by the label text.
-export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false }) {
+// `compact`: forces icon-only (no text label) at every width, not just
+// below `sm` — for a caller whose row needs to fit a facet next to a
+// search box that never gets its own row (WeekendPlannerView's month-view
+// toolbar), rather than the default "icon-only only below sm" behaviour.
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const triggerRef = useRef(null)
@@ -88,7 +92,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         }`}
       >
         {icon}
-        <span className="hidden sm:inline">{label}</span>
+        <span className={compact ? 'hidden' : 'hidden sm:inline'}>{label}</span>
       </button>
       {open && positionStyle && createPortal(
         <div
@@ -201,20 +205,29 @@ function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
 //
 // `active`: whether to show the Clear (×) button at all — only rendered
 // when a search term or filter is genuinely active, never by default.
+//
+// `compact`: opt-in, off by default (every existing caller is unaffected).
+// Shrinks the search input instead of holding it at a fixed 320px, and
+// forces the Filter trigger to icon-only at every width instead of just
+// below `sm` — for a caller (WeekendPlannerView's month view) where search
+// and Filter must always share one row without wrapping or overflowing,
+// on both the true-mobile block and the md:flex desktop/tablet block.
 export default function Toolbar({
   searchValue, onSearchChange, searchPlaceholder,
   sortFacets = [], filterFacets = [],
   active = false, onClearAll,
   mobileSheetTitle = 'Filters',
+  compact = false,
 }) {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const facets = [...sortFacets, ...filterFacets]
 
   return (
     <div className="mb-4">
-      {/* Desktop / tablet row — search fixed at 320px, facets + clear trailing */}
-      <div className="hidden items-center gap-2 md:flex">
-        <div className="w-80 flex-shrink-0">
+      {/* Desktop / tablet row — search fixed at 320px (or shrinkable, in
+          compact mode), facets + clear trailing */}
+      <div className="hidden flex-nowrap items-center gap-2 md:flex">
+        <div className={compact ? 'min-w-0 flex-1' : 'w-80 flex-shrink-0'}>
           <ClearableInput
             type="text"
             value={searchValue}
@@ -225,7 +238,7 @@ export default function Toolbar({
             icon={<SearchIcon className="h-4 w-4" />}
           />
         </div>
-        {facets.map(({ key, ...f }) => <ToolbarFacet key={key} {...f} />)}
+        {facets.map(({ key, ...f }) => <ToolbarFacet key={key} {...f} compact={compact} />)}
         {active && onClearAll && (
           <button
             type="button"
@@ -239,28 +252,31 @@ export default function Toolbar({
         )}
       </div>
 
-      {/* Mobile — search full-width on its own row, Sort+Filter collapse
-          into one "Filters" trigger below it (§15). */}
-      <div className="flex flex-col gap-2 md:hidden">
-        <ClearableInput
-          type="text"
-          value={searchValue}
-          onChange={e => onSearchChange(e.target.value)}
-          placeholder={searchPlaceholder}
-          className="input-field"
-          clearLabel="Clear search"
-          icon={<SearchIcon className="h-4 w-4" />}
-        />
+      {/* Mobile — search + Filter share one row (compact mode) instead of
+          Filter stacking onto its own row below a full-width search box. */}
+      <div className={`flex gap-2 md:hidden ${compact ? 'flex-nowrap items-center' : 'flex-col'}`}>
+        <div className={compact ? 'min-w-0 flex-1' : ''}>
+          <ClearableInput
+            type="text"
+            value={searchValue}
+            onChange={e => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="input-field"
+            clearLabel="Clear search"
+            icon={<SearchIcon className="h-4 w-4" />}
+          />
+        </div>
         {facets.length > 0 && (
           <button
             type="button"
             onClick={() => setMobileSheetOpen(true)}
-            className={`flex h-[30px] items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${
+            aria-label={mobileSheetTitle}
+            className={`flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${compact ? 'w-[30px]' : ''} ${
               active ? 'bg-accent text-white' : 'bg-canvas text-ink-light'
             }`}
           >
             <FiltersIcon className="h-4 w-4" />
-            {mobileSheetTitle}
+            {!compact && mobileSheetTitle}
           </button>
         )}
       </div>

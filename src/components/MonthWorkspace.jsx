@@ -46,7 +46,7 @@ function hasWarnings(w) {
 // one month by the calendar itself.
 export default function MonthWorkspace({
   year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
-  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
+  countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, displayNames = new Map(), highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
   ruleHintIntro, ruleHintBullets,
 }) {
   const { isAdmin, profile } = useAuth()
@@ -204,6 +204,7 @@ export default function MonthWorkspace({
               isToday={date === today}
               phName={publicHolidaysByDate.get(date)}
               entriesByColumn={dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
+              displayNames={displayNames}
               capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
               onClick={() => setSelectedDate(date)}
             />
@@ -256,6 +257,7 @@ export default function MonthWorkspace({
           entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
           capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
           phName={publicHolidaysByDate.get(selectedDate)}
+          displayNames={displayNames}
           approvedRows={approvedRows}
           pendingRows={pendingRows}
           maxByColumnKey={maxByColumnKey}
@@ -348,7 +350,7 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
   )
 }
 
-function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClick }) {
+function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacityState, onClick }) {
   const dateNum = Number(date.slice(-2))
 
   return (
@@ -379,7 +381,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, capacityState, onClic
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
-                  {e.surname}{i < entries.length - 1 ? ', ' : ''}
+                  {displayNames.get(e.profileId) ?? e.surname}{i < entries.length - 1 ? ', ' : ''}
                 </span>
               ))}
             </span>
@@ -426,7 +428,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
 }
 
 function DayReviewModal({
-  date, entriesByColumn, capacity, phName, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
+  date, entriesByColumn, capacity, phName, displayNames, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
   initialShowRequestForm = false, onDataChanged, onClose,
 }) {
   const { user, profile, isAdmin, canSubmitLeave } = useAuth()
@@ -555,7 +557,7 @@ function DayReviewModal({
                 <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
                   <span className="flex min-w-0 items-center gap-2">
                     <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                    <span className="flex-shrink-0 text-sm font-medium text-ink">{e.surname}</span>
+                    <span className="flex-shrink-0 text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
                     <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                   </span>
                   <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>

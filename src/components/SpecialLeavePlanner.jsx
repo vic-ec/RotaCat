@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP, countSpecialLeavePressureDaysInYear } from '../lib/leaveRequests'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import LeaveYearGrid from './LeaveYearGrid'
 import InlineRuleHint from './InlineRuleHint'
 
@@ -19,6 +20,7 @@ export default function SpecialLeavePlanner() {
   const { profile, isClerk } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
+  const [displayNames, setDisplayNames] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [loading, setLoading] = useState(true)
@@ -35,7 +37,7 @@ export default function SpecialLeavePlanner() {
     const [leaveRes, phRes] = await Promise.all([
       supabase
         .from('leave_requests')
-        .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(surname, category)')
+        .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(name, surname, category)')
         .or('leave_type.neq.annual,status.eq.pending')
         .lte('date_from', yearEnd)
         .gte('date_to', yearStart),
@@ -53,6 +55,15 @@ export default function SpecialLeavePlanner() {
       })))
     }
     setLeaveByDate(reshaped)
+    // Surname alone, unless it collides with another doctor with a
+    // non-annual/pending leave entry sometime this year (any category) —
+    // see buildDoctorDisplayNames. Built from this same fetch, deduped by
+    // profile, rather than a separate roster fetch.
+    const doctorsById = new Map()
+    for (const e of leaveRes.data || []) {
+      if (!doctorsById.has(e.profile_id)) doctorsById.set(e.profile_id, { id: e.profile_id, name: e.profiles?.name, surname: e.profiles?.surname })
+    }
+    setDisplayNames(buildDoctorDisplayNames([...doctorsById.values()]))
     setPublicHolidaysByDate(new Map((phRes.data || []).map(ph => [ph.date, ph.name])))
 
     try {
@@ -103,6 +114,7 @@ export default function SpecialLeavePlanner() {
           year={year}
           onYearChange={setYear}
           leaveByDate={leaveByDate}
+          displayNames={displayNames}
           publicHolidaysByDate={publicHolidaysByDate}
           rotationsByDoctorId={rotationsByDoctorId}
           // A clerk's access here is read-only "All" only — no personal

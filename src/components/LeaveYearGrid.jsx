@@ -29,7 +29,7 @@ const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', labe
 // enables the "My leave / All" filter; maxByColumnKey (optional) shows
 // "(max N)" capacity hints — pass it for Annual Leave, omit for Special
 // Leave (no concurrency cap there).
-export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId }) {
+export default function LeaveYearGrid({ year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId }) {
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
@@ -96,6 +96,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
                     month={m.month}
                     label={m.label}
                     leaveByDate={visibleLeaveByDate}
+                    displayNames={displayNames}
                     publicHolidaysByDate={publicHolidaysByDate}
                     rotationsByDoctorId={rotationsByDoctorId}
                     maxByColumnKey={maxByColumnKey}
@@ -150,6 +151,7 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, publicH
           date={selectedDate}
           entries={visibleLeaveByDate.get(selectedDate) || []}
           phName={publicHolidaysByDate.get(selectedDate)}
+          displayNames={displayNames}
           maxByColumnKey={maxByColumnKey}
           visibleColumns={legendColumns}
           rotationsByDoctorId={rotationsByDoctorId}
@@ -204,7 +206,7 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, rotations
   )
 }
 
-function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns, rotationsByDoctorId, onClose }) {
+function DayDetailSheet({ date, entries, phName, displayNames = new Map(), maxByColumnKey, visibleColumns, rotationsByDoctorId, onClose }) {
   const byColumn = new Map()
   for (const entry of entries) {
     const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
@@ -245,7 +247,7 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns,
                       })
                       return (
                         <li key={e.profileId} className="flex items-baseline justify-between gap-2">
-                          <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{e.surname}</span>
+                          <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{displayNames.get(e.profileId) ?? e.surname}</span>
                           {summary && <span className="text-xs text-ink-muted">{summary}</span>}
                         </li>
                       )
@@ -261,7 +263,7 @@ function DayDetailSheet({ date, entries, phName, maxByColumnKey, visibleColumns,
   )
 }
 
-function MonthTable({ year, month, label, leaveByDate, publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, openPH, setOpenPH }) {
+function MonthTable({ year, month, label, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, openPH, setOpenPH }) {
   const dates = datesInMonth(year, month)
 
   return (
@@ -325,7 +327,7 @@ function MonthTable({ year, month, label, leaveByDate, publicHolidaysByDate, rot
                     <td key={col.key} className="px-1 py-0.5">
                       {colEntries.map((e, i) => (
                         <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
-                          {e.surname}{i < colEntries.length - 1 ? ', ' : ''}
+                          {displayNames.get(e.profileId) ?? e.surname}{i < colEntries.length - 1 ? ', ' : ''}
                         </span>
                       ))}
                     </td>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Info,
+  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Info, Plus,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -600,11 +600,13 @@ function weekendStatusPill(coverage) {
 
 // One role row on the mobile card (Part 3/5) — label left, value right,
 // divider between rows (the parent's own divide-y). An unfilled role is a
-// tappable amber "Open" pill (opens the doctor picker sheet, scoped to this
+// tappable amber "Open" pill (opens the doctor-add sheet, scoped to this
 // weekend+group); an assigned doctor's name is itself tappable (opens the
-// single-action "Remove from this weekend" sheet) — no inline +/x controls,
-// unlike the desktop inspector's CategoryGroupRow, which keeps its own
-// existing edit-mode UX unchanged.
+// single-action "Remove from this weekend" sheet). A filled row still gets a
+// small "+" trigger alongside the names — a category routinely holds 2-4
+// doctors (e.g. 3-4 MOs on rotation together), and the "Open" pill alone
+// only ever covered the very first name; without this there was no way to
+// add a second one short of removing everyone and starting over.
 function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker, onOpenRemove }) {
   return (
     <div className="flex items-center justify-between gap-2 py-2">
@@ -622,7 +624,7 @@ function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker,
           <span className="rounded-full bg-flagAmber-bg px-2.5 py-0.5 text-xs font-medium text-flagAmber">Open</span>
         )
       ) : (
-        <div className="flex flex-wrap justify-end gap-x-2 gap-y-1">
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
           {groupEntries.map(entry => {
             const doctor = doctorById.get(entry.profile_id)
             const name = doctor ? doctor.surname : '(unknown)'
@@ -639,19 +641,39 @@ function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker,
               <span key={entry.id} className="text-sm text-ink">{name}</span>
             )
           })}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onOpenPicker}
+              aria-label={`Add another doctor to ${group.label}`}
+              className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent hover:opacity-80"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-// Part 5's doctor picker — a bottom sheet scoped to one weekend+group,
-// candidates from the date-aware resolveWeekendCategoryForDoctor (Part 10),
-// not a static category field, so a copied-over EC/OT rotation is reflected
-// immediately. Deliberately no eligibility/conflict filtering beyond "not
-// already assigned this weekend" (leave conflicts, hour caps — out of scope
-// for this pass, already flagged as separate future work).
-function WeekendDoctorPickerSheet({ saturday, groupKey, doctors, assignedIds, rotationsByDoctorId, onPick, onClose }) {
+// Part 5's doctor picker, rebuilt: a category dropdown (switchable, not a
+// fixed groupKey passed in from outside) plus a checkbox multi-select list,
+// so opening it from either the card-level "Add doctor" button (no category
+// preselected — the admin picks one) or a specific role row's "Open"/"+"
+// (that row's category preselected, still changeable) lands on the same
+// sheet. Multi-select matters because a category routinely holds several
+// doctors at once (3-4 MOs on rotation together): the original one-tap-then-
+// close picker meant re-opening it once per name. Candidates still come from
+// the date-aware resolveWeekendCategoryForDoctor (Part 10), not a static
+// category field, so a copied-over EC/OT rotation is reflected immediately.
+// Deliberately no eligibility/conflict filtering beyond "not already
+// assigned this weekend" (leave conflicts, hour caps — out of scope for this
+// pass, already flagged as separate future work).
+function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, rotationsByDoctorId, onAdd, onClose }) {
+  const [groupKey, setGroupKey] = useState(initialGroupKey)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+
   const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
   const candidates = doctors
     .filter(d => !assignedIds.has(d.id))
@@ -659,28 +681,69 @@ function WeekendDoctorPickerSheet({ saturday, groupKey, doctors, assignedIds, ro
     .filter(r => r.groupKey === groupKey)
     .sort((a, b) => a.doctor.surname.localeCompare(b.doctor.surname))
 
+  function changeGroup(key) {
+    setGroupKey(key)
+    setSelectedIds(new Set())
+  }
+  function toggle(doctorId) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(doctorId)) next.delete(doctorId)
+      else next.add(doctorId)
+      return next
+    })
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">{group?.label} — {formatWeekendRange(saturday)}</h2>
+          <h2 className="font-display text-base font-bold text-ink">Add doctor — {formatWeekendRange(saturday)}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
-        <div className="mt-3 max-h-[60vh] flex-1 divide-y divide-slate-line overflow-y-auto">
+
+        <div className="mt-3">
+          <label htmlFor="add-doctor-category" className="label-text">Category</label>
+          <select
+            id="add-doctor-category"
+            className="input-field mt-1 w-full text-sm"
+            value={groupKey}
+            onChange={e => changeGroup(e.target.value)}
+          >
+            {CATEGORY_GROUPS.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+          </select>
+        </div>
+
+        <div className="mt-3 max-h-[50vh] flex-1 divide-y divide-slate-line overflow-y-auto">
           {candidates.length === 0 ? (
-            <p className="py-4 text-sm text-ink-muted">No eligible doctors available.</p>
+            <p className="py-4 text-sm text-ink-muted">No eligible doctors available for {group?.label}.</p>
           ) : candidates.map(({ doctor, resolved }) => (
-            <button
+            <label
               key={doctor.id}
-              type="button"
-              onClick={() => onPick(doctor.id)}
-              className="flex w-full items-center justify-between gap-2 px-1 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+              className="flex w-full cursor-pointer items-center justify-between gap-2 px-1 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
             >
-              <span>{doctor.name} {doctor.surname}</span>
+              <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(doctor.id)}
+                  onChange={() => toggle(doctor.id)}
+                  className="h-4 w-4 rounded border-slate-line text-accent focus:ring-accent"
+                />
+                {doctor.name} {doctor.surname}
+              </span>
               {!resolved && <Tag variant="status" tone="warning">Needs rotation record</Tag>}
-            </button>
+            </label>
           ))}
         </div>
+
+        <button
+          type="button"
+          onClick={() => onAdd(groupKey, [...selectedIds])}
+          disabled={selectedIds.size === 0}
+          className="btn-primary mt-3 w-full text-sm disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Add {selectedIds.size > 0 ? selectedIds.size : ''} doctor{selectedIds.size === 1 ? '' : 's'}
+        </button>
       </div>
     </div>
   )
@@ -1078,6 +1141,28 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     pushUndo(batchId, `Added ${doctor.surname} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`)
   }
 
+  // Multi-select counterpart to addEntry above, behind WeekendAddDoctorsSheet
+  // — one shared batchId across every profile added in the same submit, so
+  // adding 3 MOs in one go is a single undoable action, not 3.
+  async function addEntries(saturday, groupKey, profileIds) {
+    if (profileIds.length === 0) return
+    const toInsert = profileIds.map(profileId => {
+      const doctor = doctorById.get(profileId)
+      const { category } = resolveWeekendCategoryForDoctor({ doctor, targetDate: saturday, rotationsByDoctorId })
+      return { weekendSaturday: saturday, profileId, category }
+    })
+    setSaving(true)
+    const batchId = crypto.randomUUID()
+    const ok = await insertEntries(toInsert, batchId)
+    setSaving(false)
+    if (!ok) return
+    const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
+    const label = profileIds.length === 1
+      ? `Added ${doctorById.get(profileIds[0])?.surname ?? 'doctor'} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`
+      : `Added ${profileIds.length} doctors to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`
+    pushUndo(batchId, label)
+  }
+
   async function removeEntry(entryId) {
     setSaving(true)
     const removed = entries.find(e => e.id === entryId)
@@ -1332,7 +1417,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {isAdmin && clipboard && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
-              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend&rsquo;s ⋮ menu to paste' : ''}</span>
+              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend’s ⋮ menu to paste' : ''}</span>
               <div className="flex items-center gap-2">
                 {clipboard.granularity === 'month' && (
                   <button type="button" onClick={openMonthPaste} className="btn-primary px-3 py-1 text-xs">
@@ -1513,10 +1598,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                       ))}
                     </div>
 
-                    {isAdmin && coverage.openGroups.length > 0 && (
+                    {/* Always available, not just while a category is still
+                        completely empty — this is the "pick a category, then
+                        candidates" entry point (WeekendAddDoctorsSheet's own
+                        dropdown), for topping up a category that already has
+                        names as much as for filling a blank one. Defaults to
+                        the first still-open category when there is one, but
+                        stays fully changeable from the sheet itself. */}
+                    {isAdmin && (
                       <button
                         type="button"
-                        onClick={() => setOpenRolePicker({ saturday, groupKey: coverage.openGroups[0] })}
+                        onClick={() => setOpenRolePicker({ saturday, groupKey: coverage.openGroups[0] ?? CATEGORY_GROUPS[0].key })}
                         className="btn-primary mt-3 w-full text-sm"
                       >
                         Add doctor
@@ -1673,13 +1765,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       )}
 
       {openRolePicker && (
-        <WeekendDoctorPickerSheet
+        <WeekendAddDoctorsSheet
           saturday={openRolePicker.saturday}
-          groupKey={openRolePicker.groupKey}
+          initialGroupKey={openRolePicker.groupKey}
           doctors={doctors}
           assignedIds={assignedDoctorIds(openRolePicker.saturday)}
           rotationsByDoctorId={rotationsByDoctorId}
-          onPick={profileId => { addEntry(openRolePicker.saturday, openRolePicker.groupKey, profileId); setOpenRolePicker(null) }}
+          onAdd={(groupKey, profileIds) => { addEntries(openRolePicker.saturday, groupKey, profileIds); setOpenRolePicker(null) }}
           onClose={() => setOpenRolePicker(null)}
         />
       )}

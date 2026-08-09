@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, CircleX } from 'lucide-react'
+import { Search, CircleX, List, LayoutGrid } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -14,7 +14,10 @@ import CreateRosterModal from '../components/CreateRosterModal'
 import ViewToggle from '../components/ViewToggle'
 import RosterSummaryPage from './RosterSummaryPage'
 
-const ROSTER_VIEW_OPTIONS = [{ key: 'list', label: 'List' }, { key: 'grid', label: 'Grid' }]
+const ROSTER_VIEW_OPTIONS = [
+  { key: 'list', label: 'List', icon: List },
+  { key: 'grid', label: 'Grid', icon: LayoutGrid },
+]
 
 // Reuses the exact same status tokens as the small Tag variant="status"
 // pill below (STATUS_TONE/Tag.jsx's STATUS_TONE_CLASS) rather than picking
@@ -78,6 +81,15 @@ function formatDateTime(value) {
 function daysRemaining(deletedAt) {
   const elapsed = (Date.now() - new Date(deletedAt).getTime()) / 86400000
   return Math.max(0, Math.ceil(30 - elapsed))
+}
+
+// ListRowRecord's subtitle is a single truncating line (by design, for
+// every other page that uses it) — join a multi-line meta (see
+// publishedMetaFn) into one line rather than changing that shared
+// component's contract for this one case. RosterCard (grid view, fully
+// local to this file) renders the array as two real stacked lines instead.
+function metaAsLine(meta) {
+  return Array.isArray(meta) ? meta.join(' · ') : meta
 }
 
 export default function RosterDashboardPage() {
@@ -251,14 +263,24 @@ export default function RosterDashboardPage() {
   const filteredDrafts = applyActiveSort(drafts.filter(matchesActiveFilters))
   const filteredPublished = applyActiveSort(published.filter(matchesActiveFilters))
 
-  // "Published [date]" by default; if roster_entry_changes shows an edit
-  // after publish, that supersedes it with "Updated [date and time]" of
-  // the most recent one instead — a published roster with no edits since
-  // going live has nothing to say beyond when it was published.
+  // "Published [date]" by default — a published roster with no edits since
+  // going live has nothing to say beyond when it was published. Once
+  // roster_entry_changes shows an edit after publish, a doctor still only
+  // ever sees "Published [date]" (the edit detail isn't surfaced to them),
+  // but an admin sees both lines together — "Published [date]" AND
+  // "Updated [date and time]" of the most recent edit — not one replacing
+  // the other. Returns an array of lines when there's a second line to
+  // show, a plain string otherwise; see metaAsLine below for the one
+  // context (ListRowRecord's single-line subtitle) that can't render two
+  // real lines and needs them joined instead.
   function publishedMetaFn(r) {
+    const publishedLine = `Published ${formatDate(r.published_at || r.updated_at)}`
     const lastEdit = lastEditByRosterId[r.id]
-    if (lastEdit && lastEdit > r.published_at) return `Updated ${formatDateTime(lastEdit)}`
-    return `Published ${formatDate(r.published_at || r.updated_at)}`
+    const editedSincePublish = Boolean(lastEdit) && lastEdit > r.published_at
+    if (isAdmin && editedSincePublish) {
+      return [publishedLine, `Updated ${formatDateTime(lastEdit)}`]
+    }
+    return publishedLine
   }
 
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
@@ -621,7 +643,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               onToggleCheck={() => toggleOne(roster.id)}
               selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
               title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
-              subtitle={metaFn(roster)}
+              subtitle={metaAsLine(metaFn(roster))}
               statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
               onClick={() => navigate(`/roster/${roster.id}`)}
             />
@@ -632,21 +654,26 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
   )
 }
 
-// Roughly-square status-tinted card for the grid view — checkbox top-left
-// (bulk-select works identically to list view, same selected/toggleOne
-// wiring from RosterSection above), Month+Year bold stacked below it,
-// meta text (whatever RosterSection's own metaFn produces for this tab —
-// "Created …", "Archived …", or "Deleted … auto-deletes …") in small text
-// at the bottom. aspect-square is a sized-by-estimation default (checkbox
-// + two bold lines + one small line comfortably fits well under 100px of
-// content height at any grid-card width this page's md:max-w-2xl
-// container produces) — worth a live look in case it ever reads cramped,
-// but nothing here forces it to stay square if that turns out wrong.
+// Status-tinted card for the grid view — checkbox top-left (bulk-select
+// works identically to list view, same selected/toggleOne wiring from
+// RosterSection above), Month+Year bold and centered in the space above
+// the meta line, meta text (whatever RosterSection's own metaFn produces
+// for this tab — "Created …", "Archived …", "Deleted … auto-deletes …",
+// or Published's own array-of-lines, rendered here as two real stacked
+// lines rather than metaAsLine's joined single line) in small text at the
+// bottom. Sized to MonthCard's own scale (AnnualPlannerOverview.jsx) —
+// same p-3 padding — rather than a forced 1:1 square: MonthCard has no
+// single fixed height either (its own content, a title/summary/day-grid,
+// drives it), so min-h-36 here is a same-scale estimate for this card's
+// checkbox+month/year+meta content, not a literal copy of one pixel
+// value. Worth a live look in case it reads cramped or too tall — nothing
+// here forces it to stay at that height if that turns out wrong.
 function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, status, onClick }) {
+  const metaLines = Array.isArray(meta) ? meta : [meta]
   return (
     <div
       onClick={onClick}
-      className={`flex aspect-square cursor-pointer flex-col justify-between rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
+      className={`flex min-h-36 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
     >
       <input
         type="checkbox"
@@ -656,11 +683,15 @@ function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, st
         aria-label={selectLabel}
         className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
       />
-      <div className="min-w-0">
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
         <p className="truncate font-display text-lg font-bold leading-tight text-ink">{month}</p>
         <p className="font-display text-lg font-bold leading-tight text-ink">{year}</p>
       </div>
-      <p className="truncate text-xs text-ink-light">{meta}</p>
+      <div className="min-w-0">
+        {metaLines.map((line, i) => (
+          <p key={i} className="truncate text-xs text-ink-light">{line}</p>
+        ))}
+      </div>
     </div>
   )
 }

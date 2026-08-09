@@ -148,12 +148,13 @@ export default function FilterPanel({ groups, className = '' }) {
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Filter"
         className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors ${
           open || activeCount > 0 ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
         } ${className}`}
       >
         <FilterIcon className="h-4 w-4" />
-        Filter
+        <span className="hidden sm:inline">Filter</span>
         {activeCount > 0 && (
           <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-white/25 text-[10px] font-semibold">
             {activeCount}

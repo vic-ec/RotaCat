@@ -5,7 +5,7 @@ import { todayStr } from '../lib/dateRange'
 import {
   fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation,
 } from '../lib/internRotations'
-import { CircleQuestionMark, ListFilter, X } from 'lucide-react'
+import { CircleQuestionMark, ListFilter, X, Table2, Rows4 } from 'lucide-react'
 import DoctorDropdown from './DoctorDropdown'
 import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
@@ -14,7 +14,10 @@ import Modal from './Modal'
 import ViewToggle from './ViewToggle'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 
-const VIEW_OPTIONS = [{ key: 'table', label: 'Table' }, { key: 'timeline', label: 'Timeline' }]
+const VIEW_OPTIONS = [
+  { key: 'table', label: 'Table', icon: Table2 },
+  { key: 'timeline', label: 'Timeline', icon: Rows4 },
+]
 
 const ROTATION_TYPE_OPTIONS = [
   { value: 'EC', label: 'EC' },

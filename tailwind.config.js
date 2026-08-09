@@ -100,6 +100,22 @@ export default {
           DEFAULT: '#22A06B',
           bg: '#E3F5EC'
         },
+        // Weekend-parity ("Even"/"Odd") signal — a doctor works every weekend
+        // of a given parity in a given month, so this needs its own color
+        // family, distinct from both the flag*/success roster-state palette
+        // (draft/published/conflict semantics) and the teal brand accent
+        // (primary actions). Deliberately two cool, muted, non-status hues
+        // (indigo/slate) so parity never reads as "good/bad" the way
+        // green/red would. `tint` pairs with `DEFAULT` the same way accent/
+        // rose's own tint does, for a badge's bg+text combo.
+        groupEven: {
+          DEFAULT: '#6366F1',
+          tint: '#E0E7FF'
+        },
+        groupOdd: {
+          DEFAULT: '#64748B',
+          tint: '#E2E8F0'
+        },
         // Dedicated destructive-action red for .btn-danger/.btn-danger-outline
         // — deliberately its own token rather than reusing flagRed, which is
         // reserved strictly for roster-state semantics (see that token's own

@@ -58,6 +58,62 @@ export function resolvedCategoryForDoctor(doctor) {
   return doctor?.category ?? null
 }
 
+// Mirrors the DB's resolve_effective_category(doctor_id, target_date)
+// Postgres function (see the migration adding it) — the date-aware
+// replacement for resolvedCategoryForDoctor wherever a SPECIFIC weekend's
+// date matters. resolvedCategoryForDoctor answers "what is this doctor
+// right now" (a contract_type snapshot); this answers "what were they on
+// the Saturday being planned," which can differ once an Intern/COSMO
+// doctor's EC/OT rotation timeline is in play — e.g. planning a weekend
+// before their next rotation block starts, or auditing one after a swap.
+//
+// Deliberately its own scan rather than internRotations.js's
+// rotationForDate (Array.find, i.e. first-match) — real intern_rotations
+// rows can overlap for the same doctor, and this needs the SQL function's
+// exact "most recently started row wins" tie-break, not
+// rotationForDate's different first-in-array-order semantics (built for
+// the Leave Planner's simpler non-overlapping case).
+//
+// `rotationsByDoctorId` is internRotations.js's groupRotationsByDoctorId
+// output (a Map<doctorId, rotation[]> or plain object) — batch-fetched
+// ONCE for every doctor via fetchInternRotationsForDoctorIds, not one RPC
+// call per doctor per picker open.
+//
+// Returns { category, resolved }: resolved=false means the base category
+// IS ambiguous (Intern/COSMO) but no intern_rotations row covers
+// targetDate — category still falls back to the plain base value (same as
+// the DB function), but callers should surface that distinctly (e.g. a
+// "needs a rotation record" indicator), not treat it as a confident
+// resolution. Every other category passes through unchanged with
+// resolved=true, same as the DB function's own early return.
+export function resolveEffectiveCategory({ category, profileId, targetDate, rotationsByDoctorId }) {
+  if (!AMBIGUOUS_CATEGORIES.has(category)) return { category: category ?? null, resolved: true }
+
+  const rotations = (rotationsByDoctorId?.get ? rotationsByDoctorId.get(profileId) : rotationsByDoctorId?.[profileId]) || []
+  const covering = rotations
+    .filter(r => r.start_date <= targetDate && (r.end_date == null || targetDate <= r.end_date))
+    .sort((a, b) => b.start_date.localeCompare(a.start_date))
+
+  if (covering.length === 0) return { category, resolved: false }
+
+  const rotationType = covering[0].rotation_type
+  const byRotationType = category === 'Intern'
+    ? { EC: 'EC_Intern', OT: 'OT_Intern' }
+    : { EC: 'EC_COSMO_Intern', OT: 'OT_COSMO_Intern' } // category === 'COSMO'
+  return { category: byRotationType[rotationType] ?? category, resolved: true }
+}
+
+// resolveEffectiveCategory + groupForCategory, for a doctor+weekend pair —
+// the single call site everywhere a picker needs to know both "which
+// column does this doctor belong in for THIS weekend" and "should I flag
+// them as unresolved."
+export function resolveWeekendCategoryForDoctor({ doctor, targetDate, rotationsByDoctorId }) {
+  const { category, resolved } = resolveEffectiveCategory({
+    category: doctor?.category, profileId: doctor?.id, targetDate, rotationsByDoctorId,
+  })
+  return { category, groupKey: groupForCategory(category), resolved }
+}
+
 // Every Saturday "YYYY-MM-DD" from fromDate through throughDate
 // (inclusive of any Saturday whose date falls in range).
 export function saturdaysInRange(fromDate, throughDate) {

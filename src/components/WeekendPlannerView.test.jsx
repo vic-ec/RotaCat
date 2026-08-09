@@ -1089,7 +1089,7 @@ describe('WeekendPlannerView', () => {
       await waitFor(() => expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument())
     })
 
-    it('admin: every paste — fill-empty or overwrite — pushes onto the undo stack and shows the Undo toast', async () => {
+    it('admin: every paste — fill-empty or overwrite — shows the Undo toast', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -1119,25 +1119,7 @@ describe('WeekendPlannerView', () => {
       expect(await screen.findByText('Pasted into September 2026 (overwrite)')).toBeInTheDocument()
     })
 
-    it('admin: undo history panel lists edits most-recent-first, strictly LIFO (only the top entry is actionable)', async () => {
-      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      const user = userEvent.setup()
-      renderView()
-      const view = await desktop()
-      await view.findByText('August 2026')
-
-      await clickMoreAction(user, 'Clear August')
-      await screen.findByRole('heading', { name: 'Clear August 2026?' })
-      await user.click(screen.getByRole('button', { name: 'Clear' }))
-      await screen.findByText('Cleared August 2026')
-
-      await user.click(screen.getByRole('button', { name: 'Undo history' }))
-      const panel = (await screen.findByText(/This session.s edits/)).closest('.card')
-      expect(within(panel).getByText('Cleared August 2026')).toBeInTheDocument()
-      expect(within(panel).getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
-    })
-
-    it('undo stack clears when the signed-in profile changes — one admin can never revert another admin\'s action', async () => {
+    it('the pending Undo toast clears when the signed-in profile changes — one admin can never revert another admin\'s action', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       const rendered = render(<WeekendPlannerView />, { wrapper: MemoryRouter })
@@ -1155,8 +1137,7 @@ describe('WeekendPlannerView', () => {
       rendered.rerender(<WeekendPlannerView />)
 
       expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Undo history' }))
-      expect(await screen.findByText('No edits yet this session.')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
     })
 
     it('admin: "Plan next open weekend" jumps to the nearest weekend with any open role and opens its picker', async () => {

@@ -602,7 +602,7 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
-      expect(within(inspector).getByText('3 gaps')).toBeInTheDocument()
+      expect(within(inspector).getByText('3 roles open')).toBeInTheDocument()
       expect(within(inspector).getByText('Anderson')).toBeInTheDocument() // MO filled
       expect(within(inspector).getAllByText('Open')).toHaveLength(3) // Registrar/COSMO/COSMOPsych open
       // View mode has no inline edit controls
@@ -621,7 +621,7 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
-      expect(within(inspector).getByText('4 gaps')).toBeInTheDocument()
+      expect(within(inspector).getByText('4 roles open')).toBeInTheDocument()
     })
 
     it('the surname search narrows grid rows to weekends that doctor is assigned to', async () => {
@@ -670,6 +670,65 @@ describe('WeekendPlannerView', () => {
       await user.click(within(inspector).getByRole('button', { name: 'Done editing' }))
       expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
       expect(within(inspector).getByRole('button', { name: /Edit assignments/ })).toBeInTheDocument()
+    })
+
+    it('admin: in edit mode, Add doctor is a full-width standard (teal) button, not the old small dashed one', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
+
+      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
+      for (const button of addButtons) {
+        expect(button).toHaveClass('btn-primary', 'w-full')
+        expect(button.className).not.toContain('border-dashed')
+      }
+    })
+
+    it('inspector: no "Selected weekend" label — the date is the panel\'s own heading', async () => {
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      expect(within(inspector).queryByText('Selected weekend')).not.toBeInTheDocument()
+      expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
+    })
+
+    it('inspector: the Wknd parity badge sits beneath the date, not beside it', async () => {
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      const heading = within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')
+      const badge = within(inspector).getByText(/Wknd 1 · Even/)
+      // Siblings within the same header block, badge second — not a
+      // separate flex item positioned to the date's side.
+      expect(badge.parentElement).toBe(heading.parentElement)
+      expect(Array.from(heading.parentElement.children).indexOf(badge)).toBeGreaterThan(
+        Array.from(heading.parentElement.children).indexOf(heading)
+      )
+    })
+
+    it('inspector: assigned names right-align even when they wrap onto a second line', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      const aug8Cell = await view.findByText('Sat 8 - Sun 9 Aug 2026')
+      const user = userEvent.setup()
+      await user.click(aug8Cell.closest('tr'))
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      const names = within(inspector).getByText('Anderson', { exact: false })
+      expect(names).toHaveClass('text-right')
     })
 
     it('admin: can add a doctor to an open slot via the inspector, and the grid row reflects it', async () => {
@@ -895,7 +954,7 @@ describe('WeekendPlannerView', () => {
       await user.click(screen.getByRole('button', { name: 'Clear' }))
 
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Clear Sat 8 - Sun 9 Aug 2026?' })).not.toBeInTheDocument())
-      expect(within(inspector).getByText('4 gaps')).toBeInTheDocument()
+      expect(within(inspector).getByText('4 roles open')).toBeInTheDocument()
     })
 
     it('admin: Clear weekend removes just that weekend\'s entries via the mobile card\'s ⋮ menu', async () => {

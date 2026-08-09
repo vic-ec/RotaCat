@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, History, ChevronRight, ScrollText, Info,
+  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Info,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -22,7 +22,6 @@ import Toolbar from './Toolbar'
 import Tag from './Tag'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
-const MAX_UNDO_STACK = 8 // Part 8's session-scoped undo stack cap
 // My weekends is both the default landing filter and leftmost chip for a
 // non-admin viewer. Needs planning is admin-only (nothing a non-admin
 // viewer can act on) and sits at the far right, appended only for admins
@@ -744,49 +743,6 @@ function WeekendOverflowMenu({
   )
 }
 
-// Part 8's history panel — every session-undo-stack entry, most recent
-// first; only the top one is ever actionable (strict LIFO — reaching
-// further back means undoing forward from the top, sequentially, same as
-// popping the stack). Entirely separate from the Review log's own "Recent
-// actions" (WeekendPlannerChangeLogModal) — see the undoStack state's own
-// comment in the main component for why.
-function UndoHistoryPanel({ undoStack, undoing, onUndoTop, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
-      <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">This session&rsquo;s edits</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
-        </div>
-        <p className="mt-1 text-xs text-ink-muted">Only the most recent edit can be undone — undoing it exposes the one before it.</p>
-        {undoStack.length === 0 ? (
-          <p className="mt-3 text-sm text-ink-muted">No edits yet this session.</p>
-        ) : (
-          <ul className="mt-3 max-h-[55vh] space-y-1.5 overflow-y-auto">
-            {undoStack.map((entry, i) => (
-              <li key={entry.batchId} className="flex items-center justify-between gap-2 text-sm">
-                <span className={`min-w-0 flex-1 truncate ${i === 0 ? 'text-ink' : 'text-ink-muted'}`}>{entry.label}</span>
-                {i === 0 ? (
-                  <button
-                    type="button"
-                    onClick={onUndoTop}
-                    disabled={undoing}
-                    className="btn-secondary flex-shrink-0 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {undoing ? 'Undoing…' : 'Undo'}
-                  </button>
-                ) : (
-                  <span className="flex-shrink-0 text-xs text-ink-muted">—</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // The Weekend Planner's grid + edit logic, factored out of WeekendPlannerPage
 // so it can render both at its own /weekend route (unchanged nav entry) and
 // nested inside the Leave page's "Planners" tab group — per the Planners-tabs
@@ -854,29 +810,23 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [showClearMonthModal, setShowClearMonthModal] = useState(false)
   const [showClearQuarterModal, setShowClearQuarterModal] = useState(false)
   const [clearWeekendTarget, setClearWeekendTarget] = useState(null) // saturday string or null
-  // Session-scoped undo stack — capped LIFO, max 8, most-recent-first.
-  // EVERY mutating action (single add/remove, paste, clear, any
-  // granularity) pushes one entry here, not just the destructive ones —
-  // this is what backs both the post-action toast (the common
-  // "just did something, tap Undo now" case) and the "Recent actions"
-  // history panel below it (reaching back further, strictly LIFO — only
-  // the top entry is ever actionable; undoing it is what exposes the next
-  // one). Deliberately NOT persisted (no sessionStorage/localStorage) and
-  // reset whenever the signed-in profile changes (see the effect below) —
-  // both a real page reload AND an admin switching accounts in the same
-  // tab must start from an empty stack, since Paul's undo must never be
-  // able to revert George's action or vice versa. Entirely separate from
-  // the durable, DB-backed "Recent actions" panel in
-  // WeekendPlannerChangeLogModal (Review log) — that one documents/restores
-  // across sessions and users; this one is an ephemeral per-visit
-  // convenience layer. Both call the same restoreWeekendPlannerBatch
-  // underneath, per batch_id, since every write already gets one (see
-  // addEntry/removeEntry/deleteEntries/insertEntries).
-  const [undoStack, setUndoStack] = useState([]) // [{ batchId, label, at }], most recent first
+  // The post-action Undo toast — every mutating action (single add/remove,
+  // paste, clear, any granularity) sets this so the common "just did
+  // something, tap Undo now" case is one tap away, right where the action
+  // happened. Reaching further back than the single most recent action is
+  // the Review log's job (WeekendPlannerChangeLogModal's "Recent actions"
+  // panel) — that one already restores any recent batch, not just the
+  // latest, persists across reloads, and now has its own confirm step, so
+  // there's no separate in-page history to duplicate it. Deliberately NOT
+  // persisted (no sessionStorage/localStorage) and reset whenever the
+  // signed-in profile changes (see the effect below) — both a real page
+  // reload AND an admin switching accounts in the same tab must start with
+  // no pending toast, since Paul's undo must never be able to revert
+  // George's action or vice versa.
+  const [lastAction, setLastAction] = useState(null) // { batchId, label } or null
   const [toastVisible, setToastVisible] = useState(false)
   const [undoing, setUndoing] = useState(false)
-  const [showUndoHistory, setShowUndoHistory] = useState(false)
-  useEffect(() => { setUndoStack([]); setToastVisible(false) }, [profile?.id])
+  useEffect(() => { setLastAction(null); setToastVisible(false) }, [profile?.id])
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
@@ -1252,31 +1202,28 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // from the Recent actions panel like everything else. Clipboard is
   // deliberately left populated afterward — the same copied source is a
   // reasonable thing to paste into more than one target in a row.
-  // Pushes one entry onto the session undo stack and surfaces the toast for
-  // it — the single call every mutating action above/below routes through,
-  // so the stack, the toast, and the history panel can never drift out of
-  // sync with each other.
+  // Records the most recent mutating action and surfaces the toast for it
+  // — the single call every action above/below routes through, so the
+  // toast can never drift out of sync with what actually just happened.
   function pushUndo(batchId, label) {
-    setUndoStack(prev => [{ batchId, label, at: new Date().toISOString() }, ...prev].slice(0, MAX_UNDO_STACK))
+    setLastAction({ batchId, label })
     setToastVisible(true)
   }
 
-  // The stack's own action — identical to "Restore this" in
-  // WeekendPlannerChangeLogModal's Recent actions list, just local to this
-  // session and strictly LIFO (always the top entry; popping it is what
-  // exposes the next one down). Both call restoreWeekendPlannerBatch with
-  // nothing but the batchId (see changeLog.js for why it re-fetches
+  // The toast's own action — identical to "Restore this" in
+  // WeekendPlannerChangeLogModal's Recent actions list (which also now
+  // confirms before writing), just triggered inline right after the
+  // action instead of from the review log. Calls restoreWeekendPlannerBatch
+  // with nothing but the batchId (see changeLog.js for why it re-fetches
   // everything fresh rather than trusting this component's own
-  // already-loaded state) — the DB-side restore logic is identical, this
-  // is just which batchId gets passed and how the local stack reacts.
-  async function undoTop() {
-    const top = undoStack[0]
-    if (!top) return
+  // already-loaded state) — the restore logic is identical either way.
+  async function undoLastAction() {
+    if (!lastAction) return
     setUndoing(true)
-    const result = await restoreWeekendPlannerBatch({ batchId: top.batchId, changedBy: profile?.id ?? null })
+    const result = await restoreWeekendPlannerBatch({ batchId: lastAction.batchId, changedBy: profile?.id ?? null })
     setUndoing(false)
     if (result.error) { setError(result.error); setToastVisible(false); return }
-    setUndoStack(prev => prev.slice(1))
+    setLastAction(null)
     setToastVisible(false)
     await load()
   }
@@ -1448,15 +1395,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               </div>
             </div>
 
-            {/* Part 4's sticky mobile toolbar — month stepper + a compact
-                dot+count coverage read, pinned flush to the top of the
-                viewport while scrolling — the Planners sub-nav
+            {/* Part 4's sticky mobile toolbar, pinned flush to the top of
+                the viewport while scrolling — the Planners sub-nav
                 (LeavePlannerPage.jsx) has its own separate sticky/
                 hide-on-scroll behaviour shared across every planner tab
                 (deliberately not touched here, since that's shared
                 cross-tab chrome this rebuild doesn't own); this row simply
                 sticks at top-0 in its own right rather than reserving space
-                for wherever that sub-nav happens to be. */}
+                for wherever that sub-nav happens to be.
+                Month nav + actions on their own row; the coverage dot
+                legend is information, not an action, so it gets its own
+                caption line below instead of competing with icon buttons
+                for space in the same row. */}
             <div className="sticky top-0 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {renderMonthNav(isAdmin && (
@@ -1464,32 +1414,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     type="button"
                     onClick={() => setShowChangeLog(true)}
                     aria-label="Review log"
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                    className="btn-secondary flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center p-0"
                   >
                     <ScrollText className="h-4 w-4" />
                   </button>
                 ))}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2.5 text-xs text-ink-muted">
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{monthStatusCounts.complete}</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagAmber" />{monthStatusCounts.open}</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagRed" />{monthStatusCounts.empty}</span>
-                  </div>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setShowUndoHistory(true)}
-                      aria-label="Undo history"
-                      className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
-                    >
-                      <History className="h-4 w-4" />
-                      {undoStack.length > 0 && (
-                        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
-                          {undoStack.length}
-                        </span>
-                      )}
-                    </button>
-                  )}
+                <div className="flex items-center gap-2">
                   {isAdmin && (
                     <button
                       type="button"
@@ -1504,6 +1434,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     <InlineRuleHint iconOnly icon={<Info className="h-4 w-4" />} bullets={RULE_BULLETS} />
                   )}
                 </div>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted">
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{monthStatusCounts.complete}</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagAmber" />{monthStatusCounts.open}</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagRed" />{monthStatusCounts.empty}</span>
               </div>
             </div>
 
@@ -1829,12 +1764,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         />
       )}
 
-      {toastVisible && undoStack[0] && (
+      {toastVisible && lastAction && (
         <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-lg">
-          <span>{undoStack[0].label}</span>
+          <span>{lastAction.label}</span>
           <button
             type="button"
-            onClick={undoTop}
+            onClick={undoLastAction}
             disabled={undoing}
             className="font-semibold text-accent-tint hover:text-white disabled:opacity-60"
           >
@@ -1842,15 +1777,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           </button>
           <button type="button" onClick={() => setToastVisible(false)} className="text-white/60 hover:text-white" aria-label="Dismiss">×</button>
         </div>
-      )}
-
-      {showUndoHistory && (
-        <UndoHistoryPanel
-          undoStack={undoStack}
-          undoing={undoing}
-          onUndoTop={undoTop}
-          onClose={() => setShowUndoHistory(false)}
-        />
       )}
     </div>
   )

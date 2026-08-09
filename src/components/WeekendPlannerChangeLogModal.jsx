@@ -44,6 +44,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   const [batchNameById, setBatchNameById] = useState(new Map())
   const [restoringBatchId, setRestoringBatchId] = useState(null)
   const [restoreMessage, setRestoreMessage] = useState(null) // { type: 'error' | 'success', text }
+  const [confirmBatch, setConfirmBatch] = useState(null) // the batch object pending a "restore?" confirmation, or null
 
   useEffect(() => {
     fetchAdminOptions().then(setAdminOptions)
@@ -94,6 +95,13 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     onDataChanged?.()
   }
 
+  async function handleConfirmRestore() {
+    if (!confirmBatch) return
+    const batchId = confirmBatch.batchId
+    setConfirmBatch(null)
+    await handleRestore(batchId)
+  }
+
   const filtersActive = Object.values(filters).some(Boolean)
   const nameById = nameMapFromProfiles(profilesById)
 
@@ -133,7 +141,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
                   </span>
                   <button
                     type="button"
-                    onClick={() => handleRestore(batch.batchId)}
+                    onClick={() => setConfirmBatch(batch)}
                     disabled={restoringBatchId !== null}
                     className="btn-secondary flex-shrink-0 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -225,6 +233,27 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
           </div>
         )}
       </div>
+
+      {/* A restore writes real changes immediately (no further review step
+          after this), so it gets its own explicit confirm — same "are you
+          sure" friction as Clear weekend/month/quarter elsewhere in the
+          planner. Nested inside the review log modal's own backdrop rather
+          than a sibling, so it needs its own stopPropagation to cancel
+          without also closing the review log behind it. */}
+      {confirmBatch && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/20 px-4" onClick={() => setConfirmBatch(null)}>
+          <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="font-display text-base font-bold text-ink">Restore this action?</h3>
+            <p className="mt-2 text-sm text-ink-light">
+              Are you sure you want to restore &ldquo;{summarizeWeekendPlannerBatch(confirmBatch)}&rdquo;? This action is permanent.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmBatch(null)} className="btn-secondary text-sm">Cancel</button>
+              <button type="button" onClick={handleConfirmRestore} className="btn-primary text-sm">Restore</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

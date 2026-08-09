@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft, RefreshCw, Search, ArrowUpDown, CircleX } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
@@ -71,6 +72,7 @@ function hoursBand(row) {
 }
 
 export default function RosterSummaryPage() {
+  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('year')) || new Date().getFullYear()
   const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -144,6 +146,16 @@ export default function RosterSummaryPage() {
       (selectedContractTypes.size === 0 || selectedContractTypes.has(r.contractType))
     )
     .sort(SORT_COMPARATORS[sortMode])
+    // Own row always leads, whatever sort/filter is active — a second
+    // stable pass on top of the sort above (Array#sort is stable, so this
+    // only ever moves "me", never reorders anyone else relative to each
+    // other). Falls out naturally to a no-op if the viewer has no row here
+    // (locum, or filtered/searched themselves out).
+    .sort((a, b) => {
+      if (a.profileId === profile?.id) return -1
+      if (b.profileId === profile?.id) return 1
+      return 0
+    })
 
   return (
     <div className="mx-auto max-w-full">
@@ -272,33 +284,43 @@ export default function RosterSummaryPage() {
       {!loading && !error && (
         <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
           <table className="w-full min-w-[1400px] border-collapse text-xs">
-            <thead className="sticky top-0 z-10 bg-canvas-sunken">
-              <tr className="bg-canvas-sunken text-[10px] uppercase tracking-wide text-ink-muted">
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-left" rowSpan={2}>Doctor</th>
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={3}>Totals</th>
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={WEEKDAY_COLUMNS.length}>Weekday</th>
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={WEEKEND_COLUMNS.length}>Weekend</th>
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={PH_WEEKDAY_COLUMNS.length}>PH (Weekday)</th>
-                <th className="border-b border-r border-slate-line px-2 py-1.5 text-center" colSpan={PH_WEEKEND_COLUMNS.length}>PH (Weekend)</th>
-                <th className={`border-b px-2 py-1.5 text-center ${leaveOpen ? 'border-r border-slate-line' : ''}`} colSpan={2}>PH Lieu</th>
+            <thead className="sticky top-0 z-10">
+              {/* bg-canvas-sunken on every th (not just the tr) — border-
+                  collapse plus sticky positioning otherwise leaves a thin
+                  seam between the two header rows where the body's own
+                  background shows through while scrolling, since a sticky
+                  cell can't reliably inherit its row's background during
+                  repositioning. Doctor is additionally sticky left-0 so it
+                  stays put during horizontal scroll too (see the matching
+                  td below) — z-20 keeps this one corner cell above both
+                  the rest of the sticky header row and the sticky body
+                  column it sits atop. */}
+              <tr className="text-[10px] uppercase tracking-wide text-ink-muted">
+                <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left" rowSpan={2}>Doctor</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={3}>Totals</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKDAY_COLUMNS.length}>Weekday</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKEND_COLUMNS.length}>Weekend</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={PH_WEEKDAY_COLUMNS.length}>PH (Weekday)</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={PH_WEEKEND_COLUMNS.length}>PH (Weekend)</th>
+                <th className={`border-b bg-canvas-sunken px-2 py-1.5 text-center ${leaveOpen ? 'border-r border-slate-line' : ''}`} colSpan={2}>PH Lieu</th>
                 {leaveOpen && (
-                  <th className="border-b border-slate-line px-2 py-1.5 text-center" colSpan={1 + Object.keys(LEAVE_TYPE_LABELS).length}>Leave</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={1 + Object.keys(LEAVE_TYPE_LABELS).length}>Leave</th>
                 )}
               </tr>
-              <tr className="bg-canvas-sunken text-[10px] text-ink-muted">
-                <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Target</th>
-                <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Worked</th>
-                <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Locum</th>
-                {WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
-                {WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
-                {PH_WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
-                {PH_WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line px-2 py-1 font-medium">{c.label}</th>)}
-                <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Lieu Owed</th>
-                <th className={`border-b px-2 py-1 font-medium ${leaveOpen ? 'border-r border-slate-line' : ''}`}>Lieu Taken</th>
+              <tr className="text-[10px] text-ink-muted">
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Target</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Worked</th>
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Locum</th>
+                {WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Lieu Owed</th>
+                <th className={`border-b bg-canvas-sunken px-2 py-1 font-medium ${leaveOpen ? 'border-r border-slate-line' : ''}`}>Lieu Taken</th>
                 {leaveOpen && (
                   <>
-                    <th className="border-b border-r border-slate-line px-2 py-1 font-medium">Days</th>
-                    <th className="border-b border-slate-line px-2 py-1 text-left font-medium">Breakdown</th>
+                    <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Days</th>
+                    <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 text-left font-medium">Breakdown</th>
                   </>
                 )}
               </tr>
@@ -307,12 +329,24 @@ export default function RosterSummaryPage() {
               {filteredRows.map(row => {
                 const band = hoursBand(row)
                 const textColor = row.colorCode ? contrastTextColor(row.colorCode) : undefined
+                const isMe = row.profileId === profile?.id
                 return (
-                  <tr key={row.profileId} className="border-b border-slate-line last:border-0 hover:bg-canvas-sunken/50">
-                    <td className="border-r border-slate-line px-2 py-1.5 align-top">
+                  <tr key={row.profileId} className={`border-b border-slate-line last:border-0 hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-sunken' : ''}`}>
+                    {/* Sticky left-0 so Doctor stays visible during horizontal
+                        scroll (see the matching th above) — needs its own
+                        explicit background (matching the row's own, plain or
+                        highlighted) rather than the tr's, same reasoning as
+                        the header seam fix above: a sticky cell can't rely on
+                        inheriting a background through the row during
+                        repositioning. whitespace-nowrap on the name pill
+                        keeps it on one line, which combined with this table's
+                        auto layout (no table-fixed) is what actually shrinks
+                        the column to fit the longest name instead of an
+                        arbitrary fixed width. */}
+                    <td className={`sticky left-0 z-[1] border-r border-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-sunken' : 'bg-canvas'}`}>
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                          className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={{ backgroundColor: row.colorCode || '#4A90D9', color: textColor }}
                         >
                           {row.name} {row.surname}

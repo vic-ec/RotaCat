@@ -19,6 +19,8 @@ const ROSTER_VIEW_OPTIONS = [
   { key: 'grid', label: 'Grid', icon: LayoutGrid },
 ]
 
+const ROSTER_VIEW_KEY = 'rotacat:rosterView'
+
 // Reuses the exact same status tokens as the small Tag variant="status"
 // pill below (STATUS_TONE/Tag.jsx's STATUS_TONE_CLASS) rather than picking
 // new colors — draft's flagAmber-bg, published's success-bg, archived's
@@ -149,9 +151,15 @@ export default function RosterDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   // Shared across Active/Archive/Bin — switching once holds across tabs,
   // same as Toolbar's own search/sort/filter state being per-tab but this
-  // display-mode choice being page-wide. Defaults to 'list' so nothing
+  // display-mode choice being page-wide. Persisted so it survives a tab
+  // switch, a page reload, and logout/login. Defaults to 'list' so nothing
   // changes for anyone until they switch it.
-  const [rosterView, setRosterView] = useState('list')
+  const [rosterView, setRosterView] = useState(() => {
+    try { return localStorage.getItem(ROSTER_VIEW_KEY) || 'list' } catch { return 'list' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(ROSTER_VIEW_KEY, rosterView) } catch { /* ignore */ }
+  }, [rosterView])
 
   useEffect(() => {
     loadRosters()

@@ -179,14 +179,14 @@ describe('WeekendPlannerView', () => {
 
       const aug8Heading = await view.findByText('Sat 8 - Sun 9 Aug 2026')
       const aug8Card = aug8Heading.closest('.card')
-      expect(within(aug8Card).queryByText('Needs planning')).not.toBeInTheDocument() // fully covered
+      expect(within(aug8Card).getByText('Complete')).toBeInTheDocument() // fully covered
 
       const aug15Heading = view.getByText('Sat 15 - Sun 16 Aug 2026')
       const aug15Card = aug15Heading.closest('.card')
-      expect(within(aug15Card).getByText('Needs planning')).toBeInTheDocument()
+      expect(within(aug15Card).getByText('Empty')).toBeInTheDocument() // nothing planned yet
     })
 
-    it('cards alternate teal/amber background+text colour by weekend, independent of coverage', async () => {
+    it('cards always have a neutral white background — weekend parity is carried by the left border only', async () => {
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
@@ -196,14 +196,17 @@ describe('WeekendPlannerView', () => {
       // 2026-08-01 is both the next-weekend card and this month's first list card
       const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
       const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
-      const aug1IsAccent = aug1Card.className.includes('bg-accent-tint')
-      const aug8IsAccent = aug8Card.className.includes('bg-accent-tint')
-      expect(aug1IsAccent).not.toBe(aug8IsAccent)
-      expect(aug1Card.className.includes('bg-flagAmber-bg') || aug1IsAccent).toBe(true)
-      expect(aug8Card.className.includes('bg-flagAmber-bg') || aug8IsAccent).toBe(true)
+      expect(aug1Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg/)
+      expect(aug8Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg/)
+
+      const aug1IsEven = aug1Card.className.includes('border-l-groupEven')
+      const aug8IsEven = aug8Card.className.includes('border-l-groupEven')
+      expect(aug1IsEven).not.toBe(aug8IsEven)
+      expect(aug1Card.className.includes('border-l-groupEven') || aug1Card.className.includes('border-l-groupOdd')).toBe(true)
+      expect(aug8Card.className.includes('border-l-groupEven') || aug8Card.className.includes('border-l-groupOdd')).toBe(true)
     })
 
-    it('"Needs planning" no longer overrides the background — a rose pillbox and rose open-slot counts instead', async () => {
+    it('the status pill reflects live coverage (Empty/N roles open/Complete) and is never a background fill', async () => {
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
@@ -211,15 +214,15 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
-      // still themed by parity, not overridden to a flat amber "warning" card
-      expect(aug15Card.className.includes('bg-accent-tint') || aug15Card.className.includes('bg-flagAmber-bg')).toBe(true)
-      expect(within(aug15Card).getByText('Needs planning')).toHaveClass('bg-rose-light', 'text-rose-dark')
-      for (const el of within(aug15Card).getAllByText('1 open')) {
-        expect(el).toHaveClass('text-rose-dark')
-      }
+      expect(aug15Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg|bg-flagRed-bg/)
+      expect(within(aug15Card).getByText('Empty')).toHaveClass('bg-flagRed-bg', 'text-flagRed')
+
+      // 2026-08-01 (next-weekend card is index 0, list card is index 1): only MO filled, 3 groups open.
+      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      expect(within(aug1Card).getByText('3 roles open')).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
     })
 
-    it("filled surnames and the admin's +/x controls use the weekend's parity text colour", async () => {
+    it('assigned names are neutral ink-coloured (not tinted by parity), and unfilled roles show a tappable amber Open pill', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -228,14 +231,12 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
-      const scheme = aug8Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
-      expect(within(aug8Card).getByText('Anderson').closest('span')).toHaveClass(scheme)
-      expect(within(aug8Card).getByRole('button', { name: 'Remove Anderson from 2026-08-08' })).toHaveClass(scheme)
+      expect(within(aug8Card).getByRole('button', { name: 'Anderson' })).toHaveClass('text-ink')
 
       const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
-      const aug15Scheme = aug15Card.className.includes('bg-accent-tint') ? 'text-accent' : 'text-flagAmber'
-      const addButtons = within(aug15Card).getAllByRole('button', { name: 'Add doctor' })
-      expect(addButtons[0]).toHaveClass(aug15Scheme)
+      const openPills = within(aug15Card).getAllByRole('button', { name: 'Open' })
+      expect(openPills).toHaveLength(4)
+      expect(openPills[0]).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
     })
 
     it('"Needs planning" filter (admin-only) hides fully-covered weekends', async () => {
@@ -342,20 +343,23 @@ describe('WeekendPlannerView', () => {
       expect(within(aug8Card).queryByText('Alice Anderson')).not.toBeInTheDocument()
     })
 
-    it('admin: can remove an assigned doctor from a weekend', async () => {
+    it('admin: can remove an assigned doctor from a weekend via the remove sheet', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      await view.findByRole('button', { name: 'Remove Anderson from 2026-08-01' })
 
-      await user.click(view.getByRole('button', { name: 'Remove Anderson from 2026-08-01' }))
-      expect(view.queryByRole('button', { name: 'Remove Anderson from 2026-08-01' })).not.toBeInTheDocument()
+      // 2026-08-01: next-weekend card is index 0, this month's list card is index 1.
+      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      await user.click(within(aug1Card).getByRole('button', { name: 'Anderson' }))
+
+      await user.click(await screen.findByRole('button', { name: 'Remove from this weekend' }))
+      await waitFor(() => expect(within(aug1Card).queryByRole('button', { name: 'Anderson' })).not.toBeInTheDocument())
     })
 
-    it('admin: can add a doctor to an open slot via the picker', async () => {
+    it('admin: can add a doctor to an open slot via the doctor picker sheet (Add doctor button)', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -365,11 +369,41 @@ describe('WeekendPlannerView', () => {
       const aug15Heading = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       const aug15Card = aug15Heading.closest('.card')
 
-      const addButtons = within(aug15Card).getAllByRole('button', { name: 'Add doctor' })
-      await user.click(addButtons[0]) // MO row is first
-      await user.selectOptions(within(aug15Card).getByRole('combobox'), 'p1')
+      await user.click(within(aug15Card).getByRole('button', { name: 'Add doctor' }))
+      const heading = await screen.findByRole('heading', { name: /MO —/ }) // first open group
+      await user.click(within(heading.closest('.card')).getByRole('button', { name: /Alice Anderson/ }))
 
       expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin: can add a doctor to a specific open role by tapping its Open pill', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+      const aug15Card = (await view.findByText('Sat 15 - Sun 16 Aug 2026')).closest('.card')
+
+      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[1]) // Registrar row
+      await screen.findByRole('heading', { name: /Registrar —/ })
+      await user.click(await screen.findByRole('button', { name: /Bob Botha/ }))
+
+      expect(await within(aug15Card).findByText('Botha')).toBeInTheDocument()
+    })
+
+    it('doctor picker sheet flags an unresolved Intern/COSMO doctor (no covering rotation record) rather than guessing', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+      const aug15Card = (await view.findByText('Sat 15 - Sun 16 Aug 2026')).closest('.card')
+
+      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[2]) // EC Intern (COSMO group) row
+      const carolButton = await screen.findByRole('button', { name: /Carol Cosmo/ })
+      expect(within(carolButton).getByText('Needs rotation record')).toBeInTheDocument()
     })
 
     it('tapping a card\'s date opens a read-only quick-glance sheet, additive to (not replacing) the card\'s own inline breakdown', async () => {
@@ -405,8 +439,7 @@ describe('WeekendPlannerView', () => {
       // The card's own inline breakdown is untouched — still showing (and
       // still editable) right where it always was.
       const card = aug8Button.closest('.card')
-      expect(within(card).getByText('Anderson')).toBeInTheDocument()
-      expect(within(card).getByRole('button', { name: 'Remove Anderson from 2026-08-08' })).toBeInTheDocument()
+      expect(within(card).getByRole('button', { name: 'Anderson' })).toBeInTheDocument()
     })
 
     it('quick-glance sheet: shows open groups and gap count for an unplanned weekend', async () => {
@@ -759,7 +792,7 @@ describe('WeekendPlannerView', () => {
       expect(within(inspector).getByText('4 gaps')).toBeInTheDocument()
     })
 
-    it('admin: Clear weekend removes just that weekend\'s entries via the mobile card\'s trash icon', async () => {
+    it('admin: Clear weekend removes just that weekend\'s entries via the mobile card\'s ⋮ menu', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -767,13 +800,41 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       const aug8Card = (await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' })).closest('.card')
-      await user.click(within(aug8Card).getByRole('button', { name: 'Clear weekend 2026-08-08' }))
+      await user.click(within(aug8Card).getByRole('button', { name: 'More actions for weekend 2026-08-08' }))
+      const menu = await screen.findByRole('dialog', { name: 'Sat 8 - Sun 9 Aug 2026' })
+      await user.click(within(menu).getByRole('button', { name: 'Clear weekend' }))
 
       await screen.findByRole('heading', { name: 'Clear Sat 8 - Sun 9 Aug 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
 
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Clear Sat 8 - Sun 9 Aug 2026?' })).not.toBeInTheDocument())
-      expect(within(aug8Card).getAllByText('1 open')).toHaveLength(4)
+      expect(within(aug8Card).getAllByRole('button', { name: 'Open' })).toHaveLength(4)
+    })
+
+    it('admin: per-card ⋮ menu — Copy weekend then Paste here on another card, with the source card highlighted', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const aug8Card = (await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' })).closest('.card')
+      await user.click(within(aug8Card).getByRole('button', { name: 'More actions for weekend 2026-08-08' }))
+      const aug8Menu = await screen.findByRole('dialog', { name: 'Sat 8 - Sun 9 Aug 2026' })
+      await user.click(within(aug8Menu).getByRole('button', { name: 'Copy weekend' }))
+
+      expect(await screen.findByText(/Sat 8 - Sun 9 Aug 2026 copied/)).toBeInTheDocument()
+      expect(aug8Card.className).toMatch(/ring-2 ring-accent/)
+
+      const aug15Card = (await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' })).closest('.card')
+      await user.click(within(aug15Card).getByRole('button', { name: 'More actions for weekend 2026-08-15' }))
+      const aug15Menu = await screen.findByRole('dialog', { name: 'Sat 15 - Sun 16 Aug 2026' })
+      await user.click(within(aug15Menu).getByRole('button', { name: 'Paste here' }))
+
+      await screen.findByRole('heading', { name: /Paste Sat 8 - Sun 9 Aug 2026 into/ })
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+
+      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
     })
 
     it('non-admin: no Clear weekend action on the mobile card or desktop inspector', async () => {
@@ -863,7 +924,7 @@ describe('WeekendPlannerView', () => {
       await waitFor(() => expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument())
     })
 
-    it('admin: only an overwrite paste (not a fill-empty one) shows the Undo toast', async () => {
+    it('admin: every paste — fill-empty or overwrite — pushes onto the undo stack and shows the Undo toast', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -874,12 +935,14 @@ describe('WeekendPlannerView', () => {
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
 
-      // First paste: fill-empty (default) — nothing to overwrite, no toast.
+      // First paste: fill-empty (default) — nothing to overwrite, but every
+      // edit gets a toast now, not just destructive ones (Part 8).
       await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
       await screen.findByRole('heading', { name: 'Paste August 2026 into September 2026' })
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Paste August 2026 into September 2026' })).not.toBeInTheDocument())
-      expect(screen.queryByText(/^Pasted into/)).not.toBeInTheDocument()
+      expect(await screen.findByText('Pasted into September 2026')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Dismiss' }))
 
       // Second paste: overwrite — September now has entries from the first
       // paste, so this one actually deletes something first.
@@ -889,6 +952,95 @@ describe('WeekendPlannerView', () => {
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
 
       expect(await screen.findByText('Pasted into September 2026 (overwrite)')).toBeInTheDocument()
+    })
+
+    it('admin: undo history panel lists edits most-recent-first, strictly LIFO (only the top entry is actionable)', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await screen.findByRole('heading', { name: 'Clear August 2026?' })
+      await user.click(screen.getByRole('button', { name: 'Clear' }))
+      await screen.findByText('Cleared August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Undo history' }))
+      const panel = (await screen.findByText(/This session.s edits/)).closest('.card')
+      expect(within(panel).getByText('Cleared August 2026')).toBeInTheDocument()
+      expect(within(panel).getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
+    })
+
+    it('undo stack clears when the signed-in profile changes — one admin can never revert another admin\'s action', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      const rendered = render(<WeekendPlannerView />, { wrapper: MemoryRouter })
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Clear August' }))
+      await screen.findByRole('heading', { name: 'Clear August 2026?' })
+      await user.click(screen.getByRole('button', { name: 'Clear' }))
+      await screen.findByText('Cleared August 2026')
+
+      // A second admin signs in, in the same tab, without a page reload —
+      // e.g. Paul logs out and George logs in without a full app remount.
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-2' } }
+      rendered.rerender(<WeekendPlannerView />)
+
+      expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Undo history' }))
+      expect(await screen.findByText('No edits yet this session.')).toBeInTheDocument()
+    })
+
+    it('admin: "Plan next open weekend" jumps to the nearest weekend with any open role and opens its picker', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      // 2026-08-01 is the earliest open weekend in ENTRIES (only MO filled).
+      const banner = await view.findByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })
+      await user.click(banner)
+
+      // Opens the picker for the first open group (Registrar) on that weekend.
+      await screen.findByRole('heading', { name: /Registrar —/ })
+    })
+
+    it('admin: "Plan next open weekend" retargets to the next weekend still open once this one is fully filled', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+
+      async function fillNextOpenRole(doctorNamePattern) {
+        const banner = await view.findByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })
+        await user.click(banner)
+        await user.click(await screen.findByRole('button', { name: doctorNamePattern }))
+      }
+
+      // Aug 1 starts with only MO filled — fill Registrar, EC Intern in turn
+      // (the banner's own "needs-planning" filter keeps Aug 1's card visible
+      // as long as it still has an open role to check the fill against).
+      await fillNextOpenRole(/Bob Botha/)
+      await within(aug1Card).findByText('Botha')
+      await fillNextOpenRole(/Carol Cosmo/)
+      await within(aug1Card).findByText('Cosmo')
+
+      // Filling the last role (OT Intern) completes Aug 1 — under the
+      // "needs-planning" filter the card disappears from the list in the
+      // same render as the fill, so there's no visible in-between state to
+      // assert on the card itself; what matters is where the banner points
+      // next.
+      await fillNextOpenRole(/Dan Della/)
+
+      // Aug 1 is now fully planned and Aug 8 is already fully covered in
+      // ENTRIES — the banner should have moved on to Aug 15.
+      expect(await view.findByRole('button', { name: /Plan next open weekend — Sat 15 - Sun 16 Aug 2026/ })).toBeInTheDocument()
     })
   })
 })

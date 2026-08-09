@@ -1,21 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2 } from 'lucide-react'
+import {
+  Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
+  MoreVertical, EllipsisVertical, History, Sparkles,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
 import {
-  CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
+  CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
+  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
 } from '../lib/weekendPlanner'
+import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import DateStepper from './DateStepper'
 import InlineRuleHint from './InlineRuleHint'
 import Toolbar from './Toolbar'
+import Tag from './Tag'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
+const MAX_UNDO_STACK = 8 // Part 8's session-scoped undo stack cap
 // My weekends is both the default landing filter and leftmost chip for a
 // non-admin viewer. Needs planning is admin-only (nothing a non-admin
 // viewer can act on) and sits at the far right, appended only for admins
@@ -76,15 +83,16 @@ function weekendColorScheme(saturday) {
 }
 
 // Desktop's weekend-parity badge — a small labelled pill ("Wknd 2 · Odd"),
-// never a background wash. Uses accent/rose (not accent/flagAmber like the
-// mobile scheme above) because flagAmber is spoken for on desktop: it's the
-// Status column's "N gaps" chip, a genuine roster-state signal, and mixing
-// it into parity too would blur that meaning.
+// never a background wash. Uses groupEven/groupOdd — a dedicated parity
+// color family, not flagAmber/success (reserved for the Status column's "N
+// gaps" chip, a genuine roster-state signal that parity mixing into would
+// blur) and not accent/rose (a status-adjacent pairing that read as one
+// more roster-state signal rather than its own thing — see tailwind.config.js).
 function weekendBadge(saturday, weekendIndex) {
   const even = isEvenWeekend(saturday)
   return {
     label: `Wknd ${weekendIndex} · ${even ? 'Even' : 'Odd'}`,
-    chip: even ? 'bg-accent-tint text-accent' : 'bg-rose-tint text-rose-dark',
+    chip: even ? 'bg-groupEven-tint text-groupEven' : 'bg-groupOdd-tint text-groupOdd',
   }
 }
 
@@ -235,7 +243,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById }) {
 function WeekendInspector({
   saturday, weekendIndex, bySaturday, doctors, doctorById, isAdmin, saving, myRequest, canViewRequests,
   assignedIds, openPicker, setOpenPicker, addEntry, removeEntry, onClearWeekend,
-  onCopyWeekend, onPasteWeekend, hasWeekendClipboard,
+  onCopyWeekend, onPasteWeekend, hasWeekendClipboard, rotationsByDoctorId,
 }) {
   const [editing, setEditing] = useState(false)
   useEffect(() => { setEditing(false) }, [saturday])
@@ -344,8 +352,8 @@ function WeekendInspector({
             {CATEGORY_GROUPS.map(group => {
               const groupEntries = bySaturday[group.key] || []
               const availableDoctors = doctors
-                .filter(d => groupForCategory(resolvedCategoryForDoctor(d)) === group.key)
                 .filter(d => !assignedIds.has(d.id))
+                .filter(d => resolveWeekendCategoryForDoctor({ doctor: d, targetDate: saturday, rotationsByDoctorId }).groupKey === group.key)
               return (
                 <CategoryGroupRow
                   key={group.key}
@@ -449,8 +457,8 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
   const weekendCount = Math.min(sourceWeekendCount, targetWeekendCount)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
-      <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-b-none p-5 sm:max-h-[80vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">Paste {clipboard.sourceLabel} into {targetLabel}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
@@ -512,8 +520,8 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
 // (how many weekend_planner_entries rows this specific action would delete).
 function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
-      <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
@@ -532,6 +540,250 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
             {saving ? 'Clearing…' : 'Clear'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Shared bottom-sheet action-list shell — the same visual template as
+// WeekendDetailSheet/WeekendPasteModal (fixed inset-0, bg-ink/20, items-end
+// on mobile / items-center on desktop, rounded-b-none sm:rounded-b-lg) —
+// for the new short action lists this rebuild adds (per-card ⋮ menu, the
+// page-level ••• overflow menu, the doctor-remove confirmation) rather than
+// inventing a second sheet pattern.
+function ActionSheet({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="card w-full max-w-sm rounded-b-none p-2 sm:rounded-b-lg"
+        onClick={e => e.stopPropagation()}
+      >
+        {title && <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>}
+        <div className="divide-y divide-slate-line">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function ActionSheetButton({ icon, danger, disabled, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+        danger ? 'text-flagRed hover:bg-flagRed-bg' : 'text-ink hover:bg-canvas-sunken'
+      }`}
+    >
+      {icon}{children}
+    </button>
+  )
+}
+
+// Live status pill for a weekend's own coverage — Complete (success) / "N
+// roles open" (flagAmber) / Empty (flagRed) — always derived fresh from
+// weekendCoverageSummary rather than cached, so it updates the instant a
+// role is filled or cleared. The mobile card's top-right pill (Part 3);
+// desktop keeps its own existing "N gaps"/"Fully planned" chip unchanged.
+function weekendStatusPill(coverage) {
+  if (coverage.filledGroups === coverage.totalGroups) return { label: 'Complete', tone: 'success' }
+  if (coverage.filledGroups === 0) return { label: 'Empty', tone: 'danger' }
+  return { label: `${coverage.openGroups.length} role${coverage.openGroups.length === 1 ? '' : 's'} open`, tone: 'warning' }
+}
+
+// One role row on the mobile card (Part 3/5) — label left, value right,
+// divider between rows (the parent's own divide-y). An unfilled role is a
+// tappable amber "Open" pill (opens the doctor picker sheet, scoped to this
+// weekend+group); an assigned doctor's name is itself tappable (opens the
+// single-action "Remove from this weekend" sheet) — no inline +/x controls,
+// unlike the desktop inspector's CategoryGroupRow, which keeps its own
+// existing edit-mode UX unchanged.
+function MobileRoleRow({ group, groupEntries, doctorById, isAdmin, onOpenPicker, onOpenRemove }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-2">
+      <span className="text-sm text-ink-muted">{group.label}</span>
+      {groupEntries.length === 0 ? (
+        isAdmin ? (
+          <button
+            type="button"
+            onClick={onOpenPicker}
+            className="rounded-full bg-flagAmber-bg px-2.5 py-1 text-xs font-medium text-flagAmber transition-colors hover:opacity-80"
+          >
+            Open
+          </button>
+        ) : (
+          <span className="rounded-full bg-flagAmber-bg px-2.5 py-0.5 text-xs font-medium text-flagAmber">Open</span>
+        )
+      ) : (
+        <div className="flex flex-wrap justify-end gap-x-2 gap-y-1">
+          {groupEntries.map(entry => {
+            const doctor = doctorById.get(entry.profile_id)
+            const name = doctor ? doctor.surname : '(unknown)'
+            return isAdmin ? (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onOpenRemove(entry)}
+                className="text-sm text-ink underline decoration-dotted underline-offset-2 hover:text-accent"
+              >
+                {name}
+              </button>
+            ) : (
+              <span key={entry.id} className="text-sm text-ink">{name}</span>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Part 5's doctor picker — a bottom sheet scoped to one weekend+group,
+// candidates from the date-aware resolveWeekendCategoryForDoctor (Part 10),
+// not a static category field, so a copied-over EC/OT rotation is reflected
+// immediately. Deliberately no eligibility/conflict filtering beyond "not
+// already assigned this weekend" (leave conflicts, hour caps — out of scope
+// for this pass, already flagged as separate future work).
+function WeekendDoctorPickerSheet({ saturday, groupKey, doctors, assignedIds, rotationsByDoctorId, onPick, onClose }) {
+  const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
+  const candidates = doctors
+    .filter(d => !assignedIds.has(d.id))
+    .map(d => ({ doctor: d, ...resolveWeekendCategoryForDoctor({ doctor: d, targetDate: saturday, rotationsByDoctorId }) }))
+    .filter(r => r.groupKey === groupKey)
+    .sort((a, b) => a.doctor.surname.localeCompare(b.doctor.surname))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-bold text-ink">{group?.label} — {formatWeekendRange(saturday)}</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        </div>
+        <div className="mt-3 max-h-[60vh] flex-1 divide-y divide-slate-line overflow-y-auto">
+          {candidates.length === 0 ? (
+            <p className="py-4 text-sm text-ink-muted">No eligible doctors available.</p>
+          ) : candidates.map(({ doctor, resolved }) => (
+            <button
+              key={doctor.id}
+              type="button"
+              onClick={() => onPick(doctor.id)}
+              className="flex w-full items-center justify-between gap-2 px-1 py-2.5 text-left text-sm text-ink hover:bg-canvas-sunken"
+            >
+              <span>{doctor.name} {doctor.surname}</span>
+              {!resolved && <Tag variant="status" tone="warning">Needs rotation record</Tag>}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Part 5's "tap an assigned name" sheet — one action only (no swap-doctor:
+// considered and explicitly rejected, remove-then-reassign covers it).
+function WeekendRemoveDoctorSheet({ entry, doctor, saturday, groupLabel, onRemove, onClose }) {
+  return (
+    <ActionSheet title={`${doctor ? `${doctor.name} ${doctor.surname}` : 'Doctor'} — ${groupLabel}, ${formatWeekendRange(saturday)}`} onClose={onClose}>
+      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} onClick={() => onRemove(entry.id)}>
+        Remove from this weekend
+      </ActionSheetButton>
+    </ActionSheet>
+  )
+}
+
+// Part 6's per-card ⋮ menu — Copy/Paste/Clear for exactly this weekend,
+// reusing the same copyWeekend/openWeekendPaste/setClearWeekendTarget
+// mutation functions the desktop inspector already uses (see
+// WeekendPlannerView's own file-level comment), not a parallel mobile
+// implementation.
+function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy, onPaste, onClear, onClose }) {
+  return (
+    <ActionSheet title={formatWeekendRange(saturday)} onClose={onClose}>
+      <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={!canCopy} onClick={onCopy}>Copy weekend</ActionSheetButton>
+      <ActionSheetButton icon={<ClipboardPaste className="h-4 w-4" />} disabled={!hasClipboard || isSourceCard} onClick={onPaste}>Paste here</ActionSheetButton>
+      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} disabled={!canCopy} onClick={onClear}>Clear weekend</ActionSheetButton>
+    </ActionSheet>
+  )
+}
+
+// Part 4's page-level ••• overflow menu — collapses the instructions
+// banner (reusing InlineRuleHint's own "How it works" modal, not a second
+// copy of its bullets) and the bulk Copy/Clear month+quarter actions,
+// mobile only; desktop keeps its own always-visible row unchanged.
+function WeekendOverflowMenu({
+  viewMonth, copyDisabled, clearMonthDisabled, clearQuarterDisabled,
+  onCopyMonth, onCopyQuarter, onClearMonth, onClearQuarter, onClose,
+}) {
+  return (
+    <ActionSheet title="More actions" onClose={onClose}>
+      <div className="px-3 py-2.5">
+        <InlineRuleHint
+          compact
+          inline="No more than one person per slot — a colour marks which weekends you're on for the month."
+          bullets={[
+            'No more than one person per slot.',
+            'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
+            'Use surnames when populating the planner.',
+          ]}
+        />
+      </div>
+      <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={copyDisabled} onClick={onCopyMonth}>
+        Copy {MONTH_LABELS[viewMonth - 1]}
+      </ActionSheetButton>
+      <ActionSheetButton icon={<Copy className="h-4 w-4" />} disabled={copyDisabled} onClick={onCopyQuarter}>
+        Copy quarter
+      </ActionSheetButton>
+      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} disabled={clearMonthDisabled} onClick={onClearMonth}>
+        Clear {MONTH_LABELS[viewMonth - 1]}
+      </ActionSheetButton>
+      <ActionSheetButton danger icon={<Trash2 className="h-4 w-4" />} disabled={clearQuarterDisabled} onClick={onClearQuarter}>
+        Clear quarter
+      </ActionSheetButton>
+    </ActionSheet>
+  )
+}
+
+// Part 8's history panel — every session-undo-stack entry, most recent
+// first; only the top one is ever actionable (strict LIFO — reaching
+// further back means undoing forward from the top, sequentially, same as
+// popping the stack). Entirely separate from the Review log's own "Recent
+// actions" (WeekendPlannerChangeLogModal) — see the undoStack state's own
+// comment in the main component for why.
+function UndoHistoryPanel({ undoStack, undoing, onUndoTop, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+      <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-base font-bold text-ink">This session&rsquo;s edits</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        </div>
+        <p className="mt-1 text-xs text-ink-muted">Only the most recent edit can be undone — undoing it exposes the one before it.</p>
+        {undoStack.length === 0 ? (
+          <p className="mt-3 text-sm text-ink-muted">No edits yet this session.</p>
+        ) : (
+          <ul className="mt-3 max-h-[55vh] space-y-1.5 overflow-y-auto">
+            {undoStack.map((entry, i) => (
+              <li key={entry.batchId} className="flex items-center justify-between gap-2 text-sm">
+                <span className={`min-w-0 flex-1 truncate ${i === 0 ? 'text-ink' : 'text-ink-muted'}`}>{entry.label}</span>
+                {i === 0 ? (
+                  <button
+                    type="button"
+                    onClick={onUndoTop}
+                    disabled={undoing}
+                    className="btn-secondary flex-shrink-0 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {undoing ? 'Undoing…' : 'Undo'}
+                  </button>
+                ) : (
+                  <span className="flex-shrink-0 text-xs text-ink-muted">—</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
@@ -567,6 +819,7 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
 export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
+  const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [entries, setEntries] = useState([])
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -574,6 +827,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
+  // Mobile-only edit-mechanics state (Part 3/5/6/9) — the desktop
+  // inspector keeps its own separate openPicker-driven inline editing
+  // above, unchanged.
+  const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
+  const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
+  const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false) // page-level ••• menu (mobile)
   // An admin's default concern is the whole roster, not their own rotation
   // (they may not even be on it) — lands on "All weekends" rather than
   // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
@@ -596,13 +856,29 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [showClearMonthModal, setShowClearMonthModal] = useState(false)
   const [showClearQuarterModal, setShowClearQuarterModal] = useState(false)
   const [clearWeekendTarget, setClearWeekendTarget] = useState(null) // saturday string or null
-  // The post-action Undo toast (right after a paste-with-overwrite or any
-  // Clear) — { batchId, label } or null. Calls the exact same
-  // restoreWeekendPlannerBatch the "Recent actions" panel in
-  // WeekendPlannerChangeLogModal uses, per batch_id, not a separate
-  // in-memory-only code path (see changeLog.js).
-  const [undoToast, setUndoToast] = useState(null)
+  // Session-scoped undo stack — capped LIFO, max 8, most-recent-first.
+  // EVERY mutating action (single add/remove, paste, clear, any
+  // granularity) pushes one entry here, not just the destructive ones —
+  // this is what backs both the post-action toast (the common
+  // "just did something, tap Undo now" case) and the "Recent actions"
+  // history panel below it (reaching back further, strictly LIFO — only
+  // the top entry is ever actionable; undoing it is what exposes the next
+  // one). Deliberately NOT persisted (no sessionStorage/localStorage) and
+  // reset whenever the signed-in profile changes (see the effect below) —
+  // both a real page reload AND an admin switching accounts in the same
+  // tab must start from an empty stack, since Paul's undo must never be
+  // able to revert George's action or vice versa. Entirely separate from
+  // the durable, DB-backed "Recent actions" panel in
+  // WeekendPlannerChangeLogModal (Review log) — that one documents/restores
+  // across sessions and users; this one is an ephemeral per-visit
+  // convenience layer. Both call the same restoreWeekendPlannerBatch
+  // underneath, per batch_id, since every write already gets one (see
+  // addEntry/removeEntry/deleteEntries/insertEntries).
+  const [undoStack, setUndoStack] = useState([]) // [{ batchId, label, at }], most recent first
+  const [toastVisible, setToastVisible] = useState(false)
   const [undoing, setUndoing] = useState(false)
+  const [showUndoHistory, setShowUndoHistory] = useState(false)
+  useEffect(() => { setUndoStack([]); setToastVisible(false) }, [profile?.id])
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
@@ -648,10 +924,25 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
     if (myRequestsRes.error) { setError(myRequestsRes.error.message); setLoading(false); return }
 
-    setDoctors((profilesRes.data || []).filter(p => groupForCategory(resolvedCategoryForDoctor(p))))
+    const rotationEligibleDoctors = (profilesRes.data || []).filter(p => groupForCategory(resolvedCategoryForDoctor(p)))
+    setDoctors(rotationEligibleDoctors)
     setEntries(entriesRes.data || [])
     setMyWeekendRequests(myRequestsRes.data || [])
     setLoading(false)
+
+    // Batch-fetched ONCE for every rotation-eligible doctor here, then
+    // resolved client-side per weekend via resolveWeekendCategoryForDoctor
+    // — not one RPC call per doctor per picker open (see that function's
+    // own comment in weekendPlanner.js). Awaited separately from the main
+    // load above so a slow/failed rotations fetch never blocks the planner
+    // grid itself from rendering; a resolver call with no matching rows
+    // just falls back to the doctor's plain base category (resolved:false).
+    try {
+      const rotations = await fetchInternRotationsForDoctorIds(rotationEligibleDoctors.map(d => d.id))
+      setRotationsByDoctorId(groupRotationsByDoctorId(rotations))
+    } catch {
+      setRotationsByDoctorId(new Map())
+    }
   }
 
   const saturdays = useMemo(
@@ -673,6 +964,22 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   function goToMonth(newYear, newMonth) {
     setViewYear(newYear)
     setViewMonth(newMonth)
+  }
+
+  // Part 9's banner action — jumps to nextOpenWeekend's month if it isn't
+  // already in view, and switches to "Needs planning" (clearing search) so
+  // the target card is guaranteed to actually render there rather than
+  // being hidden by whatever filter/search happened to be active. The
+  // scroll-into-view + picker-open itself happens in the effect above,
+  // once the target card exists in the DOM.
+  function handlePlanNextOpenWeekend() {
+    if (!nextOpenWeekend) return
+    const y = Number(nextOpenWeekend.slice(0, 4))
+    const m = Number(nextOpenWeekend.slice(5, 7))
+    if (y !== viewYear || m !== viewMonth) goToMonth(y, m)
+    if (filter !== 'needs-planning') setFilter('needs-planning')
+    if (searchQuery) setSearchQuery('')
+    setPendingFocusSaturday(nextOpenWeekend)
   }
 
   // Only Saturdays actually in the fetched window are shown — this
@@ -697,6 +1004,20 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       sum + saturdaysInMonth(year, month).filter(s => fetchedSet.has(s)).reduce((s2, s) => s2 + Object.values(byWeekend.get(s) || {}).flat().length, 0), 0),
     [viewYear, viewMonth, fetchedSet, byWeekend]
   )
+  // Part 4's compact coverage indicator — dot+count per status, across the
+  // viewed month (not the search/filter-narrowed list, so it always reads
+  // as "the whole month's state" regardless of what's currently filtered).
+  const monthStatusCounts = useMemo(() => {
+    let complete = 0, open = 0, empty = 0
+    for (const s of monthSaturdays) {
+      const cov = weekendCoverageSummary(byWeekend.get(s))
+      if (cov.filledGroups === cov.totalGroups) complete++
+      else if (cov.filledGroups === 0) empty++
+      else open++
+    }
+    return { complete, open, empty }
+  }, [monthSaturdays, byWeekend])
+
   const visibleSaturdays = monthSaturdays.filter(saturday => {
     const bySaturday = byWeekend.get(saturday)
     if (filter === 'needs-planning') return weekendCoverageSummary(bySaturday).openGroups.length > 0
@@ -718,6 +1039,36 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
   const nextWeekendScheme = weekendColorScheme(nextWeekend)
+
+  // Part 9's "Plan next open weekend" shortcut — the first weekend (date
+  // order) with ANY open role, across the whole fetched window (not just
+  // the currently viewed month/filter), recomputed on every entries/
+  // saturdays change so it's never a stale target once a role gets filled.
+  const nextOpenWeekend = useMemo(
+    () => saturdays.find(s => weekendCoverageSummary(byWeekend.get(s)).openGroups.length > 0) ?? null,
+    [saturdays, byWeekend]
+  )
+  const cardRefs = useRef(new Map())
+  // Set right after navigating to nextOpenWeekend's month (if it isn't
+  // already the one in view) — the effect below waits for that card to
+  // actually exist in the DOM (the month switch re-renders the list from
+  // already-fetched data, no loading spinner) before scrolling to it and
+  // opening its first open role's picker in one motion.
+  const [pendingFocusSaturday, setPendingFocusSaturday] = useState(null)
+  useEffect(() => {
+    if (!pendingFocusSaturday) return
+    const node = cardRefs.current.get(pendingFocusSaturday)
+    if (!node) return // month switch hasn't re-rendered this card yet — effect re-fires once searchedSaturdays changes
+    // Optional call — jsdom (this app's test environment) doesn't implement
+    // scrollIntoView at all, unlike every real browser.
+    node.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    const firstOpenGroup = weekendCoverageSummary(byWeekend.get(pendingFocusSaturday)).openGroups[0]
+    if (firstOpenGroup) setOpenRolePicker({ saturday: pendingFocusSaturday, groupKey: firstOpenGroup })
+    setPendingFocusSaturday(null)
+    // searchedSaturdays is a deliberate extra dep, not read in the body —
+    // it's what makes this effect re-fire once a month switch re-renders
+    // the list, so it can catch the target card mounting.
+  }, [pendingFocusSaturday, searchedSaturdays, byWeekend])
 
   // The inspector defaults to Next weekend when it's in view, so the most
   // urgent question is answered the moment the page loads — otherwise the
@@ -747,21 +1098,30 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   async function addEntry(saturday, groupKey, profileId) {
     const doctor = doctorById.get(profileId)
     if (!doctor) return
+    // The value actually written to the entry — resolved against THIS
+    // weekend's own date (see resolveWeekendCategoryForDoctor), not the
+    // doctor's current contract_type snapshot, so a category written for a
+    // weekend before/after a rotation swap reflects what applied then, not
+    // whatever's true today.
+    const { category } = resolveWeekendCategoryForDoctor({ doctor, targetDate: saturday, rotationsByDoctorId })
     setSaving(true)
     const { data, error: err } = await supabase.from('weekend_planner_entries').insert({
       weekend_saturday: saturday,
       profile_id: profileId,
-      category: resolvedCategoryForDoctor(doctor),
+      category,
       created_by: profile?.id ?? null,
     }).select().single()
     setSaving(false)
     if (err) { setError(err.message); return }
     setOpenPicker(null)
     setEntries(prev => [...prev, data])
+    const batchId = crypto.randomUUID()
     await logWeekendPlannerChange({
-      weekendSaturday: saturday, category: resolvedCategoryForDoctor(doctor), action: 'add',
-      profileId, changedBy: profile?.id ?? null, batchId: crypto.randomUUID(),
+      weekendSaturday: saturday, category, action: 'add',
+      profileId, changedBy: profile?.id ?? null, batchId,
     })
+    const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
+    pushUndo(batchId, `Added ${doctor.surname} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`)
   }
 
   async function removeEntry(entryId) {
@@ -772,10 +1132,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     if (err) { setError(err.message); return }
     setEntries(prev => prev.filter(e => e.id !== entryId))
     if (removed) {
+      const batchId = crypto.randomUUID()
       await logWeekendPlannerChange({
         weekendSaturday: removed.weekend_saturday, category: removed.category, action: 'remove',
-        profileId: removed.profile_id, changedBy: profile?.id ?? null, batchId: crypto.randomUUID(),
+        profileId: removed.profile_id, changedBy: profile?.id ?? null, batchId,
       })
+      const doctor = doctorById.get(removed.profile_id)
+      const group = CATEGORY_GROUPS.find(g => g.key === groupForCategory(removed.category))
+      pushUndo(batchId, `Removed ${doctor?.surname ?? 'doctor'} from ${group?.label ?? removed.category} (${formatWeekendRange(removed.weekend_saturday)})`)
     }
   }
 
@@ -829,7 +1193,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }
 
   function copyWeekend(saturday) {
-    setClipboard({ granularity: 'weekend', sourceLabel: formatWeekendRange(saturday), months: [[weekendClipboardEntries(saturday)]] })
+    setClipboard({
+      granularity: 'weekend', sourceLabel: formatWeekendRange(saturday), sourceSaturday: saturday,
+      months: [[weekendClipboardEntries(saturday)]],
+    })
   }
 
   // Indexed by POSITION (months[0][i] = the (i+1)th Saturday of the copied
@@ -882,14 +1249,44 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // from the Recent actions panel like everything else. Clipboard is
   // deliberately left populated afterward — the same copied source is a
   // reasonable thing to paste into more than one target in a row.
+  // Pushes one entry onto the session undo stack and surfaces the toast for
+  // it — the single call every mutating action above/below routes through,
+  // so the stack, the toast, and the history panel can never drift out of
+  // sync with each other.
+  function pushUndo(batchId, label) {
+    setUndoStack(prev => [{ batchId, label, at: new Date().toISOString() }, ...prev].slice(0, MAX_UNDO_STACK))
+    setToastVisible(true)
+  }
+
+  // The stack's own action — identical to "Restore this" in
+  // WeekendPlannerChangeLogModal's Recent actions list, just local to this
+  // session and strictly LIFO (always the top entry; popping it is what
+  // exposes the next one down). Both call restoreWeekendPlannerBatch with
+  // nothing but the batchId (see changeLog.js for why it re-fetches
+  // everything fresh rather than trusting this component's own
+  // already-loaded state) — the DB-side restore logic is identical, this
+  // is just which batchId gets passed and how the local stack reacts.
+  async function undoTop() {
+    const top = undoStack[0]
+    if (!top) return
+    setUndoing(true)
+    const result = await restoreWeekendPlannerBatch({ batchId: top.batchId, changedBy: profile?.id ?? null })
+    setUndoing(false)
+    if (result.error) { setError(result.error); setToastVisible(false); return }
+    setUndoStack(prev => prev.slice(1))
+    setToastVisible(false)
+    await load()
+  }
+
   async function handleConfirmPaste(plan) {
     setSaving(true)
     const batchId = crypto.randomUUID()
     const deleteOk = await deleteEntries(plan.toDelete, batchId)
     if (deleteOk) await insertEntries(plan.toInsert, batchId)
     setSaving(false)
+    const label = `Pasted into ${pasteTarget.label}${plan.toDelete.length > 0 ? ' (overwrite)' : ''}`
     setPasteTarget(null)
-    if (plan.toDelete.length > 0) setUndoToast({ batchId, label: `Pasted into ${pasteTarget.label} (overwrite)` })
+    if (plan.toDelete.length > 0 || plan.toInsert.length > 0) pushUndo(batchId, label)
   }
 
   async function handleConfirmClearMonth() {
@@ -899,7 +1296,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     await deleteEntries(toDelete, batchId)
     setSaving(false)
     setShowClearMonthModal(false)
-    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${MONTH_LABELS[viewMonth - 1]} ${viewYear}` })
+    if (toDelete.length > 0) pushUndo(batchId, `Cleared ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`)
   }
 
   async function handleConfirmClearQuarter() {
@@ -912,7 +1309,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     await deleteEntries(toDelete, batchId)
     setSaving(false)
     setShowClearQuarterModal(false)
-    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${quarterLabel(quarterMonths)}` })
+    if (toDelete.length > 0) pushUndo(batchId, `Cleared ${quarterLabel(quarterMonths)}`)
   }
 
   async function handleConfirmClearWeekend() {
@@ -923,23 +1320,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     await deleteEntries(toDelete, batchId)
     setSaving(false)
     setClearWeekendTarget(null)
-    if (toDelete.length > 0) setUndoToast({ batchId, label: `Cleared ${label}` })
-  }
-
-  // The Undo toast's own action — identical to "Restore this" in
-  // WeekendPlannerChangeLogModal's Recent actions list, just triggered
-  // right after the action instead of minutes later; both call
-  // restoreWeekendPlannerBatch with nothing but the batchId (see
-  // changeLog.js for why it re-fetches everything fresh rather than
-  // trusting this component's own already-loaded state).
-  async function handleUndoToast() {
-    if (!undoToast) return
-    setUndoing(true)
-    const result = await restoreWeekendPlannerBatch({ batchId: undoToast.batchId, changedBy: profile?.id ?? null })
-    setUndoing(false)
-    if (result.error) { setError(result.error); setUndoToast(null); return }
-    setUndoToast(null)
-    await load()
+    if (toDelete.length > 0) pushUndo(batchId, `Cleared ${label}`)
   }
 
   const monthNav = (
@@ -980,14 +1361,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         </div>
       )}
 
-      <InlineRuleHint
-        inline="No more than one person per slot — a colour marks which weekends you're on for the month."
-        bullets={[
-          'No more than one person per slot.',
-          'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
-          'Use surnames when populating the planner.',
-        ]}
-      />
+      {/* Desktop only — mobile gets the same rule text inside the ••• overflow
+          menu (WeekendOverflowMenu, Part 4), not a second always-visible copy. */}
+      <div className="hidden lg:block">
+        <InlineRuleHint
+          inline="No more than one person per slot — a colour marks which weekends you're on for the month."
+          bullets={[
+            'No more than one person per slot.',
+            'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
+            'Use surnames when populating the planner.',
+          ]}
+        />
+      </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
@@ -1003,8 +1388,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               each weekend row itself (mobile card header / desktop
               inspector) instead, since there's no single "current weekend"
               here to infer a target from. ── */}
+          {/* Desktop only — mobile reaches the same Copy/Clear month+quarter
+              actions through the ••• overflow menu below (Part 4). */}
           {isAdmin && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="mt-4 hidden flex-wrap items-center gap-2 lg:flex">
               <button type="button" onClick={copyMonth} disabled={monthSaturdays.length === 0} className="btn-secondary flex items-center gap-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-40">
                 <Copy className="h-3.5 w-3.5" /> Copy {MONTH_LABELS[viewMonth - 1]}
               </button>
@@ -1032,7 +1419,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {isAdmin && clipboard && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
-              <span>📋 {clipboard.sourceLabel} copied</span>
+              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend&rsquo;s ⋮ menu to paste' : ''}</span>
               <div className="flex items-center gap-2">
                 {clipboard.granularity === 'month' && (
                   <button type="button" onClick={openMonthPaste} className="btn-primary px-3 py-1 text-xs">
@@ -1043,9 +1430,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <button type="button" onClick={openQuarterPaste} className="btn-primary px-3 py-1 text-xs">
                     Paste into {quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}
                   </button>
-                )}
-                {clipboard.granularity === 'weekend' && (
-                  <span className="text-xs text-accent-dark">Use a weekend&rsquo;s own Paste action</span>
                 )}
                 <button type="button" onClick={() => setClipboard(null)} className="text-xs font-medium text-accent-dark underline hover:no-underline">
                   Clear
@@ -1070,8 +1454,74 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
             </div>
 
-            <div className="mt-4">
-              {monthNav}
+            {/* Part 9 — a teal action banner (brand accent, deliberately not
+                groupEven/groupOdd or a status colour) when something still
+                needs planning; a static green confirmation once nothing
+                does. Distinct from "Next weekend" above: this targets the
+                nearest UNPLANNED weekend, chronologically, which may or may
+                not be the same one. */}
+            {isAdmin && (
+              nextOpenWeekend ? (
+                <button
+                  type="button"
+                  onClick={handlePlanNextOpenWeekend}
+                  className="mt-3 flex w-full items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2.5 text-left text-sm text-accent-dark"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 flex-shrink-0" />
+                    Plan next open weekend — {formatWeekendRange(nextOpenWeekend)}
+                  </span>
+                  <span className="flex-shrink-0 text-xs font-semibold">→</span>
+                </button>
+              ) : (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2.5 text-sm text-success">
+                  <CircleCheck className="h-4 w-4 flex-shrink-0" /> All weekends fully planned
+                </div>
+              )
+            )}
+
+            {/* Part 4's sticky mobile toolbar — month stepper + a compact
+                dot+count coverage read, pinned while scrolling. Offset below
+                the Planners sub-nav (LeavePlannerPage.jsx), which already
+                has its own sticky/hide-on-scroll behaviour shared across
+                every planner tab — deliberately not touched here, since
+                that's shared cross-tab chrome this rebuild doesn't own. */}
+            <div className="sticky top-12 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {monthNav}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5 text-xs text-ink-muted">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{monthStatusCounts.complete}</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagAmber" />{monthStatusCounts.open}</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-flagRed" />{monthStatusCounts.empty}</span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowUndoHistory(true)}
+                      aria-label="Undo history"
+                      className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                    >
+                      <History className="h-4 w-4" />
+                      {undoStack.length > 0 && (
+                        <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+                          {undoStack.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => setShowOverflowMenu(true)}
+                      aria-label="More actions"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                    >
+                      <EllipsisVertical className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="mt-3 space-y-3">
@@ -1082,98 +1532,77 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               ) : searchedSaturdays.map(saturday => {
                 const bySaturday = byWeekend.get(saturday) || {}
                 const coverage = weekendCoverageSummary(bySaturday)
-                const needsPlanning = coverage.openGroups.length > 0
-                const assignedIds = assignedDoctorIds(saturday)
                 const myRequest = myRequestsBySaturday.get(saturday)
-                const scheme = weekendColorScheme(saturday)
+                const even = isEvenWeekend(saturday)
+                const statusPill = weekendStatusPill(coverage)
+                const isClipboardSource = clipboard?.granularity === 'weekend' && clipboard.sourceSaturday === saturday
 
                 return (
                   <div
                     key={saturday}
-                    className={`card p-4 ${scheme.bg}`}
+                    ref={el => { if (el) cardRefs.current.set(saturday, el); else cardRefs.current.delete(saturday) }}
+                    className={`card border-l-4 p-4 ${even ? 'border-l-groupEven' : 'border-l-groupOdd'} ${isClipboardSource ? 'ring-2 ring-accent' : ''}`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Tapping the date opens a read-only quick-glance sheet
-                          (WeekendDetailSheet) — a condensed alternative to
-                          scrolling this card's own always-expanded, fully
-                          editable breakdown below, not a replacement for it. */}
-                      <button
-                        type="button"
-                        onClick={() => setDetailSaturday(saturday)}
-                        className={`text-sm font-medium underline decoration-dotted underline-offset-2 ${scheme.text}`}
-                      >
-                        {formatWeekendRange(saturday)}
-                      </button>
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {/* Tapping the date opens a read-only quick-glance sheet
+                            (WeekendDetailSheet) — a condensed alternative to
+                            scrolling this card's own always-expanded, fully
+                            editable breakdown below, not a replacement for it. */}
+                        <button
+                          type="button"
+                          onClick={() => setDetailSaturday(saturday)}
+                          className="text-sm font-medium text-ink underline decoration-dotted underline-offset-2"
+                        >
+                          {formatWeekendRange(saturday)}
+                        </button>
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          Wknd {monthSaturdays.indexOf(saturday) + 1} · {even ? 'Even' : 'Odd'}
+                        </p>
                         {myRequest && (
-                          <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                          <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
                             {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
-                          </span>
+                          </p>
                         )}
-                        {needsPlanning && (
-                          <span className="rounded-full bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                            Needs planning
-                          </span>
-                        )}
-                        {isAdmin && coverage.filledGroups > 0 && (
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-1.5">
+                        <Tag variant="status" tone={statusPill.tone}>{statusPill.label}</Tag>
+                        {isAdmin && (
                           <button
                             type="button"
-                            onClick={() => copyWeekend(saturday)}
-                            aria-label={`Copy weekend ${saturday}`}
-                            className={scheme.text}
+                            onClick={() => setCardMenuSaturday(saturday)}
+                            aria-label={`More actions for weekend ${saturday}`}
+                            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {isAdmin && clipboard?.granularity === 'weekend' && (
-                          <button
-                            type="button"
-                            onClick={() => openWeekendPaste(saturday)}
-                            aria-label={`Paste weekend into ${saturday}`}
-                            className={scheme.text}
-                          >
-                            <ClipboardPaste className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {isAdmin && coverage.filledGroups > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setClearWeekendTarget(saturday)}
-                            aria-label={`Clear weekend ${saturday}`}
-                            className={`${scheme.text} hover:text-flagRed`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <MoreVertical className="h-4 w-4" />
                           </button>
                         )}
                       </div>
                     </div>
-                    <div className="mt-2 divide-y divide-slate-line">
-                      {CATEGORY_GROUPS.map(group => {
-                        const groupEntries = bySaturday[group.key] || []
-                        const availableDoctors = doctors
-                          .filter(d => groupForCategory(resolvedCategoryForDoctor(d)) === group.key)
-                          .filter(d => !assignedIds.has(d.id))
 
-                        return (
-                          <CategoryGroupRow
-                            key={group.key}
-                            group={group}
-                            groupEntries={groupEntries}
-                            doctorById={doctorById}
-                            availableDoctors={availableDoctors}
-                            isAdmin={isAdmin}
-                            saving={saving}
-                            textClass={scheme.text}
-                            saturday={saturday}
-                            pickerKey={`${saturday}:${group.key}`}
-                            openPicker={openPicker}
-                            setOpenPicker={setOpenPicker}
-                            addEntry={addEntry}
-                            removeEntry={removeEntry}
-                          />
-                        )
-                      })}
+                    <div className="mt-2 divide-y divide-slate-line">
+                      {CATEGORY_GROUPS.map(group => (
+                        <MobileRoleRow
+                          key={group.key}
+                          group={group}
+                          groupEntries={bySaturday[group.key] || []}
+                          doctorById={doctorById}
+                          isAdmin={isAdmin}
+                          onOpenPicker={() => setOpenRolePicker({ saturday, groupKey: group.key })}
+                          onOpenRemove={entry => setRemoveSheetEntry({ entry, saturday, groupLabel: group.label })}
+                        />
+                      ))}
                     </div>
+
+                    {isAdmin && coverage.openGroups.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenRolePicker({ saturday, groupKey: coverage.openGroups[0] })}
+                        className="btn-primary mt-3 w-full text-sm"
+                      >
+                        Add doctor
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1289,6 +1718,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     onCopyWeekend={copyWeekend}
                     onPasteWeekend={openWeekendPaste}
                     hasWeekendClipboard={clipboard?.granularity === 'weekend'}
+                    rotationsByDoctorId={rotationsByDoctorId}
                   />
                 ) : (
                   <p className="text-sm text-ink-muted">Select a weekend to see details.</p>
@@ -1309,6 +1739,56 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
           onClose={() => setDetailSaturday(null)}
+        />
+      )}
+
+      {openRolePicker && (
+        <WeekendDoctorPickerSheet
+          saturday={openRolePicker.saturday}
+          groupKey={openRolePicker.groupKey}
+          doctors={doctors}
+          assignedIds={assignedDoctorIds(openRolePicker.saturday)}
+          rotationsByDoctorId={rotationsByDoctorId}
+          onPick={profileId => { addEntry(openRolePicker.saturday, openRolePicker.groupKey, profileId); setOpenRolePicker(null) }}
+          onClose={() => setOpenRolePicker(null)}
+        />
+      )}
+
+      {removeSheetEntry && (
+        <WeekendRemoveDoctorSheet
+          entry={removeSheetEntry.entry}
+          doctor={doctorById.get(removeSheetEntry.entry.profile_id)}
+          saturday={removeSheetEntry.saturday}
+          groupLabel={removeSheetEntry.groupLabel}
+          onRemove={entryId => { removeEntry(entryId); setRemoveSheetEntry(null) }}
+          onClose={() => setRemoveSheetEntry(null)}
+        />
+      )}
+
+      {cardMenuSaturday && (
+        <WeekendCardMenu
+          saturday={cardMenuSaturday}
+          hasClipboard={clipboard?.granularity === 'weekend'}
+          isSourceCard={clipboard?.sourceSaturday === cardMenuSaturday}
+          canCopy={weekendCoverageSummary(byWeekend.get(cardMenuSaturday)).filledGroups > 0}
+          onCopy={() => { copyWeekend(cardMenuSaturday); setCardMenuSaturday(null) }}
+          onPaste={() => { openWeekendPaste(cardMenuSaturday); setCardMenuSaturday(null) }}
+          onClear={() => { setClearWeekendTarget(cardMenuSaturday); setCardMenuSaturday(null) }}
+          onClose={() => setCardMenuSaturday(null)}
+        />
+      )}
+
+      {showOverflowMenu && (
+        <WeekendOverflowMenu
+          viewMonth={viewMonth}
+          copyDisabled={monthSaturdays.length === 0}
+          clearMonthDisabled={monthEntryCount === 0}
+          clearQuarterDisabled={quarterEntryCount === 0}
+          onCopyMonth={() => { copyMonth(); setShowOverflowMenu(false) }}
+          onCopyQuarter={() => { copyQuarter(); setShowOverflowMenu(false) }}
+          onClearMonth={() => { setShowClearMonthModal(true); setShowOverflowMenu(false) }}
+          onClearQuarter={() => { setShowClearQuarterModal(true); setShowOverflowMenu(false) }}
+          onClose={() => setShowOverflowMenu(false)}
         />
       )}
 
@@ -1355,19 +1835,28 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         />
       )}
 
-      {undoToast && (
+      {toastVisible && undoStack[0] && (
         <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-lg">
-          <span>{undoToast.label}</span>
+          <span>{undoStack[0].label}</span>
           <button
             type="button"
-            onClick={handleUndoToast}
+            onClick={undoTop}
             disabled={undoing}
             className="font-semibold text-accent-tint hover:text-white disabled:opacity-60"
           >
             {undoing ? 'Undoing…' : 'Undo'}
           </button>
-          <button type="button" onClick={() => setUndoToast(null)} className="text-white/60 hover:text-white" aria-label="Dismiss">×</button>
+          <button type="button" onClick={() => setToastVisible(false)} className="text-white/60 hover:text-white" aria-label="Dismiss">×</button>
         </div>
+      )}
+
+      {showUndoHistory && (
+        <UndoHistoryPanel
+          undoStack={undoStack}
+          undoing={undoing}
+          onUndoTop={undoTop}
+          onClose={() => setShowUndoHistory(false)}
+        />
       )}
     </div>
   )

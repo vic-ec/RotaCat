@@ -3,7 +3,7 @@ import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState, planWeekendPaste,
-  planWeekendPasteAcrossMonths, planBatchRestore,
+  planWeekendPasteAcrossMonths, planBatchRestore, resolveEffectiveCategory, resolveWeekendCategoryForDoctor,
 } from './weekendPlanner'
 
 describe('groupForCategory', () => {
@@ -501,5 +501,108 @@ describe('planBatchRestore', () => {
       { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p1', category: 'MO' },
       { weekendSaturday: '2026-05-02', groupKey: 'MO', profileId: 'p2', category: 'MO' },
     ])
+  })
+})
+
+describe('resolveEffectiveCategory', () => {
+  it('passes through every non-ambiguous category unchanged and resolved', () => {
+    for (const category of ['MO', 'Registrar', 'Consultant', 'Locum', 'COSMOPsych', 'EC_Intern', null, undefined]) {
+      expect(resolveEffectiveCategory({ category, profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
+        .toEqual({ category: category ?? null, resolved: true })
+    }
+  })
+
+  // Real boundary case (doctor 598ccb0a-2958-44ce-92d0-72d593746cf0,
+  // "CodeSpace"): two OT rotations overlap for Aug 5-31 (2026-07-01 to
+  // 2026-08-31, and 2026-08-05 onward with no end). The most-recently-
+  // STARTED row must win, not array order.
+  it('resolves the most recently started rotation when two rows overlap for the same date', () => {
+    const rotationsByDoctorId = new Map([
+      ['codespace', [
+        { start_date: '2026-07-01', end_date: '2026-08-31', rotation_type: 'OT' },
+        { start_date: '2026-08-05', end_date: null, rotation_type: 'OT' },
+      ]],
+    ])
+    const result = resolveEffectiveCategory({
+      category: 'Intern', profileId: 'codespace', targetDate: '2026-08-15', rotationsByDoctorId,
+    })
+    expect(result).toEqual({ category: 'OT_Intern', resolved: true })
+  })
+
+  it('picks the most-recently-started row even when it is listed first in the array', () => {
+    const rotationsByDoctorId = new Map([
+      ['p1', [
+        { start_date: '2026-08-05', end_date: null, rotation_type: 'EC' }, // most recent, listed first
+        { start_date: '2026-07-01', end_date: '2026-08-31', rotation_type: 'OT' },
+      ]],
+    ])
+    expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'EC_Intern', resolved: true })
+  })
+
+  it('resolves an Intern with an EC rotation to EC_Intern', () => {
+    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'EC' }]]])
+    expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'EC_Intern', resolved: true })
+  })
+
+  it('resolves a COSMO doctor with an EC rotation to EC_COSMO_Intern', () => {
+    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'EC' }]]])
+    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'EC_COSMO_Intern', resolved: true })
+  })
+
+  it('resolves a COSMO doctor with an OT rotation to OT_COSMO_Intern', () => {
+    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'OT' }]]])
+    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'OT_COSMO_Intern', resolved: true })
+  })
+
+  // Real case: an Intern (e.g. Carli Morris) with no intern_rotations row
+  // at all — falls back to the plain base category, flagged unresolved
+  // rather than guessed.
+  it('falls back to the base category, unresolved, when no rotation covers the target date', () => {
+    expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
+      .toEqual({ category: 'Intern', resolved: false })
+  })
+
+  // Real case: 8 of 11 active COSMOs have no intern_rotations row at all —
+  // the common case, must stay a plain, unaffected COSMO.
+  it('falls back to plain COSMO, unresolved, for a COSMO doctor with no rotation row', () => {
+    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
+      .toEqual({ category: 'COSMO', resolved: false })
+  })
+
+  it('falls back when a rotation row exists but does not cover the target date (starts later)', () => {
+    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-09-01', end_date: null, rotation_type: 'OT' }]]])
+    expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'Intern', resolved: false })
+  })
+
+  it('accepts a plain object keyed by profileId, not just a Map', () => {
+    const rotationsByDoctorId = { p1: [{ start_date: '2026-01-01', end_date: null, rotation_type: 'OT' }] }
+    expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'OT_Intern', resolved: true })
+  })
+})
+
+describe('resolveWeekendCategoryForDoctor', () => {
+  it('resolves both the effective category and its group key together', () => {
+    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'OT' }]]])
+    const doctor = { id: 'p1', category: 'Intern' }
+    expect(resolveWeekendCategoryForDoctor({ doctor, targetDate: '2026-08-15', rotationsByDoctorId }))
+      .toEqual({ category: 'OT_Intern', groupKey: 'COSMOPsych', resolved: true })
+  })
+
+  it('still resolves a group key for an unresolved fallback (existing groupForCategory mapping, unchanged)', () => {
+    const doctor = { id: 'p1', category: 'COSMO' }
+    expect(resolveWeekendCategoryForDoctor({ doctor, targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
+      .toEqual({ category: 'COSMO', groupKey: 'COSMO', resolved: false })
+  })
+
+  it('returns a null group key for a category outside weekend rotation', () => {
+    const doctor = { id: 'p1', category: 'Consultant' }
+    expect(resolveWeekendCategoryForDoctor({ doctor, targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
+      .toEqual({ category: 'Consultant', groupKey: null, resolved: true })
   })
 })

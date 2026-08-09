@@ -93,7 +93,7 @@ describe('WeekendPlanner', () => {
     expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
   })
 
-  it('"← Year view" from the month view switches back to the year overview', async () => {
+  it('"← Overview" from the month view switches back to the year overview', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()

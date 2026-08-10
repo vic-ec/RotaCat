@@ -384,18 +384,33 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, c
   }
 }
 
+// Pure predicate behind fetchAffectedLeaveForRequest's pool-scoping filter
+// below — whether a row resolving to `rowColumnKey` draws from the same
+// leave-slot pool as a request resolving to `columnKey`. MO, Registrar, and
+// EC Intern all share ONE combined pool (see LEAVE_FULL_TIME_GROUP_KEYS and
+// findWorstAnnualCapacitySlot's own `pooled` flag above), so an exact
+// column-key match under-counts: reviewing an EC Intern's request would
+// otherwise miss a Registrar's overlapping leave even though the capacity
+// gauge right above it is already counting that Registrar against the very
+// same 2-slot pool. OT Intern stays its own independent pool (not part of
+// the combined cap), so it still needs an exact match.
+export function sameCapacityPool(columnKey, rowColumnKey) {
+  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) return LEAVE_FULL_TIME_GROUP_KEYS.includes(rowColumnKey)
+  return rowColumnKey === columnKey
+}
+
 // Read-only "who else is already away" list for the approval queue's review
 // drawer (AffectedLeaveList.jsx) — every OTHER pending/approved leave_requests
 // row overlapping [dateFrom, dateTo], excluding the requester themselves.
 // For an annual-leave request, narrowed further to rows resolving to the
-// SAME capacity column/pool as this request (a static category/contract-type
-// resolution, not the full intern-rotation-aware lookup
-// fetchAnnualCapacityPreview uses — a deliberate simplification for this
-// advisory list; it never gates approval, only informs it). Any other leave
-// type has no shared-pool concept, so every overlapping row counts
-// regardless of category. Never throws — a fetch hiccup just means an
-// empty "who's away" list, same never-block contract as the other preview
-// fetchers in this file.
+// SAME capacity pool as this request (see sameCapacityPool above) — a
+// static category/contract-type resolution, not the full intern-rotation-
+// aware lookup fetchAnnualCapacityPreview uses — a deliberate
+// simplification for this advisory list; it never gates approval, only
+// informs it. Any other leave type has no shared-pool concept, so every
+// overlapping row counts regardless of category. Never throws — a fetch
+// hiccup just means an empty "who's away" list, same never-block contract
+// as the other preview fetchers in this file.
 export async function fetchAffectedLeaveForRequest({ dateFrom, dateTo, leaveType, category, contractType, profileId }) {
   try {
     const { data } = await supabase
@@ -411,9 +426,9 @@ export async function fetchAffectedLeaveForRequest({ dateFrom, dateTo, leaveType
       rows = rows.filter(r => r.leave_type === 'annual')
       const columnKey = resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom })
       if (columnKey) {
-        rows = rows.filter(r => resolveLeaveCapacityColumn({
+        rows = rows.filter(r => sameCapacityPool(columnKey, resolveLeaveCapacityColumn({
           category: r.profiles?.category, contractType: r.profiles?.contract_type, profileId: r.profile_id, date: r.date_from,
-        }) === columnKey)
+        })))
       }
     }
 

@@ -1,23 +1,39 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, TriangleAlert, X, Plus } from 'lucide-react'
+import {
+  ChevronDown, ChevronLeft, ChevronRight, EllipsisVertical, CircleQuestionMark, ScrollText,
+  TriangleAlert, X, Plus, ListFilter,
+} from 'lucide-react'
 import SelectMenu from './SelectMenu'
 import DoctorChip from './DoctorChip'
+import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
+import LegendSheet from './LegendSheet'
+import PageActionsMenu from './PageActionsMenu'
+import CompactToolbarRow from './CompactToolbarRow'
 import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, ROTATION_TYPE_COLOR,
 } from '../lib/staffDefaults'
 import { todayStr, addDays, addMonths, MONTH_ABBR } from '../lib/dateRange'
+import { useIsDesktop } from '../lib/useIsDesktop'
 
 // Literal pixel widths, not 1fr/minmax — every row (and the header) shares
 // the exact same `gridTemplateColumns` string built from these two
 // constants, which is what keeps month columns pixel-aligned across rows
-// that would otherwise size independently.
+// that would otherwise size independently. Desktop grid only — mobile
+// renders a per-doctor strip of just the covered months instead (see
+// flattenSegmentsToCells below), not a fixed 12-column grid at all.
 const MONTH_COL_WIDTH = 56 // px
 const LABEL_COL_WIDTH = 152 // px
 
 const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar', 'COSMO']
 const CATEGORY_GROUP_LABEL = { Intern: 'Intern', Registrar: 'Registrar', COSMO: 'COSMO' }
+const CATEGORY_FILTER_OPTIONS = [
+  { value: 'all', label: 'All categories' },
+  { value: 'Intern', label: 'Intern' },
+  { value: 'Registrar', label: 'Registrar' },
+  { value: 'COSMO', label: 'COSMO' },
+]
 
 const FAR_FUTURE = '9999-12-31' // stand-in for a null (open-ended) end_date in string date-range comparisons only
 
@@ -28,8 +44,8 @@ function typeLabel(key) {
 // One type-key per month (1-12) for a doctor's rotations in the displayed
 // year, or null for a genuine gap. A real data overlap (two rotations
 // touching the same month) is tie-broken by latest start_date — this only
-// decides what the bar itself shows; the overlap is still surfaced by the
-// side panel's warning banner/modal regardless of which one wins here.
+// decides what the bar/cell itself shows; the overlap is still surfaced by
+// the panel's warning banner/modal regardless of which one wins here.
 function monthlyTypeKeys(doctorRotations, year) {
   const keys = []
   for (let month = 1; month <= 12; month++) {
@@ -42,9 +58,10 @@ function monthlyTypeKeys(doctorRotations, year) {
 }
 
 // Run-length-encodes 12 monthly type-keys into spanning segments — this is
-// what makes consecutive same-type months render as one bar, and adjacent
-// different-type months render as two bars with no gap between them
-// (both fall directly out of the pixel math once segments are computed).
+// what makes consecutive same-type months render as one bar/run, and
+// adjacent different-type months render as two segments with no gap
+// between them (both fall directly out of the pixel/cell math once
+// segments are computed).
 function runLengthSegments(keys) {
   const segments = []
   let i = 0
@@ -58,15 +75,27 @@ function runLengthSegments(keys) {
   return segments
 }
 
+// Flattens segments into one cell per covered month — the mobile card
+// strip's own unit, since it renders one small box per assigned month
+// (only rounding the very first/last box of the whole strip) rather than
+// desktop's absolutely-positioned spanning bars over a fixed grid.
+function flattenSegmentsToCells(segments) {
+  const cells = []
+  for (const seg of segments) {
+    for (let m = seg.startMonthIndex; m <= seg.endMonthIndex; m++) cells.push({ monthIndex: m, typeKey: seg.typeKey })
+  }
+  return cells
+}
+
 function blocksOverlap(a, b) {
   const aEnd = a.end_date === null ? FAR_FUTURE : a.end_date
   const bEnd = b.end_date === null ? FAR_FUTURE : b.end_date
   return a.start_date <= bEnd && b.start_date <= aEnd
 }
 
-// Every overlapping pair among a doctor's blocks, as a Set of stable
+// Every overlapping pair among a doctor's blocks, as a Map of stable
 // "smallerId|largerId" keys — used both to render the persistent banner
-// (non-empty set) and to detect the exact moment a NEW pair appears (diff
+// (non-empty map) and to detect the exact moment a NEW pair appears (diff
 // against the previous render's set) for the one-time modal.
 function overlapPairSet(doctorRotations) {
   const pairs = new Map()
@@ -99,22 +128,32 @@ function categoryGroupKey(doctor) {
   return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'COSMO'
 }
 
-// Replaces the old 4-month Timeline view. Rows = doctors, grouped by
-// category (Intern / Registrar / COSMO, same visual pattern as the Staff
-// list's category grouping); columns = the 12 months of one navigable
-// year. Colour bars are driven by rotation_type + subtype together (5
-// visual states — see ROTATION_TYPE_COLOR); a sticky right-hand panel
-// shows either the current month's roster (nothing selected) or one
-// doctor's editable block list.
+function matchesSearch(doctor, search) {
+  if (!search.trim()) return true
+  const q = search.trim().toLowerCase()
+  return `${doctor.name || ''} ${doctor.surname || ''}`.toLowerCase().includes(q)
+}
+
+// The only view this page has — Table and the old 4-month Timeline are
+// both retired (Table's one remaining job, adding a new doctor, is now
+// the "+ Add doctor" flow below). Rows = doctors, grouped by category
+// (Intern / Registrar / COSMO, same visual pattern as the Staff list's
+// category grouping). Desktop: columns = the 12 months of a navigable
+// year, rotation blocks as colour-coded spanning bars. Mobile: a
+// genuinely different layout, not a shrunk grid — one card per doctor
+// showing only their own covered months as a flush strip, with a bottom
+// sheet instead of the sticky side panel.
 //
 // Deliberately month-granularity, not day-precision (a Gantt view was
 // evaluated and dropped) — every date comparison here is in service of
 // "which month(s) does this block touch", never a day-level layout.
 export default function InternRotationsMatrix({
-  doctors, rotations, displayNames, currentUserId, year,
+  doctors, rotations, displayNames, currentUserId, year, onYearChange,
   onUpdateRotation, onCreateRotation, onDeleteRotation,
   selectedDoctorId, onSelectDoctor,
+  focusDoctorId, onFocusDoctorConsumed,
 }) {
+  const isDesktop = useIsDesktop()
   const today = todayStr()
   const currentYear = Number(today.slice(0, 4))
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
@@ -124,6 +163,15 @@ export default function InternRotationsMatrix({
   const [blockError, setBlockError] = useState('')
   const [newOverlapModal, setNewOverlapModal] = useState(null) // { a, b } | null
   const seenOverlapPairsRef = useRef(new Map()) // doctorId -> Set of pair keys already surfaced
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  // Add-doctor picker: `addDoctorFor` is null (closed), a category key
+  // (desktop's per-section "+ Add doctor"), or 'all' (mobile's one FAB,
+  // which offers unassigned doctors across every category at once).
+  const [addDoctorFor, setAddDoctorFor] = useState(null)
+  const [addDoctorSearch, setAddDoctorSearch] = useState('')
+  const [addingDoctor, setAddingDoctor] = useState(false)
+  const [addDoctorError, setAddDoctorError] = useState('')
 
   const rotationsByDoctorId = groupRotationsByDoctorId(rotations)
   const doctorById = new Map(doctors.map(d => [d.id, d]))
@@ -132,20 +180,32 @@ export default function InternRotationsMatrix({
     setCollapsedGroups(g => ({ ...g, [key]: !g[key] }))
   }
 
+  const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
+
   const groups = CATEGORY_GROUP_ORDER
     .map(key => ({
       key,
       label: CATEGORY_GROUP_LABEL[key],
-      items: doctors
+      items: filteredDoctors
         .filter(d => categoryGroupKey(d) === key)
         .sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
     }))
     .filter(g => g.items.length > 0)
 
+  // Row click (desktop) / card tap (mobile) — toggles selection off if the
+  // same doctor is already selected.
   function selectDoctor(doctorId) {
     setEditing(false)
     setBlockError('')
     onSelectDoctor(doctorId === selectedDoctorId ? null : doctorId)
+  }
+  // Clicking a name in the "no selection" panel's current-month list
+  // always selects (never toggles off) — "exactly as clicking their
+  // matrix row would" when they weren't already selected.
+  function selectDoctorFromList(doctorId) {
+    setEditing(false)
+    setBlockError('')
+    onSelectDoctor(doctorId)
   }
 
   const selectedDoctor = selectedDoctorId ? doctorById.get(selectedDoctorId) : null
@@ -171,6 +231,21 @@ export default function InternRotationsMatrix({
     seenOverlapPairsRef.current.set(selectedDoctorId, new Set(currentPairs.keys()))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the doctor's rotation identity, not a stable dep array
   }, [selectedDoctorId, JSON.stringify(selectedDoctorRotations.map(r => [r.id, r.start_date, r.end_date]))])
+
+  // External "jump here and start editing" entry point — e.g. the
+  // end-of-rotation queue's "View in Matrix", or (a later prompt)
+  // reactivating a doctor and dropping straight into adding their next
+  // block. One-shot: consumed immediately so it doesn't re-fire on every
+  // render, same shape as AnnualLeavePlanner's deepLinkMonth/
+  // onDeepLinkConsumed pattern.
+  useEffect(() => {
+    if (!focusDoctorId) return
+    onSelectDoctor(focusDoctorId)
+    setEditing(true)
+    setBlockError('')
+    onFocusDoctorConsumed()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once per focusDoctorId value, not on every onSelectDoctor/onFocusDoctorConsumed identity change
+  }, [focusDoctorId])
 
   const currentOverlapPairs = selectedDoctorId ? overlapPairSet(selectedDoctorRotations) : new Map()
 
@@ -218,12 +293,13 @@ export default function InternRotationsMatrix({
     setSavingBlockId(null)
   }
 
-  // "Current month" side-panel default view — resolved off TODAY, not
+  // "Current month" panel default view — resolved off TODAY, not
   // whichever year the grid happens to be showing (answers "who's doing
-  // what right now" independent of browsing).
+  // what right now" independent of browsing), and respects the toolbar's
+  // own search/category filter same as the grid/cards below it.
   const currentByTypeKey = new Map()
   if (!selectedDoctorId) {
-    for (const doctor of doctors) {
+    for (const doctor of filteredDoctors) {
       const rotation = rotationForDate(rotationsByDoctorId.get(doctor.id), today)
       if (!rotation) continue
       const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
@@ -232,265 +308,529 @@ export default function InternRotationsMatrix({
     }
   }
 
+  // Add-doctor candidates: doctors with zero intern_rotations rows at
+  // all — "unassigned". Always computed off the full, unfiltered doctor
+  // pool (the toolbar's search/category filter narrows what's visible in
+  // the grid/cards, not who's eligible to be added).
+  function unassignedInCategory(catKey) {
+    return doctors.filter(d => categoryGroupKey(d) === catKey && !(rotationsByDoctorId.get(d.id)?.length))
+  }
+  function allUnassigned() {
+    return doctors.filter(d => !(rotationsByDoctorId.get(d.id)?.length))
+  }
+
+  async function handlePickNewDoctor(doctorId) {
+    if (addingDoctor) return
+    const doctor = doctorById.get(doctorId)
+    if (!doctor) return
+    setAddingDoctor(true)
+    setAddDoctorError('')
+    const startDate = today
+    const endDate = doctor.category === 'Registrar' ? addMonths(startDate, 3) : null
+    try {
+      await onCreateRotation({ doctorId, rotationType: 'EC', subtype: null, startDate, endDate, createdBy: currentUserId })
+      setAddDoctorFor(null)
+      setAddDoctorSearch('')
+      onSelectDoctor(doctorId)
+      setEditing(true)
+      setBlockError('')
+    } catch (err) {
+      setAddDoctorError(err.message)
+    }
+    setAddingDoctor(false)
+  }
+
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${MONTH_COL_WIDTH}px)`
 
-  return (
-    <div className="flex flex-col gap-4 lg:flex-row">
-      <div className="min-w-0 flex-1">
-        {/* Legend — 5 visual states, since colour alone otherwise needs decoding */}
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-          {ROTATION_TYPE_KEY_OPTIONS.map(o => (
-            <span key={o.key} className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
-              {o.label}
-            </span>
-          ))}
-        </div>
+  const filterFacet = {
+    icon: <ListFilter className="h-4 w-4" />, label: 'Category',
+    value: categoryFilter, onChange: setCategoryFilter,
+    options: CATEGORY_FILTER_OPTIONS,
+    isActive: categoryFilter !== 'all',
+  }
+  const clearActive = Boolean(search) || categoryFilter !== 'all'
+  const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
 
-        <div className="card overflow-x-auto p-0">
-          {/* Month header */}
-          <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
-            <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
-            {MONTH_ABBR.map((label, i) => (
-              <div key={label} className={`px-1 py-1.5 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
-                {label}
+  const menuItems = [
+    { key: 'how-it-works', icon: <CircleQuestionMark className="h-4 w-4" />, label: 'How it works', disabled: true, onClick: () => {} },
+    { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', disabled: true, onClick: () => {} },
+  ]
+
+  const legendSwatches = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+      {ROTATION_TYPE_KEY_OPTIONS.map(o => (
+        <span key={o.key} className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
+          {o.label}
+        </span>
+      ))}
+    </div>
+  )
+
+  const yearNav = (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onYearChange(year - 1)}
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
+        aria-label="Previous year"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="text-sm font-semibold text-ink">{year}</span>
+      <button
+        type="button"
+        onClick={() => onYearChange(year + 1)}
+        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
+        aria-label="Next year"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  )
+
+  const todayButton = year !== currentYear && (
+    <button type="button" onClick={() => onYearChange(currentYear)} className="btn-secondary h-[30px] px-2 text-xs">
+      Today
+    </button>
+  )
+
+  const overflowMenu = (
+    <PageActionsMenu
+      title="Intern rotations"
+      items={menuItems}
+      trigger={onClick => (
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label="More actions"
+          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+        >
+          <EllipsisVertical className="h-4 w-4" />
+        </button>
+      )}
+    />
+  )
+
+  // ── Shared panel content (desktop's sticky aside / mobile's bottom sheet) ──
+  function renderNoSelectionPanel() {
+    return (
+      <>
+        <p className="text-sm font-semibold text-ink">{MONTH_ABBR[currentMonthIndex]} {currentYear} — right now</p>
+        {currentByTypeKey.size === 0 ? (
+          <p className="mt-2 text-xs text-ink-muted">No active rotations this month.</p>
+        ) : (
+          ROTATION_TYPE_KEY_OPTIONS.filter(o => currentByTypeKey.has(o.key)).map(o => (
+            <div key={o.key} className="mt-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
+                {o.label}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {currentByTypeKey.get(o.key).map(doctor => (
+                  <button key={doctor.id} type="button" onClick={() => selectDoctorFromList(doctor.id)}>
+                    <DoctorChip profile={doctor} displayNames={displayNames} />
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
+          ))
+        )}
+      </>
+    )
+  }
+
+  // `showHeader` is false on mobile — there, this panel is the body of a
+  // Modal that already renders the doctor's name and its own Close button
+  // in the sheet header, so repeating both here would just be redundant
+  // chrome stacked on top of Modal's.
+  function renderDoctorPanel(showHeader = true) {
+    return (
+      <>
+        {showHeader && (
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-ink" title={`${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()}>
+              {displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname}
+            </p>
+            <button
+              type="button"
+              onClick={() => onSelectDoctor(null)}
+              aria-label="Close"
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
+        )}
 
-          {groups.map(group => (
-            <div key={group.key}>
-              <button
-                type="button"
-                onClick={() => toggleGroupCollapsed(group.key)}
-                className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
-              >
-                <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-                <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
-              </button>
+        {currentOverlapPairs.size > 0 && (
+          <div className="mt-2 flex items-start gap-1.5 rounded border border-flagRed/30 bg-flagRed-bg px-2 py-1.5 text-xs text-flagRed">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>
+              {[...currentOverlapPairs.values()].map(([a, b], i) => (
+                <span key={i}>
+                  {i > 0 && '; '}
+                  {typeLabel(rotationTypeKey(a.rotation_type, a.subtype))} and {typeLabel(rotationTypeKey(b.rotation_type, b.subtype))} both cover {overlapMonthRange(a, b)}
+                </span>
+              ))}
+            </span>
+          </div>
+        )}
+        {blockError && <p className="mt-2 text-xs text-flagRed">{blockError}</p>}
 
-              {!collapsedGroups[group.key] && group.items.map(doctor => {
-                const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
-                const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
-                const label = displayNames?.get(doctor.id) ?? doctor.surname
+        {!editing ? (
+          <>
+            <div className="mt-3 space-y-2">
+              {selectedDoctorRotations.length === 0 && (
+                <p className="text-xs text-ink-muted">No rotation blocks yet.</p>
+              )}
+              {selectedDoctorRotations.map(rotation => {
+                const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
                 return (
-                  <div
-                    key={doctor.id}
-                    className="grid border-b border-slate-line last:border-0"
-                    style={{ gridTemplateColumns }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => selectDoctor(doctor.id)}
-                      title={`${doctor.name || ''} ${doctor.surname}`.trim()}
-                      className={`sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-2 text-left text-xs font-medium transition-colors hover:bg-canvas-sunken ${
-                        selectedDoctorId === doctor.id ? 'bg-accent-tint text-accent' : 'text-ink'
-                      }`}
+                  <div key={rotation.id} className="flex items-center gap-2 text-xs">
+                    <span
+                      className="rounded px-1.5 py-0.5 font-medium text-white"
+                      style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}
                     >
-                      {label}
-                    </button>
-                    <div className="relative col-span-12" style={{ height: 36 }}>
-                      {segments.map(seg => (
-                        <div
-                          key={`${seg.startMonthIndex}-${seg.typeKey}`}
-                          title={typeLabel(seg.typeKey)}
-                          className="absolute top-1/2 -translate-y-1/2"
-                          style={{
-                            left: seg.startMonthIndex * MONTH_COL_WIDTH,
-                            width: (seg.endMonthIndex - seg.startMonthIndex + 1) * MONTH_COL_WIDTH,
-                            height: 22,
-                            backgroundColor: ROTATION_TYPE_COLOR[seg.typeKey],
-                          }}
-                        />
-                      ))}
-                      {year === currentYear && (
-                        <div
-                          className="pointer-events-none absolute top-1/2 -translate-y-1/2"
-                          style={{
-                            left: currentMonthIndex * MONTH_COL_WIDTH,
-                            width: MONTH_COL_WIDTH,
-                            height: 24,
-                            boxShadow: '0 0 0 0.5px white, 0 0 0 2px #0f172a, 0 0 0 2.5px white',
-                          }}
-                        />
-                      )}
-                    </div>
+                      {typeLabel(key)}
+                    </span>
+                    <span className="text-ink-light">
+                      {rotation.start_date} – {rotation.end_date || 'ongoing'}
+                    </span>
                   </div>
                 )
               })}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Sticky side panel */}
-      <div className="lg:sticky lg:top-4 lg:h-fit lg:w-72 lg:flex-shrink-0">
-        <div className="card p-3">
-          {!selectedDoctor ? (
-            <>
-              <p className="text-sm font-semibold text-ink">{MONTH_ABBR[currentMonthIndex]} {currentYear} — right now</p>
-              {currentByTypeKey.size === 0 ? (
-                <p className="mt-2 text-xs text-ink-muted">No active rotations this month.</p>
-              ) : (
-                ROTATION_TYPE_KEY_OPTIONS.filter(o => currentByTypeKey.has(o.key)).map(o => (
-                  <div key={o.key} className="mt-3">
-                    <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
-                      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
-                      {o.label}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {currentByTypeKey.get(o.key).map(doctor => (
-                        <DoctorChip key={doctor.id} profile={doctor} displayNames={displayNames} />
-                      ))}
-                    </div>
+            <button type="button" onClick={() => setEditing(true)} className="btn-secondary mt-3 w-full text-xs">
+              Edit rotations
+            </button>
+          </>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {selectedDoctorRotations.map(rotation => {
+              const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+              const rowSaving = savingBlockId === rotation.id
+              const typeOptions = rotationTypeOptionsForCategory(selectedDoctor.category)
+              return (
+                <div key={rotation.id} className="rounded border border-slate-line p-2">
+                  <div className="flex items-center gap-2">
+                    <SelectMenu
+                      value={key}
+                      disabled={rowSaving}
+                      onChange={v => {
+                        const opt = ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === v)
+                        handleBlockUpdate(rotation, { rotationType: opt.rotationType, subtype: opt.subtype })
+                      }}
+                      options={typeOptions.map(o => ({ value: o.key, label: o.label }))}
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleBlockRemove(rotation)}
+                      disabled={rowSaving}
+                      aria-label="Remove block"
+                      title="Remove block"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-flagRed hover:bg-flagRed-bg disabled:opacity-40"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                ))
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-semibold text-ink" title={`${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()}>
-                  {displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname}
-                </p>
+                  <div className="mt-2 space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs text-ink-muted">
+                      <span className="w-8 flex-shrink-0">From</span>
+                      <input
+                        type="date"
+                        value={rotation.start_date}
+                        disabled={rowSaving}
+                        onChange={e => handleBlockUpdate(rotation, { startDate: e.target.value })}
+                        className="input-field flex-1 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-ink-muted">
+                      <span className="w-8 flex-shrink-0">To</span>
+                      <input
+                        type="date"
+                        value={rotation.end_date || ''}
+                        disabled={rowSaving}
+                        placeholder="Ongoing"
+                        onChange={e => handleBlockUpdate(rotation, { endDate: e.target.value || null })}
+                        className="input-field flex-1 py-1 text-xs"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )
+            })}
+            <button
+              type="button"
+              onClick={handleAddBlock}
+              disabled={savingBlockId === 'new'}
+              className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" /> {savingBlockId === 'new' ? 'Adding…' : 'Add block'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="w-full text-center text-xs text-ink-muted hover:text-ink">
+              Done editing
+            </button>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const addDoctorPicker = addDoctorFor && (
+    <DoctorDropdown
+      profiles={addDoctorFor === 'all' ? allUnassigned() : unassignedInCategory(addDoctorFor)}
+      displayNames={displayNames}
+      search={addDoctorSearch}
+      onSearchChange={setAddDoctorSearch}
+      onSelect={handlePickNewDoctor}
+      onClose={() => { if (!addingDoctor) { setAddDoctorFor(null); setAddDoctorSearch(''); setAddDoctorError('') } }}
+      date={today}
+      shiftCode={addingDoctor ? 'Adding…' : 'Add to rotation'}
+    />
+  )
+
+  const overlapModal = newOverlapModal && (
+    <Modal title="Overlapping rotations" onClose={() => setNewOverlapModal(null)} maxWidthClassName="md:max-w-sm">
+      <p className="text-sm text-ink">
+        {typeLabel(rotationTypeKey(newOverlapModal.a.rotation_type, newOverlapModal.a.subtype))} and{' '}
+        {typeLabel(rotationTypeKey(newOverlapModal.b.rotation_type, newOverlapModal.b.subtype))} both cover{' '}
+        {overlapMonthRange(newOverlapModal.a, newOverlapModal.b)} for {displayNames?.get(selectedDoctor?.id) ?? selectedDoctor?.surname}.
+      </p>
+      <p className="mt-2 text-xs text-ink-muted">
+        This doesn&apos;t block saving — adjust the dates above if this wasn&apos;t intended.
+      </p>
+    </Modal>
+  )
+
+  // ── Desktop ──────────────────────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          <CompactToolbarRow
+            desktop
+            className="mb-3"
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search by doctor name…"
+            filterFacet={filterFacet}
+            trailing={<div className="flex items-center gap-2">{yearNav}{todayButton}{overflowMenu}</div>}
+            clearActive={clearActive}
+            onClearAll={onClearAll}
+          />
+
+          <div className="mb-3">{legendSwatches}</div>
+
+          <div className="card overflow-x-auto p-0">
+            <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
+              <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
+              {MONTH_ABBR.map((label, i) => (
+                <div key={label} className={`px-1 py-1.5 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {groups.length === 0 && (
+              <p className="p-4 text-center text-sm text-ink-muted">No doctors match this filter.</p>
+            )}
+
+            {groups.map(group => (
+              <div key={group.key}>
                 <button
                   type="button"
-                  onClick={() => onSelectDoctor(null)}
-                  aria-label="Close"
-                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                  onClick={() => toggleGroupCollapsed(group.key)}
+                  className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
+                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
                 </button>
-              </div>
 
-              {currentOverlapPairs.size > 0 && (
-                <div className="mt-2 flex items-start gap-1.5 rounded border border-flagRed/30 bg-flagRed-bg px-2 py-1.5 text-xs text-flagRed">
-                  <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                  <span>
-                    {[...currentOverlapPairs.values()].map(([a, b], i) => (
-                      <span key={i}>
-                        {i > 0 && '; '}
-                        {typeLabel(rotationTypeKey(a.rotation_type, a.subtype))} and {typeLabel(rotationTypeKey(b.rotation_type, b.subtype))} both cover {overlapMonthRange(a, b)}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              )}
-              {blockError && <p className="mt-2 text-xs text-flagRed">{blockError}</p>}
-
-              {!editing ? (
-                <>
-                  <div className="mt-3 space-y-2">
-                    {selectedDoctorRotations.length === 0 && (
-                      <p className="text-xs text-ink-muted">No rotation blocks yet.</p>
-                    )}
-                    {selectedDoctorRotations.map(rotation => {
-                      const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
-                      return (
-                        <div key={rotation.id} className="flex items-center gap-2 text-xs">
-                          <span
-                            className="rounded px-1.5 py-0.5 font-medium text-white"
-                            style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}
-                          >
-                            {typeLabel(key)}
-                          </span>
-                          <span className="text-ink-light">
-                            {rotation.start_date} – {rotation.end_date || 'ongoing'}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <button type="button" onClick={() => setEditing(true)} className="btn-secondary mt-3 w-full text-xs">
-                    Edit rotations
-                  </button>
-                </>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  {selectedDoctorRotations.map(rotation => {
-                    const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
-                    const rowSaving = savingBlockId === rotation.id
-                    const typeOptions = rotationTypeOptionsForCategory(selectedDoctor.category)
-                    return (
-                      <div key={rotation.id} className="rounded border border-slate-line p-2">
-                        <div className="flex items-center gap-2">
-                          <SelectMenu
-                            value={key}
-                            disabled={rowSaving}
-                            onChange={v => {
-                              const opt = ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === v)
-                              handleBlockUpdate(rotation, { rotationType: opt.rotationType, subtype: opt.subtype })
+                {!collapsedGroups[group.key] && group.items.map(doctor => {
+                  const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
+                  const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
+                  const label = displayNames?.get(doctor.id) ?? doctor.surname
+                  return (
+                    <div key={doctor.id} className="grid border-b border-slate-line last:border-0" style={{ gridTemplateColumns }}>
+                      <button
+                        type="button"
+                        onClick={() => selectDoctor(doctor.id)}
+                        title={`${doctor.name || ''} ${doctor.surname}`.trim()}
+                        className={`sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-2 text-left text-xs font-medium transition-colors hover:bg-canvas-sunken ${
+                          selectedDoctorId === doctor.id ? 'bg-accent-tint text-accent' : 'text-ink'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                      <div className="relative col-span-12" style={{ height: 36 }}>
+                        {segments.map(seg => (
+                          <div
+                            key={`${seg.startMonthIndex}-${seg.typeKey}`}
+                            title={typeLabel(seg.typeKey)}
+                            className="absolute top-1/2 -translate-y-1/2"
+                            style={{
+                              left: seg.startMonthIndex * MONTH_COL_WIDTH,
+                              width: (seg.endMonthIndex - seg.startMonthIndex + 1) * MONTH_COL_WIDTH,
+                              height: 22,
+                              backgroundColor: ROTATION_TYPE_COLOR[seg.typeKey],
                             }}
-                            options={typeOptions.map(o => ({ value: o.key, label: o.label }))}
-                            className="flex-1"
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleBlockRemove(rotation)}
-                            disabled={rowSaving}
-                            aria-label="Remove block"
-                            title="Remove block"
-                            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-flagRed hover:bg-flagRed-bg disabled:opacity-40"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <div className="mt-2 space-y-1.5">
-                          <label className="flex items-center gap-2 text-xs text-ink-muted">
-                            <span className="w-8 flex-shrink-0">From</span>
-                            <input
-                              type="date"
-                              value={rotation.start_date}
-                              disabled={rowSaving}
-                              onChange={e => handleBlockUpdate(rotation, { startDate: e.target.value })}
-                              className="input-field flex-1 py-1 text-xs"
-                            />
-                          </label>
-                          <label className="flex items-center gap-2 text-xs text-ink-muted">
-                            <span className="w-8 flex-shrink-0">To</span>
-                            <input
-                              type="date"
-                              value={rotation.end_date || ''}
-                              disabled={rowSaving}
-                              placeholder="Ongoing"
-                              onChange={e => handleBlockUpdate(rotation, { endDate: e.target.value || null })}
-                              className="input-field flex-1 py-1 text-xs"
-                            />
-                          </label>
-                        </div>
+                        ))}
+                        {year === currentYear && (
+                          <div
+                            className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+                            style={{
+                              left: currentMonthIndex * MONTH_COL_WIDTH,
+                              width: MONTH_COL_WIDTH,
+                              height: 24,
+                              boxShadow: '0 0 0 0.5px white, 0 0 0 2px #0f172a, 0 0 0 2.5px white',
+                            }}
+                          />
+                        )}
                       </div>
-                    )
-                  })}
-                  <button
-                    type="button"
-                    onClick={handleAddBlock}
-                    disabled={savingBlockId === 'new'}
-                    className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {savingBlockId === 'new' ? 'Adding…' : 'Add block'}
-                  </button>
-                  <button type="button" onClick={() => setEditing(false)} className="w-full text-center text-xs text-ink-muted hover:text-ink">
-                    Done editing
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                    </div>
+                  )
+                })}
+
+                {!collapsedGroups[group.key] && (
+                  <div className="border-b border-slate-line px-2 py-1.5 last:border-0">
+                    <button
+                      type="button"
+                      onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor(group.key) }}
+                      className="rounded border border-dashed border-slate-line px-2 py-1 text-xs text-ink hover:bg-canvas-sunken"
+                    >
+                      + Add doctor
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <aside className="lg:sticky lg:top-4 lg:h-fit lg:w-72 lg:flex-shrink-0">
+          <div className="card p-3">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
+        </aside>
+
+        {addDoctorPicker}
+        {addDoctorError && <p className="mt-2 text-xs text-flagRed">{addDoctorError}</p>}
+        {overlapModal}
+      </div>
+    )
+  }
+
+  // ── Mobile ───────────────────────────────────────────────────────────
+  return (
+    <div>
+      <div className="sticky top-0 z-20 -mx-4 flex items-center justify-between gap-2 border-b border-slate-line bg-canvas px-4 py-2">
+        {yearNav}
+        <div className="flex items-center gap-1.5">
+          {todayButton}
+          <LegendSheet
+            title="Legend"
+            trigger={onClick => (
+              <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+            )}
+          >
+            {legendSwatches}
+          </LegendSheet>
+          {overflowMenu}
         </div>
       </div>
 
-      {newOverlapModal && (
-        <Modal title="Overlapping rotations" onClose={() => setNewOverlapModal(null)} maxWidthClassName="md:max-w-sm">
-          <p className="text-sm text-ink">
-            {typeLabel(rotationTypeKey(newOverlapModal.a.rotation_type, newOverlapModal.a.subtype))} and{' '}
-            {typeLabel(rotationTypeKey(newOverlapModal.b.rotation_type, newOverlapModal.b.subtype))} both cover{' '}
-            {overlapMonthRange(newOverlapModal.a, newOverlapModal.b)} for {displayNames?.get(selectedDoctor?.id) ?? selectedDoctor?.surname}.
-          </p>
-          <p className="mt-2 text-xs text-ink-muted">
-            This doesn&apos;t block saving — adjust the dates above if this wasn&apos;t intended.
-          </p>
+      <div className="sticky top-[46px] z-10 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
+        <CompactToolbarRow
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by doctor name…"
+          filterFacet={filterFacet}
+          clearActive={clearActive}
+          onClearAll={onClearAll}
+        />
+      </div>
+
+      <div className="mt-3 space-y-4 pb-20">
+        {groups.length === 0 && (
+          <p className="p-4 text-center text-sm text-ink-muted">No doctors match this filter.</p>
+        )}
+        {groups.map(group => (
+          <div key={group.key}>
+            <button
+              type="button"
+              onClick={() => toggleGroupCollapsed(group.key)}
+              className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
+            >
+              <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
+              <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
+            </button>
+
+            {!collapsedGroups[group.key] && (
+              <div className="mt-2 space-y-2">
+                {group.items.map(doctor => {
+                  const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
+                  const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
+                  const cells = flattenSegmentsToCells(segments)
+                  const label = displayNames?.get(doctor.id) ?? doctor.surname
+                  return (
+                    <button
+                      key={doctor.id}
+                      type="button"
+                      onClick={() => selectDoctor(doctor.id)}
+                      className={`card block w-full p-3 text-left ${selectedDoctorId === doctor.id ? 'ring-1 ring-accent' : ''}`}
+                    >
+                      <p className="text-sm font-medium text-ink">{label}</p>
+                      {cells.length === 0 ? (
+                        <p className="mt-1 text-xs text-ink-muted">No rotation in {year}</p>
+                      ) : (
+                        <>
+                          <div className="mt-2 flex overflow-hidden rounded">
+                            {cells.map((cell, i) => (
+                              <div
+                                key={cell.monthIndex}
+                                title={`${MONTH_ABBR[cell.monthIndex]} — ${typeLabel(cell.typeKey)}`}
+                                className={`h-6 flex-1 ${i === 0 ? 'rounded-l' : ''} ${i === cells.length - 1 ? 'rounded-r' : ''}`}
+                                style={{ backgroundColor: ROTATION_TYPE_COLOR[cell.typeKey] }}
+                              />
+                            ))}
+                          </div>
+                          <p className="mt-1 text-xs text-ink-muted">
+                            {MONTH_ABBR[cells[0].monthIndex]} – {MONTH_ABBR[cells[cells.length - 1].monthIndex]} {year}
+                          </p>
+                        </>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor('all') }}
+        aria-label="Add doctor"
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
+      {selectedDoctor && (
+        <Modal title={displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname} onClose={() => onSelectDoctor(null)}>
+          {renderDoctorPanel(false)}
         </Modal>
       )}
+
+      {addDoctorPicker}
+      {addDoctorError && (
+        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
+          <p className="rounded-lg bg-flagRed-bg px-3 py-2 text-xs text-flagRed shadow-raised">{addDoctorError}</p>
+        </div>
+      )}
+      {overlapModal}
     </div>
   )
 }

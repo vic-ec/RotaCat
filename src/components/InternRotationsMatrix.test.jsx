@@ -55,8 +55,9 @@ describe('InternRotationsMatrix', () => {
     expect(screen.getAllByText(/Intern/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Registrar/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/COSMO/).length).toBeGreaterThan(0)
-    // Row labels use the disambiguated display name, not a bare surname assumption
-    expect(screen.getByRole('button', { name: 'Intern' })).toBeInTheDocument()
+    // Row labels use the disambiguated display name as their title, even
+    // though the visible text truncates to the surname
+    expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
   })
 
   it('shows the 5-state legend', () => {
@@ -77,7 +78,7 @@ describe('InternRotationsMatrix', () => {
   it('selecting a doctor shows their block list with type + date range', async () => {
     const onSelectDoctor = vi.fn()
     renderMatrix({ onSelectDoctor })
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Intern' }))
+    await userEvent.setup().click(screen.getByTitle('Ivy Intern'))
     expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
   })
 
@@ -145,5 +146,78 @@ describe('InternRotationsMatrix', () => {
       startDate: '2028-01-01',
       endDate: '2028-04-01',
     }))
+  })
+
+  it('clicking a doctor chip in the no-selection panel selects them', async () => {
+    const onSelectDoctor = vi.fn()
+    const user = userEvent.setup()
+    renderMatrix({ onSelectDoctor })
+    const panel = screen.getByText(/right now/).closest('div')
+    await user.click(within(panel).getByRole('button', { name: 'Intern' }))
+    expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
+  })
+
+  it('category filter narrows the visible rows to the chosen category', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    await user.click(screen.getByRole('button', { name: 'Category' }))
+    await user.click(within(screen.getByRole('menu')).getByRole('button', { name: 'Intern' }))
+    expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
+    expect(screen.queryByTitle('Rae Registrar')).not.toBeInTheDocument()
+  })
+
+  it('add-doctor flow: picking an unassigned doctor creates a first EC block, selects them, and opens edit mode', async () => {
+    const onCreateRotation = vi.fn().mockResolvedValue(undefined)
+    const onSelectDoctor = vi.fn()
+    const user = userEvent.setup()
+    renderMatrix({ onCreateRotation, onSelectDoctor })
+    const cosmoHeading = screen.getByRole('button', { name: /COSMO/ })
+    await user.click(within(cosmoHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    const picker = screen.getByText(/Assign doctor/).closest('div').parentElement
+    await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
+    expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({
+      doctorId: 'cosmo-1', rotationType: 'EC', subtype: null, startDate: '2027-06-15', endDate: null, createdBy: 'admin-1',
+    }))
+    expect(onSelectDoctor).toHaveBeenCalledWith('cosmo-1')
+  })
+})
+
+describe('InternRotationsMatrix — mobile layout', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockImplementation(query => ({
+      matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    }))
+  })
+  afterEach(() => { delete window.matchMedia })
+
+  it('renders per-doctor cards instead of the 12-column grid', () => {
+    renderMatrix()
+    expect(screen.queryByText('Jan')).not.toBeInTheDocument()
+    const internCard = screen.getByText('Intern', { selector: 'p' }).closest('button')
+    expect(within(internCard).getByText('Jan – Dec 2027')).toBeInTheDocument()
+  })
+
+  it('tapping a card calls onSelectDoctor', async () => {
+    const onSelectDoctor = vi.fn()
+    const user = userEvent.setup()
+    renderMatrix({ onSelectDoctor })
+    const internCard = screen.getByText('Intern', { selector: 'p' }).closest('button')
+    await user.click(internCard)
+    expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
+  })
+
+  it('a selected doctor shows the bottom-sheet modal with their block list (no duplicate header chrome)', () => {
+    renderMatrix({ selectedDoctorId: 'intern-1' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit rotations' })).toBeInTheDocument()
+    // Modal supplies its own title + Close — the panel must not repeat them.
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1)
+  })
+
+  it('the FAB opens the add-doctor picker', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    await user.click(screen.getByRole('button', { name: 'Add doctor' }))
+    expect(screen.getByText(/Assign doctor/)).toBeInTheDocument()
   })
 })

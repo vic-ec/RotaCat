@@ -61,6 +61,53 @@ export const OT_SUBTYPE_OPTIONS = [
 
 export const OT_SUBTYPE_LABELS = Object.fromEntries(OT_SUBTYPE_OPTIONS.map(o => [o.value, o.label]))
 
+// Combined rotation-type + OT-subtype options for the Intern Rotations
+// Matrix's single per-block type dropdown — collapses rotation_type +
+// subtype into one selectable value (e.g. picking "OT · Psych" writes both
+// rotation_type='OT' and subtype='PSYCH' in one step), unlike the Table
+// view's two separate dropdowns. Also backs the Matrix's 5-colour bar/
+// legend mapping — one visual state per key here, including the real
+// "OT with no subtype assigned yet" case (key 'OT').
+export const ROTATION_TYPE_KEY_OPTIONS = [
+  { key: 'EC', rotationType: 'EC', subtype: null, label: 'EC' },
+  { key: 'OT', rotationType: 'OT', subtype: null, label: 'OT' },
+  { key: 'OT_LRCHC', rotationType: 'OT', subtype: 'LRCHC', label: 'OT · LRCHC' },
+  { key: 'OT_DPM_BCH', rotationType: 'OT', subtype: 'DPM_BCH', label: 'OT · DPM/BCH' },
+  { key: 'OT_PSYCH', rotationType: 'OT', subtype: 'PSYCH', label: 'OT · Psych' },
+]
+
+export function rotationTypeKey(rotationType, subtype) {
+  if (rotationType !== 'OT') return 'EC'
+  if (!subtype) return 'OT'
+  return `OT_${subtype}`
+}
+
+// Registrar rotations are EC-only — the OT/subtype concept is tied to the
+// Junior_Doctor_Overtime contract type, which doesn't apply to
+// registrars. Every place a rotation-type option list is offered for a
+// specific doctor (Table view's dropdowns, the Matrix's block editor)
+// filters through this first so a Registrar is never offered an OT option
+// at all, rather than relying on validation to reject it after the fact.
+export function rotationTypeOptionsForCategory(category) {
+  return category === 'Registrar'
+    ? ROTATION_TYPE_KEY_OPTIONS.filter(o => o.key === 'EC')
+    : ROTATION_TYPE_KEY_OPTIONS
+}
+
+// Distinct colour per rotation-type key, for the Matrix's bars/legend.
+// Deliberately NOT reusing the flag*/success/danger tokens — those are
+// reserved strictly for roster-state semantics elsewhere in this app (see
+// tailwind.config.js) and a rotation type isn't a good/bad state, just a
+// category, same reasoning as the groupEven/groupOdd weekend-parity
+// colours having their own dedicated, non-status family.
+export const ROTATION_TYPE_COLOR = {
+  EC: '#2563EB',         // blue
+  OT: '#64748B',         // slate — OT, no subtype assigned yet
+  OT_LRCHC: '#7C3AED',   // violet
+  OT_DPM_BCH: '#EA580C', // orange
+  OT_PSYCH: '#DB2777',   // pink
+}
+
 // Contract-type-aware hours lookup — the one PendingApprovalReviewPage and
 // StaffListPage should actually call now. Category alone is only enough
 // for MO/Registrar/Consultant/Locum and the already-unambiguous legacy OT/

@@ -20,6 +20,16 @@ export function addDays(dateStr, days) {
   return formatLocalDate(date)
 }
 
+// Registrar EC rotation blocks default to a 3-month span (see the Intern
+// Rotations Matrix's "+ Add block" and Table view's new-row flow) — plain
+// calendar-month arithmetic via Date, not a fixed 90/91-day add, so "1 Sep
+// + 3 months" lands on 1 Dec regardless of which months it crosses.
+export function addMonths(dateStr, months) {
+  const date = parseLocalDate(dateStr)
+  date.setMonth(date.getMonth() + months)
+  return formatLocalDate(date)
+}
+
 // Inclusive list of "YYYY-MM-DD" strings from dateFrom to dateTo.
 export function datesInRange(dateFrom, dateTo) {
   const dates = []
@@ -42,7 +52,7 @@ export function dayOfWeek(dateStr) {
 }
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // "2026-08-10" -> "Monday, 10 Aug 2026" — the single-date display format
 // used wherever a full weekday name reads better than an abbreviation (e.g.

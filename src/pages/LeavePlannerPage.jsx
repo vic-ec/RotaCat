@@ -103,9 +103,12 @@ export default function LeavePlannerPage() {
     // to any date range, so leave taken never becomes invisible after a
     // year rolls over.
     ...(isAdmin ? [{ key: 'audit', label: 'Audit' }] : []),
-    // Admin-only rotation-block management for the Intern category (dormant
-    // until interns are reactivated) — see InternRotationsPlanner.
-    ...(isAdmin ? [{ key: 'interns', label: 'Interns' }] : []),
+    // Admin-only rotation-block management — covers Intern/Registrar/COSMO
+    // (see InternRotationsPlanner's Matrix view). Labelled "Rotations" now
+    // that Registrars share this page too; key stays 'interns' to avoid
+    // touching the underlying table/component/lib naming for a label-only
+    // rename.
+    ...(isAdmin ? [{ key: 'interns', label: 'Rotations' }] : []),
   ]
 
   // Tab selection lives in the URL (?tab=...&sub=...), not plain component

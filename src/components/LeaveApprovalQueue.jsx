@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
 import CompactToolbarRow from './CompactToolbarRow'
-import Modal from './Modal'
-import LeaveCapacityBanner from './LeaveCapacityBanner'
-import { LeaveDateRange } from './DateCard'
+import RequestReviewDrawer from './RequestReviewDrawer'
+import LeaveRequestSummary from './LeaveRequestSummary'
+import CapacityAssessment from './CapacityAssessment'
+import AffectedLeaveList from './AffectedLeaveList'
+import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
 import { SelectAllRow } from './ListRow'
 import BulkActionBar from './BulkActionBar'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { LEAVE_TYPE_OPTIONS, approvalDaysTotalLine, fetchAnnualCapacityPreview } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
 import { datesInRange } from '../lib/dateRange'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -74,143 +76,73 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
   )
 }
 
-// The tap-to-expand detail panel for one pending request — built on the
-// shared Modal shell (muted background, dismiss on outside click or the
-// corner ×, per docs/design/layout-spec.md §11). Shows the full identity,
-// leave type/period, any conflicts the planner already flags (capacity
-// slots for annual leave, plus the existing supervision/balance/hour-
-// ceiling warnings), a link to the specific month in the leave planner, and
-// approve/reject at the bottom. Rejecting here requires a reason — unlike
-// the bulk-reject action above the list, which stays reason-optional.
+// Rejecting here requires a reason — unlike the bulk-reject action above
+// the list, which stays reason-optional.
+//
+// The tap-to-open detail drawer for one pending request — built on
+// RequestReviewDrawer (persistent right-side panel, list stays visible
+// beside it; see that component for why this replaced the old centered
+// Modal). Content follows the redesign's decision-focused hierarchy: 1)
+// identity/status (drawer header), 2) requested period
+// (LeaveRequestSummary), 3) capacity assessment (CapacityAssessment), 4)
+// who else is affected (AffectedLeaveList), 5) the approve/decline decision
+// (LeaveRequestDecisionFooter, sticky).
 function LeaveRequestDetailPanel({
-  request, fullName, categoryLabel, leaveTypeLabel, receivedDate, receivedTime, publicHolidayFrom, publicHolidayTo, daysLine,
-  warnings, warned, warningsLoading, capacityPreview, capacityLoading,
+  request, fullName, categoryLabel, leaveTypeLabel, receivedDate, receivedTime, publicHolidayFrom, publicHolidayTo, totalDays, annualLeaveDays,
+  warnings, warned, warningsLoading, capacityPreview, capacityLoading, affectedEntries, affectedLoading,
   onClose, onOpenCalendar,
   rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
   approveLabel, onApprove, isActioning,
 }) {
+  const emptyAffectedMessage = request.leave_type === 'annual' && capacityPreview
+    ? 'No overlapping leave in this pool.'
+    : 'No overlapping leave in this period.'
+
   return (
-    <Modal
-      title="New Leave Request for Review"
+    <RequestReviewDrawer
+      title={`${leaveTypeLabel} request`}
+      statusTag={<Tag variant="status" tone="warning">Pending</Tag>}
+      meta={`Received ${receivedDate} · ${receivedTime}`}
       onClose={onClose}
-      // Approve/Reject render as the same full-width, side-by-side pair
-      // used at the bottom of the pending-registration review page
-      // (PendingApprovalReviewPage.jsx) — Approve (solid success, left),
-      // Reject (outlined danger, right), both sharing the row evenly. The
-      // corner × and the "Back to Requests" breadcrumb up top already cover
-      // "leave without acting", so there's no separate Cancel button down
-      // here too. The rejecting sub-state keeps its own Cancel (backs out
-      // of just the reject flow, not the whole panel) next to Confirm reject.
-      footer={rejecting ? (
-        <div className="flex w-full items-center gap-3">
-          <button type="button" onClick={onRejectCancel} className="flex-1 btn-secondary">Cancel</button>
-          <button
-            type="button"
-            onClick={onRejectConfirm}
-            disabled={isActioning || !rejectNotes.trim()}
-            className="flex-1 btn-danger-outline"
-          >
-            {isActioning ? 'Rejecting…' : 'Confirm reject'}
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onApprove}
-            disabled={isActioning || warningsLoading}
-            className="flex-1 rounded bg-success px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {approveLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onRejectStart}
-            disabled={isActioning}
-            className="flex-1 rounded border border-flagRed px-4 py-2 text-sm font-semibold text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Reject
-          </button>
-        </div>
-      )}
+      footer={
+        <LeaveRequestDecisionFooter
+          rejecting={rejecting}
+          rejectNotes={rejectNotes}
+          onRejectCancel={onRejectCancel}
+          onRejectConfirm={onRejectConfirm}
+          approveLabel={approveLabel}
+          onApprove={onApprove}
+          onDeclineStart={onRejectStart}
+          isActioning={isActioning}
+          approveDisabled={isActioning || warningsLoading}
+        />
+      }
     >
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm text-ink-muted">Received {receivedDate} at {receivedTime}</p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Requests
-          </button>
-        </div>
+      <div className="space-y-5">
+        <LeaveRequestSummary
+          request={request}
+          fullName={fullName}
+          categoryLabel={categoryLabel}
+          totalDays={totalDays}
+          annualLeaveDays={annualLeaveDays}
+          publicHolidayFrom={publicHolidayFrom}
+          publicHolidayTo={publicHolidayTo}
+        />
 
-        <div className="flex items-center gap-3">
-          <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={40} />
-          <div>
-            <p className="text-sm font-semibold text-ink">{fullName}</p>
-            {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
-          </div>
-        </div>
+        <CapacityAssessment
+          capacityPreview={capacityPreview}
+          capacityLoading={capacityLoading}
+          warnings={warnings}
+          warned={warned}
+          warningsLoading={warningsLoading}
+          onViewCalendar={onOpenCalendar}
+        />
 
-        <div>
-          <p className="label-text">Leave type</p>
-          <p className="text-sm text-ink">{leaveTypeLabel}</p>
-        </div>
-
-        <div>
-          <p className="label-text">Period</p>
-          <LeaveDateRange
-            dateFrom={request.date_from}
-            dateTo={request.date_to}
-            publicHolidayFrom={publicHolidayFrom}
-            publicHolidayTo={publicHolidayTo}
-          />
-          {daysLine && <p className="mt-1.5 text-xs text-ink-muted">{daysLine}</p>}
-        </div>
-
-        <div>
-          <p className="label-text">Conflicts in the planner</p>
-          {capacityLoading ? (
-            <p className="mt-1 text-xs text-ink-muted">Checking capacity…</p>
-          ) : capacityPreview ? (
-            <div className="mt-1">
-              <LeaveCapacityBanner
-                mySlots={{ taken: capacityPreview.taken, max: capacityPreview.max }}
-                columnLabel={capacityPreview.columnLabel}
-                pooled={capacityPreview.pooled}
-              />
-            </div>
-          ) : (
-            <p className="mt-1 text-xs text-ink-muted">No leave-slot limit applies to this category/leave type.</p>
-          )}
-
-          {warningsLoading ? (
-            <p className="mt-2 text-xs text-ink-muted">Checking for other conflicts…</p>
-          ) : warned && (
-            <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-3">
-              {warnings.supervisionBreaches.length > 0 && (
-                <p className="text-xs text-flagAmber">
-                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                  Approving would drop supervision below the required minimum on {warnings.supervisionBreaches.length} shift{warnings.supervisionBreaches.length !== 1 ? 's' : ''}.
-                </p>
-              )}
-              {warnings.balanceWarnings.map(bw => (
-                <p key={bw.year} className="text-xs text-flagAmber">
-                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                  {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
-                </p>
-              ))}
-              {warnings.hourCeilingWarning && (
-                <p className="text-xs text-flagAmber">
-                  <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
-                  Five-eighths doctor already has {warnings.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {warnings.hourCeilingWarning.maxHours}h).
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        <AffectedLeaveList
+          entries={affectedEntries || []}
+          loading={affectedLoading}
+          emptyMessage={emptyAffectedMessage}
+        />
 
         {request.notes && (
           <div>
@@ -219,13 +151,9 @@ function LeaveRequestDetailPanel({
           </div>
         )}
 
-        <button type="button" onClick={onOpenCalendar} className="btn-secondary w-full">
-          <CalendarSearch className="h-4 w-4" /> View Calendar
-        </button>
-
         {rejecting && (
           <div className="space-y-1.5">
-            <label htmlFor="rejectNotes" className="label-text">Reason for rejection</label>
+            <label htmlFor="rejectNotes" className="label-text">Reason for declining</label>
             <textarea
               id="rejectNotes"
               value={rejectNotes}
@@ -237,7 +165,7 @@ function LeaveRequestDetailPanel({
           </div>
         )}
       </div>
-    </Modal>
+    </RequestReviewDrawer>
   )
 }
 
@@ -264,12 +192,15 @@ export default function LeaveApprovalQueue({ onBack }) {
   const [bulkActioning, setBulkActioning] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
-  // The request whose detail panel (Modal) is currently open, if any.
+  // The request whose review drawer is currently open, if any.
   const [expandedId, setExpandedId] = useState(null)
   // Per-request annual-leave capacity preview, fetched lazily the first
-  // time its panel opens (undefined = not fetched yet, null = fetched but
+  // time its drawer opens (undefined = not fetched yet, null = fetched but
   // no capacity column applies to this category/leave type).
   const [capacityByRequestId, setCapacityByRequestId] = useState({})
+  // Per-request "who else is already away" list, fetched lazily alongside
+  // the capacity preview (undefined = not fetched yet).
+  const [affectedByRequestId, setAffectedByRequestId] = useState({})
 
   useEffect(() => { loadQueue() }, [])
 
@@ -287,6 +218,23 @@ export default function LeaveApprovalQueue({ onBack }) {
     }).then(preview => { if (!cancelled) setCapacityByRequestId(prev => ({ ...prev, [expandedId]: preview })) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- requests/capacityByRequestId read via closure; re-running once they change would refetch in a loop
+  }, [expandedId])
+
+  useEffect(() => {
+    if (!expandedId) return
+    const request = requests.find(r => r.id === expandedId)
+    if (!request || affectedByRequestId[expandedId] !== undefined) return
+    let cancelled = false
+    fetchAffectedLeaveForRequest({
+      dateFrom: request.date_from,
+      dateTo: request.date_to,
+      leaveType: request.leave_type,
+      category: request.profiles?.category,
+      contractType: request.profiles?.contract_type,
+      profileId: request.profile_id,
+    }).then(entries => { if (!cancelled) setAffectedByRequestId(prev => ({ ...prev, [expandedId]: entries })) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- requests/affectedByRequestId read via closure; re-running once they change would refetch in a loop
   }, [expandedId])
 
   async function loadQueue() {
@@ -424,8 +372,15 @@ export default function LeaveApprovalQueue({ onBack }) {
   const expandedWarned = hasWarnings(expandedWarnings)
   const expandedCapacityPreview = expandedRequest ? capacityByRequestId[expandedRequest.id] : undefined
   const expandedCapacityLoading = Boolean(expandedRequest) && expandedRequest.leave_type === 'annual' && expandedCapacityPreview === undefined
+  const expandedAffectedEntries = expandedRequest ? affectedByRequestId[expandedRequest.id] : undefined
+  const expandedAffectedLoading = Boolean(expandedRequest) && expandedAffectedEntries === undefined
+  // A full capacity gauge is as much a reason to pause as a Tier-2 warning
+  // — folded into the same "needs a second click" gate so approving into
+  // an at-capacity pool isn't a single accidental tap, even though the
+  // preview itself stays purely advisory (never blocks the mutation).
+  const expandedNeedsConfirm = expandedWarned || Boolean(expandedCapacityPreview?.atCapacity)
   const expandedConfirming = Boolean(expandedRequest) && confirmingApproveId === expandedRequest.id
-  const expandedApproveLabel = expandedWarned ? (expandedConfirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'
+  const expandedApproveLabel = expandedNeedsConfirm ? (expandedConfirming ? 'Confirm approval' : 'Approve anyway') : 'Approve request'
   const expandedIsActioning = Boolean(expandedRequest) && actioningId === expandedRequest.id
   const expandedRejecting = Boolean(expandedRequest) && rejectingId === expandedRequest.id
 
@@ -532,7 +487,7 @@ export default function LeaveApprovalQueue({ onBack }) {
         const publicHolidayFrom = publicHolidayDates.has(expandedRequest.date_from)
         const publicHolidayTo = publicHolidayDates.has(expandedRequest.date_to)
         const totalDays = datesInRange(expandedRequest.date_from, expandedRequest.date_to).length
-        const daysLine = approvalDaysTotalLine(expandedRequest) || `${totalDays} day${totalDays === 1 ? '' : 's'} total`
+        const annualLeaveDays = expandedRequest.leave_type === 'annual' ? expandedRequest.annual_leave_days : null
         // Same "DD-MM-YYYY at HH:MM" template as the pending-registration
         // review page's own "Registered X at Y" line.
         const receivedDate = expandedRequest.created_at?.slice(0, 10).split('-').reverse().join('-')
@@ -548,12 +503,15 @@ export default function LeaveApprovalQueue({ onBack }) {
             receivedTime={receivedTime}
             publicHolidayFrom={publicHolidayFrom}
             publicHolidayTo={publicHolidayTo}
-            daysLine={daysLine}
+            totalDays={totalDays}
+            annualLeaveDays={annualLeaveDays}
             warnings={expandedWarnings}
             warned={expandedWarned}
             warningsLoading={expandedWarningsLoading}
             capacityPreview={expandedCapacityPreview}
             capacityLoading={expandedCapacityLoading}
+            affectedEntries={expandedAffectedEntries}
+            affectedLoading={expandedAffectedLoading}
             onClose={closePanel}
             onOpenCalendar={() => openInCalendar(expandedRequest)}
             rejecting={expandedRejecting}
@@ -563,7 +521,7 @@ export default function LeaveApprovalQueue({ onBack }) {
             onRejectCancel={() => { setRejectingId(null); setRejectNotes('') }}
             onRejectConfirm={() => reject(expandedRequest)}
             approveLabel={expandedApproveLabel}
-            onApprove={() => (expandedWarned && !expandedConfirming) ? setConfirmingApproveId(expandedRequest.id) : approve(expandedRequest)}
+            onApprove={() => (expandedNeedsConfirm && !expandedConfirming) ? setConfirmingApproveId(expandedRequest.id) : approve(expandedRequest)}
             isActioning={expandedIsActioning}
           />
         )

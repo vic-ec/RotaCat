@@ -12,6 +12,8 @@ import {
   findWorstAnnualCapacitySlot,
   findWorstSpecialLeavePressure,
   countSpecialLeavePressureDaysInYear,
+  naturalLeavePeriodLabel,
+  capacityAssessmentState,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
 
@@ -331,5 +333,39 @@ describe('countSpecialLeavePressureDaysInYear', () => {
       ['2026-03-10', [{ profileId: 'p1' }, { profileId: 'p2' }, { profileId: 'p3' }]],
     ])
     expect(countSpecialLeavePressureDaysInYear({ year: 2026, byDate, profileIdOf: e => e.profileId })).toBe(1)
+  })
+})
+
+describe('naturalLeavePeriodLabel', () => {
+  it('renders a single day as "Weekday D Month YYYY"', () => {
+    expect(naturalLeavePeriodLabel('2026-10-03', '2026-10-03')).toBe('Sat 3 October 2026')
+  })
+
+  it('renders a same-month range as "D–D Month YYYY"', () => {
+    expect(naturalLeavePeriodLabel('2026-10-03', '2026-10-11')).toBe('3–11 October 2026')
+  })
+
+  it('renders a cross-month, same-year range with both month abbreviations', () => {
+    expect(naturalLeavePeriodLabel('2026-10-28', '2026-11-03')).toBe('28 Oct – 3 Nov 2026')
+  })
+
+  it('renders a cross-year range with both years spelled out', () => {
+    expect(naturalLeavePeriodLabel('2026-12-29', '2027-01-02')).toBe('29 Dec 2026 – 2 Jan 2027')
+  })
+})
+
+describe('capacityAssessmentState', () => {
+  it('is "available" when at most half the pool is taken', () => {
+    expect(capacityAssessmentState({ taken: 1, max: 2 }).key).toBe('available')
+    expect(capacityAssessmentState({ taken: 0, max: 3 }).key).toBe('available')
+  })
+
+  it('is "limited" once more than half the pool is taken but slots remain', () => {
+    expect(capacityAssessmentState({ taken: 2, max: 3 }).key).toBe('limited')
+  })
+
+  it('is "at_capacity" once every slot is taken', () => {
+    expect(capacityAssessmentState({ taken: 3, max: 3 }).key).toBe('at_capacity')
+    expect(capacityAssessmentState({ taken: 4, max: 3 }).key).toBe('at_capacity')
   })
 })

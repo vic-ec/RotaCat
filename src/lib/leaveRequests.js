@@ -5,7 +5,7 @@ import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from 
 import { overlapsPlannedWeekend, groupEntriesByWeekend, weekendCoverageSummary, weekendHealthState } from './weekendPlanner'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
-  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  LEAVE_CAPACITY_STATES, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
 } from './leaveYearGrid'
 import { slotsForColumnOnDate } from './monthWorkspace'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from './internRotations'
@@ -149,6 +149,49 @@ export function approvalDaysTotalLine({ leave_type: leaveType, date_from: dateFr
   if (leaveType !== 'annual' || annualLeaveDays == null) return null
   const totalDays = datesInRange(dateFrom, dateTo).length
   return `${totalDays} day${totalDays === 1 ? '' : 's'} total - (${annualLeaveDays} as annual leave)`
+}
+
+const LEAVE_PERIOD_MONTH_FORMAT = { month: 'long' }
+const LEAVE_PERIOD_WEEKDAY_FORMAT = { weekday: 'short' }
+
+// "3–11 October 2026" (same month/year), "28 Oct – 3 Nov 2026" (crosses a
+// month), "29 Dec 2026 – 2 Jan 2027" (crosses a year), or "Sat 3 Oct 2026"
+// for a single day — the approval queue's review drawer leads with this
+// sentence rather than a pair of decorative date boxes (see
+// LeaveRequestSummary.jsx), which only earn their place back when the
+// range itself crosses a month/year boundary.
+export function naturalLeavePeriodLabel(dateFrom, dateTo) {
+  const from = parseLocalDate(dateFrom)
+  const to = parseLocalDate(dateTo)
+  const sameMonth = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear()
+  const sameYear = from.getFullYear() === to.getFullYear()
+
+  if (dateFrom === dateTo) {
+    return `${from.toLocaleDateString('en-GB', LEAVE_PERIOD_WEEKDAY_FORMAT)} ${from.getDate()} ${from.toLocaleDateString('en-GB', LEAVE_PERIOD_MONTH_FORMAT)} ${from.getFullYear()}`
+  }
+  if (sameMonth) {
+    return `${from.getDate()}–${to.getDate()} ${from.toLocaleDateString('en-GB', LEAVE_PERIOD_MONTH_FORMAT)} ${from.getFullYear()}`
+  }
+  const fromMonthAbbr = from.toLocaleDateString('en-GB', { month: 'short' })
+  const toMonthAbbr = to.toLocaleDateString('en-GB', { month: 'short' })
+  if (sameYear) {
+    return `${from.getDate()} ${fromMonthAbbr} – ${to.getDate()} ${toMonthAbbr} ${from.getFullYear()}`
+  }
+  return `${from.getDate()} ${fromMonthAbbr} ${from.getFullYear()} – ${to.getDate()} ${toMonthAbbr} ${to.getFullYear()}`
+}
+
+// Maps a { taken, max } annual-leave-slot reading onto one of 3 named
+// tiers for the approval queue's Capacity Assessment card — "Available"
+// (at most half the pool taken), "Limited" (more than half taken but room
+// remains), "At capacity" (none left). Reuses the same LEAVE_CAPACITY_STATES
+// tokens the year planner's day cells already use (indices 0/1/3 of the
+// 4-tier scale — the "near_capacity" tier between them isn't surfaced
+// here, this card only ever needs 3 named states), so the colors read the
+// same wherever a leave-slot count appears in the app.
+export function capacityAssessmentState({ taken, max }) {
+  if (taken >= max) return LEAVE_CAPACITY_STATES[3] // at_capacity
+  if (max > 0 && taken / max > 0.5) return LEAVE_CAPACITY_STATES[1] // limited
+  return LEAVE_CAPACITY_STATES[0] // available
 }
 
 // annual_leave_days is entered by the requester, not auto-derived from the
@@ -338,6 +381,55 @@ export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, c
     return worst ? { ...worst, columnLabel: columnDef.label } : null
   } catch {
     return null // informative only — never let a fetch hiccup disrupt the form
+  }
+}
+
+// Read-only "who else is already away" list for the approval queue's review
+// drawer (AffectedLeaveList.jsx) — every OTHER pending/approved leave_requests
+// row overlapping [dateFrom, dateTo], excluding the requester themselves.
+// For an annual-leave request, narrowed further to rows resolving to the
+// SAME capacity column/pool as this request (a static category/contract-type
+// resolution, not the full intern-rotation-aware lookup
+// fetchAnnualCapacityPreview uses — a deliberate simplification for this
+// advisory list; it never gates approval, only informs it). Any other leave
+// type has no shared-pool concept, so every overlapping row counts
+// regardless of category. Never throws — a fetch hiccup just means an
+// empty "who's away" list, same never-block contract as the other preview
+// fetchers in this file.
+export async function fetchAffectedLeaveForRequest({ dateFrom, dateTo, leaveType, category, contractType, profileId }) {
+  try {
+    const { data } = await supabase
+      .from('leave_requests')
+      .select('id, profile_id, date_from, date_to, status, leave_type, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type)')
+      .in('status', ['pending', 'approved'])
+      .neq('profile_id', profileId)
+      .lte('date_from', dateTo)
+      .gte('date_to', dateFrom)
+
+    let rows = data || []
+    if (leaveType === 'annual') {
+      rows = rows.filter(r => r.leave_type === 'annual')
+      const columnKey = resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom })
+      if (columnKey) {
+        rows = rows.filter(r => resolveLeaveCapacityColumn({
+          category: r.profiles?.category, contractType: r.profiles?.contract_type, profileId: r.profile_id, date: r.date_from,
+        }) === columnKey)
+      }
+    }
+
+    return rows
+      .map(r => ({
+        id: r.id,
+        profileId: r.profile_id,
+        name: `${r.profiles?.name || ''} ${r.profiles?.surname || ''}`.trim() || 'Unknown',
+        category: r.profiles?.category || null,
+        status: r.status,
+        dateFrom: r.date_from,
+        dateTo: r.date_to,
+      }))
+      .sort((a, b) => a.dateFrom.localeCompare(b.dateFrom))
+  } catch {
+    return []
   }
 }
 

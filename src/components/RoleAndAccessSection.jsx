@@ -16,6 +16,8 @@ export default function RoleAndAccessSection({
   showSubtype, subtype, onSubtypeChange,
   adminEnabled, onAdminChange, adminAvailable = true, adminUnavailableReason,
   adminHelperText = 'Can manage staff, leave requests, planners and settings.',
+  showScheduling = false,
+  activeFrom, onActiveFromChange, activeUntil, onActiveUntilChange,
 }) {
   return (
     <div>
@@ -52,6 +54,33 @@ export default function RoleAndAccessSection({
           <div>
             <label className="label-text" htmlFor="ot-subtype-select">OT subtype</label>
             <SelectMenu id="ot-subtype-select" value={subtype || ''} onChange={onSubtypeChange} placeholder="Not yet assigned…" options={OT_SUBTYPE_OPTIONS} />
+          </div>
+        )}
+
+        {showScheduling && (
+          <div className="grid grid-cols-1 gap-3 border-t border-slate-line pt-4 sm:grid-cols-2">
+            <div>
+              <label className="label-text" htmlFor="active-from-input">Active from</label>
+              <input
+                id="active-from-input"
+                type="date"
+                value={activeFrom || ''}
+                onChange={e => onActiveFromChange(e.target.value)}
+                className="input-field"
+              />
+              <p className="mt-1 text-xs text-ink-muted">Leave blank to activate immediately on approval.</p>
+            </div>
+            <div>
+              <label className="label-text" htmlFor="active-until-input">Active until</label>
+              <input
+                id="active-until-input"
+                type="date"
+                value={activeUntil || ''}
+                onChange={e => onActiveUntilChange(e.target.value)}
+                className="input-field"
+              />
+              <p className="mt-1 text-xs text-ink-muted">Optional — schedules a future deactivation.</p>
+            </div>
           </div>
         )}
 

@@ -127,13 +127,13 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
-  it('row shows name, category, "Requesting <leave type>", and a circular View Calendar icon button', async () => {
+  it('row shows name, category, "<type> request, submitted <date>", and a circular View Calendar icon button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('Medical Officer')).toBeInTheDocument()
-    expect(screen.getByText('Requesting Annual leave')).toBeInTheDocument()
+    expect(screen.getByText('Annual leave request, submitted 05-08-2026 · 14:32')).toBeInTheDocument()
 
     const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
     expect(viewCalendarBtn).toHaveClass('rounded-full', 'border', 'h-8', 'w-8')
@@ -148,12 +148,12 @@ describe('LeaveApprovalQueue', () => {
     const dialog = await openPanel(user)
 
     // Header: dynamic "{leave type} request" title, a "Pending" status
-    // pill (not "New"), and a "Received DD-MM-YYYY · HH:MM" meta line —
+    // pill (not "New"), and a "Submitted DD-MM-YYYY · HH:MM" meta line —
     // no separate "Back to Requests" breadcrumb (the corner × is the only
     // way out, per the drawer/modal "close, don't also breadcrumb" rule).
     expect(within(dialog).getByRole('heading', { name: 'Annual leave request' })).toBeInTheDocument()
     expect(within(dialog).getByText('Pending')).toBeInTheDocument()
-    expect(within(dialog).getByText('Received 05-08-2026 · 14:32')).toBeInTheDocument()
+    expect(within(dialog).getByText('Submitted 05-08-2026 · 14:32')).toBeInTheDocument()
     expect(within(dialog).queryByText(/Back to Requests/)).not.toBeInTheDocument()
 
     // Requested period: a natural-language sentence instead of decorative

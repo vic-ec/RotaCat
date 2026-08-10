@@ -14,6 +14,7 @@ import WeekendPlanner from '../components/WeekendPlanner'
 import LeaveAuditReport from '../components/LeaveAuditReport'
 import InternRotationsPlanner from '../components/InternRotationsPlanner'
 import LeaveRulesPage from '../components/LeaveRulesPage'
+import { endOfRotationFlag } from '../lib/internRotations'
 
 // Top-level "Leave" tabs, each a self-contained destination rather than
 // variants of one generic view — mirrors a mobile UX review's recommended
@@ -65,6 +66,37 @@ export default function LeavePlannerPage() {
     })
     return () => { cancelled = true }
   }, [isAdmin])
+  // Same "needs admin attention, persistent until resolved" badge pattern
+  // as pendingRequestsBadge above, for the Rotations sub-tab — counts
+  // Intern/Registrar doctors whose last rotation block ended with nothing
+  // lined up next (see EndOfRotationQueue, the queue this badge mirrors).
+  // Independent fetch, not shared state with InternRotationsPlanner (same
+  // reasoning as pendingRequestsBadge — this page and that component
+  // don't share state).
+  const [endOfRotationBadge, setEndOfRotationBadge] = useState(0)
+  useEffect(() => {
+    if (!isAdmin) { setEndOfRotationBadge(0); return }
+    let cancelled = false
+    supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar'])
+      .then(async ({ data: doctors }) => {
+        if (cancelled || !doctors || doctors.length === 0) { if (!cancelled) setEndOfRotationBadge(0); return }
+        const { data: rotations } = await supabase.from('intern_rotations')
+          .select('doctor_id, rotation_type, subtype, start_date, end_date')
+          .in('doctor_id', doctors.map(d => d.id))
+        if (cancelled) return
+        const rotationsByDoctorId = new Map()
+        for (const r of (rotations || [])) {
+          if (!rotationsByDoctorId.has(r.doctor_id)) rotationsByDoctorId.set(r.doctor_id, [])
+          rotationsByDoctorId.get(r.doctor_id).push(r)
+        }
+        const count = doctors.filter(d => endOfRotationFlag({
+          category: d.category, scheduledInactiveDate: d.scheduled_inactive_date,
+          rotations: rotationsByDoctorId.get(d.id) || [],
+        })).length
+        setEndOfRotationBadge(count)
+      })
+    return () => { cancelled = true }
+  }, [isAdmin])
   // Clerks get read-only "all" visibility into Annual/Special too — same
   // grid every other year-planner viewer sees, they just can't submit.
   const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
@@ -108,7 +140,7 @@ export default function LeavePlannerPage() {
     // that Registrars share this page too; key stays 'interns' to avoid
     // touching the underlying table/component/lib naming for a label-only
     // rename.
-    ...(isAdmin ? [{ key: 'interns', label: 'Rotations' }] : []),
+    ...(isAdmin ? [{ key: 'interns', label: 'Rotations', badge: endOfRotationBadge, badgeColor: 'red' }] : []),
   ]
 
   // Tab selection lives in the URL (?tab=...&sub=...), not plain component

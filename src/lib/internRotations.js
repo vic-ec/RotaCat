@@ -279,3 +279,35 @@ export async function applyHoursChange({ profileId, category, contractType, subt
     doctorId: profileId, rotationType, subtype, startDate: today, endDate: null, createdBy: actorId,
   })
 }
+
+// Categories in scope for the end-of-rotation queue — a COSMO's OT/subtype
+// change is a move within the OT band, not an exit from the rotation
+// system entirely, so COSMO stays out of scope here (unlike
+// ROTATION_TRACKED_CATEGORIES above, which covers both).
+const END_OF_ROTATION_CATEGORIES = new Set(['Intern', 'Registrar'])
+
+// A doctor belongs in the end-of-rotation queue when: their most
+// recently-STARTING rotation block has a real (non-null) end_date; today
+// is on or after the 1st of the calendar month that end_date falls in;
+// nothing else already covers what comes next; and nobody's already
+// scheduled a deactivation for them. Pure/read-time — no stored flag,
+// fully re-derivable from profiles + intern_rotations on every read.
+// Returns the flagged rotation block, or null if this doctor doesn't
+// belong in the queue.
+export function endOfRotationFlag({ category, scheduledInactiveDate, rotations }, today = todayStr()) {
+  if (!END_OF_ROTATION_CATEGORIES.has(category)) return null
+  if (scheduledInactiveDate) return null
+  if (!rotations || rotations.length === 0) return null
+
+  const sorted = [...rotations].sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const lastRotation = sorted[sorted.length - 1]
+  if (lastRotation.end_date === null) return null
+
+  const monthStart = `${lastRotation.end_date.slice(0, 7)}-01`
+  if (today < monthStart) return null
+
+  const somethingCoversWhatsNext = rotations.some(r => r.start_date > lastRotation.end_date)
+  if (somethingCoversWhatsNext) return null
+
+  return lastRotation
+}

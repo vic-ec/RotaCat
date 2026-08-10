@@ -12,6 +12,7 @@ import CompactToolbarRow from './CompactToolbarRow'
 import ViewToggle from './ViewToggle'
 import PageActionsMenu from './PageActionsMenu'
 import InternRotationsMatrix from './InternRotationsMatrix'
+import EndOfRotationQueue from './EndOfRotationQueue'
 import { OT_SUBTYPE_OPTIONS, rotationTypeOptionsForCategory } from '../lib/staffDefaults'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
@@ -77,8 +78,10 @@ export default function InternRotationsPlanner() {
       // Psych subtypes) is shared between COSMO and Intern, and real
       // rotation rows already exist for COSMO doctors; Registrars share
       // this same rotation timeline but are always EC-only (see
-      // rotationTypeOptionsForCategory).
-      supabase.from('profiles').select('id, name, surname, color_code, category').in('category', ['COSMO', 'Intern', 'Registrar']),
+      // rotationTypeOptionsForCategory). scheduled_inactive_date feeds the
+      // end-of-rotation queue below (EndOfRotationQueue) — a doctor with
+      // one already set is excluded from it.
+      supabase.from('profiles').select('id, name, surname, color_code, category, scheduled_inactive_date').in('category', ['COSMO', 'Intern', 'Registrar']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -174,6 +177,19 @@ export default function InternRotationsPlanner() {
     await load()
   }
 
+  // End-of-rotation queue actions (EndOfRotationQueue below).
+  async function scheduleDeactivation(doctorId, date) {
+    const { error: updateError } = await supabase.from('profiles')
+      .update({ scheduled_inactive_date: date })
+      .eq('id', doctorId)
+    if (updateError) throw new Error(updateError.message)
+    await load()
+  }
+  function viewDoctorInMatrix(doctorId) {
+    setView('matrix')
+    setMatrixSelectedDoctorId(doctorId)
+  }
+
   // Matrix view's "•••" overflow menu — How it works / Review log are both
   // inert stubs this pass (no audit-trail table exists yet for Review
   // log, and How it works has no content built yet either) — present so
@@ -189,6 +205,18 @@ export default function InternRotationsPlanner() {
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
+
+      {!loading && (
+        <div className="mt-3">
+          <EndOfRotationQueue
+            doctors={interns}
+            rotations={rotations}
+            displayNames={displayNames}
+            onScheduleDeactivation={scheduleDeactivation}
+            onViewInMatrix={viewDoctorInMatrix}
+          />
+        </div>
+      )}
 
       {/* Search+Filter+view-toggle stay on one row across both views (not
           scoped to view === 'table') so the Table/Matrix toggle — needed

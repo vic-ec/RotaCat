@@ -1329,6 +1329,12 @@ export default function AccountSettingsPage() {
                       </span>
                     </>
                   )}
+                  {/* Status as text, not colour alone — matches the same
+                      Active/On leave/Inactive wording used on the Staff list. */}
+                  {' · '}
+                  <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
+                    {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
+                  </span>
                 </p>
               </div>
             </div>
@@ -1561,7 +1567,7 @@ export default function AccountSettingsPage() {
           {/* ── Category, Role & Permissions ─────────────────────── */}
           <SectionRow
             icon={<ShieldIcon className="h-5 w-5" />}
-            title="Roles & Permissions"
+            title="Role & Access"
           >
             {isAdmin && (
           <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-line pb-4">
@@ -1631,16 +1637,31 @@ export default function AccountSettingsPage() {
             )}
 
             {adminRole !== 'clerk' && (
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={adminIsAdmin}
-                  onChange={e => setAdminIsAdmin(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-line accent-accent"
-                />
-                Has admin permissions
-                {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can&apos;t be removed here)</span>}
-              </label>
+              <div>
+                {/* Current persisted state, distinct from the checkbox below
+                    (which reflects the draft `adminIsAdmin` value) — so an
+                    admin can see what's true right now separately from what
+                    they're about to change it to, rather than reading that
+                    off the checkbox alone. */}
+                <p className="mb-1.5 text-xs font-medium text-ink-muted">
+                  {profile.is_admin ? 'Administrator access enabled' : 'Standard staff access'}
+                </p>
+                <label className="flex items-center gap-2 text-sm text-ink" htmlFor="admin-permissions-checkbox">
+                  <input
+                    id="admin-permissions-checkbox"
+                    type="checkbox"
+                    checked={adminIsAdmin}
+                    onChange={e => setAdminIsAdmin(e.target.checked)}
+                    aria-describedby="admin-permissions-help"
+                    className="h-4 w-4 rounded border-slate-line accent-accent"
+                  />
+                  Grant admin permissions
+                  {profile.is_super_admin && <span className="text-xs text-ink-muted">(super-admin — can&apos;t be removed here)</span>}
+                </label>
+                <p id="admin-permissions-help" className="mt-1 pl-6 text-xs text-ink-muted">
+                  Can manage staff, leave requests, planners and settings.
+                </p>
+              </div>
             )}
 
             <div className="flex items-center gap-3">
@@ -1744,15 +1765,13 @@ export default function AccountSettingsPage() {
                 <option value={profile.category || ''}>{profile.category ? (CATEGORY_LABELS[profile.category] || profile.category) : 'None'}</option>
               </select>
             </div>
-            <label className="flex items-center gap-2 text-sm text-ink-muted">
-              <input
-                type="checkbox"
-                checked={profile.is_admin === true}
-                disabled
-                className="h-4 w-4 rounded border-slate-line opacity-50 cursor-not-allowed"
-              />
-              Has admin permissions
-            </label>
+            {/* Explicit status text rather than a disabled checkbox alone —
+                a checkbox's checked/unchecked state isn't a reliable way to
+                convey "you do/don't have admin access" in a purely
+                read-only display. */}
+            <p className="text-sm text-ink-muted">
+              {profile.is_admin ? 'Administrator access enabled' : 'Standard staff access'}
+            </p>
 
             <div className="rounded-lg border border-flagBlue/30 bg-flagBlue-bg p-3 text-xs text-flagBlue">
               Role and category changes need admin approval before they take effect.

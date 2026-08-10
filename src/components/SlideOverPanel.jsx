@@ -17,6 +17,13 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // `children` can be a plain node, or a function `(close) => node` for a
 // panel body that needs to trigger its own dismissal (e.g. after an
 // action completes).
+//
+// `footer`: omit entirely for the default bottom-left Cancel button: pass
+// a function `(close) => node` for custom footer content; pass `null`
+// explicitly to render no footer bar at all — for a panel body that
+// already carries its own sticky action footer (e.g.
+// PendingApprovalReviewPage's Approve/Reject bar) and would otherwise show
+// a redundant second "Cancel" strip below it.
 export default function SlideOverPanel({ fallbackPath = '/', children, footer }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -39,13 +46,15 @@ export default function SlideOverPanel({ fallbackPath = '/', children, footer })
       <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
         {typeof children === 'function' ? children(close) : children}
       </div>
-      <div className="flex-shrink-0 border-t border-slate-line px-5 py-3 md:px-6">
-        {footer ? footer(close) : (
-          <button type="button" onClick={close} className="btn-secondary">
-            Cancel
-          </button>
-        )}
-      </div>
+      {footer !== null && (
+        <div className="flex-shrink-0 border-t border-slate-line px-5 py-3 md:px-6">
+          {footer ? footer(close) : (
+            <button type="button" onClick={close} className="btn-secondary">
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

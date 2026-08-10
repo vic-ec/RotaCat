@@ -37,7 +37,7 @@ function ChevronDownIcon(props) {
 // `options` is an array of `{ value, label }`. `onChange` receives the
 // plain new value (not an event), matching how every caller here already
 // treats these as plain string state, not native <select> change handlers.
-export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '', alwaysDown = false }) {
+export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '', alwaysDown = false, id, ariaDescribedBy }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -59,11 +59,13 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
     <div className={`relative ${className}`}>
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         disabled={disabled}
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-describedby={ariaDescribedBy}
         className="input-field flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>{selected ? selected.label : placeholder}</span>

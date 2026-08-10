@@ -15,6 +15,7 @@ import RosterChangeLogModal from '../components/RosterChangeLogModal'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -233,6 +234,12 @@ export default function RosterGridPage() {
 
   // Profiles lookup by id
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+
+  // Same-surname disambiguation ("J. Naidoo" vs "P. Naidoo") for every
+  // surname-only label on this page — built from the combined shift +
+  // Consultant pools so a collision between the two still resolves, even
+  // though they're assigned via separate columns/dropdowns.
+  const displayNames = buildDoctorDisplayNames([...profiles, ...consultantProfiles])
 
   async function handleCellClick(date, shiftCode, existingEntry) {
     if (!isAdmin) return
@@ -635,6 +642,7 @@ export default function RosterGridPage() {
                         rosterMonthId={id}
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
                         consultantProfiles={consultantProfiles}
+                        displayNames={displayNames}
                         isAdmin={isAdmin}
                         onRefresh={refreshEntries}
                       />
@@ -668,6 +676,7 @@ export default function RosterGridPage() {
                               key={entry.id}
                               entry={entry}
                               profile={profileMap[entry.profile_id]}
+                              displayNames={displayNames}
                               onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
                               isAdmin={isAdmin}
@@ -698,6 +707,7 @@ export default function RosterGridPage() {
       {/* Dropdown */}
       {openDropdown && (
         <DoctorDropdown
+          displayNames={displayNames}
           profiles={profiles.filter(p =>
             // Already working a different shift this same day (§1.3)
             !findSameDayConflict({
@@ -728,6 +738,7 @@ export default function RosterGridPage() {
           entries={entries}
           shiftTypes={shiftTypes}
           profiles={profiles}
+          displayNames={displayNames}
           rosterMonthId={id}
           onDone={() => { setActiveVacancy(null); refreshEntries() }}
         />
@@ -745,7 +756,7 @@ export default function RosterGridPage() {
 }
 
 // ── DoctorChip ─────────────────────────────────────────────────────────────
-function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = true }) {
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true }) {
   if (entry.is_locum) {
     return (
       <div
@@ -777,7 +788,7 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = t
       style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
-      {profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
+      {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
     </div>
   )
 }
@@ -791,7 +802,7 @@ function DoctorChip({ entry, profile, onClick, onDragStart, isAdmin, canDrag = t
 // isAdmin-gated like every other edit affordance in the grid (DoctorChip,
 // the shift-cell "+" button) -- RLS already blocks the write for a
 // non-admin, but the cell shouldn't offer a dropdown that just fails.
-function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isAdmin, onRefresh }) {
+function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, displayNames, isAdmin, onRefresh }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -835,7 +846,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isA
             style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
             title={`${consultant.name} ${consultant.surname}`}
           >
-            {consultant.surname}
+            {displayNames?.get(consultant.id) ?? consultant.surname}
           </div>
         ) : existing?.consultant_name ? (
           <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>
@@ -853,6 +864,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, isA
       {isAdmin && open && (
         <DoctorDropdown
           profiles={consultantProfiles}
+          displayNames={displayNames}
           search={search}
           onSearchChange={setSearch}
           onSelect={assign}

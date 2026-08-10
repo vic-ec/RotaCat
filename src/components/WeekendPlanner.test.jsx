@@ -11,9 +11,11 @@ import { saturdaysInMonth } from '../lib/weekendPlanner'
 // hand-off) rather than re-testing everything underneath it, same reasoning
 // as LeavePlannerPage.test.jsx stubbing its own tab content.
 vi.mock('./WeekendPlannerView', () => ({
-  default: ({ initialYear, initialMonth, onBackToYear }) => (
+  default: ({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard }) => (
     <div>
       MonthViewStub: {initialYear}-{initialMonth}
+      {clipboard && <span>ClipboardStub: {clipboard}</span>}
+      <button onClick={() => setClipboard(`copied-${initialMonth}`)}>SetClipboardStub</button>
       {onBackToYear && <button onClick={onBackToYear}>BackToYearStub</button>}
     </div>
   ),
@@ -119,5 +121,29 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner(['/?wyear=2026&wview=month&wmonth=3'])
     expect(await screen.findByText(/MonthViewStub: 2026-3/)).toBeInTheDocument()
+  })
+
+  it('clipboard survives a round trip through the year overview into a different month', async () => {
+    // Regression: copying in August, going back to the year overview, then
+    // opening June used to lose the clipboard entirely — it was local state
+    // inside WeekendPlannerView, which unmounts on that switch. It's now
+    // owned by this orchestrator instead, so it should still be there.
+    mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
+    const user = userEvent.setup()
+    renderPlanner()
+    await screen.findByText('Weekend planner')
+
+    await user.click(screen.getByRole('button', { name: /August/ }))
+    await screen.findByText(/MonthViewStub: 2026-8/)
+    await user.click(screen.getByRole('button', { name: 'SetClipboardStub' }))
+    expect(await screen.findByText('ClipboardStub: copied-8')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
+    await screen.findByText('Weekend planner')
+
+    await user.click(screen.getByRole('button', { name: /June/ }))
+    await user.click(screen.getByRole('button', { name: 'Open month' }))
+    expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
+    expect(screen.getByText('ClipboardStub: copied-8')).toBeInTheDocument()
   })
 })

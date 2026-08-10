@@ -157,19 +157,24 @@ function chunkInPairs(items) {
 }
 
 // One category group's row: assigned surname(s) (or an open-slot count) plus
-// the admin add/remove controls. Shared between the mobile card layout and
-// the desktop inspector's edit mode so the edit logic exists in exactly one
-// place.
+// the admin add/remove controls — the desktop inspector's edit mode. Mirrors
+// MobileRoleRow's own empty/filled split (an "Add doctor" button while
+// there's nothing to anchor a smaller trigger to; a compact + once there's
+// at least one name) rather than the full-width button this used to always
+// show regardless of fill state — that was the one real desktop/mobile
+// inconsistency left once WeekendAddDoctorsSheet became both viewports'
+// shared add mechanism (multi-select, switchable category), replacing this
+// row's own single-doctor native <select>.
 function CategoryGroupRow({
-  group, groupEntries, doctorById, displayNames, availableDoctors, isAdmin, saving, textClass,
-  saturday, pickerKey, openPicker, setOpenPicker, addEntry, removeEntry,
+  group, groupEntries, doctorById, displayNames, isAdmin, saving, textClass, saturday, removeEntry, onOpenPicker,
 }) {
   const rows = chunkInPairs(groupEntries)
+  const isEmpty = groupEntries.length === 0
   return (
     <div className="py-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-ink-muted">{group.label}</span>
-        {groupEntries.length === 0 && <span className="text-xs font-medium text-rose-dark">1 open</span>}
+        {isEmpty && <span className="text-xs font-medium text-rose-dark">1 open</span>}
       </div>
 
       {rows.length > 0 && (
@@ -196,40 +201,27 @@ function CategoryGroupRow({
                   </span>
                 )
               })}
+              {!isEmpty && i === rows.length - 1 && isAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenPicker}
+                  disabled={saving}
+                  aria-label={`Add another doctor to ${group.label}`}
+                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent hover:opacity-80"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {isAdmin && (
+      {isEmpty && isAdmin && (
         <div className="mt-1.5">
-          {openPicker === pickerKey ? (
-            <select
-              autoFocus
-              className="input-field w-full text-sm"
-              disabled={saving}
-              defaultValue=""
-              onChange={e => {
-                if (e.target.value) addEntry(saturday, group.key, e.target.value)
-                else setOpenPicker(null)
-              }}
-              onBlur={() => setOpenPicker(null)}
-            >
-              <option value="">Select doctor…</option>
-              {availableDoctors.map(d => (
-                <option key={d.id} value={d.id}>{d.name} {d.surname}</option>
-              ))}
-            </select>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setOpenPicker(pickerKey)}
-              disabled={saving || availableDoctors.length === 0}
-              className="btn-primary w-full text-sm"
-            >
-              Add doctor
-            </button>
-          )}
+          <button type="button" onClick={onOpenPicker} disabled={saving} className="btn-primary w-full text-sm">
+            Add doctor
+          </button>
         </div>
       )}
     </div>
@@ -270,9 +262,8 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, doctors, doctorById, displayNames, isAdmin, saving, myRequest, canViewRequests,
-  assignedIds, openPicker, setOpenPicker, addEntry, removeEntry, onClearWeekend,
-  onCopyWeekend, onPasteWeekend, hasWeekendClipboard, rotationsByDoctorId,
+  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, canViewRequests,
+  removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
 }) {
   const [editing, setEditing] = useState(false)
   useEffect(() => { setEditing(false) }, [saturday])
@@ -375,31 +366,21 @@ function WeekendInspector({
       ) : (
         <>
           <div className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-            {CATEGORY_GROUPS.map(group => {
-              const groupEntries = bySaturday[group.key] || []
-              const availableDoctors = doctors
-                .filter(d => !assignedIds.has(d.id))
-                .filter(d => resolveWeekendCategoryForDoctor({ doctor: d, targetDate: saturday, rotationsByDoctorId }).groupKey === group.key)
-              return (
-                <CategoryGroupRow
-                  key={group.key}
-                  group={group}
-                  groupEntries={groupEntries}
-                  doctorById={doctorById}
-                  displayNames={displayNames}
-                  availableDoctors={availableDoctors}
-                  isAdmin={isAdmin}
-                  saving={saving}
-                  textClass="text-ink"
-                  saturday={saturday}
-                  pickerKey={`${saturday}:${group.key}`}
-                  openPicker={openPicker}
-                  setOpenPicker={setOpenPicker}
-                  addEntry={addEntry}
-                  removeEntry={removeEntry}
-                />
-              )
-            })}
+            {CATEGORY_GROUPS.map(group => (
+              <CategoryGroupRow
+                key={group.key}
+                group={group}
+                groupEntries={bySaturday[group.key] || []}
+                doctorById={doctorById}
+                displayNames={displayNames}
+                isAdmin={isAdmin}
+                saving={saving}
+                textClass="text-ink"
+                saturday={saturday}
+                removeEntry={removeEntry}
+                onOpenPicker={() => onOpenAddDoctor(group.key)}
+              />
+            ))}
           </div>
           <button type="button" onClick={() => setEditing(false)} className="btn-secondary mt-4 w-full text-sm">
             Done editing
@@ -820,7 +801,7 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
 // MonthWorkspace.jsx's own back-link wording) — absent
 // when this is reached directly (the standalone /weekend route, or a caller
 // with no year overview of its own).
-export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear } = {}) {
+export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -828,12 +809,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [openPicker, setOpenPicker] = useState(null) // `${saturday}:${groupKey}` or null
   const [saving, setSaving] = useState(false)
   const [showChangeLog, setShowChangeLog] = useState(false)
-  // Mobile-only edit-mechanics state (Part 3/5/6/9) — the desktop
-  // inspector keeps its own separate openPicker-driven inline editing
-  // above, unchanged.
+  // Which weekend+group's add-doctor sheet is open — shared by the mobile
+  // card's own Open pill/+ triggers and the desktop inspector's per-category
+  // + trigger alike (both funnel through WeekendAddDoctorsSheet now, not two
+  // separate edit mechanisms).
   const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
@@ -845,16 +826,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open
-  // Copy/Paste/Clear (admin-only) — clipboard is plain component state, not
-  // persisted: the intended flow is copy → navigate forward a month or two
-  // → paste, all within one visit, so it only needs to survive the mounted
-  // session. { granularity: 'weekend'|'month'|'quarter', sourceLabel, months }
-  // — months is always an array of "month blocks" (each an array of that
-  // month's weekends-by-position, each a list of {groupKey,profileId,category}
+  // Copy/Paste/Clear (admin-only) — clipboard/setClipboard are owned by
+  // WeekendPlanner.jsx (the orchestrator), not local state here: this
+  // component unmounts every time the admin switches back to the year
+  // overview (a genuinely different child of that orchestrator, not just a
+  // hidden one), which would otherwise silently drop whatever was copied —
+  // e.g. copy August, check the year overview, open June to paste into.
+  // Lifting it one level up means it survives that round trip, only
+  // resetting on an actual full page reload (never persisted further than
+  // that, same "this session" scope as before). { granularity:
+  // 'weekend'|'month'|'quarter', sourceLabel, months } — months is always
+  // an array of "month blocks" (each an array of that month's
+  // weekends-by-position, each a list of {groupKey,profileId,category}
   // entries) so planWeekendPasteAcrossMonths handles all three granularities
   // uniformly: weekend = 1 block of 1 weekend, month = 1 block, quarter = 3
   // blocks (see copyWeekend/copyMonth/copyQuarter below).
-  const [clipboard, setClipboard] = useState(null)
   const [pasteTarget, setPasteTarget] = useState(null) // { months, label } or null — which paste-confirmation modal (if any) is open
   const [showClearMonthModal, setShowClearMonthModal] = useState(false)
   const [showClearQuarterModal, setShowClearQuarterModal] = useState(false)
@@ -1104,45 +1090,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     return new Set(Object.values(bySaturday).flat().map(e => e.profile_id))
   }
 
-  // Both handlers patch local state directly from the write's own result
-  // rather than reloading — load() flips `loading` back to true, which
-  // unmounts the whole grid for a "Loading…" placeholder. A single
-  // weekend_planner_entries row is simple enough to update in place
-  // without a round trip back through the full query. Each gets its own
-  // fresh batch_id (a batch of one) — see deleteEntries/insertEntries below
+  // Patches local state directly from the write's own result rather than
+  // reloading — load() flips `loading` back to true, which unmounts the
+  // whole grid for a "Loading…" placeholder. One shared batchId across
+  // every profile added in the same submit (behind WeekendAddDoctorsSheet,
+  // both viewports' now-only add mechanism), so adding 3 MOs in one go is a
+  // single undoable action, not 3 — see deleteEntries/insertEntries below
   // for why every write, single or bulk, is tagged this way.
-  async function addEntry(saturday, groupKey, profileId) {
-    const doctor = doctorById.get(profileId)
-    if (!doctor) return
-    // The value actually written to the entry — resolved against THIS
-    // weekend's own date (see resolveWeekendCategoryForDoctor), not the
-    // doctor's current contract_type snapshot, so a category written for a
-    // weekend before/after a rotation swap reflects what applied then, not
-    // whatever's true today.
-    const { category } = resolveWeekendCategoryForDoctor({ doctor, targetDate: saturday, rotationsByDoctorId })
-    setSaving(true)
-    const { data, error: err } = await supabase.from('weekend_planner_entries').insert({
-      weekend_saturday: saturday,
-      profile_id: profileId,
-      category,
-      created_by: profile?.id ?? null,
-    }).select().single()
-    setSaving(false)
-    if (err) { setError(err.message); return }
-    setOpenPicker(null)
-    setEntries(prev => [...prev, data])
-    const batchId = crypto.randomUUID()
-    await logWeekendPlannerChange({
-      weekendSaturday: saturday, category, action: 'add',
-      profileId, changedBy: profile?.id ?? null, batchId,
-    })
-    const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
-    pushUndo(batchId, `Added ${displayNames.get(profileId) ?? doctor.surname} to ${group?.label ?? groupKey} (${formatWeekendRange(saturday)})`)
-  }
-
-  // Multi-select counterpart to addEntry above, behind WeekendAddDoctorsSheet
-  // — one shared batchId across every profile added in the same submit, so
-  // adding 3 MOs in one go is a single undoable action, not 3.
   async function addEntries(saturday, groupKey, profileIds) {
     if (profileIds.length === 0) return
     const toInsert = profileIds.map(profileId => {
@@ -1725,23 +1679,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     saturday={inspectorSaturday}
                     weekendIndex={monthSaturdays.indexOf(inspectorSaturday) + 1}
                     bySaturday={byWeekend.get(inspectorSaturday) || {}}
-                    doctors={doctors}
                     doctorById={doctorById}
                     displayNames={displayNames}
                     isAdmin={isAdmin}
                     saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
                     canViewRequests={canViewRequests}
-                    assignedIds={assignedDoctorIds(inspectorSaturday)}
-                    openPicker={openPicker}
-                    setOpenPicker={setOpenPicker}
-                    addEntry={addEntry}
                     removeEntry={removeEntry}
                     onClearWeekend={saturday => setClearWeekendTarget(saturday)}
                     onCopyWeekend={copyWeekend}
                     onPasteWeekend={openWeekendPaste}
                     hasWeekendClipboard={clipboard?.granularity === 'weekend'}
-                    rotationsByDoctorId={rotationsByDoctorId}
+                    onOpenAddDoctor={groupKey => setOpenRolePicker({ saturday: inspectorSaturday, groupKey })}
                   />
                 ) : (
                   <p className="text-sm text-ink-muted">Select a weekend to see details.</p>

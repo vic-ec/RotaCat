@@ -2,8 +2,11 @@ import ClearableInput from './ClearableInput'
 
 // Doctor picker popover — search by name, pick to assign, optional "Remove
 // from this slot" footer. Extracted from RosterGridPage so the Phase 5
-// removal-workflow modal's "swap" step can reuse it as-is.
-export default function DoctorDropdown({ profiles, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode }) {
+// removal-workflow modal's "swap" step can reuse it as-is. `displayNames`
+// (buildDoctorDisplayNames' Map<profileId, label>) is optional — pass it
+// whenever `profiles` might contain a same-surname collision, so the row
+// label disambiguates ("J. Naidoo") instead of the bare surname.
+export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode }) {
   const filtered = profiles.filter(p =>
     `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   )
@@ -44,7 +47,7 @@ export default function DoctorDropdown({ profiles, search, onSearchChange, onSel
                 className="h-3 w-3 flex-shrink-0 rounded-full"
                 style={{ backgroundColor: p.color_code }}
               />
-              <span className="font-medium text-ink">{p.surname}</span>
+              <span className="font-medium text-ink">{displayNames?.get(p.id) ?? p.surname}</span>
               <span className="text-xs text-ink-muted capitalize">{p.category}</span>
             </button>
           ))}

@@ -5,7 +5,16 @@ import { todayStr } from '../lib/dateRange'
 import { fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation } from '../lib/internRotations'
 import InternRotationsMatrix from './InternRotationsMatrix'
 import EndOfRotationQueue from './EndOfRotationQueue'
+import UpcomingDoctorsList from './UpcomingDoctorsList'
+import CompletedDoctorsList from './CompletedDoctorsList'
+import PageTabs from './PageTabs'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
+
+const TABS = [
+  { key: 'active', label: 'Active' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'completed', label: 'Completed' },
+]
 
 // Admin-only rotation-block management for COSMO/Intern/Registrar doctors.
 // Matrix is the only view (the old Table view's one remaining job, adding
@@ -17,6 +26,7 @@ import { buildDoctorDisplayNames } from '../lib/doctorNames'
 // elsewhere in the app depends on seeing that edit immediately.
 export default function InternRotationsPlanner() {
   const { profile } = useAuth()
+  const [tab, setTab] = useState('active')
   const [interns, setInterns] = useState([])
   const [rotations, setRotations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -26,8 +36,8 @@ export default function InternRotationsPlanner() {
   // Which year the Matrix is showing, and which doctor (if any) its side
   // panel is focused on. Lifted up here (rather than owned inside
   // InternRotationsMatrix) so other actions on this page — the
-  // end-of-rotation queue's "View in Matrix", or a future reactivation
-  // flow — can drive both at once.
+  // end-of-rotation queue's "View in Matrix", or reactivating a doctor
+  // from the Completed tab — can drive both at once.
   const [year, setYear] = useState(currentYear)
   const [selectedDoctorId, setSelectedDoctorId] = useState(null)
   // One-shot "jump to this doctor and start editing" trigger — consumed
@@ -47,8 +57,11 @@ export default function InternRotationsPlanner() {
       // this same rotation timeline but are always EC-only (see
       // rotationTypeOptionsForCategory). scheduled_inactive_date feeds the
       // end-of-rotation queue below (EndOfRotationQueue) — a doctor with
-      // one already set is excluded from it.
-      supabase.from('profiles').select('id, name, surname, color_code, category, scheduled_inactive_date').in('category', ['COSMO', 'Intern', 'Registrar']),
+      // one already set is excluded from it. is_active/scheduled_active_date
+      // split doctors across the Active/Upcoming/Completed tabs below.
+      supabase.from('profiles')
+        .select('id, name, surname, color_code, category, is_active, scheduled_inactive_date, scheduled_active_date')
+        .in('category', ['COSMO', 'Intern', 'Registrar']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -56,6 +69,13 @@ export default function InternRotationsPlanner() {
     setRotations(rotationsData)
     setLoading(false)
   }
+
+  // Active = the Matrix's own doctor pool, unchanged. Upcoming/Completed
+  // split the rest by whether a future start is already scheduled (see
+  // UpcomingDoctorsList/CompletedDoctorsList).
+  const activeInterns = interns.filter(d => d.is_active)
+  const upcomingInterns = interns.filter(d => !d.is_active && d.scheduled_active_date)
+  const completedInterns = interns.filter(d => !d.is_active && !d.scheduled_active_date)
 
   // Disambiguates the Matrix's row labels/chips and its add-doctor
   // dropdown (same-surname collisions across COSMO/Intern/Registrar alike).
@@ -90,6 +110,44 @@ export default function InternRotationsPlanner() {
     await load()
   }
 
+  // Upcoming tab actions (UpcomingDoctorsList below).
+  async function updateScheduledActiveDate(doctorId, date) {
+    const { error: updateError } = await supabase.from('profiles')
+      .update({ scheduled_active_date: date })
+      .eq('id', doctorId)
+    if (updateError) throw new Error(updateError.message)
+    await load()
+  }
+  async function activateNow(doctorId) {
+    const { error: updateError } = await supabase.from('profiles')
+      .update({ is_active: true, scheduled_active_date: null })
+      .eq('id', doctorId)
+    if (updateError) throw new Error(updateError.message)
+    await load()
+  }
+
+  // Completed tab's Reactivate (CompletedDoctorsList below) — a
+  // today-or-earlier date reactivates immediately and drops the admin
+  // straight into the Matrix's doctor-edit panel to add the doctor's next
+  // block (same focusDoctorId mechanism the end-of-rotation queue's "View
+  // in Matrix" uses); a future date just schedules it, same as editing
+  // the date on the Upcoming tab would.
+  async function reactivate(doctorId, date) {
+    if (date <= today) {
+      await activateNow(doctorId)
+      setTab('active')
+      setFocusDoctorId(doctorId)
+    } else {
+      await updateScheduledActiveDate(doctorId, date)
+    }
+  }
+
+  const tabsWithBadges = TABS.map(t => {
+    if (t.key === 'upcoming') return { ...t, badge: upcomingInterns.length }
+    if (t.key === 'completed') return { ...t, badge: completedInterns.length }
+    return t
+  })
+
   return (
     <div>
       <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
@@ -99,34 +157,57 @@ export default function InternRotationsPlanner() {
 
       {!loading && (
         <div className="mt-3">
-          <EndOfRotationQueue
-            doctors={interns}
-            rotations={rotations}
-            displayNames={displayNames}
-            onScheduleDeactivation={scheduleDeactivation}
-            onViewInMatrix={setSelectedDoctorId}
-          />
+          <PageTabs tabs={tabsWithBadges} active={tab} onChange={setTab} ariaLabel="Rotations" size="sub" />
         </div>
       )}
 
-      {!loading && (
-        <div className="mt-4">
-          <InternRotationsMatrix
-            doctors={interns}
-            rotations={rotations}
-            displayNames={displayNames}
-            currentUserId={profile?.id}
-            year={year}
-            onYearChange={setYear}
-            selectedDoctorId={selectedDoctorId}
-            onSelectDoctor={setSelectedDoctorId}
-            onUpdateRotation={updateRotationRaw}
-            onCreateRotation={createRotationRaw}
-            onDeleteRotation={deleteRotationRaw}
-            focusDoctorId={focusDoctorId}
-            onFocusDoctorConsumed={() => setFocusDoctorId(null)}
-          />
-        </div>
+      {!loading && tab === 'active' && (
+        <>
+          <div className="mt-3">
+            <EndOfRotationQueue
+              doctors={activeInterns}
+              rotations={rotations}
+              displayNames={displayNames}
+              onScheduleDeactivation={scheduleDeactivation}
+              onViewInMatrix={setSelectedDoctorId}
+            />
+          </div>
+
+          <div className="mt-4">
+            <InternRotationsMatrix
+              doctors={activeInterns}
+              rotations={rotations}
+              displayNames={displayNames}
+              currentUserId={profile?.id}
+              year={year}
+              onYearChange={setYear}
+              selectedDoctorId={selectedDoctorId}
+              onSelectDoctor={setSelectedDoctorId}
+              onUpdateRotation={updateRotationRaw}
+              onCreateRotation={createRotationRaw}
+              onDeleteRotation={deleteRotationRaw}
+              focusDoctorId={focusDoctorId}
+              onFocusDoctorConsumed={() => setFocusDoctorId(null)}
+            />
+          </div>
+        </>
+      )}
+
+      {!loading && tab === 'upcoming' && (
+        <UpcomingDoctorsList
+          doctors={upcomingInterns}
+          displayNames={displayNames}
+          onUpdateDate={updateScheduledActiveDate}
+          onActivateNow={activateNow}
+        />
+      )}
+
+      {!loading && tab === 'completed' && (
+        <CompletedDoctorsList
+          doctors={completedInterns}
+          displayNames={displayNames}
+          onReactivate={reactivate}
+        />
       )}
     </div>
   )

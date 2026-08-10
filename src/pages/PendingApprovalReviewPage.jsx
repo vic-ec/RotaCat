@@ -11,10 +11,17 @@ import AccountChecks from '../components/AccountChecks'
 import AccountActionFooter from '../components/AccountActionFooter'
 import Tag from '../components/Tag'
 import { formatPhoneDisplay, formatPhoneProgressive } from '../lib/phone'
+import { todayStr } from '../lib/dateRange'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
   categoryNeedsContractChoice,
 } from '../lib/staffDefaults'
+
+// Rotation-tracked categories only — a scheduled start/end date is meant
+// for doctors whose Active/Upcoming/Completed status is actually managed
+// through the Rotations page (see InternRotationsPlanner.jsx), not for
+// MO/Consultant, who don't have that lifecycle.
+const SCHEDULABLE_CATEGORIES = new Set(['Intern', 'Registrar', 'COSMO'])
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
@@ -66,6 +73,8 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   const [contractType, setContractType] = useState('full')
   const [subtype, setSubtype] = useState(null)
   const [hasAdmin, setHasAdmin] = useState(false)
+  const [activeFrom, setActiveFrom] = useState('')
+  const [activeUntil, setActiveUntil] = useState('')
 
   const [actioning, setActioning] = useState(false)
 
@@ -146,12 +155,23 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     setContractType('full')
     setSubtype(null)
     if (value !== 'doctor') setHasAdmin(false)
+    setActiveFrom('')
+    setActiveUntil('')
+  }
+
+  function handleCategoryChange(value) {
+    setCategory(value)
+    if (!SCHEDULABLE_CATEGORIES.has(value)) {
+      setActiveFrom('')
+      setActiveUntil('')
+    }
   }
 
   const showCategory = role === 'doctor'
   const showContractType = role === 'doctor' && categoryNeedsContractChoice(category)
   const showSubtype = showContractType && contractType === 'Junior_Doctor_Overtime'
   const adminAvailable = role === 'doctor'
+  const showScheduling = role === 'doctor' && SCHEDULABLE_CATEGORIES.has(category)
 
   const approveDisabledReason =
     role === 'doctor' && !category ? 'Select a role and clinical category to approve.'
@@ -200,13 +220,26 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     const hours = defaultHoursForCategory(finalCategory, finalContractType)
     const swapGroup = defaultSwapGroupForCategory(finalCategory)
 
+    // A future "Active from" starts the account inactive-but-scheduled
+    // (same scheduled_active_date the Rotations page's Upcoming tab
+    // manages — see InternRotationsPlanner.jsx); blank or a today-or-
+    // earlier date keeps today's behavior of activating immediately.
+    // "Active until" (scheduled_inactive_date) is independent of that —
+    // it can be set alongside either branch, same field the end-of-
+    // rotation queue schedules.
+    const today = todayStr()
+    const hasFutureStart = showScheduling && activeFrom && activeFrom > today
+    const scheduledInactiveDate = showScheduling && activeUntil ? activeUntil : null
+
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
       name: firstName,
       surname,
       phone: phone || null,
       is_approved: true,
-      is_active: true,
+      is_active: !hasFutureStart,
+      scheduled_active_date: hasFutureStart ? activeFrom : null,
+      scheduled_inactive_date: scheduledInactiveDate,
       role,
       category: finalCategory,
       contract_type: finalContractType,
@@ -314,12 +347,15 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
         <RoleAndAccessSection
           heading="Access to assign"
           role={role} onRoleChange={handleRoleChange} roleOptions={ROLE_OPTIONS}
-          showCategory={showCategory} category={category} onCategoryChange={setCategory} categoryOptions={CATEGORY_OPTIONS}
+          showCategory={showCategory} category={category} onCategoryChange={handleCategoryChange} categoryOptions={CATEGORY_OPTIONS}
           showContractType={showContractType} contractType={contractType} onContractTypeChange={v => { setContractType(v); if (v !== 'Junior_Doctor_Overtime') setSubtype(null) }}
           showSubtype={showSubtype} subtype={subtype} onSubtypeChange={setSubtype}
           adminEnabled={hasAdmin} onAdminChange={setHasAdmin}
           adminAvailable={adminAvailable}
           adminUnavailableReason="Only doctor accounts can be granted admin access."
+          showScheduling={showScheduling}
+          activeFrom={activeFrom} onActiveFromChange={setActiveFrom}
+          activeUntil={activeUntil} onActiveUntilChange={setActiveUntil}
         />
 
         <AccountChecks checks={accountChecks} />

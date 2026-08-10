@@ -143,6 +143,68 @@ describe('PendingApprovalReviewPage', () => {
     })
   })
 
+  it('shows Active from/until fields for Intern but not for MO', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('option', { name: 'Intern' }))
+    expect(screen.getByLabelText('Active from')).toBeInTheDocument()
+    expect(screen.getByLabelText('Active until')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('option', { name: 'Medical Officer' }))
+    expect(screen.queryByLabelText('Active from')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Active until')).not.toBeInTheDocument()
+  })
+
+  it('a blank Active from approves immediately, same as today\'s behavior', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+    await user.click(screen.getByRole('button', { name: 'Approve account' }))
+
+    await waitFor(() => expect(updateCalls.some(c => c.patch?.is_approved === true)).toBe(true))
+    const approvalCall = updateCalls.find(c => c.patch?.is_approved === true)
+    expect(approvalCall.patch).toMatchObject({
+      is_active: true, scheduled_active_date: null, scheduled_inactive_date: null,
+    })
+  })
+
+  it('a future Active from starts the account inactive-but-scheduled', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+    await user.type(screen.getByLabelText('Active from'), '2099-01-15')
+    await user.click(screen.getByRole('button', { name: 'Approve account' }))
+
+    await waitFor(() => expect(updateCalls.some(c => c.patch?.is_approved === true)).toBe(true))
+    const approvalCall = updateCalls.find(c => c.patch?.is_approved === true)
+    expect(approvalCall.patch).toMatchObject({
+      is_active: false, scheduled_active_date: '2099-01-15', scheduled_inactive_date: null,
+    })
+  })
+
+  it('Active until sets scheduled_inactive_date independently of Active from', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+    await user.type(screen.getByLabelText('Active until'), '2099-06-30')
+    await user.click(screen.getByRole('button', { name: 'Approve account' }))
+
+    await waitFor(() => expect(updateCalls.some(c => c.patch?.is_approved === true)).toBe(true))
+    const approvalCall = updateCalls.find(c => c.patch?.is_approved === true)
+    expect(approvalCall.patch).toMatchObject({
+      is_active: true, scheduled_active_date: null, scheduled_inactive_date: '2099-06-30',
+    })
+  })
+
   it('requires a confirmation step before approving with newly-granted admin access', async () => {
     const user = userEvent.setup()
     renderPage()

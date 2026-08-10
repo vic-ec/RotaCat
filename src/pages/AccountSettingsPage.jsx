@@ -21,6 +21,7 @@ import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 import { categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
+import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -502,6 +503,10 @@ export default function AccountSettingsPage() {
   const [adminJustSaved, setAdminJustSaved] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
   const [statusMsg, setStatusMsg] = useState(null)
+  // Pending confirmation for the admin Active/Inactive toggle — the next
+  // value to apply if confirmed, or null when no confirmation is pending.
+  const [statusConfirmNextActive, setStatusConfirmNextActive] = useState(null)
+  const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [isOnLeave, setIsOnLeave] = useState(false)
 
   // Admin: this year's annual leave day allotment (annual_leave_balances,
@@ -1090,6 +1095,18 @@ export default function AccountSettingsPage() {
     }
   }
 
+  // The toggle is consequential (excludes/re-includes someone from all
+  // future scheduling) — gate it behind StatusChangeConfirmModal rather
+  // than calling saveActiveStatus directly from the switch. Confirm runs
+  // the exact same update as before; this only adds the extra step.
+  async function confirmStatusChange() {
+    if (statusConfirmNextActive === null) return
+    setStatusConfirmSaving(true)
+    await saveActiveStatus(statusConfirmNextActive)
+    setStatusConfirmSaving(false)
+    setStatusConfirmNextActive(null)
+  }
+
   // ── Super-admin: transfer to another admin ──────────────────
   async function transferSuperAdmin() {
     if (!transferTargetId) return
@@ -1557,7 +1574,7 @@ export default function AccountSettingsPage() {
                 </p>
               )}
             </div>
-            <Toggle checked={adminIsActive} onChange={saveActiveStatus} />
+            <Toggle checked={adminIsActive} onChange={setStatusConfirmNextActive} />
           </div>
         )}
         {isAdmin && statusMsg && (
@@ -2035,6 +2052,16 @@ export default function AccountSettingsPage() {
           </div>
         )}
       </div>
+
+      {statusConfirmNextActive !== null && (
+        <StatusChangeConfirmModal
+          firstName={profile?.name}
+          nextActive={statusConfirmNextActive}
+          saving={statusConfirmSaving}
+          onConfirm={confirmStatusChange}
+          onClose={() => !statusConfirmSaving && setStatusConfirmNextActive(null)}
+        />
+      )}
     </div>
   )
 }

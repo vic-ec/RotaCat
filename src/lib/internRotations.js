@@ -66,6 +66,19 @@ export function rotationForDate(rotations, date) {
   return rotations.find(r => r.start_date <= date && (r.end_date === null || date <= r.end_date)) ?? null
 }
 
+// True if the rotation block [start_date, end_date] overlaps this calendar
+// month at all (not just fully contains it) — a rotation starting
+// mid-month, or ending mid-month, still counts for that month. Shared by
+// the Intern Rotations Matrix (InternRotationsMatrix.jsx) to decide which
+// month cells a doctor's rotation bar covers. null end_date = current/
+// ongoing, treated as extending past every month, not as "before
+// monthStart".
+export function rotationTouchesMonth(rotation, year, month) {
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
+  const monthEnd = `${year}-${String(month).padStart(2, '0')}-31` // string comparison is safe here — YYYY-MM-DD sorts lexically, and no real date exceeds 31
+  return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
+}
+
 // True if [dateFrom, dateTo] extends past the end of the rotation covering
 // dateFrom — the boundary case a leave request spanning two rotation
 // blocks needs to surface as an inline note. The whole request still gets

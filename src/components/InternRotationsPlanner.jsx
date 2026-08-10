@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, addMonths } from '../lib/dateRange'
 import {
   fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation,
 } from '../lib/internRotations'
-import { CircleQuestionMark, ListFilter, X, Table2, Rows4 } from 'lucide-react'
+import { ListFilter, X, Table2, LayoutGrid, ChevronLeft, ChevronRight, EllipsisVertical, CircleQuestionMark, ScrollText } from 'lucide-react'
 import DoctorDropdown from './DoctorDropdown'
-import DoctorChip from './DoctorChip'
 import SelectMenu from './SelectMenu'
 import CompactToolbarRow from './CompactToolbarRow'
-import Modal from './Modal'
 import ViewToggle from './ViewToggle'
-import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
+import PageActionsMenu from './PageActionsMenu'
+import InternRotationsMatrix from './InternRotationsMatrix'
+import { OT_SUBTYPE_OPTIONS, rotationTypeOptionsForCategory } from '../lib/staffDefaults'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
 const VIEW_OPTIONS = [
   { key: 'table', label: 'Table', icon: Table2 },
-  { key: 'timeline', label: 'Timeline', icon: Rows4 },
+  { key: 'matrix', label: 'Matrix', icon: LayoutGrid },
 ]
 
 const ROTATION_TYPE_OPTIONS = [
@@ -26,45 +26,27 @@ const ROTATION_TYPE_OPTIONS = [
 ]
 const ROTATION_TYPE_FILTER_OPTIONS = [{ value: 'all', label: 'All rotations' }, ...ROTATION_TYPE_OPTIONS]
 
-const MONTH_LABELS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
-
-// { year, month } shifted by `delta` months (positive or negative),
-// rolling over year boundaries — used for the timeline's 4-month sliding
-// window, since dateRange.js has no month-arithmetic helper of its own.
-function shiftMonth(year, month, delta) {
-  const zeroBased = (year * 12 + (month - 1)) + delta
-  return { year: Math.floor(zeroBased / 12), month: (zeroBased % 12) + 1 }
+// Table view uses two separate dropdowns (rotation_type, then subtype)
+// rather than the Matrix's one combined "OT · LRCHC" picker, so this just
+// narrows the flat EC/OT list down to whichever rotation_types
+// rotationTypeOptionsForCategory (the single source of truth for "is this
+// doctor Registrar-restricted to EC-only") allows for this doctor.
+function tableRotationTypeOptions(category) {
+  const allowedTypes = new Set(rotationTypeOptionsForCategory(category).map(o => o.rotationType))
+  return ROTATION_TYPE_OPTIONS.filter(o => allowedTypes.has(o.value))
 }
 
-function monthKey(year, month) {
-  return `${year}-${String(month).padStart(2, '0')}`
-}
-
-// True if the rotation block [start_date, end_date] overlaps this calendar
-// month at all (not just fully contains it) — a rotation starting
-// mid-month, or ending mid-month, still shows a chip in that month's cell.
-function rotationTouchesMonth(rotation, year, month) {
-  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
-  const monthEnd = `${year}-${String(month).padStart(2, '0')}-31` // string comparison is safe here — YYYY-MM-DD sorts lexically, and no real date exceeds 31
-  // null end_date = current/ongoing, no scheduled end yet — treat as
-  // extending past every month being shown, not as "before monthStart".
-  return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
-}
-
-// Admin-only intern rotation management (dormant until the Intern category
-// is reactivated, same as the rest of that machinery) — two views over the
-// same intern_rotations table: an editable table (add/edit/delete blocks)
-// and a read-only 4-month timeline. Both always read live (no caching),
-// since rotation blocks are meant to be freely editable, including
-// last-minute swaps, and every capacity-counting call site elsewhere in
-// the app depends on seeing that edit immediately.
+// Admin-only rotation-block management for COSMO/Intern/Registrar doctors
+// — two views over the same intern_rotations table: an editable Table
+// (bulk raw add/edit/delete, one row per block) and a Matrix (rows =
+// doctors grouped by category, columns = a navigable year, colour-coded
+// by rotation_type+subtype — see InternRotationsMatrix.jsx). Both always
+// read live (no caching), since rotation blocks are meant to be freely
+// editable, including last-minute swaps, and every capacity-counting call
+// site elsewhere in the app depends on seeing that edit immediately.
 export default function InternRotationsPlanner() {
   const { profile } = useAuth()
   const [view, setView] = useState('table')
-  const [showInfo, setShowInfo] = useState(false)
   const [interns, setInterns] = useState([])
   const [rotations, setRotations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -77,10 +59,13 @@ export default function InternRotationsPlanner() {
   const [tableSearch, setTableSearch] = useState('')
   const [rotationTypeFilter, setRotationTypeFilter] = useState('all')
   const today = todayStr()
-  const [timelineStart, setTimelineStart] = useState(() => {
-    const [y, m] = today.split('-').map(Number)
-    return { year: y, month: m }
-  })
+  const currentYear = Number(today.slice(0, 4))
+  // Matrix view only — which year is showing, and which doctor (if any)
+  // the sticky side panel is focused on. Lifted up here (rather than
+  // owned inside InternRotationsMatrix) so a future "jump to this doctor
+  // in the Matrix" action elsewhere on this page can drive both at once.
+  const [matrixYear, setMatrixYear] = useState(currentYear)
+  const [matrixSelectedDoctorId, setMatrixSelectedDoctorId] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -88,10 +73,12 @@ export default function InternRotationsPlanner() {
     setLoading(true)
     setError('')
     const [profilesRes, rotationsData] = await Promise.all([
-      // COSMO, not just Intern -- the OT/72h band (and its LRCHC/DPM-BCH/
-      // Psych subtypes) is shared between the two categories, and real
-      // rotation rows already exist for COSMO doctors.
-      supabase.from('profiles').select('id, name, surname, color_code, category').in('category', ['COSMO', 'Intern']),
+      // COSMO/Intern/Registrar -- the OT/72h band (and its LRCHC/DPM-BCH/
+      // Psych subtypes) is shared between COSMO and Intern, and real
+      // rotation rows already exist for COSMO doctors; Registrars share
+      // this same rotation timeline but are always EC-only (see
+      // rotationTypeOptionsForCategory).
+      supabase.from('profiles').select('id, name, surname, color_code, category').in('category', ['COSMO', 'Intern', 'Registrar']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -101,8 +88,8 @@ export default function InternRotationsPlanner() {
   }
 
   const internById = new Map(interns.map(i => [i.id, i]))
-  // Disambiguates the timeline's DoctorChip labels and the assign-doctor
-  // dropdown below (same-surname collisions across COSMO/Intern alike).
+  // Disambiguates the Matrix's row labels/chips and the assign-doctor
+  // dropdown below (same-surname collisions across COSMO/Intern/Registrar alike).
   const displayNames = buildDoctorDisplayNames(interns)
 
   const filteredRotations = rotations.filter(rotation => {
@@ -165,37 +152,49 @@ export default function InternRotationsPlanner() {
     setSavingId(null)
   }
 
-  const timelineMonths = [0, 1, 2, 3].map(i => shiftMonth(timelineStart.year, timelineStart.month, i))
+  // Matrix-only mutation wrappers — unlike handleUpdateRow/handleAddRow/
+  // handleDeleteRow above (which catch errors into this page's own banner
+  // `error` state, for Table view), these let errors propagate so
+  // InternRotationsMatrix's side panel can show them inline next to the
+  // block being edited instead.
+  async function updateRotationRaw(rotation, patch) {
+    const next = {
+      doctorId: rotation.doctor_id, rotationType: rotation.rotation_type, subtype: rotation.subtype,
+      startDate: rotation.start_date, endDate: rotation.end_date, ...patch,
+    }
+    await updateInternRotation(rotation.id, next)
+    await load()
+  }
+  async function createRotationRaw(draft) {
+    await createInternRotation(draft)
+    await load()
+  }
+  async function deleteRotationRaw(rotation) {
+    await deleteInternRotation(rotation.id, rotation.doctor_id)
+    await load()
+  }
+
+  // Matrix view's "•••" overflow menu — How it works / Review log are both
+  // inert stubs this pass (no audit-trail table exists yet for Review
+  // log, and How it works has no content built yet either) — present so
+  // the affordance reads as "coming soon", not silently missing.
+  const matrixMenuItems = [
+    { key: 'how-it-works', icon: <CircleQuestionMark className="h-4 w-4" />, label: 'How it works', disabled: true, onClick: () => {} },
+    { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', disabled: true, onClick: () => {} },
+  ]
 
   return (
     <div>
-      <div className="flex items-center gap-1.5">
-        <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
-        <button
-          type="button"
-          onClick={() => setShowInfo(true)}
-          aria-label="About intern rotations"
-          title="About intern rotations"
-          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
-        >
-          <CircleQuestionMark className="h-4 w-4" />
-        </button>
-      </div>
-
-      {showInfo && (
-        <Modal title="Intern rotations" onClose={() => setShowInfo(false)}>
-          <p className="text-sm text-ink-light">
-            EC/OT rotation blocks for COSMO/Intern doctors — drives which leave capacity pool a doctor&apos;s leave counts against, and (via the OT subtype) which shift restrictions the scheduling backend applies for that block. Leave End date blank for a block that&apos;s current/ongoing with no known end yet.
-          </p>
-        </Modal>
-      )}
+      <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
       {/* Search+Filter+view-toggle stay on one row across both views (not
-          scoped to view === 'table') so the Table/Timeline toggle — needed
-          to switch back out of Timeline — is always reachable. */}
+          scoped to view === 'table') so the Table/Matrix toggle — needed
+          to switch back out of Matrix — is always reachable. Matrix view
+          additionally gets year nav + Today + the "•••" overflow menu,
+          folded into the same trailing slot after the view toggle. */}
       {!loading && (() => {
         const filterFacet = {
           icon: <ListFilter className="h-4 w-4" />, label: 'Filter',
@@ -204,7 +203,49 @@ export default function InternRotationsPlanner() {
           isActive: rotationTypeFilter !== 'all',
         }
         const onClearAll = () => { setTableSearch(''); setRotationTypeFilter('all') }
-        const toggle = <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
+        const toggle = (
+          <div className="flex items-center gap-2">
+            {view === 'matrix' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMatrixYear(y => y - 1)}
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
+                  aria-label="Previous year"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-sm font-semibold text-ink">{matrixYear}</span>
+                <button
+                  type="button"
+                  onClick={() => setMatrixYear(y => y + 1)}
+                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
+                  aria-label="Next year"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button type="button" onClick={() => setMatrixYear(currentYear)} className="btn-secondary h-[30px] px-2 text-xs">
+                  Today
+                </button>
+                <PageActionsMenu
+                  title="Intern rotations"
+                  items={matrixMenuItems}
+                  trigger={onClick => (
+                    <button
+                      type="button"
+                      onClick={onClick}
+                      aria-label="More actions"
+                      className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                    >
+                      <EllipsisVertical className="h-4 w-4" />
+                    </button>
+                  )}
+                />
+              </>
+            )}
+            <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
+          </div>
+        )
         return (
           <div className="mt-4">
             <CompactToolbarRow
@@ -271,7 +312,7 @@ export default function InternRotationsPlanner() {
                       <SelectMenu
                         value={rotation.rotation_type}
                         onChange={v => handleUpdateRow(rotation, { rotationType: v, subtype: v === 'OT' ? rotation.subtype : null })}
-                        options={ROTATION_TYPE_OPTIONS}
+                        options={tableRotationTypeOptions(intern?.category)}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -336,7 +377,7 @@ export default function InternRotationsPlanner() {
                     <SelectMenu
                       value={newRow.rotationType}
                       onChange={v => setNewRow(r => ({ ...r, rotationType: v, subtype: v === 'OT' ? r.subtype : null }))}
-                      options={ROTATION_TYPE_OPTIONS}
+                      options={tableRotationTypeOptions(internById.get(newRow.doctorId)?.category)}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -400,61 +441,19 @@ export default function InternRotationsPlanner() {
         </div>
       )}
 
-      {!loading && view === 'timeline' && (
-        <div>
-          <div className="flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTimelineStart(s => shiftMonth(s.year, s.month, -1))}
-              className="btn-secondary px-2 py-1 text-sm"
-              aria-label="Previous month"
-            >
-              ←
-            </button>
-            <span className="font-display text-sm font-semibold text-ink">
-              {MONTH_LABELS[timelineMonths[0].month - 1]} {timelineMonths[0].year} – {MONTH_LABELS[timelineMonths[3].month - 1]} {timelineMonths[3].year}
-            </span>
-            <button
-              type="button"
-              onClick={() => setTimelineStart(s => shiftMonth(s.year, s.month, 1))}
-              className="btn-secondary px-2 py-1 text-sm"
-              aria-label="Next month"
-            >
-              →
-            </button>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {timelineMonths.map(({ year, month }) => {
-              const key = monthKey(year, month)
-              const inThisMonth = rotations.filter(r => rotationTouchesMonth(r, year, month))
-              return (
-                <div key={key} className="card p-3">
-                  <p className="text-sm font-semibold text-ink">{MONTH_LABELS[month - 1]} {year}</p>
-                  {['EC', 'OT'].map(type => (
-                    <div key={type} className="mt-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">{type}</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {inThisMonth.filter(r => r.rotation_type === type).length === 0 ? (
-                          <span className="text-xs text-ink-muted">—</span>
-                        ) : (
-                          inThisMonth.filter(r => r.rotation_type === type).map(r => (
-                            <span key={r.id} className="inline-flex items-center gap-1">
-                              <DoctorChip profile={internById.get(r.doctor_id)} displayNames={displayNames} />
-                              {type === 'OT' && r.subtype && (
-                                <span className="text-[10px] font-medium text-ink-muted">{OT_SUBTYPE_LABELS[r.subtype] || r.subtype}</span>
-                              )}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+      {!loading && view === 'matrix' && (
+        <InternRotationsMatrix
+          doctors={interns}
+          rotations={rotations}
+          displayNames={displayNames}
+          currentUserId={profile?.id}
+          year={matrixYear}
+          selectedDoctorId={matrixSelectedDoctorId}
+          onSelectDoctor={setMatrixSelectedDoctorId}
+          onUpdateRotation={updateRotationRaw}
+          onCreateRotation={createRotationRaw}
+          onDeleteRotation={deleteRotationRaw}
+        />
       )}
 
       {openDoctorPickerFor && (
@@ -464,7 +463,21 @@ export default function InternRotationsPlanner() {
           search={doctorSearch}
           onSearchChange={setDoctorSearch}
           onSelect={doctorId => {
-            if (openDoctorPickerFor === 'new') setNewRow(r => ({ ...r, doctorId }))
+            if (openDoctorPickerFor === 'new') {
+              setNewRow(r => {
+                // Registrar EC rotations are consistently 3-month blocks —
+                // default the End date to save the common case a click,
+                // still fully editable afterward. Only applies at the
+                // moment a doctor is first picked for a brand-new row.
+                const isRegistrar = internById.get(doctorId)?.category === 'Registrar'
+                return {
+                  ...r, doctorId,
+                  rotationType: isRegistrar ? 'EC' : r.rotationType,
+                  subtype: isRegistrar ? null : r.subtype,
+                  endDate: isRegistrar ? addMonths(r.startDate, 3) : r.endDate,
+                }
+              })
+            }
             else {
               const rotation = rotations.find(r => r.id === openDoctorPickerFor)
               if (rotation) handleUpdateRow(rotation, { doctorId })

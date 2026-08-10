@@ -17,6 +17,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
+import { formatShortDateRange } from '../lib/dateRange'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory, OT_SUBTYPE_LABELS,
 } from '../lib/staffDefaults'
@@ -516,6 +517,14 @@ export default function StaffListPage() {
       .eq('id', profileId)
     await loadAll()
     setTogglingId(null)
+  }
+
+  // Cancels a deactivation scheduled from the Intern Rotations Planner's
+  // end-of-rotation queue — the doctor stays active, no other field
+  // changes (the daily cron job is what would otherwise act on this date).
+  async function clearScheduledInactive(profileId) {
+    await supabase.from('profiles').update({ scheduled_inactive_date: null }).eq('id', profileId)
+    await loadAll()
   }
 
   // Status toggle is consequential (excludes/re-includes someone from all
@@ -1370,7 +1379,21 @@ export default function StaffListPage() {
                                   !person.is_active ? 'text-flagRed' : leaveProfileIds.has(person.id) ? 'text-ink-muted' : 'text-success'
                                 }`}>
                                   {!person.is_active ? 'Inactive' : leaveProfileIds.has(person.id) ? 'On leave' : 'Active'}
+                                  {person.is_active && person.scheduled_inactive_date && (
+                                    <> until {formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}</>
+                                  )}
                                 </span>
+                                {isAdmin && person.is_active && person.scheduled_inactive_date && (
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); clearScheduledInactive(person.id) }}
+                                    title="Cancel scheduled deactivation"
+                                    aria-label="Cancel scheduled deactivation"
+                                    className="text-[11px] text-ink-muted hover:text-ink hover:underline"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
                               </div>
                             </td>
                             {isAdmin && (
@@ -1709,7 +1732,11 @@ export default function StaffListPage() {
         const formattedPhone = formatPhoneDisplay(person.phone)
         const targetEmail = emailById[person.id]
         const onLeave = leaveProfileIds.has(person.id)
-        const statusLabel = !person.is_active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
+        const statusLabel = !person.is_active
+          ? 'Inactive'
+          : onLeave ? 'On leave'
+          : person.scheduled_inactive_date ? `Active until ${formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}`
+          : 'Active'
         const statusColor = !person.is_active ? 'text-flagRed' : onLeave ? 'text-statusAway' : 'text-success'
         const firstNameForMissing = person.name || person.surname || 'this person'
 

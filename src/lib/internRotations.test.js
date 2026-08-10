@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveLeaveCapacityColumn, rotationForDate, straddlesRotationBoundary, rotationBoundaryNote, groupRotationsByDoctorId,
+  endOfRotationFlag,
 } from './internRotations'
 
 const EC_ROTATION = { doctor_id: 'intern-1', rotation_type: 'EC', start_date: '2027-01-01', end_date: '2027-02-28' }
@@ -106,5 +107,50 @@ describe('groupRotationsByDoctorId', () => {
   it('returns an empty map for no rows', () => {
     expect(groupRotationsByDoctorId([]).size).toBe(0)
     expect(groupRotationsByDoctorId(undefined).size).toBe(0)
+  })
+})
+
+describe('endOfRotationFlag', () => {
+  const ENDED_ROTATION = { start_date: '2027-01-01', end_date: '2027-06-30' }
+
+  it('flags an Intern once today reaches the 1st of the month their last block ends in', () => {
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION] }, '2027-06-01')).toEqual(ENDED_ROTATION)
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION] }, '2027-06-30')).toEqual(ENDED_ROTATION)
+  })
+
+  it('flags a Registrar the same way', () => {
+    expect(endOfRotationFlag({ category: 'Registrar', rotations: [ENDED_ROTATION] }, '2027-06-15')).toEqual(ENDED_ROTATION)
+  })
+
+  it('does not flag COSMO — an OT/subtype change is a move within EC, not an exit', () => {
+    expect(endOfRotationFlag({ category: 'COSMO', rotations: [ENDED_ROTATION] }, '2027-06-15')).toBeNull()
+  })
+
+  it('does not flag before the 1st of the ending month', () => {
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION] }, '2027-05-31')).toBeNull()
+  })
+
+  it('does not flag a null (ongoing) end_date', () => {
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [{ start_date: '2027-01-01', end_date: null }] }, '2027-12-31')).toBeNull()
+  })
+
+  it('does not flag when a later block already covers what comes next', () => {
+    const next = { start_date: '2027-07-01', end_date: null }
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION, next] }, '2027-06-15')).toBeNull()
+  })
+
+  it('does not flag once an admin has already scheduled a deactivation', () => {
+    expect(endOfRotationFlag({
+      category: 'Intern', scheduledInactiveDate: '2027-07-01', rotations: [ENDED_ROTATION],
+    }, '2027-06-15')).toBeNull()
+  })
+
+  it('does not flag a doctor with no rotation rows at all', () => {
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [] }, '2027-06-15')).toBeNull()
+  })
+
+  it('resolves off the block with the latest start_date, not array order', () => {
+    const earlier = { start_date: '2026-10-01', end_date: '2026-12-31' }
+    expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION, earlier] }, '2027-06-15')).toEqual(ENDED_ROTATION)
   })
 })

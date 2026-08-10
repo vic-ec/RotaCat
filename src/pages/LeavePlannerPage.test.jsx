@@ -30,6 +30,7 @@ vi.mock('../lib/supabase', () => ({
       const builder = {
         select() { if (!method) method = 'select'; return builder },
         eq() { return builder },
+        in() { return builder },
         then(resolve, reject) {
           const result = mockResponses[`${table}:${method}`] || { count: 0, error: null }
           return Promise.resolve(result).then(resolve, reject)

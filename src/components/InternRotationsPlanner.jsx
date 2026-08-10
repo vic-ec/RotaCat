@@ -13,6 +13,7 @@ import CompactToolbarRow from './CompactToolbarRow'
 import Modal from './Modal'
 import ViewToggle from './ViewToggle'
 import { OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
 const VIEW_OPTIONS = [
   { key: 'table', label: 'Table', icon: Table2 },
@@ -100,6 +101,9 @@ export default function InternRotationsPlanner() {
   }
 
   const internById = new Map(interns.map(i => [i.id, i]))
+  // Disambiguates the timeline's DoctorChip labels and the assign-doctor
+  // dropdown below (same-surname collisions across COSMO/Intern alike).
+  const displayNames = buildDoctorDisplayNames(interns)
 
   const filteredRotations = rotations.filter(rotation => {
     if (rotationTypeFilter !== 'all' && rotation.rotation_type !== rotationTypeFilter) return false
@@ -436,7 +440,7 @@ export default function InternRotationsPlanner() {
                         ) : (
                           inThisMonth.filter(r => r.rotation_type === type).map(r => (
                             <span key={r.id} className="inline-flex items-center gap-1">
-                              <DoctorChip profile={internById.get(r.doctor_id)} />
+                              <DoctorChip profile={internById.get(r.doctor_id)} displayNames={displayNames} />
                               {type === 'OT' && r.subtype && (
                                 <span className="text-[10px] font-medium text-ink-muted">{OT_SUBTYPE_LABELS[r.subtype] || r.subtype}</span>
                               )}
@@ -456,6 +460,7 @@ export default function InternRotationsPlanner() {
       {openDoctorPickerFor && (
         <DoctorDropdown
           profiles={interns}
+          displayNames={displayNames}
           search={doctorSearch}
           onSearchChange={setDoctorSearch}
           onSelect={doctorId => {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -93,8 +94,17 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-function renderView() {
-  return render(<WeekendPlannerView />, { wrapper: MemoryRouter })
+// WeekendPlanner.jsx (the real orchestrator) now owns clipboard state and
+// passes it down as controlled props — this stands in for it so the
+// Copy/Paste suite below still exercises real state updates rather than a
+// no-op setClipboard.
+function Harness(props) {
+  const [clipboard, setClipboard] = useState(null)
+  return <WeekendPlannerView {...props} clipboard={clipboard} setClipboard={setClipboard} />
+}
+
+function renderView(props) {
+  return render(<Harness {...props} />, { wrapper: MemoryRouter })
 }
 
 // jsdom doesn't evaluate CSS media queries or Tailwind responsive classes
@@ -172,7 +182,7 @@ describe('WeekendPlannerView', () => {
       // navigated back to it) widens the fetch to include it again. Sept 5
       // is itself a Saturday with nothing planned.
       vi.setSystemTime(new Date(2026, 8, 5, 9, 0, 0))
-      render(<WeekendPlannerView initialYear={2026} initialMonth={8} />, { wrapper: MemoryRouter })
+      render(<Harness initialYear={2026} initialMonth={8} />, { wrapper: MemoryRouter })
       const view = await mobile()
       await view.findByText('August 2026')
 
@@ -859,25 +869,65 @@ describe('WeekendPlannerView', () => {
       const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       await user.click(aug15Cell.closest('tr'))
 
-      // jsdom loads no stylesheet, so `lg:hidden` never actually removes
-      // the mobile section from the render/focus tree the way a real
-      // desktop viewport's CSS would. Once this test selects a weekend the
-      // mobile card list is also showing, both copies of the picker would
-      // mount with `autoFocus`, and whichever mounts second steals focus
-      // and blurs the other closed before this test can interact with it.
-      // A real browser never hits this (display:none elements can't be
-      // focused) — removing the node here reproduces that, not a real bug.
-      screen.getByTestId('weekend-mobile').remove()
-
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
       const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
       await user.click(addButtons[0]) // MO row is first
-      await user.selectOptions(await within(inspector).findByRole('combobox'), 'p1')
+
+      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
+      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
+      await user.click(within(sheet).getByRole('checkbox', { name: /Alice Anderson/ }))
+      await user.click(within(sheet).getByRole('button', { name: /Add 1 doctor/ }))
 
       expect(await within(inspector).findByText('Anderson')).toBeInTheDocument()
       const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
       expect(within(aug15Row).getByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin: can select several doctors at once via the inspector, same as mobile', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
+      await user.click(aug15Cell.closest('tr'))
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
+      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
+      await user.click(addButtons[1]) // Registrar row
+
+      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
+      await user.click(within(sheet).getByRole('checkbox', { name: /Bob Botha/ }))
+      await user.click(within(sheet).getByRole('checkbox', { name: /Erin Eaton/ }))
+      await user.click(within(sheet).getByRole('button', { name: /Add 2 doctors/ }))
+
+      expect(await within(inspector).findByText('Botha')).toBeInTheDocument()
+      expect(within(inspector).getByText('Eaton')).toBeInTheDocument()
+    })
+
+    it('admin: a filled category shows a compact + trigger instead of the full-width button, opening the sheet scoped to it', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      // Aug 8 has all 4 categories filled in ENTRIES.
+      const aug8Cell = await view.findByText('Sat 8 - Sun 9 Aug 2026')
+      await user.click(aug8Cell.closest('tr'))
+
+      const inspector = screen.getByTestId('weekend-inspector')
+      await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
+      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+
+      await user.click(within(inspector).getByRole('button', { name: 'Add another doctor to MO' }))
+      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
+      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
     })
 
     it('admin: can remove an assigned doctor via the inspector', async () => {
@@ -1246,7 +1296,7 @@ describe('WeekendPlannerView', () => {
     it('the pending Undo toast clears when the signed-in profile changes — one admin can never revert another admin\'s action', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
-      const rendered = render(<WeekendPlannerView />, { wrapper: MemoryRouter })
+      const rendered = render(<Harness />, { wrapper: MemoryRouter })
       const view = await desktop()
       await view.findByText('August 2026')
 
@@ -1258,7 +1308,7 @@ describe('WeekendPlannerView', () => {
       // A second admin signs in, in the same tab, without a page reload —
       // e.g. Paul logs out and George logs in without a full app remount.
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-2' } }
-      rendered.rerender(<WeekendPlannerView />)
+      rendered.rerender(<Harness />)
 
       expect(screen.queryByText('Cleared August 2026')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()

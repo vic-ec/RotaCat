@@ -25,7 +25,7 @@ const VACATE_PATCH = {
 // currentProfileId }. `entries` is the manager's current working copy of
 // the roster month's entries, used only for the same-day conflict check —
 // this component doesn't own or refetch that list.
-export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, rosterMonthId, onResolved, onClose }) {
+export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, onResolved, onClose }) {
   const { user } = useAuth()
   const [step, setStep] = useState('choose') // 'choose' | 'swap'
   const [search, setSearch] = useState('')
@@ -106,6 +106,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     return (
       <DoctorDropdown
         profiles={profiles.filter(p => p.id !== vacancy.currentProfileId)}
+        displayNames={displayNames}
         search={search}
         onSearchChange={setSearch}
         onSelect={handleSwapSelect}

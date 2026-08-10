@@ -33,6 +33,13 @@ export default function WeekendPlanner() {
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Copy/paste clipboard for WeekendPlannerView's Copy weekend/month/quarter
+  // actions — owned here rather than as that component's own local state,
+  // because switching between month view and this year overview unmounts
+  // WeekendPlannerView entirely (it's a genuinely different child below,
+  // not just hidden). Owning it here means it survives that round trip:
+  // copy August, check the year overview, open June to paste into.
+  const [clipboard, setClipboard] = useState(null)
 
   useEffect(() => { load() }, [year]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; refetching on staffingRole/profile would loop without changing what's fetched within a session
 
@@ -110,7 +117,13 @@ export default function WeekendPlanner() {
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
       {!loading && !error && (
         view === 'month' ? (
-          <WeekendPlannerView initialYear={year} initialMonth={month} onBackToYear={backToYear} />
+          <WeekendPlannerView
+            initialYear={year}
+            initialMonth={month}
+            onBackToYear={backToYear}
+            clipboard={clipboard}
+            setClipboard={setClipboard}
+          />
         ) : staffingRole ? (
           <WeekendYearOverview year={year} onYearChange={setYear} byWeekend={byWeekend} onOpenMonth={openMonth} />
         ) : (

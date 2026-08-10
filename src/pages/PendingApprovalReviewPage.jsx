@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
-import { CircleCheck, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ProfileAvatar from '../components/ProfileAvatar'
-import SelectMenu from '../components/SelectMenu'
+import { createNotification } from '../lib/notifications'
+import AccountIdentityHeader from '../components/AccountIdentityHeader'
+import AccountDetailsSection from '../components/AccountDetailsSection'
+import RoleAndAccessSection from '../components/RoleAndAccessSection'
+import AccountChecks from '../components/AccountChecks'
+import AccountActionFooter from '../components/AccountActionFooter'
 import Tag from '../components/Tag'
-import { formatPhoneProgressive } from '../lib/phone'
+import { formatPhoneDisplay, formatPhoneProgressive } from '../lib/phone'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
-  categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS,
+  categoryNeedsContractChoice,
 } from '../lib/staffDefaults'
 
 const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
@@ -23,19 +27,11 @@ const CATEGORY_LABELS = {
 }
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
 
-const SAVED_FLASH_MS = 2500
-
-function GroupLabel({ children }) {
-  return <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{children}</p>
-}
-
 // `embedded`/`onClose`: when rendered inside PendingApprovalSlideOverPanel
 // (the Staff list's right-hugging panel — see that component) rather than
-// as its own full-page route, the fixed BackButton doesn't make sense
-// (it's positioned against the whole viewport, not the panel) and
-// approve/reject/back should close the panel instead of navigating to
-// /staff. Standalone use (a direct link to /staff/pending/:id) is
-// unaffected — same navigate('/staff') as before.
+// as its own full-page route, approve/reject/back close the panel instead
+// of navigating to /staff. Standalone use (a direct link to
+// /staff/pending/:id) is unaffected — same navigate('/staff') as before.
 export default function PendingApprovalReviewPage({ embedded = false, onClose }) {
   const { isAdmin } = useAuth()
   const { id } = useParams()
@@ -48,9 +44,20 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
 
   const [profile, setProfile] = useState(null)
   const [email, setEmail] = useState(null)
+  // Every {id, email} row the admin can see (same RPC the Staff list's own
+  // accounts grid already uses) — kept in full, not just this registrant's
+  // own row, so the duplicate-email account check below is a zero-extra-
+  // query cross-reference rather than a new backend call.
+  const [emailRows, setEmailRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
+  // Submitted details start read-only (see AccountDetailsSection below) —
+  // this just reveals the same first-name/surname/mobile inputs the old
+  // always-editable form had, as a deliberate opt-in rather than a
+  // sitting-there-by-default risk of typing over what the registrant
+  // actually submitted.
+  const [editingDetails, setEditingDetails] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [surname, setSurname] = useState('')
   const [phone, setPhone] = useState('')
@@ -60,9 +67,6 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   const [subtype, setSubtype] = useState(null)
   const [hasAdmin, setHasAdmin] = useState(false)
 
-  const [saving, setSaving] = useState(false)
-  const [justSaved, setJustSaved] = useState(false)
-  const [saveError, setSaveError] = useState('')
   const [actioning, setActioning] = useState(false)
 
   useEffect(() => {
@@ -74,7 +78,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   async function load() {
     setLoading(true)
     setLoadError('')
-    const [{ data, error }, { data: emailRows }] = await Promise.all([
+    const [{ data, error }, { data: emailData }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', id).single(),
       supabase.rpc('get_staff_emails'),
     ])
@@ -84,7 +88,8 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       return
     }
     setProfile(data)
-    setEmail((emailRows || []).find(r => r.id === id)?.email || '')
+    setEmailRows(emailData || [])
+    setEmail((emailData || []).find(r => r.id === id)?.email || '')
     setFirstName(data.name || '')
     setSurname(data.surname || '')
     setPhone(data.phone || '')
@@ -124,116 +129,86 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     )
   }
 
-  const registeredDate = profile.created_at?.slice(0, 10).split('-').reverse().join('-')
-  const registeredTime = profile.created_at?.slice(11, 16)
-  const atAGlanceLabel = role === 'doctor'
-    ? (profile.category ? (CATEGORY_LABELS[profile.category] || profile.category) : '—')
-    : (ROLE_LABELS[profile.role] || profile.role)
-
-  const dirty =
-    firstName !== (profile.name || '') ||
-    surname !== (profile.surname || '') ||
-    phone !== (profile.phone || '') ||
-    role !== (profile.role || 'doctor') ||
-    category !== (profile.category || '') ||
-    (categoryNeedsContractChoice(category) && contractType !== (profile.contract_type || 'full')) ||
-    (categoryNeedsContractChoice(category) && contractType === 'Junior_Doctor_Overtime' && subtype !== (profile.psych_subcategory || null)) ||
-    hasAdmin !== (profile.is_admin === true)
+  const submittedDate = profile.created_at?.slice(0, 10).split('-').reverse().join('-')
+  const submittedTime = profile.created_at?.slice(11, 16)
+  const fullName = `${firstName} ${surname}`.trim() || 'Unnamed registrant'
+  // Reflects the CURRENT draft role/category, not the stale as-submitted
+  // value — this is what the registrant will actually become, so it
+  // shouldn't read as a fixed decorative badge while the admin is still
+  // deciding it.
+  const assignedLabel = role === 'doctor'
+    ? (category ? (CATEGORY_LABELS[category] || category) : 'Category not yet selected')
+    : (ROLE_LABELS[role] || role)
 
   function handleRoleChange(value) {
     setRole(value)
     setCategory('') // valid category set differs per role
     setContractType('full')
     setSubtype(null)
+    if (value !== 'doctor') setHasAdmin(false)
   }
 
-  function cancelEdits() {
-    setFirstName(profile.name || '')
-    setSurname(profile.surname || '')
-    setPhone(profile.phone || '')
-    setRole(profile.role || 'doctor')
-    setCategory(profile.category || '')
-    setContractType(profile.contract_type || 'full')
-    setSubtype(profile.psych_subcategory || null)
-    setHasAdmin(profile.is_admin === true)
-    setSaveError('')
-  }
+  const showCategory = role === 'doctor'
+  const showContractType = role === 'doctor' && categoryNeedsContractChoice(category)
+  const showSubtype = showContractType && contractType === 'Junior_Doctor_Overtime'
+  const adminAvailable = role === 'doctor'
 
-  async function saveUpdate() {
-    setSaving(true)
-    setSaveError('')
+  const approveDisabledReason =
+    role === 'doctor' && !category ? 'Select a role and clinical category to approve.'
+    : showContractType && !contractType ? 'Select EC or OT hours for this category to approve.'
+    : null
+  const needsAdminConfirmation = adminAvailable && hasAdmin && profile.is_admin !== true
 
-    if (role === 'doctor' && !category) {
-      setSaving(false)
-      setSaveError('Select a category for a doctor account.')
-      return
-    }
-    if (role === 'doctor' && categoryNeedsContractChoice(category) && !contractType) {
-      setSaving(false)
-      setSaveError('Select EC or OT hours for this category.')
-      return
-    }
-
-    const finalContractType = role === 'doctor'
-      ? (categoryNeedsContractChoice(category) ? contractType : (profile.contract_type || 'full'))
-      : (profile.contract_type || 'full')
-    const finalSubtype = role === 'doctor' && categoryNeedsContractChoice(category) && finalContractType === 'Junior_Doctor_Overtime'
-      ? (subtype || null)
-      : null
-
-    const { error } = await supabase.from('profiles').update({
-      name: firstName,
-      surname,
-      phone: phone || null,
-      role,
-      category: role === 'doctor' ? category : null,
-      contract_type: finalContractType,
-      psych_subcategory: finalSubtype,
-      is_admin: role === 'doctor' ? hasAdmin : false,
-    }).eq('id', id)
-
-    setSaving(false)
-    if (error) {
-      setSaveError(error.message)
-      return
-    }
-    setProfile(prev => ({
-      ...prev,
-      name: firstName,
-      surname,
-      phone: phone || null,
-      role,
-      category: role === 'doctor' ? category : null,
-      contract_type: finalContractType,
-      psych_subcategory: finalSubtype,
-      is_admin: role === 'doctor' ? hasAdmin : false,
-    }))
-    setJustSaved(true)
-    setTimeout(() => setJustSaved(false), SAVED_FLASH_MS)
-  }
+  // ── Account checks — both derived entirely from data already on this
+  // page (profile.email_verified, and the full emailRows list this load()
+  // call already fetches for every staff member), so this section never
+  // needs its own backend call. ──
+  const duplicateEmailMatch = email
+    ? emailRows.find(r => r.id !== id && r.email && r.email.toLowerCase() === email.toLowerCase())
+    : null
+  const accountChecks = email ? [
+    {
+      key: 'email-verified',
+      ok: Boolean(profile.email_verified),
+      label: profile.email_verified ? 'Email address is verified' : 'Email address is not yet verified',
+    },
+    duplicateEmailMatch
+      ? {
+          key: 'email-unique', ok: false,
+          label: 'Possible duplicate — this email is already used by another account',
+          to: `/account/${duplicateEmailMatch.id}`, linkLabel: 'Review existing account',
+        }
+      : { key: 'email-unique', ok: true, label: 'Email address is not used by another account' },
+  ] : []
 
   async function approve() {
+    if (approveDisabledReason) return // defensive; the button is already disabled for this
     setActioning(true)
-    const finalRole = profile.role || 'doctor'
-    const rawCategory = profile.category || null
-    const finalCategory =
-      finalRole === 'doctor' ? rawCategory :
-      finalRole === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
-      null
-    const isAdminFlag = finalRole === 'doctor' ? (profile.is_admin ?? false) : false
-    const finalContractType = finalRole === 'doctor' && categoryNeedsContractChoice(finalCategory)
-      ? (profile.contract_type || 'full')
-      : 'full'
-    const finalSubtype = finalContractType === 'Junior_Doctor_Overtime' ? (profile.psych_subcategory || null) : null
+
+    const finalCategory = role === 'doctor' ? (category || null)
+      : role === 'locum' ? (['MO', 'Registrar'].includes(category) ? category : null)
+      : null
+    // Falls back to the as-submitted contract_type (not the draft
+    // `contractType` state) whenever the current category doesn't need a
+    // choice at all — guards against a stale EC/OT pick left over from a
+    // category the admin has since changed away from.
+    const finalContractType = role === 'doctor' && categoryNeedsContractChoice(finalCategory)
+      ? contractType
+      : (profile.contract_type || 'full')
+    const finalSubtype = finalContractType === 'Junior_Doctor_Overtime' ? (subtype || null) : null
+    const isAdminFlag = role === 'doctor' ? hasAdmin : false
     const hours = defaultHoursForCategory(finalCategory, finalContractType)
     const swapGroup = defaultSwapGroupForCategory(finalCategory)
 
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
+      name: firstName,
+      surname,
+      phone: phone || null,
       is_approved: true,
       is_active: true,
-      role: finalRole,
-      category: finalCategory || null,
+      role,
+      category: finalCategory,
       contract_type: finalContractType,
       psych_subcategory: finalSubtype,
       is_admin: isAdminFlag,
@@ -261,7 +236,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
     goBack()
   }
 
-  async function reject() {
+  async function reject(reason) {
     setActioning(true)
     const { error } = await supabase.from('profiles').update({
       is_approved: false,
@@ -274,180 +249,98 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       alert('Could not reject account: ' + error.message)
       return
     }
+    // Best-effort — the rejection itself already succeeded above, so a
+    // failure to notify shouldn't block navigating away or look like the
+    // rejection didn't go through.
+    createNotification({
+      profileId: id,
+      type: 'account_rejected',
+      title: 'Account rejected',
+      body: reason ? `Your registration was not approved. Note: ${reason}` : 'Your registration was not approved.',
+    }).catch(() => {})
     goBack()
   }
 
+  const detailsFields = [
+    editingDetails
+      ? { key: 'firstName', label: 'First name', value: firstName, onChange: setFirstName }
+      : { key: 'fullName', label: 'Full name', value: fullName },
+    ...(editingDetails ? [{ key: 'surname', label: 'Surname', value: surname, onChange: setSurname }] : []),
+    {
+      key: 'mobile', label: 'Mobile',
+      value: editingDetails ? formatPhoneProgressive(phone) : formatPhoneDisplay(phone),
+      onChange: v => setPhone(v.replace(/\D/g, '').slice(0, 10)),
+      type: 'tel', inputMode: 'numeric', placeholder: '(082) 123 4567',
+    },
+    { key: 'email', label: 'Email', value: email, href: email ? `mailto:${email}` : null, verified: profile.email_verified, alwaysReadOnly: true },
+  ]
+
   return (
-    <div className="mx-auto max-w-7xl pb-12">
+    <div className={embedded ? '' : 'mx-auto max-w-7xl pb-6 md:max-w-2xl'}>
       <button
         type="button"
         onClick={goBack}
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> All staff
+        <ArrowLeft className="h-4 w-4" /> Pending approvals
       </button>
 
       <div className="space-y-6">
         <div>
-          <h1 className="font-display text-2xl text-ink">New User Registration for Review</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Registered {registeredDate} at {registeredTime}
-          </p>
-        </div>
-
-        {/* ── Profile ──────────────────────────────────────────── */}
-        <div className="card px-5 py-4">
-          <div className="flex items-start gap-3">
-            <ProfileAvatar profile={profile} size={48} className="mt-1 flex-shrink-0" />
-            <div className="min-w-0 flex-1 space-y-4">
-              <div>
-                <label htmlFor="firstName" className="label-text">First name</label>
-                <input
-                  id="firstName"
-                  type="text"
-                  value={firstName}
-                  onChange={e => setFirstName(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <div>
-                <label htmlFor="surname" className="label-text">Surname</label>
-                <input
-                  id="surname"
-                  type="text"
-                  value={surname}
-                  onChange={e => setSurname(e.target.value)}
-                  className="input-field"
-                />
-              </div>
-              <Tag variant="role">{atAGlanceLabel}</Tag>
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-xl font-bold text-ink">Review staff registration</h1>
+            <Tag variant="status" tone="warning">Pending</Tag>
           </div>
+          <p className="mt-0.5 text-xs text-ink-muted">Submitted {submittedDate} · {submittedTime}</p>
         </div>
 
-        {/* ── Contact details ──────────────────────────────────── */}
-        <div>
-          <GroupLabel>Contact Details</GroupLabel>
-          <div className="card space-y-4 p-4">
-            <div>
-              <label htmlFor="phone" className="label-text">Mobile</label>
-              <input
-                id="phone"
-                type="tel"
-                inputMode="numeric"
-                value={formatPhoneProgressive(phone)}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="(082) 123 4567"
-                className="input-field"
-              />
-            </div>
-            <div>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <label className="text-sm font-medium text-ink-light">Email</label>
-                {profile.email_verified && (
-                  <CircleCheck title="Email verified" className="h-3.5 w-3.5 text-success" />
-                )}
-              </div>
-              {/* Read-only — the address was verified by the user during
-                  registration, so it isn't something an admin should be
-                  able to silently change here. */}
-              {email ? (
-                <a href={`mailto:${email}`} className="block truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">
-                  {email}
-                </a>
-              ) : (
-                <p className="truncate rounded border border-transparent px-3 py-1 text-sm text-ink-muted">Not set</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <AccountIdentityHeader profile={profile} name={fullName} tagLabel={assignedLabel} />
 
-        {/* ── Security & Access ─────────────────────────────────── */}
-        <div>
-          <GroupLabel>Security &amp; Access</GroupLabel>
-          <div className="card p-4">
-            <div className="space-y-4">
-              <div>
-                <label className="label-text">Role</label>
-                <SelectMenu value={role} onChange={handleRoleChange} options={ROLE_OPTIONS} />
-              </div>
-              {role === 'doctor' && (
-                <div>
-                  <label className="label-text">Category</label>
-                  <SelectMenu
-                    value={category}
-                    onChange={setCategory}
-                    placeholder="Select…"
-                    options={CATEGORY_OPTIONS}
-                  />
-                </div>
-              )}
-              {role === 'doctor' && categoryNeedsContractChoice(category) && (
-                <div>
-                  <label className="label-text">Hours</label>
-                  <SelectMenu
-                    value={contractType}
-                    onChange={v => { setContractType(v); if (v !== 'Junior_Doctor_Overtime') setSubtype(null) }}
-                    placeholder="Select…"
-                    options={CONTRACT_TYPE_OPTIONS}
-                  />
-                </div>
-              )}
-              {role === 'doctor' && categoryNeedsContractChoice(category) && contractType === 'Junior_Doctor_Overtime' && (
-                <div>
-                  <label className="label-text">OT subtype</label>
-                  <SelectMenu
-                    value={subtype || ''}
-                    onChange={setSubtype}
-                    placeholder="Not yet assigned…"
-                    options={OT_SUBTYPE_OPTIONS}
-                  />
-                </div>
-              )}
-              {role === 'doctor' && (
-                <label className="flex items-center gap-2 text-sm text-ink">
-                  <input
-                    type="checkbox"
-                    checked={hasAdmin}
-                    onChange={e => setHasAdmin(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-line accent-accent"
-                  />
-                  Has admin permissions
-                </label>
-              )}
+        <AccountDetailsSection
+          heading="Submitted details"
+          editing={editingDetails}
+          fields={detailsFields}
+          action={
+            <button
+              type="button"
+              onClick={() => setEditingDetails(o => !o)}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              {editingDetails ? 'Done editing' : 'Edit submitted details'}
+            </button>
+          }
+        />
 
-              <div className="flex items-center gap-3">
-                <button onClick={saveUpdate} disabled={saving || !dirty} className="btn-primary">
-                  {saving ? 'Saving…' : justSaved ? 'Saved.' : 'Update'}
-                </button>
-                {dirty && (
-                  <button onClick={cancelEdits} disabled={saving} className="btn-secondary">
-                    Cancel
-                  </button>
-                )}
-                {saveError && <span className="text-xs font-medium text-flagRed">{saveError}</span>}
-              </div>
-            </div>
-          </div>
-        </div>
+        <RoleAndAccessSection
+          heading="Access to assign"
+          role={role} onRoleChange={handleRoleChange} roleOptions={ROLE_OPTIONS}
+          showCategory={showCategory} category={category} onCategoryChange={setCategory} categoryOptions={CATEGORY_OPTIONS}
+          showContractType={showContractType} contractType={contractType} onContractTypeChange={v => { setContractType(v); if (v !== 'Junior_Doctor_Overtime') setSubtype(null) }}
+          showSubtype={showSubtype} subtype={subtype} onSubtypeChange={setSubtype}
+          adminEnabled={hasAdmin} onAdminChange={setHasAdmin}
+          adminAvailable={adminAvailable}
+          adminUnavailableReason="Only doctor accounts can be granted admin access."
+        />
 
-        {/* ── Approve / Reject ─────────────────────────────────── */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={approve}
-            disabled={actioning}
-            className="flex-1 rounded bg-success px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-85 active:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Approve
-          </button>
-          <button
-            onClick={reject}
-            disabled={actioning}
-            className="flex-1 rounded border border-flagRed px-4 py-2 text-sm font-semibold text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Reject
-          </button>
-        </div>
+        <AccountChecks checks={accountChecks} />
+      </div>
+
+      {/* Sticky footer, bled flush to whichever container's edges this page
+          is actually rendering inside — the slide-over panel's own
+          px-5/md:px-6 padding when embedded, or AppLayout's main
+          px-4/md:px-8 when this is a standalone full-page route. */}
+      <div className={`sticky bottom-0 mt-6 border-t border-slate-line bg-canvas-raised py-3 ${
+        embedded ? '-mx-5 -mb-5 px-5 md:-mx-6 md:-mb-6 md:px-6' : '-mx-4 px-4 md:-mx-8 md:px-8'
+      }`}>
+        <AccountActionFooter
+          onApprove={approve}
+          onReject={reject}
+          isActioning={actioning}
+          approveDisabledReason={approveDisabledReason}
+          needsAdminConfirmation={needsAdminConfirmation}
+          registrantName={fullName}
+          roleCategoryLabel={assignedLabel}
+        />
       </div>
     </div>
   )

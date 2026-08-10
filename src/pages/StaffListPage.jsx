@@ -12,6 +12,7 @@ import FilterPanel from '../components/FilterPanel'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
 import BulkActionBar from '../components/BulkActionBar'
+import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
@@ -307,6 +308,9 @@ export default function StaffListPage() {
   const [pendingSortDirection, setPendingSortDirection] = useState('asc')
   const [togglingId, setTogglingId] = useState(null)
   const [togglingAdminId, setTogglingAdminId] = useState(null)
+  // Pending confirmation for the Status toggle — { profileId, currentlyActive, firstName } | null
+  const [statusConfirm, setStatusConfirm] = useState(null)
+  const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
   // role/category/status/isAdmin are each a Set of selected values — empty
@@ -512,6 +516,26 @@ export default function StaffListPage() {
       .eq('id', profileId)
     await loadAll()
     setTogglingId(null)
+  }
+
+  // Status toggle is consequential (excludes/re-includes someone from all
+  // future scheduling) — gate the click behind StatusChangeConfirmModal
+  // rather than firing toggleActive directly. Confirm runs the exact same
+  // update as before; this only adds the extra step in front of it.
+  function requestToggleActive(person) {
+    setStatusConfirm({
+      profileId: person.id,
+      currentlyActive: person.is_active,
+      firstName: person.name || person.surname || null,
+    })
+  }
+
+  async function confirmStatusChange() {
+    if (!statusConfirm) return
+    setStatusConfirmSaving(true)
+    await toggleActive(statusConfirm.profileId, statusConfirm.currentlyActive)
+    setStatusConfirmSaving(false)
+    setStatusConfirm(null)
   }
 
   async function toggleAdmin(person) {
@@ -1322,7 +1346,7 @@ export default function StaffListPage() {
                                 {isAdmin ? (
                                   <>
                                     <button
-                                      onClick={e => { e.stopPropagation(); !isToggling && toggleActive(person.id, person.is_active) }}
+                                      onClick={e => { e.stopPropagation(); !isToggling && requestToggleActive(person) }}
                                       disabled={isToggling}
                                       title={person.is_active ? 'Click to deactivate' : 'Click to activate'}
                                       className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors disabled:opacity-50 ${
@@ -1755,6 +1779,16 @@ export default function StaffListPage() {
         <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 md:bottom-6">
           <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
         </div>
+      )}
+
+      {statusConfirm && (
+        <StatusChangeConfirmModal
+          firstName={statusConfirm.firstName}
+          nextActive={!statusConfirm.currentlyActive}
+          saving={statusConfirmSaving}
+          onConfirm={confirmStatusChange}
+          onClose={() => !statusConfirmSaving && setStatusConfirm(null)}
+        />
       )}
     </div>
   )

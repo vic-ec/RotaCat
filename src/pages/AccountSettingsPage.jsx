@@ -1285,8 +1285,6 @@ export default function AccountSettingsPage() {
                   active={adminIsActive}
                   onLeave={isOnLeave}
                   size={14}
-                  interactive={isOwnAccount}
-                  onSetActive={saveActiveStatus}
                 />
                 <input
                   ref={fileInputRef}

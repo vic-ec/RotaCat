@@ -287,7 +287,7 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
 }
 
 export default function StaffListPage() {
-  const { isAdmin, canViewStaffList, isSuperAdmin, user, setMyActiveStatus } = useAuth()
+  const { isAdmin, canViewStaffList, isSuperAdmin } = useAuth()
   // Clerks, Locums, and MO/Registrar doctors are all read-only for account
   // management, but the mobile Quick Actions menu (Message/Call/Mail) is
   // pure contact info -- they all need that same access (see AuthContext's
@@ -1123,7 +1123,6 @@ export default function StaffListPage() {
                         ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
                         : (ROLE_LABELS[person.role] || person.role)
                       const contractTag = contractTagText(person)
-                      const isMe = person.id === user?.id
                       return (
                         <div
                           key={person.id}
@@ -1143,8 +1142,6 @@ export default function StaffListPage() {
                               active={person.is_active}
                               onLeave={leaveProfileIds.has(person.id)}
                               size={14}
-                              interactive={isMe}
-                              onSetActive={isMe ? setMyActiveStatus : undefined}
                             />
                           </div>
                           <div className="min-w-0 flex-1">

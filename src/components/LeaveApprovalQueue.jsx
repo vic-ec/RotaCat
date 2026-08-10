@@ -34,13 +34,17 @@ function hasWarnings(w) {
 }
 
 // One row of the pending-requests list — checkbox, avatar, name, category
-// tag, and a one-line "Requesting X" summary. Approve/reject now live in
-// the detail panel (LeaveRequestDetailPanel below) opened by tapping the
+// tag, and a one-line "{type} request, submitted {date}" summary.
+// Approve/reject now live in the detail panel (LeaveRequestDetailPanel below) opened by tapping the
 // row, so the row itself only keeps the always-visible View Calendar
 // action — deliberately a plain button, not ListRow's RowActions, since
 // RowActions collapses even a single action behind a kebab on mobile and
 // this one wants to stay visible on every viewport.
 function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, checked, onToggleCheck, onOpen, onViewCalendar }) {
+  // Same "DD-MM-YYYY · HH:MM" template as the detail drawer's own
+  // "Submitted X" meta line, so the row and the drawer never disagree.
+  const submittedDate = request.created_at?.slice(0, 10).split('-').reverse().join('-')
+  const submittedTime = request.created_at?.slice(11, 16)
   return (
     <div
       onClick={onOpen}
@@ -61,7 +65,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
           <p className="truncate text-sm font-medium text-ink">{fullName}</p>
           {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
         </div>
-        <p className="mt-0.5 truncate text-xs text-ink-muted">Requesting {leaveTypeLabel}</p>
+        <p className="mt-0.5 truncate text-xs text-ink-muted">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</p>
       </div>
       <button
         type="button"
@@ -88,7 +92,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
 // who else is affected (AffectedLeaveList), 5) the approve/decline decision
 // (LeaveRequestDecisionFooter, sticky).
 function LeaveRequestDetailPanel({
-  request, fullName, categoryLabel, leaveTypeLabel, receivedDate, receivedTime, publicHolidayFrom, publicHolidayTo, totalDays, annualLeaveDays,
+  request, fullName, categoryLabel, leaveTypeLabel, submittedDate, submittedTime, publicHolidayFrom, publicHolidayTo, totalDays, annualLeaveDays,
   warnings, warned, warningsLoading, capacityPreview, capacityLoading, affectedEntries, affectedLoading,
   onClose, onOpenCalendar,
   rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
@@ -102,7 +106,7 @@ function LeaveRequestDetailPanel({
     <RequestReviewDrawer
       title={`${leaveTypeLabel} request`}
       statusTag={<Tag variant="status" tone="warning">Pending</Tag>}
-      meta={`Received ${receivedDate} · ${receivedTime}`}
+      meta={`Submitted ${submittedDate} · ${submittedTime}`}
       onClose={onClose}
       footer={
         <LeaveRequestDecisionFooter
@@ -490,8 +494,8 @@ export default function LeaveApprovalQueue({ onBack }) {
         const annualLeaveDays = expandedRequest.leave_type === 'annual' ? expandedRequest.annual_leave_days : null
         // Same "DD-MM-YYYY at HH:MM" template as the pending-registration
         // review page's own "Registered X at Y" line.
-        const receivedDate = expandedRequest.created_at?.slice(0, 10).split('-').reverse().join('-')
-        const receivedTime = expandedRequest.created_at?.slice(11, 16)
+        const submittedDate = expandedRequest.created_at?.slice(0, 10).split('-').reverse().join('-')
+        const submittedTime = expandedRequest.created_at?.slice(11, 16)
 
         return (
           <LeaveRequestDetailPanel
@@ -499,8 +503,8 @@ export default function LeaveApprovalQueue({ onBack }) {
             fullName={fullName}
             categoryLabel={categoryLabel}
             leaveTypeLabel={LEAVE_TYPE_LABELS[expandedRequest.leave_type]}
-            receivedDate={receivedDate}
-            receivedTime={receivedTime}
+            submittedDate={submittedDate}
+            submittedTime={submittedTime}
             publicHolidayFrom={publicHolidayFrom}
             publicHolidayTo={publicHolidayTo}
             totalDays={totalDays}

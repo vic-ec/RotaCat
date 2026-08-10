@@ -253,7 +253,7 @@ function SheetActionButton({ icon, label, href, onClick, onMissing }) {
 // uses) — the standalone "view" icon this used to also carry was dropped
 // since the row click already goes to the exact same place
 // (docs/design/layout-spec.md §7/§13).
-function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
+function PendingApprovalRow({ person, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
   // role badge — locum/clerk have no meaningful category, so they keep the
   // role badge instead.
@@ -272,15 +272,7 @@ function PendingApprovalRow({ person, email, checked, onToggleCheck, approveAcco
       avatar={<ProfileAvatar profile={person} size={32} />}
       name={fullName}
       tag={secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
-      meta={
-        <>
-          Registered {registeredDate} at {registeredTime} with{' '}
-          <span className="font-medium text-accent">{email || '—'}</span>
-          {person.email_verified && (
-            <CircleCheck title="Email verified" className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-success" />
-          )}
-        </>
-      }
+      meta={`Account registration, submitted ${registeredDate} · ${registeredTime}`}
       onApprove={() => approveAccount(person)}
       onReject={() => rejectAccount(person.id)}
       onClick={() => onEdit(person.id)}
@@ -1493,7 +1485,6 @@ export default function StaffListPage() {
                   <div key={person.id} className="card overflow-hidden">
                     <PendingApprovalRow
                       person={person}
-                      email={emailById[person.id]}
                       checked={selectedPendingIds.has(person.id)}
                       onToggleCheck={() => togglePendingSelected(person.id)}
                       approveAccount={approveAccount}

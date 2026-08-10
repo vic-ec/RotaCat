@@ -85,7 +85,7 @@ describe('PendingApprovalReviewPage', () => {
   it('shows a status-led header, identity, and read-only submitted details by default', async () => {
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Review staff registration' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review account registration' })).toBeInTheDocument()
     expect(screen.getByText('Pending')).toBeInTheDocument()
     expect(screen.getByText('Submitted 29-07-2026 · 09:29')).toBeInTheDocument()
     expect(screen.queryByText(/Back to Requests/)).not.toBeInTheDocument()

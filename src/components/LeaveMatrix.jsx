@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Modal from './Modal'
 import Tag from './Tag'
@@ -6,6 +6,7 @@ import DoctorChip from './DoctorChip'
 import SectionLabel from './SectionLabel'
 import LeaveRequestSummary from './LeaveRequestSummary'
 import { todayStr, MONTH_ABBR } from '../lib/dateRange'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import { labelForLeaveCategory, columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import {
   LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
@@ -34,21 +35,6 @@ function groupKeyForDoctor(doctor) {
 
 function fullName(doctor) {
   return `${doctor.name || ''} ${doctor.surname || ''}`.trim() || doctor.surname || 'Unknown'
-}
-
-function useIsDesktop() {
-  const hasMatchMedia = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  // Default to desktop when matchMedia is unavailable (e.g. jsdom) so we render
-  // the inline sticky panel rather than the document-listener modal.
-  const [isDesktop, setIsDesktop] = useState(() => (hasMatchMedia ? window.matchMedia('(min-width: 1024px)').matches : true))
-  useEffect(() => {
-    if (!hasMatchMedia) return undefined
-    const mq = window.matchMedia('(min-width: 1024px)')
-    const handler = e => setIsDesktop(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [hasMatchMedia])
-  return isDesktop
 }
 
 function GroupSwatch({ groupKey }) {

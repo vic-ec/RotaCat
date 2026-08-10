@@ -787,7 +787,7 @@ export default function StaffListPage() {
     },
     {
       key: 'status', label: 'Status',
-      options: [{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }],
+      options: [{ value: 'active', label: 'Active' }, { value: 'on_leave', label: 'On leave' }, { value: 'inactive', label: 'Inactive' }],
       selected: accountFilters.status,
       onChange: next => setAccountFilterDimension('status', next),
     },
@@ -808,7 +808,7 @@ export default function StaffListPage() {
     if (accountFilters.role.size > 0 && !accountFilters.role.has(person.role)) return false
     if (accountFilters.category.size > 0 && !accountFilters.category.has(person.category)) return false
     if (accountFilters.status.size > 0) {
-      const statusKey = person.is_active ? 'active' : 'inactive'
+      const statusKey = !person.is_active ? 'inactive' : leaveProfileIds.has(person.id) ? 'on_leave' : 'active'
       if (!accountFilters.status.has(statusKey)) return false
     }
     if (accountFilters.isAdmin.size > 0) {

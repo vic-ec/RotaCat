@@ -70,9 +70,11 @@ export const LAST_PATH_KEY = 'rotacat:lastNonAccountPath'
 
 // Profile picture if set, otherwise initials — shown with the doctor's
 // identity colour + pattern (matches the Staff list / Account Settings avatar).
-// The status badge in the corner is always the logged-in user's own here (the
-// sidebar only ever shows one's own profile), so it's always click-to-change.
-function UserAvatar({ profile, size = 40, onLeave = false, onSetActive }) {
+// The status badge in the corner is read-only here — is_active is an
+// admin-only scheduling-eligibility flag, not something to flip from a
+// sidebar badge (see AccountSettingsPage/StaffListPage for the admin-gated
+// ways to actually change it).
+function UserAvatar({ profile, size = 40, onLeave = false }) {
   if (!profile) return null
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -81,8 +83,6 @@ function UserAvatar({ profile, size = 40, onLeave = false, onSetActive }) {
         active={profile.is_active !== false}
         onLeave={onLeave}
         size={Math.max(12, Math.round(size * 0.35))}
-        interactive
-        onSetActive={onSetActive}
       />
     </div>
   )
@@ -90,8 +90,9 @@ function UserAvatar({ profile, size = 40, onLeave = false, onSetActive }) {
 
 // Mobile top-bar avatar — just the photo/initials plus its status badge; the
 // header's own "Welcome, X" text already identifies who's logged in, so this
-// no longer needs its own tooltip.
-function MobileAvatar({ profile, size, onLeave, onSetActive }) {
+// no longer needs its own tooltip. Read-only status badge, same reasoning as
+// UserAvatar above.
+function MobileAvatar({ profile, size, onLeave }) {
   if (!profile) return null
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -100,15 +101,13 @@ function MobileAvatar({ profile, size, onLeave, onSetActive }) {
         active={profile.is_active !== false}
         onLeave={onLeave}
         size={Math.max(12, Math.round(size * 0.35))}
-        interactive
-        onSetActive={onSetActive}
       />
     </div>
   )
 }
 
 export default function AppLayout() {
-  const { profile, signOut, isAdmin, isLocum, isClerk, setMyActiveStatus } = useAuth()
+  const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [staffBadgeCount, setStaffBadgeCount] = useState(0)
@@ -188,7 +187,7 @@ export default function AppLayout() {
       <aside className="sticky top-0 hidden h-dvh w-16 flex-col border-r border-accent/50 bg-canvas-raised md:flex lg:w-60">
         <div className="px-3 py-6 lg:px-5">
           <div className="flex items-center justify-center gap-2 lg:justify-start">
-            <UserAvatar profile={profile} size={40} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
+            <UserAvatar profile={profile} size={40} onLeave={myOnLeave} />
             <h1 className="hidden font-serif text-2xl font-semibold text-ink lg:block"><RotaCat /></h1>
           </div>
           {profile && (
@@ -259,7 +258,7 @@ export default function AppLayout() {
             viewport correctly through that. */}
         {isDashboard && (
           <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
-            <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} onSetActive={setMyActiveStatus} />
+            <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} />
             <span className="font-serif text-xl font-semibold text-ink"><RotaCat /></span>
           </header>
         )}

@@ -14,6 +14,7 @@ import {
   countSpecialLeavePressureDaysInYear,
   naturalLeavePeriodLabel,
   capacityAssessmentState,
+  sameCapacityPool,
 } from './leaveRequests'
 import { overlapsPlannedWeekend } from './weekendPlanner'
 
@@ -367,5 +368,20 @@ describe('capacityAssessmentState', () => {
   it('is "at_capacity" once every slot is taken', () => {
     expect(capacityAssessmentState({ taken: 3, max: 3 }).key).toBe('at_capacity')
     expect(capacityAssessmentState({ taken: 4, max: 3 }).key).toBe('at_capacity')
+  })
+})
+
+describe('sameCapacityPool', () => {
+  it('treats MO, Registrar, and EC Intern as one combined pool', () => {
+    expect(sameCapacityPool('EC_Intern', 'Registrar')).toBe(true)
+    expect(sameCapacityPool('Registrar', 'MO')).toBe(true)
+    expect(sameCapacityPool('MO', 'EC_Intern')).toBe(true)
+    expect(sameCapacityPool('MO', 'MO')).toBe(true)
+  })
+
+  it('keeps OT Intern as its own independent pool, not part of the combined cap', () => {
+    expect(sameCapacityPool('OT_Intern', 'MO')).toBe(false)
+    expect(sameCapacityPool('OT_Intern', 'OT_Intern')).toBe(true)
+    expect(sameCapacityPool('MO', 'OT_Intern')).toBe(false)
   })
 })

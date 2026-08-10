@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import LeaveListView from './LeaveListView'
+
+// These assertions are about the query contract + which rows come back, so
+// they run against the Table view — the faithful full-list rendering of every
+// returned row. The default Matrix view is deliberately year-scoped and shows
+// surnames only, so it can't stand in for "renders exactly the RLS rows".
+async function switchToTable() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Table' }))
+}
 
 // This is the most security-sensitive part of the feature. LeaveListView is
 // deliberately a "dumb" renderer with zero role-conditional logic — the
@@ -56,6 +64,7 @@ describe('LeaveListView — role visibility matrix', () => {
   it('never issues a role-conditional filter on the query (no client-side substitute for RLS)', async () => {
     mockData.rows = [row('a', { own: true, status: 'pending' })]
     render(<LeaveListView />)
+    await switchToTable()
     await waitFor(() => expect(screen.getByText(/Doc a/)).toBeInTheDocument())
     expect(methodCalls.some(c => c[0] === 'eq' || c[0] === 'match')).toBe(false)
   })
@@ -67,6 +76,7 @@ describe('LeaveListView — role visibility matrix', () => {
       row('others-approved', { own: false, status: 'approved' }), // others' approved — RLS allows this for a doctor
     ]
     render(<LeaveListView />)
+    await switchToTable()
     expect(await screen.findByText(/Doc own-pending/)).toBeInTheDocument()
     expect(await screen.findByText(/Doc own-approved-past/)).toBeInTheDocument()
     expect(await screen.findByText(/Doc others-approved/)).toBeInTheDocument()
@@ -82,6 +92,7 @@ describe('LeaveListView — role visibility matrix', () => {
       row('future', { own: false, status: 'pending', date_from: '2099-01-01', date_to: '2099-01-05' }),
     ]
     render(<LeaveListView />)
+    await switchToTable()
     for (const id of ['own-pending', 'others-pending', 'others-approved', 'historical', 'future']) {
       expect(await screen.findByText(new RegExp(`Doc ${id}`))).toBeInTheDocument()
     }
@@ -96,6 +107,7 @@ describe('LeaveListView — role visibility matrix', () => {
       row('future-approved', { own: false, status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' }),
     ]
     render(<LeaveListView />)
+    await switchToTable()
     expect(await screen.findByText(/Doc historical-approved/)).toBeInTheDocument()
     expect(await screen.findByText(/Doc future-approved/)).toBeInTheDocument()
     expect(screen.getAllByText(/Doc/)).toHaveLength(2)

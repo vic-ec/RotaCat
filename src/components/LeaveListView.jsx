@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, ArrowUpDown, CircleX, CalendarClock, CalendarCheck } from 'lucide-react'
+import { Search, ArrowUpDown, CircleX, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { datesInRange } from '../lib/dateRange'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { LEAVE_TYPE_LABELS, formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays } from '../lib/leaveMatrix'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import ClearableInput from './ClearableInput'
 import { ToolbarFacet } from './Toolbar'
 import FilterPanel from './FilterPanel'
+import ViewToggle from './ViewToggle'
+import LeaveMatrix from './LeaveMatrix'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
-
-const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
 const STATUS_BADGE = {
   pending: 'bg-flagAmber-bg text-flagAmber',
@@ -51,6 +51,11 @@ const SORT_OPTIONS = [
 
 const STATUS_SORT_ORDER = { pending: 0, approved: 1, rejected: 2 }
 
+const VIEW_OPTIONS = [
+  { key: 'matrix', label: 'Matrix', icon: LayoutGrid },
+  { key: 'table', label: 'Table', icon: Table2 },
+]
+
 function sortRequests(list, sortMode) {
   const sorted = [...list]
   if (sortMode === 'date_asc') sorted.sort((a, b) => a.date_from.localeCompare(b.date_from))
@@ -58,33 +63,6 @@ function sortRequests(list, sortMode) {
   else if (sortMode === 'status') sorted.sort((a, b) => (STATUS_SORT_ORDER[a.status] ?? 9) - (STATUS_SORT_ORDER[b.status] ?? 9))
   else sorted.sort((a, b) => b.date_from.localeCompare(a.date_from)) // date_desc, the default — matches the query's own order
   return sorted
-}
-
-// "DD-MM-YYYY" from a YYYY-MM-DD date string.
-function formatDMY(dateStr) {
-  return dateStr ? dateStr.split('-').reverse().join('-') : '—'
-}
-
-// "DD-MM-YYYY at HH:MM" from a full timestamp — same template as the
-// pending-registration review page's "Registered X at Y" line and the
-// Requests queue's own "received" line.
-function formatDateTime(isoStr) {
-  if (!isoStr) return null
-  return `${isoStr.slice(0, 10).split('-').reverse().join('-')} at ${isoStr.slice(11, 16)}`
-}
-
-function totalCalendarDays(lr) {
-  return datesInRange(lr.date_from, lr.date_to).length
-}
-
-// The days that actually count against the leave balance — for annual
-// leave that's the requester-entered annual_leave_days (a padding weekend
-// in the range doesn't count against it, see isValidAnnualLeaveDays);
-// every other leave type has no such distinction, so its full calendar-day
-// span is what's taken.
-function totalLeaveDays(lr) {
-  if (lr.leave_type === 'annual' && lr.annual_leave_days != null) return lr.annual_leave_days
-  return totalCalendarDays(lr)
 }
 
 function categoryLabel(lr) {
@@ -169,6 +147,7 @@ export default function LeaveListView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortMode, setSortMode] = useState('date_desc')
+  const [view, setView] = useState('matrix')
   // Every filter dimension but q is a Set of selected values — empty means
   // "All" for that dimension (see FilterPanel.jsx).
   const [filters, setFilters] = useState({
@@ -182,7 +161,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])
@@ -271,6 +250,14 @@ export default function LeaveListView() {
 
   return (
     <div>
+      <div className="mb-3 flex justify-end">
+        <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
+      </div>
+
+      {view === 'matrix' && <LeaveMatrix requests={requests} />}
+
+      {view === 'table' && (
+      <>
       {/* Mobile toolbar */}
       <div className="flex items-center gap-2 md:hidden">
         <div className="min-w-0 flex-1">
@@ -393,6 +380,8 @@ export default function LeaveListView() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </div>
   )

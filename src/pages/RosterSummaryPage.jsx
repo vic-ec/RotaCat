@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronLeft, RefreshCw, Search, ArrowUpDown, CircleX } from 'lucide-react'
+import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
 import DateStepper from '../components/DateStepper'
-import ClearableInput from '../components/ClearableInput'
-import FilterPanel from '../components/FilterPanel'
-import { QuickSelectButton } from '../components/Toolbar'
+import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -202,36 +200,26 @@ export default function RosterSummaryPage() {
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="w-80 flex-shrink-0">
-            <ClearableInput
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name…"
-              className="input-field"
-              clearLabel="Clear search"
-              icon={<Search className="h-4 w-4" />}
-            />
-          </div>
-          <QuickSelectButton
-            icon={<ArrowUpDown className="h-4 w-4" />}
-            label="Sort"
-            value={sortMode}
-            onChange={setSortMode}
-            options={[
+        {/* Category and Contract type as independent multi-select facets
+            (replacing the old always-visible category chip row); name
+            search covers what would otherwise be a "name" facet here. */}
+        <Toolbar
+          className=""
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search by name…"
+          sortFacets={[{
+            key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
+            value: sortMode, onChange: setSortMode,
+            options: [
               { value: 'category-asc', label: 'MO → Registrar → Intern' },
               { value: 'category-desc', label: 'Intern → Registrar → MO' },
               { value: 'name-asc', label: 'Name (A–Z)' },
               { value: 'name-desc', label: 'Name (Z–A)' },
-            ]}
-            isActive={sortMode !== 'category-asc'}
-          />
-          {/* Category and Contract type as independent multi-select facets
-              (replacing the old always-visible category chip row); name
-              search above covers what would otherwise be a "name" facet
-              here. */}
-          <FilterPanel groups={[
+            ],
+            isActive: sortMode !== 'category-asc',
+          }]}
+          filterGroups={[
             {
               key: 'category', label: 'Category',
               options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
@@ -242,24 +230,11 @@ export default function RosterSummaryPage() {
               options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
               selected: selectedContractTypes, onChange: setSelectedContractTypes,
             },
-          ]} />
-          {/* Standalone clear-all — matches Toolbar.jsx's own clear-all
-              button exactly (icon, sizing, hover/active fills), positioned
-              outside the Filter trigger itself rather than swapping its icon
-              in place, which read as "click the Filter button to clear"
-              (misleading, since clicking it opens the popover either way). */}
-          {filtersActive && (
-            <button
-              type="button"
-              onClick={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
-              aria-label="Clear all filters"
-              title="Clear all filters"
-              className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-            >
-              <CircleX className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+          ]}
+          mobileMode="inline"
+          active={filtersActive}
+          onClearAll={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
+        />
       </div>
 
       <button

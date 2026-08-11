@@ -6,8 +6,7 @@ import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileA
 import ClearableInput from '../components/ClearableInput'
 import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
-import { ToolbarFacet } from '../components/Toolbar'
-import CompactToolbarRow from '../components/CompactToolbarRow'
+import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import FilterPanel from '../components/FilterPanel'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
@@ -1003,86 +1002,62 @@ export default function StaffListPage() {
         )}
 
         {tab === 'pending' && (() => {
-          const sortFacet = {
-            icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: pendingSortDirection, onChange: setPendingSortDirection,
             options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
             isActive: pendingSortDirection !== 'asc',
-          }
-          const filterFacet = {
-            icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+          }]
+          const filterFacets = [{
+            key: 'filter', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
             value: pendingRoleFilter, onChange: setPendingRoleFilter,
             options: [{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
             isActive: pendingRoleFilter !== 'all',
-          }
+          }]
           const clearActive = Boolean(pendingSearchQuery) || pendingRoleFilter !== 'all'
           const onClearAll = () => { setPendingSearchQuery(''); setPendingRoleFilter('all') }
           return (
-            <>
-              <CompactToolbarRow
-                className={isAdmin ? 'mt-2' : ''}
-                searchValue={pendingSearchQuery}
-                onSearchChange={setPendingSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-              <CompactToolbarRow
-                desktop
-                className={isAdmin ? 'md:mt-2' : ''}
-                searchValue={pendingSearchQuery}
-                onSearchChange={setPendingSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-            </>
+            <Toolbar
+              className={isAdmin ? 'mt-2' : ''}
+              searchValue={pendingSearchQuery}
+              onSearchChange={setPendingSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={sortFacets}
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
           )
         })()}
 
         {tab === 'requests' && (() => {
-          const sortFacet = {
-            icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: requestsSortDirection, onChange: setRequestsSortDirection,
             options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
             isActive: requestsSortDirection !== 'asc',
-          }
-          const filterFacet = {
-            icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+          }]
+          const filterFacets = [{
+            key: 'filter', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
             value: requestsRoleFilter, onChange: setRequestsRoleFilter,
             options: [{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
             isActive: requestsRoleFilter !== 'all',
-          }
+          }]
           const clearActive = Boolean(requestsSearchQuery) || requestsRoleFilter !== 'all'
           const onClearAll = () => { setRequestsSearchQuery(''); setRequestsRoleFilter('all') }
           return (
-            <>
-              <CompactToolbarRow
-                className={isAdmin ? 'mt-2' : ''}
-                searchValue={requestsSearchQuery}
-                onSearchChange={setRequestsSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-              <CompactToolbarRow
-                desktop
-                className={isAdmin ? 'md:mt-2' : ''}
-                searchValue={requestsSearchQuery}
-                onSearchChange={setRequestsSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-            </>
+            <Toolbar
+              className={isAdmin ? 'mt-2' : ''}
+              searchValue={requestsSearchQuery}
+              onSearchChange={setRequestsSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={sortFacets}
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
           )
         })()}
       </div>

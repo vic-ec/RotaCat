@@ -212,22 +212,32 @@ function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
 // below `sm` — for a caller (WeekendPlannerView's month view) where search
 // and Filter must always share one row without wrapping or overflowing,
 // on both the true-mobile block and the md:flex desktop/tablet block.
+//
+// `className`: overrides the root's own spacing (`mb-4` by default) — for a
+// caller embedding this inline as one flex item within a larger shared row
+// (WeekendPlannerView's desktop toolbar, alongside its DateStepper nav
+// cluster) rather than as its own standalone block, where the built-in
+// bottom margin would just add uneven space against row siblings that don't
+// carry one.
 export default function Toolbar({
   searchValue, onSearchChange, searchPlaceholder,
   sortFacets = [], filterFacets = [],
   active = false, onClearAll,
   mobileSheetTitle = 'Filters',
   compact = false,
+  className = 'mb-4',
 }) {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const facets = [...sortFacets, ...filterFacets]
 
   return (
-    <div className="mb-4">
-      {/* Desktop / tablet row — search fixed at 320px (or shrinkable, in
-          compact mode), facets + clear trailing */}
+    <div className={className}>
+      {/* Desktop / tablet row — search fixed at 320px (or shrinkable up to
+          that same 320px, in compact mode — shrinks to fit a narrower row
+          without ever ballooning past it just because the row has room),
+          facets + clear trailing */}
       <div className="hidden flex-nowrap items-center gap-2 md:flex">
-        <div className={compact ? 'min-w-0 flex-1' : 'w-80 flex-shrink-0'}>
+        <div className={compact ? 'min-w-0 max-w-xs flex-1' : 'w-80 flex-shrink-0'}>
           <ClearableInput
             type="text"
             value={searchValue}

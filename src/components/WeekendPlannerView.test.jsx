@@ -125,16 +125,19 @@ async function desktop() {
 // Filter is now the shared Toolbar's single-select quick-pill facet (see
 // Toolbar.jsx's ToolbarFacet) — collapsed behind one "Filter" trigger
 // rather than always-visible chips, so picking an option is a two-step
-// open-then-pick. Toolbar renders outside the mobile/desktop testid-scoped
-// sections (it's shared, not duplicated per breakpoint), so this queries
-// `screen` directly rather than the `view` passed in.
-async function pickFilter(user, label) {
-  await user.click(screen.getByRole('button', { name: 'Filter' }))
+// open-then-pick. Toolbar is now rendered once per viewport (its own row on
+// mobile, merged into the nav row on desktop — see WeekendPlannerView's
+// renderToolbar), so the trigger itself needs scoping to `view` the same as
+// every other duplicated-per-viewport control; the popped-open option list
+// is a portal straight onto document.body regardless, so that half still
+// queries `screen` directly.
+async function pickFilter(view, user, label) {
+  await user.click(view.getByRole('button', { name: 'Filter' }))
   await user.click(await screen.findByRole('button', { name: label }))
 }
 
 async function showAll(view, user) {
-  await pickFilter(user, 'All weekends')
+  await pickFilter(view, user, 'All weekends')
 }
 
 // Bulk Copy/Clear month+quarter now live behind desktop's "More Actions"
@@ -196,10 +199,11 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       // Toolbar's mobile trigger is named "Filters" (its default
-      // mobileSheetTitle) — distinct from the desktop facet's "Filter", so
-      // this unambiguously targets the true-mobile block even though
-      // Toolbar itself renders outside the weekend-mobile testid section.
-      const filterButton = screen.getByRole('button', { name: 'Filters' })
+      // mobileSheetTitle) — distinct from the desktop facet's "Filter". Now
+      // that Toolbar itself is rendered once per viewport (mobile's own row
+      // here, desktop's merged into its nav row), this still needs scoping
+      // to `view` like everything else duplicated per viewport.
+      const filterButton = view.getByRole('button', { name: 'Filters' })
       expect(within(filterButton).queryByText('Filters')).not.toBeInTheDocument() // icon only — name comes from aria-label, no visible text child
       expect(filterButton.className).toContain('w-[30px]')
 
@@ -246,7 +250,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      await user.click(view.getByRole('button', { name: 'Filter' }))
       const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
       expect(chips.map(c => c.textContent)).toEqual(['My weekends', 'My requests', 'All weekends'])
       expect(screen.getByRole('button', { name: 'My weekends' })).toHaveClass('bg-accent')
@@ -369,7 +373,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await pickFilter(user, 'Needs planning')
+      await pickFilter(view, user, 'Needs planning')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument()
       expect(view.getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
@@ -381,7 +385,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      await user.click(view.getByRole('button', { name: 'Filter' }))
       const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
       expect(chips.map(c => c.textContent)).toEqual(['All weekends', 'My weekends', 'My requests', 'Needs planning'])
     })
@@ -392,7 +396,7 @@ describe('WeekendPlannerView', () => {
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
-      await user.click(screen.getByRole('button', { name: 'Filter' }))
+      await user.click(view.getByRole('button', { name: 'Filter' }))
       expect(screen.getByRole('button', { name: 'All weekends' })).toHaveClass('bg-accent')
       expect(screen.getByRole('button', { name: 'My weekends' })).not.toHaveClass('bg-accent')
     })
@@ -410,7 +414,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      await pickFilter(user, 'My weekends')
+      await pickFilter(view, user, 'My weekends')
 
       expect(view.getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument() // p1 assigned
       expect(view.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument() // nobody assigned
@@ -422,7 +426,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await pickFilter(user, 'My requests')
+      await pickFilter(view, user, 'My requests')
       const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
       expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
@@ -966,12 +970,42 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      const filterButton = screen.getByRole('button', { name: 'Filter' })
+      const filterButton = view.getByRole('button', { name: 'Filter' })
       const label = within(filterButton).getByText('Filter')
       expect(label.className).toBe('hidden')
 
       const row = filterButton.closest('div.md\\:flex')
       expect(row.className).toContain('flex-nowrap')
+    })
+
+    it('desktop: search+filter share one row with the month nav/More Actions/Legend cluster, and the search field is width-capped rather than stretching full width', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+
+      // Regression: search+filter used to render as their own row above the
+      // nav row, with nothing tying them together — the search field, alone
+      // in its row, stretched across nearly the full table width. Now
+      // they're one flex row (justify-between), so the month-nav button and
+      // the search input should share the same immediate row ancestor.
+      // The Filter trigger's own `.md\\:flex` row (the desktop, not mobile,
+      // half of Toolbar) is where the desktop-facing search input lives —
+      // scoped this way since the placeholder text alone would otherwise
+      // also match Toolbar's own internal mobile-half input.
+      const monthButton = view.getByRole('button', { name: 'August 2026' })
+      const desktopFilterButton = view.getByRole('button', { name: 'Filter' })
+      const searchInput = desktopFilterButton.closest('div.md\\:flex').querySelector('input[placeholder="Search by surname…"]')
+      const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
+
+      const row = monthButton.closest('div.justify-between')
+      expect(row).not.toBeNull()
+      expect(row.contains(searchInput)).toBe(true)
+      expect(row.contains(moreActionsButton)).toBe(true)
+
+      // Capped rather than free to fill the whole row (max-w-xs, from
+      // Toolbar's own compact desktop styling).
+      expect(searchInput.closest('div.max-w-xs')).not.toBeNull()
     })
 
     it('desktop: the Legend trigger next to More Actions opens a sheet with "How it works" as its footer', async () => {

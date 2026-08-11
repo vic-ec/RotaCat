@@ -1349,22 +1349,31 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }
 
   const defaultFilter = isAdmin || isClerk ? 'all' : 'mine'
-  const toolbar = (
-    <Toolbar
-      compact
-      searchValue={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search by surname…"
-      filterFacets={[{
-        key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
-        value: filter, onChange: setFilter,
-        options: filters.map(f => ({ value: f.key, label: f.label })),
-        isActive: filter !== defaultFilter,
-      }]}
-      active={Boolean(searchQuery) || filter !== defaultFilter}
-      onClearAll={() => { setSearchQuery(''); setFilter(defaultFilter) }}
-    />
-  )
+  // A function, not a single element — mobile keeps this as its own
+  // standalone row (default `mb-4` spacing), while desktop instead embeds
+  // it as one flex item inline with the nav row below (`className=""`, its
+  // own margin would just misalign against nav-row siblings that don't
+  // carry one) — two different layouts sharing the same underlying search/
+  // filter state, not two different controls.
+  function renderToolbar(className) {
+    return (
+      <Toolbar
+        compact
+        className={className}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by surname…"
+        filterFacets={[{
+          key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
+          value: filter, onChange: setFilter,
+          options: filters.map(f => ({ value: f.key, label: f.label })),
+          isActive: filter !== defaultFilter,
+        }]}
+        active={Boolean(searchQuery) || filter !== defaultFilter}
+        onClearAll={() => { setSearchQuery(''); setFilter(defaultFilter) }}
+      />
+    )
+  }
 
   return (
     <div>
@@ -1406,10 +1415,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             </div>
           )}
 
-          <div className="mt-4">{toolbar}</div>
-
           {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
+            <div className="mt-4">{renderToolbar('mb-4')}</div>
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -1580,6 +1588,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {/* ── Desktop: weekend-first summary table + inspector (see file-level comment for rationale) ── */}
           <div className="hidden lg:block" data-testid="weekend-desktop">
+            {/* One toolbar row, not two accidental ones: nav cluster (Overview,
+                month stepper, Today, More Actions, Legend) on the left,
+                search+filter on the right — previously the search/filter row
+                sat entirely above this one, unconnected, with nothing tying
+                the two together and the search field free to stretch across
+                nearly the full table width for lack of any sibling to share
+                the row with. `justify-between` only does anything useful
+                once there are genuinely two flex children here, which is why
+                this merge (not just a shared wrapper) is what actually fixes
+                it. */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
               {renderMonthNav(isAdmin && (
                 <div className="flex items-center gap-3">
@@ -1594,6 +1612,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
                 </div>
               ))}
+              <div className="min-w-0">{renderToolbar('')}</div>
             </div>
 
             <div className="mt-4 flex items-start gap-4">

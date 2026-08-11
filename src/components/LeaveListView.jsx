@@ -12,6 +12,7 @@ import { ToolbarFacet } from './Toolbar'
 import FilterPanel from './FilterPanel'
 import ViewToggle from './ViewToggle'
 import LeaveMatrix from './LeaveMatrix'
+import TeamLeaveMobile from './TeamLeaveMobile'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -250,6 +251,14 @@ export default function LeaveListView() {
 
   return (
     <div>
+      {/* Below lg, Team Leave becomes the mobile awareness/lookup experience;
+          the dense matrix/table stay the wide-screen coordination views. Both
+          render from the same fetched `requests` — no second fetch. */}
+      <div className="lg:hidden">
+        <TeamLeaveMobile requests={requests} />
+      </div>
+
+      <div className="hidden lg:block">
       <div className="mb-3 flex justify-end">
         <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
       </div>
@@ -383,6 +392,7 @@ export default function LeaveListView() {
       )}
       </>
       )}
+      </div>
     </div>
   )
 }

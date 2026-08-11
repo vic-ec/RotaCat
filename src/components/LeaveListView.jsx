@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, ArrowUpDown, CircleX, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
+import { ArrowUpDown, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { LEAVE_TYPE_LABELS, formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays } from '../lib/leaveMatrix'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import ClearableInput from './ClearableInput'
-import { ToolbarFacet } from './Toolbar'
-import FilterPanel from './FilterPanel'
+import Toolbar from './Toolbar'
 import ViewToggle from './ViewToggle'
 import LeaveMatrix from './LeaveMatrix'
 
@@ -258,73 +256,21 @@ export default function LeaveListView() {
 
       {view === 'table' && (
       <>
-      {/* Mobile toolbar */}
-      <div className="flex items-center gap-2 md:hidden">
-        <div className="min-w-0 flex-1">
-          <ClearableInput
-            type="text"
-            value={filters.q}
-            onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-            placeholder="Search by surname or first name…"
-            className="input-field h-[30px] py-1"
-            clearLabel="Clear search"
-            icon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        <ToolbarFacet
-          icon={<ArrowUpDown className="h-4 w-4" />}
-          label="Sort"
-          value={sortMode}
-          onChange={setSortMode}
-          options={SORT_OPTIONS}
-          isActive={sortMode !== 'date_desc'}
-        />
-        <FilterPanel groups={filterGroups} />
-        {filtersActive && (
-          <button
-            onClick={clearAllFilters}
-            aria-label="Clear all filters"
-            title="Clear all filters"
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-          >
-            <CircleX className="h-4 w-4" />
-          </button>
-        )}
-      </div>
-
-      {/* Desktop toolbar — same components, fixed widths so the row never reflows */}
-      <div className="hidden items-center gap-2 md:flex">
-        <div className="w-80 flex-shrink-0">
-          <ClearableInput
-            type="text"
-            value={filters.q}
-            onChange={e => setFilters(f => ({ ...f, q: e.target.value }))}
-            placeholder="Search by surname or first name…"
-            className="input-field h-[30px] py-1"
-            clearLabel="Clear search"
-            icon={<Search className="h-4 w-4" />}
-          />
-        </div>
-        <ToolbarFacet
-          icon={<ArrowUpDown className="h-4 w-4" />}
-          label="Sort"
-          value={sortMode}
-          onChange={setSortMode}
-          options={SORT_OPTIONS}
-          isActive={sortMode !== 'date_desc'}
-        />
-        <FilterPanel groups={filterGroups} />
-        {filtersActive && (
-          <button
-            onClick={clearAllFilters}
-            aria-label="Clear all filters"
-            title="Clear all filters"
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-          >
-            <CircleX className="h-4 w-4" />
-          </button>
-        )}
-      </div>
+      <Toolbar
+        className=""
+        searchValue={filters.q}
+        onSearchChange={q => setFilters(f => ({ ...f, q }))}
+        searchPlaceholder="Search by surname or first name…"
+        sortFacets={[{
+          key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
+          value: sortMode, onChange: setSortMode,
+          options: SORT_OPTIONS, isActive: sortMode !== 'date_desc',
+        }]}
+        filterGroups={filterGroups}
+        mobileMode="inline"
+        active={filtersActive}
+        onClearAll={clearAllFilters}
+      />
 
       {displayedRequests.length === 0 ? (
         <div className="card mt-4 p-10 text-center">

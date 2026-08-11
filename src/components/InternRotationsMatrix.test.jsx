@@ -160,7 +160,10 @@ describe('InternRotationsMatrix', () => {
   it('category filter narrows the visible rows to the chosen category', async () => {
     const user = userEvent.setup()
     renderMatrix()
-    await user.click(screen.getByRole('button', { name: 'Category' }))
+    // Toolbar mounts both its desktop and mobile rows in the DOM at once
+    // (CSS, not JS, picks which one is visible) — jsdom applies no layout,
+    // so both "Category" buttons exist; either fires the same onChange.
+    await user.click(screen.getAllByRole('button', { name: 'Category' })[0])
     await user.click(within(screen.getByRole('menu')).getByRole('button', { name: 'Intern' }))
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
     expect(screen.queryByTitle('Rae Registrar')).not.toBeInTheDocument()

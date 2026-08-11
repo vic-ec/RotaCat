@@ -9,7 +9,7 @@ import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
 import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
-import CompactToolbarRow from './CompactToolbarRow'
+import Toolbar from './Toolbar'
 import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, ROTATION_TYPE_COLOR,
@@ -342,12 +342,12 @@ export default function InternRotationsMatrix({
 
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${MONTH_COL_WIDTH}px)`
 
-  const filterFacet = {
-    icon: <ListFilter className="h-4 w-4" />, label: 'Category',
+  const filterFacets = [{
+    key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
     value: categoryFilter, onChange: setCategoryFilter,
     options: CATEGORY_FILTER_OPTIONS,
     isActive: categoryFilter !== 'all',
-  }
+  }]
   const clearActive = Boolean(search) || categoryFilter !== 'all'
   const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
 
@@ -609,15 +609,15 @@ export default function InternRotationsMatrix({
     return (
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="min-w-0 flex-1">
-          <CompactToolbarRow
-            desktop
+          <Toolbar
             className="mb-3"
             searchValue={search}
             onSearchChange={setSearch}
             searchPlaceholder="Search by doctor name…"
-            filterFacet={filterFacet}
-            trailing={<div className="flex items-center gap-2">{yearNav}{todayButton}{overflowMenu}</div>}
-            clearActive={clearActive}
+            filterFacets={filterFacets}
+            mobileMode="inline"
+            desktopTrailing={<div className="flex items-center gap-2">{yearNav}{todayButton}{overflowMenu}</div>}
+            active={clearActive}
             onClearAll={onClearAll}
           />
 
@@ -741,12 +741,14 @@ export default function InternRotationsMatrix({
       </div>
 
       <div className="sticky top-[46px] z-10 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <CompactToolbarRow
+        <Toolbar
+          className=""
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by doctor name…"
-          filterFacet={filterFacet}
-          clearActive={clearActive}
+          filterFacets={filterFacets}
+          mobileMode="inline"
+          active={clearActive}
           onClearAll={onClearAll}
         />
       </div>

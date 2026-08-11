@@ -188,8 +188,7 @@
     @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
   }
 
-  /* The small square "clear all filters" (×) button next to a toolbar row —
-     shared by Toolbar and CompactToolbarRow, byte-identical in both today. */
+  /* The small square "clear all filters" (×) button next to a Toolbar row. */
   .toolbar-clear-btn {
     @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
            border-accent/25 bg-canvas text-ink-light transition-colors

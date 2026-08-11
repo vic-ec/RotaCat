@@ -87,9 +87,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
-        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          open || isActive ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-        }`}
+        className={`toolbar-pill ${open || isActive ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
       >
         {icon}
         <span className={compact ? 'hidden' : 'hidden sm:inline'}>{label}</span>
@@ -255,7 +253,7 @@ export default function Toolbar({
             onClick={onClearAll}
             aria-label="Clear all filters"
             title="Clear all filters"
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+            className="toolbar-clear-btn"
           >
             <ClearIcon className="h-4 w-4" />
           </button>

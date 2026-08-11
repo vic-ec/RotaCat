@@ -171,4 +171,28 @@
   .label-text {
     @apply mb-1.5 block text-sm font-medium text-ink-light;
   }
+
+  /* Toolbar row's quick-select/filter trigger shape (ToolbarFacet,
+     FilterPanel's own trigger) — same 30px height family as the .btn-*
+     buttons above, but a lighter/bordered-only rest state suited to sitting
+     in a row of several of these at once rather than a single CTA. */
+  .toolbar-pill {
+    @apply flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border
+           border-accent/25 px-3 text-sm font-medium transition-colors
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .toolbar-pill-active {
+    @apply bg-accent text-white;
+  }
+  .toolbar-pill-idle {
+    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
+  }
+
+  /* The small square "clear all filters" (×) button next to a toolbar row —
+     shared by Toolbar and CompactToolbarRow, byte-identical in both today. */
+  .toolbar-clear-btn {
+    @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
+           border-accent/25 bg-canvas text-ink-light transition-colors
+           hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white;
+  }
 }

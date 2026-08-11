@@ -53,7 +53,7 @@ export default function CompactToolbarRow({
           onClick={onClearAll}
           aria-label="Clear all filters"
           title="Clear all filters"
-          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
+          className="toolbar-clear-btn"
         >
           <CircleX className="h-4 w-4" />
         </button>

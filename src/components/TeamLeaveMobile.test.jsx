@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import TeamLeaveMobile from './TeamLeaveMobile'
-import { todayStr, addDays, formatWeekdayDate } from '../lib/dateRange'
+import { todayStr, addDays, formatWeekdayDate, formatWeekdayDateShort } from '../lib/dateRange'
 import { weekStart } from '../lib/teamLeaveMobile'
 
 // Fixtures are anchored to the real "today"/current week so the Week and Month
@@ -24,9 +24,12 @@ const requests = [
 ]
 
 describe('TeamLeaveMobile', () => {
+  beforeEach(() => localStorage.clear()) // view choice is persisted; reset per test
+
   it('defaults to Week and shows who is on leave today', () => {
     render(<TeamLeaveMobile requests={requests} />)
-    expect(screen.getByText(/On leave today/)).toBeInTheDocument()
+    // Title carries the DDD, dd MMM YYYY date (e.g. "On leave today · Wed, 12 Aug 2026")
+    expect(screen.getByText(content => content.includes('On leave today') && content.includes(formatWeekdayDateShort(today)))).toBeInTheDocument()
     expect(screen.getByText('Bo Carter')).toBeInTheDocument()
     // Evans is next week, not in the current week's agenda
     expect(screen.queryByText('Di Evans')).toBeNull()

@@ -39,7 +39,7 @@ export default function TeamLeaveMonthView({ requests, year, month, onSelectLeav
               // Same footprint as the Annual planner's mobile day cell
               // (MonthWorkspace's MobileDayCell): min-h-[64px], pt-[23px], and
               // the date number pinned top-left out of the flex flow.
-              className={`relative flex min-h-[64px] flex-col items-center rounded border border-slate-line bg-canvas-raised pt-[23px] text-xs hover:bg-canvas-sunken ${isToday ? 'ring-1 ring-accent' : ''}`}
+              className={`relative flex min-h-[64px] flex-col items-center rounded border border-slate-line bg-canvas-raised pt-[23px] text-xs transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken ${isToday ? 'ring-1 ring-accent' : ''}`}
             >
               <span className="absolute left-1.5 top-1 font-bold text-ink">{Number(date.slice(-2))}</span>
               {count > 0 && (

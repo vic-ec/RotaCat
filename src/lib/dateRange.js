@@ -52,6 +52,7 @@ export function dayOfWeek(dateStr) {
 }
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // "2026-08-10" -> "Monday, 10 Aug 2026" — the single-date display format
@@ -60,6 +61,13 @@ export const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug
 export function formatWeekdayDate(dateStr) {
   const d = parseLocalDate(dateStr)
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
+}
+
+// "2026-08-10" -> "Mon, 10 Aug 2026" — the abbreviated-weekday variant, for
+// compact single-date headers (e.g. the mobile Team Leave "On leave" title).
+export function formatWeekdayDateShort(dateStr) {
+  const d = parseLocalDate(dateStr)
+  return `${WEEKDAY_ABBR[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
 }
 
 // "2026-08-15" -> "15 Aug"; "2026-08-15" to "2026-08-20" -> "15–20 Aug"; or

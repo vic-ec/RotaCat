@@ -57,6 +57,9 @@ const VIEW_OPTIONS = [
   { key: 'table', label: 'Table', icon: Table2 },
 ]
 
+// Persist the desktop Matrix/Table choice so it survives a reopen/tab switch.
+const DESKTOP_VIEW_KEY = 'rotacat:leaveTeamDesktopView'
+
 function sortRequests(list, sortMode) {
   const sorted = [...list]
   if (sortMode === 'date_asc') sorted.sort((a, b) => a.date_from.localeCompare(b.date_from))
@@ -148,7 +151,15 @@ export default function LeaveListView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortMode, setSortMode] = useState('date_desc')
-  const [view, setView] = useState('matrix')
+  const [view, setView] = useState(() => {
+    try {
+      const stored = localStorage.getItem(DESKTOP_VIEW_KEY)
+      return stored === 'table' || stored === 'matrix' ? stored : 'matrix'
+    } catch { return 'matrix' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(DESKTOP_VIEW_KEY, view) } catch { /* ignore */ }
+  }, [view])
   // Every filter dimension but q is a Set of selected values — empty means
   // "All" for that dimension (see FilterPanel.jsx).
   const [filters, setFilters] = useState({

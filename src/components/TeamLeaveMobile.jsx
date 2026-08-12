@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarRange, CalendarDays, Users, Search } from 'lucide-react'
 import ViewToggle from './ViewToggle'
 import FilterPanel from './FilterPanel'
@@ -31,6 +31,12 @@ const CATEGORY_OPTIONS = [
 
 const EMPTY_FILTERS = { leaveType: new Set(), status: new Set(), category: new Set() }
 
+// Persist the chosen view so reopening the app (or switching tabs and back)
+// returns to it rather than snapping back to the default — same convention as
+// RosterDashboardPage's rosterView.
+const VIEW_STORAGE_KEY = 'rotacat:teamLeaveView'
+const VIEW_KEYS = ['week', 'month', 'people']
+
 // The mobile Team Leave surface (rendered below `lg` by LeaveListView; the
 // year matrix/table stay the wide-screen coordination views). A Week / Month /
 // People switch over an awareness-and-lookup experience, with on-demand
@@ -38,7 +44,15 @@ const EMPTY_FILTERS = { leaveType: new Set(), status: new Set(), category: new S
 // `requests` the desktop views use, so there's no second fetch.
 export default function TeamLeaveMobile({ requests }) {
   const today = todayStr()
-  const [view, setView] = useState('week')
+  const [view, setView] = useState(() => {
+    try {
+      const stored = localStorage.getItem(VIEW_STORAGE_KEY)
+      return VIEW_KEYS.includes(stored) ? stored : 'week'
+    } catch { return 'week' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_STORAGE_KEY, view) } catch { /* ignore */ }
+  }, [view])
   const [weekAnchor, setWeekAnchor] = useState(today)
   const [monthYear, setMonthYear] = useState(Number(today.slice(0, 4)))
   const [monthMonth, setMonthMonth] = useState(Number(today.slice(5, 7)))

@@ -1,7 +1,6 @@
 import TeamLeavePersonRow from './TeamLeavePersonRow'
-import { todayStr, formatWeekdayDate } from '../lib/dateRange'
+import { todayStr, formatWeekdayDate, formatWeekdayDateShort } from '../lib/dateRange'
 import { weekStart, buildWeekAgenda } from '../lib/teamLeaveMobile'
-import { formatDMY } from '../lib/leaveMatrix'
 
 // The default mobile view: a chronological, summarised agenda for the selected
 // week. An "On leave" section anchored to today (or the week's start when
@@ -18,7 +17,7 @@ export default function TeamLeaveWeekView({ requests, weekAnchor, onSelectLeave 
       <section>
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-            {anchorIsToday ? 'On leave today' : 'On leave'} · {formatDMY(anchor)}
+            {anchorIsToday ? 'On leave today' : 'On leave'} · {formatWeekdayDateShort(anchor)}
           </h3>
           {onLeave.length > 0 && (
             <span className="text-xs text-ink-muted">{onLeave.length} {onLeave.length === 1 ? 'person' : 'people'}</span>

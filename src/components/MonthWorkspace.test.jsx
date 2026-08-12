@@ -205,7 +205,9 @@ describe('MonthWorkspace', () => {
   })
 
   it('toolbar: prev/next/Today/Legend all match the 30px-tall btn-secondary treatment, and the arrow buttons are exactly 30x30', () => {
-    renderWorkspace()
+    // DateStepper hides Today while already on the current month — a
+    // non-current month keeps it visible so this can assert its styling.
+    renderWorkspace({ month: 9 })
     const prevMonth = screen.getByRole('button', { name: 'Previous month' })
     const nextMonth = screen.getByRole('button', { name: 'Next month' })
     const todayButton = screen.getByRole('button', { name: 'Today' })

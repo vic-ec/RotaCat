@@ -49,7 +49,7 @@ describe('TeamLeaveMobile', () => {
     expect(screen.getByText('Bo Carter')).toBeInTheDocument()
     expect(screen.getByText('Di Evans')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByPlaceholderText(/Search staff/), { target: { value: 'evans' } })
+    fireEvent.change(screen.getByPlaceholderText('Search name'), { target: { value: 'evans' } })
     expect(screen.queryByText('Bo Carter')).toBeNull()
 
     fireEvent.click(screen.getByText('Di Evans'))

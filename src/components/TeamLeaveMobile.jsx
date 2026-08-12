@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { CalendarRange, CalendarDays, Users } from 'lucide-react'
+import { CalendarRange, CalendarDays, Users, Search } from 'lucide-react'
 import ViewToggle from './ViewToggle'
 import FilterPanel from './FilterPanel'
+import ClearableInput from './ClearableInput'
 import Modal from './Modal'
 import TeamLeaveDateNavigator from './TeamLeaveDateNavigator'
 import TeamLeaveWeekView from './TeamLeaveWeekView'
@@ -42,18 +43,28 @@ export default function TeamLeaveMobile({ requests }) {
   const [monthYear, setMonthYear] = useState(Number(today.slice(0, 4)))
   const [monthMonth, setMonthMonth] = useState(Number(today.slice(5, 7)))
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [q, setQ] = useState('')
   const [detail, setDetail] = useState(null) // a selected leave request
 
-  const filtered = useMemo(() => requests.filter(r => {
-    if (r.status !== 'approved' && r.status !== 'pending') return false
-    if (filters.status.size && !filters.status.has(r.status)) return false
-    if (filters.leaveType.size && !filters.leaveType.has(leaveTypeGroupKey(r.leave_type))) return false
-    if (filters.category.size) {
-      const col = r.profiles?.category ? columnForLeaveCategory(r.profiles.category, r.profiles.contract_type) : null
-      if (!col || !filters.category.has(col)) return false
-    }
-    return true
-  }), [requests, filters])
+  // Name search + the filter facets apply across all three views (the same
+  // filtered set feeds Week, Month, and People).
+  const filtered = useMemo(() => {
+    const nameQ = q.trim().toLowerCase()
+    return requests.filter(r => {
+      if (r.status !== 'approved' && r.status !== 'pending') return false
+      if (nameQ) {
+        const full = `${r.profiles?.surname || ''} ${r.profiles?.name || ''}`.toLowerCase()
+        if (!full.includes(nameQ)) return false
+      }
+      if (filters.status.size && !filters.status.has(r.status)) return false
+      if (filters.leaveType.size && !filters.leaveType.has(leaveTypeGroupKey(r.leave_type))) return false
+      if (filters.category.size) {
+        const col = r.profiles?.category ? columnForLeaveCategory(r.profiles.category, r.profiles.contract_type) : null
+        if (!col || !filters.category.has(col)) return false
+      }
+      return true
+    })
+  }, [requests, filters, q])
 
   const setDim = (key, next) => setFilters(f => ({ ...f, [key]: next }))
   const filterGroups = [
@@ -78,7 +89,18 @@ export default function TeamLeaveMobile({ requests }) {
     <div>
       <div className="flex items-center gap-2">
         <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
-        <div className="ml-auto"><FilterPanel groups={filterGroups} /></div>
+        <div className="min-w-0 flex-1">
+          <ClearableInput
+            type="text"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search name"
+            className="input-field h-[30px] py-1"
+            clearLabel="Clear search"
+            icon={<Search className="h-4 w-4" />}
+          />
+        </div>
+        <FilterPanel groups={filterGroups} />
       </div>
 
       {chips.length > 0 && (

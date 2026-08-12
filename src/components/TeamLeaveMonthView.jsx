@@ -36,9 +36,12 @@ export default function TeamLeaveMonthView({ requests, year, month, onSelectLeav
               type="button"
               onClick={() => setSelectedDate(date)}
               aria-label={`${formatWeekdayDate(date)} — ${count} ${count === 1 ? 'person' : 'people'} away`}
-              className={`flex min-h-[52px] flex-col items-center justify-start gap-1 rounded border border-slate-line bg-canvas-raised pt-1.5 text-xs hover:bg-canvas-sunken ${isToday ? 'ring-1 ring-accent' : ''}`}
+              // Same footprint as the Annual planner's mobile day cell
+              // (MonthWorkspace's MobileDayCell): min-h-[64px], pt-[23px], and
+              // the date number pinned top-left out of the flex flow.
+              className={`relative flex min-h-[64px] flex-col items-center rounded border border-slate-line bg-canvas-raised pt-[23px] text-xs hover:bg-canvas-sunken ${isToday ? 'ring-1 ring-accent' : ''}`}
             >
-              <span className="text-ink">{Number(date.slice(-2))}</span>
+              <span className="absolute left-1.5 top-1 font-bold text-ink">{Number(date.slice(-2))}</span>
               {count > 0 && (
                 <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-tint px-1 text-[11px] font-semibold text-accent">{count}</span>
               )}

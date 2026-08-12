@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
 import Modal from './Modal'
-import ClearableInput from './ClearableInput'
 import ProfileAvatar, { StatusBadge } from './ProfileAvatar'
 import SectionLabel from './SectionLabel'
 import TeamLeavePersonRow from './TeamLeavePersonRow'
@@ -50,37 +48,20 @@ function PersonRow({ person, onOpen }) {
 // next leave. Tapping a person opens a sheet of all their leave; tapping one of
 // those opens its full detail.
 export default function TeamLeavePeopleView({ requests, onSelectLeave }) {
-  const [q, setQ] = useState('')
   const [sheetPerson, setSheetPerson] = useState(null)
   const today = todayStr()
   const people = useMemo(() => buildPeopleLeave(requests, today), [requests, today])
 
-  const filtered = people.filter(p => {
-    const s = q.trim().toLowerCase()
-    if (!s) return true
-    return `${p.doctor.surname || ''} ${p.doctor.name || ''}`.toLowerCase().includes(s)
-  })
-
   const groups = CATEGORY_GROUPS
-    .map(g => ({ key: g.key, label: g.label, items: filtered.filter(p => groupKeyForDoctor(p.doctor) === g.key) }))
+    .map(g => ({ key: g.key, label: g.label, items: people.filter(p => groupKeyForDoctor(p.doctor) === g.key) }))
     .filter(g => g.items.length > 0)
 
   return (
     <div className="mt-4">
-      <ClearableInput
-        type="text"
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        placeholder="Search staff by name…"
-        className="input-field h-[34px] py-1"
-        clearLabel="Clear search"
-        icon={<Search className="h-4 w-4" />}
-      />
-
       {groups.length === 0 ? (
-        <p className="mt-4 text-sm text-ink-muted">No one matches that search.</p>
+        <p className="text-sm text-ink-muted">No matching staff.</p>
       ) : (
-        <div className="mt-3 space-y-4">
+        <div className="space-y-4">
           {groups.map(group => (
             <div key={group.key}>
               <SectionLabel>{group.label}</SectionLabel>

@@ -56,6 +56,17 @@ export default function DateStepper({
 
   const label = unit === 'year' ? String(year) : `${monthsForYear(year)[month - 1].label} ${year}`
 
+  // Today only means anything once you've actually navigated away from it —
+  // showing it while already looking at the current period is a reset
+  // button with nothing to reset. `showToday` (caller-controlled) decides
+  // whether Today is offered at all here; this decides whether it's visible
+  // right now, once it is. Faded rather than unmounted so the transition is
+  // an actual fade-in, not a layout-shifting pop.
+  const now = new Date()
+  const isCurrentPeriod = unit === 'year'
+    ? year === now.getFullYear()
+    : year === now.getFullYear() && month === now.getMonth() + 1
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
@@ -88,7 +99,17 @@ export default function DateStepper({
         →
       </button>
       {showToday && (
-        <button type="button" onClick={goToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+        <button
+          type="button"
+          onClick={goToday}
+          tabIndex={isCurrentPeriod ? -1 : 0}
+          aria-hidden={isCurrentPeriod || undefined}
+          className={`btn-secondary h-[30px] px-2 text-xs transition-opacity duration-200 ${
+            isCurrentPeriod ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+        >
+          Today
+        </button>
       )}
       {children}
       {jumpOpen && (

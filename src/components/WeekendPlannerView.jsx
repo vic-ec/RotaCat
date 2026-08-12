@@ -1362,7 +1362,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         className={className}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search by surname…"
+        searchPlaceholder="Search name…"
         filterFacets={[{
           key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
           value: filter, onChange: setFilter,
@@ -1477,12 +1477,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 {isAdmin && (
                   <PageActionsMenu
                     items={weekendMenuItems}
-                    trigger={onClick => (
+                    trigger={(onClick, open) => (
                       <button
                         type="button"
                         onClick={onClick}
                         aria-label="More actions"
-                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+                        aria-expanded={open}
+                        className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
                       >
                         <EllipsisVertical className="h-4 w-4" />
                       </button>
@@ -1603,8 +1604,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 <div className="flex items-center gap-3">
                   <PageActionsMenu
                     items={weekendMenuItems}
-                    trigger={onClick => (
-                      <button type="button" onClick={onClick} className="btn-secondary flex items-center gap-1.5 text-sm">
+                    trigger={(onClick, open) => (
+                      <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
                         <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
                       </button>
                     )}

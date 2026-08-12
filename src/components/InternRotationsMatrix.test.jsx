@@ -183,6 +183,28 @@ describe('InternRotationsMatrix', () => {
     }))
     expect(onSelectDoctor).toHaveBeenCalledWith('cosmo-1')
   })
+
+  it('Today is hidden while already browsing the current year', () => {
+    renderMatrix() // year: 2027, matches the pinned system date (15 Jun 2027)
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+  })
+
+  it('Today appears once browsing a different year, and jumps back to the current one', async () => {
+    const user = userEvent.setup()
+    const onYearChange = vi.fn()
+    renderMatrix({ year: 2026, onYearChange })
+    await user.click(screen.getByRole('button', { name: 'Today' }))
+    expect(onYearChange).toHaveBeenCalledWith(2027)
+  })
+
+  it('the More actions kebab uses standard bordered icon-button styling, with an active state while open', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const kebab = screen.getByRole('button', { name: 'More actions' })
+    expect(kebab).toHaveClass('icon-btn', 'icon-btn-idle')
+    await user.click(kebab)
+    expect(kebab).toHaveClass('icon-btn-active')
+  })
 })
 
 describe('InternRotationsMatrix — mobile layout', () => {
@@ -222,5 +244,24 @@ describe('InternRotationsMatrix — mobile layout', () => {
     renderMatrix()
     await user.click(screen.getByRole('button', { name: 'Add doctor' }))
     expect(screen.getByText(/Assign doctor/)).toBeInTheDocument()
+  })
+
+  it('search box and filter share one row with the year selector and Legend, positioned between them', () => {
+    renderMatrix()
+    const yearLabel = screen.getByText('2027')
+    // Toolbar mounts both its own internal desktop/mobile rows regardless
+    // of viewport (jsdom applies no layout) — same reasoning as the
+    // category filter test above; either instance proves the same DOM order.
+    const search = screen.getAllByPlaceholderText('Search name…')[0]
+    const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
+
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    expect(yearLabel.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    expect(search.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    const row = yearLabel.closest('.sticky')
+    expect(row.contains(search)).toBe(true)
+    expect(row.contains(legend)).toBe(true)
   })
 })

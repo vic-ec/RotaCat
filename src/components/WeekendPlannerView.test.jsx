@@ -763,7 +763,7 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
       await view.findByText('Sat 15 - Sun 16 Aug 2026')
 
-      await user.type(screen.getAllByPlaceholderText('Search by surname…')[0], 'Anderson')
+      await user.type(screen.getAllByPlaceholderText('Search name…')[0], 'Anderson')
 
       const table = within(view.getByRole('table'))
       expect(table.getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
@@ -995,7 +995,7 @@ describe('WeekendPlannerView', () => {
       // also match Toolbar's own internal mobile-half input.
       const monthButton = view.getByRole('button', { name: 'August 2026' })
       const desktopFilterButton = view.getByRole('button', { name: 'Filter' })
-      const searchInput = desktopFilterButton.closest('div.md\\:flex').querySelector('input[placeholder="Search by surname…"]')
+      const searchInput = desktopFilterButton.closest('div.md\\:flex').querySelector('input[placeholder="Search name…"]')
       const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
 
       const row = monthButton.closest('div.justify-between')

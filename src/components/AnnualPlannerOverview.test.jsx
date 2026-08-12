@@ -151,6 +151,35 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
+  it('the Selected month panel has its own chevrons for stepping through months without touching the year selector above', async () => {
+    const user = userEvent.setup()
+    mockAuth = { isAdmin: true, isClerk: false }
+    // year 2020 (not "today"'s real year) so selectedMonth deterministically
+    // starts at January, regardless of whatever month this suite runs in.
+    renderOverview({ myCategory: 'MO', year: 2020 })
+
+    const panel = screen.getByTestId('annual-inspector')
+    expect(within(panel).getByText('January 2020')).toBeInTheDocument()
+
+    await user.click(within(panel).getByRole('button', { name: 'Next month' }))
+    expect(within(panel).getByText('February 2020')).toBeInTheDocument()
+
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
+  it('stepping the Selected month panel past a year boundary rolls the year via onYearChange', async () => {
+    const user = userEvent.setup()
+    mockAuth = { isAdmin: true, isClerk: false }
+    const onYearChange = vi.fn()
+    renderOverview({ myCategory: 'MO', year: 2020, onYearChange })
+
+    const panel = screen.getByTestId('annual-inspector')
+    await user.click(within(panel).getByRole('button', { name: 'Previous month' }))
+    expect(onYearChange).toHaveBeenCalledWith(2019)
+
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
   it('the All/My leave/Pending/Capacity issues filter switch is gone entirely, for every role — the view is always "all"', () => {
     renderOverview({ myCategory: 'MO' })
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()

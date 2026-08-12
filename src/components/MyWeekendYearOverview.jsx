@@ -3,6 +3,7 @@ import { ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday } from '../lib/weekendPlanner'
+import DateStepper from './DateStepper'
 
 // A genuinely different read of the same weekend_planner_entries +
 // weekend_exception leave_requests data WeekendYearOverview.jsx uses — this
@@ -57,12 +58,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">My weekends</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={() => onYearChange(year - 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous year">←</button>
-          <span className="font-display text-base font-semibold text-ink">{year}</span>
-          <button type="button" onClick={() => onYearChange(year + 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next year">→</button>
-          <button type="button" onClick={() => onYearChange(Number(today.slice(0, 4)))} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
-        </div>
+        <DateStepper unit="year" year={year} onChange={onYearChange} />
       </div>
 
       {/* ── Legend ── */}

@@ -64,6 +64,16 @@ function renderPage(initialEntries = ['/']) {
   return render(<AnnualLeavePlanner />, { wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter> })
 }
 
+// Scopes month-card queries to the grid, excluding the inspector's own
+// DateStepper (its label is also "<Month> <year>", and a card's own
+// accessible name isn't just the bare month either — its summary line
+// ("2 pressure days · 1 pending", "Quiet", …) is part of it too). Async
+// (findByTestId, not getByTestId) so it doubles as the "wait for the async
+// fetch to resolve and the grid to mount" step every test already needed.
+async function grid() {
+  return within(await screen.findByTestId('annual-year-grid'))
+}
+
 describe('AnnualLeavePlanner', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
@@ -76,26 +86,28 @@ describe('AnnualLeavePlanner', () => {
 
   it('renders all 12 months and defaults the selection to the current month (August)', async () => {
     renderPage()
-    expect(await screen.findByRole('button', { name: /January/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /December/ })).toBeInTheDocument()
+    const g = await grid()
+    expect(g.getByRole('button', { name: /^January/ })).toBeInTheDocument()
+    expect(g.getByRole('button', { name: /^December/ })).toBeInTheDocument()
 
-    const augustCard = screen.getByRole('button', { name: /August/ })
+    const augustCard = g.getByRole('button', { name: /^August/ })
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /January/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(g.getByRole('button', { name: /^January/ })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('shows the pressure/pending summary line on the affected month card', async () => {
     renderPage()
-    const augustCard = await screen.findByRole('button', { name: /August/ })
+    const g = await grid()
+    const augustCard = g.getByRole('button', { name: /^August/ })
     expect(within(augustCard).getByText('2 pressure days · 1 pending')).toBeInTheDocument()
 
-    const januaryCard = screen.getByRole('button', { name: /January/ })
+    const januaryCard = g.getByRole('button', { name: /^January/ })
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
   })
 
   it('inspector defaults to August, showing "Leave during" the pressure date range and who is on it', async () => {
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
 
     expect(screen.getByText('Selected month')).toBeInTheDocument()
     expect(screen.getByText('August 2026')).toBeInTheDocument()
@@ -107,7 +119,7 @@ describe('AnnualLeavePlanner', () => {
 
   it('shows a combined "X of 3 slots taken" capacity breakdown in "Leave Slot Utilization", not a per-category one', async () => {
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
     const inspector = within(screen.getByTestId('annual-inspector'))
     expect(inspector.getByText('Leave Slot Utilization')).toBeInTheDocument()
 
@@ -123,7 +135,7 @@ describe('AnnualLeavePlanner', () => {
   it('tapping a name in the date-range list reveals their full leave dates', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
 
     expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
     await user.click(screen.getByText('Anderson'))
@@ -135,7 +147,7 @@ describe('AnnualLeavePlanner', () => {
 
   it('shows a right-aligned Approved/Pending status pill for each name in the "Leave during" list', async () => {
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
     // Anderson + Botha, both approved on 12-13 Aug.
     expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
@@ -143,7 +155,7 @@ describe('AnnualLeavePlanner', () => {
   it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
     mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-10', name: "Women's Day" }], error: null }
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
 
     expect(within(screen.getByTestId('annual-inspector')).getByText('1 days')).toBeInTheDocument()
     expect(screen.getByTitle("Women's Day")).toBeInTheDocument()
@@ -151,7 +163,7 @@ describe('AnnualLeavePlanner', () => {
 
   it('no longer shows a surname search input or a Year/Month toggle in the toolbar', async () => {
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
     expect(screen.queryByLabelText('Search by surname')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Year' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Month' })).not.toBeInTheDocument()
@@ -160,23 +172,23 @@ describe('AnnualLeavePlanner', () => {
   it('clicking a quiet month updates the inspector accordingly', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    const g = await grid()
 
-    await user.click(screen.getByRole('button', { name: /January/ }))
+    await user.click(g.getByRole('button', { name: /^January/ }))
     expect(screen.getByText('January 2026')).toBeInTheDocument()
     expect(screen.getByText('No capacity pressure this month.')).toBeInTheDocument()
   })
 
   it('"View requests" links to the Requests planner tab', async () => {
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
     expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
   })
 
   it('"Open month workspace" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
 
     await user.click(screen.getByRole('button', { name: /Open month workspace/ }))
     expect(screen.getByRole('button', { name: '← Overview' })).toBeInTheDocument()
@@ -202,7 +214,7 @@ describe('AnnualLeavePlanner', () => {
   it('the Legend sheet\'s "How it works" footer shows the concurrency-cap detail, closable via the × button', async () => {
     const user = userEvent.setup()
     renderPage()
-    await screen.findByRole('button', { name: /August/ })
+    await grid()
 
     expect(screen.queryByText(/Never more than 3 doctors on leave at a time/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Legend' }))

@@ -246,20 +246,28 @@ describe('InternRotationsMatrix — mobile layout', () => {
     expect(screen.getByText(/Assign doctor/)).toBeInTheDocument()
   })
 
-  it('search box and filter share one row with the year selector and Legend, positioned between them', () => {
+  it('the year selector gets its own row below the search+filter/Legend/kebab row, left-aligned', () => {
     renderMatrix()
-    const yearLabel = screen.getByText('2027')
     // Toolbar mounts both its own internal desktop/mobile rows regardless
     // of viewport (jsdom applies no layout) — same reasoning as the
     // category filter test above; either instance proves the same DOM order.
     const search = screen.getAllByPlaceholderText('Search name…')[0]
     const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
+    const yearLabel = screen.getByText('2027')
 
-    expect(yearLabel.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Search comes before Legend (search left, filter/Legend/kebab right).
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
     expect(search.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // The year selector follows the whole toolbar row, on its own line below.
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    expect(legend.compareDocumentPosition(yearLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
-    const row = yearLabel.closest('.sticky')
-    expect(row.contains(search)).toBe(true)
-    expect(row.contains(legend)).toBe(true)
+    const sticky = yearLabel.closest('.sticky')
+    expect(sticky.contains(search)).toBe(true)
+    expect(sticky.contains(legend)).toBe(true)
+    // Year selector isn't inside the same Toolbar component instance as
+    // search/filter — it's a sibling row underneath, not nested within it.
+    const toolbarRow = search.closest('.md\\:hidden, .md\\:flex')
+    expect(toolbarRow.contains(yearLabel)).toBe(false)
   })
 })

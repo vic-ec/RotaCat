@@ -705,39 +705,34 @@ export default function InternRotationsMatrix({
   // ── Mobile ───────────────────────────────────────────────────────────
   return (
     <div>
-      {/* One row, not two — year nav leads, search+filter sit between it
-          and the Legend/More-actions cluster, all sharing the row instead
-          of search+filter getting a whole separate sticky strip below. */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {dateNav}
-          <div className="min-w-0 flex-1">
-            <Toolbar
-              className=""
-              compact
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder="Search name…"
-              filterFacets={filterFacets}
-              mobileMode="inline"
-              active={clearActive}
-              onClearAll={onClearAll}
-              trailing={
-                <div className="flex items-center gap-1.5">
-                  <LegendSheet
-                    title="Legend"
-                    trigger={onClick => (
-                      <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
-                    )}
-                  >
-                    {legendSwatches}
-                  </LegendSheet>
-                  {overflowMenu}
-                </div>
-              }
-            />
-          </div>
-        </div>
+      {/* Two rows: search (left, filling the width) with filter/Legend/
+          kebab trailing on the right; the year selector gets its own row
+          below, left-aligned, rather than sharing a row with the toolbar. */}
+      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-slate-line bg-canvas px-4 py-2">
+        <Toolbar
+          className=""
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search name…"
+          filterFacets={filterFacets}
+          mobileMode="inline"
+          active={clearActive}
+          onClearAll={onClearAll}
+          trailing={
+            <div className="flex items-center gap-1.5">
+              <LegendSheet
+                title="Legend"
+                trigger={onClick => (
+                  <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+                )}
+              >
+                {legendSwatches}
+              </LegendSheet>
+              {overflowMenu}
+            </div>
+          }
+        />
+        {dateNav}
       </div>
 
       <div className="mt-3 space-y-4 pb-20">

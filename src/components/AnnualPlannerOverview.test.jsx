@@ -180,6 +180,20 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
+  it('the Selected month panel label opens a jump-to-month sheet, same as the shared DateStepper elsewhere', async () => {
+    const user = userEvent.setup()
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO', year: 2020 })
+
+    const panel = screen.getByTestId('annual-inspector')
+    await user.click(within(panel).getByRole('button', { name: 'January 2020' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
+    await user.click(sheet.getByRole('button', { name: 'November' }))
+    expect(within(panel).getByText('November 2020')).toBeInTheDocument()
+
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
   it('the All/My leave/Pending/Capacity issues filter switch is gone entirely, for every role — the view is always "all"', () => {
     renderOverview({ myCategory: 'MO' })
     expect(screen.queryByRole('button', { name: 'My leave' })).not.toBeInTheDocument()

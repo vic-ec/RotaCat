@@ -31,15 +31,34 @@ function formatShortDate(dateStr) {
 // already works with.
 export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth }) {
   const today = todayStr()
+  const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
-  const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
+  const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
 
   const months = monthsForYear(year)
   const monthCards = months.map(m => ({ ...m, markers: monthWeekendMarkers(m.year, m.month, byWeekend) }))
   const totals = yearWeekendTotals(year, byWeekend)
 
-  const selectedMonthLabel = months[selectedMonth - 1].label
   const selectedMarkers = monthCards[selectedMonth - 1].markers
+
+  // The page's own Today, not DateStepper's own built-in one (suppressed
+  // below via showToday={false}) — resets both the browsed year AND the
+  // selected month back to today's real ones, since DateStepper's version
+  // only ever knows about the year prop it's bound to.
+  function goToToday() {
+    if (year !== todayYear) onYearChange(todayYear)
+    setSelectedMonth(currentMonth)
+  }
+  const isOnToday = year === todayYear && selectedMonth === currentMonth
+
+  // Selected-month chevrons/jump-sheet: DateStepper itself handles the
+  // Dec/Jan year rollover, calling back with whichever year the stepped-to
+  // month landed in — only forward that to onYearChange when it's actually
+  // different from the year this page is already browsing.
+  function handleSelectedMonthChange(y, m) {
+    if (y !== year) onYearChange(y)
+    setSelectedMonth(m)
+  }
   const selectedStats = {
     fullyPlanned: selectedMarkers.filter(m => m.health === 'green').length,
     partial: selectedMarkers.filter(m => m.health === 'amber').length,
@@ -48,41 +67,45 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   return (
     <div>
-      {/* ── Toolbar ── */}
+      {/* ── Toolbar: year selector, then this page's own Today (resets both
+          year and selected month — DateStepper's own built-in one is
+          suppressed since it only ever knows about `year`), then Legend,
+          all in one cluster on the right. ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
-        <DateStepper unit="year" year={year} onChange={onYearChange} />
-      </div>
-
-      {/* ── Legend: a live-count chip (real year-wide numbers), same
-          pattern as the month view's own MonthLegendTrigger — surfaces
-          "how many gaps right now" without opening anything. ── */}
-      <LegendSheet
-        trigger={onClick => (
-          <button
-            type="button"
-            onClick={onClick}
-            data-testid="weekend-year-legend"
-            className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted hover:text-ink"
+        <div className="flex flex-wrap items-center gap-2">
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
+          {!isOnToday && (
+            <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+          )}
+          <LegendSheet
+            trigger={onClick => (
+              <button
+                type="button"
+                onClick={onClick}
+                data-testid="weekend-year-legend"
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted hover:text-ink"
+              >
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {totals.fullyPlanned} planned</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagAmber" /> {totals.partial} need staff</span>
+                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagRed" /> {totals.empty} empty</span>
+              </button>
+            )}
           >
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {totals.fullyPlanned} planned</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagAmber" /> {totals.partial} need staff</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagRed" /> {totals.empty} empty</span>
-          </button>
-        )}
-      >
-        <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-          {Object.values(HEALTH_STYLE).map(state => (
-            <span key={state.label} className="flex items-center gap-2">
-              <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
-            </span>
-          ))}
+            <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
+              {Object.values(HEALTH_STYLE).map(state => (
+                <span key={state.label} className="flex items-center gap-2">
+                  <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
+                </span>
+              ))}
+            </div>
+          </LegendSheet>
         </div>
-      </LegendSheet>
+      </div>
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
+        <div data-testid="weekend-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
           {monthCards.map(m => (
             <WeekendMonthCard
               key={m.month}
@@ -103,7 +126,9 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <p className="mt-1 text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
+          <div className="mt-1">
+            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+          </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
             <StatRow label="Fully planned" value={selectedStats.fullyPlanned} colorClass="text-success" />

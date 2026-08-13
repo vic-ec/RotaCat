@@ -10,8 +10,11 @@ import { ActionSheet, ActionSheetButton } from './ActionSheet'
 // bulk Copy/Clear actions vs. its single Review log item) — a divider
 // entry is a genuine `>` group break, not just another item boundary
 // (every item already gets ActionSheet's own between-item line).
-// `trigger` is a render-prop (`onClick => ReactNode`), same convention as
-// LegendSheet, so trigger content/styling stays fully caller-owned.
+// `trigger` is a render-prop (`(onClick, open) => ReactNode`), same
+// open-onClick convention as LegendSheet plus the open flag itself so a
+// caller can reflect "this menu is currently open" in the trigger's own
+// styling (e.g. an icon-only kebab button's selected/active state) —
+// trigger content/styling stays fully caller-owned either way.
 export default function PageActionsMenu({ title = 'More actions', items, trigger }) {
   const [open, setOpen] = useState(false)
   if (!items || items.length === 0) return null
@@ -24,7 +27,7 @@ export default function PageActionsMenu({ title = 'More actions', items, trigger
 
   return (
     <>
-      {trigger(() => setOpen(true))}
+      {trigger(() => setOpen(true), open)}
       {open && (
         <ActionSheet title={title} onClose={() => setOpen(false)}>
           {groups.map((group, i) => (

@@ -97,7 +97,7 @@ describe('WeekendYearOverview', () => {
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
-  it('year nav buttons call onYearChange with prev/next/current year', async () => {
+  it('year nav buttons call onYearChange with prev/next year', async () => {
     const user = userEvent.setup()
     const onYearChange = vi.fn()
     renderOverview({ onYearChange })
@@ -106,6 +106,15 @@ describe('WeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR - 1)
     await user.click(screen.getByRole('button', { name: 'Next year' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
+  })
+
+  it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
+    // DateStepper hides Today while already on the current period — seed a
+    // non-current year so it's there to click at all.
+    const user = userEvent.setup()
+    const onYearChange = vi.fn()
+    renderOverview({ year: YEAR - 1, onYearChange })
+
     await user.click(screen.getByRole('button', { name: 'Today' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR)
   })

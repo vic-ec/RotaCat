@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Search, CircleX, List, LayoutGrid } from 'lucide-react'
+import { List, LayoutGrid } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
-import { QuickSelectButton } from '../components/Toolbar'
-import ClearableInput from '../components/ClearableInput'
-import FilterPanel from '../components/FilterPanel'
+import Toolbar from '../components/Toolbar'
 import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
@@ -497,33 +495,18 @@ function RosterToolbar({
   }
 
   return (
-    // flex-wrap (not overflow-x-auto/no-wrap) so a too-narrow row reflows
-    // instead of forcing horizontal scroll: search+Sort+Filter(+Clear all)
-    // are small enough to reliably fit one line even on a narrow phone once
-    // search itself can shrink, so in practice only ViewToggle — last in
-    // DOM order — ever drops to its own row underneath, landing left-
-    // aligned under the search box as a natural consequence of wrapping.
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      <div className="min-w-[120px] max-w-[320px] flex-1">
-        <ClearableInput
-          type="text"
-          value={search}
-          onChange={e => onSearchChange(e.target.value)}
-          placeholder="Search by month or year…"
-          className="input-field"
-          clearLabel="Clear search"
-          icon={<Search className="h-4 w-4" />}
-        />
-      </div>
-      <QuickSelectButton
-        icon={<SortIcon className="h-4 w-4" />}
-        label="Sort"
-        value={sortDir}
-        onChange={onSortDirChange}
-        options={[{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }]}
-        isActive={sortDir !== 'desc'}
-      />
-      <FilterPanel groups={[
+    <Toolbar
+      className="mb-4"
+      searchValue={search}
+      onSearchChange={onSearchChange}
+      searchPlaceholder="Search by month or year…"
+      sortFacets={[{
+        key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
+        value: sortDir, onChange: onSortDirChange,
+        options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
+        isActive: sortDir !== 'desc',
+      }]}
+      filterGroups={[
         {
           key: 'month', label: 'Month',
           options: MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name })),
@@ -534,20 +517,12 @@ function RosterToolbar({
           options: years.map(y => ({ value: String(y), label: String(y) })),
           selected: filterYear, onChange: onFilterYearChange,
         },
-      ]} />
-      {(Boolean(search) || filtersActive) && (
-        <button
-          type="button"
-          onClick={clearAll}
-          aria-label="Clear all filters"
-          title="Clear all filters"
-          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-        >
-          <CircleX className="h-4 w-4" />
-        </button>
-      )}
-      <ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />
-    </div>
+      ]}
+      mobileMode="inline"
+      trailing={<ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />}
+      active={Boolean(search) || filtersActive}
+      onClearAll={clearAll}
+    />
   )
 }
 

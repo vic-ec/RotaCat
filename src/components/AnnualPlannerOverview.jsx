@@ -43,6 +43,21 @@ export default function AnnualPlannerOverview({
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
   const [expandedProfileId, setExpandedProfileId] = useState(null)
 
+  // Selected-month chevrons (in the inspector panel below) — steps one
+  // month at a time, same Dec/Jan rollover as DateStepper's own stepMonth,
+  // rolling `year` itself via onYearChange when it crosses a year boundary
+  // so scrolling past December keeps going into next January instead of
+  // stopping dead at the edge of whichever year the page above happens to
+  // be browsing.
+  function stepSelectedMonth(delta) {
+    let m = selectedMonth + delta
+    let y = year
+    if (m < 1) { m = 12; y -= 1 }
+    else if (m > 12) { m = 1; y += 1 }
+    if (y !== year) onYearChange(y)
+    setSelectedMonth(m)
+  }
+
   // Non-admin mobile view only (see the render below) — which category's
   // capacity the month list/tiles reflect. Defaults to the viewer's own
   // column; falls back to the blended "all" reading for a category with no
@@ -209,7 +224,25 @@ export default function AnnualPlannerOverview({
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             <Pin className="h-3.5 w-3.5" /> Selected month
           </div>
-          <p className="mt-1 text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stepSelectedMonth(-1)}
+              className="btn-secondary h-[26px] w-[26px] flex-shrink-0 p-0 text-xs"
+              aria-label="Previous month"
+            >
+              ←
+            </button>
+            <p className="flex-1 text-center text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
+            <button
+              type="button"
+              onClick={() => stepSelectedMonth(1)}
+              className="btn-secondary h-[26px] w-[26px] flex-shrink-0 p-0 text-xs"
+              aria-label="Next month"
+            >
+              →
+            </button>
+          </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
             <InspectorStat icon={Flag} label="Public holidays" value={`${monthPublicHolidayCount(year, selectedMonth, publicHolidaysByDate)} days`} />

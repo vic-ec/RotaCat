@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  ChevronDown, ChevronLeft, ChevronRight, EllipsisVertical, CircleQuestionMark, ScrollText,
+  ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
   TriangleAlert, X, Plus, ListFilter,
 } from 'lucide-react'
 import SelectMenu from './SelectMenu'
@@ -9,7 +9,8 @@ import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
 import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
-import CompactToolbarRow from './CompactToolbarRow'
+import Toolbar from './Toolbar'
+import DateStepper from './DateStepper'
 import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from '../lib/internRotations'
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, ROTATION_TYPE_COLOR,
@@ -342,12 +343,12 @@ export default function InternRotationsMatrix({
 
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${MONTH_COL_WIDTH}px)`
 
-  const filterFacet = {
-    icon: <ListFilter className="h-4 w-4" />, label: 'Category',
+  const filterFacets = [{
+    key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
     value: categoryFilter, onChange: setCategoryFilter,
     options: CATEGORY_FILTER_OPTIONS,
     isActive: categoryFilter !== 'all',
-  }
+  }]
   const clearActive = Boolean(search) || categoryFilter !== 'all'
   const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
 
@@ -367,44 +368,24 @@ export default function InternRotationsMatrix({
     </div>
   )
 
-  const yearNav = (
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={() => onYearChange(year - 1)}
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
-        aria-label="Previous year"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <span className="text-sm font-semibold text-ink">{year}</span>
-      <button
-        type="button"
-        onClick={() => onYearChange(year + 1)}
-        className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
-        aria-label="Next year"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  )
-
-  const todayButton = year !== currentYear && (
-    <button type="button" onClick={() => onYearChange(currentYear)} className="btn-secondary h-[30px] px-2 text-xs">
-      Today
-    </button>
-  )
+  // Year nav + Today — the shared DateStepper rather than a hand-rolled
+  // pair of buttons, so this page gets the same standard button styling
+  // and the same "Today only shows once you've paged away" behaviour as
+  // every other planner for free, instead of yet another bespoke copy of
+  // both.
+  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} />
 
   const overflowMenu = (
     <PageActionsMenu
       title="Intern rotations"
       items={menuItems}
-      trigger={onClick => (
+      trigger={(onClick, open) => (
         <button
           type="button"
           onClick={onClick}
           aria-label="More actions"
-          className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded text-ink-light hover:bg-canvas-sunken"
+          aria-expanded={open}
+          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
         >
           <EllipsisVertical className="h-4 w-4" />
         </button>
@@ -609,15 +590,15 @@ export default function InternRotationsMatrix({
     return (
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="min-w-0 flex-1">
-          <CompactToolbarRow
-            desktop
+          <Toolbar
             className="mb-3"
             searchValue={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Search by doctor name…"
-            filterFacet={filterFacet}
-            trailing={<div className="flex items-center gap-2">{yearNav}{todayButton}{overflowMenu}</div>}
-            clearActive={clearActive}
+            searchPlaceholder="Search name…"
+            filterFacets={filterFacets}
+            mobileMode="inline"
+            desktopTrailing={<div className="flex items-center gap-2">{dateNav}{overflowMenu}</div>}
+            active={clearActive}
             onClearAll={onClearAll}
           />
 
@@ -724,31 +705,39 @@ export default function InternRotationsMatrix({
   // ── Mobile ───────────────────────────────────────────────────────────
   return (
     <div>
-      <div className="sticky top-0 z-20 -mx-4 flex items-center justify-between gap-2 border-b border-slate-line bg-canvas px-4 py-2">
-        {yearNav}
-        <div className="flex items-center gap-1.5">
-          {todayButton}
-          <LegendSheet
-            title="Legend"
-            trigger={onClick => (
-              <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
-            )}
-          >
-            {legendSwatches}
-          </LegendSheet>
-          {overflowMenu}
+      {/* One row, not two — year nav leads, search+filter sit between it
+          and the Legend/More-actions cluster, all sharing the row instead
+          of search+filter getting a whole separate sticky strip below. */}
+      <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {dateNav}
+          <div className="min-w-0 flex-1">
+            <Toolbar
+              className=""
+              compact
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search name…"
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+              trailing={
+                <div className="flex items-center gap-1.5">
+                  <LegendSheet
+                    title="Legend"
+                    trigger={onClick => (
+                      <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+                    )}
+                  >
+                    {legendSwatches}
+                  </LegendSheet>
+                  {overflowMenu}
+                </div>
+              }
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="sticky top-[46px] z-10 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <CompactToolbarRow
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search by doctor name…"
-          filterFacet={filterFacet}
-          clearActive={clearActive}
-          onClearAll={onClearAll}
-        />
       </div>
 
       <div className="mt-3 space-y-4 pb-20">

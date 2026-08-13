@@ -3,12 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
-import ClearableInput from '../components/ClearableInput'
 import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
-import { ToolbarFacet } from '../components/Toolbar'
-import CompactToolbarRow from '../components/CompactToolbarRow'
-import FilterPanel from '../components/FilterPanel'
+import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
 import BulkActionBar from '../components/BulkActionBar'
@@ -914,175 +911,80 @@ export default function StaffListPage() {
         )}
 
         {tab === 'accounts' && (
-          <>
-            {/* Mobile toolbar — Search hugs to fill the remaining width;
-                Sort/Filter show icon + label (ToolbarFacet/FilterPanel),
-                Clear-all is icon-only, all pinned to the right. Shares
-                Sort/Filter state with the desktop toolbar below (only the
-                visible copy is ever interactive), so picking anything here
-                behaves identically. */}
-            <div className={`flex items-center gap-2 md:hidden ${isAdmin ? 'mt-2' : ''}`}>
-              <div className="min-w-0 flex-1">
-                <ClearableInput
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              </div>
-
-              <ToolbarFacet
-                icon={<ZapIcon className="h-4 w-4" />}
-                label="Sort"
-                value={sortFacetValue}
-                onChange={handleSortFacetChange}
-                options={sortFacetOptions}
-                isActive={sortMode !== 'category'}
-              />
-
-              <FilterPanel groups={filterGroups} />
-
-              {accountFiltersActive && (
-                <button
-                  onClick={clearAllFilters}
-                  aria-label="Clear all filters"
-                  title="Clear all filters"
-                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-                >
-                  <CircleX className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Desktop toolbar — Search, Sort, and Filter all at fixed,
-                stable widths (not flex-1/hugging) so the row never reflows;
-                Sort/Filter always show their icon + label. Clear-all is
-                icon-only at the fixed 30x30 size on both breakpoints, and
-                (per docs/design/layout-spec.md §5) only rendered once a
-                search/filter is actually active. Search is 320px (w-80),
-                the spec's standardized desktop search width. */}
-            <div className={`hidden items-center gap-2 md:flex ${isAdmin ? 'md:mt-2' : ''}`}>
-              <div className="w-80 flex-shrink-0">
-                <ClearableInput
-                  type="text"
-                  value={accountFilters.q}
-                  onChange={e => setAccountFilters(f => ({ ...f, q: e.target.value }))}
-                  placeholder="Surname or first name…"
-                  className="input-field h-[30px] py-1"
-                  clearLabel="Clear search"
-                  icon={<SearchIcon className="h-4 w-4" />}
-                />
-              </div>
-
-              <ToolbarFacet
-                icon={<ZapIcon className="h-4 w-4" />}
-                label="Sort"
-                value={sortFacetValue}
-                onChange={handleSortFacetChange}
-                options={sortFacetOptions}
-                isActive={sortMode !== 'category'}
-              />
-
-              <FilterPanel groups={filterGroups} />
-
-              {accountFiltersActive && (
-                <button
-                  onClick={clearAllFilters}
-                  aria-label="Clear all filters"
-                  title="Clear all filters"
-                  className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border border-accent/25 bg-canvas text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white"
-                >
-                  <CircleX className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </>
+          <Toolbar
+            className={isAdmin ? 'mt-2' : ''}
+            searchValue={accountFilters.q}
+            onSearchChange={q => setAccountFilters(f => ({ ...f, q }))}
+            searchPlaceholder="Surname or first name…"
+            sortFacets={[{
+              key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+              value: sortFacetValue, onChange: handleSortFacetChange,
+              options: sortFacetOptions, isActive: sortMode !== 'category',
+            }]}
+            filterGroups={filterGroups}
+            mobileMode="inline"
+            active={accountFiltersActive}
+            onClearAll={clearAllFilters}
+          />
         )}
 
         {tab === 'pending' && (() => {
-          const sortFacet = {
-            icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: pendingSortDirection, onChange: setPendingSortDirection,
             options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
             isActive: pendingSortDirection !== 'asc',
-          }
-          const filterFacet = {
-            icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+          }]
+          const filterFacets = [{
+            key: 'filter', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
             value: pendingRoleFilter, onChange: setPendingRoleFilter,
             options: [{ value: 'all', label: 'All roles' }, ...pendingRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
             isActive: pendingRoleFilter !== 'all',
-          }
+          }]
           const clearActive = Boolean(pendingSearchQuery) || pendingRoleFilter !== 'all'
           const onClearAll = () => { setPendingSearchQuery(''); setPendingRoleFilter('all') }
           return (
-            <>
-              <CompactToolbarRow
-                className={isAdmin ? 'mt-2' : ''}
-                searchValue={pendingSearchQuery}
-                onSearchChange={setPendingSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-              <CompactToolbarRow
-                desktop
-                className={isAdmin ? 'md:mt-2' : ''}
-                searchValue={pendingSearchQuery}
-                onSearchChange={setPendingSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-            </>
+            <Toolbar
+              className={isAdmin ? 'mt-2' : ''}
+              searchValue={pendingSearchQuery}
+              onSearchChange={setPendingSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={sortFacets}
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
           )
         })()}
 
         {tab === 'requests' && (() => {
-          const sortFacet = {
-            icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: requestsSortDirection, onChange: setRequestsSortDirection,
             options: [{ value: 'asc', label: 'Oldest first' }, { value: 'desc', label: 'Newest first' }],
             isActive: requestsSortDirection !== 'asc',
-          }
-          const filterFacet = {
-            icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
+          }]
+          const filterFacets = [{
+            key: 'filter', icon: <ListFilterIcon className="h-4 w-4" />, label: 'Filter',
             value: requestsRoleFilter, onChange: setRequestsRoleFilter,
             options: [{ value: 'all', label: 'All roles' }, ...requestsRoleOptions.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))],
             isActive: requestsRoleFilter !== 'all',
-          }
+          }]
           const clearActive = Boolean(requestsSearchQuery) || requestsRoleFilter !== 'all'
           const onClearAll = () => { setRequestsSearchQuery(''); setRequestsRoleFilter('all') }
           return (
-            <>
-              <CompactToolbarRow
-                className={isAdmin ? 'mt-2' : ''}
-                searchValue={requestsSearchQuery}
-                onSearchChange={setRequestsSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-              <CompactToolbarRow
-                desktop
-                className={isAdmin ? 'md:mt-2' : ''}
-                searchValue={requestsSearchQuery}
-                onSearchChange={setRequestsSearchQuery}
-                searchPlaceholder="Search by surname or first name…"
-                sortFacet={sortFacet}
-                filterFacet={filterFacet}
-                clearActive={clearActive}
-                onClearAll={onClearAll}
-              />
-            </>
+            <Toolbar
+              className={isAdmin ? 'mt-2' : ''}
+              searchValue={requestsSearchQuery}
+              onSearchChange={setRequestsSearchQuery}
+              searchPlaceholder="Search by surname or first name…"
+              sortFacets={sortFacets}
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
           )
         })()}
       </div>
@@ -1819,15 +1721,6 @@ function KebabIcon(props) {
       <circle cx="12" cy="5" r="1.75" />
       <circle cx="12" cy="12" r="1.75" />
       <circle cx="12" cy="19" r="1.75" />
-    </svg>
-  )
-}
-
-function SearchIcon(props) {
-  return (
-    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="m21 21-4.3-4.3" />
     </svg>
   )
 }

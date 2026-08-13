@@ -116,19 +116,26 @@ Use only when it adds navigation info not already available from tabs or the sid
 
 ## 5. Component: Toolbar
 
-Fixed left-to-right order, used identically on every list page:
+Fixed left-to-right order, used identically on every list page — every page's
+search/sort/filter row goes through the one shared `Toolbar` component
+(`src/components/Toolbar.jsx`), not a hand-rolled equivalent:
 
 ```
-[ Search input ] [ Sort ▾ ] [ Filter ▾ ] [ × Clear (conditional) ]
+[ Search input ] [ Sort ▾ ] [ Filter ▾ ] [ desktopTrailing ] [ × Clear (conditional) ] [ trailing ]
 ```
 
 | Element | Spec |
 |---|---|
-| Search input | Fixed width **320px** on desktop. Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
-| Sort | Include on every list with more than ~5 items and a meaningful order (name, date, status). Add to Roster (currently missing). |
-| Filter | Opens a dropdown/panel of filter chips. |
-| Clear (×) | **Only rendered when a search term or filter is active.** Currently always visible on Pending Approvals with nothing to clear — hide by default. |
-| Active filter chips | Render below the toolbar as removable pills when filters are applied. |
+| Search input | Fixed width **320px** on desktop (`compact` prop shrinks this instead, for a row that must never wrap — see below). Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
+| Sort | Include on every list with more than ~5 items and a meaningful order (name, date, status). Passed as `sortFacets` — single-select. |
+| Filter | Two shapes, pick whichever matches the data: `filterFacets` (single-select, one dropdown per facet — e.g. Roster's Sort direction) or `filterGroups` (multi-select, `FilterPanel`-shaped groups behind one `[Filter ▾ (n)]` trigger — e.g. Staff's Role/Category/Status/Admin). Both can be passed together. |
+| Clear (×) | **Only rendered when a search term or filter is active** (`active` prop) — never shown by default. |
+| `trailing` / `desktopTrailing` | An extra control appended after Clear (`trailing`, both breakpoints — e.g. a `ViewToggle`) or before Clear on desktop only (`desktopTrailing` — a nav cluster mobile already renders elsewhere). |
+| Active filter chips | Not currently implemented — filter state is only visible via each facet/FilterPanel's own active-count badge. |
+
+**Mobile behavior** — two modes via `mobileMode`:
+- `"sheet"` (default): Sort/Filter facets collapse into one "Filters" bottom sheet trigger (§15). `filterGroups`, if passed, still renders as its own always-visible `FilterPanel` trigger — it's never swept into the sheet.
+- `"inline"`: every facet renders as its own always-visible button on mobile too, same as desktop — no sheet. This replaced the standalone `CompactToolbarRow` component, which offered only this behavior and has been removed; pass `mobileMode="inline"` on `Toolbar` instead.
 
 ---
 

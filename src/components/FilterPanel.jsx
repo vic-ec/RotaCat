@@ -149,9 +149,7 @@ export default function FilterPanel({ groups, className = '' }) {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Filter"
-        className={`flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border border-accent/25 px-3 text-sm font-medium transition-colors ${
-          open || activeCount > 0 ? 'bg-accent text-white' : 'bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink'
-        } ${className}`}
+        className={`toolbar-pill ${open || activeCount > 0 ? 'toolbar-pill-active' : 'toolbar-pill-idle'} ${className}`}
       >
         <FilterIcon className="h-4 w-4" />
         <span className="hidden sm:inline">Filter</span>

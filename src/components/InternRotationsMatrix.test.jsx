@@ -255,9 +255,7 @@ describe('InternRotationsMatrix — mobile layout', () => {
     const search = screen.getAllByPlaceholderText('Search name…')[0]
     const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
 
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
     expect(yearLabel.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
     expect(search.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const row = yearLabel.closest('.sticky')

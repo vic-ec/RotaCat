@@ -10,6 +10,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 import Toolbar from './Toolbar'
 import ViewToggle from './ViewToggle'
 import LeaveMatrix from './LeaveMatrix'
+import TeamLeaveMobile from './TeamLeaveMobile'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -53,6 +54,9 @@ const VIEW_OPTIONS = [
   { key: 'matrix', label: 'Matrix', icon: LayoutGrid },
   { key: 'table', label: 'Table', icon: Table2 },
 ]
+
+// Persist the desktop Matrix/Table choice so it survives a reopen/tab switch.
+const DESKTOP_VIEW_KEY = 'rotacat:leaveTeamDesktopView'
 
 function sortRequests(list, sortMode) {
   const sorted = [...list]
@@ -145,7 +149,15 @@ export default function LeaveListView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortMode, setSortMode] = useState('date_desc')
-  const [view, setView] = useState('matrix')
+  const [view, setView] = useState(() => {
+    try {
+      const stored = localStorage.getItem(DESKTOP_VIEW_KEY)
+      return stored === 'table' || stored === 'matrix' ? stored : 'matrix'
+    } catch { return 'matrix' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(DESKTOP_VIEW_KEY, view) } catch { /* ignore */ }
+  }, [view])
   // Every filter dimension but q is a Set of selected values — empty means
   // "All" for that dimension (see FilterPanel.jsx).
   const [filters, setFilters] = useState({
@@ -248,6 +260,14 @@ export default function LeaveListView() {
 
   return (
     <div>
+      {/* Below lg, Team Leave becomes the mobile awareness/lookup experience;
+          the dense matrix/table stay the wide-screen coordination views. Both
+          render from the same fetched `requests` — no second fetch. */}
+      <div className="lg:hidden">
+        <TeamLeaveMobile requests={requests} />
+      </div>
+
+      <div className="hidden lg:block">
       <div className="mb-3 flex justify-end">
         <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
       </div>
@@ -329,6 +349,7 @@ export default function LeaveListView() {
       )}
       </>
       )}
+      </div>
     </div>
   )
 }

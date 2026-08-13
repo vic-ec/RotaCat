@@ -59,6 +59,7 @@ describe('LeaveListView — role visibility matrix', () => {
   beforeEach(() => {
     methodCalls.length = 0
     mockData.rows = []
+    localStorage.clear() // the view toggle is now persisted; start each test from the default
   })
 
   it('never issues a role-conditional filter on the query (no client-side substitute for RLS)', async () => {

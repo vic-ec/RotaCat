@@ -63,7 +63,7 @@ export default function LeaveRulesPage() {
           <ul className="list-disc space-y-1 pl-5">
             <li>Courses taken to be specified on leave request. Days taken will count as official working hours/days</li>
             <li>A formal Leave Form must be submitted and approved - Courses done will count as “Special Leave”.</li>
-            <li>Please specify what course you are doing when requesting “Special Leave Days” e.g.: Bottomley (ACLS)</li>
+            <li>Please specify what course you are doing when requesting “Special Leave Days” e.g.: Smith (ACLS)</li>
           </ul>
         </div>
 

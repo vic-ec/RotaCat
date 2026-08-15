@@ -336,8 +336,8 @@ describe('WeekendPlannerView', () => {
       mockResponses['profiles:select'] = {
         data: [
           ...PROFILES,
-          { id: 'p6', name: 'James', surname: 'Naidoo', category: 'Registrar' },
-          { id: 'p7', name: 'Priya', surname: 'Naidoo', category: 'Registrar' },
+          { id: 'p6', name: 'James', surname: 'Nolan', category: 'Registrar' },
+          { id: 'p7', name: 'Priya', surname: 'Nolan', category: 'Registrar' },
         ],
         error: null,
       }
@@ -356,12 +356,12 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const aug15Card = view.getByText('Sat 15 - Sun 16 Aug 2026').closest('.card')
-      // Bare "Naidoo" would be ambiguous between the two — every other
+      // Bare "Nolan" would be ambiguous between the two — every other
       // doctor's surname stays untouched (Anderson, unaffected by this
       // unrelated collision, still shows plain).
-      expect(within(aug15Card).getByText('J. Naidoo')).toBeInTheDocument()
-      expect(within(aug15Card).getByText('P. Naidoo')).toBeInTheDocument()
-      expect(within(aug15Card).queryByText('Naidoo')).not.toBeInTheDocument()
+      expect(within(aug15Card).getByText('J. Nolan')).toBeInTheDocument()
+      expect(within(aug15Card).getByText('P. Nolan')).toBeInTheDocument()
+      expect(within(aug15Card).queryByText('Nolan')).not.toBeInTheDocument()
       const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
       expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
     })

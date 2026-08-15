@@ -235,7 +235,7 @@ export default function RosterGridPage() {
   // Profiles lookup by id
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
 
-  // Same-surname disambiguation ("J. Naidoo" vs "P. Naidoo") for every
+  // Same-surname disambiguation ("J. Nolan" vs "P. Nolan") for every
   // surname-only label on this page — built from the combined shift +
   // Consultant pools so a collision between the two still resolves, even
   // though they're assigned via separate columns/dropdowns.

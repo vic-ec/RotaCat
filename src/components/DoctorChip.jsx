@@ -4,7 +4,7 @@
 // row (e.g. InternRotationsPlanner's timeline view). `displayNames`
 // (buildDoctorDisplayNames' Map<profileId, label>) is optional — pass it
 // whenever the caller's doctor pool might have a same-surname collision, so
-// the label disambiguates ("J. Naidoo") instead of falling back to the bare
+// the label disambiguates ("J. Nolan") instead of falling back to the bare
 // surname.
 export default function DoctorChip({ profile, displayNames, onRemove }) {
   const label = (profile && displayNames?.get(profile.id)) ?? profile?.surname ?? '?'

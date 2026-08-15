@@ -102,7 +102,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
 }
 
 // First name initial, plus one initial per word of the (possibly multi-part)
-// surname — "Liza van Zyl" -> "LVZ", "Carli Du Toit" -> "CDT".
+// surname — "Dana van Wyk" -> "DVW", "Emma De Vries" -> "EDV".
 function computeInitials(profile) {
   const first = profile?.name?.[0] || ''
   const surnameInitials = (profile?.surname || '')

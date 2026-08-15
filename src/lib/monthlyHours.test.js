@@ -5,7 +5,7 @@ const CEILINGS = { full: 246, five_eighths: 118, psych_overtime: 72 }
 
 describe('findHoursWarnings', () => {
   it('flags a doctor already at/over their contract ceiling', () => {
-    const profiles = [{ id: 'p1', name: 'Eveline', surname: 'Baerends', contract_type: 'five_eighths' }]
+    const profiles = [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }]
     const hoursByProfile = new Map([['p1', 122]])
     const warnings = findHoursWarnings({ profiles, hoursByProfile, ceilings: CEILINGS })
     expect(warnings).toHaveLength(1)

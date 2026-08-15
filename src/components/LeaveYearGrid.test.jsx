@@ -19,8 +19,8 @@ function mobileDayGrid(container) {
 
 const LEAVE_BY_DATE = new Map([
   ['2026-08-10', [
-    { profileId: 'doc-1', surname: 'Exford', category: 'MO', status: 'approved' },
-    { profileId: 'doc-2', surname: 'Smit', category: 'Registrar', status: 'pending' },
+    { profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'approved' },
+    { profileId: 'doc-2', surname: 'Stone', category: 'Registrar', status: 'pending' },
   ]],
 ])
 const PH_BY_DATE = new Map([['2026-08-09', "National Woman's Day"]])
@@ -67,9 +67,9 @@ describe('LeaveYearGrid', () => {
     await userEvent.click(dayButton)
 
     const heading = await screen.findByText(/Monday, 2026-08-10/)
-    const sheet = heading.closest('.card') // scoped: "Exford"/"Smit" also appear in the desktop table rendered alongside
-    expect(within(sheet).getByText('Exford')).toBeInTheDocument()
-    expect(within(sheet).getByText('Smit')).toBeInTheDocument()
+    const sheet = heading.closest('.card') // scoped: "Ellis"/"Stone" also appear in the desktop table rendered alongside
+    expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
+    expect(within(sheet).getByText('Stone')).toBeInTheDocument()
 
     await userEvent.click(screen.getByLabelText('Close'))
     expect(screen.queryByText(/Monday, 2026-08-10/)).not.toBeInTheDocument()
@@ -80,7 +80,7 @@ describe('LeaveYearGrid', () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'))
     const leaveByDate = new Map([
       ['2026-08-10', [{
-        profileId: 'doc-1', surname: 'Exford', category: 'MO', status: 'approved',
+        profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'approved',
         dateFrom: '2026-08-08', dateTo: '2026-08-14', leaveType: 'annual', annualLeaveDays: 5,
       }]],
     ])
@@ -112,8 +112,8 @@ describe('LeaveYearGrid', () => {
 
     const heading = await screen.findByText(/Monday, 2026-08-10/)
     const sheet = heading.closest('.card')
-    expect(within(sheet).getByText('Exford')).toBeInTheDocument()
-    expect(screen.queryByText('Smit')).not.toBeInTheDocument() // filtered out of both views entirely, not just this sheet
+    expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
+    expect(screen.queryByText('Stone')).not.toBeInTheDocument() // filtered out of both views entirely, not just this sheet
     vi.useRealTimers()
   })
 

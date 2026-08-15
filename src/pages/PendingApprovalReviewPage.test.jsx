@@ -48,8 +48,8 @@ vi.mock('../lib/supabase', () => ({
 
 const PENDING_PROFILE = {
   id: 'reg-1',
-  name: 'Julian',
-  surname: 'Cosmos',
+  name: 'Jordan',
+  surname: 'Reyes',
   phone: '0821234567',
   role: 'doctor',
   category: '',
@@ -78,7 +78,7 @@ describe('PendingApprovalReviewPage', () => {
     updateCalls.length = 0
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['profiles:select'] = { data: PENDING_PROFILE, error: null }
-    mockResponses['rpc:get_staff_emails'] = { data: [{ id: 'reg-1', email: 'julian.cosmos@rotacat-test.local' }], error: null }
+    mockResponses['rpc:get_staff_emails'] = { data: [{ id: 'reg-1', email: 'jordan.reyes@rotacat-test.local' }], error: null }
     mockResponses['profiles:update'] = { data: null, error: null }
   })
 
@@ -91,14 +91,14 @@ describe('PendingApprovalReviewPage', () => {
     expect(screen.queryByText(/Back to Requests/)).not.toBeInTheDocument()
 
     // Identity: full name + assignment tag, no editable name inputs visible.
-    expect(screen.getAllByText('Julian Cosmos').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Jordan Reyes').length).toBeGreaterThan(0)
     expect(screen.queryByLabelText('First name')).not.toBeInTheDocument()
 
     // Submitted details read-only rows.
     expect(screen.getByText('Full name')).toBeInTheDocument()
     expect(screen.getByText('Mobile')).toBeInTheDocument()
     expect(screen.getByText('Email')).toBeInTheDocument()
-    expect(screen.getByText('julian.cosmos@rotacat-test.local')).toBeInTheDocument()
+    expect(screen.getByText('jordan.reyes@rotacat-test.local')).toBeInTheDocument()
   })
 
   it('"Edit submitted details" reveals separate first-name/surname/mobile inputs', async () => {
@@ -106,11 +106,11 @@ describe('PendingApprovalReviewPage', () => {
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: 'Edit submitted details' }))
-    expect(screen.getByLabelText('First name')).toHaveValue('Julian')
-    expect(screen.getByLabelText('Surname')).toHaveValue('Cosmos')
+    expect(screen.getByLabelText('First name')).toHaveValue('Jordan')
+    expect(screen.getByLabelText('Surname')).toHaveValue('Reyes')
     // Email always stays read-only, even in edit mode.
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
-    expect(screen.getByText('julian.cosmos@rotacat-test.local')).toBeInTheDocument()
+    expect(screen.getByText('jordan.reyes@rotacat-test.local')).toBeInTheDocument()
   })
 
   it('disables Approve with a stated reason until role and category are both set', async () => {
@@ -217,7 +217,7 @@ describe('PendingApprovalReviewPage', () => {
 
     // Routine approval doesn't fire yet — the confirmation step must appear first.
     expect(updateCalls.some(c => c.patch?.is_approved === true)).toBe(false)
-    expect(await screen.findByText(/Julian Cosmos.*administrator access/)).toBeInTheDocument()
+    expect(await screen.findByText(/Jordan Reyes.*administrator access/)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Confirm approval' }))
     await waitFor(() => expect(updateCalls.some(c => c.patch?.is_admin === true)).toBe(true))
@@ -226,8 +226,8 @@ describe('PendingApprovalReviewPage', () => {
   it('flags a possible duplicate account using the already-fetched staff email list, with a link to review it', async () => {
     mockResponses['rpc:get_staff_emails'] = {
       data: [
-        { id: 'reg-1', email: 'julian.cosmos@rotacat-test.local' },
-        { id: 'existing-1', email: 'julian.cosmos@rotacat-test.local' },
+        { id: 'reg-1', email: 'jordan.reyes@rotacat-test.local' },
+        { id: 'existing-1', email: 'jordan.reyes@rotacat-test.local' },
       ],
       error: null,
     }

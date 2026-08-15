@@ -5,7 +5,7 @@ import ClearableInput from './ClearableInput'
 // removal-workflow modal's "swap" step can reuse it as-is. `displayNames`
 // (buildDoctorDisplayNames' Map<profileId, label>) is optional — pass it
 // whenever `profiles` might contain a same-surname collision, so the row
-// label disambiguates ("J. Naidoo") instead of the bare surname.
+// label disambiguates ("J. Nolan") instead of the bare surname.
 export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode }) {
   const filtered = profiles.filter(p =>
     `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())

@@ -622,7 +622,7 @@ describe('resolveEffectiveCategory', () => {
       .toEqual({ category: 'OT_COSMO_Intern', resolved: true })
   })
 
-  // Real case: an Intern (e.g. Carli Morris) with no intern_rotations row
+  // Real case: an Intern with no intern_rotations row
   // at all — falls back to the plain base category, flagged unresolved
   // rather than guessed.
   it('falls back to the base category, unresolved, when no rotation covers the target date', () => {

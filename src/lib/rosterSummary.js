@@ -42,8 +42,8 @@ function emptyRow(profile) {
 // Single per-doctor summary row for a given month, computed live from
 // source tables (no caching, no scheduled recompute — see RosterSummaryPage
 // for the refetch cadence). Excludes role='locum' profiles entirely; a
-// locum-tagged shift covering a normally-contracted doctor (the Bottomley/
-// Baerends case, roster_entries.counts_toward_contract_hours=false on a row
+// locum-tagged shift covering a normally-contracted doctor
+// (roster_entries.counts_toward_contract_hours=false on a row
 // that still has a real profile_id) lands as locumHours on THEIR row
 // instead of a separate locum row. Also excludes Consultant-category
 // profiles — they get their own roster/planner/summary in a future phase,

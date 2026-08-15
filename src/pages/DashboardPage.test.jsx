@@ -72,14 +72,14 @@ describe('DashboardPage', () => {
       ],
       error: null,
     }
-    mockResponses['profiles:select'] = { data: [{ id: 'p1', name: 'Eveline', surname: 'Baerends', contract_type: 'five_eighths' }], error: null }
-    getDashboardHoursWarnings.mockResolvedValue([{ profileId: 'p1', name: 'Eveline', surname: 'Baerends', hours: 122, ceiling: 118 }])
+    mockResponses['profiles:select'] = { data: [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }], error: null }
+    getDashboardHoursWarnings.mockResolvedValue([{ profileId: 'p1', name: 'Nadia', surname: 'Bennett', hours: 122, ceiling: 118 }])
 
     render(<DashboardPage />)
 
     expect(await screen.findByText(/On Leave/)).toBeInTheDocument()
     expect(await screen.findByText(/Later Doctor/)).toBeInTheDocument()
-    expect(await screen.findByText(/Eveline Baerends — 122h rostered \(ceiling: 118h\)/)).toBeInTheDocument()
+    expect(await screen.findByText(/Nadia Bennett — 122h rostered \(ceiling: 118h\)/)).toBeInTheDocument()
     // No client-side profile_id scoping for the admin's team-wide widgets
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)
   })

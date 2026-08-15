@@ -8,10 +8,9 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 
 // Mobile-only floating action menu — replaces the sticky-top search row +
 // inline "More actions" kebab pattern with a single bottom-right expanding
-// trigger (design pass covered in chat, not yet folded into
-// docs/design/layout-spec.md §15 — that section still describes the
-// sticky-top pattern this replaces; needs a follow-up doc edit once this
-// ships on all three pages it's targeting).
+// trigger (see docs/design/layout-spec.md §15's "Toolbar FAB", which
+// documents this as the new standard and keeps the sticky-top pattern only
+// as reference for pages not yet migrated).
 //
 // Deliberately reuses the app's existing sheet machinery rather than a new
 // one-off panel: Filter opens the same `MobileFiltersSheet` Toolbar's own
@@ -24,12 +23,17 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //
 // Desktop (`md:` and up) renders nothing here — every page keeps its
 // existing desktop Toolbar row + inline Legend/More trigger buttons
-// untouched; only mobile chrome changes.
+// untouched; only mobile chrome changes. A page whose "mobile" block runs
+// wider than `md` (e.g. WeekendPlannerView's is `lg:hidden`) therefore has
+// to keep its inline toolbar row alive for the md–lg band — see those
+// pages' own `hidden md:block` wrappers.
 //
 // Props:
 // - search: `{ value, onChange, placeholder }` — always required.
-// - filter: `{ facets, active, onClearAll, sheetTitle }` — omit entirely on
-//   a page with nothing to filter.
+// - filter: `{ facets, groups, active, onClearAll, sheetTitle }` — omit
+//   entirely on a page with nothing to filter. `facets` are Toolbar's
+//   single-select facet descriptors, `groups` its FilterPanel-shaped
+//   multi-select groups; both render inline in the one sheet.
 // - legend: `{ title, children, ruleIntro, ruleBullets }` — same shape
 //   LegendSheet already takes, minus its own `trigger` (this component
 //   supplies that). Omit on a page with no legend.
@@ -56,7 +60,7 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
 
   if (hidden) return null
 
-  const hasFilter = Boolean(filter?.facets?.length)
+  const hasFilter = Boolean(filter?.facets?.length || filter?.groups?.length)
   const hasLegend = Boolean(legend)
   const hasMore = Boolean(moreMenu?.items?.length)
   const hasView = Boolean(cycleView)
@@ -74,13 +78,20 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
       {searchOpen ? (
         <div className="flex w-[calc(100vw-2rem)] max-w-sm items-center gap-1 rounded-full border border-slate-line bg-canvas-raised py-1 pl-3 pr-1 shadow-raised">
           <Search className="h-4 w-4 flex-shrink-0 text-ink-muted" />
-          <ClearableInput
-            autoFocus
-            value={search.value}
-            onChange={e => search.onChange(e.target.value)}
-            placeholder={search.placeholder}
-            className="input-field flex-1 border-none bg-transparent shadow-none focus:ring-0"
-          />
+          {/* ClearableInput wraps its <input> in a positioning div, so the
+              flex sizing has to go on that wrapper — putting it on the
+              input's own className would leave the wrapper at its
+              shrink-to-fit width and strand dead space in the pill. */}
+          <div className="min-w-0 flex-1">
+            <ClearableInput
+              autoFocus
+              value={search.value}
+              onChange={e => search.onChange(e.target.value)}
+              placeholder={search.placeholder}
+              clearLabel="Clear search"
+              className="input-field w-full border-none bg-transparent shadow-none"
+            />
+          </div>
           <button
             type="button"
             onClick={() => setSearchOpen(false)}
@@ -92,11 +103,17 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
         </div>
       ) : (
         <>
+          {/* The stack container stays mounted while collapsed and only its
+              individual buttons drop out — LegendSheet/PageActionsMenu own
+              their open sheet internally, so unmounting the whole stack on
+              collapse (the FAB closes the moment one of them is picked)
+              would tear the just-opened sheet down with it. Empty, the
+              container is zero-sized and invisible. */}
           <div
             ref={stackRef}
             className="absolute bottom-[60px] right-0 flex flex-col-reverse items-center gap-3 [@media(orientation:landscape)]:bottom-0 [@media(orientation:landscape)]:right-[60px] [@media(orientation:landscape)]:flex-row-reverse"
           >
-            {hasView && (
+            {hasView && open && (
               <FabItem
                 icon={nextViewOption().icon}
                 label={`Switch to ${nextViewOption().label}`}
@@ -107,7 +124,7 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
               <PageActionsMenu
                 title={moreMenu.title}
                 items={moreMenu.items}
-                trigger={onClick => (
+                trigger={onClick => open && (
                   <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
                 )}
               />
@@ -117,14 +134,14 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 title={legend.title}
                 ruleIntro={legend.ruleIntro}
                 ruleBullets={legend.ruleBullets}
-                trigger={onClick => (
+                trigger={onClick => open && (
                   <FabItem icon={List} label="Legend" onClick={() => { onClick(); setOpen(false) }} />
                 )}
               >
                 {legend.children}
               </LegendSheet>
             )}
-            {hasFilter && (
+            {hasFilter && open && (
               <FabItem
                 icon={Filter}
                 label={filter.sheetTitle || 'Filter'}
@@ -132,7 +149,7 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 onClick={() => { setFilterSheetOpen(true); setOpen(false) }}
               />
             )}
-            <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />
+            {open && <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />}
           </div>
 
           <button
@@ -151,6 +168,7 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
         <MobileFiltersSheet
           title={filter?.sheetTitle || 'Filters'}
           facets={filter?.facets}
+          groups={filter?.groups}
           active={filter?.active}
           onClearAll={filter?.onClearAll}
           onClose={() => setFilterSheetOpen(false)}

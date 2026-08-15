@@ -10,6 +10,7 @@ import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
 import ViewToggle from '../components/ViewToggle'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import RosterSummaryPage from './RosterSummaryPage'
 
 const ROSTER_VIEW_OPTIONS = [
@@ -494,35 +495,63 @@ function RosterToolbar({
     onFilterYearChange(new Set())
   }
 
+  const sortFacets = [{
+    key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
+    value: sortDir, onChange: onSortDirChange,
+    options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
+    isActive: sortDir !== 'desc',
+  }]
+  const filterGroups = [
+    {
+      key: 'month', label: 'Month',
+      options: MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name })),
+      selected: filterMonth, onChange: onFilterMonthChange,
+    },
+    {
+      key: 'year', label: 'Year',
+      options: years.map(y => ({ value: String(y), label: String(y) })),
+      selected: filterYear, onChange: onFilterYearChange,
+    },
+  ]
+
   return (
-    <Toolbar
-      className="mb-4"
-      searchValue={search}
-      onSearchChange={onSearchChange}
-      searchPlaceholder="Search by month or year…"
-      sortFacets={[{
-        key: 'sort', icon: <SortIcon className="h-4 w-4" />, label: 'Sort',
-        value: sortDir, onChange: onSortDirChange,
-        options: [{ value: 'desc', label: sortLabels.desc }, { value: 'asc', label: sortLabels.asc }],
-        isActive: sortDir !== 'desc',
-      }]}
-      filterGroups={[
-        {
-          key: 'month', label: 'Month',
-          options: MONTH_NAMES.slice(1).map((name, i) => ({ value: String(i + 1), label: name })),
-          selected: filterMonth, onChange: onFilterMonthChange,
-        },
-        {
-          key: 'year', label: 'Year',
-          options: years.map(y => ({ value: String(y), label: String(y) })),
-          selected: filterYear, onChange: onFilterYearChange,
-        },
-      ]}
-      mobileMode="inline"
-      trailing={<ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />}
-      active={Boolean(search) || filtersActive}
-      onClearAll={clearAll}
-    />
+    <>
+      {/* Below `md` this whole row is replaced by the Toolbar FAB (§15);
+          `md:` and up keeps the existing inline row untouched. */}
+      <div className="hidden md:block">
+        <Toolbar
+          className="mb-4"
+          searchValue={search}
+          onSearchChange={onSearchChange}
+          searchPlaceholder="Search by month or year…"
+          sortFacets={sortFacets}
+          filterGroups={filterGroups}
+          mobileMode="inline"
+          trailing={<ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />}
+          active={Boolean(search) || filtersActive}
+          onClearAll={clearAll}
+        />
+      </div>
+      {/* Sort and the Month/Year multi-selects both fold into the FAB's one
+          Filters sheet — the FAB has no inline row left to hang FilterPanel
+          off, and the sheet already combines sort + filter by design.
+          List/Grid becomes a single cycling icon (see cycleView). */}
+      <FloatingActionMenu
+        search={{ value: search, onChange: onSearchChange, placeholder: 'Search by month or year…' }}
+        filter={{
+          facets: sortFacets,
+          groups: filterGroups,
+          active: Boolean(search) || filtersActive,
+          onClearAll: clearAll,
+          sheetTitle: 'Filters',
+        }}
+        cycleView={{
+          value: view,
+          onChange: onViewChange,
+          options: ROSTER_VIEW_OPTIONS.map(o => ({ value: o.key, label: o.label, icon: o.icon })),
+        }}
+      />
+    </>
   )
 }
 

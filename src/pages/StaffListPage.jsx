@@ -9,6 +9,7 @@ import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
 import BulkActionBar from '../components/BulkActionBar'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
@@ -895,23 +896,48 @@ export default function StaffListPage() {
           />
         )}
 
-        {tab === 'accounts' && (
-          <Toolbar
-            className={isAdmin ? 'mt-2' : ''}
-            searchValue={accountFilters.q}
-            onSearchChange={q => setAccountFilters(f => ({ ...f, q }))}
-            searchPlaceholder="Surname or first name…"
-            sortFacets={[{
-              key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
-              value: sortFacetValue, onChange: handleSortFacetChange,
-              options: sortFacetOptions, isActive: sortMode !== 'category',
-            }]}
-            filterGroups={filterGroups}
-            mobileMode="inline"
-            active={accountFiltersActive}
-            onClearAll={clearAllFilters}
-          />
-        )}
+        {tab === 'accounts' && (() => {
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+            value: sortFacetValue, onChange: handleSortFacetChange,
+            options: sortFacetOptions, isActive: sortMode !== 'category',
+          }]
+          const onSearchChange = q => setAccountFilters(f => ({ ...f, q }))
+          return (
+            <>
+              {/* Below `md` this row is replaced by the Toolbar FAB (§15).
+                  The mobile card list's own sticky group labels are offset
+                  against this header's height, so they shrink by the row's
+                  38px (30px control + mt-2) below `md` too — see their
+                  `top-[…]` classes further down. */}
+              <div className="hidden md:block">
+                <Toolbar
+                  className={isAdmin ? 'mt-2' : ''}
+                  searchValue={accountFilters.q}
+                  onSearchChange={onSearchChange}
+                  searchPlaceholder="Surname or first name…"
+                  sortFacets={sortFacets}
+                  filterGroups={filterGroups}
+                  mobileMode="inline"
+                  active={accountFiltersActive}
+                  onClearAll={clearAllFilters}
+                />
+              </div>
+              {/* No `hidden` prop needed — the accounts tab has no
+                  BulkActionBar to collide with (only Pending/Requests do). */}
+              <FloatingActionMenu
+                search={{ value: accountFilters.q, onChange: onSearchChange, placeholder: 'Surname or first name…' }}
+                filter={{
+                  facets: sortFacets,
+                  groups: filterGroups,
+                  active: accountFiltersActive,
+                  onClearAll: clearAllFilters,
+                  sheetTitle: 'Filters',
+                }}
+              />
+            </>
+          )
+        })()}
 
         {tab === 'pending' && (() => {
           const sortFacets = [{
@@ -929,17 +955,33 @@ export default function StaffListPage() {
           const clearActive = Boolean(pendingSearchQuery) || pendingRoleFilter !== 'all'
           const onClearAll = () => { setPendingSearchQuery(''); setPendingRoleFilter('all') }
           return (
-            <Toolbar
-              className={isAdmin ? 'mt-2' : ''}
-              searchValue={pendingSearchQuery}
-              onSearchChange={setPendingSearchQuery}
-              searchPlaceholder="Search by surname or first name…"
-              sortFacets={sortFacets}
-              filterFacets={filterFacets}
-              mobileMode="inline"
-              active={clearActive}
-              onClearAll={onClearAll}
-            />
+            <>
+              <div className="hidden md:block">
+                <Toolbar
+                  className={isAdmin ? 'mt-2' : ''}
+                  searchValue={pendingSearchQuery}
+                  onSearchChange={setPendingSearchQuery}
+                  searchPlaceholder="Search by surname or first name…"
+                  sortFacets={sortFacets}
+                  filterFacets={filterFacets}
+                  mobileMode="inline"
+                  active={clearActive}
+                  onClearAll={onClearAll}
+                />
+              </div>
+              {/* BulkActionBar owns the bottom edge the moment a row is
+                  checked — the two must never be on screen together. */}
+              <FloatingActionMenu
+                hidden={selectedPendingIds.size > 0}
+                search={{ value: pendingSearchQuery, onChange: setPendingSearchQuery, placeholder: 'Search by surname or first name…' }}
+                filter={{
+                  facets: [...sortFacets, ...filterFacets],
+                  active: clearActive,
+                  onClearAll,
+                  sheetTitle: 'Filters',
+                }}
+              />
+            </>
           )
         })()}
 
@@ -959,17 +1001,32 @@ export default function StaffListPage() {
           const clearActive = Boolean(requestsSearchQuery) || requestsRoleFilter !== 'all'
           const onClearAll = () => { setRequestsSearchQuery(''); setRequestsRoleFilter('all') }
           return (
-            <Toolbar
-              className={isAdmin ? 'mt-2' : ''}
-              searchValue={requestsSearchQuery}
-              onSearchChange={setRequestsSearchQuery}
-              searchPlaceholder="Search by surname or first name…"
-              sortFacets={sortFacets}
-              filterFacets={filterFacets}
-              mobileMode="inline"
-              active={clearActive}
-              onClearAll={onClearAll}
-            />
+            <>
+              <div className="hidden md:block">
+                <Toolbar
+                  className={isAdmin ? 'mt-2' : ''}
+                  searchValue={requestsSearchQuery}
+                  onSearchChange={setRequestsSearchQuery}
+                  searchPlaceholder="Search by surname or first name…"
+                  sortFacets={sortFacets}
+                  filterFacets={filterFacets}
+                  mobileMode="inline"
+                  active={clearActive}
+                  onClearAll={onClearAll}
+                />
+              </div>
+              {/* Same collision rule as Pending — see its comment above. */}
+              <FloatingActionMenu
+                hidden={selectedRequestIds.size > 0}
+                search={{ value: requestsSearchQuery, onChange: setRequestsSearchQuery, placeholder: 'Search by surname or first name…' }}
+                filter={{
+                  facets: [...sortFacets, ...filterFacets],
+                  active: clearActive,
+                  onClearAll,
+                  sheetTitle: 'Filters',
+                }}
+              />
+            </>
           )
         })()}
       </div>
@@ -1011,10 +1068,15 @@ export default function StaffListPage() {
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
                       // Offset to clear the sticky header above it — taller
-                      // for admins, who also get the tab row on top of the
-                      // toolbar (see the header's own comment for the maths).
+                      // for admins, who also get the tab row (see the
+                      // header's own comment for the maths). This list is
+                      // `md:hidden`, so these are the below-md heights
+                      // only: the toolbar row moved into the Toolbar FAB
+                      // there, taking its 38px (30px control + mt-2) out of
+                      // the header — 93→55 for admins (8 pt-2 + 35 tabs +
+                      // 12 pb-3), 50→20 for everyone else (8 + 12).
                       className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-[93px]' : 'top-[50px]'
+                        isAdmin ? 'top-[55px]' : 'top-[20px]'
                       }`}
                     >
                       {/* "X active · Y inactive" instead of "X total · Y

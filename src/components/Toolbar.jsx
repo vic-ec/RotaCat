@@ -150,11 +150,56 @@ function ToolbarFacetInline({ icon, label, value, onChange, options }) {
   )
 }
 
+// Same idea for a FilterPanel-shaped multi-select group (`{key, label,
+// options, selected: Set, onChange}`) — a chip row per group with an
+// explicit "All" chip for the empty-Set reset, rather than nesting
+// FilterPanel's own anchored popover inside an already-open sheet.
+function ToolbarGroupInline({ label, options, selected, onChange }) {
+  function toggle(value) {
+    const next = new Set(selected)
+    if (next.has(value)) next.delete(value)
+    else next.add(value)
+    onChange(next)
+  }
+  const chip = 'h-[30px] rounded border px-3 text-sm font-medium transition-colors'
+  const on = 'border-transparent bg-accent text-white'
+  const off = 'border-accent/25 bg-canvas text-ink-light hover:bg-canvas-sunken'
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" onClick={() => onChange(new Set())} className={`${chip} ${selected.size === 0 ? on : off}`}>
+          All
+        </button>
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => toggle(opt.value)}
+            className={`${chip} ${selected.has(opt.value) ? on : off}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // Bottom sheet combining every Sort/Filter facet into the one mobile
 // control the spec asks for, rather than three separate controls competing
 // for a narrow row (§15). Slides up from the bottom (not a full-screen
 // sheet — that's the Modal/form pattern, a different one, see Modal.jsx).
-function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
+// Exported (not just Toolbar-internal) so FloatingActionMenu can reuse it
+// verbatim for its own "Filter" action instead of a second filter-sheet
+// implementation — same facets shape, same sheet, just a different trigger.
+//
+// `groups` (FilterPanel-shaped multi-select) is only ever passed by
+// FloatingActionMenu: Toolbar itself still renders filterGroups inline as a
+// FilterPanel on both breakpoints and never routes them here (see its own
+// `filterGroups` comment), but the FAB has no inline row left to put them
+// on, so for those callers the sheet is the only place they can live.
+export function MobileFiltersSheet({ title, facets = [], groups = [], active, onClearAll, onClose }) {
   const sheetRef = useRef(null)
   useDismissablePopover(true, onClose, sheetRef)
   return (
@@ -174,6 +219,7 @@ function MobileFiltersSheet({ title, facets, active, onClearAll, onClose }) {
         </div>
         <div className="space-y-5 px-5 py-4">
           {facets.map(({ key, ...f }) => <ToolbarFacetInline key={key} {...f} />)}
+          {groups.map(({ key, ...g }) => <ToolbarGroupInline key={key} {...g} />)}
         </div>
         {active && onClearAll && (
           <div className="border-t border-slate-line px-5 py-3">

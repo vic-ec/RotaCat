@@ -53,6 +53,14 @@ function renderPlanner(initialEntries = ['/']) {
   return render(<WeekendPlanner />, { wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter> })
 }
 
+// Scopes month-card queries to the year overview's grid, excluding the
+// inspector's own DateStepper (its label is also "<Month> <year>", and a
+// card's own accessible name isn't just the bare month either — its
+// gap-count badges' digit text is part of it too, e.g. "August 3444").
+function grid() {
+  return within(screen.getByTestId('weekend-year-grid'))
+}
+
 describe('WeekendPlanner', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
@@ -91,7 +99,7 @@ describe('WeekendPlanner', () => {
     await screen.findByText('Weekend planner')
 
     // August is already selected by default (current month) — one click opens it.
-    await user.click(screen.getByRole('button', { name: /August/ }))
+    await user.click(grid().getByRole('button', { name: /^August/ }))
     expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
   })
 
@@ -100,7 +108,7 @@ describe('WeekendPlanner', () => {
     const user = userEvent.setup()
     renderPlanner()
     await screen.findByText('Weekend planner')
-    await user.click(screen.getByRole('button', { name: /August/ }))
+    await user.click(grid().getByRole('button', { name: /^August/ }))
     await screen.findByText(/MonthViewStub/)
 
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
@@ -133,7 +141,7 @@ describe('WeekendPlanner', () => {
     renderPlanner()
     await screen.findByText('Weekend planner')
 
-    await user.click(screen.getByRole('button', { name: /August/ }))
+    await user.click(grid().getByRole('button', { name: /^August/ }))
     await screen.findByText(/MonthViewStub: 2026-8/)
     await user.click(screen.getByRole('button', { name: 'SetClipboardStub' }))
     expect(await screen.findByText('ClipboardStub: copied-8')).toBeInTheDocument()
@@ -141,7 +149,7 @@ describe('WeekendPlanner', () => {
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
     await screen.findByText('Weekend planner')
 
-    await user.click(screen.getByRole('button', { name: /June/ }))
+    await user.click(grid().getByRole('button', { name: /^June/ }))
     await user.click(screen.getByRole('button', { name: 'Open month' }))
     expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
     expect(screen.getByText('ClipboardStub: copied-8')).toBeInTheDocument()

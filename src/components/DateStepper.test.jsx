@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import DateStepper from './DateStepper'
 
@@ -97,6 +97,49 @@ describe('DateStepper', () => {
       expect(dialog.className).toContain('max-h-[80vh]')
       const body = screen.getByRole('button', { name: 'December' }).closest('.overflow-y-auto')
       expect(body).not.toBeNull()
+    })
+  })
+
+  describe('year jump sheet', () => {
+    it('opens on the label click, lists a 12-year range around the current year, and picking one calls onChange and closes', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(<DateStepper unit="year" year={2026} onChange={onChange} />)
+
+      await user.click(screen.getByRole('button', { name: '2026' }))
+      const dialog = within(screen.getByRole('dialog', { name: 'Jump to year' }))
+      const yearButton = dialog.getByRole('button', { name: '2026' })
+      expect(yearButton).toHaveAttribute('aria-current', 'true')
+
+      await user.click(dialog.getByRole('button', { name: '2020' }))
+      expect(onChange).toHaveBeenCalledWith(2020)
+      expect(screen.queryByRole('dialog', { name: 'Jump to year' })).not.toBeInTheDocument()
+    })
+
+    it('the range stepper pages a whole 12-year block at a time', async () => {
+      const user = userEvent.setup()
+      render(<DateStepper unit="year" year={2026} onChange={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: '2026' }))
+
+      const range = screen.getByText(/–/, { selector: 'span' })
+      const before = range.textContent
+      await user.click(screen.getByRole('button', { name: 'Next years' }))
+      expect(screen.getByText(/–/, { selector: 'span' }).textContent).not.toBe(before)
+    })
+  })
+
+  describe('centered layout', () => {
+    it('flanks the label with equal-width chevrons instead of the default left-flowing row', () => {
+      render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} showToday={false} centered />)
+      const label = screen.getByRole('button', { name: 'March 2026' })
+      expect(label.className).toContain('flex-1')
+      expect(label.className).toContain('text-center')
+    })
+
+    it('off by default — the label stays left-flowing, un-centered', () => {
+      render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} showToday={false} />)
+      const label = screen.getByRole('button', { name: 'March 2026' })
+      expect(label.className).not.toContain('flex-1')
     })
   })
 })

@@ -30,6 +30,14 @@ function renderOverview(overrides = {}) {
   )
 }
 
+// Scopes month-card queries to the grid, excluding the inspector's own
+// DateStepper (its label is also "<Month> <year>", and a card's own
+// accessible name isn't just the bare month either — its gap-count badges'
+// digit text is part of it too, e.g. "August 3444").
+function grid() {
+  return within(screen.getByTestId('weekend-year-grid'))
+}
+
 describe('WeekendYearOverview', () => {
   it('renders the 3-state legend inside its sheet, opened via the live-count trigger', async () => {
     const user = userEvent.setup()
@@ -43,7 +51,7 @@ describe('WeekendYearOverview', () => {
 
   it('defaults the inspector/selection to the current month (August) and shows its per-health counts', () => {
     renderOverview()
-    const augustCard = screen.getByRole('button', { name: /August/ })
+    const augustCard = grid().getByRole('button', { name: /^August/ })
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
 
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
@@ -70,12 +78,12 @@ describe('WeekendYearOverview', () => {
     const onOpenMonth = vi.fn()
     renderOverview({ onOpenMonth })
 
-    await user.click(screen.getByRole('button', { name: /January/ }))
+    await user.click(grid().getByRole('button', { name: /^January/ }))
     expect(onOpenMonth).not.toHaveBeenCalled()
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
     expect(inspector.getByText('January 2026')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /January/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /August/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(grid().getByRole('button', { name: /^January/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('clicking the already-selected month opens it directly', async () => {
@@ -84,7 +92,7 @@ describe('WeekendYearOverview', () => {
     renderOverview({ onOpenMonth })
 
     // August is already selected by default (current month) — one click opens it.
-    await user.click(screen.getByRole('button', { name: /August/ }))
+    await user.click(grid().getByRole('button', { name: /^August/ }))
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
@@ -109,8 +117,8 @@ describe('WeekendYearOverview', () => {
   })
 
   it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
-    // DateStepper hides Today while already on the current period — seed a
-    // non-current year so it's there to click at all.
+    // The page's own Today (DateStepper's built-in one is suppressed) —
+    // seed a non-current year so it's there to click at all.
     const user = userEvent.setup()
     const onYearChange = vi.fn()
     renderOverview({ year: YEAR - 1, onYearChange })
@@ -119,9 +127,46 @@ describe('WeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR)
   })
 
+  it('Today resets the selected month too, sits between the year selector and Legend, and hides once back on today', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+
+    // Already on the current year+month by default — Today starts hidden.
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+
+    // Select a different month (still within the current year) — Today
+    // should now appear, positioned between the year selector and Legend.
+    await user.click(grid().getByRole('button', { name: /^January/ }))
+    const today = screen.getByRole('button', { name: 'Today' })
+    const yearLabel = screen.getByRole('button', { name: String(YEAR) })
+    const legend = screen.getByTestId('weekend-year-legend')
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    expect(yearLabel.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    expect(today.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    await user.click(today)
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('Selected month panel has chevrons and a jump-to-month sheet, independent of the year selector above', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    const inspector = within(screen.getByTestId('weekend-year-inspector'))
+
+    await user.click(inspector.getByRole('button', { name: 'Next month' }))
+    expect(inspector.getByText('September 2026')).toBeInTheDocument()
+
+    await user.click(inspector.getByRole('button', { name: 'September 2026' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
+    await user.click(sheet.getByRole('button', { name: 'March' }))
+    expect(inspector.getByText('March 2026')).toBeInTheDocument()
+  })
+
   it('shows a gap-count badge for a needs-staff/empty weekend, omitted for a fully-planned one', () => {
     renderOverview()
-    const augustCard = screen.getByRole('button', { name: /August/ })
+    const augustCard = grid().getByRole('button', { name: /^August/ })
     // aug1 (fully planned) has no badge; aug8 (needs staff, 3 gaps) does.
     expect(within(augustCard).getByText('3')).toBeInTheDocument()
     expect(within(augustCard).getAllByText('4').length).toBeGreaterThan(0) // aug15/22/29, each 4 gaps

@@ -43,17 +43,12 @@ export default function AnnualPlannerOverview({
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
   const [expandedProfileId, setExpandedProfileId] = useState(null)
 
-  // Selected-month chevrons (in the inspector panel below) — steps one
-  // month at a time, same Dec/Jan rollover as DateStepper's own stepMonth,
-  // rolling `year` itself via onYearChange when it crosses a year boundary
-  // so scrolling past December keeps going into next January instead of
-  // stopping dead at the edge of whichever year the page above happens to
-  // be browsing.
-  function stepSelectedMonth(delta) {
-    let m = selectedMonth + delta
-    let y = year
-    if (m < 1) { m = 12; y -= 1 }
-    else if (m > 12) { m = 1; y += 1 }
+  // Selected-month chevrons/jump-sheet (in the inspector panel below) —
+  // DateStepper itself handles the Dec/Jan year rollover, calling back
+  // with whichever year the stepped-to month landed in; only forward that
+  // to onYearChange when it's actually different from the year the page
+  // above is already browsing.
+  function handleSelectedMonthChange(y, m) {
     if (y !== year) onYearChange(y)
     setSelectedMonth(m)
   }
@@ -202,7 +197,7 @@ export default function AnnualPlannerOverview({
           past the whole grid. Desktop (lg+): unchanged side-by-side layout
           with the sticky w-80 inspector. */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
+        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
           {monthCards.map(m => (
             <MonthCard
               key={m.month}
@@ -224,24 +219,8 @@ export default function AnnualPlannerOverview({
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
             <Pin className="h-3.5 w-3.5" /> Selected month
           </div>
-          <div className="mt-1 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => stepSelectedMonth(-1)}
-              className="btn-secondary h-[26px] w-[26px] flex-shrink-0 p-0 text-xs"
-              aria-label="Previous month"
-            >
-              ←
-            </button>
-            <p className="flex-1 text-center text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
-            <button
-              type="button"
-              onClick={() => stepSelectedMonth(1)}
-              className="btn-secondary h-[26px] w-[26px] flex-shrink-0 p-0 text-xs"
-              aria-label="Next month"
-            >
-              →
-            </button>
+          <div className="mt-1">
+            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">

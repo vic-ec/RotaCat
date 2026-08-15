@@ -45,7 +45,7 @@ describe('MyWeekendYearOverview', () => {
 
   it('defaults to the current month (August) and shows working/pending counts for it', () => {
     renderOverview()
-    const augustCard = screen.getByRole('button', { name: /August/ })
+    const augustCard = screen.getByRole('button', { name: 'August' })
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
 
     const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
@@ -59,7 +59,7 @@ describe('MyWeekendYearOverview', () => {
     const onOpenMonth = vi.fn()
     renderOverview({ onOpenMonth })
 
-    await user.click(screen.getByRole('button', { name: /January/ }))
+    await user.click(screen.getByRole('button', { name: 'January' }))
     expect(onOpenMonth).not.toHaveBeenCalled()
     expect(within(screen.getByTestId('my-weekend-year-inspector')).getByText('January 2026')).toBeInTheDocument()
   })
@@ -69,7 +69,7 @@ describe('MyWeekendYearOverview', () => {
     const onOpenMonth = vi.fn()
     renderOverview({ onOpenMonth })
 
-    await user.click(screen.getByRole('button', { name: /August/ }))
+    await user.click(screen.getByRole('button', { name: 'August' }))
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
@@ -94,8 +94,8 @@ describe('MyWeekendYearOverview', () => {
   })
 
   it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
-    // DateStepper hides Today while already on the current period — seed a
-    // non-current year so it's there to click at all.
+    // The page's own Today (DateStepper's built-in one is suppressed) —
+    // seed a non-current year so it's there to click at all.
     const user = userEvent.setup()
     const onYearChange = vi.fn()
     renderOverview({ year: YEAR - 1, onYearChange })
@@ -104,9 +104,34 @@ describe('MyWeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR)
   })
 
+  it('Today also resets a selected month within the current year, and hides again once back on today', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'January' }))
+    await user.click(screen.getByRole('button', { name: 'Today' }))
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'August' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('Selected month panel has chevrons and a jump-to-month sheet', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
+
+    await user.click(inspector.getByRole('button', { name: 'Next month' }))
+    expect(inspector.getByText('September 2026')).toBeInTheDocument()
+
+    await user.click(inspector.getByRole('button', { name: 'September 2026' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
+    await user.click(sheet.getByRole('button', { name: 'March' }))
+    expect(inspector.getByText('March 2026')).toBeInTheDocument()
+  })
+
   it('has no gap-count badges (this view is not a staffing-health read)', () => {
     renderOverview()
-    const augustCard = screen.getByRole('button', { name: /August/ })
+    const augustCard = screen.getByRole('button', { name: 'August' })
     // MyWeekendMonthCard never renders a corner badge at all — unlike
     // WeekendYearOverview's WeekendMonthCard, there's no gapCount concept
     // here (working/pending/off, not fully-planned/needs-staff/empty).

@@ -33,13 +33,19 @@ function stepMonth(year, month, delta) {
 // `children`, rendered in the same row after the Today button, rather than
 // baking page context into a shared control.
 //
-// `unit="month"`'s label is itself a button opening a jump-to-month sheet
-// (year stepper + 12-month grid) — stepping one month at a time to get
-// somewhere several months away is exactly the kind of thing a shared
-// stepper should solve once. `unit="year"` has no equivalent list to jump
-// through, so its label stays a plain, non-interactive span.
+// The label is itself a button opening a jump sheet — `unit="month"` gets a
+// year stepper + 12-month grid, `unit="year"` gets a range stepper + 12-year
+// grid — stepping one period at a time to get somewhere several away is
+// exactly the kind of thing a shared stepper should solve once, for both
+// units alike.
+//
+// `centered`: opt-in, off by default — flanks the label with `flex-1
+// text-center` instead of the default left-flowing row, so the chevrons
+// sit at equal distance from the label on both sides. For a standalone
+// "selected period" display (e.g. an inspector panel's own month/year
+// heading) rather than a toolbar row sharing space with other controls.
 export default function DateStepper({
-  unit, year, month, onChange, showToday = true, canGoPrev = true, canGoNext = true, children,
+  unit, year, month, onChange, showToday = true, canGoPrev = true, canGoNext = true, children, centered = false,
 }) {
   const [jumpOpen, setJumpOpen] = useState(false)
 
@@ -68,32 +74,28 @@ export default function DateStepper({
     : year === now.getFullYear() && month === now.getMonth() + 1
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
       <button
         type="button"
         onClick={() => go(-1)}
         disabled={!canGoPrev}
-        className="btn-secondary h-[30px] w-[30px] p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={unit === 'year' ? 'Previous year' : 'Previous month'}
       >
         ←
       </button>
-      {unit === 'month' ? (
-        <button
-          type="button"
-          onClick={() => setJumpOpen(true)}
-          className="font-display text-base font-semibold text-ink hover:text-accent"
-        >
-          {label}
-        </button>
-      ) : (
-        <span className="font-display text-base font-semibold text-ink">{label}</span>
-      )}
+      <button
+        type="button"
+        onClick={() => setJumpOpen(true)}
+        className={`font-display text-base font-semibold text-ink hover:text-accent ${centered ? 'flex-1 text-center' : ''}`}
+      >
+        {label}
+      </button>
       <button
         type="button"
         onClick={() => go(1)}
         disabled={!canGoNext}
-        className="btn-secondary h-[30px] w-[30px] p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={unit === 'year' ? 'Next year' : 'Next month'}
       >
         →
@@ -113,12 +115,20 @@ export default function DateStepper({
       )}
       {children}
       {jumpOpen && (
-        <MonthJumpSheet
-          year={year}
-          month={month}
-          onPick={(y, m) => { onChange(y, m); setJumpOpen(false) }}
-          onClose={() => setJumpOpen(false)}
-        />
+        unit === 'month' ? (
+          <MonthJumpSheet
+            year={year}
+            month={month}
+            onPick={(y, m) => { onChange(y, m); setJumpOpen(false) }}
+            onClose={() => setJumpOpen(false)}
+          />
+        ) : (
+          <YearJumpSheet
+            year={year}
+            onPick={y => { onChange(y); setJumpOpen(false) }}
+            onClose={() => setJumpOpen(false)}
+          />
+        )
       )}
     </div>
   )
@@ -152,6 +162,48 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
               }`}
             >
               {m.label}
+            </button>
+          )
+        })}
+      </div>
+    </ActionSheet>
+  )
+}
+
+// Years don't have a natural enclosing "page" the way months have their
+// year — a 12-year range (same grid shape as the month sheet, just years
+// instead of month names) is the closest equivalent, stepped a whole range
+// at a time rather than one year at a time.
+const YEARS_PER_PAGE = 12
+function yearsRangeStart(year) {
+  return Math.floor(year / YEARS_PER_PAGE) * YEARS_PER_PAGE
+}
+
+function YearJumpSheet({ year, onPick, onClose }) {
+  const [rangeStart, setRangeStart] = useState(() => yearsRangeStart(year))
+  const years = Array.from({ length: YEARS_PER_PAGE }, (_, i) => rangeStart + i)
+
+  return (
+    <ActionSheet title="Jump to year" onClose={onClose}>
+      <div className="flex items-center justify-center gap-2 py-3">
+        <button type="button" onClick={() => setRangeStart(r => r - YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous years">←</button>
+        <span className="font-display text-base font-semibold text-ink">{rangeStart}–{rangeStart + YEARS_PER_PAGE - 1}</span>
+        <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next years">→</button>
+      </div>
+      <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
+        {years.map(y => {
+          const isCurrent = y === year
+          return (
+            <button
+              key={y}
+              type="button"
+              onClick={() => onPick(y)}
+              aria-current={isCurrent ? 'true' : undefined}
+              className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+                isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
+              }`}
+            >
+              {y}
             </button>
           )
         })}

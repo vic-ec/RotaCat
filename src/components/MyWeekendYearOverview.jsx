@@ -41,33 +41,56 @@ function formatShortDate(dateStr) {
 // weekend" instead of staffing completeness, and with no admin-only stats.
 export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, onOpenMonth }) {
   const today = todayStr()
+  const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
-  const [selectedMonth, setSelectedMonth] = useState(Number(today.slice(0, 4)) === year ? currentMonth : 1)
+  const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
   const requestsBySaturday = weekendExceptionRequestsBySaturday(myRequests)
 
   const months = monthsForYear(year)
   const monthCards = months.map(m => ({ ...m, markers: monthPersonalMarkers(m.year, m.month, byWeekend, myProfileId, requestsBySaturday) }))
 
-  const selectedMonthLabel = months[selectedMonth - 1].label
   const selectedMarkers = monthCards[selectedMonth - 1].markers
   const workingCount = selectedMarkers.filter(m => m.state === 'working').length
   const pendingCount = selectedMarkers.filter(m => m.state === 'pending').length
 
+  // The page's own Today, not DateStepper's own built-in one (suppressed
+  // below via showToday={false}) — resets both the browsed year AND the
+  // selected month back to today's real ones, since DateStepper's version
+  // only ever knows about the year prop it's bound to.
+  function goToToday() {
+    if (year !== todayYear) onYearChange(todayYear)
+    setSelectedMonth(currentMonth)
+  }
+  const isOnToday = year === todayYear && selectedMonth === currentMonth
+
+  // Selected-month chevrons/jump-sheet: DateStepper itself handles the
+  // Dec/Jan year rollover, calling back with whichever year the stepped-to
+  // month landed in — only forward that to onYearChange when it's actually
+  // different from the year this page is already browsing.
+  function handleSelectedMonthChange(y, m) {
+    if (y !== year) onYearChange(y)
+    setSelectedMonth(m)
+  }
+
   return (
     <div>
-      {/* ── Toolbar ── */}
+      {/* ── Toolbar: year selector, then this page's own Today, then Legend,
+          all in one cluster on the right. ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">My weekends</h2>
-        <DateStepper unit="year" year={year} onChange={onYearChange} />
-      </div>
-
-      {/* ── Legend ── */}
-      <div data-testid="weekend-year-legend" className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-        {Object.values(STATE_STYLE).map(state => (
-          <span key={state.label} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${state.swatch}`} /> {state.label}
-          </span>
-        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
+          {!isOnToday && (
+            <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+          )}
+          <div data-testid="weekend-year-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+            {Object.values(STATE_STYLE).map(state => (
+              <span key={state.label} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-sm ${state.swatch}`} /> {state.label}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
@@ -88,7 +111,9 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <p className="mt-1 text-lg font-semibold text-ink">{selectedMonthLabel} {year}</p>
+          <div className="mt-1">
+            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+          </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
             <div className="flex items-center justify-between text-sm">

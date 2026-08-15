@@ -196,7 +196,7 @@ export function rosterChangeDetail(change, nameById) {
 }
 
 // One human-readable line per roster_entry_changes row, e.g.:
-// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Exford → Venter"
+// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Ellis → Vaughn"
 export function formatRosterChangeLine(change, nameById, monthLabel) {
   const actor = nameById.get(change.changed_by) || 'Unknown'
   return `[${formatTimestamp(change.changed_at)}] ${actor} edited ${monthLabel} roster: ${rosterChangeDetail(change, nameById)}`

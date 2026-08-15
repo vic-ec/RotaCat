@@ -19,24 +19,11 @@ import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory, OT_SUBTYPE_LABELS,
 } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
+import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { Eye, CircleCheck, CircleX } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
-const CATEGORY_LABELS = {
-  MO:             'Medical Officer',
-  Registrar:      'Registrar',
-  COSMO:          'COSMO',
-  COSMOPsych:     'COSMO (Psych)',
-  Intern:         'Intern',
-  Consultant:     'Consultant',
-  Locum:          'Locum',
-  // Future values (dormant until Jan 2027)
-  EC_Intern:      'EC Intern',
-  EC_COSMO_Intern:'EC Intern',
-  OT_Intern:      'OT Intern',
-  OT_COSMO_Intern:'OT Intern',
-}
-
 const ROLE_LABELS = {
   doctor: 'Doctor',
   locum:  'Locum',
@@ -501,9 +488,7 @@ export default function StaffListPage() {
 
   async function toggleActive(profileId, currentlyActive) {
     setTogglingId(profileId)
-    await supabase.from('profiles')
-      .update({ is_active: !currentlyActive })
-      .eq('id', profileId)
+    await setDoctorActiveStatus(profileId, !currentlyActive)
     await loadAll()
     setTogglingId(null)
   }

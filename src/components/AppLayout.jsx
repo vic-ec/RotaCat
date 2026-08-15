@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
 import ProfileAvatar, { StatusPicker } from '../components/ProfileAvatar'
+import { CATEGORY_LABELS } from '../lib/categoryLabels'
 
 // ── Nav sets per role ──────────────────────────────────────
 // Each role sees a tailored nav — preserving the original
@@ -52,16 +53,14 @@ const clerkNav = [
   { to: '/account', label: 'Account',    icon: UserIcon },
 ]
 
+// The sidebar shows the signed-in user's own role, where a couple of labels
+// read better in longer form than the shared category map's — so it extends
+// CATEGORY_LABELS rather than restating it.
 const ROLE_CATEGORY_LABEL = {
+  ...CATEGORY_LABELS,
   MO:          'EC Medical Officer',
-  Registrar:   'Registrar',
-  EC_Intern:   'EC Intern',
-  OT_Intern:   'OT Intern',
-  COSMO_Psych: 'OT Intern / COSMO (Psych)',
-  Consultant:  'Consultant',
-  Locum:       'Locum',
-  COSMO:       'COSMO',       // legacy value
-  COSMOPsych:  'COSMO Psych', // legacy value
+  COSMOPsych:  'COSMO Psych',                // legacy value
+  COSMO_Psych: 'OT Intern / COSMO (Psych)',  // legacy value, only used here
 }
 
 // Remembers the last non-account page visited, so the Account Settings

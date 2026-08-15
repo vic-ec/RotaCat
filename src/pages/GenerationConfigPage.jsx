@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generateRoster } from '../lib/schedulerApi'
+import { CATEGORY_LABELS } from '../lib/categoryLabels'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -20,20 +21,6 @@ const PROGRESS_MESSAGES = [
   'Writing the draft roster to the database…',
   'Almost done…',
 ]
-
-const CATEGORY_LABELS = {
-  MO:         'Medical Officer',
-  Registrar:  'Registrar',
-  COSMO:      'COSMO',
-  COSMOPsych: 'COSMO (Psych)',
-  Intern:     'Intern',
-  Consultant: 'Consultant',
-  // Future values (dormant until Jan 2027)
-  EC_Intern:      'EC Intern',
-  EC_COSMO_Intern:'EC Intern',
-  OT_Intern:      'OT Intern',
-  OT_COSMO_Intern:'OT Intern',
-}
 
 // Categories the solver actually schedules — Consultants and Locums
 // are never auto-scheduled so we exclude them from the selection panel

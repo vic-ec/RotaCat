@@ -13,53 +13,53 @@ describe('buildDoctorDisplayNames', () => {
 
   it('prefixes a first initial when 2+ doctors share a surname', () => {
     const map = buildDoctorDisplayNames([
-      { id: 'p1', name: 'James', surname: 'Naidoo' },
-      { id: 'p2', name: 'P', surname: 'Naidoo' },
+      { id: 'p1', name: 'James', surname: 'Nolan' },
+      { id: 'p2', name: 'P', surname: 'Nolan' },
       { id: 'p3', name: 'Alice', surname: 'Anderson' },
     ])
-    expect(map.get('p1')).toBe('J. Naidoo')
-    expect(map.get('p2')).toBe('P. Naidoo')
+    expect(map.get('p1')).toBe('J. Nolan')
+    expect(map.get('p2')).toBe('P. Nolan')
     expect(map.get('p3')).toBe('Anderson') // no collision — untouched
   })
 
   it('falls back to the full first name only for the doctors whose initials still collide', () => {
     const map = buildDoctorDisplayNames([
-      { id: 'p1', name: 'James', surname: 'Naidoo' },
-      { id: 'p2', name: 'Jerome', surname: 'Naidoo' }, // same initial as p1
-      { id: 'p3', name: 'Priya', surname: 'Naidoo' }, // different initial — stays as "P. Naidoo"
+      { id: 'p1', name: 'James', surname: 'Nolan' },
+      { id: 'p2', name: 'Jerome', surname: 'Nolan' }, // same initial as p1
+      { id: 'p3', name: 'Priya', surname: 'Nolan' }, // different initial — stays as "P. Nolan"
     ])
-    expect(map.get('p1')).toBe('James Naidoo')
-    expect(map.get('p2')).toBe('Jerome Naidoo')
-    expect(map.get('p3')).toBe('P. Naidoo')
+    expect(map.get('p1')).toBe('James Nolan')
+    expect(map.get('p2')).toBe('Jerome Nolan')
+    expect(map.get('p3')).toBe('P. Nolan')
   })
 
   it('is irrespective of category — every doctor sharing a surname counts, whatever category is passed in', () => {
     const map = buildDoctorDisplayNames([
-      { id: 'p1', name: 'James', surname: 'Naidoo', category: 'MO' },
-      { id: 'p2', name: 'Priya', surname: 'Naidoo', category: 'Registrar' },
+      { id: 'p1', name: 'James', surname: 'Nolan', category: 'MO' },
+      { id: 'p2', name: 'Priya', surname: 'Nolan', category: 'Registrar' },
     ])
-    expect(map.get('p1')).toBe('J. Naidoo')
-    expect(map.get('p2')).toBe('P. Naidoo')
+    expect(map.get('p1')).toBe('J. Nolan')
+    expect(map.get('p2')).toBe('P. Nolan')
   })
 
   it('handles 3+ doctors sharing both surname and initial', () => {
     const map = buildDoctorDisplayNames([
-      { id: 'p1', name: 'James', surname: 'Naidoo' },
-      { id: 'p2', name: 'Jerome', surname: 'Naidoo' },
-      { id: 'p3', name: 'Jane', surname: 'Naidoo' },
+      { id: 'p1', name: 'James', surname: 'Nolan' },
+      { id: 'p2', name: 'Jerome', surname: 'Nolan' },
+      { id: 'p3', name: 'Jane', surname: 'Nolan' },
     ])
-    expect(map.get('p1')).toBe('James Naidoo')
-    expect(map.get('p2')).toBe('Jerome Naidoo')
-    expect(map.get('p3')).toBe('Jane Naidoo')
+    expect(map.get('p1')).toBe('James Nolan')
+    expect(map.get('p2')).toBe('Jerome Nolan')
+    expect(map.get('p3')).toBe('Jane Nolan')
   })
 
   it('handles a missing first name gracefully', () => {
     const map = buildDoctorDisplayNames([
-      { id: 'p1', name: '', surname: 'Naidoo' },
-      { id: 'p2', name: 'Priya', surname: 'Naidoo' },
+      { id: 'p1', name: '', surname: 'Nolan' },
+      { id: 'p2', name: 'Priya', surname: 'Nolan' },
     ])
-    expect(map.get('p1')).toBe('Naidoo') // no initial to prefix with
-    expect(map.get('p2')).toBe('P. Naidoo')
+    expect(map.get('p1')).toBe('Nolan') // no initial to prefix with
+    expect(map.get('p2')).toBe('P. Nolan')
   })
 
   it('returns an empty map for no doctors', () => {

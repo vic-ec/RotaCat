@@ -3,6 +3,7 @@
 // Google Sheet. Kept separate from the display components so the date math
 // and capacity rule are unit-testable without Supabase or React.
 import { datesInRange, monthBounds, dayOfWeek } from './dateRange'
+import { AMBIGUOUS_CATEGORIES } from './staffDefaults'
 
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -27,12 +28,8 @@ export const LEAVE_CAPACITY_COLUMNS = [
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
-// Only COSMO and Intern are actually ambiguous without contractType —
-// every other legacy value (COSMOPsych, EC_Intern, OT_Intern,
-// EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
-// via its own name/history, so it resolves through the static
+// Anything outside AMBIGUOUS_CATEGORIES resolves through the static
 // COLUMN_BY_CATEGORY map unchanged, same as before 2026-08.
-const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
 const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
 
 const COLUMN_BY_CATEGORY = new Map(

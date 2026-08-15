@@ -132,7 +132,7 @@ Supabase (`constraints` table:
 - A formal Leave Form must be submitted and approved — courses done count as
   "Special Leave."
 - Please specify what course you are doing when requesting "Special Leave
-  Days," e.g.: Bottomley (ACLS).
+  Days," e.g.: Smith (ACLS).
 
 ### Single-Day-Off requests
 

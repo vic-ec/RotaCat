@@ -1,11 +1,11 @@
 // Surname-only display (weekend planner cards/tables, leave-planner day
 // cells, the roster grid) reads fine until two doctors share a surname —
-// "Naidoo" on its own doesn't say which one. buildDoctorDisplayNames
+// "Nolan" on its own doesn't say which one. buildDoctorDisplayNames
 // resolves that ambiguity irrespective of category/role: a surname shared
 // by 2+ doctors anywhere in the given list gets a first-initial prefix
-// ("J. Naidoo"); if the initial ALSO collides (two "J. Naidoo"s), those
+// ("J. Nolan"); if the initial ALSO collides (two "J. Nolan"s), those
 // specific doctors fall back further to their full first name ("James
-// Naidoo", "Jerome Naidoo") instead. A surname held by exactly one doctor
+// Nolan", "Jerome Nolan") instead. A surname held by exactly one doctor
 // stays exactly as before (bare surname) — this only ever adds detail
 // where real ambiguity exists, never a global "always show initials" mode.
 //

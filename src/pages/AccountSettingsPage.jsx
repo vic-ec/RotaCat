@@ -21,6 +21,8 @@ import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 import { categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
+import { setDoctorActiveStatus } from '../lib/staffStatus'
+import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 
 // ── Display label maps ──────────────────────────────────────
@@ -102,9 +104,6 @@ const REQUEST_STATUS_BADGE = {
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 
-// Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
-const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
 
 // Birthday only ever needs day + month (it's used to keep someone off shift
 // on their recurring birthday, not to compute an age) — stored as a date
@@ -961,8 +960,9 @@ export default function AccountSettingsPage() {
       setPwMsg({ type: 'error', text: 'Enter your current password.' })
       return
     }
-    if (!PASSWORD_RULE.test(pwForm.password)) {
-      setPwMsg({ type: 'error', text: 'New password doesn’t meet the requirements above.' })
+    const pwProblem = passwordProblem(pwForm.password)
+    if (pwProblem) {
+      setPwMsg({ type: 'error', text: pwProblem })
       return
     }
     if (pwForm.password !== pwForm.confirm) {
@@ -1082,10 +1082,7 @@ export default function AccountSettingsPage() {
     setAdminIsActive(nextActive)
     setStatusMsg(null)
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_active: nextActive })
-      .eq('id', targetId)
+    const { error } = await setDoctorActiveStatus(targetId, nextActive)
 
     if (error) {
       setAdminIsActive(prevActive)

@@ -1,15 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { PASSWORD_HINT, PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
 import { supabase } from '../lib/supabase'
 import AuthHero from '../components/AuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
-// Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
-const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
 
 // Small "i" icon next to the Password label — hover reveals requirements on
 // desktop, tap toggles them on mobile (no hover there).
@@ -52,8 +50,9 @@ export default function ResetPasswordPage() {
     e.preventDefault()
     setError('')
 
-    if (!PASSWORD_RULE.test(password)) {
-      setError(`Password doesn’t meet the requirements. ${PASSWORD_HINT}`)
+    const pwProblem = passwordProblem(password)
+    if (pwProblem) {
+      setError(pwProblem)
       return
     }
     if (password !== confirm) {
@@ -161,6 +160,7 @@ export default function ResetPasswordPage() {
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                     md:py-3"
                 />
+                <p className="mt-1 text-xs text-ink-muted">{PASSWORD_HINT_SHORT}</p>
               </div>
 
               <div>

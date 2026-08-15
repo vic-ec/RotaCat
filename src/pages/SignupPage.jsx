@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { PASSWORD_HINT, PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
 import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
@@ -9,9 +10,6 @@ import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
 
-// Password rule: 8+ chars, at least one lower, one upper, one digit, one symbol
-const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-const PASSWORD_HINT = 'At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.'
 
 // Which role the registrant is selecting
 const ROLE_OPTIONS = [
@@ -139,8 +137,9 @@ function RoleModal({ role, onClose }) {
       setError('Please select your staff category.')
       return
     }
-    if (!PASSWORD_RULE.test(password)) {
-      setError(`Password doesn’t meet the requirements. ${PASSWORD_HINT}`)
+    const pwProblem = passwordProblem(password)
+    if (pwProblem) {
+      setError(pwProblem)
       return
     }
 
@@ -468,6 +467,7 @@ function RoleModal({ role, onClose }) {
                     )}
                   </button>
                 </div>
+                <p className="mt-1 text-xs text-ink-muted">{PASSWORD_HINT_SHORT}</p>
                 <CapsLockNotice show={capsLock.capsOn} />
               </div>
 

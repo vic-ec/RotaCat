@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LeaveDashboard from './LeaveDashboard'
@@ -30,12 +30,23 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
+// LeaveDashboard reads the real clock twice — todayStr() to split upcoming
+// from past requests, and new Date().getFullYear() for the year the trackers
+// count against. Both fixtures below are dated 2026, so without pinning the
+// clock this suite silently rots: the "upcoming" assertions started failing
+// once the wall-clock passed 2026-08-14, and the tracker assertions would
+// follow on 2027-01-01. Pinned to 1 Aug 2026 — before every fixture date and
+// inside their year — using the same vi.setSystemTime-without-useFakeTimers
+// convention as DateStepper.test.jsx (fake timers + userEvent is a known hang
+// risk).
 describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)', () => {
   beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
     fromCalls.length = 0
     for (const key of Object.keys(mockQueues)) delete mockQueues[key]
     mockAuth = { profile: { id: 'doctor-1' } }
   })
+  afterEach(() => vi.useRealTimers())
 
   it('shows the leave tracker, upcoming requests, and the request form', async () => {
     mockQueues.leave_requests = [

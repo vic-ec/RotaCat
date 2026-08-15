@@ -345,8 +345,8 @@ describe('LeaveApprovalQueue', () => {
   describe('Who is already away', () => {
     it('lists overlapping approved/pending leave with a status pill and a summary count', async () => {
       fetchAffectedLeaveForRequest.mockResolvedValue([
-        { id: 'lr-2', profileId: 'doctor-2', name: 'Sam Moodley', category: 'MO', status: 'approved', dateFrom: '2026-08-08', dateTo: '2026-08-16' },
-        { id: 'lr-3', profileId: 'doctor-3', name: 'Priya Naidoo', category: 'Registrar', status: 'pending', dateFrom: '2026-08-05', dateTo: '2026-08-10' },
+        { id: 'lr-2', profileId: 'doctor-2', name: 'Sam Morgan', category: 'MO', status: 'approved', dateFrom: '2026-08-08', dateTo: '2026-08-16' },
+        { id: 'lr-3', profileId: 'doctor-3', name: 'Priya Nolan', category: 'Registrar', status: 'pending', dateFrom: '2026-08-05', dateTo: '2026-08-10' },
       ])
       getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
       const user = userEvent.setup()
@@ -355,9 +355,9 @@ describe('LeaveApprovalQueue', () => {
       const dialog = await openPanel(user)
       expect(await within(dialog).findByText('Who is already away')).toBeInTheDocument()
       expect(within(dialog).getByText('1 approved · 1 pending')).toBeInTheDocument()
-      expect(within(dialog).getByText('Moodley · Approved')).toBeInTheDocument()
+      expect(within(dialog).getByText('Morgan · Approved')).toBeInTheDocument()
       expect(within(dialog).getByText(/MO · 8–16 Aug/)).toBeInTheDocument()
-      expect(within(dialog).getByText('Naidoo · Pending')).toBeInTheDocument()
+      expect(within(dialog).getByText('Nolan · Pending')).toBeInTheDocument()
     })
 
     it('shows a positive empty state when nobody else is away', async () => {

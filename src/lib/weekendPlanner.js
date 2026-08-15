@@ -3,6 +3,7 @@
 // the old computed weekend_offset projection formerly used for both the
 // planner UI and the Leave submission overlap hint.
 import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
+import { AMBIGUOUS_CATEGORIES } from './staffDefaults'
 
 // Column groupings for the planner grid. The scheduler backend's real
 // junior-doctor split is EC (full hours) vs OT (Junior Doctor Overtime
@@ -32,11 +33,6 @@ export function groupForCategory(category) {
   return GROUP_BY_CATEGORY.get(category) ?? null
 }
 
-// Only COSMO and Intern are actually ambiguous without contract_type —
-// every other legacy value (COSMOPsych, EC_Intern, OT_Intern,
-// EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
-// via its own name/history. Mirrors the identical set in leaveYearGrid.js.
-const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
 const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
 
 // The effective category for a DOCTOR (a profiles row, not a raw

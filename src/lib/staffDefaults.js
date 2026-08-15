@@ -33,8 +33,11 @@ export const DEFAULT_SWAP_GROUP = {
 }
 
 // Only COSMO and Intern are actually ambiguous without contract_type —
-// mirrors the identical set in leaveYearGrid.js/weekendPlanner.js.
-const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
+// every other legacy value (COSMOPsych, EC_Intern, OT_Intern,
+// EC_COSMO_Intern, OT_COSMO_Intern) already unambiguously says EC or OT
+// via its own name/history. Canonical home: leaveYearGrid.js and
+// weekendPlanner.js import this rather than redeclaring it.
+export const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
 const OT_HOURS = { min: 64, max: 72 }
 
 // Single source of truth for the EC/OT "Hours" picker — previously

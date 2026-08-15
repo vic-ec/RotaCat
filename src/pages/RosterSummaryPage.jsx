@@ -8,6 +8,7 @@ import { contrastTextColor } from '../lib/color'
 import DateStepper from '../components/DateStepper'
 import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
+import { CATEGORY_LABELS } from '../lib/categoryLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -16,11 +17,6 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // as options) and each row's own category label text.
 // Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
 const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
-const CATEGORY_LABEL = {
-  MO: 'MO', Registrar: 'Registrar', COSMO: 'COSMO', COSMOPsych: 'COSMO Psych',
-  EC_Intern: 'EC Intern', OT_Intern: 'OT Intern', EC_COSMO_Intern: 'EC COSMO Intern',
-  OT_COSMO_Intern: 'OT COSMO Intern', Intern: 'Intern', Locum: 'Locum',
-}
 
 const WEEKDAY_COLUMNS = [{ code: 'WD_08', label: '08h00' }, { code: 'WD_12', label: '12h00' }, { code: 'WD_15', label: '15h00' }, { code: 'WD_22', label: '22h00' }]
 const WEEKEND_COLUMNS = [{ code: 'WE_08', label: '08h00' }, { code: 'WE_13', label: '13h00' }, { code: 'WE_20', label: '20h00' }]
@@ -222,7 +218,7 @@ export default function RosterSummaryPage() {
           filterGroups={[
             {
               key: 'category', label: 'Category',
-              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABEL[c] || c })),
+              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c })),
               selected: selectedCategories, onChange: setSelectedCategories,
             },
             {
@@ -327,7 +323,7 @@ export default function RosterSummaryPage() {
                           {row.name} {row.surname}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABEL[row.category] || row.category}</p>
+                      <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABELS[row.category] || row.category}</p>
                     </td>
                     <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
                     <td className={`border-r border-slate-line px-2 py-1.5 text-center font-semibold ${

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import ClearableInput from './ClearableInput'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -11,6 +12,14 @@ const SCROLL_CAP_THRESHOLD = 6
 // doctor on staff) doesn't force scanning/scrolling to find one value.
 const SEARCH_THRESHOLD = 4
 
+function SearchIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
 function ChevronDownIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -83,12 +92,14 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
         <div className="pb-1.5">
           {searchable && (
             <div className="px-4 pb-1.5">
-              <input
+              <ClearableInput
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={`Search ${label.toLowerCase()}…`}
                 aria-label={`Search ${label.toLowerCase()}`}
+                clearLabel={`Clear ${label.toLowerCase()} search`}
+                icon={<SearchIcon className="h-4 w-4" />}
                 className="input-field"
                 autoFocus
               />

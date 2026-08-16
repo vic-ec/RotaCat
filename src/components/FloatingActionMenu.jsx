@@ -95,7 +95,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
     hasMore && 'more',
     hasView && 'view',
   ].filter(Boolean)
-  const stagger = key => ({ open, index: slots.indexOf(key), count: slots.length })
+  const stagger = key => ({ open, index: slots.indexOf(key) })
 
   return (
     <div
@@ -221,11 +221,16 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
             aria-expanded={open}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised"
           >
-            {/* ⊕ → ✕ on the same 125ms as the first button's reveal, so the
-                trigger and the stack start moving together. */}
+            {/* ⊕ → ✕ over the same 100ms as the first button's reveal, so
+                the trigger and the stack start moving together — and snaps
+                back with them, since an icon still spinning after the stack
+                has gone would be the only thing left animating. */}
             <Plus
-              className="h-6 w-6 transition-transform motion-reduce:transition-none"
-              style={{ transform: open ? 'rotate(45deg)' : 'rotate(0deg)', transitionDuration: `${OPEN_MS}ms` }}
+              className="h-6 w-6 motion-reduce:transition-none"
+              style={{
+                transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: open ? `transform ${OPEN_MS}ms ease-out` : 'none',
+              }}
             />
           </button>
         </>
@@ -256,17 +261,15 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   )
 }
 
-// Timings follow nambicompany/expandable-fab's own defaults, the Android
+// Opening borrows its shape from nambicompany/expandable-fab, the Android
 // widget this pattern is modelled on: each button scales 0→1 and fades in
-// over 125ms on an overshoot curve, and the next one starts only once the
-// previous has finished (its AnimatorSet uses playSequentially, not an
-// overlapping stagger) — so the step equals the duration and the stack
-// genuinely opens one icon at a time. Closing is deliberately faster than
-// opening (75ms vs 125ms, and no overshoot) and runs the list reversed, so
-// the stack unwinds back into the ⊕ instead of replaying the opening order.
-// Five buttons therefore take ~625ms out and ~375ms back.
-const OPEN_MS = 125
-const CLOSE_MS = 75
+// on an overshoot curve, and the next starts only once the previous has
+// finished (its AnimatorSet uses playSequentially, not an overlapping
+// stagger) — so the step equals the duration and the stack genuinely opens
+// one icon at a time. Shorter than that library's own 125ms default, since
+// a sequential cascade costs this per button and a toolbar is opened often
+// enough to feel every millisecond of it.
+const OPEN_MS = 100
 // CSS stand-in for the reference's OvershootInterpolator(3.5f) — grows a
 // little past full size before settling.
 const OPEN_EASE = 'cubic-bezier(0.34, 1.8, 0.64, 1)'
@@ -279,16 +282,18 @@ const OPEN_EASE = 'cubic-bezier(0.34, 1.8, 0.64, 1)'
 // Closed, it is inert as well as invisible — `aria-hidden` keeps it out of
 // the accessibility tree, `tabIndex=-1` out of the tab order, and the
 // container's `pointer-events-none` out of hit-testing, so a collapsed
-// stack can't be tabbed into or tapped through. `visibility` is switched on
-// its own zero-length transition rather than left to flip immediately:
-// visible at the start of the button's turn on the way out, hidden only
-// after its fade has finished on the way back.
-function FabItem({ icon: Icon, label, onClick, active, open, index, count }) {
-  const step = open ? OPEN_MS : CLOSE_MS
-  const delay = (open ? index : count - 1 - index) * step
+// stack can't be tabbed into or tapped through. `visibility` gets its own
+// zero-length step in the opening transition so it flips at the start of
+// each button's turn rather than for the whole stack at once.
+function FabItem({ icon: Icon, label, onClick, active, open, index }) {
+  // Closing isn't animated at all — the stack is gone the frame the ⊕ is
+  // tapped. Dismissing is a correction, and a cascade played backwards just
+  // makes the user wait to get their screen back; there's also nothing to
+  // read on the way out, unlike on the way in. So only the opening
+  // direction carries a duration, a delay, or a stagger.
   const transition = open
-    ? `transform ${OPEN_MS}ms ${OPEN_EASE} ${delay}ms, opacity ${OPEN_MS}ms ease-out ${delay}ms, visibility 0s linear ${delay}ms`
-    : `transform ${CLOSE_MS}ms ease-in ${delay}ms, opacity ${CLOSE_MS}ms ease-in ${delay}ms, visibility 0s linear ${delay + CLOSE_MS}ms`
+    ? `transform ${OPEN_MS}ms ${OPEN_EASE} ${index * OPEN_MS}ms, opacity ${OPEN_MS}ms ease-out ${index * OPEN_MS}ms, visibility 0s linear ${index * OPEN_MS}ms`
+    : 'none'
 
   return (
     <button

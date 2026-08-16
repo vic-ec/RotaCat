@@ -103,7 +103,12 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
         </div>
       ) : (
         <>
-          {/* The stack container stays mounted while collapsed and only its
+          {/* `flex-col-reverse`, so this reads bottom-to-top on screen —
+              nearest the ⊕ first: Search, Filter, More actions, Legend,
+              View. Ordered by expected reach, not by how often a page
+              happens to pass each one, so a control never moves position
+              between pages just because a neighbour is absent.
+              The stack container stays mounted while collapsed and only its
               individual buttons drop out — LegendSheet/PageActionsMenu own
               their open sheet internally, so unmounting the whole stack on
               collapse (the FAB closes the moment one of them is picked)
@@ -120,15 +125,6 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 onClick={() => { cycleView.onChange(nextViewOption().value); setOpen(false) }}
               />
             )}
-            {hasMore && (
-              <PageActionsMenu
-                title={moreMenu.title}
-                items={moreMenu.items}
-                trigger={onClick => open && (
-                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
-                )}
-              />
-            )}
             {hasLegend && (
               <LegendSheet
                 title={legend.title}
@@ -140,6 +136,15 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
               >
                 {legend.children}
               </LegendSheet>
+            )}
+            {hasMore && (
+              <PageActionsMenu
+                title={moreMenu.title}
+                items={moreMenu.items}
+                trigger={onClick => open && (
+                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
+                )}
+              />
             )}
             {hasFilter && open && (
               <FabItem

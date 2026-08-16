@@ -29,6 +29,26 @@ describe('FloatingActionMenu', () => {
     expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument()
   })
 
+  // Fixed order, nearest the ⊕ first — a page omitting one closes the gap
+  // rather than shuffling the rest. The stack is `flex-col-reverse`, so DOM
+  // order runs top-of-stack first and this list reads reversed.
+  it('stacks the actions in the documented order', async () => {
+    const Icon = props => <svg {...props} />
+    const user = userEvent.setup()
+    renderMenu({
+      filter: { facets: [{ key: 'f', label: 'Filter', value: 'a', onChange: () => {}, options: [] }], sheetTitle: 'Filters' },
+      legend: { title: 'Legend', children: null },
+      moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
+      cycleView: { value: 'list', onChange: () => {}, options: [{ value: 'list', label: 'List', icon: Icon }, { value: 'grid', label: 'Grid', icon: Icon }] },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    const labels = [...document.querySelectorAll('[aria-label]')]
+      .map(el => el.getAttribute('aria-label'))
+      .filter(l => l !== 'Close quick actions')
+    expect(labels).toEqual(['Switch to Grid', 'Legend', 'More actions', 'Filters', 'Search'])
+  })
+
   it('swaps the stack for an inline search field', async () => {
     const onChange = vi.fn()
     const user = userEvent.setup()

@@ -300,7 +300,7 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 
 **Toolbar FAB** — `FloatingActionMenu`, mobile only (`md:` and up unaffected):
 - Fixed bottom-right, above the bottom nav bar and clear of `env(safe-area-inset-*)`.
-- Tapping the FAB expands a vertical stack of up to 5 round icon buttons (bottom-to-top: Search, Filter, Legend, More, View — each optional per page except Search).
+- Tapping the FAB expands a vertical stack of up to 5 round icon buttons (bottom-to-top, i.e. nearest the FAB first: Search, Filter, More, Legend, View — each optional per page except Search). The order is fixed: a page that omits one closes the gap rather than shuffling the rest, so a given control never changes position between pages.
 - **Search** morphs the FAB into a full-width pill with an inline text field, replacing the stack — not a separate screen.
 - **Filter** opens the same `MobileFiltersSheet` the old inline "Filters" button used — same sheet, new trigger, so filter behavior itself is unchanged.
 - **Legend** and **More** are thin wrappers around the existing `LegendSheet` / `PageActionsMenu` — same bottom-sheet look those already have everywhere else in the app, not a new visual language.

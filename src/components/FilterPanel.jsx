@@ -10,7 +10,7 @@ const SCROLL_CAP_THRESHOLD = 6
 
 // Above this many options, a search box appears so a long list (e.g. every
 // doctor on staff) doesn't force scanning/scrolling to find one value.
-const SEARCH_THRESHOLD = 4
+const SEARCH_THRESHOLD = 6
 
 function SearchIcon(props) {
   return (

@@ -7,6 +7,9 @@ import {
 } from '../lib/changeLog'
 import DateFieldButton from './DateFieldButton'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
+import { changeLogFilterFacets } from './changeLogFilterFacets'
+import ClearableInput from './ClearableInput'
+import FloatingActionMenu from './FloatingActionMenu'
 import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
@@ -33,6 +36,12 @@ function formatTimestampParts(iso) {
 export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged }) {
   const { profile } = useAuth()
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  // Client-side, unlike the rest of `filters` (which go to the server as
+  // query params): this narrows the already-fetched page of rows by the
+  // names the table actually shows, rather than re-querying. Admin/Doctor
+  // already have exact-match server filters — this is the "I only remember
+  // part of the surname" case those don't cover.
+  const [q, setQ] = useState('')
   const [changes, setChanges] = useState([])
   const [profilesById, setProfilesById] = useState(new Map())
   const [adminOptions, setAdminOptions] = useState([])
@@ -102,8 +111,36 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     await handleRestore(batchId)
   }
 
-  const filtersActive = Object.values(filters).some(Boolean)
+  const filtersActive = Object.values(filters).some(Boolean) || Boolean(q)
   const nameById = nameMapFromProfiles(profilesById)
+
+  function fullName(id) {
+    const p = profilesById.get(id)
+    return p ? `${p.name} ${p.surname}` : ''
+  }
+  const searchTerm = q.trim().toLowerCase()
+  const visibleChanges = searchTerm
+    ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id)}`.toLowerCase().includes(searchTerm))
+    : changes
+
+  const filterFacets = changeLogFilterFacets({
+    adminOptions,
+    doctorOptions,
+    actionOptions: WEEKEND_ACTION_OPTIONS,
+    adminId: filters.adminId,
+    doctorId: filters.doctorId,
+    action: filters.action,
+    onAdminChange: v => setFilters(f => ({ ...f, adminId: v })),
+    onDoctorChange: v => setFilters(f => ({ ...f, doctorId: v })),
+    onActionChange: v => setFilters(f => ({ ...f, action: v })),
+    extraFilter: {
+      label: 'Category',
+      options: WEEKEND_CATEGORY_FILTER_OPTIONS,
+      value: filters.categoryGroup,
+      onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
+    },
+  })
+  const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
@@ -153,43 +190,72 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
           )}
         </div>
 
+        {/* From/To stay on the row at every width — they set which slice of
+            the log is being looked at, the way Audit's own range does, and
+            they're the one control here the FAB has no slot for. Search and
+            the four facets fold into the FAB below `md`. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
             onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
           <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
             onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
-          <ChangeLogFilterMenu
-            adminOptions={adminOptions}
-            doctorOptions={doctorOptions}
-            actionOptions={WEEKEND_ACTION_OPTIONS}
-            adminId={filters.adminId}
-            doctorId={filters.doctorId}
-            action={filters.action}
-            onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
-            onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
-            onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-            extraFilter={{
-              label: 'Category',
-              options: WEEKEND_CATEGORY_FILTER_OPTIONS,
-              value: filters.categoryGroup,
-              onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
-            }}
-          />
-          {filtersActive && (
-            <button type="button" className="text-sm text-accent hover:underline" onClick={() => setFilters(EMPTY_FILTERS)}>
-              Clear
-            </button>
-          )}
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            <div className="w-56">
+              <ClearableInput
+                type="text"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Search by name…"
+                className="input-field"
+                clearLabel="Clear search"
+              />
+            </div>
+            <ChangeLogFilterMenu
+              adminOptions={adminOptions}
+              doctorOptions={doctorOptions}
+              actionOptions={WEEKEND_ACTION_OPTIONS}
+              adminId={filters.adminId}
+              doctorId={filters.doctorId}
+              action={filters.action}
+              onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
+              onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
+              onActionChange={v => setFilters(f => ({ ...f, action: v }))}
+              extraFilter={{
+                label: 'Category',
+                options: WEEKEND_CATEGORY_FILTER_OPTIONS,
+                value: filters.categoryGroup,
+                onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
+              }}
+            />
+            {filtersActive && (
+              <button type="button" className="text-sm text-accent hover:underline" onClick={clearAll}>
+                Clear
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Inside the card, not the backdrop: the backdrop's own onClick is
+            what closes this modal, so a FAB rendered as its sibling would
+            dismiss the whole log on every tap. */}
+        <FloatingActionMenu
+          search={{ value: q, onChange: setQ, placeholder: 'Search by name…' }}
+          filter={{
+            facets: filterFacets,
+            active: filtersActive,
+            onClearAll: clearAll,
+            sheetTitle: 'Filters',
+          }}
+        />
 
         {loading && <p className="mt-4 text-sm text-ink-muted">Loading…</p>}
         {error && <p className="mt-4 text-sm text-flagRed">{error}</p>}
-        {!loading && !error && changes.length === 0 && (
+        {!loading && !error && visibleChanges.length === 0 && (
           <p className="mt-4 text-sm text-ink-muted">
             {filtersActive ? 'No edits match these filters.' : 'No edits recorded yet.'}
           </p>
         )}
-        {!loading && !error && changes.length > 0 && (
+        {!loading && !error && visibleChanges.length > 0 && (
           <div className="mt-4 flex-1 overflow-auto">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-canvas-raised text-xs uppercase text-ink-muted">

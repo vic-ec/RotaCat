@@ -256,10 +256,9 @@ describe('InternRotationsMatrix — mobile layout', () => {
     const yearLabel = screen.getByText('2027')
 
     // Search comes before Legend (search left, filter/Legend/kebab right).
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    // compareDocumentPosition is a bitmask API, hence the &.
     expect(search.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     // The year selector follows the whole toolbar row, on its own line below.
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
     expect(legend.compareDocumentPosition(yearLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const sticky = yearLabel.closest('.sticky')

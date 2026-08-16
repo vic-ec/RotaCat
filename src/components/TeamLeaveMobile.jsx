@@ -3,6 +3,7 @@ import { CalendarRange, CalendarDays, Users, Search } from 'lucide-react'
 import ViewToggle from './ViewToggle'
 import FilterPanel from './FilterPanel'
 import ClearableInput from './ClearableInput'
+import FloatingActionMenu from './FloatingActionMenu'
 import Modal from './Modal'
 import TeamLeaveDateNavigator from './TeamLeaveDateNavigator'
 import TeamLeaveWeekView from './TeamLeaveWeekView'
@@ -101,21 +102,40 @@ export default function TeamLeaveMobile({ requests }) {
 
   return (
     <div>
+      {/* Week/Month/People stays on the row rather than folding into the
+          FAB's `cycleView`: it's three options, not two, and it's the
+          primary way through this screen — cycling blind through three
+          from a single icon is worse than the toggle it replaces. Search
+          and Filter do move into the FAB below `md`. This block runs to
+          `lg` while the FAB stops at `md`, so the md–lg band keeps the
+          inline pair rather than losing them entirely. */}
       <div className="flex items-center gap-2">
         <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
-        <div className="min-w-0 flex-1">
-          <ClearableInput
-            type="text"
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Search name"
-            className="input-field h-[30px] py-1"
-            clearLabel="Clear search"
-            icon={<Search className="h-4 w-4" />}
-          />
+        <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
+          <div className="min-w-0 flex-1">
+            <ClearableInput
+              type="text"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Search name"
+              className="input-field h-[30px] py-1"
+              clearLabel="Clear search"
+              icon={<Search className="h-4 w-4" />}
+            />
+          </div>
+          <FilterPanel groups={filterGroups} />
         </div>
-        <FilterPanel groups={filterGroups} />
       </div>
+
+      <FloatingActionMenu
+        search={{ value: q, onChange: setQ, placeholder: 'Search name' }}
+        filter={{
+          groups: filterGroups,
+          active: chips.length > 0 || Boolean(q),
+          onClearAll: () => { setFilters(EMPTY_FILTERS); setQ('') },
+          sheetTitle: 'Filters',
+        }}
+      />
 
       {chips.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

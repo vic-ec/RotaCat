@@ -22,6 +22,7 @@ import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
 import { ActionSheet, ActionSheetButton } from './ActionSheet'
 import Toolbar from './Toolbar'
+import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
@@ -1417,7 +1418,34 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
-            <div className="mt-4">{renderToolbar('mb-4')}</div>
+            {/* Search/Filter moved into the Toolbar FAB below phones
+                (§15) — but this "mobile" block runs all the way to `lg`
+                while FloatingActionMenu stops at `md`, so the md–lg band
+                (tablets, most landscape phones) keeps the inline row it
+                already had rather than losing search/filter entirely. */}
+            <div className="mt-4 hidden md:block">{renderToolbar('mb-4')}</div>
+            {/* Fixed-positioned, so where it sits in this block is
+                immaterial — kept next to the toolbar row it replaces. The
+                Legend trigger deliberately stays out of it (see the sticky
+                row below: information, not an action), so `legend` is
+                unused here. Search/Filter render for everyone, matching
+                who the inline row served; only More is admin-gated, same
+                as the kebab it replaces. */}
+            <FloatingActionMenu
+              search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+              filter={{
+                facets: [{
+                  key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
+                  value: filter, onChange: setFilter,
+                  options: filters.map(f => ({ value: f.key, label: f.label })),
+                  isActive: filter !== defaultFilter,
+                }],
+                active: Boolean(searchQuery) || filter !== defaultFilter,
+                onClearAll: () => { setSearchQuery(''); setFilter(defaultFilter) },
+                sheetTitle: 'Filters',
+              }}
+              moreMenu={isAdmin ? { title: 'More actions', items: weekendMenuItems } : undefined}
+            />
             <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -1474,21 +1502,26 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             <div className="sticky top-0 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {renderMonthNav()}
+                {/* Below `md` this kebab lives in the Toolbar FAB instead;
+                    it stays here for the md–lg band, which the FAB doesn't
+                    cover (see the toolbar row above). */}
                 {isAdmin && (
-                  <PageActionsMenu
-                    items={weekendMenuItems}
-                    trigger={(onClick, open) => (
-                      <button
-                        type="button"
-                        onClick={onClick}
-                        aria-label="More actions"
-                        aria-expanded={open}
-                        className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
-                      >
-                        <EllipsisVertical className="h-4 w-4" />
-                      </button>
-                    )}
-                  />
+                  <div className="hidden md:block">
+                    <PageActionsMenu
+                      items={weekendMenuItems}
+                      trigger={(onClick, open) => (
+                        <button
+                          type="button"
+                          onClick={onClick}
+                          aria-label="More actions"
+                          aria-expanded={open}
+                          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
+                        >
+                          <EllipsisVertical className="h-4 w-4" />
+                        </button>
+                      )}
+                    />
+                  </div>
                 )}
               </div>
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />

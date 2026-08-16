@@ -7,6 +7,8 @@ import { buildAuditRows } from '../lib/leaveAudit'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
+import ClearableInput from './ClearableInput'
+import FloatingActionMenu from './FloatingActionMenu'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -57,6 +59,10 @@ export default function LeaveAuditReport() {
   const [doctorFilter, setDoctorFilter] = useState(new Set())
   const [statusFilter, setStatusFilter] = useState(new Set())
   const [leaveTypeFilter, setLeaveTypeFilter] = useState(new Set())
+  // Substring match on the doctor's own name, same rule every other list
+  // page's search uses — the Doctor filter group is an exact multi-select
+  // pick, which is a different job once the list runs to a few dozen names.
+  const [q, setQ] = useState('')
   const [profiles, setProfiles] = useState([])
   const [leaveRequests, setLeaveRequests] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -124,9 +130,11 @@ export default function LeaveAuditReport() {
     [statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo]
   )
 
+  const searchTerm = q.trim().toLowerCase()
   const filteredRows = rows.filter(r => {
     if (categoryFilter.size > 0 && !categoryFilter.has(columnByProfileId.get(r.profileId))) return false
     if (doctorFilter.size > 0 && !doctorFilter.has(r.profileId)) return false
+    if (searchTerm && !`${r.surname} ${r.name}`.toLowerCase().includes(searchTerm)) return false
     return true
   })
 
@@ -148,6 +156,7 @@ export default function LeaveAuditReport() {
     setDoctorFilter(new Set())
     setStatusFilter(new Set())
     setLeaveTypeFilter(new Set())
+    setQ('')
   }
 
   const filterGroups = [
@@ -165,16 +174,42 @@ export default function LeaveAuditReport() {
         Cumulative leave for HR auditing — pick any date range; this never resets, unlike the per-doctor tracker on My leave.
       </p>
 
+      {/* The From/To range stays on the row at every width — it's what the
+          report is *of*, not a way of narrowing it, same reasoning that
+          keeps Weekend's month nav out of its FAB. Search and Filter are
+          the narrowing controls, so below `md` they move into the FAB. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <DateFieldButton label="From" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         <DateFieldButton label="To" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-        <FilterPanel groups={filterGroups} />
-        {activeFilterCount > 0 && (
-          <button type="button" onClick={clearFilters} className="text-sm font-medium text-accent hover:underline">
-            Clear filters
-          </button>
-        )}
+        <div className="hidden items-center gap-2 md:flex">
+          <div className="w-64">
+            <ClearableInput
+              type="text"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Search by surname or first name…"
+              className="input-field"
+              clearLabel="Clear search"
+            />
+          </div>
+          <FilterPanel groups={filterGroups} />
+          {activeFilterCount > 0 && (
+            <button type="button" onClick={clearFilters} className="text-sm font-medium text-accent hover:underline">
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
+
+      <FloatingActionMenu
+        search={{ value: q, onChange: setQ, placeholder: 'Search by surname or first name…' }}
+        filter={{
+          groups: filterGroups,
+          active: activeFilterCount > 0 || Boolean(q),
+          onClearAll: clearFilters,
+          sheetTitle: 'Filters',
+        }}
+      />
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}

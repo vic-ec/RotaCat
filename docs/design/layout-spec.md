@@ -284,7 +284,7 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 ### PageHeader (mobile)
 
 - H1 font size drops to ~20-22px.
-- Primary action button (e.g. "Create roster"): if the label + icon no longer fits comfortably next to the H1, collapse to an icon-only button in the header, or promote it to a fixed bottom-right floating action button (FAB). Pick one pattern and use it for every page with a primary action — don't mix.
+- Primary action button (e.g. "Create roster"): if the label + icon no longer fits comfortably next to the H1, collapse to an icon-only button in the header, or promote it to a fixed bottom-right floating action button (FAB). Pick one pattern and use it for every page with a primary action — don't mix. **This is a different control from the Toolbar FAB below** — a page could in principle have both a primary-action FAB (e.g. "Create roster") and the Toolbar FAB (search/filter/legend/more); if that ever collides on one page, resolve it explicitly rather than merging the two into one button that does unrelated things.
 
 ### Breadcrumb (mobile)
 
@@ -294,11 +294,24 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 
 - Convert to a horizontally scrollable, non-wrapping tab strip (e.g. All Staff / Pending Approvals / User Requests). Never wrap tabs onto a second line.
 
-### Toolbar (mobile)
+### Toolbar (mobile) — superseded, see Toolbar FAB below
 
-- Search input becomes full-width on its own row.
-- Sort and Filter collapse into a single **"Filters"** button below the search row, which opens a bottom sheet containing both sort options and filter chips — don't keep three separate controls competing for a narrow row.
-- Clear button: same conditional rule as desktop (§5), shown inside the bottom sheet and/or as a small "Clear all" text action once something is active.
+~~Search input becomes full-width on its own row. Sort and Filter collapse into a single "Filters" button below the search row, which opens a bottom sheet.~~ This sticky-top pattern is being replaced page by page by the **Toolbar FAB** (`src/components/FloatingActionMenu.jsx`): a single bottom-right expanding trigger (⊕ → ✕) that reveals Search / Filter / Legend / More as individual round icon buttons, instead of a permanent search row + kebab competing for header space. Rollout: Weekends → Roster → Staff (tracked outside this doc). A page not yet migrated still uses the pattern described immediately below until it is.
+
+**Toolbar FAB** — `FloatingActionMenu`, mobile only (`md:` and up unaffected):
+- Fixed bottom-right, above the bottom nav bar and clear of `env(safe-area-inset-*)`.
+- Tapping the FAB expands a vertical stack of up to 7 round icon buttons (bottom-to-top, i.e. nearest the FAB first: primary action, Search, Sort, Filter, Legend, More, View — each optional per page except Search). The order is fixed: a page that omits one closes the gap rather than shuffling the rest, so a given control never changes position between pages.
+- The stack reveals one button at a time: each scales 0→1 and fades in over 125ms on an overshoot curve, and the next starts only once the previous has finished. Closing is faster (75ms, no overshoot) and runs reversed, so the stack unwinds back into the FAB rather than replaying the opening order. Timings follow [nambicompany/expandable-fab](https://github.com/nambicompany/expandable-fab)'s own defaults, the Android widget this pattern is modelled on. Respects `prefers-reduced-motion` (all appear at once). Collapsed buttons stay in the DOM so they can animate, so they're held inert (`aria-hidden`, out of the tab order, no pointer events) rather than merely invisible.
+- **Sort** gets its own trigger and its own sheet here, unlike the inline mobile Toolbar (which merges sort into the one "Filters" sheet because it only has room for one button). With a whole stack to spend, sort is worth its own reach rather than being buried a sheet deep behind a Filter icon.
+- **Primary action** is the page's own create/add button (Rotations' "Add doctor"), the same control the PageHeader (mobile) section above offers as its own bottom-right FAB. A page that wants both puts it in this stack rather than rendering two FABs into the same corner — that's the collision that section says to resolve explicitly.
+- **Search** morphs the FAB into a full-width pill with an inline text field, replacing the stack — not a separate screen.
+- **Filter** opens the same `MobileFiltersSheet` the old inline "Filters" button used — same sheet, new trigger, so filter behavior itself is unchanged.
+- **Legend** and **More** are thin wrappers around the existing `LegendSheet` / `PageActionsMenu` — same bottom-sheet look those already have everywhere else in the app, not a new visual language.
+- **View** (Roster's List/Grid): a single icon that cycles through view options — a deliberate simplification from the two-segment `ViewToggle`, since a segmented control doesn't fit a single-icon FAB slot.
+- Landscape: the stack opens sideways (left of the FAB) instead of upward, since a landscape phone rarely has 5×44px of headroom to spare above the nav bar.
+- A page with its own bottom-fixed element (Staff's `BulkActionBar` during bulk selection) hides the FAB via its `hidden` prop rather than letting the two overlap.
+
+Old inline behavior for reference (still applies to any page not yet migrated): Sort and Filter collapsed into a single "Filters" button below a full-width search row, opening the same bottom sheet the FAB's Filter action now opens.
 
 ### List rows (mobile)
 

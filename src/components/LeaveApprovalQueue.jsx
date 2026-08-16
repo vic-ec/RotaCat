@@ -13,6 +13,7 @@ import AffectedLeaveList from './AffectedLeaveList'
 import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
 import { SelectAllRow } from './ListRow'
 import BulkActionBar from './BulkActionBar'
+import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
 import { datesInRange } from '../lib/dateRange'
@@ -409,17 +410,36 @@ export default function LeaveApprovalQueue({ onBack }) {
         }]
         const onClearAll = () => { setSearchQuery(''); setLeaveTypeFilter('all') }
         return (
-          <Toolbar
-            className="mb-4"
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            searchPlaceholder="Search by surname or first name…"
-            sortFacets={sortFacets}
-            filterFacets={filterFacets}
-            mobileMode="inline"
-            active={filtersActive}
-            onClearAll={onClearAll}
-          />
+          <>
+            {/* Below `md` this row is replaced by the Toolbar FAB (§15);
+                `md:` and up keeps the existing inline row untouched. */}
+            <div className="hidden md:block">
+              <Toolbar
+                className="mb-4"
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="Search by surname or first name…"
+                sortFacets={sortFacets}
+                filterFacets={filterFacets}
+                mobileMode="inline"
+                active={filtersActive}
+                onClearAll={onClearAll}
+              />
+            </div>
+            {/* BulkActionBar owns the bottom edge the moment a request is
+                checked — the two must never be on screen together. */}
+            <FloatingActionMenu
+              hidden={selectedIds.size > 0}
+              search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search by surname or first name…' }}
+              sort={{ facets: sortFacets, active: sortDirection !== 'asc' }}
+              filter={{
+                facets: filterFacets,
+                active: filtersActive,
+                onClearAll,
+                sheetTitle: 'Filters',
+              }}
+            />
+          </>
         )
       })()}
 

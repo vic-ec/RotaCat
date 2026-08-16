@@ -140,9 +140,8 @@ describe('WeekendYearOverview', () => {
     const today = screen.getByRole('button', { name: 'Today' })
     const yearLabel = screen.getByRole('button', { name: String(YEAR) })
     const legend = screen.getByTestId('weekend-year-legend')
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
+    // compareDocumentPosition is a bitmask API, hence the &.
     expect(yearLabel.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // eslint-disable-next-line no-bitwise -- compareDocumentPosition is a bitmask API
     expect(today.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     await user.click(today)

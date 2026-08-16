@@ -7,9 +7,15 @@
 // notices, but taller content (e.g. DateStepper's 12-month jump grid) would
 // otherwise keep growing past the bottom of the screen, right behind the
 // fixed bottom nav bar, with no way to reach whatever's hidden under it.
+// `pointer-events-auto` is not redundant: this sheet is sometimes rendered
+// from inside a `pointer-events-none` subtree (FloatingActionMenu's stack,
+// which gives up pointer events so its collapsed layout box can't swallow
+// taps), and pointer-events inherits. Without it the backdrop can't receive
+// its own dismiss click and taps fall straight through to the page behind —
+// the sheet reads as stuck open over a still-interactive page.
 export function ActionSheet({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

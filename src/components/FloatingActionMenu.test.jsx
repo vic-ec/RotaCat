@@ -45,13 +45,13 @@ describe('FloatingActionMenu', () => {
     const opacityStep = l => document.querySelector(`[aria-label="${l}"]`).style.transition
       .split(', ').find(part => part.startsWith('opacity'))
 
-    // Bottom-to-top: Search (nearest the ⊕) leads, and each 100ms turn
+    // Bottom-to-top: Search (nearest the ⊕) leads, and each 75ms turn
     // starts as the one before it ends.
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
     expect(['Search', 'Sort', 'More actions'].map(opacityStep)).toEqual([
-      'opacity 100ms ease-out 0ms',
-      'opacity 100ms ease-out 100ms',
-      'opacity 100ms ease-out 200ms',
+      'opacity 75ms ease-out 0ms',
+      'opacity 75ms ease-out 75ms',
+      'opacity 75ms ease-out 150ms',
     ])
   })
 
@@ -80,7 +80,7 @@ describe('FloatingActionMenu', () => {
 
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
     expect(document.querySelector('[aria-label="More actions"]').style.transition)
-      .toContain('opacity 100ms ease-out 100ms')
+      .toContain('opacity 75ms ease-out 75ms')
   })
 
   it('reveals only the actions it was given props for', async () => {
@@ -197,6 +197,26 @@ describe('FloatingActionMenu', () => {
     const sheet = screen.getByRole('dialog', { name: 'More actions' })
     await user.click(within(sheet).getByRole('button', { name: 'Copy month' }))
     expect(onCopy).toHaveBeenCalledTimes(1)
+  })
+
+  // The stack gives up pointer events so its collapsed layout box can't
+  // swallow taps meant for the page. pointer-events inherits, so a sheet
+  // opened from inside it has to take them back explicitly — otherwise its
+  // backdrop never gets the dismiss click and every tap lands on the page
+  // behind, leaving the sheet stuck open over a live page.
+  it('opens sheets that can still receive their own dismiss click', async () => {
+    const user = userEvent.setup()
+    renderMenu({
+      legend: { title: 'Legend', children: <p>Key</p> },
+      moreMenu: { title: 'More actions', items: [{ key: 'a', label: 'A', onClick: () => {} }] },
+    })
+    expect(document.querySelector('[aria-label="Search"]').parentElement)
+      .toHaveClass('pointer-events-none')
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    expect(screen.getByRole('dialog', { name: 'More actions' }).parentElement)
+      .toHaveClass('pointer-events-auto')
   })
 
   it('keeps the Legend sheet open after the stack collapses', async () => {

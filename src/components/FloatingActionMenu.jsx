@@ -266,10 +266,11 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
 // on an overshoot curve, and the next starts only once the previous has
 // finished (its AnimatorSet uses playSequentially, not an overlapping
 // stagger) — so the step equals the duration and the stack genuinely opens
-// one icon at a time. Shorter than that library's own 125ms default, since
-// a sequential cascade costs this per button and a toolbar is opened often
-// enough to feel every millisecond of it.
-const OPEN_MS = 100
+// one icon at a time. Well under that library's own 125ms default, because
+// a sequential cascade pays this per button rather than once: at five
+// buttons it is the difference between a ~625ms open and a ~375ms one, and
+// a toolbar gets opened often enough to feel every millisecond.
+const OPEN_MS = 75
 // CSS stand-in for the reference's OvershootInterpolator(3.5f) — grows a
 // little past full size before settling.
 const OPEN_EASE = 'cubic-bezier(0.34, 1.8, 0.64, 1)'

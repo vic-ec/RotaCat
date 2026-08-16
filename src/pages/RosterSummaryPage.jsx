@@ -7,6 +7,7 @@ import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
 import DateStepper from '../components/DateStepper'
 import Toolbar from '../components/Toolbar'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 
@@ -130,8 +131,39 @@ export default function RosterSummaryPage() {
       return next
     }, { replace: true })
   }
+  function goToday() {
+    const now = new Date()
+    setYearMonth(now.getFullYear(), now.getMonth() + 1)
+  }
+  const now = new Date()
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
+
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
   const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0
+  const sortFacets = [{
+    key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
+    value: sortMode, onChange: setSortMode,
+    options: [
+      { value: 'category-asc', label: 'MO → Registrar → Intern' },
+      { value: 'category-desc', label: 'Intern → Registrar → MO' },
+      { value: 'name-asc', label: 'Name (A–Z)' },
+      { value: 'name-desc', label: 'Name (Z–A)' },
+    ],
+    isActive: sortMode !== 'category-asc',
+  }]
+  const filterGroups = [
+    {
+      key: 'category', label: 'Category',
+      options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c })),
+      selected: selectedCategories, onChange: setSelectedCategories,
+    },
+    {
+      key: 'contractType', label: 'Contract type',
+      options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
+      selected: selectedContractTypes, onChange: setSelectedContractTypes,
+    },
+  ]
+  const clearAllFilters = () => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }
   const query = searchQuery.trim().toLowerCase()
   const filteredRows = rows
     .filter(r =>
@@ -165,73 +197,71 @@ export default function RosterSummaryPage() {
         </button>
       )}
 
-      {/* Two groups: month/year stepper (with built-in Today) + Refresh, and
-          search + sort + filter (+ clear-all). Side by side on one row on
-          desktop (md:flex-row, wrapping/scrolling as a fallback if it's
-          ever tight); stacked as two rows on mobile, search+sort+filter
-          beneath the stepper and above "Show leave breakdown" below —
-          there's no room for both groups on one line at phone widths, and
-          forcing it would mean either an unreadably-narrow search box or
-          horizontal scroll to reach Sort/Filter. Refresh drops to icon-only
-          below md to leave more room. No page title here — which tab is
-          active (the highlighted "Hours Summary" tab above) already says
-          what this is. */}
-      <div className="mt-3 flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <DateStepper unit="month" year={year} month={month} onChange={setYearMonth} />
+      {/* Month/year stepper, Refresh immediately to its right, then Today
+          (DateStepper's own built-in Today is turned off so Today can sit
+          after Refresh instead of before it). Search/sort/filter used to
+          share this row (or the one below it on mobile) via an inline
+          Toolbar; below md they now live behind the FAB (§15) instead — see
+          FloatingActionMenu below — so this row only ever holds the date
+          controls. No page title here — which tab is active (the
+          highlighted "Hours Summary" tab above) already says what this
+          is. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <DateStepper unit="month" year={year} month={month} onChange={setYearMonth} showToday={false} />
 
-          {/* No live subscription to roster_entries — see RosterSummaryPage's
-              own note on this. This is the manual escape hatch: re-pull this
-              month's numbers without navigating away and back. */}
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="btn-secondary flex h-[30px] flex-shrink-0 items-center gap-1.5 px-2 text-xs disabled:opacity-60"
-            aria-label="Refresh"
-            title="Refresh"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden md:inline">Refresh</span>
+        {/* No live subscription to roster_entries — see RosterSummaryPage's
+            own note on this. This is the manual escape hatch: re-pull this
+            month's numbers without navigating away and back. */}
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="btn-secondary flex h-[30px] flex-shrink-0 items-center gap-1.5 px-2 text-xs disabled:opacity-60"
+          aria-label="Refresh"
+          title="Refresh"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <span className="hidden md:inline">Refresh</span>
+        </button>
+
+        {!isCurrentMonth && (
+          <button type="button" onClick={goToday} className="btn-secondary h-[30px] flex-shrink-0 px-2 text-xs">
+            Today
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Category and Contract type as independent multi-select facets
-            (replacing the old always-visible category chip row); name
-            search covers what would otherwise be a "name" facet here. */}
+      {/* Category and Contract type as independent multi-select facets
+          (replacing the old always-visible category chip row); name search
+          covers what would otherwise be a "name" facet here. Desktop keeps
+          this inline row; below md it's replaced by the FAB. */}
+      <div className="mt-2 hidden md:block">
         <Toolbar
           className=""
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
           searchPlaceholder="Search by name…"
-          sortFacets={[{
-            key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
-            value: sortMode, onChange: setSortMode,
-            options: [
-              { value: 'category-asc', label: 'MO → Registrar → Intern' },
-              { value: 'category-desc', label: 'Intern → Registrar → MO' },
-              { value: 'name-asc', label: 'Name (A–Z)' },
-              { value: 'name-desc', label: 'Name (Z–A)' },
-            ],
-            isActive: sortMode !== 'category-asc',
-          }]}
-          filterGroups={[
-            {
-              key: 'category', label: 'Category',
-              options: availableCategories.map(c => ({ value: c, label: CATEGORY_LABELS[c] || c })),
-              selected: selectedCategories, onChange: setSelectedCategories,
-            },
-            {
-              key: 'contractType', label: 'Contract type',
-              options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
-              selected: selectedContractTypes, onChange: setSelectedContractTypes,
-            },
-          ]}
+          sortFacets={sortFacets}
+          filterGroups={filterGroups}
           mobileMode="inline"
           active={filtersActive}
-          onClearAll={() => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }}
+          onClearAll={clearAllFilters}
         />
       </div>
+
+      {/* Mobile-only expandable FAB — collapses Search/Sort/Filter into one
+          bottom-right trigger instead of the stacked inline row above (see
+          FloatingActionMenu.jsx / docs/design/layout-spec.md §15). */}
+      <FloatingActionMenu
+        search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search by name…' }}
+        sort={{ facets: sortFacets, active: sortMode !== 'category-asc' }}
+        filter={{
+          groups: filterGroups,
+          active: filtersActive,
+          onClearAll: clearAllFilters,
+          sheetTitle: 'Filters',
+        }}
+      />
 
       <button
         type="button"

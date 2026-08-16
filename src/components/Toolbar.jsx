@@ -52,6 +52,13 @@ function ChevronDownIcon(props) {
     </svg>
   )
 }
+function CheckIcon(props) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  )
+}
 
 // The app's one "quick-select pill" pattern — icon + label, a rectangle
 // with rounded corners (never a full pill), opening a small anchored
@@ -78,7 +85,15 @@ function ChevronDownIcon(props) {
 // below `sm` — for a caller whose row needs to fit a facet next to a
 // search box that never gets its own row (WeekendPlannerView's month-view
 // toolbar), rather than the default "icon-only only below sm" behaviour.
-export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false }) {
+//
+// `variant`: `'pill'` (default, the small icon+label button above) or
+// `'row'` — a full-width row (label, current value preview, chevron) for
+// use as one entry in MobileFiltersSheet's list of parent menu items. Same
+// popover underneath either way — a facet is a facet, just dressed
+// differently depending on where it's triggered from. The value preview is
+// `aria-hidden` so the button's accessible name stays just its label (e.g.
+// "Sort", not "Sort Newest first"), matching the pill variant's name.
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false, variant = 'pill' }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const [query, setQuery] = useState('')
@@ -97,13 +112,15 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
     setOpen(true)
   }
 
+  const isRow = variant === 'row'
   const searchable = options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
-  const menuWidth = 180
+  const selected = options.find(o => o.value === value)
+  const menuWidth = isRow ? Math.max(anchor?.width || 0, 200) : 180
   const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
 
   return (
-    <div className="relative flex-shrink-0">
+    <div className={isRow ? '' : 'relative flex-shrink-0'}>
       <button
         ref={triggerRef}
         type="button"
@@ -111,11 +128,15 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={label}
-        className={`toolbar-pill ${open || isActive ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
+        aria-label={isRow ? undefined : label}
+        className={isRow
+          ? 'flex w-full items-center gap-2 py-3 text-left text-sm font-medium text-ink'
+          : `toolbar-pill ${open || isActive ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
       >
         {icon}
-        <span className={compact ? 'hidden' : 'hidden sm:inline'}>{label}</span>
+        <span className={isRow ? 'flex-1' : (compact ? 'hidden' : 'hidden sm:inline')}>{label}</span>
+        {isRow && selected && <span aria-hidden="true" className="truncate text-ink-muted">{selected.label}</span>}
+        {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />}
       </button>
       {open && positionStyle && createPortal(
         <div
@@ -163,158 +184,116 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
   )
 }
 
-// Both mobile-sheet rows below share one accordion shape — collapsed by
-// default to a header (icon/label + a value/count indicator + chevron),
-// expanding in place to reveal the option list — same "collapsible, not a
-// permanent wall of pills" idea as FilterPanel's own FilterGroup, just
-// adapted to a full-width sheet row instead of a popover. `expanded`/
-// `onToggleExpand` are owned by MobileFiltersSheet (one row open at a time),
-// not by the row itself.
-function FilterRowHeader({ icon, label, badge, expanded, onToggleExpand }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggleExpand}
-      aria-expanded={expanded}
-      className={`flex w-full items-center gap-2 py-3 text-left text-sm transition-colors ${expanded ? 'font-semibold text-ink' : 'font-medium text-ink'}`}
-    >
-      {icon}
-      <span className="flex-1">{label}</span>
-      {badge}
-      <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
-    </button>
-  )
-}
-
-// Same facet, rendered inline (no popover) as a vertical option list — used
-// inside the mobile bottom sheet, where nesting a second floating popover
-// inside an already-open sheet would be an awkward double-layer.
-function ToolbarFacetInline({ icon, label, value, onChange, options, isActive, expanded, onToggleExpand }) {
+// Mobile-sheet row for a FilterPanel-shaped multi-select group (`{key,
+// label, options, selected: Set, onChange}`) — same "row trigger opens its
+// own anchored popover" shape as ToolbarFacet's `variant="row"`, just with
+// a checkbox list (plus an "All" reset for the empty-Set default) instead
+// of single-select buttons. Kept as its own component rather than folded
+// into ToolbarFacet: multi-select's "All" row and checkbox semantics don't
+// map onto a single-select's option list without the toggle turning into a
+// pile of conditionals.
+function ToolbarGroupInline({ label, options, selected, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [anchor, setAnchor] = useState(null)
   const [query, setQuery] = useState('')
-  const searchable = options.length > SEARCH_THRESHOLD
-  const visibleOptions = searchable ? filterByQuery(options, query) : options
+  const triggerRef = useRef(null)
+  const menuRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), menuRef, [triggerRef])
 
   useEffect(() => {
-    if (!expanded) setQuery('')
-  }, [expanded])
+    if (!open) setQuery('')
+  }, [open])
 
-  return (
-    <div>
-      <FilterRowHeader
-        icon={icon}
-        label={label}
-        expanded={expanded}
-        onToggleExpand={onToggleExpand}
-        badge={isActive ? <span className="h-2 w-2 flex-shrink-0 rounded-full bg-accent" /> : null}
-      />
-      {expanded && (
-        <div className="pb-3">
-          {searchable && (
-            <ClearableInput
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={`Search ${label.toLowerCase()}…`}
-              aria-label={`Search ${label.toLowerCase()}`}
-              clearLabel={`Clear ${label.toLowerCase()} search`}
-              icon={<SearchIcon className="h-4 w-4" />}
-              className="input-field mb-1.5"
-              autoFocus
-            />
-          )}
-          {visibleOptions.length === 0 && (
-            <p className="text-sm text-ink-muted">No matches</p>
-          )}
-          <div className="flex flex-wrap gap-1.5">
-            {visibleOptions.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChange(opt.value)}
-                className={`h-[30px] rounded border px-3 text-sm font-medium transition-colors ${
-                  opt.value === value
-                    ? 'border-transparent bg-accent text-white'
-                    : 'border-accent/25 bg-canvas text-ink-light hover:bg-canvas-sunken'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+  function toggle() {
+    if (open) { setOpen(false); return }
+    setAnchor(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
 
-// Same idea for a FilterPanel-shaped multi-select group (`{key, label,
-// options, selected: Set, onChange}`) — a chip row per group with an
-// explicit "All" chip for the empty-Set reset, rather than nesting
-// FilterPanel's own anchored popover inside an already-open sheet.
-function ToolbarGroupInline({ label, options, selected, onChange, expanded, onToggleExpand }) {
-  const [query, setQuery] = useState('')
-  const searchable = options.length > SEARCH_THRESHOLD
-  const visibleOptions = searchable ? filterByQuery(options, query) : options
-
-  useEffect(() => {
-    if (!expanded) setQuery('')
-  }, [expanded])
-
-  function toggle(value) {
+  function toggleOption(value) {
     const next = new Set(selected)
     if (next.has(value)) next.delete(value)
     else next.add(value)
     onChange(next)
   }
-  const chip = 'h-[30px] rounded border px-3 text-sm font-medium transition-colors'
-  const on = 'border-transparent bg-accent text-white'
-  const off = 'border-accent/25 bg-canvas text-ink-light hover:bg-canvas-sunken'
+
+  const isAll = selected.size === 0
+  const searchable = options.length > SEARCH_THRESHOLD
+  const visibleOptions = searchable ? filterByQuery(options, query) : options
+  const menuWidth = Math.max(anchor?.width || 0, 200)
+  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
+
   return (
     <div>
-      <FilterRowHeader
-        label={label}
-        expanded={expanded}
-        onToggleExpand={onToggleExpand}
-        badge={selected.size > 0 ? (
-          <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
-            {selected.size}
-          </span>
-        ) : null}
-      />
-      {expanded && (
-        <div className="pb-3">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 py-3 text-left text-sm font-medium text-ink"
+      >
+        <span className="flex-1">{label}</span>
+        <span aria-hidden="true" className="truncate text-ink-muted">{isAll ? 'All' : `${selected.size} selected`}</span>
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && positionStyle && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{ ...positionStyle, width: menuWidth }}
+          className="fixed z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+        >
           {searchable && (
-            <ClearableInput
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={`Search ${label.toLowerCase()}…`}
-              aria-label={`Search ${label.toLowerCase()}`}
-              clearLabel={`Clear ${label.toLowerCase()} search`}
-              icon={<SearchIcon className="h-4 w-4" />}
-              className="input-field mb-1.5"
-              autoFocus
-            />
+            <div className="px-2 pb-1">
+              <ClearableInput
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                aria-label={`Search ${label.toLowerCase()}`}
+                clearLabel={`Clear ${label.toLowerCase()} search`}
+                icon={<SearchIcon className="h-4 w-4" />}
+                className="input-field"
+                autoFocus
+              />
+            </div>
           )}
+          <button
+            type="button"
+            onClick={() => onChange(new Set())}
+            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+          >
+            <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+              {isAll && <CheckIcon className="h-2.5 w-2.5" />}
+            </span>
+            <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
+          </button>
           {searchable && visibleOptions.length === 0 && (
-            <p className="text-sm text-ink-muted">No matches</p>
+            <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => onChange(new Set())} className={`${chip} ${selected.size === 0 ? on : off}`}>
-              All
-            </button>
-            {visibleOptions.map(opt => (
-              <button
+          {visibleOptions.map(opt => {
+            const checked = selected.has(opt.value)
+            return (
+              <label
                 key={opt.value}
-                type="button"
-                onClick={() => toggle(opt.value)}
-                className={`${chip} ${selected.has(opt.value) ? on : off}`}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
               >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleOption(opt.value)}
+                  className="sr-only"
+                />
+                <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+                  {checked && <CheckIcon className="h-2.5 w-2.5" />}
+                </span>
+                <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
+              </label>
+            )
+          })}
+        </div>,
+        document.body
       )}
     </div>
   )
@@ -336,13 +315,6 @@ function ToolbarGroupInline({ label, options, selected, onChange, expanded, onTo
 export function MobileFiltersSheet({ title, facets = [], groups = [], active, onClearAll, onClose }) {
   const sheetRef = useRef(null)
   useDismissablePopover(true, onClose, sheetRef)
-  // Namespaced so a facet and a group can't collide on the same `key` and
-  // one expanded row across the whole sheet at a time — same accordion
-  // discipline as FilterPanel's popover, just spread across more rows.
-  const [expandedKey, setExpandedKey] = useState(null)
-  function toggle(rowKey) {
-    setExpandedKey(k => (k === rowKey ? null : rowKey))
-  }
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-ink/20 md:hidden" role="presentation">
       <div
@@ -359,14 +331,8 @@ export function MobileFiltersSheet({ title, facets = [], groups = [], active, on
           </button>
         </div>
         <div className="divide-y divide-slate-line px-5">
-          {facets.map(({ key, ...f }) => {
-            const rowKey = `facet:${key}`
-            return <ToolbarFacetInline key={rowKey} {...f} expanded={expandedKey === rowKey} onToggleExpand={() => toggle(rowKey)} />
-          })}
-          {groups.map(({ key, ...g }) => {
-            const rowKey = `group:${key}`
-            return <ToolbarGroupInline key={rowKey} {...g} expanded={expandedKey === rowKey} onToggleExpand={() => toggle(rowKey)} />
-          })}
+          {facets.map(({ key, ...f }) => <ToolbarFacet key={key} variant="row" {...f} />)}
+          {groups.map(({ key, ...g }) => <ToolbarGroupInline key={key} {...g} />)}
         </div>
         {active && onClearAll && (
           <div className="border-t border-slate-line px-5 py-3">

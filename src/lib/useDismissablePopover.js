@@ -20,14 +20,14 @@ export function useDismissablePopover(active, onDismiss, ref, excludeRefs) {
     function onClickOutside(e) {
       if (ref.current && ref.current.contains(e.target)) return
       if (excludeList.some(r => r?.current && r.current.contains(e.target))) return
-      // SelectMenu's own dropdown renders through a portal straight onto
-      // <body> (see that component for why), so it's no longer a DOM
-      // descendant of whatever popover it's nested inside visually — e.g.
-      // a SelectMenu inside the Staff page's Filters sheet. Without this,
-      // picking an option there registered as an "outside" click on the
-      // enclosing sheet and closed it before the sheet's own state could
-      // even update.
-      if (e.target.closest('[role="listbox"]')) return
+      // A popover's own dropdown renders through a portal straight onto
+      // <body> (see SelectMenu/ToolbarFacet for why), so it's no longer a
+      // DOM descendant of whatever popover it's nested inside visually —
+      // e.g. a ToolbarFacet/ToolbarGroupInline row's secondary dropdown
+      // inside the mobile Filters sheet. Without this, picking an option
+      // there registered as an "outside" click on the enclosing sheet and
+      // closed it before the sheet's own state could even update.
+      if (e.target.closest('[role="listbox"], [role="menu"]')) return
       e.stopPropagation()
       e.preventDefault()
       onDismiss()

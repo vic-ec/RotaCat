@@ -137,7 +137,10 @@ describe('FloatingActionMenu', () => {
     const sortSheet = screen.getByRole('dialog', { name: 'Sort' })
     expect(within(sortSheet).queryByRole('button', { name: 'Clear all' })).not.toBeInTheDocument()
     await user.click(within(sortSheet).getByRole('button', { name: 'Sort' }))
-    await user.click(within(sortSheet).getByRole('button', { name: 'Oldest first' }))
+    // The row's own dropdown portals straight onto <body> (same as
+    // SelectMenu), so it's not a DOM descendant of the sheet — query it
+    // globally rather than via `within(sortSheet)`.
+    await user.click(screen.getByRole('button', { name: 'Oldest first' }))
     expect(onSort).toHaveBeenCalledWith('asc')
 
     // Picking a facet leaves the sheet up (same as the inline Toolbar's),
@@ -147,7 +150,7 @@ describe('FloatingActionMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Filters' }))
     const filterSheet = screen.getByRole('dialog', { name: 'Filters' })
     await user.click(within(filterSheet).getByRole('button', { name: 'Filter' }))
-    expect(within(filterSheet).getByRole('button', { name: 'Annual' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Annual' })).toBeInTheDocument()
     expect(within(filterSheet).getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: 'Sort' })).not.toBeInTheDocument()
   })
@@ -254,12 +257,14 @@ describe('FloatingActionMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Filters' }))
 
     const sheet = screen.getByRole('dialog', { name: 'Filters' })
+    // Each row's dropdown portals straight onto <body>, so it's not a DOM
+    // descendant of the sheet — query the options globally.
     await user.click(within(sheet).getByRole('button', { name: 'Sort' }))
-    await user.click(within(sheet).getByRole('button', { name: 'Oldest first' }))
+    await user.click(screen.getByRole('button', { name: 'Oldest first' }))
     expect(onFacet).toHaveBeenCalledWith('asc')
 
     await user.click(within(sheet).getByRole('button', { name: 'Year' }))
-    await user.click(within(sheet).getByRole('button', { name: '2026' }))
+    await user.click(screen.getByRole('checkbox', { name: '2026' }))
     expect(onGroup).toHaveBeenCalledWith(new Set(['2026']))
   })
 

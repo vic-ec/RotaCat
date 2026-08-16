@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { contrastTextColor } from '../lib/color'
@@ -408,7 +408,7 @@ export default function RosterGridPage() {
         <div>
           <button
             onClick={() => navigate('/roster')}
-            className="sticky top-14 md:top-0 z-[5] mb-2 flex items-center gap-1.5 rounded bg-canvas px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
+            className="mb-2 flex items-center gap-1.5 rounded px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
           >
             <ChevronLeftIcon className="h-4 w-4" /> Rosters
           </button>
@@ -465,16 +465,24 @@ export default function RosterGridPage() {
                 state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
               })}
               className="btn-secondary text-sm"
+              aria-label="Hours Summary"
+              title="Hours Summary"
             >
               <ClipboardClock className="h-4 w-4" />
-              Hours Summary
+              <span className="hidden md:inline">Hours Summary</span>
             </button>
           )}
 
           {/* Review log */}
           {isAdmin && (
-            <button onClick={() => setShowChangeLog(true)} className="btn-secondary text-sm">
-              Review log
+            <button
+              onClick={() => setShowChangeLog(true)}
+              className="btn-secondary text-sm"
+              aria-label="Review log"
+              title="Review log"
+            >
+              <ScrollText className="h-4 w-4" />
+              <span className="hidden md:inline">Review log</span>
             </button>
           )}
 
@@ -484,8 +492,11 @@ export default function RosterGridPage() {
               onClick={handlePublish}
               disabled={publishing}
               className="btn-primary text-sm"
+              aria-label="Publish roster"
+              title="Publish roster"
             >
-              {publishing ? 'Publishing…' : 'Publish roster'}
+              <BookUp className="h-4 w-4" />
+              <span className="hidden md:inline">{publishing ? 'Publishing…' : 'Publish roster'}</span>
             </button>
           )}
         </div>
@@ -579,15 +590,18 @@ export default function RosterGridPage() {
 
       {/* Grid — horizontally scrollable */}
       <div className="overflow-x-auto rounded-lg border border-slate-line">
-        <table className="w-full min-w-[700px] table-fixed border-collapse text-xs">
-          {/* Fixed date width; Consultant + up to 4 shift columns share the rest equally */}
+        <table className="w-full min-w-[580px] table-fixed border-collapse text-xs">
+          {/* Every column 20px narrower than before: date 64px -> 44px;
+              Consultant + up to 4 shift columns were auto-sharing ~127px
+              each, now fixed at 107px each so the reduction is uniform
+              instead of just redistributing the freed space. */}
           <colgroup>
-            <col className="w-16" />
-            <col />
-            <col />
-            <col />
-            <col />
-            <col />
+            <col className="w-11" />
+            <col className="w-[107px]" />
+            <col className="w-[107px]" />
+            <col className="w-[107px]" />
+            <col className="w-[107px]" />
+            <col className="w-[107px]" />
           </colgroup>
           <tbody>
             {visibleDays.map((day, dayIdx) => {

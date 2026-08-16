@@ -33,22 +33,34 @@ describe('FloatingActionMenu', () => {
     })
   })
 
-  it('staggers the reveal outward from the trigger, and the collapse back toward it', async () => {
+  // Each button waits for the previous one to finish, so the step equals the
+  // duration and the stack opens one icon at a time (the reference widget's
+  // playSequentially, expressed as CSS delays).
+  it('reveals one button at a time outward, and collapses back toward the trigger', async () => {
     const user = userEvent.setup()
     renderMenu({
       sort: { facets: [{ key: 's', label: 'Sort', value: 'a', onChange: () => {}, options: [] }] },
       moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
     })
-    const delays = () => ['Search', 'Sort', 'More actions']
-      .map(l => document.querySelector(`[aria-label="${l}"]`).style.transitionDelay)
+    const opacityStep = l => document.querySelector(`[aria-label="${l}"]`).style.transition
+      .split(', ').find(part => part.startsWith('opacity'))
 
-    // Bottom-to-top on the way out: Search (nearest the ⊕) leads.
+    // Bottom-to-top on the way out: Search (nearest the ⊕) leads, and each
+    // 125ms turn starts as the one before it ends.
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
-    expect(delays()).toEqual(['0ms', '45ms', '90ms'])
+    expect(['Search', 'Sort', 'More actions'].map(opacityStep)).toEqual([
+      'opacity 125ms ease-out 0ms',
+      'opacity 125ms ease-out 125ms',
+      'opacity 125ms ease-out 250ms',
+    ])
 
-    // Reversed on the way back, so the stack unwinds into the trigger.
+    // Reversed and quicker on the way back, so the stack unwinds into the ⊕.
     await user.click(screen.getByRole('button', { name: 'Close quick actions' }))
-    expect(delays()).toEqual(['90ms', '45ms', '0ms'])
+    expect(['Search', 'Sort', 'More actions'].map(opacityStep)).toEqual([
+      'opacity 75ms ease-in 150ms',
+      'opacity 75ms ease-in 75ms',
+      'opacity 75ms ease-in 0ms',
+    ])
   })
 
   // A page that skips a slot must not leave a pause where that slot's turn
@@ -58,7 +70,8 @@ describe('FloatingActionMenu', () => {
     renderMenu({ moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] } })
 
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
-    expect(document.querySelector('[aria-label="More actions"]').style.transitionDelay).toBe('45ms')
+    expect(document.querySelector('[aria-label="More actions"]').style.transition)
+      .toContain('opacity 125ms ease-out 125ms')
   })
 
   it('reveals only the actions it was given props for', async () => {

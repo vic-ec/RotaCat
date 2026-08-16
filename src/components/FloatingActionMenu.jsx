@@ -221,7 +221,12 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
             aria-expanded={open}
             className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised"
           >
-            <Plus className="h-6 w-6 transition-transform duration-200" style={{ transform: open ? 'rotate(45deg)' : 'rotate(0deg)' }} />
+            {/* ⊕ → ✕ on the same 125ms as the first button's reveal, so the
+                trigger and the stack start moving together. */}
+            <Plus
+              className="h-6 w-6 transition-transform motion-reduce:transition-none"
+              style={{ transform: open ? 'rotate(45deg)' : 'rotate(0deg)', transitionDuration: `${OPEN_MS}ms` }}
+            />
           </button>
         </>
       )}
@@ -251,9 +256,20 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   )
 }
 
-// One step of the stagger. Small enough that the whole stack is settled
-// well inside a tap-and-look, rather than a queue the user waits out.
-const STAGGER_MS = 45
+// Timings follow nambicompany/expandable-fab's own defaults, the Android
+// widget this pattern is modelled on: each button scales 0→1 and fades in
+// over 125ms on an overshoot curve, and the next one starts only once the
+// previous has finished (its AnimatorSet uses playSequentially, not an
+// overlapping stagger) — so the step equals the duration and the stack
+// genuinely opens one icon at a time. Closing is deliberately faster than
+// opening (75ms vs 125ms, and no overshoot) and runs the list reversed, so
+// the stack unwinds back into the ⊕ instead of replaying the opening order.
+// Five buttons therefore take ~625ms out and ~375ms back.
+const OPEN_MS = 125
+const CLOSE_MS = 75
+// CSS stand-in for the reference's OvershootInterpolator(3.5f) — grows a
+// little past full size before settling.
+const OPEN_EASE = 'cubic-bezier(0.34, 1.8, 0.64, 1)'
 
 // Stays mounted in both states and animates between them rather than
 // mounting on open: a mounting element has no "from" to transition out of,
@@ -261,15 +277,19 @@ const STAGGER_MS = 45
 // close in the same tap that opened them.
 //
 // Closed, it is inert as well as invisible — `aria-hidden` keeps it out of
-// the accessibility tree, `tabIndex=-1` out of the tab order, and
-// `pointer-events-none` out of hit-testing, so a collapsed stack can't be
-// tabbed into or tapped through. `visibility` transitions discretely
-// (flipping at the far end of the timing rather than midway), which is what
-// keeps the button on screen for its own fade-out on the way down.
+// the accessibility tree, `tabIndex=-1` out of the tab order, and the
+// container's `pointer-events-none` out of hit-testing, so a collapsed
+// stack can't be tabbed into or tapped through. `visibility` is switched on
+// its own zero-length transition rather than left to flip immediately:
+// visible at the start of the button's turn on the way out, hidden only
+// after its fade has finished on the way back.
 function FabItem({ icon: Icon, label, onClick, active, open, index, count }) {
-  // Opens bottom-up, closes top-down — the stack unwinds back into the ⊕
-  // rather than replaying the opening order in reverse.
-  const delay = open ? index * STAGGER_MS : (count - 1 - index) * STAGGER_MS
+  const step = open ? OPEN_MS : CLOSE_MS
+  const delay = (open ? index : count - 1 - index) * step
+  const transition = open
+    ? `transform ${OPEN_MS}ms ${OPEN_EASE} ${delay}ms, opacity ${OPEN_MS}ms ease-out ${delay}ms, visibility 0s linear ${delay}ms`
+    : `transform ${CLOSE_MS}ms ease-in ${delay}ms, opacity ${CLOSE_MS}ms ease-in ${delay}ms, visibility 0s linear ${delay + CLOSE_MS}ms`
+
   return (
     <button
       type="button"
@@ -278,11 +298,10 @@ function FabItem({ icon: Icon, label, onClick, active, open, index, count }) {
       aria-hidden={!open}
       tabIndex={open ? undefined : -1}
       title={label}
-      style={{ transitionDelay: `${delay}ms` }}
+      style={{ transition }}
       className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full shadow-raised
-        transition-[opacity,transform,visibility,background-color,color] duration-150 ease-out
-        motion-reduce:!delay-0 motion-reduce:!duration-0 ${
-        open ? 'pointer-events-auto visible scale-100 opacity-100' : 'invisible scale-50 opacity-0'
+        motion-reduce:!transition-none ${
+        open ? 'pointer-events-auto visible scale-100 opacity-100' : 'invisible scale-0 opacity-0'
       } ${
         active ? 'bg-accent text-white' : 'bg-canvas-raised text-ink hover:bg-canvas-sunken'
       }`}

@@ -972,7 +972,12 @@ export default function AccountSettingsPage() {
 
     setPwSaving(true)
 
-    // Verify the current password by re-authenticating before changing it
+    // Verify the current password by re-authenticating before changing it.
+    // Kept even though current_password is sent below: this check holds
+    // regardless of the "Require current password when updating" setting, so
+    // flipping that off in the dashboard can't silently drop the check.
+    // It also refreshes the session, satisfying "Secure password change"'s
+    // recently-logged-in window.
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: pwForm.current,
@@ -983,7 +988,15 @@ export default function AccountSettingsPage() {
       return
     }
 
-    const { error } = await supabase.auth.updateUser({ password: pwForm.password })
+    // current_password is required by Supabase Auth's "Require current password
+    // when updating" setting — without it the update is rejected outright.
+    // Deliberately not passing `email` alongside it: that would start an email
+    // change, and "Secure email change" would fire confirmations to both
+    // addresses.
+    const { error } = await supabase.auth.updateUser({
+      current_password: pwForm.current,
+      password: pwForm.password,
+    })
     setPwSaving(false)
 
     if (error) {

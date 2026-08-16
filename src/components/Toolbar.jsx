@@ -7,7 +7,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 
 // Above this many options, a facet grows a search box rather than staying a
 // flat list — same threshold and rationale as FilterPanel's FilterGroup.
-const SEARCH_THRESHOLD = 4
+const SEARCH_THRESHOLD = 6
 
 function filterByQuery(options, query) {
   if (!query.trim()) return options

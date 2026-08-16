@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
@@ -6,6 +6,10 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 // Above this many options, a group's expanded list gets a capped height
 // with its own scrollbar instead of growing the popover indefinitely.
 const SCROLL_CAP_THRESHOLD = 6
+
+// Above this many options, a search box appears so a long list (e.g. every
+// doctor on staff) doesn't force scanning/scrolling to find one value.
+const SEARCH_THRESHOLD = 4
 
 function ChevronDownIcon(props) {
   return (
@@ -37,6 +41,18 @@ function CheckIcon(props) {
 function FilterGroup({ group, expanded, onToggleExpand }) {
   const { label, options, selected, onChange } = group
   const isAll = selected.size === 0
+  const [query, setQuery] = useState('')
+  const searchable = options.length > SEARCH_THRESHOLD
+
+  // Search state belongs to this expansion, not the group's lifetime —
+  // don't leave a stale query filtering the list next time it's opened.
+  useEffect(() => {
+    if (!expanded) setQuery('')
+  }, [expanded])
+
+  const visibleOptions = searchable && query.trim()
+    ? options.filter(opt => opt.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options
 
   function toggleOption(value) {
     const next = new Set(selected)
@@ -65,6 +81,19 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
       </button>
       {expanded && (
         <div className="pb-1.5">
+          {searchable && (
+            <div className="px-4 pb-1.5">
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                aria-label={`Search ${label.toLowerCase()}`}
+                className="input-field"
+                autoFocus
+              />
+            </div>
+          )}
           <button
             type="button"
             onClick={() => onChange(new Set())}
@@ -76,7 +105,10 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
             <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
           </button>
           <div className={options.length > SCROLL_CAP_THRESHOLD ? 'max-h-48 overflow-y-auto' : ''}>
-            {options.map(opt => {
+            {visibleOptions.length === 0 && (
+              <p className="px-4 py-1.5 text-sm text-ink-muted">No matches</p>
+            )}
+            {visibleOptions.map(opt => {
               const checked = selected.has(opt.value)
               return (
                 <label

@@ -83,6 +83,20 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
     return cycleView.options[(i + 1) % cycleView.options.length]
   }
 
+  // Which slots this page actually filled, bottom-to-top — the stagger has
+  // to count rendered buttons, not slots, or a page missing Sort would open
+  // with a visible hole in the timing where Sort's turn would have been.
+  const slots = [
+    hasPrimary && 'primary',
+    'search',
+    hasSort && 'sort',
+    hasFilter && 'filter',
+    hasLegend && 'legend',
+    hasMore && 'more',
+    hasView && 'view',
+  ].filter(Boolean)
+  const stagger = key => ({ open, index: slots.indexOf(key), count: slots.length })
+
   return (
     <div
       className="fixed z-30 md:hidden"
@@ -125,34 +139,44 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
               moves position between pages just because a neighbour is
               absent. (Landscape flips to `flex-row-reverse` off the same
               rule: first child nearest the trigger, growing leftward.)
-              The stack container stays mounted while collapsed and only its
-              individual buttons drop out — LegendSheet/PageActionsMenu own
-              their open sheet internally, so unmounting the whole stack on
-              collapse (the FAB closes the moment one of them is picked)
-              would tear the just-opened sheet down with it. Empty, the
-              container is zero-sized and invisible. */}
+              Everything here stays mounted in both states (see FabItem) —
+              LegendSheet/PageActionsMenu own their open sheet internally, so
+              unmounting on collapse (the FAB closes the moment one of them
+              is picked) would tear the just-opened sheet down with it.
+              `pointer-events-none` on the container because a collapsed
+              stack still reserves its full layout box: only the buttons
+              take pointer events back, and only while open, so the
+              invisible box never swallows a tap meant for the page. */}
           <div
             ref={stackRef}
-            className="absolute bottom-[60px] right-0 flex flex-col-reverse items-center gap-3 [@media(orientation:landscape)]:bottom-0 [@media(orientation:landscape)]:right-[60px] [@media(orientation:landscape)]:flex-row-reverse"
+            className="pointer-events-none absolute bottom-[60px] right-0 flex flex-col-reverse items-center gap-3 [@media(orientation:landscape)]:bottom-0 [@media(orientation:landscape)]:right-[60px] [@media(orientation:landscape)]:flex-row-reverse"
           >
-            {hasPrimary && open && (
+            {hasPrimary && (
               <FabItem
+                {...stagger('primary')}
                 icon={primaryAction.icon}
                 label={primaryAction.label}
                 onClick={() => { primaryAction.onClick(); setOpen(false) }}
               />
             )}
-            {open && <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />}
-            {hasSort && open && (
+            <FabItem
+              {...stagger('search')}
+              icon={Search}
+              label="Search"
+              onClick={() => { setSearchOpen(true); setOpen(false) }}
+            />
+            {hasSort && (
               <FabItem
+                {...stagger('sort')}
                 icon={ArrowUpDown}
                 label={sort.sheetTitle || 'Sort'}
                 active={sort.active}
                 onClick={() => { setSheet('sort'); setOpen(false) }}
               />
             )}
-            {hasFilter && open && (
+            {hasFilter && (
               <FabItem
+                {...stagger('filter')}
                 icon={Filter}
                 label={filter.sheetTitle || 'Filter'}
                 active={filter.active}
@@ -164,8 +188,8 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
                 title={legend.title}
                 ruleIntro={legend.ruleIntro}
                 ruleBullets={legend.ruleBullets}
-                trigger={onClick => open && (
-                  <FabItem icon={List} label="Legend" onClick={() => { onClick(); setOpen(false) }} />
+                trigger={onClick => (
+                  <FabItem {...stagger('legend')} icon={List} label="Legend" onClick={() => { onClick(); setOpen(false) }} />
                 )}
               >
                 {legend.children}
@@ -175,13 +199,14 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
               <PageActionsMenu
                 title={moreMenu.title}
                 items={moreMenu.items}
-                trigger={onClick => open && (
-                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
+                trigger={onClick => (
+                  <FabItem {...stagger('more')} icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
                 )}
               />
             )}
-            {hasView && open && (
+            {hasView && (
               <FabItem
+                {...stagger('view')}
                 icon={nextViewOption().icon}
                 label={`Switch to ${nextViewOption().label}`}
                 onClick={() => { cycleView.onChange(nextViewOption().value); setOpen(false) }}
@@ -226,14 +251,39 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   )
 }
 
-function FabItem({ icon: Icon, label, onClick, active }) {
+// One step of the stagger. Small enough that the whole stack is settled
+// well inside a tap-and-look, rather than a queue the user waits out.
+const STAGGER_MS = 45
+
+// Stays mounted in both states and animates between them rather than
+// mounting on open: a mounting element has no "from" to transition out of,
+// and the buttons for Legend/More own their sheets, which unmounting would
+// close in the same tap that opened them.
+//
+// Closed, it is inert as well as invisible — `aria-hidden` keeps it out of
+// the accessibility tree, `tabIndex=-1` out of the tab order, and
+// `pointer-events-none` out of hit-testing, so a collapsed stack can't be
+// tabbed into or tapped through. `visibility` transitions discretely
+// (flipping at the far end of the timing rather than midway), which is what
+// keeps the button on screen for its own fade-out on the way down.
+function FabItem({ icon: Icon, label, onClick, active, open, index, count }) {
+  // Opens bottom-up, closes top-down — the stack unwinds back into the ⊕
+  // rather than replaying the opening order in reverse.
+  const delay = open ? index * STAGGER_MS : (count - 1 - index) * STAGGER_MS
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
+      aria-hidden={!open}
+      tabIndex={open ? undefined : -1}
       title={label}
-      className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full shadow-raised transition-colors ${
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full shadow-raised
+        transition-[opacity,transform,visibility,background-color,color] duration-150 ease-out
+        motion-reduce:!delay-0 motion-reduce:!duration-0 ${
+        open ? 'pointer-events-auto visible scale-100 opacity-100' : 'invisible scale-50 opacity-0'
+      } ${
         active ? 'bg-accent text-white' : 'bg-canvas-raised text-ink hover:bg-canvas-sunken'
       }`}
     >

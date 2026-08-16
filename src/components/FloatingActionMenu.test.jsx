@@ -18,6 +18,49 @@ describe('FloatingActionMenu', () => {
     expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument()
   })
 
+  // The buttons stay mounted so they can animate (and so Legend/More keep
+  // their sheets), which means "collapsed" has to be enforced by attribute,
+  // not by absence: out of the a11y tree and out of the tab order, or a
+  // closed stack would still be reachable by screen reader and keyboard.
+  it('keeps collapsed buttons mounted but inert', () => {
+    renderMenu({ moreMenu: { items: [{ key: 'a', label: 'Copy month', onClick: () => {} }] } })
+
+    const collapsed = [...document.querySelectorAll('[aria-label="Search"], [aria-label="More actions"]')]
+    expect(collapsed).toHaveLength(2)
+    collapsed.forEach(el => {
+      expect(el).toHaveAttribute('aria-hidden', 'true')
+      expect(el).toHaveAttribute('tabindex', '-1')
+    })
+  })
+
+  it('staggers the reveal outward from the trigger, and the collapse back toward it', async () => {
+    const user = userEvent.setup()
+    renderMenu({
+      sort: { facets: [{ key: 's', label: 'Sort', value: 'a', onChange: () => {}, options: [] }] },
+      moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
+    })
+    const delays = () => ['Search', 'Sort', 'More actions']
+      .map(l => document.querySelector(`[aria-label="${l}"]`).style.transitionDelay)
+
+    // Bottom-to-top on the way out: Search (nearest the ⊕) leads.
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    expect(delays()).toEqual(['0ms', '45ms', '90ms'])
+
+    // Reversed on the way back, so the stack unwinds into the trigger.
+    await user.click(screen.getByRole('button', { name: 'Close quick actions' }))
+    expect(delays()).toEqual(['90ms', '45ms', '0ms'])
+  })
+
+  // A page that skips a slot must not leave a pause where that slot's turn
+  // would have been — the stagger counts rendered buttons, not slots.
+  it('closes the timing gap for slots a page does not use', async () => {
+    const user = userEvent.setup()
+    renderMenu({ moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] } })
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    expect(document.querySelector('[aria-label="More actions"]').style.transitionDelay).toBe('45ms')
+  })
+
   it('reveals only the actions it was given props for', async () => {
     const user = userEvent.setup()
     renderMenu()

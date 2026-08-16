@@ -205,6 +205,10 @@ function ToolbarFacetInline({ icon, label, value, onChange, options }) {
 // explicit "All" chip for the empty-Set reset, rather than nesting
 // FilterPanel's own anchored popover inside an already-open sheet.
 function ToolbarGroupInline({ label, options, selected, onChange }) {
+  const [query, setQuery] = useState('')
+  const searchable = options.length > SEARCH_THRESHOLD
+  const visibleOptions = searchable ? filterByQuery(options, query) : options
+
   function toggle(value) {
     const next = new Set(selected)
     if (next.has(value)) next.delete(value)
@@ -217,11 +221,24 @@ function ToolbarGroupInline({ label, options, selected, onChange }) {
   return (
     <div>
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      {searchable && (
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={`Search ${label.toLowerCase()}…`}
+          aria-label={`Search ${label.toLowerCase()}`}
+          className="input-field mb-1.5"
+        />
+      )}
+      {searchable && visibleOptions.length === 0 && (
+        <p className="text-sm text-ink-muted">No matches</p>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <button type="button" onClick={() => onChange(new Set())} className={`${chip} ${selected.size === 0 ? on : off}`}>
           All
         </button>
-        {options.map(opt => (
+        {visibleOptions.map(opt => (
           <button
             key={opt.value}
             type="button"

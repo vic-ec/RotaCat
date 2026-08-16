@@ -161,7 +161,7 @@ export default function LeaveAuditReport() {
 
   const filterGroups = [
     { key: 'category', label: 'Category', options: CATEGORY_OPTIONS, selected: categoryFilter, onChange: handleCategoryChange },
-    { key: 'doctor', label: 'Doctor', options: doctorOptions, selected: doctorFilter, onChange: setDoctorFilter },
+    { key: 'doctor', label: 'Doctor', options: doctorOptions, selected: doctorFilter, onChange: setDoctorFilter, alwaysSearchable: true },
     { key: 'status', label: 'Status', options: STATUS_OPTIONS, selected: statusFilter, onChange: handleStatusChange },
     { key: 'leaveType', label: 'Leave type', options: LEAVE_TYPE_OPTIONS, selected: leaveTypeFilter, onChange: setLeaveTypeFilter },
   ]

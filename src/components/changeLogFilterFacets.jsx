@@ -34,6 +34,7 @@ export function changeLogFilterFacets({
       value: doctorId, onChange: onDoctorChange,
       options: [{ value: '', label: 'All doctors' }, ...doctorOptions],
       isActive: Boolean(doctorId),
+      alwaysSearchable: true,
     },
     {
       key: 'action', icon: <ListFilter className="h-4 w-4" />, label: 'Change type',

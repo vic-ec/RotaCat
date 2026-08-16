@@ -5,9 +5,10 @@ import FilterPanel from './FilterPanel'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
-// Above this many options, a facet grows a search box rather than staying a
-// flat list — same threshold and rationale as FilterPanel's FilterGroup.
-const SEARCH_THRESHOLD = 6
+// Above this many options, a facet/group grows a search box rather than
+// staying a flat list — same threshold and rationale as FilterPanel's
+// FilterGroup, including the `alwaysSearchable` override.
+const SEARCH_THRESHOLD = 13
 
 function filterByQuery(options, query) {
   if (!query.trim()) return options
@@ -93,7 +94,11 @@ function CheckIcon(props) {
 // differently depending on where it's triggered from. The value preview is
 // `aria-hidden` so the button's accessible name stays just its label (e.g.
 // "Sort", not "Sort Newest first"), matching the pill variant's name.
-export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false, variant = 'pill' }) {
+//
+// `alwaysSearchable`: forces the search box on below SEARCH_THRESHOLD — for
+// a facet like Doctor, where a caller wants search regardless of how many
+// names happen to be on staff right now.
+export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false, variant = 'pill', alwaysSearchable = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const [query, setQuery] = useState('')
@@ -113,7 +118,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
   }
 
   const isRow = variant === 'row'
-  const searchable = options.length > SEARCH_THRESHOLD
+  const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const selected = options.find(o => o.value === value)
   const menuWidth = isRow ? Math.max(anchor?.width || 0, 200) : 180
@@ -192,7 +197,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
 // into ToolbarFacet: multi-select's "All" row and checkbox semantics don't
 // map onto a single-select's option list without the toggle turning into a
 // pile of conditionals.
-function ToolbarGroupInline({ label, options, selected, onChange }) {
+function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchable = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
   const [query, setQuery] = useState('')
@@ -218,7 +223,7 @@ function ToolbarGroupInline({ label, options, selected, onChange }) {
   }
 
   const isAll = selected.size === 0
-  const searchable = options.length > SEARCH_THRESHOLD
+  const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const menuWidth = Math.max(anchor?.width || 0, 200)
   const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null

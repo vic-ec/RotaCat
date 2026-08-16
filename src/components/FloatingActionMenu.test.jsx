@@ -36,7 +36,7 @@ describe('FloatingActionMenu', () => {
   // Each button waits for the previous one to finish, so the step equals the
   // duration and the stack opens one icon at a time (the reference widget's
   // playSequentially, expressed as CSS delays).
-  it('reveals one button at a time outward, and collapses back toward the trigger', async () => {
+  it('reveals one button at a time, outward from the trigger', async () => {
     const user = userEvent.setup()
     renderMenu({
       sort: { facets: [{ key: 's', label: 'Sort', value: 'a', onChange: () => {}, options: [] }] },
@@ -45,22 +45,31 @@ describe('FloatingActionMenu', () => {
     const opacityStep = l => document.querySelector(`[aria-label="${l}"]`).style.transition
       .split(', ').find(part => part.startsWith('opacity'))
 
-    // Bottom-to-top on the way out: Search (nearest the ⊕) leads, and each
-    // 125ms turn starts as the one before it ends.
+    // Bottom-to-top: Search (nearest the ⊕) leads, and each 75ms turn
+    // starts as the one before it ends.
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
     expect(['Search', 'Sort', 'More actions'].map(opacityStep)).toEqual([
-      'opacity 125ms ease-out 0ms',
-      'opacity 125ms ease-out 125ms',
-      'opacity 125ms ease-out 250ms',
+      'opacity 75ms ease-out 0ms',
+      'opacity 75ms ease-out 75ms',
+      'opacity 75ms ease-out 150ms',
     ])
+  })
 
-    // Reversed and quicker on the way back, so the stack unwinds into the ⊕.
+  // Dismissing is a correction — the stack goes the frame the ⊕ is tapped,
+  // with no cascade to sit through and nothing left mid-transition.
+  it('collapses with no animation at all', async () => {
+    const user = userEvent.setup()
+    renderMenu({
+      sort: { facets: [{ key: 's', label: 'Sort', value: 'a', onChange: () => {}, options: [] }] },
+      moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
     await user.click(screen.getByRole('button', { name: 'Close quick actions' }))
-    expect(['Search', 'Sort', 'More actions'].map(opacityStep)).toEqual([
-      'opacity 75ms ease-in 150ms',
-      'opacity 75ms ease-in 75ms',
-      'opacity 75ms ease-in 0ms',
-    ])
+
+    const transitions = ['Search', 'Sort', 'More actions']
+      .map(l => document.querySelector(`[aria-label="${l}"]`).style.transition)
+    expect(transitions).toEqual(['none', 'none', 'none'])
   })
 
   // A page that skips a slot must not leave a pause where that slot's turn
@@ -71,7 +80,7 @@ describe('FloatingActionMenu', () => {
 
     await user.click(screen.getByRole('button', { name: 'Quick actions' }))
     expect(document.querySelector('[aria-label="More actions"]').style.transition)
-      .toContain('opacity 125ms ease-out 125ms')
+      .toContain('opacity 75ms ease-out 75ms')
   })
 
   it('reveals only the actions it was given props for', async () => {
@@ -188,6 +197,26 @@ describe('FloatingActionMenu', () => {
     const sheet = screen.getByRole('dialog', { name: 'More actions' })
     await user.click(within(sheet).getByRole('button', { name: 'Copy month' }))
     expect(onCopy).toHaveBeenCalledTimes(1)
+  })
+
+  // The stack gives up pointer events so its collapsed layout box can't
+  // swallow taps meant for the page. pointer-events inherits, so a sheet
+  // opened from inside it has to take them back explicitly — otherwise its
+  // backdrop never gets the dismiss click and every tap lands on the page
+  // behind, leaving the sheet stuck open over a live page.
+  it('opens sheets that can still receive their own dismiss click', async () => {
+    const user = userEvent.setup()
+    renderMenu({
+      legend: { title: 'Legend', children: <p>Key</p> },
+      moreMenu: { title: 'More actions', items: [{ key: 'a', label: 'A', onClick: () => {} }] },
+    })
+    expect(document.querySelector('[aria-label="Search"]').parentElement)
+      .toHaveClass('pointer-events-none')
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    expect(screen.getByRole('dialog', { name: 'More actions' }).parentElement)
+      .toHaveClass('pointer-events-auto')
   })
 
   it('keeps the Legend sheet open after the stack collapses', async () => {

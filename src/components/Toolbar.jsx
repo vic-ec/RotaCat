@@ -1,9 +1,19 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ClearableInput from './ClearableInput'
 import FilterPanel from './FilterPanel'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
+
+// Above this many options, a facet grows a search box rather than staying a
+// flat list — same threshold and rationale as FilterPanel's FilterGroup.
+const SEARCH_THRESHOLD = 4
+
+function filterByQuery(options, query) {
+  if (!query.trim()) return options
+  const q = query.trim().toLowerCase()
+  return options.filter(opt => opt.label.toLowerCase().includes(q))
+}
 
 function SearchIcon(props) {
   return (
@@ -64,9 +74,14 @@ function CloseIcon(props) {
 export function ToolbarFacet({ icon, label, value, onChange, options, isActive, disabled = false, compact = false }) {
   const [open, setOpen] = useState(false)
   const [anchor, setAnchor] = useState(null)
+  const [query, setQuery] = useState('')
   const triggerRef = useRef(null)
   const menuRef = useRef(null)
   useDismissablePopover(open, () => setOpen(false), menuRef, [triggerRef])
+
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
 
   function toggle() {
     if (disabled) return
@@ -75,6 +90,8 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
     setOpen(true)
   }
 
+  const searchable = options.length > SEARCH_THRESHOLD
+  const visibleOptions = searchable ? filterByQuery(options, query) : options
   const menuWidth = 180
   const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
 
@@ -100,7 +117,23 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
           style={{ ...positionStyle, width: menuWidth }}
           className="fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
         >
-          {options.map(opt => (
+          {searchable && (
+            <div className="px-2 pb-1">
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                aria-label={`Search ${label.toLowerCase()}`}
+                className="input-field"
+                autoFocus
+              />
+            </div>
+          )}
+          {visibleOptions.length === 0 && (
+            <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
+          )}
+          {visibleOptions.map(opt => (
             <button
               key={opt.value}
               type="button"
@@ -125,13 +158,30 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
 // inside the mobile bottom sheet, where nesting a second floating popover
 // inside an already-open sheet would be an awkward double-layer.
 function ToolbarFacetInline({ icon, label, value, onChange, options }) {
+  const [query, setQuery] = useState('')
+  const searchable = options.length > SEARCH_THRESHOLD
+  const visibleOptions = searchable ? filterByQuery(options, query) : options
+
   return (
     <div>
       <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
         {icon}{label}
       </p>
+      {searchable && (
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={`Search ${label.toLowerCase()}…`}
+          aria-label={`Search ${label.toLowerCase()}`}
+          className="input-field mb-1.5"
+        />
+      )}
+      {visibleOptions.length === 0 && (
+        <p className="text-sm text-ink-muted">No matches</p>
+      )}
       <div className="flex flex-wrap gap-1.5">
-        {options.map(opt => (
+        {visibleOptions.map(opt => (
           <button
             key={opt.value}
             type="button"

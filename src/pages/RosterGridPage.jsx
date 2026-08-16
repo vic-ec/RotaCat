@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { contrastTextColor } from '../lib/color'
@@ -110,6 +110,11 @@ export default function RosterGridPage() {
 
   // Review log (audit trail of manual edits to this roster)
   const [showChangeLog, setShowChangeLog] = useState(false)
+
+  // Publish confirmation — publishing is a visible, hard-to-miss state
+  // change for every doctor on the roster, so it gets an explicit "are you
+  // sure" rather than firing straight off the button click.
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
 
   useEffect(() => {
     loadAll()
@@ -367,12 +372,27 @@ export default function RosterGridPage() {
   }
 
   async function handlePublish() {
+    setShowPublishConfirm(false)
     setPublishing(true)
     await supabase.from('roster_months').update({
       status: 'published',
       published_at: new Date().toISOString(),
     }).eq('id', id)
     await syncWeekendPatternsFromEntries(entries, shiftTypes)
+    await loadAll()
+    setPublishing(false)
+  }
+
+  // Reverts a published roster back to draft. Only undoes the roster_months
+  // status itself — the weekend-planner pattern sync that publishing
+  // triggers is a downstream side effect on a different table, and
+  // unwinding it isn't part of what "undo the publish" was asked for here.
+  async function handleUnpublish() {
+    setPublishing(true)
+    await supabase.from('roster_months').update({
+      status: 'draft',
+      published_at: null,
+    }).eq('id', id)
     await loadAll()
     setPublishing(false)
   }
@@ -486,21 +506,52 @@ export default function RosterGridPage() {
             </button>
           )}
 
-          {/* Publish */}
+          {/* Undo Publish — reverts back to draft; sits where Publish would
+              be, since the two states (draft/published) are mutually
+              exclusive and this button only ever shows for the other one. */}
+          {isAdmin && rosterMonth.status === 'published' && (
+            <button
+              onClick={handleUnpublish}
+              disabled={publishing}
+              className="btn-secondary text-sm"
+              aria-label="Undo Publish"
+              title="Undo Publish"
+            >
+              <Undo className="h-4 w-4" />
+              <span className="hidden md:inline">{publishing ? 'Reverting…' : 'Undo Publish'}</span>
+            </button>
+          )}
+
+          {/* Publish — always shows its full label (unlike Hours Summary/
+              Review log, which collapse to icon-only below md) since it's
+              the one action here with real consequences, so it stays
+              unambiguous at every width. Opens a confirmation instead of
+              publishing immediately. */}
           {isAdmin && rosterMonth.status === 'draft' && (
             <button
-              onClick={handlePublish}
+              onClick={() => setShowPublishConfirm(true)}
               disabled={publishing}
               className="btn-primary text-sm"
-              aria-label="Publish roster"
-              title="Publish roster"
             >
               <BookUp className="h-4 w-4" />
-              <span className="hidden md:inline">{publishing ? 'Publishing…' : 'Publish roster'}</span>
+              Publish Roster
             </button>
           )}
         </div>
       </div>
+
+      {/* Publish confirmation */}
+      {showPublishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={() => setShowPublishConfirm(false)}>
+          <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="font-display text-base font-bold text-ink">Are you sure you want to publish this roster?</h3>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowPublishConfirm(false)} className="btn-secondary text-sm">No</button>
+              <button type="button" onClick={handlePublish} className="btn-primary text-sm">Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Weekend Planner drift warning (§2.6) — the planner changed after
           this draft was generated. A compact inline alert: a subdued

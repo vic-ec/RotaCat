@@ -5,6 +5,9 @@ import {
 } from '../lib/changeLog'
 import DateFieldButton from './DateFieldButton'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
+import { changeLogFilterFacets } from './changeLogFilterFacets'
+import ClearableInput from './ClearableInput'
+import FloatingActionMenu from './FloatingActionMenu'
 import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
@@ -41,6 +44,13 @@ function DoctorCell({ change, profilesById }) {
 // nothing in the generation flow writes to roster_entry_changes.
 export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClose }) {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  // Client-side, unlike the rest of `filters` (which go to the server as
+  // query params) — narrows the already-fetched rows by the names the
+  // table actually shows, the same "search by name" carve-out
+  // WeekendPlannerChangeLogModal uses for its own log. Exists mainly to
+  // give the FAB below a real search slot (Search is always offered — see
+  // FloatingActionMenu's own contract) rather than a dead one.
+  const [q, setQ] = useState('')
   const [changes, setChanges] = useState([])
   const [profilesById, setProfilesById] = useState(new Map())
   const [adminOptions, setAdminOptions] = useState([])
@@ -71,8 +81,37 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
     setLoading(false)
   }
 
-  const filtersActive = Object.values(filters).some(Boolean)
+  const filtersActive = Object.values(filters).some(Boolean) || Boolean(q)
   const nameById = nameMapFromProfiles(profilesById)
+
+  function fullName(id) {
+    const p = profilesById.get(id)
+    return p ? `${p.name} ${p.surname}` : ''
+  }
+  const searchTerm = q.trim().toLowerCase()
+  const visibleChanges = searchTerm
+    ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id_before)} ${fullName(c.profile_id_after)}`.toLowerCase().includes(searchTerm))
+    : changes
+
+  const filterFacets = changeLogFilterFacets({
+    adminOptions,
+    doctorOptions,
+    actionOptions: ROSTER_ACTION_OPTIONS,
+    adminId: filters.adminId,
+    doctorId: filters.doctorId,
+    action: filters.action,
+    onAdminChange: v => setFilters(f => ({ ...f, adminId: v })),
+    onDoctorChange: v => setFilters(f => ({ ...f, doctorId: v })),
+    onActionChange: v => setFilters(f => ({ ...f, action: v })),
+    extraFilter: {
+      label: 'Role',
+      options: ROLE_FILTER_OPTIONS,
+      value: filters.role,
+      onChange: v => setFilters(f => ({ ...f, role: v })),
+      disabled: !!filters.doctorId,
+    },
+  })
+  const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
@@ -82,44 +121,72 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close review log">×</button>
         </div>
 
+        {/* From/To stay on the row at every width — the FAB below has no
+            slot for a date range. Search and the four facets (Admin,
+            Doctor, Change type, Role) fold into the FAB below `md`. */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
             onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
           <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
             onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
-          <ChangeLogFilterMenu
-            adminOptions={adminOptions}
-            doctorOptions={doctorOptions}
-            actionOptions={ROSTER_ACTION_OPTIONS}
-            adminId={filters.adminId}
-            doctorId={filters.doctorId}
-            action={filters.action}
-            onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
-            onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
-            onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-            extraFilter={{
-              label: 'Role',
-              options: ROLE_FILTER_OPTIONS,
-              value: filters.role,
-              onChange: v => setFilters(f => ({ ...f, role: v })),
-              disabled: !!filters.doctorId,
-            }}
-          />
-          {filtersActive && (
-            <button type="button" className="text-sm text-accent hover:underline" onClick={() => setFilters(EMPTY_FILTERS)}>
-              Clear
-            </button>
-          )}
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
+            <div className="w-56">
+              <ClearableInput
+                type="text"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Search by name…"
+                className="input-field"
+                clearLabel="Clear search"
+              />
+            </div>
+            <ChangeLogFilterMenu
+              adminOptions={adminOptions}
+              doctorOptions={doctorOptions}
+              actionOptions={ROSTER_ACTION_OPTIONS}
+              adminId={filters.adminId}
+              doctorId={filters.doctorId}
+              action={filters.action}
+              onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
+              onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
+              onActionChange={v => setFilters(f => ({ ...f, action: v }))}
+              extraFilter={{
+                label: 'Role',
+                options: ROLE_FILTER_OPTIONS,
+                value: filters.role,
+                onChange: v => setFilters(f => ({ ...f, role: v })),
+                disabled: !!filters.doctorId,
+              }}
+            />
+            {filtersActive && (
+              <button type="button" className="text-sm text-accent hover:underline" onClick={clearAll}>
+                Clear
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Inside the card, not the backdrop: the backdrop's own onClick is
+            what closes this modal, so a FAB rendered as its sibling would
+            dismiss the whole log on every tap. */}
+        <FloatingActionMenu
+          search={{ value: q, onChange: setQ, placeholder: 'Search by name…' }}
+          filter={{
+            facets: filterFacets,
+            active: filtersActive,
+            onClearAll: clearAll,
+            sheetTitle: 'Filters',
+          }}
+        />
 
         {loading && <p className="mt-4 text-sm text-ink-muted">Loading…</p>}
         {error && <p className="mt-4 text-sm text-flagRed">{error}</p>}
-        {!loading && !error && changes.length === 0 && (
+        {!loading && !error && visibleChanges.length === 0 && (
           <p className="mt-4 text-sm text-ink-muted">
             {filtersActive ? 'No edits match these filters.' : 'No manual edits recorded for this roster yet.'}
           </p>
         )}
-        {!loading && !error && changes.length > 0 && (
+        {!loading && !error && visibleChanges.length > 0 && (
           <div className="mt-4 flex-1 overflow-auto">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-canvas-raised text-xs uppercase text-ink-muted">
@@ -133,7 +200,7 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
                 </tr>
               </thead>
               <tbody className="text-ink-light">
-                {changes.map(c => {
+                {visibleChanges.map(c => {
                   const { date, time } = formatTimestampParts(c.changed_at)
                   const admin = profilesById.get(c.changed_by)
                   const detail = rosterChangeDetail(c, nameById)

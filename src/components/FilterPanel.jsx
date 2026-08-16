@@ -8,9 +8,13 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 // with its own scrollbar instead of growing the popover indefinitely.
 const SCROLL_CAP_THRESHOLD = 6
 
-// Above this many options, a search box appears so a long list (e.g. every
-// doctor on staff) doesn't force scanning/scrolling to find one value.
-const SEARCH_THRESHOLD = 6
+// Above this many options, a search box appears so a long list doesn't
+// force scanning/scrolling to find one value — high enough that a 12-item
+// list (a year's Months, say) doesn't get one. A group can also force it on
+// regardless of count via `alwaysSearchable` (e.g. Doctor, whose list is
+// long today but is exactly the kind of thing a caller wants search on
+// even if it were briefly short).
+const SEARCH_THRESHOLD = 13
 
 function SearchIcon(props) {
   return (
@@ -48,10 +52,10 @@ function CheckIcon(props) {
 // expanded at a time across the whole panel (see FilterPanel below) — this
 // component just renders whatever expanded state it's told.
 function FilterGroup({ group, expanded, onToggleExpand }) {
-  const { label, options, selected, onChange } = group
+  const { label, options, selected, onChange, alwaysSearchable } = group
   const isAll = selected.size === 0
   const [query, setQuery] = useState('')
-  const searchable = options.length > SEARCH_THRESHOLD
+  const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
 
   // Search state belongs to this expansion, not the group's lifetime —
   // don't leave a stale query filtering the list next time it's opened.

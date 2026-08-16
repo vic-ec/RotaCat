@@ -10,6 +10,7 @@ import Modal from './Modal'
 import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
 import Toolbar from './Toolbar'
+import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
 import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from '../lib/internRotations'
 import {
@@ -351,6 +352,10 @@ export default function InternRotationsMatrix({
   }]
   const clearActive = Boolean(search) || categoryFilter !== 'all'
   const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
+
+  // Shared by the md–lg standalone button and the Toolbar FAB's primary
+  // action below `md` — same reset-then-open, one definition.
+  const openAddDoctor = () => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor('all') }
 
   const menuItems = [
     { key: 'how-it-works', icon: <CircleQuestionMark className="h-4 w-4" />, label: 'How it works', disabled: true, onClick: () => {} },
@@ -705,33 +710,38 @@ export default function InternRotationsMatrix({
   // ── Mobile ───────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Two rows: search (left, filling the width) with filter/Legend/
-          kebab trailing on the right; the year selector gets its own row
-          below, left-aligned, rather than sharing a row with the toolbar. */}
+      {/* Below `md` everything here except the year selector moves into the
+          Toolbar FAB (§15) — search, Category, Legend and the kebab. This
+          branch runs to `lg` (useIsDesktop) while the FAB stops at `md`, so
+          the md–lg band keeps the row it already had. The year selector
+          stays put at every width: it's what the grid below is showing, not
+          a way of narrowing it. */}
       <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-slate-line bg-canvas px-4 py-2">
-        <Toolbar
-          className=""
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search name…"
-          filterFacets={filterFacets}
-          mobileMode="inline"
-          active={clearActive}
-          onClearAll={onClearAll}
-          trailing={
-            <div className="flex items-center gap-1.5">
-              <LegendSheet
-                title="Legend"
-                trigger={onClick => (
-                  <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
-                )}
-              >
-                {legendSwatches}
-              </LegendSheet>
-              {overflowMenu}
-            </div>
-          }
-        />
+        <div className="hidden md:block">
+          <Toolbar
+            className=""
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search name…"
+            filterFacets={filterFacets}
+            mobileMode="inline"
+            active={clearActive}
+            onClearAll={onClearAll}
+            trailing={
+              <div className="flex items-center gap-1.5">
+                <LegendSheet
+                  title="Legend"
+                  trigger={onClick => (
+                    <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+                  )}
+                >
+                  {legendSwatches}
+                </LegendSheet>
+                {overflowMenu}
+              </div>
+            }
+          />
+        </div>
         {dateNav}
       </div>
 
@@ -793,14 +803,31 @@ export default function InternRotationsMatrix({
         ))}
       </div>
 
+      {/* Add doctor was its own bottom-right FAB, which put two FABs in one
+          corner once the Toolbar FAB arrived — below `md` it's the Toolbar
+          FAB's `primaryAction` (nearest the ⊕) instead. The md–lg band,
+          which the Toolbar FAB doesn't cover, keeps the standalone button. */}
       <button
         type="button"
-        onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor('all') }}
+        onClick={openAddDoctor}
         aria-label="Add doctor"
-        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised"
+        className="fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised md:flex"
       >
         <Plus className="h-6 w-6" />
       </button>
+
+      <FloatingActionMenu
+        primaryAction={{ icon: Plus, label: 'Add doctor', onClick: openAddDoctor }}
+        search={{ value: search, onChange: setSearch, placeholder: 'Search name…' }}
+        filter={{
+          facets: filterFacets,
+          active: clearActive,
+          onClearAll,
+          sheetTitle: 'Filters',
+        }}
+        legend={{ title: 'Legend', children: legendSwatches }}
+        moreMenu={{ title: 'Intern rotations', items: menuItems }}
+      />
 
       {selectedDoctor && (
         <Modal title={displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname} onClose={() => onSelectDoctor(null)}>

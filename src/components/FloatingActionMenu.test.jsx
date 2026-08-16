@@ -36,6 +36,7 @@ describe('FloatingActionMenu', () => {
     const Icon = props => <svg {...props} />
     const user = userEvent.setup()
     renderMenu({
+      primaryAction: { icon: Icon, label: 'Add doctor', onClick: () => {} },
       filter: { facets: [{ key: 'f', label: 'Filter', value: 'a', onChange: () => {}, options: [] }], sheetTitle: 'Filters' },
       legend: { title: 'Legend', children: null },
       moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
@@ -46,7 +47,20 @@ describe('FloatingActionMenu', () => {
     const labels = [...document.querySelectorAll('[aria-label]')]
       .map(el => el.getAttribute('aria-label'))
       .filter(l => l !== 'Close quick actions')
-    expect(labels).toEqual(['Switch to Grid', 'Legend', 'More actions', 'Filters', 'Search'])
+    expect(labels).toEqual(['Switch to Grid', 'More actions', 'Legend', 'Filters', 'Search', 'Add doctor'])
+  })
+
+  it('fires the primary action and closes the stack', async () => {
+    const onClick = vi.fn()
+    const Icon = props => <svg {...props} />
+    const user = userEvent.setup()
+    renderMenu({ primaryAction: { icon: Icon, label: 'Add doctor', onClick } })
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    await user.click(screen.getByRole('button', { name: 'Add doctor' }))
+
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
   })
 
   it('swaps the stack for an inline search field', async () => {

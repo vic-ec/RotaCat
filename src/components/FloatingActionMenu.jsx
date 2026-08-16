@@ -47,11 +47,17 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //   `ViewToggle` component — a segmented control doesn't fit a single-icon
 //   FAB slot as-is. If that tradeoff isn't wanted, keep `ViewToggle`
 //   rendered inline above the list instead of passing `cycleView` here.
+// - primaryAction: `{ icon, label, onClick }` — the page's own create/add
+//   action (Rotations' "Add doctor"), which §15 otherwise gives its own
+//   bottom-right FAB. A page needing both puts it here rather than
+//   rendering two FABs in the same corner; it sits nearest the ⊕ as the
+//   shortest reach, and is the one stack item that isn't a way of looking
+//   at the list.
 // - hidden — pass `true` while a page's own bulk-selection UI is showing
 //   (Staff's `BulkActionBar`, fixed to the same bottom edge) so the two
 //   floating elements never overlap; this menu renders nothing while
 //   hidden.
-export default function FloatingActionMenu({ search, filter, legend, moreMenu, cycleView, hidden = false }) {
+export default function FloatingActionMenu({ search, filter, legend, moreMenu, cycleView, primaryAction, hidden = false }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [filterSheetOpen, setFilterSheetOpen] = useState(false)
@@ -64,6 +70,7 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
   const hasLegend = Boolean(legend)
   const hasMore = Boolean(moreMenu?.items?.length)
   const hasView = Boolean(cycleView)
+  const hasPrimary = Boolean(primaryAction)
 
   function nextViewOption() {
     const i = cycleView.options.findIndex(o => o.value === cycleView.value)
@@ -104,10 +111,11 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
       ) : (
         <>
           {/* `flex-col-reverse`, so this reads bottom-to-top on screen —
-              nearest the ⊕ first: Search, Filter, More actions, Legend,
-              View. Ordered by expected reach, not by how often a page
-              happens to pass each one, so a control never moves position
-              between pages just because a neighbour is absent.
+              nearest the ⊕ first: primary action, Search, Filter, Legend,
+              More actions, View. Ordered by expected reach, not by how
+              often a page happens to pass each one, so a control never
+              moves position between pages just because a neighbour is
+              absent.
               The stack container stays mounted while collapsed and only its
               individual buttons drop out — LegendSheet/PageActionsMenu own
               their open sheet internally, so unmounting the whole stack on
@@ -125,6 +133,15 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 onClick={() => { cycleView.onChange(nextViewOption().value); setOpen(false) }}
               />
             )}
+            {hasMore && (
+              <PageActionsMenu
+                title={moreMenu.title}
+                items={moreMenu.items}
+                trigger={onClick => open && (
+                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
+                )}
+              />
+            )}
             {hasLegend && (
               <LegendSheet
                 title={legend.title}
@@ -137,15 +154,6 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 {legend.children}
               </LegendSheet>
             )}
-            {hasMore && (
-              <PageActionsMenu
-                title={moreMenu.title}
-                items={moreMenu.items}
-                trigger={onClick => open && (
-                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
-                )}
-              />
-            )}
             {hasFilter && open && (
               <FabItem
                 icon={Filter}
@@ -155,6 +163,13 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
               />
             )}
             {open && <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />}
+            {hasPrimary && open && (
+              <FabItem
+                icon={primaryAction.icon}
+                label={primaryAction.label}
+                onClick={() => { primaryAction.onClick(); setOpen(false) }}
+              />
+            )}
           </div>
 
           <button

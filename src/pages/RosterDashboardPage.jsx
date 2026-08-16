@@ -532,14 +532,13 @@ function RosterToolbar({
           onClearAll={clearAll}
         />
       </div>
-      {/* Sort and the Month/Year multi-selects both fold into the FAB's one
-          Filters sheet — the FAB has no inline row left to hang FilterPanel
-          off, and the sheet already combines sort + filter by design.
-          List/Grid becomes a single cycling icon (see cycleView). */}
+      {/* The Month/Year multi-selects move into the FAB's Filters sheet —
+          the FAB has no inline row left to hang FilterPanel off. List/Grid
+          becomes a single cycling icon (see cycleView). */}
       <FloatingActionMenu
         search={{ value: search, onChange: onSearchChange, placeholder: 'Search by month or year…' }}
+        sort={{ facets: sortFacets, active: sortDir !== 'desc' }}
         filter={{
-          facets: sortFacets,
           groups: filterGroups,
           active: Boolean(search) || filtersActive,
           onClearAll: clearAll,

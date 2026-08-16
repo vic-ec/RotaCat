@@ -431,8 +431,9 @@ export default function LeaveApprovalQueue({ onBack }) {
             <FloatingActionMenu
               hidden={selectedIds.size > 0}
               search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search by surname or first name…' }}
+              sort={{ facets: sortFacets, active: sortDirection !== 'asc' }}
               filter={{
-                facets: [...sortFacets, ...filterFacets],
+                facets: filterFacets,
                 active: filtersActive,
                 onClearAll,
                 sheetTitle: 'Filters',

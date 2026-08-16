@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Search, Filter, List, EllipsisVertical, Plus, X } from 'lucide-react'
+import { Search, ArrowUpDown, Filter, List, EllipsisVertical, Plus, X } from 'lucide-react'
 import ClearableInput from './ClearableInput'
 import { MobileFiltersSheet } from './Toolbar'
 import LegendSheet from './LegendSheet'
@@ -30,6 +30,11 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //
 // Props:
 // - search: `{ value, onChange, placeholder }` — always required.
+// - sort: `{ facets, active, sheetTitle }` — Toolbar's `sortFacets`, on
+//   their own trigger and their own sheet. Kept separate from `filter`
+//   rather than merged into one sheet the way the inline Toolbar's mobile
+//   mode does: with a whole stack to spend, sort is worth its own reach
+//   instead of being buried a sheet deep behind a Filter icon.
 // - filter: `{ facets, groups, active, onClearAll, sheetTitle }` — omit
 //   entirely on a page with nothing to filter. `facets` are Toolbar's
 //   single-select facet descriptors, `groups` its FilterPanel-shaped
@@ -57,15 +62,16 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //   (Staff's `BulkActionBar`, fixed to the same bottom edge) so the two
 //   floating elements never overlap; this menu renders nothing while
 //   hidden.
-export default function FloatingActionMenu({ search, filter, legend, moreMenu, cycleView, primaryAction, hidden = false }) {
+export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, hidden = false }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [sheet, setSheet] = useState(null) // 'sort' | 'filter' | null
   const stackRef = useRef(null)
   useDismissablePopover(open, () => setOpen(false), stackRef)
 
   if (hidden) return null
 
+  const hasSort = Boolean(sort?.facets?.length)
   const hasFilter = Boolean(filter?.facets?.length || filter?.groups?.length)
   const hasLegend = Boolean(legend)
   const hasMore = Boolean(moreMenu?.items?.length)
@@ -110,12 +116,15 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
         </div>
       ) : (
         <>
-          {/* `flex-col-reverse`, so this reads bottom-to-top on screen —
-              nearest the ⊕ first: primary action, Search, Filter, Legend,
-              More actions, View. Ordered by expected reach, not by how
-              often a page happens to pass each one, so a control never
+          {/* `flex-col-reverse` — the stack sits above the ⊕ and grows
+              upward, so the FIRST child renders at the bottom, nearest the
+              trigger, and DOM order here reads exactly as the stack reads
+              on screen bottom-to-top: primary action, Search, Sort, Filter,
+              Legend, More actions, View. Ordered by expected reach, not by
+              how often a page happens to pass each one, so a control never
               moves position between pages just because a neighbour is
-              absent.
+              absent. (Landscape flips to `flex-row-reverse` off the same
+              rule: first child nearest the trigger, growing leftward.)
               The stack container stays mounted while collapsed and only its
               individual buttons drop out — LegendSheet/PageActionsMenu own
               their open sheet internally, so unmounting the whole stack on
@@ -126,20 +135,28 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
             ref={stackRef}
             className="absolute bottom-[60px] right-0 flex flex-col-reverse items-center gap-3 [@media(orientation:landscape)]:bottom-0 [@media(orientation:landscape)]:right-[60px] [@media(orientation:landscape)]:flex-row-reverse"
           >
-            {hasView && open && (
+            {hasPrimary && open && (
               <FabItem
-                icon={nextViewOption().icon}
-                label={`Switch to ${nextViewOption().label}`}
-                onClick={() => { cycleView.onChange(nextViewOption().value); setOpen(false) }}
+                icon={primaryAction.icon}
+                label={primaryAction.label}
+                onClick={() => { primaryAction.onClick(); setOpen(false) }}
               />
             )}
-            {hasMore && (
-              <PageActionsMenu
-                title={moreMenu.title}
-                items={moreMenu.items}
-                trigger={onClick => open && (
-                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
-                )}
+            {open && <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />}
+            {hasSort && open && (
+              <FabItem
+                icon={ArrowUpDown}
+                label={sort.sheetTitle || 'Sort'}
+                active={sort.active}
+                onClick={() => { setSheet('sort'); setOpen(false) }}
+              />
+            )}
+            {hasFilter && open && (
+              <FabItem
+                icon={Filter}
+                label={filter.sheetTitle || 'Filter'}
+                active={filter.active}
+                onClick={() => { setSheet('filter'); setOpen(false) }}
               />
             )}
             {hasLegend && (
@@ -154,20 +171,20 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
                 {legend.children}
               </LegendSheet>
             )}
-            {hasFilter && open && (
-              <FabItem
-                icon={Filter}
-                label={filter.sheetTitle || 'Filter'}
-                active={filter.active}
-                onClick={() => { setFilterSheetOpen(true); setOpen(false) }}
+            {hasMore && (
+              <PageActionsMenu
+                title={moreMenu.title}
+                items={moreMenu.items}
+                trigger={onClick => open && (
+                  <FabItem icon={EllipsisVertical} label="More actions" onClick={() => { onClick(); setOpen(false) }} />
+                )}
               />
             )}
-            {open && <FabItem icon={Search} label="Search" onClick={() => { setSearchOpen(true); setOpen(false) }} />}
-            {hasPrimary && open && (
+            {hasView && open && (
               <FabItem
-                icon={primaryAction.icon}
-                label={primaryAction.label}
-                onClick={() => { primaryAction.onClick(); setOpen(false) }}
+                icon={nextViewOption().icon}
+                label={`Switch to ${nextViewOption().label}`}
+                onClick={() => { cycleView.onChange(nextViewOption().value); setOpen(false) }}
               />
             )}
           </div>
@@ -184,14 +201,25 @@ export default function FloatingActionMenu({ search, filter, legend, moreMenu, c
         </>
       )}
 
-      {filterSheetOpen && (
+      {/* Sort and Filter are two triggers onto the same sheet shell, never
+          open at once. Sort deliberately gets no `onClearAll`: "Clear all"
+          resets search and filters too, which isn't what a sheet showing
+          only sort options should offer. */}
+      {sheet === 'sort' && (
         <MobileFiltersSheet
-          title={filter?.sheetTitle || 'Filters'}
-          facets={filter?.facets}
-          groups={filter?.groups}
-          active={filter?.active}
-          onClearAll={filter?.onClearAll}
-          onClose={() => setFilterSheetOpen(false)}
+          title={sort.sheetTitle || 'Sort'}
+          facets={sort.facets}
+          onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === 'filter' && (
+        <MobileFiltersSheet
+          title={filter.sheetTitle || 'Filters'}
+          facets={filter.facets}
+          groups={filter.groups}
+          active={filter.active}
+          onClearAll={filter.onClearAll}
+          onClose={() => setSheet(null)}
         />
       )}
     </div>

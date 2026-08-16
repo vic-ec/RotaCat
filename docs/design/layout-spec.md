@@ -300,7 +300,8 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 
 **Toolbar FAB** — `FloatingActionMenu`, mobile only (`md:` and up unaffected):
 - Fixed bottom-right, above the bottom nav bar and clear of `env(safe-area-inset-*)`.
-- Tapping the FAB expands a vertical stack of up to 6 round icon buttons (bottom-to-top, i.e. nearest the FAB first: primary action, Search, Filter, Legend, More, View — each optional per page except Search). The order is fixed: a page that omits one closes the gap rather than shuffling the rest, so a given control never changes position between pages.
+- Tapping the FAB expands a vertical stack of up to 7 round icon buttons (bottom-to-top, i.e. nearest the FAB first: primary action, Search, Sort, Filter, Legend, More, View — each optional per page except Search). The order is fixed: a page that omits one closes the gap rather than shuffling the rest, so a given control never changes position between pages.
+- **Sort** gets its own trigger and its own sheet here, unlike the inline mobile Toolbar (which merges sort into the one "Filters" sheet because it only has room for one button). With a whole stack to spend, sort is worth its own reach rather than being buried a sheet deep behind a Filter icon.
 - **Primary action** is the page's own create/add button (Rotations' "Add doctor"), the same control the PageHeader (mobile) section above offers as its own bottom-right FAB. A page that wants both puts it in this stack rather than rendering two FABs into the same corner — that's the collision that section says to resolve explicitly.
 - **Search** morphs the FAB into a full-width pill with an inline text field, replacing the stack — not a separate screen.
 - **Filter** opens the same `MobileFiltersSheet` the old inline "Filters" button used — same sheet, new trigger, so filter behavior itself is unchanged.

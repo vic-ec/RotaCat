@@ -927,8 +927,8 @@ export default function StaffListPage() {
                   BulkActionBar to collide with (only Pending/Requests do). */}
               <FloatingActionMenu
                 search={{ value: accountFilters.q, onChange: onSearchChange, placeholder: 'Surname or first name…' }}
+                sort={{ facets: sortFacets, active: sortMode !== 'category' }}
                 filter={{
-                  facets: sortFacets,
                   groups: filterGroups,
                   active: accountFiltersActive,
                   onClearAll: clearAllFilters,
@@ -974,8 +974,9 @@ export default function StaffListPage() {
               <FloatingActionMenu
                 hidden={selectedPendingIds.size > 0}
                 search={{ value: pendingSearchQuery, onChange: setPendingSearchQuery, placeholder: 'Search by surname or first name…' }}
+                sort={{ facets: sortFacets, active: pendingSortDirection !== 'asc' }}
                 filter={{
-                  facets: [...sortFacets, ...filterFacets],
+                  facets: filterFacets,
                   active: clearActive,
                   onClearAll,
                   sheetTitle: 'Filters',
@@ -1019,8 +1020,9 @@ export default function StaffListPage() {
               <FloatingActionMenu
                 hidden={selectedRequestIds.size > 0}
                 search={{ value: requestsSearchQuery, onChange: setRequestsSearchQuery, placeholder: 'Search by surname or first name…' }}
+                sort={{ facets: sortFacets, active: requestsSortDirection !== 'asc' }}
                 filter={{
-                  facets: [...sortFacets, ...filterFacets],
+                  facets: filterFacets,
                   active: clearActive,
                   onClearAll,
                   sheetTitle: 'Filters',

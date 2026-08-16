@@ -29,14 +29,16 @@ describe('FloatingActionMenu', () => {
     expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument()
   })
 
-  // Fixed order, nearest the ⊕ first — a page omitting one closes the gap
-  // rather than shuffling the rest. The stack is `flex-col-reverse`, so DOM
-  // order runs top-of-stack first and this list reads reversed.
-  it('stacks the actions in the documented order', async () => {
+  // The stack sits above the ⊕ and is `flex-col-reverse`, so the first DOM
+  // child renders at the BOTTOM, nearest the trigger — DOM order and
+  // bottom-to-top reading order are the same list. Fixed order: a page
+  // omitting one closes the gap rather than shuffling the rest.
+  it('stacks the actions bottom-to-top in the documented order', async () => {
     const Icon = props => <svg {...props} />
     const user = userEvent.setup()
     renderMenu({
       primaryAction: { icon: Icon, label: 'Add doctor', onClick: () => {} },
+      sort: { facets: [{ key: 's', label: 'Sort', value: 'a', onChange: () => {}, options: [] }] },
       filter: { facets: [{ key: 'f', label: 'Filter', value: 'a', onChange: () => {}, options: [] }], sheetTitle: 'Filters' },
       legend: { title: 'Legend', children: null },
       moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] },
@@ -47,7 +49,40 @@ describe('FloatingActionMenu', () => {
     const labels = [...document.querySelectorAll('[aria-label]')]
       .map(el => el.getAttribute('aria-label'))
       .filter(l => l !== 'Close quick actions')
-    expect(labels).toEqual(['Switch to Grid', 'More actions', 'Legend', 'Filters', 'Search', 'Add doctor'])
+    expect(labels).toEqual(['Add doctor', 'Search', 'Sort', 'Filters', 'Legend', 'More actions', 'Switch to Grid'])
+  })
+
+  // Two triggers, two sheets, never both — and Sort's has no "Clear all",
+  // which would reset search and filters from a sheet showing neither.
+  it('opens Sort and Filter as separate sheets', async () => {
+    const onSort = vi.fn()
+    const user = userEvent.setup()
+    renderMenu({
+      sort: {
+        facets: [{ key: 's', label: 'Sort', value: 'desc', onChange: onSort, options: [{ value: 'asc', label: 'Oldest first' }] }],
+      },
+      filter: {
+        facets: [{ key: 'f', label: 'Filter', value: 'all', onChange: () => {}, options: [{ value: 'x', label: 'Annual' }] }],
+        active: true, onClearAll: () => {}, sheetTitle: 'Filters',
+      },
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    await user.click(screen.getByRole('button', { name: 'Sort' }))
+    const sortSheet = screen.getByRole('dialog', { name: 'Sort' })
+    expect(within(sortSheet).queryByRole('button', { name: 'Clear all' })).not.toBeInTheDocument()
+    await user.click(within(sortSheet).getByRole('button', { name: 'Oldest first' }))
+    expect(onSort).toHaveBeenCalledWith('asc')
+
+    // Picking a facet leaves the sheet up (same as the inline Toolbar's),
+    // so it has to be dismissed before the FAB is reachable again.
+    await user.click(within(sortSheet).getByRole('button', { name: 'Close' }))
+    await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    const filterSheet = screen.getByRole('dialog', { name: 'Filters' })
+    expect(within(filterSheet).getByRole('button', { name: 'Annual' })).toBeInTheDocument()
+    expect(within(filterSheet).getByRole('button', { name: 'Clear all' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Sort' })).not.toBeInTheDocument()
   })
 
   it('fires the primary action and closes the stack', async () => {

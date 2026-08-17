@@ -1408,7 +1408,13 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <div className="card mb-3 overflow-hidden">
+              {/* One card for the header and every row, rows joined by a
+                  hairline — same shape as the leave-request queue and User
+                  Requests. The header used to be its own `mb-3` card above
+                  a `space-y-3` stack of one-card-per-row, which left the
+                  select-all row floating detached from the rows it governs
+                  (and its selected tint attached to nothing). */}
+              <div className="card overflow-hidden">
                 <SelectAllRow
                   checked={selectedPendingIds.size === pending.length}
                   onToggleCheck={toggleSelectAllPending}
@@ -1421,12 +1427,10 @@ export default function StaffListPage() {
                   ]}
                   onCancel={() => setSelectedPendingIds(new Set())}
                 />
-              </div>
-
-              <div className="space-y-3">
-                {orderedPending.map((person) => (
-                  <div key={person.id} className="card overflow-hidden">
+                <div className="divide-y divide-slate-line">
+                  {orderedPending.map((person) => (
                     <PendingApprovalRow
+                      key={person.id}
                       person={person}
                       checked={selectedPendingIds.has(person.id)}
                       onToggleCheck={() => togglePendingSelected(person.id)}
@@ -1434,8 +1438,8 @@ export default function StaffListPage() {
                       rejectAccount={rejectAccount}
                       onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
                     />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </>
           )}

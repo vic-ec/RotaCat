@@ -46,8 +46,8 @@ function reshapeByDate(byDate) {
 // YYYY-MM-DD` so an admin reviewing a pending request can jump straight to
 // that request's month with its day pre-opened, instead of hunting for it
 // manually — LeavePlannerPage.jsx reads those query params and passes them
-// through as these props, then clears them via onDeepLinkConsumed once
-// they've seeded this component's own persisted state below (a one-shot
+// through as these props; the effect below both seeds this component's own
+// persisted state from them and strips them from the URL (a one-shot
 // hand-off, not a live-bound value).
 //
 // year/mode/workspaceMonth live in the URL (`ayear`/`aview`/`amonth`), not
@@ -57,7 +57,7 @@ function reshapeByDate(byDate) {
 // scratch; plain state would silently drop the user back at the
 // current-month overview every time that happens). MonthWorkspace.jsx does
 // the same for which day's review sheet is open.
-export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDate, onDeepLinkConsumed }) {
+export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDate }) {
   const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = deepLinkMonth ? Number(deepLinkMonth.slice(0, 4)) : Number(searchParams.get('ayear')) || new Date().getFullYear()
@@ -81,10 +81,20 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
 
   // One-shot: a deep link (from the Requests queue's "View Calendar" action)
   // seeds this component's own persisted ayear/aview/amonth params (so it
-  // keeps surviving reloads the same way regular navigation does), then
-  // tells the caller so it can strip `month`/`highlight` back out of the
-  // URL — otherwise switching planner sub-tabs and back would re-open this
-  // same stale workspace/highlight again.
+  // keeps surviving reloads the same way regular navigation does) and drops
+  // `month`/`highlight` in the same breath — otherwise switching planner
+  // sub-tabs and back would re-open this same stale workspace/highlight
+  // again.
+  //
+  // Seeding and stripping MUST be one `setSearchParams` call. They used to
+  // be two — this one, plus a `clearDeepLink` in LeavePlannerPage invoked
+  // via an `onDeepLinkConsumed` callback — and react-router hands the
+  // functional updater the params from its own last render, not the pending
+  // ones. So the parent's `prev` still looked like the original URL and its
+  // returned value silently wiped the three params written here. The admin
+  // landed on the *current* month's overview with `highlightDate` still
+  // live in state, so opening any month afterwards popped the request's day
+  // sheet over the wrong month.
   useEffect(() => {
     if (deepLinkMonth) {
       setSearchParams(prev => {
@@ -92,9 +102,10 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
         next.set('ayear', String(year))
         next.set('aview', 'workspace')
         next.set('amonth', String(workspaceMonth))
+        next.delete('month')
+        next.delete('highlight')
         return next
       }, { replace: true })
-      onDeepLinkConsumed?.()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, deliberately not re-run if these props change later
   }, [])

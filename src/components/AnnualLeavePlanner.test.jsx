@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import AnnualLeavePlanner from './AnnualLeavePlanner'
 
 // Sandbox clock is 2026-08-01 throughout this session, so August is the
@@ -60,8 +60,22 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-function renderPage(initialEntries = ['/']) {
-  return render(<AnnualLeavePlanner />, { wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter> })
+// Reports the live query string, so the deep-link tests can assert what
+// AnnualLeavePlanner actually left in the URL rather than only what it
+// rendered.
+function LocationProbe() {
+  const { search } = useLocation()
+  return <span data-testid="location-probe">{search}</span>
+}
+
+function renderPage(initialEntries = ['/'], props = {}) {
+  return render(
+    <>
+      <LocationProbe />
+      <AnnualLeavePlanner {...props} />
+    </>,
+    { wrapper: ({ children }) => <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter> }
+  )
 }
 
 // Scopes month-card queries to the grid, excluding the inspector's own
@@ -209,6 +223,31 @@ describe('AnnualLeavePlanner', () => {
     expect(await screen.findByRole('button', { name: '← Overview' })).toBeInTheDocument()
     expect(screen.getByText('Sunday')).toBeInTheDocument()
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
+  })
+
+  // The Requests queue's "View Calendar" deep link, exercised the way it
+  // actually arrives: `?month=&highlight=` on the URL, with the parent
+  // (LeavePlannerPage) stripping those two params once consumed. The seed
+  // write and the strip used to be two separate setSearchParams calls, and
+  // the second computed its `next` from a stale `prev` — so it silently
+  // wiped the ayear/aview/amonth the first had just written, dropping the
+  // admin on the *current* month's overview instead of the request's month.
+  it('a deep link opens the workspace on the request\'s own month, not the current one', async () => {
+    renderPage(['/?month=2026-10&highlight=2026-10-03'], { deepLinkMonth: '2026-10', deepLinkHighlightDate: '2026-10-03' })
+    expect(await screen.findByRole('button', { name: '← Overview' })).toBeInTheDocument()
+    expect(screen.getAllByText('October 2026').length).toBeGreaterThan(0)
+    expect(screen.queryByText('August 2026')).not.toBeInTheDocument()
+  })
+
+  it('a deep link leaves the URL holding the request\'s month, with the one-shot params stripped', async () => {
+    renderPage(['/?month=2026-10&highlight=2026-10-03'], { deepLinkMonth: '2026-10', deepLinkHighlightDate: '2026-10-03' })
+    await screen.findByRole('button', { name: '← Overview' })
+    const search = screen.getByTestId('location-probe').textContent
+    expect(search).toContain('aview=workspace')
+    expect(search).toContain('amonth=10')
+    expect(search).toContain('ayear=2026')
+    expect(search).not.toContain('month=2026-10')   // the one-shot deep link is consumed
+    expect(search).not.toContain('highlight=')
   })
 
   it('the Legend sheet\'s "How it works" footer shows the concurrency-cap detail, closable via the × button', async () => {

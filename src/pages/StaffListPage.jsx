@@ -8,7 +8,6 @@ import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow } from '../components/ListRow'
-import BulkActionBar from '../components/BulkActionBar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -969,10 +968,10 @@ export default function StaffListPage() {
                   onClearAll={onClearAll}
                 />
               </div>
-              {/* BulkActionBar owns the bottom edge the moment a row is
-                  checked — the two must never be on screen together. */}
+              {/* Stays up during bulk selection — the selection controls
+                  now live in the list's own select-all header, so nothing
+                  competes for the bottom edge any more. */}
               <FloatingActionMenu
-                hidden={selectedPendingIds.size > 0}
                 search={{ value: pendingSearchQuery, onChange: setPendingSearchQuery, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: pendingSortDirection !== 'asc' }}
                 filter={{
@@ -1016,9 +1015,7 @@ export default function StaffListPage() {
                   onClearAll={onClearAll}
                 />
               </div>
-              {/* Same collision rule as Pending — see its comment above. */}
               <FloatingActionMenu
-                hidden={selectedRequestIds.size > 0}
                 search={{ value: requestsSearchQuery, onChange: setRequestsSearchQuery, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: requestsSortDirection !== 'asc' }}
                 filter={{
@@ -1413,21 +1410,18 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <BulkActionBar
-                count={selectedPendingIds.size}
-                actions={[
-                  { label: 'Approve selected', onClick: bulkApprovePending },
-                  { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
-                ]}
-                onCancel={() => setSelectedPendingIds(new Set())}
-              />
-
               <div className="card mb-3 overflow-hidden">
                 <SelectAllRow
                   checked={selectedPendingIds.size === pending.length}
                   onToggleCheck={toggleSelectAllPending}
                   selectLabel="Select all pending accounts"
                   active={selectedPendingIds.size > 0}
+                  count={selectedPendingIds.size}
+                  actions={[
+                    { label: 'Approve selected', onClick: bulkApprovePending },
+                    { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
+                  ]}
+                  onCancel={() => setSelectedPendingIds(new Set())}
                 />
               </div>
 
@@ -1463,21 +1457,18 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <BulkActionBar
-                count={selectedRequestIds.size}
-                actions={[
-                  { label: 'Approve selected', onClick: bulkApproveRequests },
-                  { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
-                ]}
-                onCancel={() => setSelectedRequestIds(new Set())}
-              />
-
               <div className="card overflow-hidden divide-y divide-slate-line">
                 <SelectAllRow
                   checked={selectedRequestIds.size === accountRequests.length}
                   onToggleCheck={toggleSelectAllRequests}
                   selectLabel="Select all account requests"
                   active={selectedRequestIds.size > 0}
+                  count={selectedRequestIds.size}
+                  actions={[
+                    { label: 'Approve selected', onClick: bulkApproveRequests },
+                    { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
+                  ]}
+                  onCancel={() => setSelectedRequestIds(new Set())}
                 />
                 {displayedRequests.map((r) => {
                   const isActioning = requestActioningId === r.id

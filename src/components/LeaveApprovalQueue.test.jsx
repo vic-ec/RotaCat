@@ -243,6 +243,41 @@ describe('LeaveApprovalQueue', () => {
     expect(screen.queryByRole('button', { name: /Back to Annual planner/ })).not.toBeInTheDocument()
   })
 
+  // The bulk controls used to be a black bar fixed to the bottom of the
+  // viewport; they now live on the select-all header itself, in both a
+  // mobile (icon) and a desktop (labelled) form. jsdom applies no media
+  // queries, so both forms are in the document here — the point of the
+  // assertions below is that each exists and sits inside that header row,
+  // not which one a given viewport shows.
+  it('puts the bulk count and actions in the select-all header, with nothing fixed to the bottom of the viewport', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    const { container } = renderQueue()
+
+    await screen.findByText('Jane Doe')
+    expect(screen.queryByText('1 selected')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select all pending leave requests' }))
+
+    const header = screen.getByText('Select all').closest('div')
+    expect(within(header).getByText('1 selected')).toBeInTheDocument()
+
+    const approve = within(header).getAllByRole('button', { name: 'Approve selected' })
+    expect(approve.some(b => b.className.includes('rounded-full'))).toBe(true)
+    expect(approve.some(b => b.className.includes('btn-success'))).toBe(true)
+    const reject = within(header).getAllByRole('button', { name: 'Reject selected' })
+    expect(reject.some(b => b.className.includes('rounded-full'))).toBe(true)
+    expect(reject.some(b => b.className.includes('btn-danger-outline'))).toBe(true)
+
+    // No bottom-fixed dark bar left, and — because nothing claims that edge
+    // any more — the Toolbar FAB no longer hides itself mid-selection.
+    expect(container.querySelector('.fixed.bg-ink')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Quick actions' })).toBeInTheDocument()
+
+    await user.click(within(header).getByRole('button', { name: 'Cancel selection' }))
+    expect(screen.queryByText('1 selected')).not.toBeInTheDocument()
+  })
+
   describe('Capacity assessment', () => {
     it('shows "Capacity available" with at most half the pool taken', async () => {
       fetchAnnualCapacityPreview.mockResolvedValue({ taken: 1, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false })

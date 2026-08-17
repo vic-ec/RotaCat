@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX } from 'lucide-react'
+import { CircleCheck, CircleX, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -274,17 +274,78 @@ export function ApprovalRow({
 // checked, teal-tinted once anything is, so a partially or fully selected
 // list stays visually distinct from the idle state (rather than always
 // tinted, or never tinted, depending on which page you're on).
-export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+//
+// This row also owns the bulk actions themselves: once `count > 0`,
+// "{n} selected" plus the list's actions and a Cancel escape render inline
+// on the right of this same row. It replaced a bottom-fixed bar (the old
+// `BulkActionBar`), so the controls now sit on the header that turned them
+// on instead of at the far end of the viewport. Mobile gets circular icon
+// buttons — the same approve/reject language `ApprovalRow` already uses —
+// since three labelled buttons don't fit a phone-width header; `md:` and up
+// gets the labels as text buttons.
+//
+// `actions`: `[{ label, onClick, tone, icon }]` — contextual actions for
+// this list (Approve/Reject, Archive/Delete, …). `tone: 'danger'` gets the
+// outlined-red treatment, anything else the filled-green one. `icon` is the
+// mobile glyph, defaulting to a check/cross by tone. `disabled` (e.g. while
+// a bulk action is already in flight) disables every action at once; Cancel
+// stays enabled so a stuck action can still be dismissed.
+export function SelectAllRow({
+  checked, onToggleCheck, selectLabel, active,
+  count = 0, actions = [], onCancel, disabled = false,
+}) {
+  const showActions = count > 0 && actions.length > 0
   return (
-    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    <div className={`flex min-h-[44px] flex-wrap items-center gap-x-2.5 gap-y-1.5 px-4 py-2 transition-colors md:gap-x-3 md:px-5 ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
         aria-label={selectLabel}
-        className="h-4 w-4 rounded border-slate-line accent-accent"
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
       />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      {showActions && (
+        // Count + actions travel as one unit, so on a narrow phone they wrap
+        // to a second line together rather than squeezing "Select all" into
+        // two lines of its own.
+        <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+          <span className="whitespace-nowrap text-xs font-semibold text-ink">{count} selected</span>
+          <div className="flex flex-shrink-0 items-center gap-1 md:hidden">
+            {actions.map(a => (
+              <ApprovalAction
+                key={a.label}
+                icon={a.icon || (a.tone === 'danger' ? <CircleX className="h-5 w-5" /> : <CircleCheck className="h-5 w-5" />)}
+                label={a.label}
+                tone={a.tone === 'danger' ? 'danger' : 'success'}
+                onClick={a.onClick}
+                disabled={disabled}
+              />
+            ))}
+            <ApprovalAction icon={<X className="h-5 w-5" />} label="Cancel selection" tone="neutral" onClick={onCancel} />
+          </div>
+          <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                disabled={disabled}
+                onClick={a.onClick}
+                className={`${a.tone === 'danger' ? 'btn-danger-outline' : 'btn-success'} px-3 py-0.5 text-xs`}
+              >
+                {a.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-2 py-0.5 text-xs font-medium text-ink-light transition-colors hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

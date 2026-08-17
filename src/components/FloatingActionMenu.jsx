@@ -58,10 +58,10 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //   rendering two FABs in the same corner; it sits nearest the ⊕ as the
 //   shortest reach, and is the one stack item that isn't a way of looking
 //   at the list.
-// - hidden — pass `true` while a page's own bulk-selection UI is showing
-//   (Staff's `BulkActionBar`, fixed to the same bottom edge) so the two
-//   floating elements never overlap; this menu renders nothing while
-//   hidden.
+// - hidden — pass `true` while a page renders its own element fixed to the
+//   same bottom edge, so the two never overlap; this menu renders nothing
+//   while hidden. No page currently needs it: bulk selection used to claim
+//   that edge, but its controls now live inline in `SelectAllRow`.
 export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, hidden = false }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)

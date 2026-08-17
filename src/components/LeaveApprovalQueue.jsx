@@ -12,7 +12,6 @@ import CapacityAssessment from './CapacityAssessment'
 import AffectedLeaveList from './AffectedLeaveList'
 import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
 import { SelectAllRow } from './ListRow'
-import BulkActionBar from './BulkActionBar'
 import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
@@ -426,10 +425,10 @@ export default function LeaveApprovalQueue({ onBack }) {
                 onClearAll={onClearAll}
               />
             </div>
-            {/* BulkActionBar owns the bottom edge the moment a request is
-                checked — the two must never be on screen together. */}
+            {/* Stays up during bulk selection — the selection controls now
+                live in the list's own select-all header, so nothing
+                competes for the bottom edge any more. */}
             <FloatingActionMenu
-              hidden={selectedIds.size > 0}
               search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search by surname or first name…' }}
               sort={{ facets: sortFacets, active: sortDirection !== 'asc' }}
               filter={{
@@ -453,23 +452,19 @@ export default function LeaveApprovalQueue({ onBack }) {
           )}
         </div>
       ) : (
-      <>
-      <BulkActionBar
-        count={selectedIds.size}
-        disabled={bulkActioning}
-        actions={[
-          { label: 'Approve selected', onClick: bulkApprove },
-          { label: 'Reject selected', onClick: bulkReject, tone: 'danger' },
-        ]}
-        onCancel={() => setSelectedIds(new Set())}
-      />
-
       <div className="card overflow-hidden">
         <SelectAllRow
           checked={selectedIds.size === displayedRequests.length}
           onToggleCheck={toggleSelectAll}
           selectLabel="Select all pending leave requests"
           active={selectedIds.size > 0}
+          count={selectedIds.size}
+          disabled={bulkActioning}
+          actions={[
+            { label: 'Approve selected', onClick: bulkApprove },
+            { label: 'Reject selected', onClick: bulkReject, tone: 'danger' },
+          ]}
+          onCancel={() => setSelectedIds(new Set())}
         />
         <div className="divide-y divide-slate-line">
           {displayedRequests.map(request => {
@@ -491,7 +486,6 @@ export default function LeaveApprovalQueue({ onBack }) {
           })}
         </div>
       </div>
-      </>
       )}
 
       {expandedRequest && (() => {

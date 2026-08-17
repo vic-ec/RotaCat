@@ -178,15 +178,16 @@ Two accepted row variants — pick one per data type, never mix within the same 
 
 ## 8. Component: Bulk action toolbar
 
-Appears in place of (or pinned above) the section label the moment ≥1 row is checked. Same position and styling everywhere "select all" exists.
+Lives on the list's own "select all" header row (`SelectAllRow`), appearing the moment ≥1 row is checked. Same position and styling everywhere "select all" exists.
 
 ```
-3 selected     [ Approve ]  [ Reject ]  [ Cancel ]
+☑ SELECT ALL              3 selected  [ Approve ]  [ Reject ]  Cancel
 ```
 
-- Left: live count of selected items.
-- Right: contextual actions relevant to that list (Approve/Reject for approvals, Archive/Delete for rosters).
+- Left: the select-all checkbox and label the header already carries.
+- Right: live count of selected items, then contextual actions relevant to that list (Approve/Reject for approvals, Archive/Delete for rosters).
 - Always include a "Cancel selection" affordance.
+- Mobile: the actions become circular icon buttons (✓ / ✕ / ✕-cancel), in the same header row — three labelled buttons don't fit a phone-width header. They do **not** move to a bottom-fixed bar.
 
 ---
 
@@ -309,7 +310,7 @@ All of §1–§12 describe the desktop (>=1024px) layouts already reviewed. Ever
 - **Legend** and **More** are thin wrappers around the existing `LegendSheet` / `PageActionsMenu` — same bottom-sheet look those already have everywhere else in the app, not a new visual language.
 - **View** (Roster's List/Grid): a single icon that cycles through view options — a deliberate simplification from the two-segment `ViewToggle`, since a segmented control doesn't fit a single-icon FAB slot.
 - Landscape: the stack opens sideways (left of the FAB) instead of upward, since a landscape phone rarely has 5×44px of headroom to spare above the nav bar.
-- A page with its own bottom-fixed element (Staff's `BulkActionBar` during bulk selection) hides the FAB via its `hidden` prop rather than letting the two overlap.
+- A page with its own bottom-fixed element hides the FAB via its `hidden` prop rather than letting the two overlap. No page needs this today — bulk selection used to claim that edge, but its controls now sit inline in the list header (§8).
 
 Old inline behavior for reference (still applies to any page not yet migrated): Sort and Filter collapsed into a single "Filters" button below a full-width search row, opening the same bottom sheet the FAB's Filter action now opens.
 
@@ -322,7 +323,7 @@ Old inline behavior for reference (still applies to any page not yet migrated): 
 ### Bulk selection & bulk action bar (mobile)
 
 - Hide row checkboxes by default; add a "Select" toggle in the toolbar/header that reveals them (avoids cluttering already-tight rows).
-- When items are selected, the bulk action bar (§8) becomes a **sticky bar fixed to the bottom of the viewport** (thumb-reachable) instead of replacing the section label inline.
+- When items are selected, the bulk actions (§8) stay in the list's select-all header, collapsing to circular icon buttons so they fit. The earlier bottom-fixed sticky bar was dropped: it sat at the far end of the viewport from the header that turned selection on, and it fought the Toolbar FAB for the same edge.
 
 ### Section labels & grouped lists (mobile)
 
@@ -348,7 +349,7 @@ Old inline behavior for reference (still applies to any page not yet migrated): 
 
 Status as of the Phase 3–5 build-out (see "Implementation notes" above and the PR history for the reasoning behind each deviation).
 
-- [x] Extract `PageHeader`, `Breadcrumb`, `Toolbar`, `SectionLabel`, `ListRow`, `Tag`, `BulkActionBar` as shared components — plus `Modal` and `SlideOverPanel`, not originally listed but built the same pass (`src/components/`)
+- [x] Extract `PageHeader`, `Breadcrumb`, `Toolbar`, `SectionLabel`, `ListRow`, `Tag` and the bulk action bar as shared components (the bulk bar started as its own `BulkActionBar`, later folded into `ListRow`'s `SelectAllRow` — see §8) — plus `Modal` and `SlideOverPanel`, not originally listed but built the same pass (`src/components/`)
 - [x] Move spacing/color/radius/typography values into the token file — via `tailwind.config.js`, not a separate CSS-variable file (see "Implementation notes")
 - [x] Add missing H1s to Account and Staff
 - [x] Remove redundant/incorrect breadcrumbs (Staff's "← All staff" on Pending Approvals/User Requests). Account's back-link was kept — it's dynamic ("back to wherever you came from"), not the hardcoded "← Staff" the spec assumed
@@ -363,7 +364,7 @@ Status as of the Phase 3–5 build-out (see "Implementation notes" above and the
 - [x] Make tabs horizontally scrollable on mobile — already true of the shared `PageTabs` template these pages use
 - [x] Collapse Sort/Filter into a single mobile "Filters" bottom sheet — `Toolbar`'s mobile variant
 - [x] Convert list row actions to overflow menu on mobile — `ListRow`'s `RowActions`, verified in a real render (kebab → Approve/Reject menu)
-- [x] Make bulk action bar sticky-bottom on mobile — `BulkActionBar`. Roster's per-group bulk-select header was deliberately kept as its own inline swap rather than this component — Active has two independently-selectable lists (Drafts + Published) at once, and two sticky-bottom bars would collide
+- [x] Make bulk action bar sticky-bottom on mobile — built as `BulkActionBar`, then **reversed**: the actions moved into `SelectAllRow` (icon buttons on mobile, text buttons from `md`) and `BulkActionBar` was deleted. A bar at the bottom of the viewport was a long way from the header that turned selection on, and it forced the Toolbar FAB to hide itself for the whole selection. Roster's per-group bulk-select header stays its own inline swap either way — Active has two independently-selectable lists (Drafts + Published) at once
 - [x] Convert modals to full-screen sheets below 768px — `Modal`, verified in a real render
 - [x] Ensure all interactive elements meet 44x44px touch target minimum — applied in `ListRow`'s mobile checkbox/kebab and `Toolbar`'s mobile sheet controls
 

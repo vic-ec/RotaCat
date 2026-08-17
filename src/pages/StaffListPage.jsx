@@ -7,7 +7,7 @@ import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
-import { ApprovalRow, SelectAllRow } from '../components/ListRow'
+import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -21,7 +21,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck, CircleX } from 'lucide-react'
+import { Eye, CircleCheck } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -1511,26 +1511,13 @@ export default function StaffListPage() {
                           </div>
 
                           <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-                            <button
-                              type="button"
-                              disabled={isActioning}
-                              onClick={() => approveRequest(r)}
-                              title="Approve"
-                              aria-label="Approve"
-                              className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <CircleCheck className="h-5 w-5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isActioning}
-                              onClick={() => rejectRequest(r)}
-                              title="Reject"
-                              aria-label="Reject"
-                              className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <CircleX className="h-5 w-5" />
-                            </button>
+                            {/* Same circular-outline shell as every other
+                                approve/reject in the app (Pending Approvals,
+                                the leave queue) — these were a borderless
+                                colored glyph, which only held together while
+                                the icon drew its own ring. */}
+                            <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
+                            <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
                             <button
                               type="button"
                               onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}

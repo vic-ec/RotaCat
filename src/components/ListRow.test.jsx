@@ -40,9 +40,11 @@ describe('SelectAllRow', () => {
     expect(screen.getAllByRole('button', { name: 'Approve selected' })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Reject selected' })).toHaveLength(2)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel selection' }))  // mobile ✕
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))            // desktop text button
-    expect(onCancel).toHaveBeenCalledTimes(2)
+    // Cancel is deliberately the one action that doesn't split by viewport
+    // — it stays a text button throughout, since its only sensible glyph
+    // (✕) is the reject glyph.
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onCancel).toHaveBeenCalledTimes(1)
   })
 
   it('fires the matching action from either variant', async () => {
@@ -67,7 +69,6 @@ describe('SelectAllRow', () => {
     ]) {
       expect(button).toBeDisabled()
     }
-    expect(screen.getByRole('button', { name: 'Cancel selection' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled()
   })
 })

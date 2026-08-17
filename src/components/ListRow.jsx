@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX } from 'lucide-react'
+import { CircleCheck, CircleX, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -270,21 +270,99 @@ export function ApprovalRow({
   )
 }
 
+// Text-button counterpart of ApprovalAction, for the select-all header on
+// `md:` and up — same outlined tones, label spelled out instead of an icon.
+const BULK_ACTION_TONE_CLASS = {
+  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success active:text-white',
+  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger active:text-white',
+  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white',
+}
+
 // Select-all header for a bulk-selection list — white/plain when nothing's
 // checked, teal-tinted once anything is, so a partially or fully selected
 // list stays visually distinct from the idle state (rather than always
 // tinted, or never tinted, depending on which page you're on).
-export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+//
+// The bulk actions live in this header too, rather than in a separate
+// bottom-fixed bar: passing `count` (> 0) plus `actions`/`onCancel` renders
+// "{n} selected" and the approve/reject/cancel controls beside "Select all",
+// so the selection and what you can do with it stay in one place on every
+// viewport. Mobile gets the same circular icon buttons ApprovalRow uses;
+// `md:` and up gets text buttons. `actions`: `[{ label, onClick, tone,
+// icon? }]` — `tone` picks both the colour and the default mobile icon
+// (`success` → check, `danger` → cross), overridable with `icon`.
+// `disabled` (a bulk action already in flight) disables every action at
+// once; Cancel stays enabled so a stuck selection can still be dismissed.
+export function SelectAllRow({ checked, onToggleCheck, selectLabel, active, count = 0, actions = [], onCancel, disabled = false }) {
+  const showActions = count > 0 && (actions.length > 0 || Boolean(onCancel))
   return (
-    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    // `flex-wrap` rather than a fixed one-line row: on a ~320px viewport the
+    // label, the count and three icon buttons don't all fit, so the action
+    // group drops to a second line instead of overflowing the card.
+    <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
         aria-label={selectLabel}
-        className="h-4 w-4 rounded border-slate-line accent-accent"
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
       />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      <span className="flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      {showActions && (
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <span className="flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-ink-light">{count} selected</span>
+
+          {/* Mobile: icon-only, so the count + three actions still fit a
+              narrow row next to "Select all" (§15). */}
+          <div className="flex flex-shrink-0 items-center gap-1.5 md:hidden">
+            {actions.map(a => (
+              <ApprovalAction
+                key={a.label}
+                icon={a.icon || (a.tone === 'danger' ? <CircleX className="h-5 w-5" /> : <CircleCheck className="h-5 w-5" />)}
+                label={a.label}
+                tone={a.tone || 'neutral'}
+                onClick={a.onClick}
+                disabled={disabled}
+              />
+            ))}
+            {onCancel && (
+              <button
+                type="button"
+                title="Cancel selection"
+                aria-label="Cancel selection"
+                onClick={onCancel}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Desktop: the same actions spelled out. */}
+          <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={a.onClick}
+                disabled={disabled}
+                className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${BULK_ACTION_TONE_CLASS[a.tone || 'neutral']}`}
+              >
+                {a.label}
+              </button>
+            ))}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-1 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

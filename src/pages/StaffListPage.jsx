@@ -1459,7 +1459,12 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <div className="card overflow-hidden divide-y divide-slate-line">
+              {/* `divide-y` goes on the row wrapper, not the card: on the
+                  card the header counts as child #1, so the first row earns
+                  a border-top and the header gets ruled off from the rows it
+                  governs. Same shape as Pending Approvals and the leave
+                  queue — separators between rows only. */}
+              <div className="card overflow-hidden">
                 <SelectAllRow
                   checked={selectedRequestIds.size === accountRequests.length}
                   onToggleCheck={toggleSelectAllRequests}
@@ -1472,63 +1477,65 @@ export default function StaffListPage() {
                   ]}
                   onCancel={() => setSelectedRequestIds(new Set())}
                 />
-                {displayedRequests.map((r) => {
-                  const isActioning = requestActioningId === r.id
-                  const secondaryLabel = r.requester?.role === 'doctor'
-                    ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
-                    : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
-                  return (
-                    <div key={r.id} className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedRequestIds.has(r.id)}
-                          onChange={() => toggleRequestSelected(r.id)}
-                          aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
-                          className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-                        />
-                        <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
-
-                        <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-ink text-sm">
-                                {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                <div className="divide-y divide-slate-line">
+                  {displayedRequests.map((r) => {
+                    const isActioning = requestActioningId === r.id
+                    const secondaryLabel = r.requester?.role === 'doctor'
+                      ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
+                      : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+                    return (
+                      <div key={r.id} className="px-5 py-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedRequestIds.has(r.id)}
+                            onChange={() => toggleRequestSelected(r.id)}
+                            aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
+                            className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+                          />
+                          <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
+  
+                          <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium text-ink text-sm">
+                                  {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                                </p>
+                                {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
+                                <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
+                              </div>
+                              {r.request_type !== 'deletion' && (
+                                <p className="mt-1 text-xs text-ink-light">
+                                  {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
+                                </p>
+                              )}
+                              {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
+                              <p className="mt-0.5 text-xs text-ink-muted">
+                                Requested {r.created_at?.slice(0, 10)}
                               </p>
-                              {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
-                              <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
+                              {r.request_type === 'deletion' && (
+                                <p className="mt-1 text-xs text-flagAmber">
+                                  Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
+                                </p>
+                              )}
                             </div>
-                            {r.request_type !== 'deletion' && (
-                              <p className="mt-1 text-xs text-ink-light">
-                                {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
-                              </p>
-                            )}
-                            {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
-                            <p className="mt-0.5 text-xs text-ink-muted">
-                              Requested {r.created_at?.slice(0, 10)}
-                            </p>
-                            {r.request_type === 'deletion' && (
-                              <p className="mt-1 text-xs text-flagAmber">
-                                Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-                            {/* Same circular-outline shell, tones and order
-                                as every other approval row in the app
-                                (ApprovalRow's own extra/approve/reject):
-                                the neutral "go look at it" action leads,
-                                then the two decisions. */}
-                            <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
-                            <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
-                            <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
+  
+                            <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
+                              {/* Same circular-outline shell, tones and order
+                                  as every other approval row in the app
+                                  (ApprovalRow's own extra/approve/reject):
+                                  the neutral "go look at it" action leads,
+                                  then the two decisions. */}
+                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
+                              <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
+                              <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </>
           )}

@@ -188,11 +188,27 @@
     @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
   }
 
+  /* The `hover:active:` duplicates below (and in .icon-btn-idle) are
+     load-bearing, not redundant. `:hover` and `:active` are both single
+     pseudo-classes, so they tie on specificity and the later rule in the
+     compiled sheet wins — which is the hover one. A mouse press is always
+     also a hover, so the pressed teal fill never applied on desktop and
+     these buttons gave no click feedback at all; touch, which presses
+     without hovering, got it fine, which is what made it easy to miss.
+     Stacking the variants (`.hover\:active\:bg-accent:hover:active`) wins
+     on specificity instead of source order. Both the background AND the
+     text color need it here: `hover:text-ink` competes with
+     `active:text-white` exactly like the two backgrounds do, so stacking
+     only the fill would press to dark ink on teal. The bare `active:`
+     rules stay for touch. Same fix as ListRow's APPROVAL_ACTION_TONE_CLASS
+     — see its comment. */
+
   /* The small square "clear all filters" (×) button next to a Toolbar row. */
   .toolbar-clear-btn {
     @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
            border-accent/25 bg-canvas text-ink-light transition-colors
-           hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white;
+           hover:bg-canvas-sunken hover:text-ink
+           active:bg-accent active:text-white hover:active:bg-accent hover:active:text-white;
   }
 
   /* Small square icon-only trigger — same bordered/idle/active family as
@@ -207,7 +223,8 @@
            disabled:cursor-not-allowed disabled:opacity-50;
   }
   .icon-btn-idle {
-    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink active:bg-accent active:text-white;
+    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink
+           active:bg-accent active:text-white hover:active:bg-accent hover:active:text-white;
   }
   .icon-btn-active {
     @apply bg-accent text-white;

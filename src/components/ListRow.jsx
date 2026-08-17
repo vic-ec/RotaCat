@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -190,17 +190,37 @@ export function ListRowRecord({
   )
 }
 
+// The approve/reject glyph pair, shared by every approval surface in the
+// app — the rows themselves, SelectAllRow's bulk actions, and Staff's User
+// Requests rows — so a check means the same thing and looks the same
+// wherever a request is reviewed. Bare `Check`/`X` rather than lucide's
+// ringed `CircleCheck`/`CircleX`: the button below already draws the
+// circle, so a ringed glyph reads as a circle inside a circle at 32px.
+export const APPROVE_ICON = <Check className="h-4 w-4" strokeWidth={2.5} />
+export const REJECT_ICON = <X className="h-4 w-4" strokeWidth={2.5} />
+
 // One circular-outline icon action — teal-outline check (approve),
 // red-outline X (reject), or a neutral accent-outline extra action (e.g.
 // "view in calendar"). Always inline, never collapsed to a kebab menu —
 // unlike RowActions' secondary actions, approve/reject/extra are the whole
 // reason an approval row exists, on every viewport.
+//
+// The `hover:active:` duplicate of each `active:` fill is load-bearing, not
+// redundant. `active:bg-success` and `hover:bg-success-bg` have identical
+// specificity, so the winner is whichever Tailwind emits last — and it
+// emits by palette order (`success.DEFAULT` before `success.bg`), which
+// puts the hover rule last. A mouse press is always also a hover, so the
+// pressed fill lost to the hover tint on desktop and `active:text-white`
+// left the glyph nearly invisible against it. Stacking the two variants
+// (`.hover\:active\:bg-success:hover:active`) wins on specificity instead
+// of source order. The bare `active:` fill stays for touch, which presses
+// without ever hovering.
 const APPROVAL_ACTION_TONE_CLASS = {
-  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success active:text-white',
-  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger active:text-white',
-  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white',
+  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success hover:active:bg-success active:text-white',
+  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger hover:active:bg-danger active:text-white',
+  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent hover:active:bg-accent active:text-white',
 }
-function ApprovalAction({ icon, label, tone = 'neutral', onClick, disabled }) {
+export function ApprovalAction({ icon, label, tone = 'neutral', onClick, disabled }) {
   return (
     <button
       type="button"
@@ -261,8 +281,8 @@ export function ApprovalRow({
           {extraAction && (
             <ApprovalAction icon={extraAction.icon} label={extraAction.label} tone="neutral" onClick={extraAction.onClick} disabled={extraAction.disabled} />
           )}
-          <ApprovalAction icon={<CircleCheck className="h-5 w-5" />} label={approveLabel} tone="success" onClick={onApprove} disabled={approveDisabled} />
-          <ApprovalAction icon={<CircleX className="h-5 w-5" />} label={rejectLabel} tone="danger" onClick={onReject} disabled={rejectDisabled} />
+          <ApprovalAction icon={APPROVE_ICON} label={approveLabel} tone="success" onClick={onApprove} disabled={approveDisabled} />
+          <ApprovalAction icon={REJECT_ICON} label={rejectLabel} tone="danger" onClick={onReject} disabled={rejectDisabled} />
         </div>
       </div>
       {children && <div className="px-4 pb-3">{children}</div>}
@@ -274,17 +294,90 @@ export function ApprovalRow({
 // checked, teal-tinted once anything is, so a partially or fully selected
 // list stays visually distinct from the idle state (rather than always
 // tinted, or never tinted, depending on which page you're on).
-export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+//
+// This row also owns the bulk actions themselves, rather than a separate
+// bar fixed to the bottom of the viewport: pass `count` (how many rows are
+// selected), `actions` (`[{ label, onClick, tone }]` — `tone: 'danger'`
+// gets the reject treatment, anything else the approve one) and `onCancel`,
+// and the right-hand side of this row becomes "{n} selected" + those
+// actions the moment anything is checked. Mobile renders approve/reject as
+// the same circular-outline icon buttons (ApprovalAction) the rows below
+// use, so the header stays one line at 375px; `md:` and up swaps to
+// labelled text buttons. `disabled` (e.g. while a bulk action is already in
+// flight) disables every action at once — Cancel stays enabled so a stuck
+// action can still be dismissed.
+//
+// Cancel stays a text button on every viewport, unlike approve/reject: the
+// only sensible glyph for it is an ✕, which is also the reject glyph, and
+// two adjacent ✕s where one rejects the requests and the other just clears
+// the checkboxes is not a distinction worth asking anyone to make.
+const BULK_ACTION_ICON = {
+  danger: REJECT_ICON,
+  success: APPROVE_ICON,
+}
+const BULK_ACTION_BUTTON_CLASS = {
+  danger: 'btn-danger-outline',
+  success: 'btn-success',
+}
+export function SelectAllRow({
+  checked, onToggleCheck, selectLabel, active,
+  count = 0, actions = [], onCancel, disabled = false,
+}) {
+  const showActions = count > 0 && actions.length > 0
   return (
-    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    <div className={`flex min-h-[48px] items-center gap-2 px-4 py-2 transition-colors md:gap-3 md:px-5 ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
         aria-label={selectLabel}
-        className="h-4 w-4 rounded border-slate-line accent-accent"
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+        style={{ minWidth: 16 }}
       />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      {showActions && (
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          <span className="whitespace-nowrap text-xs font-medium text-ink-light">{count} selected</span>
+
+          {/* Mobile: icon-only, matching each row's own approve/reject buttons */}
+          <div className="flex items-center gap-1.5 md:hidden">
+            {actions.map(a => {
+              const tone = a.tone === 'danger' ? 'danger' : 'success'
+              return (
+                <ApprovalAction
+                  key={a.label}
+                  icon={BULK_ACTION_ICON[tone]}
+                  label={a.label}
+                  tone={tone}
+                  onClick={a.onClick}
+                  disabled={disabled}
+                />
+              )
+            })}
+          </div>
+
+          {/* Desktop: the same actions, labelled */}
+          <div className="hidden items-center gap-2 md:flex">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={a.onClick}
+                disabled={disabled}
+                className={BULK_ACTION_BUTTON_CLASS[a.tone === 'danger' ? 'danger' : 'success']}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="btn-ghost px-1 text-xs md:px-4 md:text-sm">
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

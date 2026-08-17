@@ -7,8 +7,7 @@ import PageTabs from '../components/PageTabs'
 import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
-import { ApprovalRow, SelectAllRow } from '../components/ListRow'
-import BulkActionBar from '../components/BulkActionBar'
+import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -22,7 +21,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck, CircleX } from 'lucide-react'
+import { Eye, CircleCheck } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -923,8 +922,6 @@ export default function StaffListPage() {
                   onClearAll={clearAllFilters}
                 />
               </div>
-              {/* No `hidden` prop needed — the accounts tab has no
-                  BulkActionBar to collide with (only Pending/Requests do). */}
               <FloatingActionMenu
                 search={{ value: accountFilters.q, onChange: onSearchChange, placeholder: 'Surname or first name…' }}
                 sort={{ facets: sortFacets, active: sortMode !== 'category' }}
@@ -969,10 +966,10 @@ export default function StaffListPage() {
                   onClearAll={onClearAll}
                 />
               </div>
-              {/* BulkActionBar owns the bottom edge the moment a row is
-                  checked — the two must never be on screen together. */}
+              {/* Bulk actions live in the list's own select-all header, not
+                  a bottom-fixed bar, so the FAB no longer has to hide while
+                  rows are checked. */}
               <FloatingActionMenu
-                hidden={selectedPendingIds.size > 0}
                 search={{ value: pendingSearchQuery, onChange: setPendingSearchQuery, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: pendingSortDirection !== 'asc' }}
                 filter={{
@@ -1016,9 +1013,7 @@ export default function StaffListPage() {
                   onClearAll={onClearAll}
                 />
               </div>
-              {/* Same collision rule as Pending — see its comment above. */}
               <FloatingActionMenu
-                hidden={selectedRequestIds.size > 0}
                 search={{ value: requestsSearchQuery, onChange: setRequestsSearchQuery, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: requestsSortDirection !== 'asc' }}
                 filter={{
@@ -1413,28 +1408,29 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <BulkActionBar
-                count={selectedPendingIds.size}
-                actions={[
-                  { label: 'Approve selected', onClick: bulkApprovePending },
-                  { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
-                ]}
-                onCancel={() => setSelectedPendingIds(new Set())}
-              />
-
-              <div className="card mb-3 overflow-hidden">
+              {/* One card for the header and every row, rows joined by a
+                  hairline — same shape as the leave-request queue and User
+                  Requests. The header used to be its own `mb-3` card above
+                  a `space-y-3` stack of one-card-per-row, which left the
+                  select-all row floating detached from the rows it governs
+                  (and its selected tint attached to nothing). */}
+              <div className="card overflow-hidden">
                 <SelectAllRow
                   checked={selectedPendingIds.size === pending.length}
                   onToggleCheck={toggleSelectAllPending}
                   selectLabel="Select all pending accounts"
                   active={selectedPendingIds.size > 0}
+                  count={selectedPendingIds.size}
+                  actions={[
+                    { label: 'Approve selected', onClick: bulkApprovePending },
+                    { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
+                  ]}
+                  onCancel={() => setSelectedPendingIds(new Set())}
                 />
-              </div>
-
-              <div className="space-y-3">
-                {orderedPending.map((person) => (
-                  <div key={person.id} className="card overflow-hidden">
+                <div className="divide-y divide-slate-line">
+                  {orderedPending.map((person) => (
                     <PendingApprovalRow
+                      key={person.id}
                       person={person}
                       checked={selectedPendingIds.has(person.id)}
                       onToggleCheck={() => togglePendingSelected(person.id)}
@@ -1442,8 +1438,8 @@ export default function StaffListPage() {
                       rejectAccount={rejectAccount}
                       onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
                     />
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </>
           )}
@@ -1463,100 +1459,83 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              <BulkActionBar
-                count={selectedRequestIds.size}
-                actions={[
-                  { label: 'Approve selected', onClick: bulkApproveRequests },
-                  { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
-                ]}
-                onCancel={() => setSelectedRequestIds(new Set())}
-              />
-
-              <div className="card overflow-hidden divide-y divide-slate-line">
+              {/* `divide-y` goes on the row wrapper, not the card: on the
+                  card the header counts as child #1, so the first row earns
+                  a border-top and the header gets ruled off from the rows it
+                  governs. Same shape as Pending Approvals and the leave
+                  queue — separators between rows only. */}
+              <div className="card overflow-hidden">
                 <SelectAllRow
                   checked={selectedRequestIds.size === accountRequests.length}
                   onToggleCheck={toggleSelectAllRequests}
                   selectLabel="Select all account requests"
                   active={selectedRequestIds.size > 0}
+                  count={selectedRequestIds.size}
+                  actions={[
+                    { label: 'Approve selected', onClick: bulkApproveRequests },
+                    { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
+                  ]}
+                  onCancel={() => setSelectedRequestIds(new Set())}
                 />
-                {displayedRequests.map((r) => {
-                  const isActioning = requestActioningId === r.id
-                  const secondaryLabel = r.requester?.role === 'doctor'
-                    ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
-                    : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
-                  return (
-                    <div key={r.id} className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedRequestIds.has(r.id)}
-                          onChange={() => toggleRequestSelected(r.id)}
-                          aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
-                          className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-                        />
-                        <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
-
-                        <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-ink text-sm">
-                                {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                <div className="divide-y divide-slate-line">
+                  {displayedRequests.map((r) => {
+                    const isActioning = requestActioningId === r.id
+                    const secondaryLabel = r.requester?.role === 'doctor'
+                      ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
+                      : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+                    return (
+                      <div key={r.id} className="px-5 py-4">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedRequestIds.has(r.id)}
+                            onChange={() => toggleRequestSelected(r.id)}
+                            aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
+                            className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+                          />
+                          <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
+  
+                          <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium text-ink text-sm">
+                                  {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
+                                </p>
+                                {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
+                                <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
+                              </div>
+                              {r.request_type !== 'deletion' && (
+                                <p className="mt-1 text-xs text-ink-light">
+                                  {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
+                                </p>
+                              )}
+                              {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
+                              <p className="mt-0.5 text-xs text-ink-muted">
+                                Requested {r.created_at?.slice(0, 10)}
                               </p>
-                              {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
-                              <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
+                              {r.request_type === 'deletion' && (
+                                <p className="mt-1 text-xs text-flagAmber">
+                                  Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
+                                </p>
+                              )}
                             </div>
-                            {r.request_type !== 'deletion' && (
-                              <p className="mt-1 text-xs text-ink-light">
-                                {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
-                              </p>
-                            )}
-                            {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
-                            <p className="mt-0.5 text-xs text-ink-muted">
-                              Requested {r.created_at?.slice(0, 10)}
-                            </p>
-                            {r.request_type === 'deletion' && (
-                              <p className="mt-1 text-xs text-flagAmber">
-                                Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-                            <button
-                              type="button"
-                              disabled={isActioning}
-                              onClick={() => approveRequest(r)}
-                              title="Approve"
-                              aria-label="Approve"
-                              className="flex h-8 w-8 items-center justify-center text-accent transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <CircleCheck className="h-5 w-5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isActioning}
-                              onClick={() => rejectRequest(r)}
-                              title="Reject"
-                              aria-label="Reject"
-                              className="flex h-8 w-8 items-center justify-center text-flagRed transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <CircleX className="h-5 w-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}
-                              title="View request"
-                              aria-label="View request"
-                              className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
-                            >
-                              <Eye className="h-5 w-5" />
-                            </button>
+  
+                            <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
+                              {/* Same circular-outline shell, tones and order
+                                  as every other approval row in the app
+                                  (ApprovalRow's own extra/approve/reject):
+                                  the neutral "go look at it" action leads,
+                                  then the two decisions. */}
+                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
+                              <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
+                              <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
             </>
           )}

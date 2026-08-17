@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX, X } from 'lucide-react'
+import { Check, CircleCheck, CircleX, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -281,14 +281,18 @@ export function ApprovalRow({
 // gets the reject treatment, anything else the approve one) and `onCancel`,
 // and the right-hand side of this row becomes "{n} selected" + those
 // actions the moment anything is checked. Mobile renders them as the same
-// circular-outline icon buttons the rows below already use, so the header
-// stays one line at 375px; `md:` and up swaps to labelled text buttons.
-// `disabled` (e.g. while a bulk action is already in flight) disables every
-// action at once — Cancel stays enabled so a stuck action can still be
-// dismissed.
+// circular-outline icon buttons (ApprovalAction) the rows below already
+// use, so the header stays one line at 375px; `md:` and up swaps to
+// labelled text buttons. `disabled` (e.g. while a bulk action is already in
+// flight) disables every action at once — Cancel stays enabled so a stuck
+// action can still be dismissed.
+//
+// Bare `Check`/`X` glyphs rather than the rows' own `CircleCheck`/`CircleX`
+// — the button's border already draws the circle, so the ringed glyphs read
+// as a circle inside a circle at this size.
 const BULK_ACTION_ICON = {
-  danger: <CircleX className="h-5 w-5" />,
-  success: <CircleCheck className="h-5 w-5" />,
+  danger: <X className="h-4 w-4" strokeWidth={2.5} />,
+  success: <Check className="h-4 w-4" strokeWidth={2.5} />,
 }
 const BULK_ACTION_BUTTON_CLASS = {
   danger: 'btn-danger-outline',

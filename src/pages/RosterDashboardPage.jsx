@@ -580,8 +580,8 @@ function EmptyState({ isAdmin, onCreate }) {
 // header swaps to the bulk-action row (count + contextual actions) the
 // moment anything's selected, in place of the plain label (§8) — each
 // group (Drafts/Published/Archived/Bin) selects independently, so this
-// stays a per-group inline swap rather than the page-level sticky
-// BulkActionBar Staff uses, which assumes one list per tab, not two.
+// stays a per-group inline swap rather than reusing Staff's `SelectAllRow`,
+// which assumes one list per tab, not two.
 function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list' }) {
   if (rosters.length === 0) {
     return emptyText ? (

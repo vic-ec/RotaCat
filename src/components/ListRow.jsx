@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX } from 'lucide-react'
+import { CircleCheck, CircleX, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -274,17 +274,95 @@ export function ApprovalRow({
 // checked, teal-tinted once anything is, so a partially or fully selected
 // list stays visually distinct from the idle state (rather than always
 // tinted, or never tinted, depending on which page you're on).
-export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+//
+// This row also owns the bulk actions themselves, rather than a separate
+// bar fixed to the bottom of the viewport: pass `count` (how many rows are
+// selected), `actions` (`[{ label, onClick, tone }]` — `tone: 'danger'`
+// gets the reject treatment, anything else the approve one) and `onCancel`,
+// and the right-hand side of this row becomes "{n} selected" + those
+// actions the moment anything is checked. Mobile renders them as the same
+// circular-outline icon buttons the rows below already use, so the header
+// stays one line at 375px; `md:` and up swaps to labelled text buttons.
+// `disabled` (e.g. while a bulk action is already in flight) disables every
+// action at once — Cancel stays enabled so a stuck action can still be
+// dismissed.
+const BULK_ACTION_ICON = {
+  danger: <CircleX className="h-5 w-5" />,
+  success: <CircleCheck className="h-5 w-5" />,
+}
+const BULK_ACTION_BUTTON_CLASS = {
+  danger: 'btn-danger-outline',
+  success: 'btn-success',
+}
+export function SelectAllRow({
+  checked, onToggleCheck, selectLabel, active,
+  count = 0, actions = [], onCancel, disabled = false,
+}) {
+  const showActions = count > 0 && actions.length > 0
   return (
-    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    <div className={`flex min-h-[48px] items-center gap-2 px-4 py-2 transition-colors md:gap-3 md:px-5 ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
         aria-label={selectLabel}
-        className="h-4 w-4 rounded border-slate-line accent-accent"
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+        style={{ minWidth: 16 }}
       />
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      {showActions && (
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          <span className="whitespace-nowrap text-xs font-medium text-ink-light">{count} selected</span>
+
+          {/* Mobile: icon-only, matching each row's own approve/reject buttons */}
+          <div className="flex items-center gap-1.5 md:hidden">
+            {actions.map(a => {
+              const tone = a.tone === 'danger' ? 'danger' : 'success'
+              return (
+                <ApprovalAction
+                  key={a.label}
+                  icon={BULK_ACTION_ICON[tone]}
+                  label={a.label}
+                  tone={tone}
+                  onClick={a.onClick}
+                  disabled={disabled}
+                />
+              )
+            })}
+            {onCancel && (
+              <button
+                type="button"
+                title="Cancel selection"
+                aria-label="Cancel selection"
+                onClick={onCancel}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Desktop: the same actions, labelled */}
+          <div className="hidden items-center gap-2 md:flex">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={a.onClick}
+                disabled={disabled}
+                className={BULK_ACTION_BUTTON_CLASS[a.tone === 'danger' ? 'danger' : 'success']}
+              >
+                {a.label}
+              </button>
+            ))}
+            {onCancel && (
+              <button type="button" onClick={onCancel} className="btn-ghost">
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

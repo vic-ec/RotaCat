@@ -284,7 +284,7 @@ describe('FloatingActionMenu', () => {
     expect(onChange).toHaveBeenCalledWith('grid')
   })
 
-  // Staff's BulkActionBar takes the same bottom-right corner — the two must
+  // For any page element sharing this bottom-right corner — the two must
   // never be on screen together, not even for the frame the FAB's own
   // collapse animation would otherwise run for.
   it('renders nothing at all while hidden', () => {

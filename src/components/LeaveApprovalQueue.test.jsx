@@ -419,6 +419,37 @@ describe('LeaveApprovalQueue', () => {
     expect(confirmBtn).toBeEnabled()
   })
 
+  // The bulk actions live in the "Select all" header row itself, not in a
+  // bar fixed to the bottom of the viewport (the old `BulkActionBar`) — so
+  // the count and the actions sit with the checkbox that summoned them.
+  it('ticking select all puts "{n} selected" plus Approve/Reject/Cancel in the select-all row', async () => {
+    mockResponses['leave_requests:select'] = {
+      data: [PENDING_REQUEST, { ...PENDING_REQUEST, id: 'req-2', profile_id: 'doctor-2', profiles: { ...PENDING_REQUEST.profiles, name: 'Sam', surname: 'Morgan' } }],
+      error: null,
+    }
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+
+    const selectAll = await screen.findByRole('checkbox', { name: 'Select all pending leave requests' })
+    expect(screen.queryByText('2 selected')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Approve selected' })).not.toBeInTheDocument()
+
+    await user.click(selectAll)
+
+    // Same row as the checkbox and the "Select all" label.
+    const header = selectAll.closest('div')
+    expect(within(header).getByText('Select all')).toBeInTheDocument()
+    expect(within(header).getByText('2 selected')).toBeInTheDocument()
+    // Two of each: the mobile icon button and the desktop text button, one
+    // of which is hidden by a breakpoint class jsdom doesn't apply.
+    expect(within(header).getAllByRole('button', { name: 'Approve selected' })).toHaveLength(2)
+    expect(within(header).getAllByRole('button', { name: 'Reject selected' })).toHaveLength(2)
+
+    await user.click(within(header).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('2 selected')).not.toBeInTheDocument()
+  })
+
   it('declining only updates leave_requests, never touches roster_entries (availability)', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const user = userEvent.setup()

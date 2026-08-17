@@ -284,8 +284,8 @@ describe('FloatingActionMenu', () => {
     expect(onChange).toHaveBeenCalledWith('grid')
   })
 
-  // Staff's BulkActionBar takes the same bottom-right corner — the two must
-  // never be on screen together, not even for the frame the FAB's own
+  // A page-owned element fixed to the same bottom-right corner and this menu
+  // must never be on screen together, not even for the frame the FAB's own
   // collapse animation would otherwise run for.
   it('renders nothing at all while hidden', () => {
     const { container } = renderMenu({ hidden: true, moreMenu: { items: [{ key: 'a', label: 'A', onClick: () => {} }] } })

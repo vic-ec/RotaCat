@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleCheck, CircleX } from 'lucide-react'
+import { CircleCheck, CircleX, X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -274,17 +274,97 @@ export function ApprovalRow({
 // checked, teal-tinted once anything is, so a partially or fully selected
 // list stays visually distinct from the idle state (rather than always
 // tinted, or never tinted, depending on which page you're on).
-export function SelectAllRow({ checked, onToggleCheck, selectLabel, active }) {
+//
+// It also owns the bulk actions themselves: the moment anything's checked,
+// "{n} selected" plus the contextual actions and Cancel appear alongside
+// the Select all label, in the header the checkbox already lives in. This
+// replaced the old bottom-fixed `BulkActionBar` — action and trigger now
+// sit in the same place instead of the selection UI splitting across the
+// top and bottom edges of the viewport (docs/design/layout-spec.md §8).
+//
+// `actions`: `[{ label, icon, onClick, tone }]` — mobile renders each as an
+// icon-only circular button (same treatment as ApprovalRow's per-row
+// approve/reject), desktop as a labelled text button. `tone: 'danger'` gets
+// the outlined red treatment, anything else the filled teal one.
+// `disabled` (e.g. while a bulk action is already in flight) disables every
+// action at once; Cancel stays enabled so a stuck action can be dismissed.
+const BULK_ACTION_ICON_TONE_CLASS = {
+  danger:  'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger active:text-white',
+  default: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success active:text-white',
+}
+const BULK_ACTION_TEXT_TONE_CLASS = {
+  danger:  'border border-danger/40 text-danger hover:bg-danger-bg active:bg-danger-bg',
+  default: 'bg-success text-white hover:opacity-85 active:opacity-85',
+}
+export function SelectAllRow({ checked, onToggleCheck, selectLabel, active, count = 0, actions = [], onCancel, disabled = false }) {
+  const showActions = count > 0 && actions.length > 0
+  // Tighter horizontal padding/gaps below `md` so the label, the count and
+  // three icon buttons still make one line on a 360px phone; `flex-wrap` is
+  // the graceful fallback narrower than that.
   return (
-    <div className={`flex items-center gap-3 px-5 py-2.5 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    <div className={`flex min-h-[44px] flex-wrap items-center gap-x-2 gap-y-2 px-4 py-2 transition-colors md:gap-x-3 md:px-5 ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
         aria-label={selectLabel}
-        className="h-4 w-4 rounded border-slate-line accent-accent"
+        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
       />
       <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Select all</span>
+      {showActions && (
+        <>
+          <span className="ml-auto text-[11px] font-semibold uppercase tracking-wide text-ink">{count} selected</span>
+
+          {/* Mobile: icon-only actions, so the whole set still fits on one
+              line beside the label at phone widths. */}
+          <div className="flex flex-shrink-0 items-center gap-1.5 md:hidden">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                title={a.label}
+                aria-label={a.label}
+                disabled={disabled}
+                onClick={a.onClick}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${BULK_ACTION_ICON_TONE_CLASS[a.tone] || BULK_ACTION_ICON_TONE_CLASS.default}`}
+              >
+                {a.icon}
+              </button>
+            ))}
+            <button
+              type="button"
+              title="Cancel"
+              aria-label="Cancel selection"
+              onClick={onCancel}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Desktop: the same actions as labelled text buttons. */}
+          <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+            {actions.map(a => (
+              <button
+                key={a.label}
+                type="button"
+                disabled={disabled}
+                onClick={a.onClick}
+                className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${BULK_ACTION_TEXT_TONE_CLASS[a.tone] || BULK_ACTION_TEXT_TONE_CLASS.default}`}
+              >
+                {a.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-1.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

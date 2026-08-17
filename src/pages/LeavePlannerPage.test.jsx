@@ -53,12 +53,11 @@ vi.mock('../components/LeaveApprovalQueue', () => ({
 vi.mock('../components/MyRequestHistory', () => ({ default: () => <div>MyRequestHistoryStub</div> }))
 vi.mock('../components/LeaveListView', () => ({ default: () => <div>TeamLeaveStub</div> }))
 vi.mock('../components/AnnualLeavePlanner', () => ({
-  default: ({ deepLinkMonth, deepLinkHighlightDate, onDeepLinkConsumed }) => (
+  default: ({ deepLinkMonth, deepLinkHighlightDate }) => (
     <div>
       AnnualStub
       {deepLinkMonth && <p>deepLinkMonth: {deepLinkMonth}</p>}
       {deepLinkHighlightDate && <p>deepLinkHighlightDate: {deepLinkHighlightDate}</p>}
-      {onDeepLinkConsumed && <button onClick={onDeepLinkConsumed}>ConsumeDeepLinkStub</button>}
     </div>
   ),
 }))
@@ -213,7 +212,13 @@ describe('LeavePlannerPage', () => {
     expect(screen.queryByText('QueueBackStub')).not.toBeInTheDocument()
   })
 
-  it('passes the month/highlight deep-link query params through to AnnualLeavePlanner and clears them once consumed', async () => {
+  // This page only reads the two params and hands them down. Clearing them
+  // afterwards is deliberately NOT done here: it has to share the same
+  // setSearchParams call that seeds ayear/aview/amonth, or the second
+  // writer's stale `prev` wipes the first writer's params and the admin
+  // lands on the current month. See AnnualLeavePlanner.jsx's mount effect
+  // and its own deep-link tests.
+  it('passes the month/highlight deep-link query params through to AnnualLeavePlanner', () => {
     mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
     render(<LeavePlannerPage />, {
       wrapper: ({ children }) => (
@@ -222,10 +227,6 @@ describe('LeavePlannerPage', () => {
     })
     expect(screen.getByText('deepLinkMonth: 2026-08')).toBeInTheDocument()
     expect(screen.getByText('deepLinkHighlightDate: 2026-08-12')).toBeInTheDocument()
-
-    await userEvent.click(screen.getByText('ConsumeDeepLinkStub'))
-    expect(screen.queryByText('deepLinkMonth: 2026-08')).not.toBeInTheDocument()
-    expect(screen.queryByText('deepLinkHighlightDate: 2026-08-12')).not.toBeInTheDocument()
   })
 
   it('falls back to the role default when the URL requests a tab not valid for this role', () => {

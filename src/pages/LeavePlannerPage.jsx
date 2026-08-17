@@ -174,20 +174,15 @@ export default function LeavePlannerPage() {
 
   // A one-shot deep link from the Requests queue's "View Calendar" action
   // (LeaveApprovalQueue.jsx): `?sub=annual&month=YYYY-MM&highlight=YYYY-MM-DD`
-  // seeds AnnualLeavePlanner's initial month-workspace state, then gets
-  // stripped back out of the URL via clearDeepLink once it's been consumed
-  // — otherwise switching away from Annual and back (without touching
-  // "View Calendar" again) would keep re-opening the same stale highlight.
+  // seeds AnnualLeavePlanner's initial month-workspace state. Stripping the
+  // two params back out of the URL afterwards (so switching planner
+  // sub-tabs and back doesn't re-open the same stale highlight) is that
+  // component's job, not this one's: it has to happen in the same
+  // `setSearchParams` call that writes ayear/aview/amonth, or the second
+  // writer's stale `prev` wipes the first writer's params. See the effect
+  // in AnnualLeavePlanner.jsx.
   const deepLinkMonth = searchParams.get('month')
   const deepLinkHighlight = searchParams.get('highlight')
-  function clearDeepLink() {
-    setSearchParams(prev => {
-      const next = new URLSearchParams(prev)
-      next.delete('month')
-      next.delete('highlight')
-      return next
-    }, { replace: true })
-  }
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -226,7 +221,6 @@ export default function LeavePlannerPage() {
               <AnnualLeavePlanner
                 deepLinkMonth={deepLinkMonth}
                 deepLinkHighlightDate={deepLinkHighlight}
-                onDeepLinkConsumed={clearDeepLink}
               />
             )}
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}

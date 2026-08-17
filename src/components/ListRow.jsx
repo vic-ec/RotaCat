@@ -204,10 +204,21 @@ export const REJECT_ICON = <X className="h-4 w-4" strokeWidth={2.5} />
 // "view in calendar"). Always inline, never collapsed to a kebab menu —
 // unlike RowActions' secondary actions, approve/reject/extra are the whole
 // reason an approval row exists, on every viewport.
+//
+// The `hover:active:` duplicate of each `active:` fill is load-bearing, not
+// redundant. `active:bg-success` and `hover:bg-success-bg` have identical
+// specificity, so the winner is whichever Tailwind emits last — and it
+// emits by palette order (`success.DEFAULT` before `success.bg`), which
+// puts the hover rule last. A mouse press is always also a hover, so the
+// pressed fill lost to the hover tint on desktop and `active:text-white`
+// left the glyph nearly invisible against it. Stacking the two variants
+// (`.hover\:active\:bg-success:hover:active`) wins on specificity instead
+// of source order. The bare `active:` fill stays for touch, which presses
+// without ever hovering.
 const APPROVAL_ACTION_TONE_CLASS = {
-  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success active:text-white',
-  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger active:text-white',
-  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white',
+  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success hover:active:bg-success active:text-white',
+  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger hover:active:bg-danger active:text-white',
+  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent hover:active:bg-accent active:text-white',
 }
 export function ApprovalAction({ icon, label, tone = 'neutral', onClick, disabled }) {
   return (

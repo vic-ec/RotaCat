@@ -1511,22 +1511,14 @@ export default function StaffListPage() {
                           </div>
 
                           <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-                            {/* Same circular-outline shell as every other
-                                approve/reject in the app (Pending Approvals,
-                                the leave queue) — these were a borderless
-                                colored glyph, which only held together while
-                                the icon drew its own ring. */}
+                            {/* Same circular-outline shell, tones and order
+                                as every other approval row in the app
+                                (ApprovalRow's own extra/approve/reject):
+                                the neutral "go look at it" action leads,
+                                then the two decisions. */}
+                            <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
                             <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
                             <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}
-                              title="View request"
-                              aria-label="View request"
-                              className="flex h-8 w-8 items-center justify-center rounded-md border border-success/40 bg-success-bg text-success transition-colors hover:bg-success/25 active:border-accent active:bg-accent active:text-white"
-                            >
-                              <Eye className="h-5 w-5" />
-                            </button>
                           </div>
                         </div>
                       </div>

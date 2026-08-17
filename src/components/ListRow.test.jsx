@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { SelectAllRow } from './ListRow'
+import { SelectAllRow, ApprovalAction } from './ListRow'
 
 const ACTIONS = [
   { label: 'Approve selected', onClick: vi.fn() },
@@ -19,6 +19,23 @@ function renderRow(props = {}) {
     />
   )
 }
+
+describe('ApprovalAction', () => {
+  // `active:bg-*` alone loses to `hover:bg-*` — equal specificity, and
+  // Tailwind emits the hover rule last — so on desktop, where a press is
+  // always also a hover, the pressed fill never applied and
+  // `active:text-white` left the glyph nearly invisible on the hover tint.
+  // The stacked `hover:active:` variant wins on specificity instead. jsdom
+  // can't resolve a cascade, so this guards the class itself: it looks like
+  // a redundant duplicate and is the obvious thing for someone to delete.
+  it.each(['success', 'danger', 'neutral'])('keeps the stacked hover:active fill for the %s tone', tone => {
+    const fill = { success: 'bg-success', danger: 'bg-danger', neutral: 'bg-accent' }[tone]
+    render(<ApprovalAction icon={<span />} label="Act" tone={tone} onClick={vi.fn()} />)
+    const button = screen.getByRole('button', { name: 'Act' })
+    expect(button).toHaveClass(`hover:active:${fill}`)
+    expect(button).toHaveClass(`active:${fill}`)  // touch presses without ever hovering
+  })
+})
 
 describe('SelectAllRow', () => {
   it('shows only the select-all checkbox while nothing is selected', () => {

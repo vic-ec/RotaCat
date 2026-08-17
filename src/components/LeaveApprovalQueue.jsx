@@ -11,7 +11,7 @@ import LeaveRequestSummary from './LeaveRequestSummary'
 import CapacityAssessment from './CapacityAssessment'
 import AffectedLeaveList from './AffectedLeaveList'
 import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
-import { SelectAllRow } from './ListRow'
+import { SelectAllRow, ApprovalAction } from './ListRow'
 import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
@@ -37,9 +37,11 @@ function hasWarnings(w) {
 // tag, and a one-line "{type} request, submitted {date}" summary.
 // Approve/reject now live in the detail panel (LeaveRequestDetailPanel below) opened by tapping the
 // row, so the row itself only keeps the always-visible View Calendar
-// action — deliberately a plain button, not ListRow's RowActions, since
+// action — ListRow's `ApprovalAction`, not its `RowActions`, since
 // RowActions collapses even a single action behind a kebab on mobile and
-// this one wants to stay visible on every viewport.
+// this one wants to stay visible on every viewport. (It was a hand-rolled
+// copy of ApprovalAction's neutral tone, which meant it silently missed
+// fixes to the shared tone classes.)
 function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, checked, onToggleCheck, onOpen, onViewCalendar }) {
   // Same "DD-MM-YYYY · HH:MM" template as the detail drawer's own
   // "Submitted X" meta line, so the row and the drawer never disagree.
@@ -67,15 +69,12 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
         </div>
         <p className="mt-0.5 truncate text-xs text-ink-muted">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</p>
       </div>
-      <button
-        type="button"
-        title="View Calendar"
-        aria-label="View Calendar"
-        onClick={e => { e.stopPropagation(); onViewCalendar() }}
-        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-accent/40 text-accent transition-colors hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent active:text-white"
-      >
-        <CalendarSearch className="h-5 w-5" />
-      </button>
+      <ApprovalAction
+        icon={<CalendarSearch className="h-5 w-5" />}
+        label="View Calendar"
+        tone="neutral"
+        onClick={onViewCalendar}
+      />
     </div>
   )
 }

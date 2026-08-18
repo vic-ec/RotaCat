@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ExternalLink, ChevronRight } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { weekendCoverageSummary, formatWeekendRange } from '../lib/weekendPlanner'
@@ -78,7 +78,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           plus the year's totals — each stat cell's fill already doubles as
           the legend, so no separate Legend trigger is needed here. ── */}
       <div data-testid="weekend-year-stats" className="mt-4 rounded-lg border border-slate-line bg-canvas-raised p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
         <div className="mt-1">
           <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
         </div>
@@ -108,7 +108,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             onClick={() => onPlanWeekend(nextOpenWeekend)}
             className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
           >
-            Plan now <ChevronRight className="h-3.5 w-3.5" />
+            <ExternalLink className="h-3.5 w-3.5" /> Plan now
           </button>
         </div>
       )}

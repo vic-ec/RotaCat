@@ -67,39 +67,44 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   return (
     <div>
-      {/* ── Toolbar: year selector, then this page's own Today (resets both
+      <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
+
+      {/* ── Year panel: year selector, this page's own Today (resets both
           year and selected month — DateStepper's own built-in one is
-          suppressed since it only ever knows about `year`), then Legend,
-          all in one cluster on the right. ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
-          {!isOnToday && (
-            <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
-          )}
-          <LegendSheet
-            trigger={onClick => (
-              <button
-                type="button"
-                onClick={onClick}
-                data-testid="weekend-year-legend"
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted hover:text-ink"
-              >
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {totals.fullyPlanned} planned</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagAmber" /> {totals.partial} need staff</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagRed" /> {totals.empty} empty</span>
-              </button>
+          suppressed since it only ever knows about `year`) and Legend
+          passed as DateStepper's children slot (rendered in the same row,
+          after its own Today), plus the year's totals — the counts that
+          used to live in the toolbar's live-count trigger now sit here
+          instead, next to the control that changes what year they're for. ── */}
+      <div data-testid="weekend-year-stats" className="mt-4 rounded-lg border border-slate-line bg-canvas-raised p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
+        <div className="mt-1">
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
+            {!isOnToday && (
+              <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
             )}
-          >
-            <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-              {Object.values(HEALTH_STYLE).map(state => (
-                <span key={state.label} className="flex items-center gap-2">
-                  <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
-                </span>
-              ))}
-            </div>
-          </LegendSheet>
+            <LegendSheet
+              trigger={onClick => (
+                <button type="button" onClick={onClick} data-testid="weekend-year-legend" className="btn-secondary h-[30px] px-2 text-xs">
+                  Legend
+                </button>
+              )}
+            >
+              <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
+                {Object.values(HEALTH_STYLE).map(state => (
+                  <span key={state.label} className="flex items-center gap-2">
+                    <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
+                  </span>
+                ))}
+              </div>
+            </LegendSheet>
+          </DateStepper>
+        </div>
+
+        <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
+          <StatRow label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
+          <StatRow label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
+          <StatRow label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
         </div>
       </div>
 
@@ -134,13 +139,6 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             <StatRow label="Weekends fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" />
             <StatRow label="Weekends needing staff" value={selectedStats.partial} colorClass="text-flagAmber" />
             <StatRow label="Weekends with no staff" value={selectedStats.empty} colorClass="text-flagRed" />
-          </div>
-
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
-            <StatRow label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
-            <StatRow label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
           </div>
 
           <button

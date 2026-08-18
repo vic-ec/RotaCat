@@ -39,7 +39,7 @@ function grid() {
 }
 
 describe('WeekendYearOverview', () => {
-  it('renders the 3-state legend inside its sheet, opened via the live-count trigger', async () => {
+  it('renders the 3-state legend inside its sheet, opened via the Legend trigger', async () => {
     const user = userEvent.setup()
     renderOverview()
     await user.click(screen.getByTestId('weekend-year-legend'))
@@ -56,21 +56,20 @@ describe('WeekendYearOverview', () => {
 
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
     expect(inspector.getByText('August 2026')).toBeInTheDocument()
-    // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the first
-    // (selected-month) occurrence of each label, not the "This year" block's.
-    expect(inspector.getAllByText('Weekends fully staffed')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Weekends needing staff')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Weekends with no staff')[0].closest('div')).toHaveTextContent('3')
+    // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the inspector
+    // only shows the selected month's own stats now, so each label is unique.
+    expect(inspector.getByText('Weekends fully staffed').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('Weekends needing staff').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('Weekends with no staff').closest('div')).toHaveTextContent('3')
   })
 
   it('shows whole-year totals via yearWeekendTotals, matching the lib function directly', () => {
     renderOverview()
     const totals = yearWeekendTotals(YEAR, BY_WEEKEND)
-    const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    const yearBlock = inspector.getByText('This year').closest('div')
-    expect(within(yearBlock).getByText('Weekends fully staffed').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
-    expect(within(yearBlock).getByText('Weekends needing staff').closest('div')).toHaveTextContent(String(totals.partial))
-    expect(within(yearBlock).getByText('Weekends with no staff').closest('div')).toHaveTextContent(String(totals.empty))
+    const yearPanel = within(screen.getByTestId('weekend-year-stats'))
+    expect(yearPanel.getByText('Weekends fully staffed').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
+    expect(yearPanel.getByText('Weekends needing staff').closest('div')).toHaveTextContent(String(totals.partial))
+    expect(yearPanel.getByText('Weekends with no staff').closest('div')).toHaveTextContent(String(totals.empty))
   })
 
   it('clicking an unselected month selects it (updating the inspector) without opening it', async () => {

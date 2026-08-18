@@ -58,9 +58,9 @@ describe('WeekendYearOverview', () => {
     expect(inspector.getByText('August 2026')).toBeInTheDocument()
     // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the first
     // (selected-month) occurrence of each label, not the "This year" block's.
-    expect(inspector.getAllByText('Fully planned')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Needs staff')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Empty')[0].closest('div')).toHaveTextContent('3')
+    expect(inspector.getAllByText('Weekends fully staffed')[0].closest('div')).toHaveTextContent('1')
+    expect(inspector.getAllByText('Weekends needing staff')[0].closest('div')).toHaveTextContent('1')
+    expect(inspector.getAllByText('Weekends with no staff')[0].closest('div')).toHaveTextContent('3')
   })
 
   it('shows whole-year totals via yearWeekendTotals, matching the lib function directly', () => {
@@ -68,9 +68,9 @@ describe('WeekendYearOverview', () => {
     const totals = yearWeekendTotals(YEAR, BY_WEEKEND)
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
     const yearBlock = inspector.getByText('This year').closest('div')
-    expect(within(yearBlock).getByText('Fully planned').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
-    expect(within(yearBlock).getByText('Needs staff').closest('div')).toHaveTextContent(String(totals.partial))
-    expect(within(yearBlock).getByText('Empty').closest('div')).toHaveTextContent(String(totals.empty))
+    expect(within(yearBlock).getByText('Weekends fully staffed').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
+    expect(within(yearBlock).getByText('Weekends needing staff').closest('div')).toHaveTextContent(String(totals.partial))
+    expect(within(yearBlock).getByText('Weekends with no staff').closest('div')).toHaveTextContent(String(totals.empty))
   })
 
   it('clicking an unselected month selects it (updating the inspector) without opening it', async () => {

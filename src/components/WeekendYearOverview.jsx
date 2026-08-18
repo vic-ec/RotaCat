@@ -131,16 +131,16 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-            <StatRow label="Fully planned" value={selectedStats.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Needs staff" value={selectedStats.partial} colorClass="text-flagAmber" />
-            <StatRow label="Empty" value={selectedStats.empty} colorClass="text-flagRed" />
+            <StatRow label="Weekends fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" />
+            <StatRow label="Weekends needing staff" value={selectedStats.partial} colorClass="text-flagAmber" />
+            <StatRow label="Weekends with no staff" value={selectedStats.empty} colorClass="text-flagRed" />
           </div>
 
           <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
-            <StatRow label="Fully planned" value={totals.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Needs staff" value={totals.partial} colorClass="text-flagAmber" />
-            <StatRow label="Empty" value={totals.empty} colorClass="text-flagRed" />
+            <StatRow label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
+            <StatRow label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
+            <StatRow label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
           </div>
 
           <button

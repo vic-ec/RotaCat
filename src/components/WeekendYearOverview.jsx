@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, ChevronRight } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
-import { monthWeekendMarkers, yearWeekendTotals } from '../lib/weekendYearOverview'
+import { weekendCoverageSummary, formatWeekendRange } from '../lib/weekendPlanner'
+import { monthWeekendMarkers, yearWeekendTotals, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
 
 // Small square fill + legend swatch + label per health state — kept to the
@@ -28,7 +29,7 @@ function formatShortDate(dateStr) {
 // Leave planner. byWeekend is the { [saturday]: { [groupKey]: [entry,...] } }
 // Map from groupEntriesByWeekend — the same shape WeekendPlannerView itself
 // already works with.
-export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth }) {
+export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth, onPlanWeekend }) {
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -39,6 +40,20 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
   const totals = yearWeekendTotals(year, byWeekend)
 
   const selectedMarkers = monthCards[selectedMonth - 1].markers
+
+  // The nearest weekend (today or later) still short a role, across the
+  // whole year already loaded here — not just the currently selected
+  // month. Its "Plan now" hands off to WeekendPlannerView (via
+  // onPlanWeekend), which scrolls to and opens that exact weekend's
+  // add-doctor picker on mount. By definition it's never fully staffed
+  // (that's what "needing staff" means), so its fill is only ever amber
+  // (some groups filled) or red (none) — the two "still short" HEALTH_STYLE
+  // colors, never green.
+  const nextOpenWeekend = nextOpenWeekendInYear(year, byWeekend, today)
+  const nextOpenWeekendCoverage = nextOpenWeekend ? weekendCoverageSummary(byWeekend.get(nextOpenWeekend)) : null
+  const nextOpenWeekendFill = nextOpenWeekendCoverage?.filledGroups === 0
+    ? { bg: 'bg-flagRed-bg', text: 'text-flagRed' }
+    : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 
   // Selected-month chevrons/jump-sheet: DateStepper itself handles the
   // Dec/Jan year rollover, calling back with whichever year the stepped-to
@@ -74,6 +89,29 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
         </div>
       </div>
+
+      {/* ── Next weekend needing staff: moved here from the month view
+          (WeekendPlannerView used to compute + show its own version of
+          this), since finding the nearest open weekend across the whole
+          year belongs with the page that already has the whole year
+          loaded. Omitted once every remaining weekend this year is fully
+          staffed. ── */}
+      {nextOpenWeekend && (
+        <div className={`card mt-4 p-4 ${nextOpenWeekendFill.bg}`}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+          <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+          <p className="mt-1 text-sm text-ink-light">
+            {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
+          </p>
+          <button
+            type="button"
+            onClick={() => onPlanWeekend(nextOpenWeekend)}
+            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
+          >
+            Plan now <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">

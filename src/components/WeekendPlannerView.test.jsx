@@ -122,10 +122,9 @@ async function desktop() {
   return within(await screen.findByTestId('weekend-desktop'))
 }
 // Scopes a query to the mobile month-list itself, excluding the "Next
-// weekend"/"Next weekend needing staff" summary panels above it — those can
-// echo the same weekend's date text (e.g. when the literal next weekend is
-// also the nearest one still needing staff), which would otherwise throw
-// off a plain index-based lookup for "the list's own card".
+// weekend" summary panel above it — that can echo the list's own first
+// card's date text, which would otherwise throw off a plain index-based
+// lookup for "the list's own card".
 function list(view) {
   return within(view.getByTestId('weekend-mobile-list'))
 }
@@ -187,23 +186,6 @@ describe('WeekendPlannerView', () => {
       // 1 of 4 staffed — neither fully staffed nor empty — so amber, matching
       // the year overview's legend health, not the mobile cards' own parity fill.
       expect(card).toHaveClass('bg-flagAmber-bg')
-    })
-
-    it('the "Next weekend needing staff" panel never targets an already-passed weekend, even after navigating back to view a past month', async () => {
-      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      // "Today" is now Sept 5 2026 — Aug 1 (only MO filled in ENTRIES) has
-      // already passed, but seeding the view at August (as if an admin
-      // navigated back to it) widens the fetch to include it again. Sept 5
-      // is itself a Saturday with nothing planned.
-      vi.setSystemTime(new Date(2026, 8, 5, 9, 0, 0))
-      render(<Harness initialYear={2026} initialMonth={8} />, { wrapper: MemoryRouter })
-      const view = await mobile()
-      await view.findByText('August 2026')
-
-      const heading = await view.findByText('Next weekend needing staff')
-      const panel = heading.closest('.card')
-      expect(within(panel).queryByText('Sat 1 - Sun 2 Aug 2026')).not.toBeInTheDocument()
-      expect(within(panel).getByText('Sat 5 - Sun 6 Sept 2026')).toBeInTheDocument()
     })
 
     it('mobile: search and Filter share one non-wrapping row, and Filter renders icon-only', async () => {
@@ -1361,59 +1343,20 @@ describe('WeekendPlannerView', () => {
       expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
     })
 
-    it('admin: "Plan next open weekend" jumps to the nearest weekend with any open role and opens its picker', async () => {
+    it('admin: initialFocusSaturday (the year overview\'s "Plan now" hand-off) scrolls to and opens that weekend\'s add-doctor picker on mount', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      const user = userEvent.setup()
-      renderView()
+      // 2026-08-01 is the earliest open weekend in ENTRIES (only MO filled)
+      // — WeekendYearOverview would compute this and hand it off as the
+      // target; here it's passed directly, the same way WeekendPlanner.jsx
+      // (the real orchestrator) passes its own focusSaturday state through.
+      renderView({ initialFocusSaturday: '2026-08-01' })
       const view = await mobile()
       await view.findByText('August 2026')
 
-      // 2026-08-01 is the earliest open weekend in ENTRIES (only MO filled).
-      const heading = await view.findByText('Next weekend needing staff')
-      const panel = heading.closest('.card')
-      expect(within(panel).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
-      await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
-
-      // Opens the picker for the first open group (Registrar) on that weekend.
+      // Opens the picker for the first open group (Registrar) on that
+      // weekend, with no click needed — the mount itself triggers it.
       const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
       expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('Registrar')
-    })
-
-    it('admin: "Plan next open weekend" retargets to the next weekend still open once this one is fully filled', async () => {
-      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      const user = userEvent.setup()
-      renderView()
-      const view = await mobile()
-      await view.findByText('August 2026')
-      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
-
-      async function fillNextOpenRole(doctorNamePattern) {
-        const heading = await view.findByText('Next weekend needing staff')
-        const panel = heading.closest('.card')
-        await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
-        await user.click(await screen.findByRole('checkbox', { name: doctorNamePattern }))
-        await user.click(screen.getByRole('button', { name: /Add 1 doctor/ }))
-      }
-
-      // Aug 1 starts with only MO filled — fill Registrar, EC Intern in turn
-      // (the panel's own "needs-planning" filter keeps Aug 1's card visible
-      // as long as it still has an open role to check the fill against).
-      await fillNextOpenRole(/Bob Botha/)
-      await within(aug1Card).findByText('Botha')
-      await fillNextOpenRole(/Carol Cosmo/)
-      await within(aug1Card).findByText('Cosmo')
-
-      // Filling the last role (OT Intern) completes Aug 1 — under the
-      // "needs-planning" filter the card disappears from the list in the
-      // same render as the fill, so there's no visible in-between state to
-      // assert on the card itself; what matters is where the panel points
-      // next.
-      await fillNextOpenRole(/Dan Della/)
-
-      // Aug 1 is now fully planned and Aug 8 is already fully covered in
-      // ENTRIES — the panel should have moved on to Aug 15.
-      const finalHeading = await view.findByText('Next weekend needing staff')
-      expect(within(finalHeading.closest('.card')).getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { monthWeekendMarkers, yearWeekendTotals } from './weekendYearOverview'
+import { monthWeekendMarkers, yearWeekendTotals, nextOpenWeekendInYear } from './weekendYearOverview'
 import { saturdaysInMonth } from './weekendPlanner'
 
 const FULL = {
@@ -48,5 +48,40 @@ describe('yearWeekendTotals', () => {
     expect(totals.fullyPlanned).toBe(0)
     expect(totals.partial).toBe(0)
     expect(totals.empty).toBe(totals.total)
+  })
+})
+
+describe('nextOpenWeekendInYear', () => {
+  it('returns the earliest Saturday (today or later) with an open group, in chronological order', () => {
+    const [jan1] = saturdaysInMonth(2026, 1)
+    const [feb1] = saturdaysInMonth(2026, 2)
+    // Every January Saturday is fully staffed — February's first (partially
+    // filled, still open) should be the first one found.
+    const byWeekend = new Map([...saturdaysInMonth(2026, 1).map(s => [s, FULL]), [feb1, PARTIAL]])
+    expect(nextOpenWeekendInYear(2026, byWeekend, jan1)).toBe(feb1)
+  })
+
+  it('skips a Saturday before `today`, even if it still has an open group', () => {
+    const [jan1, jan2] = saturdaysInMonth(2026, 1)
+    // jan1 is open (empty byWeekend) but before `today` — jan2 is the
+    // earliest one on/after it.
+    expect(nextOpenWeekendInYear(2026, new Map(), jan2)).toBe(jan2)
+    expect(nextOpenWeekendInYear(2026, new Map(), jan2)).not.toBe(jan1)
+  })
+
+  it('returns null once every weekend today-or-later is fully staffed', () => {
+    const byWeekend = new Map(saturdaysInMonth(2026, 1).map(s => [s, FULL]))
+    // Only January is fully staffed in this map, but every other month's
+    // Saturdays are untouched (fully open) — so unless `today` is past the
+    // whole year, this isn't actually null. Scope `today` to after the
+    // year's last Saturday instead, to isolate "everything staffed".
+    const [dec] = saturdaysInMonth(2026, 12).slice(-1)
+    expect(nextOpenWeekendInYear(2026, byWeekend, '2027-01-01')).toBeNull()
+    expect(dec < '2027-01-01').toBe(true) // sanity: the probe date is genuinely past the year
+  })
+
+  it('treats a completely empty byWeekend map as every weekend (today or later) open', () => {
+    const [jan1] = saturdaysInMonth(2026, 1)
+    expect(nextOpenWeekendInYear(2026, new Map(), jan1)).toBe(jan1)
   })
 })

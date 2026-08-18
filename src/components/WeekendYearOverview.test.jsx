@@ -126,4 +126,32 @@ describe('WeekendYearOverview', () => {
     expect(within(augustCard).getByText('3')).toBeInTheDocument()
     expect(within(augustCard).getAllByText('4').length).toBeGreaterThan(0) // aug15/22/29, each 4 gaps
   })
+
+  describe('"Next weekend needing staff" panel', () => {
+    it('shows the nearest open weekend (today or later), and "Plan now" hands it off via onPlanWeekend', async () => {
+      vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // Aug 1 2026
+      const user = userEvent.setup()
+      const onPlanWeekend = vi.fn()
+      renderOverview({ onPlanWeekend })
+
+      // aug1 is fully planned, so aug8 (only MO filled, 3 groups still open)
+      // is the nearest one actually needing staff.
+      const panel = screen.getByText('Next weekend needing staff').closest('.card')
+      expect(within(panel).getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
+      expect(within(panel).getByText('1 of 4 groups staffed')).toBeInTheDocument()
+      // Amber, not red — some groups are filled, matching the legend's "amber = partial" fill.
+      expect(panel).toHaveClass('bg-flagAmber-bg')
+
+      await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
+      expect(onPlanWeekend).toHaveBeenCalledWith(aug8)
+      vi.useRealTimers()
+    })
+
+    it('is omitted once nothing in the browsed year is on/after today', () => {
+      vi.setSystemTime(new Date(2027, 0, 1, 9, 0, 0)) // past every 2026 Saturday
+      renderOverview()
+      expect(screen.queryByText('Next weekend needing staff')).not.toBeInTheDocument()
+      vi.useRealTimers()
+    })
+  })
 })

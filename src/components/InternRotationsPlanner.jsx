@@ -150,7 +150,7 @@ export default function InternRotationsPlanner() {
 
   return (
     <div>
-      <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">Intern, COSMO, &amp; Registrar Rotations</h2>
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}

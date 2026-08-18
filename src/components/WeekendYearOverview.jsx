@@ -4,7 +4,6 @@ import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { monthWeekendMarkers, yearWeekendTotals } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
-import LegendSheet from './LegendSheet'
 
 // Small square fill + legend swatch + label per health state — kept to the
 // flagRed/flagAmber-bg+flagAmber/success-bg+success roster-state tokens
@@ -41,16 +40,6 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   const selectedMarkers = monthCards[selectedMonth - 1].markers
 
-  // The page's own Today, not DateStepper's own built-in one (suppressed
-  // below via showToday={false}) — resets both the browsed year AND the
-  // selected month back to today's real ones, since DateStepper's version
-  // only ever knows about the year prop it's bound to.
-  function goToToday() {
-    if (year !== todayYear) onYearChange(todayYear)
-    setSelectedMonth(currentMonth)
-  }
-  const isOnToday = year === todayYear && selectedMonth === currentMonth
-
   // Selected-month chevrons/jump-sheet: DateStepper itself handles the
   // Dec/Jan year rollover, calling back with whichever year the stepped-to
   // month landed in — only forward that to onYearChange when it's actually
@@ -69,36 +58,14 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
     <div>
       <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
 
-      {/* ── Year panel: year selector, this page's own Today (resets both
-          year and selected month — DateStepper's own built-in one is
-          suppressed since it only ever knows about `year`) and Legend
-          passed as DateStepper's children slot (rendered in the same row,
-          after its own Today), plus the year's totals — the counts that
-          used to live in the toolbar's live-count trigger now sit here
-          instead, next to the control that changes what year they're for. ── */}
+      {/* ── Year panel: year selector (chevrons at the panel margins, same
+          `centered` layout as the Selected month panel's own stepper below)
+          plus the year's totals — each stat cell's fill already doubles as
+          the legend, so no separate Legend trigger is needed here. ── */}
       <div data-testid="weekend-year-stats" className="mt-4 rounded-lg border border-slate-line bg-canvas-raised p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
         <div className="mt-1">
-          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
-            {!isOnToday && (
-              <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
-            )}
-            <LegendSheet
-              trigger={onClick => (
-                <button type="button" onClick={onClick} data-testid="weekend-year-legend" className="btn-secondary h-[30px] px-2 text-xs">
-                  Legend
-                </button>
-              )}
-            >
-              <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-                {Object.values(HEALTH_STYLE).map(state => (
-                  <span key={state.label} className="flex items-center gap-2">
-                    <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
-                  </span>
-                ))}
-              </div>
-            </LegendSheet>
-          </DateStepper>
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">

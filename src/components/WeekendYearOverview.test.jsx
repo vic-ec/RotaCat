@@ -39,16 +39,6 @@ function grid() {
 }
 
 describe('WeekendYearOverview', () => {
-  it('renders the 3-state legend inside its sheet, opened via the Legend trigger', async () => {
-    const user = userEvent.setup()
-    renderOverview()
-    await user.click(screen.getByTestId('weekend-year-legend'))
-    const sheet = within(screen.getByRole('dialog'))
-    expect(sheet.getByText('Fully planned')).toBeInTheDocument()
-    expect(sheet.getByText('Needs staff')).toBeInTheDocument()
-    expect(sheet.getByText('Empty')).toBeInTheDocument()
-  })
-
   it('defaults the inspector/selection to the current month (August) and shows its per-health counts', () => {
     renderOverview()
     const augustCard = grid().getByRole('button', { name: /^August/ })
@@ -113,39 +103,6 @@ describe('WeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR - 1)
     await user.click(screen.getByRole('button', { name: 'Next year' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
-  })
-
-  it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
-    // The page's own Today (DateStepper's built-in one is suppressed) —
-    // seed a non-current year so it's there to click at all.
-    const user = userEvent.setup()
-    const onYearChange = vi.fn()
-    renderOverview({ year: YEAR - 1, onYearChange })
-
-    await user.click(screen.getByRole('button', { name: 'Today' }))
-    expect(onYearChange).toHaveBeenCalledWith(YEAR)
-  })
-
-  it('Today resets the selected month too, sits between the year selector and Legend, and hides once back on today', async () => {
-    const user = userEvent.setup()
-    renderOverview()
-
-    // Already on the current year+month by default — Today starts hidden.
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-
-    // Select a different month (still within the current year) — Today
-    // should now appear, positioned between the year selector and Legend.
-    await user.click(grid().getByRole('button', { name: /^January/ }))
-    const today = screen.getByRole('button', { name: 'Today' })
-    const yearLabel = screen.getByRole('button', { name: String(YEAR) })
-    const legend = screen.getByTestId('weekend-year-legend')
-    // compareDocumentPosition is a bitmask API, hence the &.
-    expect(yearLabel.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(today.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    await user.click(today)
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-    expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('Selected month panel has chevrons and a jump-to-month sheet, independent of the year selector above', async () => {

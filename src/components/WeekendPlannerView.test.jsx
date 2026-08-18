@@ -121,6 +121,14 @@ async function mobile() {
 async function desktop() {
   return within(await screen.findByTestId('weekend-desktop'))
 }
+// Scopes a query to the mobile month-list itself, excluding the "Next
+// weekend"/"Next weekend needing staff" summary panels above it — those can
+// echo the same weekend's date text (e.g. when the literal next weekend is
+// also the nearest one still needing staff), which would otherwise throw
+// off a plain index-based lookup for "the list's own card".
+function list(view) {
+  return within(view.getByTestId('weekend-mobile-list'))
+}
 
 // Filter is now the shared Toolbar's single-select quick-pill facet (see
 // Toolbar.jsx's ToolbarFacet) — collapsed behind one "Filter" trigger
@@ -173,12 +181,12 @@ describe('WeekendPlannerView', () => {
       const heading = await view.findByText('Next weekend')
       const card = heading.closest('.card')
       expect(within(card).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
-      expect(within(card).getByText(/1 of 4 groups planned/)).toBeInTheDocument()
+      expect(within(card).getByText(/1 of 4 groups staffed/)).toBeInTheDocument()
       expect(within(card).getByText(/Registrar, EC Intern, OT Intern still open/)).toBeInTheDocument()
       expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
     })
 
-    it('the Next weekend card\'s "plan" arrow never targets an already-passed weekend, even after navigating back to view a past month', async () => {
+    it('the "Next weekend needing staff" panel never targets an already-passed weekend, even after navigating back to view a past month', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       // "Today" is now Sept 5 2026 — Aug 1 (only MO filled in ENTRIES) has
       // already passed, but seeding the view at August (as if an admin
@@ -189,8 +197,10 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      expect(screen.queryByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })).not.toBeInTheDocument()
-      expect(await view.findByRole('button', { name: /Plan next open weekend — Sat 5 - Sun 6 Sept 2026/ })).toBeInTheDocument()
+      const heading = await view.findByText('Next weekend needing staff')
+      const panel = heading.closest('.card')
+      expect(within(panel).queryByText('Sat 1 - Sun 2 Aug 2026')).not.toBeInTheDocument()
+      expect(within(panel).getByText('Sat 5 - Sun 6 Sept 2026')).toBeInTheDocument()
     })
 
     it('mobile: search and Filter share one non-wrapping row, and Filter renders icon-only', async () => {
@@ -285,8 +295,9 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      // 2026-08-01 is both the next-weekend card and this month's first list card
-      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      // 2026-08-01 is also the literal next weekend — scope to the list
+      // itself, not the summary panels above it, to get its own card.
+      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
       const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
       expect(aug1Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg/)
       expect(aug8Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg/)
@@ -309,8 +320,8 @@ describe('WeekendPlannerView', () => {
       expect(aug15Card.className).not.toMatch(/bg-accent-tint|bg-flagAmber-bg|bg-flagRed-bg/)
       expect(within(aug15Card).getByText('Empty')).toHaveClass('bg-flagRed-bg', 'text-flagRed')
 
-      // 2026-08-01 (next-weekend card is index 0, list card is index 1): only MO filled, 3 groups open.
-      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      // 2026-08-01: only MO filled, 3 groups open.
+      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
       expect(within(aug1Card).getByText('3 roles open')).toHaveClass('bg-flagAmber-bg', 'text-flagAmber')
     })
 
@@ -498,8 +509,7 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
 
-      // 2026-08-01: next-weekend card is index 0, this month's list card is index 1.
-      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
       await user.click(within(aug1Card).getByRole('button', { name: 'Anderson' }))
 
       await user.click(await screen.findByRole('button', { name: 'Remove from this weekend' }))
@@ -587,7 +597,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       await showAll(view, user)
-      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
 
       // MO is already filled (Anderson) on Aug 1 — the "+" trigger should
       // still open the picker scoped to MO, not require clearing it first.
@@ -1356,8 +1366,10 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
 
       // 2026-08-01 is the earliest open weekend in ENTRIES (only MO filled).
-      const banner = await view.findByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })
-      await user.click(banner)
+      const heading = await view.findByText('Next weekend needing staff')
+      const panel = heading.closest('.card')
+      expect(within(panel).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
+      await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
 
       // Opens the picker for the first open group (Registrar) on that weekend.
       const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
@@ -1370,17 +1382,18 @@ describe('WeekendPlannerView', () => {
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
-      const aug1Card = view.getAllByText('Sat 1 - Sun 2 Aug 2026')[1].closest('.card')
+      const aug1Card = list(view).getByText('Sat 1 - Sun 2 Aug 2026').closest('.card')
 
       async function fillNextOpenRole(doctorNamePattern) {
-        const banner = await view.findByRole('button', { name: /Plan next open weekend — Sat 1 - Sun 2 Aug 2026/ })
-        await user.click(banner)
+        const heading = await view.findByText('Next weekend needing staff')
+        const panel = heading.closest('.card')
+        await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
         await user.click(await screen.findByRole('checkbox', { name: doctorNamePattern }))
         await user.click(screen.getByRole('button', { name: /Add 1 doctor/ }))
       }
 
       // Aug 1 starts with only MO filled — fill Registrar, EC Intern in turn
-      // (the banner's own "needs-planning" filter keeps Aug 1's card visible
+      // (the panel's own "needs-planning" filter keeps Aug 1's card visible
       // as long as it still has an open role to check the fill against).
       await fillNextOpenRole(/Bob Botha/)
       await within(aug1Card).findByText('Botha')
@@ -1390,13 +1403,14 @@ describe('WeekendPlannerView', () => {
       // Filling the last role (OT Intern) completes Aug 1 — under the
       // "needs-planning" filter the card disappears from the list in the
       // same render as the fill, so there's no visible in-between state to
-      // assert on the card itself; what matters is where the banner points
+      // assert on the card itself; what matters is where the panel points
       // next.
       await fillNextOpenRole(/Dan Della/)
 
       // Aug 1 is now fully planned and Aug 8 is already fully covered in
-      // ENTRIES — the banner should have moved on to Aug 15.
-      expect(await view.findByRole('button', { name: /Plan next open weekend — Sat 15 - Sun 16 Aug 2026/ })).toBeInTheDocument()
+      // ENTRIES — the panel should have moved on to Aug 15.
+      const finalHeading = await view.findByText('Next weekend needing staff')
+      expect(within(finalHeading.closest('.card')).getByText('Sat 15 - Sun 16 Aug 2026')).toBeInTheDocument()
     })
   })
 })

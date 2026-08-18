@@ -1051,6 +1051,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     () => saturdays.find(s => s >= today && weekendCoverageSummary(byWeekend.get(s)).openGroups.length > 0) ?? null,
     [saturdays, byWeekend, today]
   )
+  const nextOpenWeekendCoverage = nextOpenWeekend ? weekendCoverageSummary(byWeekend.get(nextOpenWeekend)) : null
+  const nextOpenWeekendScheme = nextOpenWeekend ? weekendColorScheme(nextOpenWeekend) : null
   const cardRefs = useRef(new Map())
   // Set right after navigating to nextOpenWeekend's month (if it isn't
   // already the one in view) — the effect below waits for that card to
@@ -1446,45 +1448,41 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               }}
               moreMenu={isAdmin ? { title: 'More actions', items: weekendMenuItems } : undefined}
             />
-            <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-                  <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
-                  <p className="mt-1 text-sm text-ink-light">
-                    {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
-                    {nextWeekendCoverage.openGroups.length > 0 && (
-                      <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
-                    )}
-                  </p>
-                  {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
-                  {/* nextOpenWeekend can differ from the literal "next
-                      weekend" above (e.g. this one's already fully covered,
-                      but a later one within the fetched window still has a
-                      gap) — call that out by name so the arrow doesn't read
-                      as pointing at the weekend already described above it. */}
-                  {isAdmin && nextOpenWeekend && nextOpenWeekend !== nextWeekend && (
-                    <p className="mt-1 text-sm text-ink-light">
-                      Next open weekend: <span className="font-medium">{formatWeekendRange(nextOpenWeekend)}</span>
-                    </p>
+            {/* Two side-by-side panels: the literal next weekend (always
+                shown) and, for admins, the nearest weekend (today or later)
+                that still has an open role — which may or may not be the
+                same weekend as the first panel. Each keeps its own
+                parity-based color scheme (weekendColorScheme), since they
+                can land on different weekends with different parities. */}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className={`card flex-1 p-4 ${nextWeekendScheme.bg}`}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
+                <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
+                <p className="mt-1 text-sm text-ink-light">
+                  {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups staffed
+                  {nextWeekendCoverage.openGroups.length > 0 && (
+                    <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
                   )}
-                </div>
-                {/* Part 9 — jumps to and opens the picker for the nearest
-                    still-open weekend (today or later), which may or may not
-                    be this literal "next weekend" — folded into this one
-                    card instead of a second panel below it. Nothing renders
-                    once nothing needs planning. */}
-                {isAdmin && nextOpenWeekend && (
+                </p>
+                {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
+              </div>
+
+              {isAdmin && nextOpenWeekend && (
+                <div className={`card flex-1 p-4 ${nextOpenWeekendScheme.bg}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+                  <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendScheme.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+                  <p className="mt-1 text-sm text-ink-light">
+                    {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups planned
+                  </p>
                   <button
                     type="button"
                     onClick={handlePlanNextOpenWeekend}
-                    aria-label={`Plan next open weekend — ${formatWeekendRange(nextOpenWeekend)}`}
-                    className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full hover:bg-white/40 ${nextWeekendScheme.text}`}
+                    className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
                   >
-                    <ChevronRight className="h-5 w-5" />
+                    Plan now <ChevronRight className="h-3.5 w-3.5" />
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Part 4's sticky mobile toolbar, pinned flush to the top of
@@ -1527,7 +1525,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
 
-            <div className="mt-3 space-y-3">
+            <div data-testid="weekend-mobile-list" className="mt-3 space-y-3">
               {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
                   {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}

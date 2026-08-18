@@ -111,6 +111,16 @@ function weekendColorScheme(saturday) {
     : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 }
 
+// The "Next weekend" panel's own background instead follows coverage
+// health, not parity — same red/amber/green thresholds and -bg fills as the
+// year overview's legend (WeekendYearOverview's HEALTH_STYLE/StatCell), so
+// a fully-staffed next weekend reads as unambiguously "good" at a glance.
+function weekendHealthScheme(coverage) {
+  if (coverage.filledGroups === coverage.totalGroups) return { bg: 'bg-success-bg', text: 'text-success' }
+  if (coverage.filledGroups === 0) return { bg: 'bg-flagRed-bg', text: 'text-flagRed' }
+  return { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
+}
+
 // Desktop's weekend-parity badge — a small labelled pill ("Wknd 2 · Odd"),
 // never a background wash. Uses groupEven/groupOdd — a dedicated parity
 // color family, not flagAmber/success (reserved for the Status column's "N
@@ -1036,7 +1046,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const nextWeekend = nextWeekendSaturday(today)
   const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
-  const nextWeekendScheme = weekendColorScheme(nextWeekend)
+  const nextWeekendScheme = weekendHealthScheme(nextWeekendCoverage)
 
   // Part 9's "Plan next open weekend" shortcut — the first FUTURE weekend
   // (today or later; date order) with ANY open role, across the whole
@@ -1451,9 +1461,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             {/* Two side-by-side panels: the literal next weekend (always
                 shown) and, for admins, the nearest weekend (today or later)
                 that still has an open role — which may or may not be the
-                same weekend as the first panel. Each keeps its own
-                parity-based color scheme (weekendColorScheme), since they
-                can land on different weekends with different parities. */}
+                same weekend as the first panel. The first panel's fill
+                follows coverage health (weekendHealthScheme, matching the
+                year overview's legend); the second keeps the parity-based
+                scheme (weekendColorScheme) the rest of the mobile cards use. */}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <div className={`card flex-1 p-4 ${nextWeekendScheme.bg}`}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
@@ -1472,7 +1483,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
                   <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendScheme.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
                   <p className="mt-1 text-sm text-ink-light">
-                    {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups planned
+                    {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
                   </p>
                   <button
                     type="button"
@@ -1595,23 +1606,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                         />
                       ))}
                     </div>
-
-                    {/* Always available, not just while a category is still
-                        completely empty — this is the "pick a category, then
-                        candidates" entry point (WeekendAddDoctorsSheet's own
-                        dropdown), for topping up a category that already has
-                        names as much as for filling a blank one. Defaults to
-                        the first still-open category when there is one, but
-                        stays fully changeable from the sheet itself. */}
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenRolePicker({ saturday, groupKey: coverage.openGroups[0] ?? CATEGORY_GROUPS[0].key })}
-                        className="btn-primary mt-3 w-full text-sm"
-                      >
-                        Add doctor
-                      </button>
-                    )}
                   </div>
                 )
               })}

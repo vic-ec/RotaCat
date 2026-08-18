@@ -184,6 +184,9 @@ describe('WeekendPlannerView', () => {
       expect(within(card).getByText(/1 of 4 groups staffed/)).toBeInTheDocument()
       expect(within(card).getByText(/Registrar, EC Intern, OT Intern still open/)).toBeInTheDocument()
       expect(within(card).getByText(/You.re on rotation this weekend/)).toBeInTheDocument()
+      // 1 of 4 staffed — neither fully staffed nor empty — so amber, matching
+      // the year overview's legend health, not the mobile cards' own parity fill.
+      expect(card).toHaveClass('bg-flagAmber-bg')
     })
 
     it('the "Next weekend needing staff" panel never targets an already-passed weekend, even after navigating back to view a past month', async () => {
@@ -516,7 +519,7 @@ describe('WeekendPlannerView', () => {
       await waitFor(() => expect(within(aug1Card).queryByRole('button', { name: 'Anderson' })).not.toBeInTheDocument())
     })
 
-    it('admin: can add a doctor to an open slot via the doctor-add sheet (Add doctor button)', async () => {
+    it('admin: can add a doctor to an open slot via the doctor-add sheet (Open pill)', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -526,9 +529,9 @@ describe('WeekendPlannerView', () => {
       const aug15Heading = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       const aug15Card = aug15Heading.closest('.card')
 
-      await user.click(within(aug15Card).getByRole('button', { name: 'Add doctor' }))
+      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[0]) // MO row
       const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
-      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO') // first open group, preselected but changeable
+      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
       await user.click(within(sheet).getByRole('checkbox', { name: /Alice Anderson/ }))
       await user.click(within(sheet).getByRole('button', { name: /Add 1 doctor/ }))
 
@@ -581,7 +584,7 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
       const aug15Card = (await view.findByText('Sat 15 - Sun 16 Aug 2026')).closest('.card')
 
-      await user.click(within(aug15Card).getByRole('button', { name: 'Add doctor' }))
+      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[0]) // MO row
       const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
       expect(within(sheet).getByRole('checkbox', { name: /Alice Anderson/ })).toBeInTheDocument()
 

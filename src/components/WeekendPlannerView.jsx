@@ -1439,8 +1439,15 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 Month nav + actions on their own row; the coverage-count
                 Legend trigger is information, not an action, so it gets
                 its own caption line below instead of competing with icon
-                buttons for space in the same row. */}
-            <div className="sticky top-0 z-10 -mx-4 mt-4 bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
+                buttons for space in the same row. `transform-gpu`: this row
+                is sticky AND contains DateStepper's Today button (its own
+                opacity transition, fading in/out as browsing moves away
+                from/back to the current month) — on iOS Safari and some
+                Android WebViews, scrolling a sticky element mid-transition
+                can leave a stale paint behind (ghosted/doubled text and
+                chevrons until the next reflow). Forcing this row onto its
+                own GPU compositor layer is the standard fix. */}
+            <div className="sticky top-0 z-10 -mx-4 mt-4 transform-gpu bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {renderMonthNav()}
                 {/* Below `md` this kebab lives in the Toolbar FAB instead;

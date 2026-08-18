@@ -102,9 +102,9 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
-          <StatCell label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
-          <StatCell label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
-          <StatCell label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
+          <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+          <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+          <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
         </div>
       </div>
 
@@ -136,9 +136,9 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           </div>
 
           <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
-            <StatCell label="Weekends fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" />
-            <StatCell label="Weekends needing staff" value={selectedStats.partial} colorClass="text-flagAmber" />
-            <StatCell label="Weekends with no staff" value={selectedStats.empty} colorClass="text-flagRed" />
+            <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+            <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+            <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
           </div>
 
           <button
@@ -154,12 +154,14 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
   )
 }
 
-// 3-up grid cell: label on top, big number below — replaces a label/value
-// row so all three counts (fully staffed / needing staff / no staff) line
-// up side by side instead of stacking, letting them be scanned at a glance.
-function StatCell({ label, value, colorClass }) {
+// 3-up grid cell: label on top, big number below, tinted with the same
+// -bg fill HEALTH_STYLE uses for the month-grid squares — replaces a
+// label/value row so all three counts (fully staffed / needing staff / no
+// staff) line up side by side instead of stacking, and the color itself
+// (not just the text) doubles as the legend at a glance.
+function StatCell({ label, value, colorClass, bgClass }) {
   return (
-    <div className="flex flex-col items-center gap-1 text-center">
+    <div className={`flex flex-col items-center gap-1 rounded-lg py-2 text-center ${bgClass}`}>
       <span className="text-xs text-ink-muted">{label}</span>
       <span className={`text-xl font-semibold ${colorClass}`}>{value}</span>
     </div>

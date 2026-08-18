@@ -101,10 +101,10 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           </DateStepper>
         </div>
 
-        <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-          <StatRow label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
-          <StatRow label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
-          <StatRow label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+          <StatCell label="Weekends fully staffed" value={totals.fullyPlanned} colorClass="text-success" />
+          <StatCell label="Weekends needing staff" value={totals.partial} colorClass="text-flagAmber" />
+          <StatCell label="Weekends with no staff" value={totals.empty} colorClass="text-flagRed" />
         </div>
       </div>
 
@@ -135,10 +135,10 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
 
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-            <StatRow label="Weekends fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Weekends needing staff" value={selectedStats.partial} colorClass="text-flagAmber" />
-            <StatRow label="Weekends with no staff" value={selectedStats.empty} colorClass="text-flagRed" />
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+            <StatCell label="Weekends fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" />
+            <StatCell label="Weekends needing staff" value={selectedStats.partial} colorClass="text-flagAmber" />
+            <StatCell label="Weekends with no staff" value={selectedStats.empty} colorClass="text-flagRed" />
           </div>
 
           <button
@@ -154,11 +154,14 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
   )
 }
 
-function StatRow({ label, value, colorClass }) {
+// 3-up grid cell: label on top, big number below — replaces a label/value
+// row so all three counts (fully staffed / needing staff / no staff) line
+// up side by side instead of stacking, letting them be scanned at a glance.
+function StatCell({ label, value, colorClass }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-ink-muted">{label}</span>
-      <span className={`font-medium ${colorClass}`}>{value}</span>
+    <div className="flex flex-col items-center gap-1 text-center">
+      <span className="text-xs text-ink-muted">{label}</span>
+      <span className={`text-xl font-semibold ${colorClass}`}>{value}</span>
     </div>
   )
 }

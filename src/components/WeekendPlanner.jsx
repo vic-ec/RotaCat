@@ -40,6 +40,14 @@ export default function WeekendPlanner() {
   // not just hidden). Owning it here means it survives that round trip:
   // copy August, check the year overview, open June to paste into.
   const [clipboard, setClipboard] = useState(null)
+  // One-shot hand-off for WeekendYearOverview's "Next weekend needing
+  // staff" panel — which specific weekend (today or later) its "Plan now"
+  // button targets, so WeekendPlannerView can scroll to that card and open
+  // its add-doctor picker the moment it mounts. Deliberately plain state,
+  // not the URL: losing it to a backgrounded-PWA reload just means the
+  // picker doesn't auto-open, which is a fine fallback for what's already a
+  // convenience shortcut, not navigational state like year/view/month.
+  const [focusSaturday, setFocusSaturday] = useState(null)
 
   useEffect(() => { load() }, [year]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; refetching on staffingRole/profile would loop without changing what's fetched within a session
 
@@ -92,7 +100,13 @@ export default function WeekendPlanner() {
     }, { replace: true })
   }
 
+  // Plain "open this month" (a month card, or the Selected month panel's own
+  // Open month button) never carries a specific weekend to focus — clears
+  // any stale focusSaturday left over from a previous "Plan now" hand-off
+  // that never actually got consumed (e.g. the admin backed out before it
+  // fired), so a later WeekendPlannerView mount can't misfire on it.
   function openMonth(newMonth) {
+    setFocusSaturday(null)
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.set('wmonth', String(newMonth))
@@ -101,7 +115,26 @@ export default function WeekendPlanner() {
     }, { replace: true })
   }
 
+  // WeekendYearOverview's "Plan now" button — opens `saturday`'s own month
+  // (deriving both year and month from it, since its year always matches
+  // whichever year the overview is currently browsing) and hands the exact
+  // weekend off via focusSaturday for WeekendPlannerView to scroll to and
+  // open on mount.
+  function planWeekend(saturday) {
+    const y = Number(saturday.slice(0, 4))
+    const m = Number(saturday.slice(5, 7))
+    setFocusSaturday(saturday)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('wyear', String(y))
+      next.set('wmonth', String(m))
+      next.set('wview', 'month')
+      return next
+    }, { replace: true })
+  }
+
   function backToYear() {
+    setFocusSaturday(null)
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.delete('wview')
@@ -120,12 +153,19 @@ export default function WeekendPlanner() {
           <WeekendPlannerView
             initialYear={year}
             initialMonth={month}
+            initialFocusSaturday={focusSaturday}
             onBackToYear={backToYear}
             clipboard={clipboard}
             setClipboard={setClipboard}
           />
         ) : staffingRole ? (
-          <WeekendYearOverview year={year} onYearChange={setYear} byWeekend={byWeekend} onOpenMonth={openMonth} />
+          <WeekendYearOverview
+            year={year}
+            onYearChange={setYear}
+            byWeekend={byWeekend}
+            onOpenMonth={openMonth}
+            onPlanWeekend={planWeekend}
+          />
         ) : (
           <MyWeekendYearOverview
             year={year}

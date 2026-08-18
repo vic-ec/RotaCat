@@ -39,16 +39,6 @@ function grid() {
 }
 
 describe('WeekendYearOverview', () => {
-  it('renders the 3-state legend inside its sheet, opened via the live-count trigger', async () => {
-    const user = userEvent.setup()
-    renderOverview()
-    await user.click(screen.getByTestId('weekend-year-legend'))
-    const sheet = within(screen.getByRole('dialog'))
-    expect(sheet.getByText('Fully planned')).toBeInTheDocument()
-    expect(sheet.getByText('Needs staff')).toBeInTheDocument()
-    expect(sheet.getByText('Empty')).toBeInTheDocument()
-  })
-
   it('defaults the inspector/selection to the current month (August) and shows its per-health counts', () => {
     renderOverview()
     const augustCard = grid().getByRole('button', { name: /^August/ })
@@ -56,21 +46,20 @@ describe('WeekendYearOverview', () => {
 
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
     expect(inspector.getByText('August 2026')).toBeInTheDocument()
-    // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the first
-    // (selected-month) occurrence of each label, not the "This year" block's.
-    expect(inspector.getAllByText('Fully planned')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Needs staff')[0].closest('div')).toHaveTextContent('1')
-    expect(inspector.getAllByText('Empty')[0].closest('div')).toHaveTextContent('3')
+    // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the inspector
+    // only shows the selected month's own stats now, so each label is unique.
+    expect(inspector.getByText('Fully staffed').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('Need staff').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('No staff').closest('div')).toHaveTextContent('3')
   })
 
   it('shows whole-year totals via yearWeekendTotals, matching the lib function directly', () => {
     renderOverview()
     const totals = yearWeekendTotals(YEAR, BY_WEEKEND)
-    const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    const yearBlock = inspector.getByText('This year').closest('div')
-    expect(within(yearBlock).getByText('Fully planned').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
-    expect(within(yearBlock).getByText('Needs staff').closest('div')).toHaveTextContent(String(totals.partial))
-    expect(within(yearBlock).getByText('Empty').closest('div')).toHaveTextContent(String(totals.empty))
+    const yearPanel = within(screen.getByTestId('weekend-year-stats'))
+    expect(yearPanel.getByText('Fully staffed').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
+    expect(yearPanel.getByText('Need staff').closest('div')).toHaveTextContent(String(totals.partial))
+    expect(yearPanel.getByText('No staff').closest('div')).toHaveTextContent(String(totals.empty))
   })
 
   it('clicking an unselected month selects it (updating the inspector) without opening it', async () => {
@@ -116,39 +105,6 @@ describe('WeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
   })
 
-  it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
-    // The page's own Today (DateStepper's built-in one is suppressed) —
-    // seed a non-current year so it's there to click at all.
-    const user = userEvent.setup()
-    const onYearChange = vi.fn()
-    renderOverview({ year: YEAR - 1, onYearChange })
-
-    await user.click(screen.getByRole('button', { name: 'Today' }))
-    expect(onYearChange).toHaveBeenCalledWith(YEAR)
-  })
-
-  it('Today resets the selected month too, sits between the year selector and Legend, and hides once back on today', async () => {
-    const user = userEvent.setup()
-    renderOverview()
-
-    // Already on the current year+month by default — Today starts hidden.
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-
-    // Select a different month (still within the current year) — Today
-    // should now appear, positioned between the year selector and Legend.
-    await user.click(grid().getByRole('button', { name: /^January/ }))
-    const today = screen.getByRole('button', { name: 'Today' })
-    const yearLabel = screen.getByRole('button', { name: String(YEAR) })
-    const legend = screen.getByTestId('weekend-year-legend')
-    // compareDocumentPosition is a bitmask API, hence the &.
-    expect(yearLabel.compareDocumentPosition(today) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(today.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    await user.click(today)
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-    expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'true')
-  })
-
   it('Selected month panel has chevrons and a jump-to-month sheet, independent of the year selector above', async () => {
     const user = userEvent.setup()
     renderOverview()
@@ -169,5 +125,33 @@ describe('WeekendYearOverview', () => {
     // aug1 (fully planned) has no badge; aug8 (needs staff, 3 gaps) does.
     expect(within(augustCard).getByText('3')).toBeInTheDocument()
     expect(within(augustCard).getAllByText('4').length).toBeGreaterThan(0) // aug15/22/29, each 4 gaps
+  })
+
+  describe('"Next weekend needing staff" panel', () => {
+    it('shows the nearest open weekend (today or later), and "Plan now" hands it off via onPlanWeekend', async () => {
+      vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // Aug 1 2026
+      const user = userEvent.setup()
+      const onPlanWeekend = vi.fn()
+      renderOverview({ onPlanWeekend })
+
+      // aug1 is fully planned, so aug8 (only MO filled, 3 groups still open)
+      // is the nearest one actually needing staff.
+      const panel = screen.getByText('Next weekend needing staff').closest('.card')
+      expect(within(panel).getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
+      expect(within(panel).getByText('1 of 4 groups staffed')).toBeInTheDocument()
+      // Amber, not red — some groups are filled, matching the legend's "amber = partial" fill.
+      expect(panel).toHaveClass('bg-flagAmber-bg')
+
+      await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
+      expect(onPlanWeekend).toHaveBeenCalledWith(aug8)
+      vi.useRealTimers()
+    })
+
+    it('is omitted once nothing in the browsed year is on/after today', () => {
+      vi.setSystemTime(new Date(2027, 0, 1, 9, 0, 0)) // past every 2026 Saturday
+      renderOverview()
+      expect(screen.queryByText('Next weekend needing staff')).not.toBeInTheDocument()
+      vi.useRealTimers()
+    })
   })
 })

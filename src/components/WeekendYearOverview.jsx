@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
-import { monthWeekendMarkers, yearWeekendTotals } from '../lib/weekendYearOverview'
+import { weekendCoverageSummary, formatWeekendRange } from '../lib/weekendPlanner'
+import { monthWeekendMarkers, yearWeekendTotals, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
-import LegendSheet from './LegendSheet'
 
 // Small square fill + legend swatch + label per health state — kept to the
 // flagRed/flagAmber-bg+flagAmber/success-bg+success roster-state tokens
@@ -29,7 +29,7 @@ function formatShortDate(dateStr) {
 // Leave planner. byWeekend is the { [saturday]: { [groupKey]: [entry,...] } }
 // Map from groupEntriesByWeekend — the same shape WeekendPlannerView itself
 // already works with.
-export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth }) {
+export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth, onPlanWeekend }) {
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -41,15 +41,19 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   const selectedMarkers = monthCards[selectedMonth - 1].markers
 
-  // The page's own Today, not DateStepper's own built-in one (suppressed
-  // below via showToday={false}) — resets both the browsed year AND the
-  // selected month back to today's real ones, since DateStepper's version
-  // only ever knows about the year prop it's bound to.
-  function goToToday() {
-    if (year !== todayYear) onYearChange(todayYear)
-    setSelectedMonth(currentMonth)
-  }
-  const isOnToday = year === todayYear && selectedMonth === currentMonth
+  // The nearest weekend (today or later) still short a role, across the
+  // whole year already loaded here — not just the currently selected
+  // month. Its "Plan now" hands off to WeekendPlannerView (via
+  // onPlanWeekend), which scrolls to and opens that exact weekend's
+  // add-doctor picker on mount. By definition it's never fully staffed
+  // (that's what "needing staff" means), so its fill is only ever amber
+  // (some groups filled) or red (none) — the two "still short" HEALTH_STYLE
+  // colors, never green.
+  const nextOpenWeekend = nextOpenWeekendInYear(year, byWeekend, today)
+  const nextOpenWeekendCoverage = nextOpenWeekend ? weekendCoverageSummary(byWeekend.get(nextOpenWeekend)) : null
+  const nextOpenWeekendFill = nextOpenWeekendCoverage?.filledGroups === 0
+    ? { bg: 'bg-flagRed-bg', text: 'text-flagRed' }
+    : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 
   // Selected-month chevrons/jump-sheet: DateStepper itself handles the
   // Dec/Jan year rollover, calling back with whichever year the stepped-to
@@ -67,41 +71,47 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   return (
     <div>
-      {/* ── Toolbar: year selector, then this page's own Today (resets both
-          year and selected month — DateStepper's own built-in one is
-          suppressed since it only ever knows about `year`), then Legend,
-          all in one cluster on the right. ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
-          {!isOnToday && (
-            <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
-          )}
-          <LegendSheet
-            trigger={onClick => (
-              <button
-                type="button"
-                onClick={onClick}
-                data-testid="weekend-year-legend"
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted hover:text-ink"
-              >
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-success" /> {totals.fullyPlanned} planned</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagAmber" /> {totals.partial} need staff</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-flagRed" /> {totals.empty} empty</span>
-              </button>
-            )}
-          >
-            <div className="flex flex-col gap-1.5 text-sm text-ink-muted">
-              {Object.values(HEALTH_STYLE).map(state => (
-                <span key={state.label} className="flex items-center gap-2">
-                  <span className={`h-3 w-3 rounded-sm ${state.swatch}`} /> {state.label}
-                </span>
-              ))}
-            </div>
-          </LegendSheet>
+      <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
+
+      {/* ── Year panel: year selector (chevrons at the panel margins, same
+          `centered` layout as the Selected month panel's own stepper below)
+          plus the year's totals — each stat cell's fill already doubles as
+          the legend, so no separate Legend trigger is needed here. ── */}
+      <div data-testid="weekend-year-stats" className="mt-4 rounded-lg border border-slate-line bg-canvas-raised p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
+        <div className="mt-1">
+          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+          <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+          <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+          <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
         </div>
       </div>
+
+      {/* ── Next weekend needing staff: moved here from the month view
+          (WeekendPlannerView used to compute + show its own version of
+          this), since finding the nearest open weekend across the whole
+          year belongs with the page that already has the whole year
+          loaded. Omitted once every remaining weekend this year is fully
+          staffed. ── */}
+      {nextOpenWeekend && (
+        <div className={`card mt-4 p-4 ${nextOpenWeekendFill.bg}`}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+          <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+          <p className="mt-1 text-sm text-ink-light">
+            {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
+          </p>
+          <button
+            type="button"
+            onClick={() => onPlanWeekend(nextOpenWeekend)}
+            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
+          >
+            <ExternalLink className="h-3.5 w-3.5" /> Plan now
+          </button>
+        </div>
+      )}
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -130,17 +140,10 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
 
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-            <StatRow label="Fully planned" value={selectedStats.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Needs staff" value={selectedStats.partial} colorClass="text-flagAmber" />
-            <StatRow label="Empty" value={selectedStats.empty} colorClass="text-flagRed" />
-          </div>
-
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">This year</p>
-            <StatRow label="Fully planned" value={totals.fullyPlanned} colorClass="text-success" />
-            <StatRow label="Needs staff" value={totals.partial} colorClass="text-flagAmber" />
-            <StatRow label="Empty" value={totals.empty} colorClass="text-flagRed" />
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+            <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+            <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+            <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
           </div>
 
           <button
@@ -156,11 +159,16 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
   )
 }
 
-function StatRow({ label, value, colorClass }) {
+// 3-up grid cell: label on top, big number below, tinted with the same
+// -bg fill HEALTH_STYLE uses for the month-grid squares — replaces a
+// label/value row so all three counts (fully staffed / needing staff / no
+// staff) line up side by side instead of stacking, and the color itself
+// (not just the text) doubles as the legend at a glance.
+function StatCell({ label, value, colorClass, bgClass }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-ink-muted">{label}</span>
-      <span className={`font-medium ${colorClass}`}>{value}</span>
+    <div className={`flex flex-col items-center gap-1 rounded-lg py-2 text-center ${bgClass}`}>
+      <span className="text-xs text-ink-muted">{label}</span>
+      <span className={`text-xl font-semibold ${colorClass}`}>{value}</span>
     </div>
   )
 }

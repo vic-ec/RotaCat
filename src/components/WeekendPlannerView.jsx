@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ChevronRight, ScrollText, Plus,
+  MoreVertical, EllipsisVertical, ScrollText, Plus,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { todayStr, addDays, parseLocalDate, monthBounds } from '../lib/dateRange'
+import { todayStr, addDays, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
-  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday,
+  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
 } from '../lib/weekendPlanner'
@@ -102,13 +102,14 @@ function quarterLabel(quarterMonths) {
   return `${firstLabel}-${MONTH_ABBR[last.month - 1]} ${last.year}`
 }
 
-// Mobile's alternating card background always follows even/odd parity —
-// unrelated to the desktop badge scheme below, which deliberately doesn't
-// tint anything (see the desktop section's own comment for why).
-function weekendColorScheme(saturday) {
-  return isEvenWeekend(saturday)
-    ? { bg: 'bg-accent-tint', text: 'text-accent' }
-    : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
+// The "Next weekend" panel's own background follows coverage
+// health, not parity — same red/amber/green thresholds and -bg fills as the
+// year overview's legend (WeekendYearOverview's HEALTH_STYLE/StatCell), so
+// a fully-staffed next weekend reads as unambiguously "good" at a glance.
+function weekendHealthScheme(coverage) {
+  if (coverage.filledGroups === coverage.totalGroups) return { bg: 'bg-success-bg', text: 'text-success' }
+  if (coverage.filledGroups === 0) return { bg: 'bg-flagRed-bg', text: 'text-flagRed' }
+  return { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
 }
 
 // Desktop's weekend-parity badge — a small labelled pill ("Wknd 2 · Odd"),
@@ -131,21 +132,6 @@ function XIcon(props) {
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   )
-}
-
-// "2026-08-15" → "Sat 15 - Sun 16 Aug 2026" (or "Sat 31 Aug - Sun 1 Sep 2026"
-// when the weekend straddles a month boundary) — replaces the verbose
-// YYYY-MM-DD → YYYY-MM-DD range everywhere a weekend is displayed.
-function formatWeekendRange(saturday) {
-  const sunday = addDays(saturday, 1)
-  const satDate = parseLocalDate(saturday)
-  const sunDate = parseLocalDate(sunday)
-  const sunMonth = sunDate.toLocaleDateString('en-GB', { month: 'short' })
-  const sunYear = sunDate.getFullYear()
-  const sameMonth = satDate.getMonth() === sunDate.getMonth() && satDate.getFullYear() === sunDate.getFullYear()
-  if (sameMonth) return `Sat ${satDate.getDate()} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
-  const satMonth = satDate.toLocaleDateString('en-GB', { month: 'short' })
-  return `Sat ${satDate.getDate()} ${satMonth} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
 }
 
 // Splits a list into rows of (at most) 2 — used to lay assigned names out as
@@ -802,7 +788,14 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
 // MonthWorkspace.jsx's own back-link wording) — absent
 // when this is reached directly (the standalone /weekend route, or a caller
 // with no year overview of its own).
-export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard } = {}) {
+// initialFocusSaturday, when present, is a specific weekend (today or
+// later, always within initialYear/initialMonth) to scroll to and open the
+// add-doctor picker for on mount — the year overview's "Next weekend
+// needing staff" panel hands this off via its "Plan now" button rather than
+// this page computing its own "next open weekend" shortcut, since that
+// panel now owns finding one across the whole year, not just this page's
+// own rolling fetch window.
+export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard, initialFocusSaturday } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -964,22 +957,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setViewMonth(newMonth)
   }
 
-  // Part 9's banner action — jumps to nextOpenWeekend's month if it isn't
-  // already in view, and switches to "Needs planning" (clearing search) so
-  // the target card is guaranteed to actually render there rather than
-  // being hidden by whatever filter/search happened to be active. The
-  // scroll-into-view + picker-open itself happens in the effect above,
-  // once the target card exists in the DOM.
-  function handlePlanNextOpenWeekend() {
-    if (!nextOpenWeekend) return
-    const y = Number(nextOpenWeekend.slice(0, 4))
-    const m = Number(nextOpenWeekend.slice(5, 7))
-    if (y !== viewYear || m !== viewMonth) goToMonth(y, m)
-    if (filter !== 'needs-planning') setFilter('needs-planning')
-    if (searchQuery) setSearchQuery('')
-    setPendingFocusSaturday(nextOpenWeekend)
-  }
-
   // Only Saturdays actually in the fetched window are shown — this
   // naturally excludes both already-passed weekends this month (the fetch
   // starts from today) and anything beyond the fetch's runway, without
@@ -1036,28 +1013,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const nextWeekend = nextWeekendSaturday(today)
   const nextWeekendCoverage = weekendCoverageSummary(byWeekend.get(nextWeekend))
   const nextWeekendMine = isProfileAssignedToWeekend(byWeekend.get(nextWeekend), profile?.id)
-  const nextWeekendScheme = weekendColorScheme(nextWeekend)
+  const nextWeekendScheme = weekendHealthScheme(nextWeekendCoverage)
 
-  // Part 9's "Plan next open weekend" shortcut — the first FUTURE weekend
-  // (today or later; date order) with ANY open role, across the whole
-  // fetched window (not just the currently viewed month/filter),
-  // recomputed on every entries/saturdays change so it's never a stale
-  // target once a role gets filled. `saturdays` itself can widen to
-  // include past dates once an admin navigates to view a past month (see
-  // fetchFromDate above) — filtering to `>= today` here is what keeps this
-  // always pointing forward instead of surfacing an already-passed,
-  // never-filled weekend as if it still needed planning.
-  const nextOpenWeekend = useMemo(
-    () => saturdays.find(s => s >= today && weekendCoverageSummary(byWeekend.get(s)).openGroups.length > 0) ?? null,
-    [saturdays, byWeekend, today]
-  )
   const cardRefs = useRef(new Map())
-  // Set right after navigating to nextOpenWeekend's month (if it isn't
-  // already the one in view) — the effect below waits for that card to
-  // actually exist in the DOM (the month switch re-renders the list from
-  // already-fetched data, no loading spinner) before scrolling to it and
-  // opening its first open role's picker in one motion.
-  const [pendingFocusSaturday, setPendingFocusSaturday] = useState(null)
+  // Seeded from initialFocusSaturday — set when this page is opened via the
+  // year overview's "Next weekend needing staff" panel (WeekendYearOverview's
+  // "Plan now" button), which already lands initialYear/initialMonth on the
+  // right month, so the target card exists in the DOM by the time this
+  // effect first runs. Lazy-initialized (not re-synced from the prop after
+  // mount) since it's a one-shot hand-off, not persistent state.
+  const [pendingFocusSaturday, setPendingFocusSaturday] = useState(() => initialFocusSaturday ?? null)
   useEffect(() => {
     if (!pendingFocusSaturday) return
     const node = cardRefs.current.get(pendingFocusSaturday)
@@ -1446,45 +1411,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               }}
               moreMenu={isAdmin ? { title: 'More actions', items: weekendMenuItems } : undefined}
             />
-            <div className={`mt-6 card p-4 ${nextWeekendScheme.bg}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
-                  <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
-                  <p className="mt-1 text-sm text-ink-light">
-                    {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups planned
-                    {nextWeekendCoverage.openGroups.length > 0 && (
-                      <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
-                    )}
-                  </p>
-                  {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
-                  {/* nextOpenWeekend can differ from the literal "next
-                      weekend" above (e.g. this one's already fully covered,
-                      but a later one within the fetched window still has a
-                      gap) — call that out by name so the arrow doesn't read
-                      as pointing at the weekend already described above it. */}
-                  {isAdmin && nextOpenWeekend && nextOpenWeekend !== nextWeekend && (
-                    <p className="mt-1 text-sm text-ink-light">
-                      Next open weekend: <span className="font-medium">{formatWeekendRange(nextOpenWeekend)}</span>
-                    </p>
-                  )}
-                </div>
-                {/* Part 9 — jumps to and opens the picker for the nearest
-                    still-open weekend (today or later), which may or may not
-                    be this literal "next weekend" — folded into this one
-                    card instead of a second panel below it. Nothing renders
-                    once nothing needs planning. */}
-                {isAdmin && nextOpenWeekend && (
-                  <button
-                    type="button"
-                    onClick={handlePlanNextOpenWeekend}
-                    aria-label={`Plan next open weekend — ${formatWeekendRange(nextOpenWeekend)}`}
-                    className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full hover:bg-white/40 ${nextWeekendScheme.text}`}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
+            {/* "Next weekend needing staff" moved to the year overview
+                (WeekendYearOverview, between its year selector and Selected
+                month panels) — this stays the literal next weekend only,
+                informational, fill following coverage health
+                (weekendHealthScheme, matching the year overview's legend). */}
+            <div className={`card mt-6 p-4 ${nextWeekendScheme.bg}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
+              <p className="mt-1 text-sm text-ink-light">
+                {nextWeekendCoverage.filledGroups} of {nextWeekendCoverage.totalGroups} groups staffed
+                {nextWeekendCoverage.openGroups.length > 0 && (
+                  <> — <span className="text-rose-dark">{nextWeekendCoverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still open</span></>
                 )}
-              </div>
+              </p>
+              {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
             </div>
 
             {/* Part 4's sticky mobile toolbar, pinned flush to the top of
@@ -1527,7 +1468,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
 
-            <div className="mt-3 space-y-3">
+            <div data-testid="weekend-mobile-list" className="mt-3 space-y-3">
               {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
                   {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}
@@ -1597,23 +1538,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                         />
                       ))}
                     </div>
-
-                    {/* Always available, not just while a category is still
-                        completely empty — this is the "pick a category, then
-                        candidates" entry point (WeekendAddDoctorsSheet's own
-                        dropdown), for topping up a category that already has
-                        names as much as for filling a blank one. Defaults to
-                        the first still-open category when there is one, but
-                        stays fully changeable from the sheet itself. */}
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => setOpenRolePicker({ saturday, groupKey: coverage.openGroups[0] ?? CATEGORY_GROUPS[0].key })}
-                        className="btn-primary mt-3 w-full text-sm"
-                      >
-                        Add doctor
-                      </button>
-                    )}
                   </div>
                 )
               })}

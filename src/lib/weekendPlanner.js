@@ -143,6 +143,22 @@ export function nextWeekendSaturday(fromDate) {
   return addDays(fromDate, offsetToSaturday)
 }
 
+// "2026-08-15" → "Sat 15 - Sun 16 Aug 2026" (or "Sat 31 Aug - Sun 1 Sep 2026"
+// when the weekend straddles a month boundary) — the shared display format
+// for a weekend's date range, used everywhere one is shown (WeekendPlannerView,
+// WeekendYearOverview's "next weekend needing staff" panel).
+export function formatWeekendRange(saturday) {
+  const sunday = addDays(saturday, 1)
+  const satDate = parseLocalDate(saturday)
+  const sunDate = parseLocalDate(sunday)
+  const sunMonth = sunDate.toLocaleDateString('en-GB', { month: 'short' })
+  const sunYear = sunDate.getFullYear()
+  const sameMonth = satDate.getMonth() === sunDate.getMonth() && satDate.getFullYear() === sunDate.getFullYear()
+  if (sameMonth) return `Sat ${satDate.getDate()} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+  const satMonth = satDate.toLocaleDateString('en-GB', { month: 'short' })
+  return `Sat ${satDate.getDate()} ${satMonth} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+}
+
 // Coverage of one weekend's category groups: how many of the 4 rotation
 // groups (MO/Registrar/EC COSMO+Intern/OT COSMO+Intern) have at least one
 // person assigned, and which ones are still open. bySaturdayEntries is the

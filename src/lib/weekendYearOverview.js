@@ -36,3 +36,22 @@ export function yearWeekendTotals(year, byWeekend) {
   }
   return { fullyPlanned, partial, empty, total: fullyPlanned + partial + empty }
 }
+
+// The nearest Saturday (today or later, chronological order) within `year`
+// that still has an open rotation group, or null once every remaining
+// weekend is fully staffed — same "first open weekend" concept
+// WeekendPlannerView used to compute for its own now-removed "Plan next
+// open weekend" shortcut, but scoped to the whole calendar year the
+// overview already has loaded rather than that page's own rolling ~6-month
+// fetch window. Powers the year overview's "Next weekend needing staff"
+// panel. Returns null for a `year` entirely in the past relative to
+// `today` — nothing left in it is "next".
+export function nextOpenWeekendInYear(year, byWeekend, today) {
+  for (let month = 1; month <= 12; month++) {
+    for (const saturday of saturdaysInMonth(year, month)) {
+      if (saturday < today) continue
+      if (weekendCoverageSummary(byWeekend.get(saturday)).openGroups.length > 0) return saturday
+    }
+  }
+  return null
+}

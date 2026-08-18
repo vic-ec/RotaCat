@@ -11,9 +11,10 @@ import { saturdaysInMonth } from '../lib/weekendPlanner'
 // hand-off) rather than re-testing everything underneath it, same reasoning
 // as LeavePlannerPage.test.jsx stubbing its own tab content.
 vi.mock('./WeekendPlannerView', () => ({
-  default: ({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard }) => (
+  default: ({ initialYear, initialMonth, initialFocusSaturday, onBackToYear, clipboard, setClipboard }) => (
     <div>
       MonthViewStub: {initialYear}-{initialMonth}
+      {initialFocusSaturday && <span>FocusStub: {initialFocusSaturday}</span>}
       {clipboard && <span>ClipboardStub: {clipboard}</span>}
       <button onClick={() => setClipboard(`copied-${initialMonth}`)}>SetClipboardStub</button>
       {onBackToYear && <button onClick={onBackToYear}>BackToYearStub</button>}
@@ -74,14 +75,14 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-legend')).getByText(/need staff/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-stats')).getByText('Need staff')).toBeInTheDocument()
   })
 
   it('clerk: also lands on the staffing year overview', async () => {
     mockAuth = { isAdmin: false, isClerk: true, profile: { id: 'clerk-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-legend')).getByText(/need staff/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-stats')).getByText('Need staff')).toBeInTheDocument()
   })
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
@@ -153,5 +154,42 @@ describe('WeekendPlanner', () => {
     await user.click(screen.getByRole('button', { name: 'Open month' }))
     expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
     expect(screen.getByText('ClipboardStub: copied-8')).toBeInTheDocument()
+  })
+
+  it('"Plan now" on the year overview\'s "Next weekend needing staff" panel opens that weekend\'s month, focused on it', async () => {
+    // Pinned so aug1 (2026-08-01) is "today or later" and thus the target —
+    // ENTRIES' only open weekend, since nothing else in the year has any
+    // entry at all (everything else fully empty, hence also "open", but
+    // later in date order).
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
+    mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
+    const user = userEvent.setup()
+    renderPlanner()
+    await screen.findByText('Weekend planner')
+
+    await user.click(await screen.findByRole('button', { name: 'Plan now' }))
+    expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
+    expect(screen.getByText(`FocusStub: ${aug1}`)).toBeInTheDocument()
+    vi.useRealTimers()
+  })
+
+  it('a plain "Open month" never carries a stale focus target from an earlier "Plan now"', async () => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
+    mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
+    const user = userEvent.setup()
+    renderPlanner()
+    await screen.findByText('Weekend planner')
+
+    await user.click(await screen.findByRole('button', { name: 'Plan now' }))
+    expect(await screen.findByText(`FocusStub: ${aug1}`)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
+    await screen.findByText('Weekend planner')
+    await user.click(grid().getByRole('button', { name: /^June/ }))
+    await user.click(screen.getByRole('button', { name: 'Open month' }))
+
+    expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
+    expect(screen.queryByText(/FocusStub:/)).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 })

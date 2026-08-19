@@ -46,7 +46,11 @@ describe('MyRequestHistory', () => {
     ]
     render(<MyRequestHistory />)
     expect(await screen.findByText('Rejected')).toBeInTheDocument()
-    expect(screen.getByText(/Approved by Ada Admin|Rejected by Ada Admin/)).toBeInTheDocument()
+    // Dates read in the app's standard formats, never the raw columns or a
+    // device-locale date: the period as "1–2 March 2025", the review
+    // timestamp as "28 Feb 2025".
+    expect(screen.getByText(/Sick leave — 1–2 March 2025/)).toBeInTheDocument()
+    expect(screen.getByText(/Rejected by Ada Admin on 28 Feb 2025/)).toBeInTheDocument()
     expect(screen.getByText(/No cover available/)).toBeInTheDocument()
   })
 

@@ -4,7 +4,7 @@ import { todayStr } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows } from '../lib/leaveAudit'
-import { LEAVE_TYPE_OPTIONS, annualDaysSummary } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
 import ClearableInput from './ClearableInput'
@@ -256,7 +256,7 @@ export default function LeaveAuditReport() {
                   {drillDownRequests.map(lr => (
                     <div key={lr.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                       <div>
-                        <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}</p>
+                        <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
                         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>

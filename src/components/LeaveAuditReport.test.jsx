@@ -151,7 +151,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     await pickOption(user, 'Zephyr, Ada')
 
     expect(await screen.findByText('Individual requests in range')).toBeInTheDocument()
-    expect(screen.getByText(/Annual leave — 2026-03-10 → 2026-03-14/)).toBeInTheDocument()
+    expect(screen.getByText(/Annual leave — 10–14 March 2026/)).toBeInTheDocument()
     expect(screen.getByText('5 total days (5 annual leave)')).toBeInTheDocument()
   })
 })

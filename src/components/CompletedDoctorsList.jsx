@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { todayStr } from '../lib/dateRange'
-import { StatusBadge } from './ProfileAvatar'
 
 // Completed tab of the Rotations page — Intern/Registrar/COSMO doctors
 // who are inactive with no start already scheduled (as opposed to the
@@ -56,7 +55,6 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
               <div className="flex items-center gap-2 text-sm">
                 <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code }} />
                 <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
-                <StatusBadge active={false} size={10} />
                 {/* Same classes as the Staff list's own Inactive pill
                     (StaffListPage.jsx) for a matching height/width, plus
                     leading-none: without it this row's own text-sm

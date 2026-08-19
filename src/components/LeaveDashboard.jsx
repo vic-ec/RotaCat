@@ -5,13 +5,9 @@ import { todayStr } from '../lib/dateRange'
 import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from '../lib/leaveDashboard'
 import { LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, annualDaysSummary } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
+import { LeaveDateRange } from './DateCard'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
-const STATUS_BADGE = {
-  pending: 'bg-flagAmber-bg text-flagAmber',
-  approved: 'bg-success-bg text-success',
-  rejected: 'bg-flagRed-bg text-flagRed',
-}
 
 function emptyTracker() { return { approved: 0, pending: 0 } }
 
@@ -84,16 +80,12 @@ export default function LeaveDashboard() {
         ) : myUpcoming.length === 0 ? (
           <p className="mt-2 text-sm text-ink-muted">Nothing upcoming.</p>
         ) : (
-          <div className="mt-2 space-y-2">
+          <div className="mt-2 space-y-4">
             {myUpcoming.map(lr => (
-              <div key={lr.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-ink">
-                  {LEAVE_TYPE_LABELS[lr.leave_type]} — {lr.date_from} → {lr.date_to}
-                  {annualDaysSummary(lr) && <span className="block text-xs text-ink-muted">{annualDaysSummary(lr)}</span>}
-                </span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                  {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
-                </span>
+              <div key={lr.id}>
+                <p className="mb-1 text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]}</p>
+                <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} compact />
+                {annualDaysSummary(lr) && <p className="mt-1 text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
               </div>
             ))}
           </div>

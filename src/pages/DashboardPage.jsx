@@ -257,7 +257,7 @@ export default function DashboardPage() {
                   {myLeave.map(lr => (
                     <div key={lr.id}>
                       <p className="mb-1 text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]}</p>
-                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} />
+                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} compact />
                     </div>
                   ))}
                 </div>
@@ -337,13 +337,14 @@ export default function DashboardPage() {
             {onLeaveNow.length === 0 ? (
               <p className="mt-2 text-sm text-ink-muted">Nobody currently on approved leave.</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-sm text-ink-light">
+              <div className="mt-3 space-y-4">
                 {onLeaveNow.map(lr => (
-                  <li key={lr.id}>
-                    {lr.profiles?.name} {lr.profiles?.surname} — until {lr.date_to}
-                  </li>
+                  <div key={lr.id}>
+                    <p className="mb-1 text-xs font-medium text-ink-muted">{lr.profiles?.name} {lr.profiles?.surname}</p>
+                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} compact />
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </div>

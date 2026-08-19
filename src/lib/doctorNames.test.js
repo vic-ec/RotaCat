@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildDoctorDisplayNames } from './doctorNames'
+import { buildDoctorDisplayNames, buildDoctorFullNames } from './doctorNames'
 
 describe('buildDoctorDisplayNames', () => {
   it('leaves a unique surname exactly as-is', () => {
@@ -64,5 +64,25 @@ describe('buildDoctorDisplayNames', () => {
 
   it('returns an empty map for no doctors', () => {
     expect(buildDoctorDisplayNames([]).size).toBe(0)
+  })
+})
+
+describe('buildDoctorFullNames', () => {
+  it('combines first name and surname, even for a same-surname pair', () => {
+    const map = buildDoctorFullNames([
+      { id: 'p1', name: 'James', surname: 'Nolan' },
+      { id: 'p2', name: 'Priya', surname: 'Nolan' },
+    ])
+    expect(map.get('p1')).toBe('James Nolan')
+    expect(map.get('p2')).toBe('Priya Nolan')
+  })
+
+  it('falls back to the bare surname when the first name is missing', () => {
+    const map = buildDoctorFullNames([{ id: 'p1', name: '', surname: 'Nolan' }])
+    expect(map.get('p1')).toBe('Nolan')
+  })
+
+  it('returns an empty map for no doctors', () => {
+    expect(buildDoctorFullNames([]).size).toBe(0)
   })
 })

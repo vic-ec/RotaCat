@@ -163,6 +163,15 @@ export default function InternRotationsMatrix({
   const [editing, setEditing] = useState(false)
   const [savingBlockId, setSavingBlockId] = useState(null)
   const [blockError, setBlockError] = useState('')
+  // Uncommitted date-field edits, keyed by rotation id -> { startDate?,
+  // endDate? } — typing/tapping in a From/To date input only updates this
+  // local draft, never saves. A save only fires on that field's blur (the
+  // date is "confirmed") or when flushed by Done editing below — a native
+  // date input's onChange can fire mid-pick on some mobile browsers (e.g.
+  // after just the month segment is set), which previously triggered a
+  // save-and-refetch on every partial tap, visibly closing/reopening the
+  // panel out from under whoever was still picking a date.
+  const [blockDrafts, setBlockDrafts] = useState({})
   const [newOverlapModal, setNewOverlapModal] = useState(null) // { a, b } | null
   const seenOverlapPairsRef = useRef(new Map()) // doctorId -> Set of pair keys already surfaced
   const [search, setSearch] = useState('')
@@ -260,6 +269,45 @@ export default function InternRotationsMatrix({
       setBlockError(err.message)
     }
     setSavingBlockId(null)
+  }
+
+  // A date field's current value: the uncommitted draft if there is one,
+  // otherwise the rotation's own saved value — so typing doesn't lose its
+  // place while nothing's been saved yet. `field` is the camelCase patch
+  // key ('startDate'/'endDate', matching onUpdateRotation's shape); the
+  // rotation object itself is snake_case ('start_date'/'end_date').
+  function draftDateValue(rotation, field) {
+    const rawField = field === 'startDate' ? 'start_date' : 'end_date'
+    return blockDrafts[rotation.id]?.[field] ?? rotation[rawField] ?? ''
+  }
+  function setDraftDateValue(rotationId, field, value) {
+    setBlockDrafts(d => ({ ...d, [rotationId]: { ...d[rotationId], [field]: value } }))
+  }
+
+  // Fires on a date field's blur — "confirming" that date, per the ask that
+  // this only save when a date is approved (blur) or Done editing is
+  // clicked, never on every intermediate onChange. A no-op if nothing
+  // actually changed from the persisted value (e.g. a focus/blur with no
+  // edit in between never fires a pointless save).
+  async function commitBlockDraft(rotation) {
+    const draft = blockDrafts[rotation.id]
+    if (!draft) return
+    const patch = {}
+    if ('startDate' in draft && draft.startDate !== rotation.start_date) patch.startDate = draft.startDate
+    if ('endDate' in draft && (draft.endDate || null) !== rotation.end_date) patch.endDate = draft.endDate || null
+    setBlockDrafts(d => { const next = { ...d }; delete next[rotation.id]; return next })
+    if (Object.keys(patch).length === 0) return
+    await handleBlockUpdate(rotation, patch)
+  }
+
+  // Done editing's safety net — blur already fires (and so already saves)
+  // when a click moves focus elsewhere, including onto Done editing
+  // itself, so in practice any draft is usually already committed by the
+  // time this runs. Flushing here too just covers a keyboard-driven close
+  // (e.g. Enter) that never blurred the field first.
+  async function finishEditing() {
+    await Promise.all(selectedDoctorRotations.map(commitBlockDraft))
+    setEditing(false)
   }
 
   async function handleBlockRemove(rotation) {
@@ -382,7 +430,7 @@ export default function InternRotationsMatrix({
 
   const overflowMenu = (
     <PageActionsMenu
-      title="Intern rotations"
+      title="Intern, COSMO, & Registrar Rotations"
       items={menuItems}
       trigger={(onClick, open) => (
         <button
@@ -526,9 +574,10 @@ export default function InternRotationsMatrix({
                       <span className="w-8 flex-shrink-0">From</span>
                       <input
                         type="date"
-                        value={rotation.start_date}
+                        value={draftDateValue(rotation, 'startDate')}
                         disabled={rowSaving}
-                        onChange={e => handleBlockUpdate(rotation, { startDate: e.target.value })}
+                        onChange={e => setDraftDateValue(rotation.id, 'startDate', e.target.value)}
+                        onBlur={() => commitBlockDraft(rotation)}
                         className="input-field flex-1 py-1 text-xs"
                       />
                     </label>
@@ -536,10 +585,11 @@ export default function InternRotationsMatrix({
                       <span className="w-8 flex-shrink-0">To</span>
                       <input
                         type="date"
-                        value={rotation.end_date || ''}
+                        value={draftDateValue(rotation, 'endDate')}
                         disabled={rowSaving}
                         placeholder="Ongoing"
-                        onChange={e => handleBlockUpdate(rotation, { endDate: e.target.value || null })}
+                        onChange={e => setDraftDateValue(rotation.id, 'endDate', e.target.value)}
+                        onBlur={() => commitBlockDraft(rotation)}
                         className="input-field flex-1 py-1 text-xs"
                       />
                     </label>
@@ -555,7 +605,7 @@ export default function InternRotationsMatrix({
             >
               <Plus className="h-3.5 w-3.5" /> {savingBlockId === 'new' ? 'Adding…' : 'Add block'}
             </button>
-            <button type="button" onClick={() => setEditing(false)} className="w-full text-center text-xs text-ink-muted hover:text-ink">
+            <button type="button" onClick={finishEditing} className="w-full text-center text-xs text-ink-muted hover:text-ink">
               Done editing
             </button>
           </div>
@@ -826,7 +876,7 @@ export default function InternRotationsMatrix({
           sheetTitle: 'Filters',
         }}
         legend={{ title: 'Legend', children: legendSwatches }}
-        moreMenu={{ title: 'Intern rotations', items: menuItems }}
+        moreMenu={{ title: 'Intern, COSMO, & Registrar Rotations', items: menuItems }}
       />
 
       {selectedDoctor && (

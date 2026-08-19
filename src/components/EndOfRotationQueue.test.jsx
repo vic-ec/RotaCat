@@ -6,6 +6,7 @@ import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
 beforeEach(() => {
   vi.setSystemTime(new Date(2027, 6, 15)) // 15 Jul 2027
+  localStorage.clear() // remindLater's snoozes must never leak between tests
 })
 afterEach(() => vi.useRealTimers())
 
@@ -81,5 +82,27 @@ describe('EndOfRotationQueue', () => {
       doctors: [{ ...FLAGGED_INTERN, scheduled_inactive_date: '2027-07-01' }, OK_REGISTRAR, COSMO_DOCTOR],
     })
     expect(screen.queryByText('Intern')).not.toBeInTheDocument()
+  })
+
+  it('Remind me later hides the entry, and the panel disappears entirely once nothing is left', async () => {
+    const user = userEvent.setup()
+    const { container } = renderQueue()
+    expect(screen.getByText('Intern')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Remind me later' }))
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('a snoozed entry reappears once the snooze period (tomorrow) has passed', () => {
+    localStorage.setItem('rotacat.endOfRotationSnoozedUntil.intern-1.2027-06-30', '2027-07-15')
+    renderQueue() // system time is pinned to 2027-07-15 — the snooze has just expired
+    expect(screen.getByText('Intern')).toBeInTheDocument()
+  })
+
+  it('a snooze is scoped to the specific end_date it was raised for, not the doctor generally', () => {
+    // Snoozed for a DIFFERENT (earlier, already-resolved) end_date than the
+    // one currently flagged — must not suppress today's real warning.
+    localStorage.setItem('rotacat.endOfRotationSnoozedUntil.intern-1.2027-05-31', '2027-07-16')
+    renderQueue()
+    expect(screen.getByText('Intern')).toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -8,7 +9,7 @@ import EndOfRotationQueue from './EndOfRotationQueue'
 import UpcomingDoctorsList from './UpcomingDoctorsList'
 import CompletedDoctorsList from './CompletedDoctorsList'
 import PageTabs from './PageTabs'
-import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { buildDoctorFullNames } from '../lib/doctorNames'
 
 const TABS = [
   { key: 'active', label: 'Active' },
@@ -26,6 +27,7 @@ const TABS = [
 // elsewhere in the app depends on seeing that edit immediately.
 export default function InternRotationsPlanner() {
   const { profile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab] = useState('active')
   const [interns, setInterns] = useState([])
   const [rotations, setRotations] = useState([])
@@ -70,6 +72,32 @@ export default function InternRotationsPlanner() {
     setLoading(false)
   }
 
+  // One-shot "open this doctor's card" deep link — the Staff account
+  // page's "See rotations" row (AccountSettingsPage.jsx) lands here as
+  // `?tab=planners&sub=interns&doctor=<id>`. Waits for `interns` to finish
+  // its first load (can't know which tab a doctor belongs on before then),
+  // then routes them to the matching tab and, for an active doctor, opens
+  // their Matrix side panel the same way "View in Matrix" does — a plain
+  // selection, not forced into edit mode. Silently does nothing for an id
+  // that isn't found (deleted doctor, stale link, RLS). Stripped from the
+  // URL once consumed so switching tabs and back doesn't reopen it.
+  useEffect(() => {
+    const doctorId = searchParams.get('doctor')
+    if (!doctorId || loading) return
+    const doctor = interns.find(d => d.id === doctorId)
+    if (doctor) {
+      if (doctor.is_active) { setTab('active'); setSelectedDoctorId(doctor.id) }
+      else if (doctor.scheduled_active_date) setTab('upcoming')
+      else setTab('completed')
+    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('doctor')
+      return next
+    }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once interns finishes its first load, consuming whichever doctor id was in the URL at that point
+  }, [loading, interns])
+
   // Active = the Matrix's own doctor pool, unchanged. Upcoming/Completed
   // split the rest by whether a future start is already scheduled (see
   // UpcomingDoctorsList/CompletedDoctorsList).
@@ -77,9 +105,12 @@ export default function InternRotationsPlanner() {
   const upcomingInterns = interns.filter(d => !d.is_active && d.scheduled_active_date)
   const completedInterns = interns.filter(d => !d.is_active && !d.scheduled_active_date)
 
-  // Disambiguates the Matrix's row labels/chips and its add-doctor
-  // dropdown (same-surname collisions across COSMO/Intern/Registrar alike).
-  const displayNames = buildDoctorDisplayNames(interns)
+  // Full "First Surname" labels for the Matrix's row labels/chips, its
+  // add-doctor dropdown, and the queue/Upcoming/Completed lists — this page
+  // has the room for a full name rather than the surname(+initial)
+  // shorthand buildDoctorDisplayNames uses elsewhere (weekend planner,
+  // roster grid), so there's no same-surname ambiguity to resolve here.
+  const displayNames = buildDoctorFullNames(interns)
 
   // Errors propagate (not caught into this page's own banner) so the
   // Matrix's side panel can show them inline next to the block being
@@ -150,7 +181,7 @@ export default function InternRotationsPlanner() {
 
   return (
     <div>
-      <h2 className="font-display text-lg font-semibold text-ink">Intern rotations</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">Intern, COSMO, &amp; Registrar Rotations</h2>
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}

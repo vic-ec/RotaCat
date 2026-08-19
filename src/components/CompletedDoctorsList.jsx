@@ -55,6 +55,7 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
               <div className="flex items-center gap-2 text-sm">
                 <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code }} />
                 <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
+                <span className="text-xs text-ink-muted capitalize">{doctor.category}</span>
                 {/* Same classes as the Staff list's own Inactive pill
                     (StaffListPage.jsx) for a matching height/width, plus
                     leading-none: without it this row's own text-sm
@@ -66,7 +67,6 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
                 <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase leading-none tracking-wide text-flagRed">
                   Inactive
                 </span>
-                <span className="text-xs text-ink-muted capitalize">{doctor.category}</span>
               </div>
               {!isReactivating && (
                 <button type="button" onClick={() => startReactivating(doctor)} className="btn-secondary px-2 py-1 text-xs">

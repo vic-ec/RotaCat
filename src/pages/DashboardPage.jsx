@@ -256,8 +256,7 @@ export default function DashboardPage() {
                 <div className="mt-3 space-y-4">
                   {myLeave.map(lr => (
                     <div key={lr.id}>
-                      <p className="mb-1 text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]}</p>
-                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} compact />
+                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} label={LEAVE_TYPE_LABELS[lr.leave_type]} status={lr.status} compact />
                     </div>
                   ))}
                 </div>

@@ -126,32 +126,46 @@ export function DateCardOneLine({ date, publicHoliday, flagged, className = '' }
 const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger' }
 
 // A leave request's date range — two DateCards (no start/end time, leave
-// has none) bridged by an arrow, with a days-count label and the shared
-// status Tag (Phase 1) alongside. `publicHolidayFrom`/`publicHolidayTo`
-// and `flaggedFrom`/`flaggedTo` pass straight through to each card, since
-// a public holiday or conflict can land on the start date, the end date,
-// both, or neither independently. `compact` (default false, so every
-// existing caller is unaffected) swaps in the one-row DateCardOneLine for
-// contexts with many rows at once (e.g. the admin dashboard's "On leave
-// now"/"On leave next" lists) — same arrow/day-count/status layout either way.
+// has none) bridged by an arrow, with a days-count label alongside.
+// `publicHolidayFrom`/`publicHolidayTo` and `flaggedFrom`/`flaggedTo` pass
+// straight through to each card, since a public holiday or conflict can
+// land on the start date, the end date, both, or neither independently.
+// `compact` (default false, so every existing caller is unaffected) swaps
+// in the one-row DateCardOneLine for contexts with many rows at once (e.g.
+// the admin dashboard's "On leave now"/"On leave next" lists) — same
+// arrow/day-count layout either way.
+//
+// `label` (e.g. the leave type, or a person's name) and the shared status
+// Tag render together in a header row above the dates, `label` on the left
+// and the Tag on the right — the leave type and its status read as one
+// fact ("Annual leave — Pending"), not a type up top with a status
+// dangling off the day-count underneath the dates. Either can be omitted;
+// the row itself only renders when at least one of them is passed.
 export function LeaveDateRange({
-  dateFrom, dateTo, status, statusLabel,
+  dateFrom, dateTo, status, statusLabel, label,
   publicHolidayFrom, publicHolidayTo, flaggedFrom, flaggedTo, compact = false,
 }) {
   const dayCount = datesInRange(dateFrom, dateTo).length
   const Card = compact ? DateCardOneLine : DateCard
   return (
-    <div className="flex items-center gap-2.5">
-      <Card date={dateFrom} publicHoliday={publicHolidayFrom} flagged={flaggedFrom} />
-      <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
-      <Card date={dateTo} publicHoliday={publicHolidayTo} flagged={flaggedTo} />
-      <div className="ml-1 min-w-0">
-        <p className="text-sm text-ink">{dayCount} day{dayCount === 1 ? '' : 's'}</p>
-        {status && (
-          <Tag variant="status" tone={STATUS_TONE[status] || 'neutral'} className="mt-1">
-            {statusLabel || (status.charAt(0).toUpperCase() + status.slice(1))}
-          </Tag>
-        )}
+    <div>
+      {(label || status) && (
+        <div className="mb-1 flex items-center justify-between gap-2">
+          {label && <p className="text-xs font-medium text-ink-muted">{label}</p>}
+          {status && (
+            <Tag variant="status" tone={STATUS_TONE[status] || 'neutral'}>
+              {statusLabel || (status.charAt(0).toUpperCase() + status.slice(1))}
+            </Tag>
+          )}
+        </div>
+      )}
+      <div className="flex items-center gap-2.5">
+        <Card date={dateFrom} publicHoliday={publicHolidayFrom} flagged={flaggedFrom} />
+        <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
+        <Card date={dateTo} publicHoliday={publicHolidayTo} flagged={flaggedTo} />
+        <div className="ml-1 min-w-0">
+          <p className="text-sm text-ink">{dayCount} day{dayCount === 1 ? '' : 's'}</p>
+        </div>
       </div>
     </div>
   )

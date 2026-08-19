@@ -83,8 +83,7 @@ export default function LeaveDashboard() {
           <div className="mt-2 space-y-4">
             {myUpcoming.map(lr => (
               <div key={lr.id}>
-                <p className="mb-1 text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type]}</p>
-                <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} status={lr.status} compact />
+                <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} label={LEAVE_TYPE_LABELS[lr.leave_type]} status={lr.status} compact />
                 {annualDaysSummary(lr) && <p className="mt-1 text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
               </div>
             ))}

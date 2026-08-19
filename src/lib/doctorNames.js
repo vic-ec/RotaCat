@@ -48,3 +48,17 @@ export function buildDoctorDisplayNames(doctors) {
   }
   return displayName
 }
+
+// Full "First Surname" label for every doctor — used where a page has room
+// to show the whole name rather than buildDoctorDisplayNames' surname
+// (+initial-on-collision) form, e.g. the Rotations page's Matrix rows,
+// chips, and panels. A full name essentially never collides the way a bare
+// surname does, so this needs no disambiguation pass. Missing first name
+// falls back to the bare surname, same as buildDoctorDisplayNames.
+export function buildDoctorFullNames(doctors) {
+  const fullNames = new Map()
+  for (const doctor of doctors) {
+    fullNames.set(doctor.id, doctor.name ? `${doctor.name} ${doctor.surname}` : doctor.surname)
+  }
+  return fullNames
+}

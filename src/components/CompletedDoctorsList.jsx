@@ -17,7 +17,10 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
   const [errorId, setErrorId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
 
-  const sorted = [...doctors].sort((a, b) => (displayNames?.get(a.id) ?? a.surname).localeCompare(displayNames?.get(b.id) ?? b.surname))
+  // Sorted by surname, independent of whatever displayNames renders below
+  // (now a full "First Surname" label) — keeps this list's ordering stable
+  // rather than silently switching to first-name order.
+  const sorted = [...doctors].sort((a, b) => (a.surname || '').localeCompare(b.surname || ''))
 
   if (sorted.length === 0) {
     return <p className="mt-4 text-sm text-ink-muted">No completed doctors.</p>
@@ -54,7 +57,15 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
                 <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code }} />
                 <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
                 <StatusBadge active={false} size={10} />
-                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                {/* Same classes as the Staff list's own Inactive pill
+                    (StaffListPage.jsx) for a matching height/width, plus
+                    leading-none: without it this row's own text-sm
+                    (a couple of levels up) sets an absolute line-height
+                    (1.25rem) that cascades down and inflates the pill well
+                    past its 9px font-size — Staff list's row never opts
+                    into text-sm in the first place, so it doesn't need the
+                    override to render at the same height. */}
+                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase leading-none tracking-wide text-flagRed">
                   Inactive
                 </span>
                 <span className="text-xs text-ink-muted capitalize">{doctor.category}</span>

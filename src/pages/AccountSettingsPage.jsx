@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
-import { CircleCheck, ExternalLink } from 'lucide-react'
+import { CircleCheck, ExternalLink, CalendarClock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
@@ -1860,21 +1860,25 @@ export default function AccountSettingsPage() {
         )}
           </SectionRow>
 
-          {/* ── See rotations (admin only, Intern/Registrar/COSMO only) ──
+          {/* ── See Rotations (admin only, Intern/Registrar/COSMO only) ──
               Not a SectionRow (nothing expands inline) — a plain
               navigational row to the Rotations planner, landing straight on
               this doctor's card there. Same category set the Rotations page
               itself manages (InternRotationsPlanner/InternRotationsMatrix's
               CATEGORY_GROUP_ORDER) — showing it for e.g. an MO or
-              Consultant would link to a page that can never show them. */}
+              Consultant would link to a page that can never show them.
+              Trailing icon uses the exact same wrapper (flex-shrink-0
+              rounded p-1) as SectionRow's own chevron above, so it lines up
+              in the same right-hand column despite not being one. */}
           {isAdmin && ['Intern', 'Registrar', 'COSMO'].includes(profile.category) && (
             <button
               type="button"
               onClick={() => navigate(`/leave?tab=planners&sub=interns&doctor=${profile.id}`)}
               className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
-              <span className="flex-shrink-0 text-ink-light"><ExternalLink className="h-5 w-5" /></span>
-              <span className="min-w-0 flex-1 text-sm font-medium text-ink">See rotations</span>
+              <span className="flex-shrink-0 text-ink-light"><CalendarClock className="h-5 w-5" /></span>
+              <span className="min-w-0 flex-1 text-sm font-medium text-ink">See Rotations</span>
+              <span className="flex-shrink-0 rounded p-1 text-ink-muted"><ExternalLink className="h-4 w-4" /></span>
             </button>
           )}
 

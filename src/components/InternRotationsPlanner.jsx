@@ -9,7 +9,7 @@ import EndOfRotationQueue from './EndOfRotationQueue'
 import UpcomingDoctorsList from './UpcomingDoctorsList'
 import CompletedDoctorsList from './CompletedDoctorsList'
 import PageTabs from './PageTabs'
-import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { buildDoctorFullNames } from '../lib/doctorNames'
 
 const TABS = [
   { key: 'active', label: 'Active' },
@@ -105,9 +105,12 @@ export default function InternRotationsPlanner() {
   const upcomingInterns = interns.filter(d => !d.is_active && d.scheduled_active_date)
   const completedInterns = interns.filter(d => !d.is_active && !d.scheduled_active_date)
 
-  // Disambiguates the Matrix's row labels/chips and its add-doctor
-  // dropdown (same-surname collisions across COSMO/Intern/Registrar alike).
-  const displayNames = buildDoctorDisplayNames(interns)
+  // Full "First Surname" labels for the Matrix's row labels/chips, its
+  // add-doctor dropdown, and the queue/Upcoming/Completed lists — this page
+  // has the room for a full name rather than the surname(+initial)
+  // shorthand buildDoctorDisplayNames uses elsewhere (weekend planner,
+  // roster grid), so there's no same-surname ambiguity to resolve here.
+  const displayNames = buildDoctorFullNames(interns)
 
   // Errors propagate (not caught into this page's own banner) so the
   // Matrix's side panel can show them inline next to the block being

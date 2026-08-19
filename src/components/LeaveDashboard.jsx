@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { SquareArrowOutUpRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -122,21 +121,21 @@ function TrackerCard({ tracker }) {
         <span className="font-display text-3xl font-bold text-ink">{count}</span>
         <span className="ml-1.5 text-sm text-ink-muted">{unit}</span>
       </p>
-      <p className="mt-1 text-xs text-ink-muted">
-        {pendingRequests} request{pendingRequests === 1 ? '' : 's'} pending
-      </p>
       {/* A pending count is the one number on this card the doctor can act
-          on — it links straight to their own submission history on the
-          Requests tab, where that request's status actually lives. */}
-      {pendingRequests > 0 && (
-        <Link
-          to={REQUESTS_PATH}
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent-dark"
-        >
-          <SquareArrowOutUpRight className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
-          View request{pendingRequests === 1 ? '' : 's'}
-        </Link>
-      )}
+          on, so the link to their own submission history sits on the same
+          line, dot-separated — the same "two related facts, one line"
+          treatment the leave card's day counts use. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
+        <span>{pendingRequests} request{pendingRequests === 1 ? '' : 's'} pending</span>
+        {pendingRequests > 0 && (
+          <>
+            <span aria-hidden="true">·</span>
+            <Link to={REQUESTS_PATH} className="font-medium text-accent hover:text-accent-dark">
+              View request{pendingRequests === 1 ? '' : 's'} ›
+            </Link>
+          </>
+        )}
+      </p>
     </div>
   )
 }

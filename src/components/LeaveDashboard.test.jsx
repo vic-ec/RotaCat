@@ -93,10 +93,12 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     render(<LeaveDashboard />)
 
-    const link = await screen.findByRole('link', { name: 'View request' })
+    const link = await screen.findByRole('link', { name: /View request ›/ })
     expect(link).toHaveAttribute('href', '/leave?tab=requests')
     // The link belongs to the tracker that actually has something pending
     expect(link.closest('.card').textContent).toMatch(/Annual leave/)
+    // Count and link read as one line, dot-separated
+    expect(link.closest('p').textContent).toMatch(/1 request pending.*·.*View request/)
     // Sick leave has nothing pending, so it gets no link
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
@@ -111,7 +113,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     render(<LeaveDashboard />)
 
-    expect(await screen.findByRole('link', { name: 'View requests' })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /View requests ›/ })).toBeInTheDocument()
   })
 
   it('gives every leave type used this year its own tracker, counting requests where no day figure exists', async () => {

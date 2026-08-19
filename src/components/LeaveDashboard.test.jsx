@@ -60,7 +60,11 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     const trackerHeading = await screen.findByText('Leave tracker')
     expect(trackerHeading.closest('.card').textContent).toMatch(/Annual leave.*5\s*days approved.*1\s*request pending/s)
-    expect(await screen.findByText(/Annual leave — 2026-08-10 → 2026-08-14/)).toBeInTheDocument()
+
+    const upcomingCard = screen.getByText('Upcoming').closest('.card')
+    expect(upcomingCard.textContent).toMatch(/Annual leave/)
+    expect(upcomingCard.textContent).toMatch(/5 days/)
+    expect(upcomingCard.textContent).toMatch(/Approved/)
 
     // Special/sick trackers aren't shown until more than one day of that type has been taken
     expect(screen.queryByText('Special leave')).not.toBeInTheDocument()

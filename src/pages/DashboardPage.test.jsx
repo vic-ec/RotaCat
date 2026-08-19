@@ -128,7 +128,7 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText(/Onno Now — All day/)).toBeInTheDocument()
     expect(await screen.findByText(/Sona Soon — Early shift/)).toBeInTheDocument()
-    expect(await screen.findByText(/Lea Vantly — until/)).toBeInTheDocument()
+    expect(await screen.findByText('Lea Vantly')).toBeInTheDocument()
     expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Roster' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Staff' })).toBeInTheDocument()

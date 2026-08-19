@@ -12,6 +12,7 @@ import { monthBounds } from '../lib/dateRange'
 import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
+import PublicHolidayBadge from '../components/PublicHolidayBadge'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
@@ -688,7 +689,11 @@ export default function RosterGridPage() {
                         <>
                           <span className="block text-[10px] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
                           <span>{d}</span>
-                          {day.phName && <span className="block break-words text-[9px] text-flagAmber">{day.phName}</span>}
+                          {day.phName && (
+                            <span className="mt-0.5 block">
+                              <PublicHolidayBadge name={day.phName} />
+                            </span>
+                          )}
                         </>
                       )
                     })()}

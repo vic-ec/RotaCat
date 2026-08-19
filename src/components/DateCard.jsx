@@ -17,11 +17,20 @@ import Tag from './Tag'
 // new `deep` token added to tailwind.config.js since neither had an
 // intermediate shade. This is what lets the two panels read as visually
 // distinct without a divider line between them.
+//
+// `bgNight` is that same time panel for a night shift: one step darker
+// again, still in the tone's own hue (darker mint for a week night, darker
+// gray for a weekend, darker pink for a public holiday). A single flat
+// "night colour" would have overwritten the day-type signal the card
+// exists to carry; this keeps both. Each `night` token sits ~0.13
+// luminance below its day footer — about double the bg->bgDeep step, so
+// the two are unmistakable side by side — and every one keeps the time
+// text above 4.5:1 (4.78-5.27:1); see their comments in tailwind.config.js.
 const TONE = {
-  weekday: { bg: 'bg-accent-tint', bgDeep: 'bg-accent-light', label: 'text-accent-dark' },
-  weekend: { bg: 'bg-dateWeekend-tint', bgDeep: 'bg-dateWeekend-deep', label: 'text-dateWeekend-ink' },
-  publicHoliday: { bg: 'bg-rose-tint', bgDeep: 'bg-rose-light', label: 'text-rose-dark' },
-  flagged: { bg: 'bg-flagRed-bg', bgDeep: 'bg-flagRed-deep', label: 'text-flagRed' },
+  weekday: { bg: 'bg-accent-tint', bgDeep: 'bg-accent-light', bgNight: 'bg-accent-night', label: 'text-accent-dark' },
+  weekend: { bg: 'bg-dateWeekend-tint', bgDeep: 'bg-dateWeekend-deep', bgNight: 'bg-dateWeekend-night', label: 'text-dateWeekend-ink' },
+  publicHoliday: { bg: 'bg-rose-tint', bgDeep: 'bg-rose-light', bgNight: 'bg-rose-night', label: 'text-rose-dark' },
+  flagged: { bg: 'bg-flagRed-bg', bgDeep: 'bg-flagRed-deep', bgNight: 'bg-flagRed-night', label: 'text-flagRed' },
 }
 
 function hourOnly(time) {
@@ -44,11 +53,12 @@ function hourMinute(time) {
 // `publicHoliday` as the holiday's name (or `true` if the name isn't
 // available) to also show the small calendar icon next to the day label.
 //
-// `night` (shift cards only) recolors just the bottom time panel to the
-// deep `shiftNight` teal — a night shift is a property of the shift, not of
-// the date, so it can't take over the date panel's weekday/weekend/PH tone
-// without losing that signal. Callers pass shift_types.is_night_shift
-// straight through; nothing here infers it from the code or start hour.
+// `night` (shift cards only) darkens just the bottom time panel, within
+// the date's own tone (see TONE's `bgNight` above) — a night shift is a
+// property of the shift, not of the date, so it can't take over the date
+// panel's weekday/weekend/PH tone without losing that signal. Callers pass
+// shift_types.is_night_shift straight through; nothing here infers it from
+// the shift code or the start hour.
 export default function DateCard({ date, startTime, endTime, publicHoliday, flagged, night = false, className = '' }) {
   const parsed = parseLocalDate(date)
   const dayAbbr = parsed.toLocaleDateString('en-GB', { weekday: 'short' })
@@ -78,8 +88,8 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
             <span className="font-display text-sm font-bold leading-none text-ink">{monthAbbr}</span>
           </span>
         </div>
-        <div className={`flex items-center justify-center py-1.5 ${night ? 'bg-shiftNight' : tone.bgDeep}`}>
-          <span className={`text-[11px] font-semibold ${night ? 'text-shiftNight-ink' : 'text-ink-light'}`}>
+        <div className={`flex items-center justify-center py-1.5 ${night ? tone.bgNight : tone.bgDeep}`}>
+          <span className="text-[11px] font-semibold text-ink-light">
             <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
             <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
           </span>

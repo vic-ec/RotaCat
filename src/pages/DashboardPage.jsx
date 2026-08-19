@@ -301,7 +301,7 @@ export default function DashboardPage() {
                 ? 'Live team status — who\'s on shift, who\'s up next, who\'s on leave.'
                 : isLocum
                   ? 'Your upcoming shifts on the published roster.'
-                  : 'Your upcoming shifts and leave.'}
+                  : 'Here\'s what\'s happening.'}
           </p>
         </div>
         {/* Doctor/locum/admin views put birthdays last in the stack instead — see below. */}
@@ -318,8 +318,11 @@ export default function DashboardPage() {
               <EmptyRow to="/roster" linkLabel="View roster">No shifts in the next 7 days</EmptyRow>
             ) : (
               <>
+                {/* Heading sits on the plain page background; the chips get
+                    their own panel underneath, so the row of shift cards
+                    reads as one object rather than chips floating loose. */}
                 <SectionHeading>Your shifts this week</SectionHeading>
-                <div className="flex flex-wrap gap-3">
+                <div className="card flex flex-wrap gap-3 p-4">
                   {myShifts.map(e => {
                     const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
                     return (

@@ -68,7 +68,18 @@ export default {
           // Deeper, cooler mint for auth panels/sheets — same family as
           // accent.light but with more presence against white and better
           // contrast for the text sitting on it.
-          panel: '#C7E8E0'
+          panel: '#C7E8E0',
+          // `night` is the third step in each DateCard tone family: the
+          // time panel of a *night* shift (shift_types.is_night_shift),
+          // one shade darker again than the `deep`/`light` day footer, in
+          // that tone's own hue — so a night shift reads as darker without
+          // losing whether the date is a weekday, a weekend or a public
+          // holiday. Each family's `night` sits ~0.13 luminance below its
+          // day footer (roughly double the date-panel -> day-footer step,
+          // so the difference is unmistakable side by side) and every one
+          // keeps the time text (ink-light) above 4.5:1 — 5.27:1 here.
+          // See dateWeekend/rose/flagRed below for the other three.
+          night: '#B7E0D6'
         },
         // Secondary brand accent — warm pink from Lily's collar.
         // Used for links, highlights, and illustrative/marketing touches
@@ -78,7 +89,10 @@ export default {
           DEFAULT: '#D6577E',
           dark: '#B8456F',
           light: '#F8E3EA',
-          tint: '#FCF0F3'
+          tint: '#FCF0F3',
+          // Night-shift time panel on a public-holiday date — see
+          // accent.night. ink-light on this: 5.27:1.
+          night: '#F0CFDB'
         },
         // Reserved STRICTLY for roster-state semantics — never general UI
         flagRed: {
@@ -86,7 +100,10 @@ export default {
           bg: '#FBEAE8',
           // One step more saturated than `bg` — same role as accent.light/
           // rose.light, for the shift DateCard's two-panel split.
-          deep: '#F1DBD9'
+          deep: '#F1DBD9',
+          // Night-shift time panel on a conflicted date — see accent.night.
+          // ink-light on this: 4.78:1.
+          night: '#E8C6C2'
         },
         flagAmber: {
           DEFAULT: '#B7791F',
@@ -138,17 +155,10 @@ export default {
           // two-panel split (top: date, bottom: time) — same neutral-gray
           // family, just deeper, so the two panels read as distinct
           // without a divider line. Matches Tailwind's own gray-200.
-          deep: '#E5E7EB'
-        },
-        // Night-shift marker on a shift DateCard's time footer — read
-        // straight off shift_types.is_night_shift, never guessed from the
-        // shift code or start hour. Its own token rather than a reuse of
-        // `accent`: this is a property of the shift being displayed, not a
-        // primary action, and the deep teal has to sit against the same
-        // card as accent-tinted UI without reading as a button.
-        shiftNight: {
-          DEFAULT: '#134E4A',
-          ink: '#F0FDFA'
+          deep: '#E5E7EB',
+          // Night-shift time panel on a weekend date — see accent.night.
+          // Tailwind's gray-300; ink-light on this: 5.13:1.
+          night: '#D1D5DB'
         },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state

@@ -84,7 +84,11 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
             {dayAbbr}
           </span>
           <span className="flex items-baseline gap-0.5">
-            <span className="font-display text-2xl font-bold leading-none text-ink">{dateNum}</span>
+            {/* 22px, not the 24px (text-2xl) the plain date cards below use
+                — the shift card carries a month abbreviation and a time
+                panel alongside the number, so it needs the number to sit
+                slightly quieter to stay balanced. */}
+            <span className="font-display text-[22px] font-bold leading-none text-ink">{dateNum}</span>
             <span className="font-display text-sm font-bold leading-none text-ink">{monthAbbr}</span>
           </span>
         </div>

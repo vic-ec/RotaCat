@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import LeaveDashboard from './LeaveDashboard'
+
+// The tracker's "View request" link is a router Link (a tab switch on this
+// same page), so every render needs a router around it.
+const render = ui => rtlRender(ui, { wrapper: MemoryRouter })
 
 let mockAuth = { profile: { id: 'doctor-1' } }
 vi.mock('../context/AuthContext', () => ({
@@ -75,6 +80,38 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Request leave' }))
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
+  })
+
+  it('links a tracker with pending requests through to the Requests tab, and omits the link with none pending', async () => {
+    mockQueues.leave_requests = [
+      { data: [
+        { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5 },
+        { id: 'up2', leave_type: 'annual', date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending', annual_leave_days: 1 },
+        { id: 'k1', leave_type: 'sick', date_from: '2026-03-01', date_to: '2026-03-01', status: 'approved' },
+      ], error: null },
+    ]
+
+    render(<LeaveDashboard />)
+
+    const link = await screen.findByRole('link', { name: 'View request' })
+    expect(link).toHaveAttribute('href', '/leave?tab=requests')
+    // The link belongs to the tracker that actually has something pending
+    expect(link.closest('.card').textContent).toMatch(/Annual leave/)
+    // Sick leave has nothing pending, so it gets no link
+    expect(screen.getAllByRole('link')).toHaveLength(1)
+  })
+
+  it('pluralises the link when more than one request is pending', async () => {
+    mockQueues.leave_requests = [
+      { data: [
+        { id: 'up1', leave_type: 'annual', date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending', annual_leave_days: 1 },
+        { id: 'up2', leave_type: 'annual', date_from: '2026-10-01', date_to: '2026-10-02', status: 'pending', annual_leave_days: 2 },
+      ], error: null },
+    ]
+
+    render(<LeaveDashboard />)
+
+    expect(await screen.findByRole('link', { name: 'View requests' })).toBeInTheDocument()
   })
 
   it('gives every leave type used this year its own tracker, counting requests where no day figure exists', async () => {

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { SquareArrowOutUpRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -9,6 +11,12 @@ import LeaveCard from './LeaveCard'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
+
+// The "Requests" tab of this same Leave page — a doctor's own submission
+// history (MyRequestHistory), which is where a pending request's status
+// lives. Same page, so this is a tab switch via the URL, not a navigation
+// away (see LeavePlannerPage's ?tab= handling).
+const REQUESTS_PATH = '/leave?tab=requests'
 
 // "My leave" tab content — only ever rendered for a signed-in doctor
 // (canSubmitLeave), gated by the caller. A personal leave tracker,
@@ -117,6 +125,18 @@ function TrackerCard({ tracker }) {
       <p className="mt-1 text-xs text-ink-muted">
         {pendingRequests} request{pendingRequests === 1 ? '' : 's'} pending
       </p>
+      {/* A pending count is the one number on this card the doctor can act
+          on — it links straight to their own submission history on the
+          Requests tab, where that request's status actually lives. */}
+      {pendingRequests > 0 && (
+        <Link
+          to={REQUESTS_PATH}
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:text-accent-dark"
+        >
+          <SquareArrowOutUpRight className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+          View request{pendingRequests === 1 ? '' : 's'}
+        </Link>
+      )}
     </div>
   )
 }

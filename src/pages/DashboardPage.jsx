@@ -1,24 +1,75 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowLeftRight, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-import { todayStr, addDays } from '../lib/dateRange'
+import { todayStr, addDays, formatShortDateRange } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { upcomingRequests } from '../lib/leaveDashboard'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
+import LeaveCard from '../components/LeaveCard'
 
-const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+// Destinations the dashboard links out to. `MY_LEAVE` is the "My leave" tab
+// of the Leave page (reachable from the Planners nav item too) — the
+// dashboard's leave section is a preview of it, so every link out of that
+// section lands on the same place.
+const MY_LEAVE_PATH = '/leave?tab=my-leave'
+const TEAM_LEAVE_PATH = '/leave?tab=team'
+const LEAVE_REQUESTS_PATH = '/leave?tab=requests'
+const HOURS_SUMMARY_PATH = '/roster?view=summary'
 
-// Swap requests aren't finalized (still awaiting the other doctor and/or
-// admin) for these two statuses — accepted/rejected/admin_approved/
-// cancelled swaps have already resolved and don't belong on the dashboard.
-const OPEN_SWAP_STATUSES = ['pending', 'accepted']
-const SWAP_STATUS_LABELS = { pending: 'Pending', accepted: 'Awaiting admin' }
-const SWAP_STATUS_BADGE = {
-  pending: 'bg-flagAmber-bg text-flagAmber',
-  accepted: 'bg-flagBlue-bg text-flagBlue',
+// How far ahead "upcoming team leave" looks, for the admin view.
+const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
+
+// An empty section collapses to this single row rather than a full-height
+// card announcing that there's nothing to see — the state a doctor is in
+// most of the time shouldn't cost the most screen space.
+function EmptyRow({ children, to, linkLabel }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-1.5 rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">
+      <span>{children}</span>
+      {to && (
+        <>
+          <span aria-hidden="true">·</span>
+          <Link to={to} className="font-medium text-accent hover:text-accent-dark">{linkLabel} ›</Link>
+        </>
+      )}
+    </p>
+  )
+}
+
+function SectionHeading({ children, to, linkLabel }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <h2 className="text-sm font-semibold text-ink">{children}</h2>
+      {to && (
+        <Link to={to} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
+          {linkLabel} ›
+        </Link>
+      )}
+    </div>
+  )
+}
+
+// A "Needs attention" row (admin) — a whole-row link, not a sheet trigger:
+// both of these are things the admin has to go and act on, so tapping one
+// should land them where the acting happens.
+function AttentionRow({ to, count, label }) {
+  return (
+    <Link to={to} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas-cool">
+      <span className="flex items-baseline gap-3">
+        <span className="font-display text-xl font-bold text-ink">{count}</span>
+        <span className="text-sm text-ink-light">{label}</span>
+      </span>
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
+    </Link>
+  )
+}
+
+function fullName(person) {
+  return [person?.name, person?.surname].filter(Boolean).join(' ')
 }
 
 export default function DashboardPage() {
@@ -26,9 +77,11 @@ export default function DashboardPage() {
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
   const [phByDate, setPhByDate] = useState({})
-  const [mySwaps, setMySwaps] = useState([])
+  const [incomingSwaps, setIncomingSwaps] = useState([])
+  const [swapError, setSwapError] = useState('')
   const [onLeaveNow, setOnLeaveNow] = useState([])
   const [onLeaveNext, setOnLeaveNext] = useState([])
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0)
   const [hoursWarnings, setHoursWarnings] = useState([])
   const [onShiftNow, setOnShiftNow] = useState([])
   const [startingSoon, setStartingSoon] = useState([])
@@ -49,10 +102,14 @@ export default function DashboardPage() {
   // convention -- a draft assignment never comes back here even if the
   // profile_id matches. Scoped to the week ahead (today through +6 days)
   // rather than "next 10 shifts", per the dashboard's own framing.
+  //
+  // is_night_shift comes back with the row because it decides the shift
+  // card's time-panel colour — the one thing that must never be inferred
+  // from the shift code or start hour.
   async function loadOwnUpcomingShifts() {
     const { data } = await supabase
       .from('roster_entries')
-      .select('date, shift_type:shift_types(code, label, start_time, end_time, day_type)')
+      .select('date, shift_type:shift_types(code, label, start_time, end_time, day_type, is_night_shift)')
       .eq('profile_id', profile.id)
       .gte('date', todayStr())
       .lte('date', addDays(todayStr(), 6))
@@ -73,46 +130,64 @@ export default function DashboardPage() {
     return map
   }
 
-  // Swap requests this doctor/locum is party to (either side) that haven't
-  // resolved yet. The Swaps page itself is still a placeholder (no request
-  // workflow shipped yet), so this reads as empty today — wired up ahead of
-  // that phase rather than after it.
-  async function loadMySwaps() {
+  // Only swaps *waiting on this person* — someone else asked, and nothing
+  // happens until they answer. Swaps they themselves requested (and swaps
+  // already accepted, waiting on an admin) are status information, not a
+  // task, and the old "either side, pending or accepted" list couldn't tell
+  // the two apart: an empty-looking card and a card needing a decision
+  // looked identical. Everything else about a swap lives on the Swaps page.
+  async function loadIncomingSwaps() {
     const { data } = await supabase
       .from('swap_requests')
       .select(`
         id, status, requester_id, target_id,
         requester:profiles!swap_requests_requester_id_fkey(name, surname),
-        target:profiles!swap_requests_target_id_fkey(name, surname),
-        requester_entry:roster_entries!swap_requests_requester_entry_id_fkey(date, shift_type:shift_types(label)),
-        target_entry:roster_entries!swap_requests_target_entry_id_fkey(date, shift_type:shift_types(label))
+        requester_entry:roster_entries!swap_requests_requester_entry_id_fkey(date, shift_type:shift_types(label, start_time, end_time, is_night_shift)),
+        target_entry:roster_entries!swap_requests_target_entry_id_fkey(date, shift_type:shift_types(label, start_time, end_time, is_night_shift))
       `)
-      .or(`requester_id.eq.${profile.id},target_id.eq.${profile.id}`)
-      .in('status', OPEN_SWAP_STATUSES)
+      .eq('target_id', profile.id)
+      .eq('status', 'pending')
       .order('created_at', { ascending: false })
     return data || []
+  }
+
+  // Accepting hands the swap to an admin for final sign-off ('accepted' is
+  // "awaiting admin", not "done"); declining ends it. Either way the row
+  // leaves this list, since it's no longer waiting on this person.
+  async function respondToSwap(swapId, status) {
+    setSwapError('')
+    const { error } = await supabase.from('swap_requests').update({ status }).eq('id', swapId)
+    if (error) {
+      setSwapError('Couldn\'t update that swap request. Please try again.')
+      return
+    }
+    setIncomingSwaps(prev => prev.filter(sw => sw.id !== swapId))
   }
 
   // Doctor sees own leave only — an intentional narrower scope than the
   // Leave Planner's "Team leave" list, which relies on RLS for the full
   // per-role view. This dashboard widget always self-filters on top of it.
+  // Upcoming only (date_to >= today): leave already taken is history, and
+  // the "My leave" tracker is where it's accounted for.
   async function loadDoctorWidgets() {
     setLoading(true)
+    const today = todayStr()
     const [leaveRes, shifts, ph, swaps] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('*')
         .eq('profile_id', profile.id)
-        .order('date_from', { ascending: false })
+        .gte('date_to', today)
+        .order('date_from', { ascending: true })
         .limit(10),
       loadOwnUpcomingShifts(),
       loadPublicHolidaysThisWeek(),
-      loadMySwaps(),
+      loadIncomingSwaps(),
     ])
-    setMyLeave(leaveRes.data || [])
+    setMyLeave(upcomingRequests(leaveRes.data || [], today))
     setMyShifts(shifts)
     setPhByDate(ph)
-    setMySwaps(swaps)
+    setIncomingSwaps(swaps)
     setLoading(false)
   }
 
@@ -124,11 +199,11 @@ export default function DashboardPage() {
     const [shifts, ph, swaps] = await Promise.all([
       loadOwnUpcomingShifts(),
       loadPublicHolidaysThisWeek(),
-      loadMySwaps(),
+      loadIncomingSwaps(),
     ])
     setMyShifts(shifts)
     setPhByDate(ph)
-    setMySwaps(swaps)
+    setIncomingSwaps(swaps)
     setLoading(false)
   }
 
@@ -169,18 +244,27 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
+  // Admin: counts first, names second. The two "needs attention" numbers are
+  // work queues (pending approvals, hours ceilings); team leave is awareness.
+  // The hours count reads the same live roster_entries figures the Hours
+  // Summary shows (monthlyHours.js) — monthly_stats has no rows yet, so
+  // nothing here reads it.
   async function loadAdminWidgets() {
     setLoading(true)
     const today = todayStr()
 
-    const [leaveRes, profilesRes] = await Promise.all([
+    const [pendingRes, leaveRes, profilesRes] = await Promise.all([
+      supabase
+        .from('leave_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending'),
       supabase
         .from('leave_requests')
         .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
         .eq('status', 'approved')
         .gte('date_to', today)
         .order('date_from', { ascending: true })
-        .limit(20),
+        .limit(50),
       supabase
         .from('profiles')
         .select('id, name, surname, contract_type')
@@ -189,9 +273,12 @@ export default function DashboardPage() {
         .neq('category', 'Consultant'),
     ])
 
+    setPendingLeaveCount(pendingRes.count || 0)
+
     const rows = leaveRes.data || []
+    const lookaheadEnd = addDays(today, TEAM_LEAVE_LOOKAHEAD_DAYS)
     setOnLeaveNow(rows.filter(r => r.date_from <= today && today <= r.date_to))
-    setOnLeaveNext(rows.filter(r => r.date_from > today))
+    setOnLeaveNext(rows.filter(r => r.date_from > today && r.date_from <= lookaheadEnd))
 
     const now = new Date()
     const warnings = await getDashboardHoursWarnings(profilesRes.data || [], { year: now.getFullYear(), month: now.getMonth() + 1 })
@@ -217,79 +304,87 @@ export default function DashboardPage() {
                   : 'Your upcoming shifts and leave.'}
           </p>
         </div>
-        {/* Doctor/locum view moves this under Your Shift Swaps instead — see below. */}
-        {(isAdmin || isClerk) && <UpcomingBirthdays />}
+        {/* Doctor/locum/admin views put birthdays last in the stack instead — see below. */}
+        {isClerk && <UpcomingBirthdays />}
       </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
       {!loading && !isAdmin && !isClerk && (
-        <div className="mt-6 space-y-4">
-          <div className="card p-6">
-            <h2 className="text-sm font-semibold text-ink">Your upcoming shifts for the week ahead</h2>
+        <div className="mt-6 space-y-6">
+          {/* 1. Next shifts */}
+          <section>
             {myShifts.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">No upcoming shifts in the next 7 days.</p>
+              <EmptyRow to="/roster" linkLabel="View roster">No shifts in the next 7 days</EmptyRow>
             ) : (
-              <div className="mt-3 flex flex-wrap gap-3">
-                {myShifts.map(e => {
-                  const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
-                  return (
-                    <DateCard
-                      key={`${e.date}-${e.shift_type?.code}`}
-                      date={e.date}
-                      startTime={e.shift_type?.start_time}
-                      endTime={e.shift_type?.end_time}
-                      publicHoliday={isPH && (phByDate[e.date] || true)}
-                    />
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {!isLocum && (
-            <div className="card p-6">
-              <h2 className="text-sm font-semibold text-ink">Your leave</h2>
-              {myLeave.length === 0 ? (
-                <p className="mt-2 text-sm text-ink-muted">No leave requests on record.</p>
-              ) : (
-                <div className="mt-3 space-y-4">
-                  {myLeave.map(lr => (
-                    <div key={lr.id}>
-                      <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} label={LEAVE_TYPE_LABELS[lr.leave_type]} status={lr.status} compact />
-                    </div>
-                  ))}
+              <>
+                <SectionHeading>Your shifts this week</SectionHeading>
+                <div className="flex flex-wrap gap-3">
+                  {myShifts.map(e => {
+                    const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
+                    return (
+                      <DateCard
+                        key={`${e.date}-${e.shift_type?.code}`}
+                        date={e.date}
+                        startTime={e.shift_type?.start_time}
+                        endTime={e.shift_type?.end_time}
+                        night={e.shift_type?.is_night_shift === true}
+                        publicHoliday={isPH && (phByDate[e.date] || true)}
+                      />
+                    )
+                  })}
                 </div>
+              </>
+            )}
+          </section>
+
+          {/* 2. Leave — one card per record, not one card holding a list */}
+          {!isLocum && (
+            <section>
+              {myLeave.length === 0 ? (
+                <EmptyRow to={MY_LEAVE_PATH} linkLabel="View all leave">No leave booked</EmptyRow>
+              ) : (
+                <>
+                  <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Your leave</SectionHeading>
+                  <div className="space-y-3">
+                    {myLeave.map(lr => <LeaveCard key={lr.id} request={lr} />)}
+                  </div>
+                </>
               )}
-            </div>
+            </section>
           )}
 
-          <div className="card p-6">
-            <h2 className="text-sm font-semibold text-ink">Your Shift Swaps</h2>
-            {mySwaps.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">No pending swap requests.</p>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {mySwaps.map(sw => {
-                  const isRequester = sw.requester_id === profile.id
-                  const counterpart = isRequester ? sw.target : sw.requester
-                  const yourEntry = isRequester ? sw.requester_entry : sw.target_entry
-                  const theirEntry = isRequester ? sw.target_entry : sw.requester_entry
-                  return (
-                    <div key={sw.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="text-ink">
-                        Your {yourEntry?.date} {yourEntry?.shift_type?.label} ↔ {counterpart?.name} {counterpart?.surname}&apos;s {theirEntry?.date} {theirEntry?.shift_type?.label}
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${SWAP_STATUS_BADGE[sw.status]}`}>
-                        {SWAP_STATUS_LABELS[sw.status]}
-                      </span>
+          {/* 3. Shift swaps — only when one is actually waiting on an answer */}
+          {incomingSwaps.length > 0 && (
+            <section>
+              <SectionHeading>Swap requests for you</SectionHeading>
+              <div className="space-y-3">
+                {incomingSwaps.map(sw => (
+                  <div key={sw.id} className="card p-4">
+                    <p className="text-sm font-semibold text-ink">
+                      {fullName(sw.requester) || 'A colleague'} wants to swap with you
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <SwapShift label="Their shift" entry={sw.requester_entry} />
+                      <ArrowLeftRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
+                      <SwapShift label="Your shift" entry={sw.target_entry} />
                     </div>
-                  )
-                })}
+                    <div className="mt-4 flex gap-2">
+                      <button type="button" className="btn-primary text-sm" onClick={() => respondToSwap(sw.id, 'accepted')}>
+                        Accept
+                      </button>
+                      <button type="button" className="btn-secondary text-sm" onClick={() => respondToSwap(sw.id, 'rejected')}>
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+              {swapError && <p className="mt-2 text-sm text-flagRed">{swapError}</p>}
+            </section>
+          )}
 
+          {/* 4. Birthdays — renders nothing at all when the window is empty */}
           <UpcomingBirthdays />
         </div>
       )}
@@ -350,57 +445,95 @@ export default function DashboardPage() {
       )}
 
       {!loading && isAdmin && (
-        <div className="mt-6 space-y-4">
-          <div className="card p-6">
-            <h2 className="text-sm font-semibold text-ink">On leave now</h2>
+        <div className="mt-6 space-y-6">
+          {/* Needs attention — counts that are someone's job today, each row
+              a link to where that job gets done. Rows with a count of zero
+              aren't work, so they don't render. */}
+          <section>
+            {pendingLeaveCount === 0 && hoursWarnings.length === 0 ? (
+              <EmptyRow to={LEAVE_REQUESTS_PATH} linkLabel="View requests">Nothing needs your attention</EmptyRow>
+            ) : (
+              <>
+                <SectionHeading>Needs attention</SectionHeading>
+                <div className="card divide-y divide-slate-line">
+                  {pendingLeaveCount > 0 && (
+                    <AttentionRow
+                      to={LEAVE_REQUESTS_PATH}
+                      count={pendingLeaveCount}
+                      label={`leave request${pendingLeaveCount === 1 ? '' : 's'} awaiting approval`}
+                    />
+                  )}
+                  {hoursWarnings.length > 0 && (
+                    <AttentionRow
+                      to={HOURS_SUMMARY_PATH}
+                      count={hoursWarnings.length}
+                      label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} at or over the hours ceiling this month`}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Team leave now — read-only awareness, one line plus names */}
+          <section>
             {onLeaveNow.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">Nobody currently on approved leave.</p>
+              <EmptyRow to={TEAM_LEAVE_PATH} linkLabel="View team leave">Nobody away today</EmptyRow>
             ) : (
-              <div className="mt-3 space-y-4">
-                {onLeaveNow.map(lr => (
-                  <div key={lr.id}>
-                    <p className="mb-1 text-xs font-medium text-ink-muted">
-                      {lr.profiles?.name} {lr.profiles?.surname} — {LEAVE_TYPE_LABELS[lr.leave_type]}
-                    </p>
-                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} compact />
-                  </div>
-                ))}
+              <div className="card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-ink">{onLeaveNow.length} away today</h2>
+                  <Link to={TEAM_LEAVE_PATH} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
+                    View team leave ›
+                  </Link>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {onLeaveNow.map(lr => fullName(lr.profiles)).join(', ')}
+                </p>
               </div>
             )}
-          </div>
+          </section>
 
-          <div className="card p-6">
-            <h2 className="text-sm font-semibold text-ink">On leave next</h2>
-            {onLeaveNext.length === 0 ? (
-              <p className="mt-2 text-sm text-ink-muted">Nothing else approved and upcoming.</p>
-            ) : (
-              <div className="mt-3 space-y-4">
-                {onLeaveNext.slice(0, 8).map(lr => (
-                  <div key={lr.id}>
-                    <p className="mb-1 text-xs font-medium text-ink-muted">
-                      {lr.profiles?.name} {lr.profiles?.surname} — {LEAVE_TYPE_LABELS[lr.leave_type]}
-                    </p>
-                    <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} compact />
-                  </div>
-                ))}
+          {onLeaveNext.length > 0 && (
+            <section>
+              <div className="card p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-ink">
+                    {onLeaveNext.length} away in the next {TEAM_LEAVE_LOOKAHEAD_DAYS} days
+                  </h2>
+                  <Link to={TEAM_LEAVE_PATH} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
+                    View team leave ›
+                  </Link>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {onLeaveNext.map(lr => `${fullName(lr.profiles)} (${formatShortDateRange(lr.date_from, lr.date_to)})`).join(', ')}
+                </p>
               </div>
-            )}
-          </div>
-
-          {hoursWarnings.length > 0 && (
-            <div className="card border-flagAmber bg-flagAmber-bg p-6">
-              <h2 className="text-sm font-semibold text-flagAmber">Hours ceiling warning — this month</h2>
-              <ul className="mt-2 space-y-1 text-sm text-flagAmber">
-                {hoursWarnings.map(w => (
-                  <li key={w.profileId}>
-                    {w.name} {w.surname} — {w.hours}h rostered (ceiling: {w.ceiling}h)
-                  </li>
-                ))}
-              </ul>
-            </div>
+            </section>
           )}
+
+          <UpcomingBirthdays />
         </div>
       )}
+    </div>
+  )
+}
+
+// One side of a swap — the shift chip plus whose it is. Uses the same
+// DateCard as the shifts section above (times on a coloured footer, night
+// shifts read off is_night_shift), so a shift looks like a shift wherever
+// it appears on this page.
+function SwapShift({ label, entry }) {
+  if (!entry) return <p className="text-sm text-ink-muted">{label}: unavailable</p>
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      <DateCard
+        date={entry.date}
+        startTime={entry.shift_type?.start_time}
+        endTime={entry.shift_type?.end_time}
+        night={entry.shift_type?.is_night_shift === true}
+      />
     </div>
   )
 }

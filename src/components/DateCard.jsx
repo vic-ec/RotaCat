@@ -43,7 +43,13 @@ function hourMinute(time) {
 // weekday/weekend tone (see TONE's own comment for precedence) — pass
 // `publicHoliday` as the holiday's name (or `true` if the name isn't
 // available) to also show the small calendar icon next to the day label.
-export default function DateCard({ date, startTime, endTime, publicHoliday, flagged, className = '' }) {
+//
+// `night` (shift cards only) recolors just the bottom time panel to the
+// deep `shiftNight` teal — a night shift is a property of the shift, not of
+// the date, so it can't take over the date panel's weekday/weekend/PH tone
+// without losing that signal. Callers pass shift_types.is_night_shift
+// straight through; nothing here infers it from the code or start hour.
+export default function DateCard({ date, startTime, endTime, publicHoliday, flagged, night = false, className = '' }) {
   const parsed = parseLocalDate(date)
   const dayAbbr = parsed.toLocaleDateString('en-GB', { weekday: 'short' })
   const dateNum = parsed.getDate()
@@ -72,8 +78,8 @@ export default function DateCard({ date, startTime, endTime, publicHoliday, flag
             <span className="font-display text-sm font-bold leading-none text-ink">{monthAbbr}</span>
           </span>
         </div>
-        <div className={`flex items-center justify-center py-1.5 ${tone.bgDeep}`}>
-          <span className="text-[11px] font-semibold text-ink-light">
+        <div className={`flex items-center justify-center py-1.5 ${night ? 'bg-shiftNight' : tone.bgDeep}`}>
+          <span className={`text-[11px] font-semibold ${night ? 'text-shiftNight-ink' : 'text-ink-light'}`}>
             <span className="md:hidden">{hourOnly(startTime)}-{hourOnly(endTime)}</span>
             <span className="hidden md:inline">{hourMinute(startTime)} - {hourMinute(endTime)}</span>
           </span>

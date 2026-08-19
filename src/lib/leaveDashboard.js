@@ -87,6 +87,49 @@ export function pendingRequestCount(requests, year) {
   return pendingRequestCountInRange(requests, `${year}-01-01`, `${year}-12-31`)
 }
 
+// One tracker per leave type the person has any history with in `year` —
+// any request of that type (any status) overlapping the calendar year, so a
+// type they've never touched never shows up as a row of zeroes.
+//
+// Annual is the only type with a real day figure: `approvedDays` sums
+// annual_leave_days (via annualDaysInRange) because that's the column the
+// balance is actually deducted from. Every other type has no deducted-days
+// field in the schema at all, so it reports `approvedRequests` — a count of
+// approved requests — and `approvedDays` stays null rather than showing a
+// calendar-day span dressed up as a leave balance. If a generic
+// deducted-days field lands later, those types get `approvedDays` here and
+// the callers keep working unchanged.
+//
+// `typeOrder` (e.g. LEAVE_TYPE_OPTIONS' values) fixes display order; types
+// missing from it sort last, in first-seen order.
+export function leaveTrackersForYear(requests, year, typeOrder = []) {
+  const from = `${year}-01-01`
+  const to = `${year}-12-31`
+  const inYear = requests.filter(r => r.date_to >= from && r.date_from <= to)
+
+  const byType = new Map()
+  for (const r of inYear) {
+    if (!byType.has(r.leave_type)) byType.set(r.leave_type, [])
+    byType.get(r.leave_type).push(r)
+  }
+
+  const trackers = [...byType.entries()].map(([leaveType, rows]) => {
+    const approved = rows.filter(r => r.status === 'approved')
+    return {
+      leaveType,
+      approvedDays: leaveType === 'annual' ? annualDaysInRange(approved, from, to) : null,
+      approvedRequests: approved.length,
+      pendingRequests: pendingRequestCountInRange(rows, from, to),
+    }
+  })
+
+  const rank = t => {
+    const i = typeOrder.indexOf(t)
+    return i === -1 ? typeOrder.length : i
+  }
+  return trackers.sort((a, b) => rank(a.leaveType) - rank(b.leaveType))
+}
+
 // Own leave requests (any type/status) that haven't fully passed yet,
 // soonest first, capped to `limit` for a compact dashboard list.
 export function upcomingRequests(requests, todayStr, limit = 5) {

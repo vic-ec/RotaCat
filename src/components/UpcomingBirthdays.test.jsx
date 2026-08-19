@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import UpcomingBirthdays from './UpcomingBirthdays'
+
+// The component renders nothing at all when the window is empty, so
+// "nothing appeared" can't be awaited with findBy* — flush the mocked
+// fetch's microtask inside act() and assert on the settled DOM instead.
+async function waitForFetch() {
+  await act(async () => { await Promise.resolve() })
+}
 
 let mockAuth = { profile: { id: 'me' } }
 vi.mock('../context/AuthContext', () => ({
@@ -49,11 +56,11 @@ describe('UpcomingBirthdays', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows an empty state when nobody has a birthday in the next 30 days', async () => {
+  it('renders nothing at all when nobody has a birthday in the next 30 days', async () => {
     mockProfiles.data = [{ id: 'p1', name: 'Far', surname: 'Off', birthday: '2000-01-01' }] // ~5 months from Aug 2
-    render(<UpcomingBirthdays />)
-    expect(await screen.findByText('Upcoming birthdays')).toBeInTheDocument()
-    expect(screen.getByText('No birthdays in the next 30 days.')).toBeInTheDocument()
+    const { container } = render(<UpcomingBirthdays />)
+    await waitForFetch()
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('lists upcoming birthdays sorted by proximity, formatted as day + month', async () => {
@@ -80,13 +87,15 @@ describe('UpcomingBirthdays', () => {
   it('wraps a birthday that already passed this year around to next year (falls outside the window)', async () => {
     // Today is 2 August 2026; 1 July already passed this year — should NOT show
     mockProfiles.data = [{ id: 'p1', name: 'Passed', surname: 'Already', birthday: '2000-07-01' }]
-    render(<UpcomingBirthdays />)
-    expect(await screen.findByText('No birthdays in the next 30 days.')).toBeInTheDocument()
+    const { container } = render(<UpcomingBirthdays />)
+    await waitForFetch()
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('ignores rows with no birthday set', async () => {
     mockProfiles.data = [{ id: 'p1', name: 'No', surname: 'Birthday', birthday: null }]
-    render(<UpcomingBirthdays />)
-    expect(await screen.findByText('No birthdays in the next 30 days.')).toBeInTheDocument()
+    const { container } = render(<UpcomingBirthdays />)
+    await waitForFetch()
+    expect(container).toBeEmptyDOMElement()
   })
 })

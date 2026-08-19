@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests,
-  totalDaysInRange, annualDaysInRange, pendingRequestCountInRange,
+  totalDaysInRange, annualDaysInRange, pendingRequestCountInRange, leaveTrackersForYear,
 } from './leaveDashboard'
 
 describe('totalDaysInRange', () => {
@@ -240,5 +240,50 @@ describe('upcomingRequests', () => {
     }))
     const result = upcomingRequests(requests, today, 3)
     expect(result).toHaveLength(3)
+  })
+})
+
+describe('leaveTrackersForYear', () => {
+  const typeOrder = ['annual', 'sick', 'study', 'special_leave']
+
+  it('returns one tracker per leave type with history in the year, in the given order', () => {
+    const requests = [
+      { id: 's1', leave_type: 'study', date_from: '2026-03-01', date_to: '2026-03-02', status: 'approved' },
+      { id: 'a1', leave_type: 'annual', date_from: '2026-06-01', date_to: '2026-06-05', status: 'approved', annual_leave_days: 3 },
+    ]
+    expect(leaveTrackersForYear(requests, 2026, typeOrder).map(t => t.leaveType)).toEqual(['annual', 'study'])
+  })
+
+  it('reports annual leave in deducted days, and every other type as a count of approved requests', () => {
+    const requests = [
+      { id: 'a1', leave_type: 'annual', date_from: '2026-06-01', date_to: '2026-06-05', status: 'approved', annual_leave_days: 3 },
+      { id: 'a2', leave_type: 'annual', date_from: '2026-07-01', date_to: '2026-07-01', status: 'pending', annual_leave_days: 1 },
+      { id: 'k1', leave_type: 'sick', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' },
+      { id: 'k2', leave_type: 'sick', date_from: '2026-04-01', date_to: '2026-04-01', status: 'approved' },
+    ]
+    const [annual, sick] = leaveTrackersForYear(requests, 2026, typeOrder)
+
+    expect(annual).toEqual({ leaveType: 'annual', approvedDays: 3, approvedRequests: 1, pendingRequests: 1 })
+    // No deducted-days field exists for sick leave, so no day figure is invented
+    expect(sick).toEqual({ leaveType: 'sick', approvedDays: null, approvedRequests: 2, pendingRequests: 0 })
+  })
+
+  it('ignores types with no history in the year at all', () => {
+    const requests = [{ id: 'a1', leave_type: 'annual', date_from: '2025-06-01', date_to: '2025-06-05', status: 'approved', annual_leave_days: 3 }]
+    expect(leaveTrackersForYear(requests, 2026, typeOrder)).toEqual([])
+  })
+
+  it('counts a request that straddles the year boundary as history in both years', () => {
+    const requests = [{ id: 'a1', leave_type: 'annual', date_from: '2025-12-29', date_to: '2026-01-02', status: 'approved', annual_leave_days: 5 }]
+    expect(leaveTrackersForYear(requests, 2026, typeOrder)).toHaveLength(1)
+    expect(leaveTrackersForYear(requests, 2025, typeOrder)).toHaveLength(1)
+  })
+
+  it('sorts a type missing from the order list last', () => {
+    const requests = [
+      { id: 'w1', leave_type: 'workshop', date_from: '2026-03-01', date_to: '2026-03-02', status: 'approved' },
+      { id: 'k1', leave_type: 'sick', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' },
+    ]
+    expect(leaveTrackersForYear(requests, 2026, typeOrder).map(t => t.leaveType)).toEqual(['sick', 'workshop'])
   })
 })

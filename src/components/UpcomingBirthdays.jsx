@@ -64,25 +64,25 @@ export default function UpcomingBirthdays() {
     return () => { cancelled = true }
   }, [profile?.id])
 
-  if (!loaded) return null
+  // Nothing in the window renders nothing at all — a card reading "No
+  // birthdays in the next 30 days" occupies a whole slot on a phone screen
+  // to tell the reader there's nothing to know. Same rule the Dashboard now
+  // applies to its own conditional sections.
+  if (!loaded || birthdays.length === 0) return null
 
   return (
     <div className="w-full flex-shrink-0 card p-4 md:w-72">
       <h2 className="text-sm font-semibold text-ink">Upcoming birthdays</h2>
-      {birthdays.length === 0 ? (
-        <p className="mt-2 text-sm text-ink-muted">No birthdays in the next {UPCOMING_WINDOW_DAYS} days.</p>
-      ) : (
-        <ul className="mt-2 space-y-1.5 text-sm">
-          {birthdays.map(p => (
-            <li key={p.id} className="flex items-center justify-between gap-3">
-              <span className="text-ink-light">{p.name} {p.surname}</span>
-              <span className={p.daysUntil === 0 ? 'font-medium text-accent' : 'text-ink-muted'}>
-                {p.daysUntil === 0 ? 'Today' : formatBirthday(p.birthday)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="mt-2 space-y-1.5 text-sm">
+        {birthdays.map(p => (
+          <li key={p.id} className="flex items-center justify-between gap-3">
+            <span className="text-ink-light">{p.name} {p.surname}</span>
+            <span className={p.daysUntil === 0 ? 'font-medium text-accent' : 'text-ink-muted'}>
+              {p.daysUntil === 0 ? 'Today' : formatBirthday(p.birthday)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

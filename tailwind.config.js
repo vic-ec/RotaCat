@@ -140,6 +140,16 @@ export default {
           // without a divider line. Matches Tailwind's own gray-200.
           deep: '#E5E7EB'
         },
+        // Night-shift marker on a shift DateCard's time footer — read
+        // straight off shift_types.is_night_shift, never guessed from the
+        // shift code or start hour. Its own token rather than a reuse of
+        // `accent`: this is a property of the shift being displayed, not a
+        // primary action, and the deep teal has to sit against the same
+        // card as accent-tinted UI without reading as a button.
+        shiftNight: {
+          DEFAULT: '#134E4A',
+          ink: '#F0FDFA'
+        },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state
         // semantics like draft/published/conflict), since this marks a

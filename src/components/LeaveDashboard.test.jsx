@@ -51,24 +51,25 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
   it('shows the leave tracker, upcoming requests, and the request form', async () => {
     mockQueues.leave_requests = [
       { data: [
-        { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved' }, // 5 days
-        { id: 'up2', leave_type: 'annual', date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending' }, // 1 pending request
+        { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5 },
+        { id: 'up2', leave_type: 'annual', date_from: '2026-09-01', date_to: '2026-09-01', status: 'pending', annual_leave_days: 1 },
       ], error: null },
     ]
 
     render(<LeaveDashboard />)
 
-    const trackerHeading = await screen.findByText('Leave tracker')
-    expect(trackerHeading.closest('.card').textContent).toMatch(/Annual leave.*5\s*days approved.*1\s*request pending/s)
+    const trackerSection = (await screen.findByText('Leave tracker')).closest('section')
+    expect(trackerSection.textContent).toMatch(/Annual leave.*5\s*days approved.*1 request pending/s)
+    expect(trackerSection.textContent).toMatch(/Resets to zero on 1 January each year/)
 
-    const upcomingCard = screen.getByText('Upcoming').closest('.card')
-    expect(upcomingCard.textContent).toMatch(/Annual leave/)
-    expect(upcomingCard.textContent).toMatch(/5 days/)
-    expect(upcomingCard.textContent).toMatch(/Approved/)
+    const upcomingSection = screen.getByText('Upcoming').closest('section')
+    expect(upcomingSection.textContent).toMatch(/Annual leave/)
+    expect(upcomingSection.textContent).toMatch(/Mon 10 Aug/)
+    expect(upcomingSection.textContent).toMatch(/5 calendar days · 5 leave days/)
+    expect(upcomingSection.textContent).toMatch(/Approved/)
 
-    // Special/sick trackers aren't shown until more than one day of that type has been taken
-    expect(screen.queryByText('Special leave')).not.toBeInTheDocument()
-    expect(screen.queryByText('Sick leave')).not.toBeInTheDocument()
+    // Only types actually used this year get a tracker card
+    expect(trackerSection.textContent).not.toMatch(/Sick leave/)
 
     // The form is collapsed behind a button until requested
     expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
@@ -76,24 +77,29 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
   })
 
-  it('shows the special-leave tracker once more than one day has been taken, but not sick leave at exactly one day', async () => {
+  it('gives every leave type used this year its own tracker, counting requests where no day figure exists', async () => {
     mockQueues.leave_requests = [
       { data: [
-        { id: 's1', leave_type: 'special_leave', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' }, // 3 days
-        { id: 'k1', leave_type: 'sick', date_from: '2026-03-01', date_to: '2026-03-01', status: 'approved' }, // 1 day
+        { id: 's1', leave_type: 'special_leave', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' },
+        { id: 'k1', leave_type: 'sick', date_from: '2026-03-01', date_to: '2026-03-01', status: 'approved' },
       ], error: null },
     ]
 
     render(<LeaveDashboard />)
 
-    expect(await screen.findByText('Special leave')).toBeInTheDocument()
-    expect(screen.queryByText('Sick leave')).not.toBeInTheDocument()
+    const trackerSection = (await screen.findByText('Leave tracker')).closest('section')
+    expect(trackerSection.textContent).toMatch(/Sick leave.*1\s*request approved/s)
+    expect(trackerSection.textContent).toMatch(/Special leave.*1\s*request approved/s)
+    // No invented day figure for types with no deducted-days column
+    expect(trackerSection.textContent).not.toMatch(/days approved/)
+    expect(trackerSection.textContent).not.toMatch(/Annual leave/)
   })
 
   it('shows an empty state with no requests at all', async () => {
     mockQueues.leave_requests = [{ data: [], error: null }]
     render(<LeaveDashboard />)
-    expect(await screen.findByText('Leave tracker')).toBeInTheDocument()
-    expect(await screen.findByText('Nothing upcoming.')).toBeInTheDocument()
+    expect(await screen.findByText('No leave taken or requested this year.')).toBeInTheDocument()
+    expect(screen.getByText('Nothing upcoming.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request leave' })).toBeInTheDocument()
   })
 })

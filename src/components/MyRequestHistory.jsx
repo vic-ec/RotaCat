@@ -39,32 +39,62 @@ export default function MyRequestHistory() {
 
   if (loading) return <p className="text-sm text-ink-muted">Loading…</p>
   if (error) return <p className="text-sm text-flagRed">{error}</p>
-  if (requests.length === 0) return <p className="text-sm text-ink-muted">No leave requests on record.</p>
+
+  const pending = requests.filter(lr => lr.status === 'pending')
+  const approved = requests.filter(lr => lr.status === 'approved')
+  const rejected = requests.filter(lr => lr.status === 'rejected')
 
   return (
-    <div className="card divide-y divide-slate-line overflow-hidden">
-      {requests.map(lr => (
-        <div key={lr.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-          <div>
-            {/* naturalLeavePeriodLabel, not the raw YYYY-MM-DD columns —
-                the same leave-period wording Team leave rows and the
-                approval queue's summary already use, and it keeps the year
-                visible, which this history (unlike the upcoming-only lists)
-                spans. */}
-            <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
-            {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
-            {lr.status !== 'pending' && lr.reviewed_at && (
-              <p className="text-xs text-ink-muted">
-                {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {formatTimestampDate(lr.reviewed_at)}
-                {lr.admin_notes && ` — "${lr.admin_notes}"`}
-              </p>
-            )}
-          </div>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-            {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
-          </span>
+    <div className="space-y-6">
+      <RequestSection title="Pending" requests={pending} emptyLabel="No requests pending" />
+      <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" />
+      {/* Only when there are any — a declined request still has to be
+          findable somewhere, and this is the complete-record view, but an
+          empty "Rejected" row on every doctor's page would be noise. */}
+      {rejected.length > 0 && <RequestSection title="Rejected" requests={rejected} emptyLabel="" />}
+    </div>
+  )
+}
+
+// Heading on the plain page background, rows in their own panel beneath —
+// the same treatment the Dashboard's shift section uses. With nothing in
+// the section the panel collapses to a single muted row instead of an
+// empty bordered card.
+function RequestSection({ title, requests, emptyLabel }) {
+  return (
+    <section aria-label={title}>
+      <h2 className="mb-3 text-sm font-semibold text-ink">{title}</h2>
+      {requests.length === 0 ? (
+        <p className="rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">{emptyLabel}</p>
+      ) : (
+        <div className="card divide-y divide-slate-line overflow-hidden">
+          {requests.map(lr => <RequestRow key={lr.id} request={lr} />)}
         </div>
-      ))}
+      )}
+    </section>
+  )
+}
+
+function RequestRow({ request: lr }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+      <div>
+        {/* naturalLeavePeriodLabel, not the raw YYYY-MM-DD columns — the
+            same leave-period wording Team leave rows and the approval
+            queue's summary already use, and it keeps the year visible,
+            which this history (unlike the upcoming-only lists) spans. */}
+        <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
+        {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
+        {lr.status !== 'pending' && lr.reviewed_at && (
+          <p className="text-xs text-ink-muted">
+            {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {formatTimestampDate(lr.reviewed_at)}
+            {lr.admin_notes && ` — "${lr.admin_notes}"`}
+          </p>
+        )}
+      </div>
+      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
+        {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
+      </span>
     </div>
   )
 }

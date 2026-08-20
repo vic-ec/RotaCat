@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import PageTabs from '../components/PageTabs'
-import PageHeader from '../components/PageHeader'
 import Toolbar from '../components/Toolbar'
 import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
@@ -865,8 +864,11 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <PageHeader title="Staff" />
-      {/* Sticky header — tab row (admin-only: All Staff / Pending Approvals /
+      {/* Sticky header, and the first thing on the page — no PageHeader
+          above it: the tab row already names where you are (All Staff /
+          Pending Approvals / User Requests), so a "Staff" title on top of
+          it only pushed the tabs below the fold on a phone.
+          Tab row (admin-only: All Staff / Pending Approvals /
           User Requests, via the shared PageTabs template) plus the Search/
           Sort/Filter toolbar (every viewer, only while on the accounts tab).
           top-0 on both breakpoints: AppLayout's mobile <header> is

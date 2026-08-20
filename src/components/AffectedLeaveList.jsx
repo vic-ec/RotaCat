@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import SectionLabel from './SectionLabel'
 import { parseLocalDate } from '../lib/dateRange'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const CATEGORY_LABELS = {
   MO:         'MO',
@@ -12,7 +13,7 @@ const CATEGORY_LABELS = {
   Locum:      'Locum',
 }
 
-const STATUS_LABEL = { approved: 'Approved', pending: 'Pending' }
+const STATUS_LABEL = { approved: 'Approved', pending: REVIEW_STATUS_LABELS.pending }
 const STATUS_PILL_CLASS = { approved: 'bg-success-bg text-success', pending: 'bg-flagAmber-bg text-flagAmber' }
 
 const VISIBLE_LIMIT = 4

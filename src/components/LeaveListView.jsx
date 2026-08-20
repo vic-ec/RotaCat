@@ -11,6 +11,7 @@ import Toolbar from './Toolbar'
 import ViewToggle from './ViewToggle'
 import LeaveMatrix from './LeaveMatrix'
 import TeamLeaveMobile from './TeamLeaveMobile'
+import { REVIEW_STATUS_LABELS, reviewStatusLabel } from '../lib/statusLabels'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -24,7 +25,7 @@ const STATUS_BADGE = {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: REVIEW_STATUS_LABELS.pending },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
 ]
@@ -331,7 +332,7 @@ export default function LeaveListView() {
                   <td className="px-3 py-2 text-ink-muted">{totalLeaveDays(lr)}</td>
                   <td className="px-3 py-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                      {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
+                      {reviewStatusLabel(lr.status)}
                     </span>
                   </td>
                   <td className="px-3 py-2">

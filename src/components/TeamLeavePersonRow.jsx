@@ -2,6 +2,7 @@ import Tag from './Tag'
 import { LEAVE_TYPE_LABELS, LEAVE_GROUP_COLOR, leaveTypeGroupKey } from '../lib/leaveMatrix'
 import { naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { reviewStatusLabel } from '../lib/statusLabels'
 
 // One leave, as a tappable row: name (primary), category (supporting text —
 // not a pill), the leave type with a colour dot, the date range, and a status
@@ -31,7 +32,7 @@ export default function TeamLeavePersonRow({ request, onSelect, showName = true 
       <span className="flex flex-shrink-0 flex-col items-end gap-1">
         <span className="whitespace-nowrap text-xs text-ink-light">{naturalLeavePeriodLabel(request.date_from, request.date_to)}</span>
         {request.status !== 'approved' && (
-          <Tag variant="status" tone="warning">{request.status.charAt(0).toUpperCase() + request.status.slice(1)}</Tag>
+          <Tag variant="status" tone="warning">{reviewStatusLabel(request.status)}</Tag>
         )}
       </span>
     </button>

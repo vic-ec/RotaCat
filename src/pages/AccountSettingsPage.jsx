@@ -24,6 +24,7 @@ import { applyHoursChange } from '../lib/internRotations'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
+import { reviewStatusLabel } from '../lib/statusLabels'
 
 // ── Display label maps ──────────────────────────────────────
 // Role = account type (drives which pages/features are visible)
@@ -1903,7 +1904,7 @@ export default function AccountSettingsPage() {
                       )}
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${REQUEST_STATUS_BADGE[r.status]}`}>
-                      {r.status}
+                      {reviewStatusLabel(r.status)}
                     </span>
                   </div>
                 ))}

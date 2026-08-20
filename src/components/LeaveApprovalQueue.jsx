@@ -16,6 +16,7 @@ import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
 import { datesInRange } from '../lib/dateRange'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -104,7 +105,7 @@ function LeaveRequestDetailPanel({
   return (
     <RequestReviewDrawer
       title={`${leaveTypeLabel} request`}
-      statusTag={<Tag variant="status" tone="warning">Pending</Tag>}
+      statusTag={<Tag variant="status" tone="warning">{REVIEW_STATUS_LABELS.pending}</Tag>}
       meta={`Submitted ${submittedDate} · ${submittedTime}`}
       onClose={onClose}
       footer={

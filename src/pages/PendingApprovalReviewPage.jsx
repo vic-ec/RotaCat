@@ -16,6 +16,7 @@ import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
   categoryNeedsContractChoice,
 } from '../lib/staffDefaults'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Rotation-tracked categories only — a scheduled start/end date is meant
 // for doctors whose Active/Upcoming/Completed status is actually managed
@@ -322,7 +323,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-xl font-bold text-ink">Review account registration</h1>
-            <Tag variant="status" tone="warning">Pending</Tag>
+            <Tag variant="status" tone="warning">{REVIEW_STATUS_LABELS.pending}</Tag>
           </div>
           <p className="mt-0.5 text-xs text-ink-muted">Submitted {submittedDate} · {submittedTime}</p>
         </div>

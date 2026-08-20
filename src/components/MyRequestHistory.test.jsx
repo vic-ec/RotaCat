@@ -45,8 +45,14 @@ describe('MyRequestHistory', () => {
       },
     ]
     render(<MyRequestHistory />)
-    expect(await screen.findByText('Rejected')).toBeInTheDocument()
-    expect(screen.getByText(/Approved by Ada Admin|Rejected by Ada Admin/)).toBeInTheDocument()
+    // A rejected request gets its own section below Pending/Approved rather
+    // than disappearing — heading plus the row's own status pill
+    expect(await screen.findAllByText('Rejected')).toHaveLength(2)
+    // Dates read in the app's standard formats, never the raw columns or a
+    // device-locale date: the period as "1–2 March 2025", the review
+    // timestamp as "28 Feb 2025".
+    expect(screen.getByText(/Sick leave — 1–2 March 2025/)).toBeInTheDocument()
+    expect(screen.getByText(/Rejected by Ada Admin on 28 Feb 2025/)).toBeInTheDocument()
     expect(screen.getByText(/No cover available/)).toBeInTheDocument()
   })
 
@@ -58,8 +64,32 @@ describe('MyRequestHistory', () => {
     expect(await screen.findByText('7 total days (5 annual leave)')).toBeInTheDocument()
   })
 
-  it('shows an empty state with no requests', async () => {
+  it('splits the page into a Pending section above an Approved section', async () => {
+    mockData.rows = [
+      { id: 'r1', leave_type: 'annual', date_from: '2026-08-24', date_to: '2026-08-28', status: 'pending' },
+      { id: 'r2', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-16', status: 'approved' },
+    ]
     render(<MyRequestHistory />)
-    expect(await screen.findByText('No leave requests on record.')).toBeInTheDocument()
+
+    const sections = await screen.findAllByRole('region')
+    expect(sections.map(s => s.querySelector('h2').textContent)).toEqual(['Pending review', 'Approved'])
+    expect(sections[0].textContent).toMatch(/24–28 August 2026/)
+    expect(sections[1].textContent).toMatch(/10–16 August 2026/)
+  })
+
+  it('collapses an empty section to a single row instead of an empty panel', async () => {
+    mockData.rows = [{ id: 'r1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-16', status: 'approved' }]
+    render(<MyRequestHistory />)
+
+    const pending = (await screen.findByText('Pending review')).closest('section')
+    expect(pending.textContent).toMatch('No requests pending review')
+    expect(pending.querySelector('.card')).toBeNull()
+  })
+
+  it('shows an empty state for both sections with no requests at all', async () => {
+    render(<MyRequestHistory />)
+    expect(await screen.findByText('No requests pending review')).toBeInTheDocument()
+    expect(screen.getByText('No requests approved')).toBeInTheDocument()
+    expect(screen.queryByText('Rejected')).not.toBeInTheDocument()
   })
 })

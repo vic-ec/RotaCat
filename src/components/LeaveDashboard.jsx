@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
-import { annualDaysUsedInYear, totalDaysUsedInYear, pendingRequestCount, upcomingRequests } from '../lib/leaveDashboard'
-import { LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, annualDaysSummary } from '../lib/leaveRequests'
+import { leaveTrackersForYear, upcomingRequests } from '../lib/leaveDashboard'
+import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
-import { LeaveDateRange } from './DateCard'
+import LeaveCard from './LeaveCard'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
 
-function emptyTracker() { return { approved: 0, pending: 0 } }
+// The "Requests" tab of this same Leave page — a doctor's own submission
+// history (MyRequestHistory), which is where a pending request's status
+// lives. Same page, so this is a tab switch via the URL, not a navigation
+// away (see LeavePlannerPage's ?tab= handling).
+const REQUESTS_PATH = '/leave?tab=requests'
 
 // "My leave" tab content — only ever rendered for a signed-in doctor
 // (canSubmitLeave), gated by the caller. A personal leave tracker,
@@ -17,11 +23,14 @@ function emptyTracker() { return { approved: 0, pending: 0 } }
 // than a separate "dashboard" tab plus a separate "submit" tab. Full
 // request history (past + rejected, not just upcoming) lives on the
 // "Requests" tab under Planners instead of being duplicated here.
+//
+// One tracker card per leave type actually used this year (see
+// leaveTrackersForYear) rather than the old fixed Annual/Special/Sick
+// grouping: a doctor who's taken study leave and paternity leave was
+// previously shown one merged "Special leave" figure covering both.
 export default function LeaveDashboard() {
   const { profile } = useAuth()
-  const [annualTracker, setAnnualTracker] = useState(emptyTracker())
-  const [specialTracker, setSpecialTracker] = useState(emptyTracker())
-  const [sickTracker, setSickTracker] = useState(emptyTracker())
+  const [trackers, setTrackers] = useState([])
   const [myUpcoming, setMyUpcoming] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -36,60 +45,45 @@ export default function LeaveDashboard() {
     const { data } = await supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true })
     const rows = data || []
 
-    const annualRows = rows.filter(r => r.leave_type === 'annual')
-    const specialRows = rows.filter(r => SPECIAL_LEAVE_TYPES.includes(r.leave_type))
-    const sickRows = rows.filter(r => r.leave_type === 'sick')
-
-    setAnnualTracker({
-      approved: annualDaysUsedInYear(annualRows.filter(r => r.status === 'approved'), year),
-      pending: pendingRequestCount(annualRows, year),
-    })
-    setSpecialTracker({
-      approved: totalDaysUsedInYear(specialRows.filter(r => r.status === 'approved'), year),
-      pending: pendingRequestCount(specialRows, year),
-    })
-    setSickTracker({
-      approved: totalDaysUsedInYear(sickRows.filter(r => r.status === 'approved'), year),
-      pending: pendingRequestCount(sickRows, year),
-    })
+    setTrackers(leaveTrackersForYear(rows, year, LEAVE_TYPE_ORDER))
     setMyUpcoming(upcomingRequests(rows, today))
     setLoading(false)
   }
 
   return (
-    <div className="space-y-4">
-      <div className="card p-5">
-        <h2 className="text-sm font-semibold text-ink">Leave tracker</h2>
+    <div className="space-y-6">
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Leave tracker</h2>
         {loading ? (
-          <p className="mt-2 text-sm text-ink-muted">Loading…</p>
+          <p className="text-sm text-ink-muted">Loading…</p>
+        ) : trackers.length === 0 ? (
+          <p className="rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">
+            No leave taken or requested this year.
+          </p>
         ) : (
-          <div className="mt-2 space-y-3">
-            <TrackerRow label="Annual leave" tracker={annualTracker} />
-            {/* Special/sick only shown once meaningfully used, so a doctor who's taken none of these isn't shown a wall of zeroes */}
-            {specialTracker.approved > 1 && <TrackerRow label="Special leave" tracker={specialTracker} />}
-            {sickTracker.approved > 1 && <TrackerRow label="Sick leave" tracker={sickTracker} />}
-          </div>
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {trackers.map(t => <TrackerCard key={t.leaveType} tracker={t} />)}
+            </div>
+            <p className="mt-3 text-xs text-ink-muted">Resets to zero on 1 January each year.</p>
+          </>
         )}
-        <p className="mt-3 text-xs text-ink-muted">Resets to zero on 1 January each year.</p>
-      </div>
+      </section>
 
-      <div className="card p-5">
-        <h2 className="text-sm font-semibold text-ink">Upcoming</h2>
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-ink">Upcoming</h2>
         {loading ? (
-          <p className="mt-2 text-sm text-ink-muted">Loading…</p>
+          <p className="text-sm text-ink-muted">Loading…</p>
         ) : myUpcoming.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-muted">Nothing upcoming.</p>
+          <p className="rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">
+            Nothing upcoming.
+          </p>
         ) : (
-          <div className="mt-2 space-y-4">
-            {myUpcoming.map(lr => (
-              <div key={lr.id}>
-                <LeaveDateRange dateFrom={lr.date_from} dateTo={lr.date_to} label={LEAVE_TYPE_LABELS[lr.leave_type]} status={lr.status} compact />
-                {annualDaysSummary(lr) && <p className="mt-1 text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
-              </div>
-            ))}
+          <div className="space-y-3">
+            {myUpcoming.map(lr => <LeaveCard key={lr.id} request={lr} />)}
           </div>
         )}
-      </div>
+      </section>
 
       {showForm ? (
         <div>
@@ -107,13 +101,40 @@ export default function LeaveDashboard() {
   )
 }
 
-function TrackerRow({ label, tracker }) {
+// Annual leave is the only type with a real deducted-days figure
+// (annual_leave_days); every other type reports approved *requests*,
+// because no equivalent column or balance exists for them yet — a
+// calendar-day span shown under a "days approved" heading would read as a
+// balance that nothing actually tracks.
+function TrackerCard({ tracker }) {
+  const { leaveType, approvedDays, approvedRequests, pendingRequests } = tracker
+  const showsDays = approvedDays != null
+  const count = showsDays ? approvedDays : approvedRequests
+  const unit = showsDays
+    ? `day${approvedDays === 1 ? '' : 's'} approved`
+    : `request${approvedRequests === 1 ? '' : 's'} approved`
+
   return (
-    <div>
-      <p className="text-xs font-medium text-ink-muted">{label}</p>
-      <p className="text-sm text-ink">
-        <span className="font-display text-2xl font-bold text-ink">{tracker.approved}</span>
-        <span className="text-ink-muted"> days approved · {tracker.pending} request{tracker.pending === 1 ? '' : 's'} pending</span>
+    <div className="card p-4">
+      <p className="text-xs font-medium text-ink-muted">{LEAVE_TYPE_LABELS[leaveType] || leaveType}</p>
+      <p className="mt-1">
+        <span className="font-display text-3xl font-bold text-ink">{count}</span>
+        <span className="ml-1.5 text-sm text-ink-muted">{unit}</span>
+      </p>
+      {/* A pending count is the one number on this card the doctor can act
+          on, so the link to their own submission history sits on the same
+          line, dot-separated — the same "two related facts, one line"
+          treatment the leave card's day counts use. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
+        <span>{pendingRequests} request{pendingRequests === 1 ? '' : 's'} pending</span>
+        {pendingRequests > 0 && (
+          <>
+            <span aria-hidden="true">·</span>
+            <Link to={REQUESTS_PATH} className="font-medium text-accent hover:text-accent-dark">
+              View request{pendingRequests === 1 ? '' : 's'} ›
+            </Link>
+          </>
+        )}
       </p>
     </div>
   )

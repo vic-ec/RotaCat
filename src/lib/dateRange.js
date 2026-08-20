@@ -70,6 +70,19 @@ export function formatWeekdayDateShort(dateStr) {
   return `${WEEKDAY_ABBR[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
 }
 
+// A timestamp column (reviewed_at, created_at — an ISO instant, not a
+// plain "YYYY-MM-DD" date) -> "19 Aug 2026". The day-month-year ordering
+// the roster and weekend change logs already display timestamps in, and
+// pinned to en-GB rather than the device locale: a bare
+// toLocaleDateString() renders "8/19/2026" on a US-locale phone, which
+// reads as a different date entirely to this team.
+export function formatTimestampDate(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
+}
+
 // "2026-08-15" -> "15 Aug"; "2026-08-15" to "2026-08-20" -> "15–20 Aug"; or
 // "2026-08-28" to "2026-09-03" -> "28 Aug–3 Sep" when it crosses a month
 // boundary. The compact per-entry date-range display used in the leave

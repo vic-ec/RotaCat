@@ -7,6 +7,7 @@ import {
   LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
   formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays,
 } from '../lib/leaveMatrix'
+import { reviewStatusLabel } from '../lib/statusLabels'
 
 function DetailLine({ label, children }) {
   return (
@@ -59,7 +60,7 @@ export default function LeaveBlockDetail({ request, onClose, showClose }) {
           <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: LEAVE_GROUP_COLOR[leaveTypeGroupKey(request.leave_type)] }} />
           <span className="text-sm font-medium text-ink">{LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type}</span>
           <Tag variant="status" tone={request.status === 'approved' ? 'success' : request.status === 'rejected' ? 'danger' : 'warning'} className="ml-auto">
-            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+            {reviewStatusLabel(request.status)}
           </Tag>
         </div>
 

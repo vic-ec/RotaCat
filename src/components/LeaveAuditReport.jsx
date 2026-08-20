@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
+import { reviewStatusLabel } from '../lib/statusLabels'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows } from '../lib/leaveAudit'
@@ -260,7 +261,7 @@ export default function LeaveAuditReport() {
                         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                        {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
+                        {reviewStatusLabel(lr.status)}
                       </span>
                     </div>
                   ))}

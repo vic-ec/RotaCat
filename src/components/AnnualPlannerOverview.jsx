@@ -13,6 +13,7 @@ import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/d
 import SelectMenu from './SelectMenu'
 import LegendSheet from './LegendSheet'
 import DateStepper from './DateStepper'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Every capacity column plus a blended "All categories" option — the mobile
 // non-admin overview's category picker, defaulting to the viewer's own
@@ -274,7 +275,7 @@ export default function AnnualPlannerOverview({
                       <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
                       }`}>
-                        {e.status === 'approved' ? 'Approved' : 'Pending'}
+                        {e.status === 'approved' ? 'Approved' : REVIEW_STATUS_LABELS.pending}
                       </span>
                     </button>
                     {expandedProfileId === e.profileId && (

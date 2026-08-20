@@ -72,7 +72,7 @@ describe('MyRequestHistory', () => {
     render(<MyRequestHistory />)
 
     const sections = await screen.findAllByRole('region')
-    expect(sections.map(s => s.querySelector('h2').textContent)).toEqual(['Pending', 'Approved'])
+    expect(sections.map(s => s.querySelector('h2').textContent)).toEqual(['Pending review', 'Approved'])
     expect(sections[0].textContent).toMatch(/24–28 August 2026/)
     expect(sections[1].textContent).toMatch(/10–16 August 2026/)
   })
@@ -81,14 +81,14 @@ describe('MyRequestHistory', () => {
     mockData.rows = [{ id: 'r1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-16', status: 'approved' }]
     render(<MyRequestHistory />)
 
-    const pending = (await screen.findByText('Pending')).closest('section')
-    expect(pending.textContent).toMatch('No requests pending')
+    const pending = (await screen.findByText('Pending review')).closest('section')
+    expect(pending.textContent).toMatch('No requests pending review')
     expect(pending.querySelector('.card')).toBeNull()
   })
 
   it('shows an empty state for both sections with no requests at all', async () => {
     render(<MyRequestHistory />)
-    expect(await screen.findByText('No requests pending')).toBeInTheDocument()
+    expect(await screen.findByText('No requests pending review')).toBeInTheDocument()
     expect(screen.getByText('No requests approved')).toBeInTheDocument()
     expect(screen.queryByText('Rejected')).not.toBeInTheDocument()
   })

@@ -22,7 +22,7 @@ describe('LeaveCard', () => {
     }} />)
 
     expect(screen.getByText('Study leave')).toBeInTheDocument()
-    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
     expect(screen.getByText('3 calendar days')).toBeInTheDocument()
   })
 

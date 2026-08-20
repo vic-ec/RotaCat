@@ -488,7 +488,7 @@ describe('MonthWorkspace', () => {
 
     await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })
     expect(screen.getByText('Approved')).toHaveClass('text-success')
-    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
   })
 
   it('opens the review modal for highlightDate on mount (a deep link from the Requests queue) and reports it consumed', () => {

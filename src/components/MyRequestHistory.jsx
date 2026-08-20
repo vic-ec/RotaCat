@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import { formatTimestampDate } from '../lib/dateRange'
+import { reviewStatusLabel } from '../lib/statusLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -46,7 +47,7 @@ export default function MyRequestHistory() {
 
   return (
     <div className="space-y-6">
-      <RequestSection title="Pending" requests={pending} emptyLabel="No requests pending" />
+      <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" />
       <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" />
       {/* Only when there are any — a declined request still has to be
           findable somewhere, and this is the complete-record view, but an
@@ -93,7 +94,7 @@ function RequestRow({ request: lr }) {
         )}
       </div>
       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-        {lr.status.charAt(0).toUpperCase() + lr.status.slice(1)}
+        {reviewStatusLabel(lr.status)}
       </span>
     </div>
   )

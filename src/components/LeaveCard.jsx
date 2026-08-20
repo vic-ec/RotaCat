@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import Tag from './Tag'
+import { reviewStatusLabel } from '../lib/statusLabels'
 import { leaveDateLabel, leaveDayCountLabel } from '../lib/leaveCard'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 
@@ -26,7 +27,7 @@ export default function LeaveCard({ request, className = '' }) {
         <h3 className="text-sm font-semibold text-ink">{LEAVE_TYPE_LABELS[leaveType] || 'Leave'}</h3>
         {status && (
           <Tag variant="status" tone={STATUS_TONE[status] || 'neutral'}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {reviewStatusLabel(status)}
           </Tag>
         )}
       </div>

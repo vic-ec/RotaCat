@@ -86,7 +86,7 @@ describe('PendingApprovalReviewPage', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Review account registration' })).toBeInTheDocument()
-    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
     expect(screen.getByText('Submitted 29-07-2026 · 09:29')).toBeInTheDocument()
     expect(screen.queryByText(/Back to Requests/)).not.toBeInTheDocument()
 

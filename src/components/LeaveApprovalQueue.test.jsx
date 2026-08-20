@@ -152,7 +152,7 @@ describe('LeaveApprovalQueue', () => {
     // no separate "Back to Requests" breadcrumb (the corner × is the only
     // way out, per the drawer/modal "close, don't also breadcrumb" rule).
     expect(within(dialog).getByRole('heading', { name: 'Annual leave request' })).toBeInTheDocument()
-    expect(within(dialog).getByText('Pending')).toBeInTheDocument()
+    expect(within(dialog).getByText('Pending review')).toBeInTheDocument()
     expect(within(dialog).getByText('Submitted 05-08-2026 · 14:32')).toBeInTheDocument()
     expect(within(dialog).queryByText(/Back to Requests/)).not.toBeInTheDocument()
 
@@ -357,7 +357,7 @@ describe('LeaveApprovalQueue', () => {
       expect(within(dialog).getByText('1 approved · 1 pending')).toBeInTheDocument()
       expect(within(dialog).getByText('Morgan · Approved')).toBeInTheDocument()
       expect(within(dialog).getByText(/MO · 8–16 Aug/)).toBeInTheDocument()
-      expect(within(dialog).getByText('Nolan · Pending')).toBeInTheDocument()
+      expect(within(dialog).getByText('Nolan · Pending review')).toBeInTheDocument()
     })
 
     it('shows a positive empty state when nobody else is away', async () => {

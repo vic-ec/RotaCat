@@ -22,6 +22,7 @@ import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
 import SelectMenu from './SelectMenu'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
@@ -553,7 +554,7 @@ function DayReviewModal({
                     <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
                   </span>
                   <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
-                    {e.status === 'pending' ? 'Pending' : 'Approved'}
+                    {e.status === 'pending' ? REVIEW_STATUS_LABELS.pending : 'Approved'}
                   </span>
                 </li>
               ))}

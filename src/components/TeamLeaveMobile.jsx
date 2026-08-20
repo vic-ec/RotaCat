@@ -13,6 +13,7 @@ import LeaveBlockDetail from './LeaveBlockDetail'
 import { todayStr } from '../lib/dateRange'
 import { leaveTypeGroupKey, LEAVE_GROUP_OPTIONS } from '../lib/leaveMatrix'
 import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const VIEW_OPTIONS = [
   { key: 'week', label: 'Week', icon: CalendarRange },
@@ -22,7 +23,7 @@ const VIEW_OPTIONS = [
 
 const STATUS_OPTIONS = [
   { value: 'approved', label: 'Approved' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending', label: REVIEW_STATUS_LABELS.pending },
 ]
 const LEAVE_TYPE_FILTER_OPTIONS = LEAVE_GROUP_OPTIONS.map(o => ({ value: o.key, label: o.label }))
 const CATEGORY_OPTIONS = [

@@ -12,6 +12,7 @@ import {
   LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
   blockPixelSpan, buildDoctorLeaveRows, leaveActiveOn, formatDMY,
 } from '../lib/leaveMatrix'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Literal pixel widths, not 1fr/minmax — the header and every track row share
 // the exact same `gridTemplateColumns` string so month columns stay
@@ -85,7 +86,7 @@ function TodayLine({ year }) {
 function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns }) {
   const tracks = []
   if (row.approved.length) tracks.push({ status: 'approved', label: 'Approved', items: row.approved })
-  if (row.pending.length) tracks.push({ status: 'pending', label: 'Pending', items: row.pending })
+  if (row.pending.length) tracks.push({ status: 'pending', label: REVIEW_STATUS_LABELS.pending, items: row.pending })
   const doctorSelected = selected?.kind === 'doctor' && selected.doctorId === row.doctor.id
 
   return (
@@ -175,7 +176,7 @@ function BlockListItem({ request, onSelect }) {
         <span className="block truncate text-[11px] text-ink-muted">{formatDMY(request.date_from)} – {formatDMY(request.date_to)}</span>
       </span>
       <Tag variant="status" tone={request.status === 'approved' ? 'success' : 'warning'}>
-        {request.status === 'approved' ? 'Approved' : 'Pending'}
+        {request.status === 'approved' ? 'Approved' : REVIEW_STATUS_LABELS.pending}
       </Tag>
     </button>
   )
@@ -207,7 +208,7 @@ function DoctorDetail({ row, onSelectBlock, onClose }) {
       )}
       {row.pending.length > 0 && (
         <div className="mt-3">
-          <SectionLabel>Pending</SectionLabel>
+          <SectionLabel>{REVIEW_STATUS_LABELS.pending}</SectionLabel>
           <div className="mt-1.5 space-y-1.5">
             {row.pending.map(r => <BlockListItem key={r.id} request={r} onSelect={onSelectBlock} />)}
           </div>
@@ -294,7 +295,7 @@ export default function LeaveMatrix({ requests }) {
             ))}
             <span className="flex items-center gap-1.5">
               <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
-              Pending
+              {REVIEW_STATUS_LABELS.pending}
             </span>
           </div>
         </div>

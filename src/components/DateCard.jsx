@@ -1,6 +1,7 @@
 import { Calendar, ArrowRight } from 'lucide-react'
 import { parseLocalDate, dayOfWeek, datesInRange } from '../lib/dateRange'
 import Tag from './Tag'
+import { reviewStatusLabel } from '../lib/statusLabels'
 
 // Tone precedence: an actual roster conflict always wins (rarest, most
 // urgent), then a public holiday (can land on either a weekday or a
@@ -174,7 +175,7 @@ export function LeaveDateRange({
           {label && <p className="text-xs font-medium text-ink-muted">{label}</p>}
           {status && (
             <Tag variant="status" tone={STATUS_TONE[status] || 'neutral'}>
-              {statusLabel || (status.charAt(0).toUpperCase() + status.slice(1))}
+              {statusLabel || reviewStatusLabel(status)}
             </Tag>
           )}
         </div>

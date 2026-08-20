@@ -36,7 +36,7 @@ describe('LeaveMatrix', () => {
     expect(screen.getByText('Registrar')).toBeInTheDocument()
     // each doctor's non-empty track is labelled
     expect(screen.getAllByText('Approved').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Pending review').length).toBeGreaterThan(0)
   })
 
   it('shows who is on leave right now by default', () => {

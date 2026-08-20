@@ -889,8 +889,13 @@ export default function StaffListPage() {
           isAdmin ? 'top-[93px]' : 'top-[50px]' split below.
           No border of its own — PageTabs already supplies the shared
           border-slate-line baseline with a border-accent underline on the
-          active tab, so an outer border here would just double up on it. */}
-      <div className="sticky top-0 z-20 mb-4 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
+          active tab, so an outer border here would just double up on it.
+          The gap below this bar is bottom PADDING, not margin — a sticky
+          element only paints its own padding box, so the previous mb-4 here
+          left an unpainted 16px band beneath the stuck header that the list
+          scrolled straight through, visible as a gap. pb-7/md:pb-8 fold that
+          same 16px into the painted area instead (pb-3+4=7, pb-4+4=8). */}
+      <div className="sticky top-0 z-20 bg-canvas pb-7 pt-2 md:pb-8 md:pt-0">
         {isAdmin && (
           <PageTabs
             tabs={[

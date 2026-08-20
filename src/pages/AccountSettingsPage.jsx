@@ -1247,8 +1247,14 @@ export default function AccountSettingsPage() {
           not a drill-down from Staff, so this deliberately doesn't say
           "← Staff" unless that's genuinely where the viewer came from (see
           navLabelForPath). Restyled onto the shared Breadcrumb component;
-          the underlying behavior is unchanged. */}
-      <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />
+          the underlying behavior is unchanged.
+          Only rendered for an actual drill-down (routeId present — e.g. a
+          Staff list row linking to /account/:id): the sidebar/bottom-nav
+          Account item always links to the bare /account, which has no
+          routeId, so a viewer who tapped their own primary nav item never
+          sees a "back to X" link implying they navigated in from somewhere
+          they didn't. */}
+      {routeId && <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />}
 
       {cropSrc && (
         <AvatarCropModal

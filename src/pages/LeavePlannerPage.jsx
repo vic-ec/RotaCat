@@ -73,11 +73,20 @@ export default function LeavePlannerPage() {
   // Independent fetch, not shared state with InternRotationsPlanner (same
   // reasoning as pendingRequestsBadge — this page and that component
   // don't share state).
+  // is_active: true is required, not optional — EndOfRotationQueue only
+  // ever receives InternRotationsPlanner's activeInterns (it's rendered
+  // under the Active tab, passed activeInterns as its doctors prop), so an
+  // already-inactive doctor can never appear there no matter which tab is
+  // open. Without this filter here, a doctor deactivated by some other
+  // path (never routed through this queue's own "Schedule deactivation",
+  // so scheduled_inactive_date was never set) could still trip
+  // endOfRotationFlag and light up this badge with nothing anywhere in the
+  // UI to resolve it.
   const [endOfRotationBadge, setEndOfRotationBadge] = useState(0)
   useEffect(() => {
     if (!isAdmin) { setEndOfRotationBadge(0); return }
     let cancelled = false
-    supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar'])
+    supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true)
       .then(async ({ data: doctors }) => {
         if (cancelled || !doctors || doctors.length === 0) { if (!cancelled) setEndOfRotationBadge(0); return }
         const { data: rotations } = await supabase.from('intern_rotations')

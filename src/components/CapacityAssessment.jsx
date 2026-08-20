@@ -13,21 +13,29 @@ const ASSESSMENT_HEADING = {
 // (never color alone: the heading text always spells out the state too).
 // `preview` is a fetchAnnualCapacityPreview() result: { taken, max, pooled,
 // columnLabel }.
+// The request under review always occupies exactly one slot in its own
+// capacity column (headcount-based — one doctor = one slot, regardless of
+// how many days it spans), so the numerator on the "reserved" line is
+// always the literal 1, not preview.taken (which is the pool-wide count,
+// this request included). Leading with that fact — rather than an
+// unexplained "X of Y taken" — is what tells a reviewer the slot they're
+// looking at IS this request, not some other doctor's; "Who is already
+// away" below is what accounts for anyone else.
 function SlotGauge({ preview }) {
   const state = capacityAssessmentState(preview)
   const remaining = preview.max - preview.taken
-  const poolNote = preview.pooled ? `Shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `For ${preview.columnLabel}`
-  const supporting = state.key === 'at_capacity'
-    ? `No leave slots remain in this ${preview.pooled ? 'shared pool' : 'category'}.`
-    : `${remaining} slot${remaining === 1 ? '' : 's'} remain${remaining === 1 ? 's' : ''} · ${poolNote}`
+  const slotWord = preview.max === 1 ? 'slot' : 'slots'
+  const poolNote = preview.pooled ? `shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `for ${preview.columnLabel}`
 
   return (
     <div className={`rounded-lg p-3 ${state.tint}`}>
       <p className={`text-sm font-bold ${state.text}`}>{ASSESSMENT_HEADING[state.key]}</p>
       <p className="mt-0.5 text-xs text-ink-light">
-        {preview.taken} of {preview.max} shared leave slot{preview.max === 1 ? '' : 's'} taken
+        1 of {preview.max} leave {slotWord} is reserved for this request.
       </p>
-      <p className="mt-0.5 text-xs text-ink-muted">{supporting}</p>
+      <p className="mt-0.5 text-xs text-ink-muted">
+        {remaining} of {preview.max} {slotWord} left — {poolNote}.
+      </p>
     </div>
   )
 }
@@ -79,11 +87,11 @@ export default function CapacityAssessment({
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <SectionLabel className="mb-0">Capacity assessment</SectionLabel>
+        <SectionLabel className="mb-0 leading-none">Capacity assessment</SectionLabel>
         <button
           type="button"
           onClick={onViewCalendar}
-          className="inline-flex flex-shrink-0 items-center gap-1 text-xs font-medium text-accent hover:underline"
+          className="inline-flex flex-shrink-0 items-center gap-1 text-xs font-medium leading-none text-accent hover:underline"
         >
           <CalendarSearch className="h-3.5 w-3.5" /> View calendar
         </button>

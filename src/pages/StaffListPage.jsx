@@ -864,11 +864,18 @@ export default function StaffListPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      {/* Sticky header, and the first thing on the page — no PageHeader
-          above it: the tab row already names where you are (All Staff /
-          Pending Approvals / User Requests), so a "Staff" title on top of
-          it only pushed the tabs below the fold on a phone.
-          Tab row (admin-only: All Staff / Pending Approvals /
+      {/* An admin's tab row already names where they are (All Staff /
+          Pending Approvals / User Requests), so it leads the page on its
+          own — a "Staff" title above it only pushed the tabs and the list
+          further down a phone screen. A non-admin has no tab row, so this
+          title stands in for it: deliberately margin-free, sitting where
+          the tabs would be, so the toolbar and list follow immediately
+          rather than leaving a void where the admin tabs live. Outside the
+          sticky container on purpose — inside it, the title would both
+          stay pinned while scrolling and change that container's height,
+          which the mobile group-label offsets below are measured against. */}
+      {!isAdmin && <h1 className="font-display text-xl font-bold text-ink md:text-2xl">Staff</h1>}
+      {/* Sticky header — tab row (admin-only: All Staff / Pending Approvals /
           User Requests, via the shared PageTabs template) plus the Search/
           Sort/Filter toolbar (every viewer, only while on the accounts tab).
           top-0 on both breakpoints: AppLayout's mobile <header> is

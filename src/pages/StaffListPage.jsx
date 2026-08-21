@@ -1084,10 +1084,15 @@ export default function StaffListPage() {
                       // `md:hidden`, so these are the below-md heights
                       // only: the toolbar row moved into the Toolbar FAB
                       // there, taking its 38px (30px control + mt-2) out of
-                      // the header — 93→55 for admins (8 pt-2 + 35 tabs +
-                      // 12 pb-3), 50→20 for everyone else (8 + 12).
+                      // the header — 71 for admins (8 pt-2 + 35 tabs + 28
+                      // pb-7), 36 for everyone else (8 + 28). pb-7 (not
+                      // pb-3) because the header's own bottom spacing is
+                      // now padding, not margin — a sticky element only
+                      // paints its padding box, so this offset has to grow
+                      // by the same amount or the now-taller stuck header
+                      // overlaps whichever group label sticks below it.
                       className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-[55px]' : 'top-[20px]'
+                        isAdmin ? 'top-[71px]' : 'top-[36px]'
                       }`}
                     >
                       {/* "X active · Y inactive" instead of "X total · Y

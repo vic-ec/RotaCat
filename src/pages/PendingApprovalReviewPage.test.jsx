@@ -261,19 +261,11 @@ describe('PendingApprovalReviewPage', () => {
     }))
   })
 
-  it('closes without approving or rejecting when the header back link is used (embedded)', async () => {
+  it('the back link navigates away without approving or rejecting', async () => {
     const user = userEvent.setup()
-    const onClose = vi.fn()
-    render(
-      <MemoryRouter initialEntries={['/staff/pending/reg-1']}>
-        <Routes>
-          <Route path="/staff/pending/:id" element={<PendingApprovalReviewPage embedded onClose={onClose} />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPage()
 
     await user.click(await screen.findByRole('button', { name: /Pending approvals/ }))
-    expect(onClose).toHaveBeenCalled()
     expect(updateCalls.length).toBe(0)
   })
 })

@@ -9,6 +9,7 @@ import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
+import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
@@ -324,6 +325,8 @@ export default function StaffListPage() {
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
   const [selectedRequestIds, setSelectedRequestIds] = useState(new Set())
+  // The account_change_requests row currently open in AccountRequestReviewDrawer, or null.
+  const [expandedRequestId, setExpandedRequestId] = useState(null)
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [requestsSortDirection, setRequestsSortDirection] = useState('asc')
 
@@ -1566,7 +1569,7 @@ export default function StaffListPage() {
                                   (ApprovalRow's own extra/approve/reject):
                                   the neutral "go look at it" action leads,
                                   then the two decisions. */}
-                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
+                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => setExpandedRequestId(r.id)} />
                               <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
                               <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
                             </div>
@@ -1768,6 +1771,36 @@ export default function StaffListPage() {
           <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
         </div>
       )}
+
+      {expandedRequestId && (() => {
+        const r = accountRequests.find(req => req.id === expandedRequestId)
+        if (!r) return null
+        const secondaryLabel = r.requester?.role === 'doctor'
+          ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
+          : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+        const requesterName = `${r.requester?.name ? `${r.requester.name} ` : ''}${r.requester?.surname || 'Unknown'}`
+        const changeLine = r.request_type !== 'deletion'
+          ? `${formatRequestValue(r.current_value, r.request_type) || '—'} → ${formatRequestValue(r.requested_value, r.request_type)}`
+          : null
+        const submittedDate = r.created_at?.slice(0, 10).split('-').reverse().join('-')
+        const submittedTime = r.created_at?.slice(11, 16)
+        return (
+          <AccountRequestReviewDrawer
+            requesterName={requesterName}
+            secondaryLabel={secondaryLabel}
+            requestTypeLabel={REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
+            changeLine={changeLine}
+            reason={r.reason}
+            deletionWarning={r.request_type === 'deletion' ? 'Approving deactivates the account. The auth user itself must still be removed manually in Supabase.' : null}
+            submittedDate={submittedDate}
+            submittedTime={submittedTime}
+            onClose={() => setExpandedRequestId(null)}
+            onApprove={async () => { await approveRequest(r); setExpandedRequestId(null) }}
+            onReject={async notes => { await rejectRequest(r, notes); setExpandedRequestId(null) }}
+            isActioning={requestActioningId === r.id}
+          />
+        )
+      })()}
 
       {statusConfirm && (
         <StatusChangeConfirmModal

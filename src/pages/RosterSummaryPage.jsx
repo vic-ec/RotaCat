@@ -269,7 +269,7 @@ export default function RosterSummaryPage() {
         aria-expanded={leaveOpen}
         className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-ink-light hover:text-ink"
       >
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${leaveOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${leaveOpen ? '' : 'rotate-180'}`} />
         {leaveOpen ? 'Hide leave breakdown' : 'Show leave breakdown'}
       </button>
 

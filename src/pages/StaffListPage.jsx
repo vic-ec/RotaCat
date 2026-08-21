@@ -143,7 +143,7 @@ function computeFlyoutPosition(anchorRect, width) {
 // section, or show the missing-contact-detail toast). `indent` pushes
 // Mobile/WhatsApp rows in under their Message/Call header to read as
 // sub-items. `expandable` rows get a chevron matching the Account page's
-// convention — down when closed, rotated to point up when `expanded` — and
+// convention — up when closed, rotated to point down when `expanded` — and
 // go bold while their section is open.
 function QuickActionRow({ icon, label, href, external, muted, expandable, expanded, disabled, title, onClick }) {
   const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -154,7 +154,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
       {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
       <span className="flex-1">{label}</span>
       {expandable && (
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? '' : 'rotate-180'}`} />
       )}
     </>
   )
@@ -1125,7 +1125,7 @@ export default function StaffListPage() {
                           active" — surfaces the exception (anyone inactive)
                           immediately instead of burying it in a total. */}
                       <span>{group.label} <span className="ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
-                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
                   })()}
@@ -1244,7 +1244,7 @@ export default function StaffListPage() {
                           <td colSpan={staffTableCols} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
-                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
                         </tr>

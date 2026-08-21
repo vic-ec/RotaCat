@@ -141,7 +141,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         {icon}
         <span className={isRow ? 'flex-1' : (compact ? 'hidden' : 'hidden sm:inline')}>{label}</span>
         {isRow && selected && <span aria-hidden="true" className="truncate text-ink-muted">{selected.label}</span>}
-        {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />}
+        {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />}
       </button>
       {open && positionStyle && createPortal(
         <div
@@ -240,7 +240,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
       >
         <span className="flex-1">{label}</span>
         <span aria-hidden="true" className="truncate text-ink-muted">{isAll ? 'All' : `${selected.size} selected`}</span>
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
       {open && positionStyle && createPortal(
         <div

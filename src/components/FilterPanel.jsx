@@ -90,7 +90,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
             {selected.size}
           </span>
         )}
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? '' : 'rotate-180'}`} />
       </button>
       {expanded && (
         <div className="pb-1.5">

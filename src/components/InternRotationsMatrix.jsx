@@ -681,7 +681,7 @@ export default function InternRotationsMatrix({
                   className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
                 >
                   <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
+                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                 </button>
 
                 {!collapsedGroups[group.key] && group.items.map(doctor => {
@@ -807,7 +807,7 @@ export default function InternRotationsMatrix({
               className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
             >
               <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-              <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
+              <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
             </button>
 
             {!collapsedGroups[group.key] && (

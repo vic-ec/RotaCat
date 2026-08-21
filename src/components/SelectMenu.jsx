@@ -69,7 +69,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
         className="input-field flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>{selected ? selected.label : placeholder}</span>
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
       {open && positionStyle && createPortal(
         <div

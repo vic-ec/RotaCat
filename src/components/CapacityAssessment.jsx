@@ -88,12 +88,20 @@ export default function CapacityAssessment({
     <div>
       <div className="flex items-center justify-between gap-2">
         <SectionLabel className="mb-0 leading-none">Capacity assessment</SectionLabel>
+        {/* The icon, not the line-height, was the remaining misalignment:
+            at h-3.5 (14px) it was taller than the text-xs+leading-none
+            label next to it (12px), so the button's own rendered height
+            exceeded the label's — items-center on the row then centered
+            two different-height boxes, leaving a residual few-px offset
+            even with both line-heights forced to 1. h-3/w-3 (12px) matches
+            the label's line-height exactly, so both elements render at the
+            identical height and truly share one vertical center. */}
         <button
           type="button"
           onClick={onViewCalendar}
           className="inline-flex flex-shrink-0 items-center gap-1 text-xs font-medium leading-none text-accent hover:underline"
         >
-          <CalendarSearch className="h-3.5 w-3.5" /> View calendar
+          <CalendarSearch className="h-3 w-3" /> View calendar
         </button>
       </div>
 

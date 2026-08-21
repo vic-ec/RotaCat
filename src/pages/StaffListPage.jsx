@@ -179,7 +179,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // `<a>` when there's somewhere to go (so it behaves like any other link —
 // middle-click, "open in new tab", etc. all work); falls back to a button
 // that surfaces the existing missing-contact-detail toast otherwise. The
-// kebab is left fully intact alongside these for WhatsApp and Grant admin,
+// kebab is left fully intact alongside these for WhatsApp and Update status,
 // which don't have a natural single icon of their own.
 function RowActionIcon({ icon, href, title, onMissing }) {
   const className = 'flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
@@ -266,13 +266,13 @@ function PendingApprovalRow({ person, checked, onToggleCheck, approveAccount, re
 }
 
 export default function StaffListPage() {
-  const { isAdmin, canViewStaffList, isSuperAdmin } = useAuth()
+  const { isAdmin, canViewStaffList } = useAuth()
   // Clerks, Locums, and MO/Registrar doctors are all read-only for account
   // management, but the mobile Quick Actions menu (Message/Call/Mail) is
   // pure contact info -- they all need that same access (see AuthContext's
   // canViewStaffList for the shared role/category rule this mirrors).
-  // Account-settings navigation and admin-granting stay isAdmin/isSuperAdmin
-  // only, unaffected by this.
+  // Account-settings navigation and admin-granting stay isAdmin-only,
+  // unaffected by this.
   const canContact = canViewStaffList
   const navigate = useNavigate()
   const location = useLocation()
@@ -1132,11 +1132,12 @@ export default function StaffListPage() {
                   {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
-                      // "Doctor · COSMO" rather than category alone — a bare
-                      // category read as a status/location to reviewers, and
-                      // didn't match the role-badge non-doctors show.
+                      // Category alone for a doctor (every role in this app
+                      // implies "doctor" except locum/clerk, so spelling it
+                      // out is redundant) — matches the desktop table and
+                      // every other row style in this file.
                       const secondaryLabel = person.role === 'doctor'
-                        ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+                        ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
                         : (ROLE_LABELS[person.role] || person.role)
                       const contractTag = contractTagText(person)
                       return (
@@ -1165,8 +1166,8 @@ export default function StaffListPage() {
                               {person.name ? `${person.name} ` : ''}{person.surname}
                             </span>
                             {/* line-clamp-2, not truncate: a long category
-                                combo (e.g. "Doctor · COSMO (Psych)") wraps
-                                to a second line instead of silently cutting
+                                combo (e.g. "COSMO (Psych)") wraps to a
+                                second line instead of silently cutting
                                 off. */}
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
                               <span className="line-clamp-2">{secondaryLabel}</span>
@@ -1594,12 +1595,15 @@ export default function StaffListPage() {
            row in the top/middle of the screen, up from one near the
            bottom). Message/Call open a second, separate flyout popover
            cascading below that row (see below) rather than expanding in
-           place. Mail goes straight to the mail client. Status is set via
-           the status badge itself, so it's not duplicated here. */}
+           place. Mail goes straight to the mail client. Update status
+           reuses the same requestToggleActive/StatusChangeConfirmModal
+           flow as the desktop table's own status toggle — this is the
+           only quick way to flip a doctor's active status from the
+           mobile card list, since its StatusPicker badge renders
+           read-only there. ── */}
       {quickActionPerson && quickActionAnchor && (() => {
         const targetEmail = emailById[quickActionPerson.id]
         const mailHref = targetEmail ? `mailto:${targetEmail}` : null
-        const canGrantAdmin = isSuperAdmin && quickActionPerson.role !== 'clerk'
 
         const menuWidth = 224
         const positionStyle = computeAnchoredPosition(quickActionAnchor, menuWidth)
@@ -1635,12 +1639,10 @@ export default function StaffListPage() {
               href={mailHref}
               onClick={mailHref ? closeQuickActions : missing('Mail')}
             />
-            {canGrantAdmin && (
+            {isAdmin && (
               <QuickActionRow
-                label={quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
-                disabled={quickActionPerson.is_super_admin}
-                title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
-                onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
+                label="Update status"
+                onClick={() => { requestToggleActive(quickActionPerson); closeQuickActions() }}
               />
             )}
           </div>
@@ -1693,7 +1695,7 @@ export default function StaffListPage() {
       {detailSheetPerson && (() => {
         const person = detailSheetPerson
         const secondaryLabel = person.role === 'doctor'
-          ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+          ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
           : (ROLE_LABELS[person.role] || person.role)
         const formattedPhone = formatPhoneDisplay(person.phone)
         const targetEmail = emailById[person.id]

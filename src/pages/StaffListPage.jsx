@@ -284,12 +284,19 @@ export default function StaffListPage() {
   // Measuring it directly removes that whole class of bug. ResizeObserver
   // re-fires on breakpoint changes too, so this stays correct without a
   // separate isAdmin/md branch to keep in sync by hand.
+  // getBoundingClientRect(), not entry.contentRect — ResizeObserver's
+  // default box is content-box, which EXCLUDES this header's own padding
+  // (pt-2/pb-3 etc, part of what it actually paints while stuck). Reading
+  // contentRect under-measured the header by exactly that padding, so
+  // group labels stuck a padding's-worth too high — into the zone the
+  // header's own bottom padding still covers, which its higher z-index
+  // then painted over, obscuring the label instead of clearing it.
   const stickyHeaderRef = useRef(null)
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
   useEffect(() => {
     const el = stickyHeaderRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(([entry]) => setStickyHeaderHeight(entry.contentRect.height))
+    const observer = new ResizeObserver(() => setStickyHeaderHeight(el.getBoundingClientRect().height))
     observer.observe(el)
     return () => observer.disconnect()
   }, [])

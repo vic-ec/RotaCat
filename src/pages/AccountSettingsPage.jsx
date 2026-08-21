@@ -255,8 +255,10 @@ function LogoutIcon(props) {
 }
 
 // Small icon button — used for the header's "edit profile details" trigger
-// (chevron, down-when-closed/up-when-open, matching the SectionRow
-// accordions elsewhere on the page) and for each Contact row's edit action
+// (chevron, up-when-closed/down-when-open — a deliberate reversal of the
+// usual "points toward where content expands" convention, matching the
+// SectionRow accordions elsewhere on the page) and for each Contact row's
+// edit action
 // (a static pencil — editing a single value rather than expanding a
 // section, so it doesn't need the open/closed rotation). Sized to a 24x24
 // hit area (WCAG 2.5.8's AA minimum) rather than a full 44px target, so it
@@ -272,7 +274,7 @@ function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon
       aria-expanded={expanded}
       className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? 'rotate-180' : ''}` : ''}`} />
+      <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? '' : 'rotate-180'}` : ''}`} />
     </button>
   )
 }
@@ -370,7 +372,7 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
           {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
         </span>
         <span className="flex-shrink-0 rounded p-1 text-ink-muted">
-          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? '' : 'rotate-180'}`} />
         </span>
       </button>
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}

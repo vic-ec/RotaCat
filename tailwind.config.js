@@ -221,14 +221,14 @@ export default {
         }
       },
       fontFamily: {
-        // Experimental: Archivo primary instead of Satoshi, for
+        // Experimental: Plus Jakarta Sans primary instead of Satoshi, for
         // side-by-side review (previously trialed Inter, Manrope, Lexend,
-        // then Public Sans — see PR history). index.html loads every
-        // candidate unconditionally, so trying a different one is a
+        // Public Sans, then Archivo — see PR history). index.html loads
+        // every candidate unconditionally, so trying a different one is a
         // one-line swap here. Revert by putting 'Satoshi' back first in
         // both arrays below.
-        display: ['Archivo', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Archivo', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.

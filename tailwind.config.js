@@ -221,14 +221,14 @@ export default {
         }
       },
       fontFamily: {
-        // Experimental: Manrope primary instead of Satoshi, for
-        // side-by-side review (previously trialed Inter, then Lexend,
-        // Public Sans, Archivo, Plus Jakarta Sans — see PR history).
-        // index.html loads every candidate unconditionally, so trying a
-        // different one is a one-line swap here. Revert by putting
-        // 'Satoshi' back first in both arrays below.
-        display: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Experimental: Onest primary instead of Satoshi, for side-by-side
+        // review (previously trialed Inter, Lexend, Public Sans, Archivo,
+        // Plus Jakarta Sans, then Manrope — see PR history). index.html
+        // loads every candidate unconditionally, so trying a different one
+        // is a one-line swap here. Revert by putting 'Satoshi' back first
+        // in both arrays below.
+        display: ['Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Onest', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.

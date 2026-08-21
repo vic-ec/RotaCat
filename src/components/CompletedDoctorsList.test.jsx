@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import CompletedDoctorsList from './CompletedDoctorsList'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 
@@ -20,7 +21,7 @@ function renderList(overrides = {}) {
     onReactivate: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   }
-  return { ...render(<CompletedDoctorsList {...props} />), props }
+  return { ...render(<CompletedDoctorsList {...props} />, { wrapper: MemoryRouter }), props }
 }
 
 describe('CompletedDoctorsList', () => {
@@ -77,5 +78,34 @@ describe('CompletedDoctorsList', () => {
     await user.click(within(row).getByRole('button', { name: 'Cancel' }))
     expect(onReactivate).not.toHaveBeenCalled()
     expect(within(row).queryByLabelText('Active from')).not.toBeInTheDocument()
+  })
+
+  it('tapping a row opens a detail sheet for that doctor, matching the Staff list page pattern', async () => {
+    const user = userEvent.setup()
+    renderList()
+    const row = screen.getByText('Intern', { selector: 'span.font-medium' }).closest('div').parentElement.parentElement
+    await user.click(row)
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByText('Ivy Intern')).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'View Account' })).toBeInTheDocument()
+    expect(within(sheet).getByRole('button', { name: 'Reactivate' })).toBeInTheDocument()
+  })
+
+  it('the Reactivate button inside the row does not also open the detail sheet', async () => {
+    const user = userEvent.setup()
+    renderList()
+    const row = screen.getByText('Intern', { selector: 'span.font-medium' }).closest('div').parentElement.parentElement
+    await user.click(within(row).getByRole('button', { name: 'Reactivate' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('Reactivate inside the detail sheet closes the sheet and opens the row\'s reactivate form', async () => {
+    const user = userEvent.setup()
+    renderList()
+    const row = screen.getByText('Intern', { selector: 'span.font-medium' }).closest('div').parentElement.parentElement
+    await user.click(row)
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Reactivate' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(within(row).getByLabelText('Active from')).toBeInTheDocument()
   })
 })

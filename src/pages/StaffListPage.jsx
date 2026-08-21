@@ -274,6 +274,25 @@ export default function StaffListPage() {
   const canContact = canViewStaffList
   const navigate = useNavigate()
   const location = useLocation()
+  // The mobile card list's sticky group labels (below, in the accounts
+  // tab's md:hidden branch) need to stick exactly below this sticky
+  // header's real rendered height — a hand-picked pixel constant drifts
+  // out of sync the moment the header's own content changes (it already
+  // has twice: once when the app-bar it used to sit under was removed,
+  // again when the toolbar row moved into a FAB below md), leaving either
+  // a gap the list shows through or an overlap that hides the label.
+  // Measuring it directly removes that whole class of bug. ResizeObserver
+  // re-fires on breakpoint changes too, so this stays correct without a
+  // separate isAdmin/md branch to keep in sync by hand.
+  const stickyHeaderRef = useRef(null)
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
+  useEffect(() => {
+    const el = stickyHeaderRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(([entry]) => setStickyHeaderHeight(entry.contentRect.height))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
@@ -883,19 +902,20 @@ export default function StaffListPage() {
           app-bar height to offset below any more — this used to add its
           ~49px, which briefly went stale and hid this whole bar behind a
           gap once that header stopped rendering here.
-          The mobile card list's sticky group labels further down are
-          offset to clear this bar's own rendered height, which differs by
-          role since the tab row only exists for admins — see the
-          isAdmin ? 'top-[93px]' : 'top-[50px]' split below.
           No border of its own — PageTabs already supplies the shared
           border-slate-line baseline with a border-accent underline on the
           active tab, so an outer border here would just double up on it.
           The gap below this bar is bottom PADDING, not margin — a sticky
-          element only paints its own padding box, so the previous mb-4 here
-          left an unpainted 16px band beneath the stuck header that the list
-          scrolled straight through, visible as a gap. pb-7/md:pb-8 fold that
-          same 16px into the painted area instead (pb-3+4=7, pb-4+4=8). */}
-      <div className="sticky top-0 z-20 bg-canvas pb-7 pt-2 md:pb-8 md:pt-0">
+          element only paints its own padding box; a margin here would leave
+          an unpainted band beneath the stuck header that the list scrolls
+          straight through, visible as a gap the scrolled-past rows show
+          through.
+          stickyHeaderRef feeds stickyHeaderHeight (see above), which the
+          mobile card list's own sticky group labels use as their `top` —
+          measured, not hand-picked, so it can never drift out of sync with
+          this bar's actual rendered height again (see that ref's own
+          comment for the history of it doing exactly that). */}
+      <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {isAdmin && (
           <PageTabs
             tabs={[
@@ -1078,22 +1098,16 @@ export default function StaffListPage() {
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
-                      // Offset to clear the sticky header above it — taller
-                      // for admins, who also get the tab row (see the
-                      // header's own comment for the maths). This list is
-                      // `md:hidden`, so these are the below-md heights
-                      // only: the toolbar row moved into the Toolbar FAB
-                      // there, taking its 38px (30px control + mt-2) out of
-                      // the header — 71 for admins (8 pt-2 + 35 tabs + 28
-                      // pb-7), 36 for everyone else (8 + 28). pb-7 (not
-                      // pb-3) because the header's own bottom spacing is
-                      // now padding, not margin — a sticky element only
-                      // paints its padding box, so this offset has to grow
-                      // by the same amount or the now-taller stuck header
-                      // overlaps whichever group label sticks below it.
-                      className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-[71px]' : 'top-[36px]'
-                      }`}
+                      // Sticks flush against the real bottom edge of the
+                      // header above (stickyHeaderRef/stickyHeaderHeight,
+                      // see that ref's own comment) — measured rather than
+                      // a hand-picked constant, so it can't drift out of
+                      // sync with that header's actual rendered height
+                      // (admin vs non-admin, or any future change to what
+                      // renders inside it) the way a fixed px offset here
+                      // already has twice before.
+                      style={{ top: stickyHeaderHeight }}
+                      className="sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
                     >
                       {/* "X active · Y inactive" instead of "X total · Y
                           active" — surfaces the exception (anyone inactive)

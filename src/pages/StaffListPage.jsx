@@ -11,6 +11,7 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
@@ -432,6 +433,7 @@ export default function StaffListPage() {
   const [detailSheetPerson, setDetailSheetPerson] = useState(null)
   const detailSheetRef = useRef(null)
   useDismissablePopover(!!detailSheetPerson, () => setDetailSheetPerson(null), detailSheetRef)
+  const detailSheetSwipe = useSwipeToDismiss(() => setDetailSheetPerson(null))
 
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
@@ -1709,16 +1711,19 @@ export default function StaffListPage() {
             ref={detailSheetRef}
             role="dialog"
             aria-modal="true"
+            style={detailSheetSwipe.style}
             className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-slate-line bg-canvas-raised px-5 pb-6 pt-3 shadow-[0_-3px_10px_0_rgba(15,23,42,0.18)] md:hidden"
           >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
+            <div {...detailSheetSwipe.handleProps} className="touch-none">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
 
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
-                <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
+                  <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+                </div>
+                <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
               </div>
-              <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
             </div>
 
             <div className="mt-3 space-y-1.5 border-t border-slate-line pt-3 text-sm">

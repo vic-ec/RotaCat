@@ -350,7 +350,7 @@ export default function RosterDashboardPage() {
               }`}
             >
               <PencilSparklesIcon className="h-4 w-4" />
-              <span className="hidden md:inline">Create roster</span>
+              Create
             </button>
           )}
         </div>

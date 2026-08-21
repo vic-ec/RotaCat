@@ -326,13 +326,28 @@ export default function RosterDashboardPage() {
       {outerTabs.length > 1 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <PageTabs tabs={outerTabs} active={view} onChange={setView} ariaLabel="Rosters" />
-          {isAdmin && view === 'rosters' && tab === 'active' && (
+          {/* Stays mounted (for an admin) across every view/tab, not just
+              Rosters > Active where it actually applies — an admin's own
+              button is taller than PageTabs' own text+underline, so the
+              flex row's height (max of its children) used to shrink the
+              moment this unmounted on Archive/Bin/Hours Summary, visibly
+              shifting the tab rows and list below up or down depending on
+              which sub-tab was open. `invisible` (not conditional
+              rendering) keeps its footprint reserved at every tab so the
+              row's height — and everything below it — never moves;
+              aria-hidden keeps it out of the accessibility tree while
+              it's just a placeholder. */}
+          {isAdmin && (
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
               aria-label="Create roster"
               title="Create roster"
-              className="btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto"
+              aria-hidden={!(view === 'rosters' && tab === 'active')}
+              tabIndex={view === 'rosters' && tab === 'active' ? 0 : -1}
+              className={`btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto ${
+                view === 'rosters' && tab === 'active' ? '' : 'invisible'
+              }`}
             >
               <PencilSparklesIcon className="h-4 w-4" />
               <span className="hidden md:inline">Create roster</span>

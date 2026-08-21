@@ -24,7 +24,18 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // already carries its own sticky action footer (e.g.
 // PendingApprovalReviewPage's Approve/Reject bar) and would otherwise show
 // a redundant second "Cancel" strip below it.
-export default function SlideOverPanel({ fallbackPath = '/', children, footer }) {
+//
+// `bodyOwnsBottomFooter`: set alongside `footer={null}` when that body's
+// own footer sticks to the BOTTOM of this panel's scrolling area (not just
+// its top, like the default Cancel-button case) — drops this panel's own
+// bottom padding so the body's footer can supply that same space as its
+// own padding instead. A `position: sticky` element's offset is measured
+// against the padding EDGE of its scrolling ancestor and doesn't respect a
+// negative margin trying to reach past that padding (verified against a
+// real browser — the offset simply ignores it), so leaving this panel's
+// own py-5 bottom padding in place left an unpainted band the scrolled
+// content showed through, no matter how the body tried to cancel it.
+export default function SlideOverPanel({ fallbackPath = '/', children, footer, bodyOwnsBottomFooter = false }) {
   const navigate = useNavigate()
   const location = useLocation()
   const panelRef = useRef(null)
@@ -43,7 +54,7 @@ export default function SlideOverPanel({ fallbackPath = '/', children, footer })
       aria-modal="true"
       className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-canvas-raised shadow-[-3px_0_10px_0_rgba(15,23,42,0.18)] md:w-[35%] md:min-w-[320px]"
     >
-      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
+      <div className={bodyOwnsBottomFooter ? 'flex-1 overflow-y-auto px-5 pt-5 md:px-6' : 'flex-1 overflow-y-auto px-5 py-5 md:px-6'}>
         {typeof children === 'function' ? children(close) : children}
       </div>
       {footer !== null && (

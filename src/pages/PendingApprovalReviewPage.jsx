@@ -310,7 +310,7 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
   ]
 
   return (
-    <div className={embedded ? '' : 'mx-auto max-w-7xl pb-6 md:max-w-2xl'}>
+    <div className={embedded ? '' : 'mx-auto max-w-7xl md:max-w-2xl'}>
       <button
         type="button"
         onClick={goBack}
@@ -365,9 +365,22 @@ export default function PendingApprovalReviewPage({ embedded = false, onClose })
       {/* Sticky footer, bled flush to whichever container's edges this page
           is actually rendering inside — the slide-over panel's own
           px-5/md:px-6 padding when embedded, or AppLayout's main
-          px-4/md:px-8 when this is a standalone full-page route. */}
-      <div className={`sticky bottom-0 mt-6 border-t border-slate-line bg-canvas-raised py-3 ${
-        embedded ? '-mx-5 -mb-5 px-5 md:-mx-6 md:-mb-6 md:px-6' : '-mx-4 px-4 md:-mx-8 md:px-8'
+          px-4/md:px-6/lg:px-8 when this is a standalone full-page route.
+          Horizontal bleed uses negative margin (-mx-*), which works fine —
+          it's the VERTICAL bottom padding of whichever ancestor this footer
+          sits inside that a negative margin can't reach past: a sticky
+          element's `bottom` offset is measured against its scrolling
+          ancestor's padding edge and simply ignores margin trying to push
+          past it (verified against a real browser), so that padding has to
+          be reclaimed as this footer's OWN pb-* instead, not canceled via
+          -mb-*. Embedded: SlideOverPanel drops its own bottom padding
+          (bodyOwnsBottomFooter) and this footer's pb-8 supplies it instead.
+          Standalone: AppLayout's <main> keeps its own pb-6/md:pb-8 — this
+          footer can't reach past a shared ancestor it doesn't own, so a
+          small residual gap can still show there specifically (not the
+          more common embedded/slide-over path this was reported on). */}
+      <div className={`sticky bottom-0 mt-6 border-t border-slate-line bg-canvas-raised ${
+        embedded ? '-mx-5 px-5 pt-3 pb-8 md:-mx-6 md:px-6' : '-mx-4 px-4 pt-3 pb-3 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8'
       }`}>
         <AccountActionFooter
           onApprove={approve}

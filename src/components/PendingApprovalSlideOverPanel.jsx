@@ -11,7 +11,7 @@ import SlideOverPanel from './SlideOverPanel'
 // Cancel bar here would just be a redundant close control.
 export default function PendingApprovalSlideOverPanel() {
   return (
-    <SlideOverPanel fallbackPath="/staff" footer={null}>
+    <SlideOverPanel fallbackPath="/staff" footer={null} bodyOwnsBottomFooter>
       {close => <PendingApprovalReviewPage embedded onClose={close} />}
     </SlideOverPanel>
   )

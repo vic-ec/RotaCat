@@ -221,14 +221,14 @@ export default {
         }
       },
       fontFamily: {
-        // Experimental: Public Sans primary instead of Satoshi, for
-        // side-by-side review (previously trialed Inter, Manrope, then
-        // Lexend — see PR history). index.html loads every candidate
-        // unconditionally, so trying a different one is a one-line swap
-        // here. Revert by putting 'Satoshi' back first in both arrays
-        // below.
-        display: ['Public Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Public Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Experimental: Archivo primary instead of Satoshi, for
+        // side-by-side review (previously trialed Inter, Manrope, Lexend,
+        // then Public Sans — see PR history). index.html loads every
+        // candidate unconditionally, so trying a different one is a
+        // one-line swap here. Revert by putting 'Satoshi' back first in
+        // both arrays below.
+        display: ['Archivo', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Archivo', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.

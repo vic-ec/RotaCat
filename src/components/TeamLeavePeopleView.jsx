@@ -43,10 +43,11 @@ function PersonRow({ person, onOpen }) {
   )
 }
 
-// "When is Dr X away?" — every person who has approved/pending leave on record,
+// "When is Dr X away?" — every person currently on leave or due to go,
 // searchable by name and grouped by category, each showing their current or
-// next leave. Tapping a person opens a sheet of all their leave; tapping one of
-// those opens its full detail.
+// next leave (buildPeopleLeave already drops anyone who's returned, with
+// nothing current or upcoming left to show). Tapping a person opens a sheet
+// of all their leave; tapping one of those opens its full detail.
 export default function TeamLeavePeopleView({ requests, onSelectLeave }) {
   const [sheetPerson, setSheetPerson] = useState(null)
   const today = todayStr()

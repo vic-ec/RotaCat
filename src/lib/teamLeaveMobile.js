@@ -67,11 +67,15 @@ function preferApprovedThenLongest(a, b) {
   return rank(a.status) - rank(b.status) || b.date_to.localeCompare(a.date_to)
 }
 
-// One entry per person who has any approved/pending leave on record, with
-// their `current` leave (covering today, approved preferred), their `next`
+// One entry per person who's currently on leave or due to go — their
+// `current` leave (covering today, approved preferred), their `next`
 // upcoming leave, and the full `items` list (soonest first) for the person
-// sheet. Sorted by surname. People with no leave simply aren't present — the
-// "People = leave-only" choice, so no separate profiles fetch is needed.
+// sheet. Sorted by surname. People with no leave simply aren't present, and
+// neither is anyone whose only leave has already ended (no `current`, no
+// `next`) — a browse-by-person "who's away / who's away next" view has
+// nothing useful left to show for them once they've returned, and the
+// "People = leave-only" choice already means no separate profiles fetch is
+// needed here.
 export function buildPeopleLeave(requests, today) {
   const byPerson = new Map()
   for (const r of requests) {
@@ -84,6 +88,7 @@ export function buildPeopleLeave(requests, today) {
     const sorted = [...items].sort((a, b) => a.date_from.localeCompare(b.date_from))
     const current = items.filter(r => coversDate(r, today)).sort(preferApprovedThenLongest)[0] || null
     const next = sorted.find(r => r.date_from > today) || null
+    if (!current && !next) continue
     people.push({ doctor, current, next, items: sorted })
   }
   people.sort((a, b) =>

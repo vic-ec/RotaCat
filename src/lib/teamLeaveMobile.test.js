@@ -70,6 +70,14 @@ describe('buildPeopleLeave', () => {
     const people = buildPeopleLeave([req({ status: 'rejected' })], '2026-08-10')
     expect(people).toHaveLength(0)
   })
+
+  it('omits people who have returned — leave entirely in the past, nothing current or upcoming', () => {
+    const people = buildPeopleLeave([
+      req({ id: 'past', profile_id: 'p1', date_from: '2026-07-01', date_to: '2026-07-05', profiles: { name: 'Ada', surname: 'Adams' } }),
+      req({ id: 'current', profile_id: 'p2', date_from: '2026-08-08', date_to: '2026-08-12', profiles: { name: 'Bo', surname: 'Zed' } }),
+    ], '2026-08-10')
+    expect(people.map(p => p.doctor.surname)).toEqual(['Zed'])
+  })
 })
 
 describe('peopleAwayByDate', () => {

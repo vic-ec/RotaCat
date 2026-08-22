@@ -17,6 +17,7 @@ import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '..
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
+import { LegendIcon } from './PlannerIcons'
 import LegendSheet from './LegendSheet'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -136,8 +137,8 @@ export default function MonthWorkspace({
         <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
           <LegendSheet
             trigger={onClick => (
-              <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2.5 text-xs">
-                Legend
+              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+                <LegendIcon className="h-4 w-4" />
               </button>
             )}
             ruleIntro={ruleHintIntro}

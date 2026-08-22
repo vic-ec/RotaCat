@@ -8,6 +8,7 @@ import DoctorChip from './DoctorChip'
 import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
 import LegendSheet from './LegendSheet'
+import { LegendIcon } from './PlannerIcons'
 import PageActionsMenu from './PageActionsMenu'
 import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
@@ -782,7 +783,7 @@ export default function InternRotationsMatrix({
                 <LegendSheet
                   title="Legend"
                   trigger={onClick => (
-                    <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+                    <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
                   )}
                 >
                   {legendSwatches}

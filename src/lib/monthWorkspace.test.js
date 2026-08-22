@@ -88,17 +88,17 @@ describe('checkApprovalCapacityImpact', () => {
   it('flags the full-time aggregate breach for a full-time-group column even when its own column cap is fine', () => {
     const request = { date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'MO' } }
     // MO cap 2 (fine: 1 other + this one = 2), but full-time aggregate cap is 1
-    // and one EC COSMO/Intern is already on it — approving this MO would make 2.
+    // and one EC Intern is already on it — approving this MO would make 2.
     const otherRows = [
       { profile_id: 'other-mo', date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'MO' } },
-      { profile_id: 'other-cosmo', date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'COSMO' } },
+      { profile_id: 'other-intern', date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'Intern' } },
     ]
     const result = checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, 1)
     expect(result.columnBreach).toBe(false)
     expect(result.fullTimeBreach).toBe(true)
   })
 
-  it('does not check the full-time aggregate for OT COSMO/Intern — it is a separate pool', () => {
+  it('does not check the full-time aggregate for OT Intern — it is a separate pool', () => {
     const request = { date_from: '2026-08-12', date_to: '2026-08-12', profiles: { category: 'OT_Intern' } }
     const result = checkApprovalCapacityImpact(request, [], maxByColumnKey, 0) // maxTotal 0: any addition would breach if OT_Intern were included
     expect(result.applicable).toBe(true) // its own column cap still applies
@@ -130,7 +130,7 @@ describe('daysWithRoomForCategory', () => {
     expect(result).toEqual({ withRoom: 30, total: 31 })
   })
 
-  it('OT COSMO/Intern is unaffected by the full-time pool filling up — it has its own independent cap', () => {
+  it('OT Intern is unaffected by the full-time pool filling up — it has its own independent cap', () => {
     const countByColumnPerDate = new Map([
       ['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])], // full-time pool full, OT untouched
     ])
@@ -168,7 +168,7 @@ describe('categoryPressureState', () => {
 describe('myCategoryDaySlots', () => {
   const maxFullTime = 2
 
-  it('sums the shared full-time pool across MO/Registrar/EC COSMO, not just the viewer\'s own column', () => {
+  it('sums the shared full-time pool across MO/Registrar/EC Intern, not just the viewer\'s own column', () => {
     const capacity = [
       { key: 'MO', count: 1, max: 2 },
       { key: 'Registrar', count: 1, max: 1 },
@@ -180,7 +180,7 @@ describe('myCategoryDaySlots', () => {
     expect(myCategoryDaySlots('EC_Intern', capacity, maxFullTime)).toEqual({ taken: 2, max: 2 })
   })
 
-  it('OT COSMO/Intern reads its own independent column, unaffected by the full-time pool', () => {
+  it('OT Intern reads its own independent column, unaffected by the full-time pool', () => {
     const capacity = [
       { key: 'MO', count: 2, max: 2 },
       { key: 'Registrar', count: 0, max: 1 },
@@ -200,7 +200,7 @@ describe('myCategoryCapacityStateForDate', () => {
   const maxByColumnKey = { MO: 2, Registrar: 1, EC_Intern: 2, OT_Intern: 1 }
   const maxFullTime = 2
 
-  it('a full-time viewer (MO/Registrar/EC COSMO): 0 taken in the shared pool is "Available"', () => {
+  it('a full-time viewer (MO/Registrar/EC Intern): 0 taken in the shared pool is "Available"', () => {
     const state = myCategoryCapacityStateForDate('2026-08-10', 'MO', maxByColumnKey, maxFullTime, new Map())
     expect(state.label).toBe('Available')
   })
@@ -217,7 +217,7 @@ describe('myCategoryCapacityStateForDate', () => {
     expect(state.label).toBe('At capacity')
   })
 
-  it('an OT COSMO/Intern viewer jumps straight from "Available" to "At capacity" — no middle state', () => {
+  it('an OT Intern viewer jumps straight from "Available" to "At capacity" — no middle state', () => {
     const empty = myCategoryCapacityStateForDate('2026-08-10', 'OT_Intern', maxByColumnKey, maxFullTime, new Map())
     expect(empty.label).toBe('Available')
 
@@ -234,7 +234,7 @@ describe('myCategoryLegendStates', () => {
     expect(myCategoryLegendStates('EC_Intern').map(s => s.label)).toEqual(['Available', 'Limited', 'At capacity'])
   })
 
-  it('lists 2 states for OT COSMO/Intern — no middle "Limited" state, since it only has 1 slot', () => {
+  it('lists 2 states for OT Intern — no middle "Limited" state, since it only has 1 slot', () => {
     expect(myCategoryLegendStates('OT_Intern').map(s => s.label)).toEqual(['Available', 'At capacity'])
   })
 })
@@ -243,12 +243,12 @@ describe('slotsForColumnOnDate', () => {
   const maxByColumnKey = { OT_Intern: 1 }
   const maxFullTime = 2
 
-  it('sums the shared full-time pool across MO/Registrar/EC COSMO for a full-time-group column', () => {
+  it('sums the shared full-time pool across MO/Registrar/EC Intern for a full-time-group column', () => {
     const countByColumnPerDateMap = new Map([['2026-08-10', new Map([['MO', 1], ['Registrar', 1]])]])
     expect(slotsForColumnOnDate('2026-08-10', 'MO', maxByColumnKey, maxFullTime, countByColumnPerDateMap)).toEqual({ taken: 2, max: 2 })
   })
 
-  it('reads OT COSMO/Intern from its own column, unaffected by the full-time pool', () => {
+  it('reads OT Intern from its own column, unaffected by the full-time pool', () => {
     const countByColumnPerDateMap = new Map([['2026-08-10', new Map([['MO', 2]])]])
     expect(slotsForColumnOnDate('2026-08-10', 'OT_Intern', maxByColumnKey, maxFullTime, countByColumnPerDateMap)).toEqual({ taken: 0, max: 1 })
   })
@@ -273,7 +273,7 @@ describe('bannerStateForSlots', () => {
     expect(bannerStateForSlots({ taken: 2, max: 2 }).label).toBe('At capacity')
   })
 
-  it('is "At capacity" for a 1-slot pool with no middle state, same as OT COSMO/Intern elsewhere', () => {
+  it('is "At capacity" for a 1-slot pool with no middle state, same as OT Intern elsewhere', () => {
     expect(bannerStateForSlots({ taken: 0, max: 1 }).label).toBe('Available')
     expect(bannerStateForSlots({ taken: 1, max: 1 }).label).toBe('At capacity')
   })

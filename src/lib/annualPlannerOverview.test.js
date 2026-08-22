@@ -169,7 +169,7 @@ describe('entriesInRange', () => {
     ['2026-08-13', [{ profileId: 'p2', surname: 'Zilla', category: 'Registrar', dateFrom: '2026-08-13', dateTo: '2026-08-13' }]],
   ])
   const pendingByDate = new Map([
-    ['2026-08-12', [{ profileId: 'p3', surname: 'Davis', category: 'COSMO', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
+    ['2026-08-12', [{ profileId: 'p3', surname: 'Davis', category: 'Intern', dateFrom: '2026-08-12', dateTo: '2026-08-12' }]],
     ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed', category: 'MO', dateFrom: '2026-08-11', dateTo: '2026-08-13' }]], // same profile also pending elsewhere in range
   ])
 
@@ -180,9 +180,9 @@ describe('entriesInRange', () => {
     })
   })
 
-  it('carries contractType through too, for callers that need it to label a COSMO/Intern entry correctly', () => {
+  it('carries contractType through too, for callers that need it to label an Intern entry correctly', () => {
     const otApproved = new Map([
-      ['2026-08-11', [{ profileId: 'p9', surname: 'CodeSpace', category: 'COSMO', contractType: 'Junior_Doctor_Overtime', dateFrom: '2026-08-11', dateTo: '2026-08-11' }]],
+      ['2026-08-11', [{ profileId: 'p9', surname: 'CodeSpace', category: 'Intern', contractType: 'Junior_Doctor_Overtime', dateFrom: '2026-08-11', dateTo: '2026-08-11' }]],
     ])
     const entries = entriesInRange('2026-08-11', '2026-08-11', { approvedByDate: otApproved, pendingByDate: new Map() })
     expect(entries[0].contractType).toBe('Junior_Doctor_Overtime')

@@ -11,17 +11,13 @@ describe('columnForLeaveCategory', () => {
     expect(columnForLeaveCategory('Registrar')).toBe('Registrar')
   })
 
-  it('collapses EC COSMO variants into one column', () => {
-    expect(columnForLeaveCategory('COSMO')).toBe('EC_Intern')
+  it('collapses every EC junior value into one column', () => {
     expect(columnForLeaveCategory('EC_Intern')).toBe('EC_Intern')
-    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('EC_Intern')
     expect(columnForLeaveCategory('Intern')).toBe('EC_Intern')
   })
 
-  it('collapses OT COSMO variants into one column', () => {
-    expect(columnForLeaveCategory('COSMOPsych')).toBe('OT_Intern')
+  it('collapses every OT junior value into one column', () => {
     expect(columnForLeaveCategory('OT_Intern')).toBe('OT_Intern')
-    expect(columnForLeaveCategory('OT_COSMO_Intern')).toBe('OT_Intern')
   })
 
   it('buckets Consultant into Other', () => {
@@ -37,8 +33,6 @@ describe('columnForLeaveCategory', () => {
 describe('labelForLeaveCategory', () => {
   it('returns the friendly column label for a raw category', () => {
     expect(labelForLeaveCategory('MO')).toBe('MO')
-    expect(labelForLeaveCategory('EC_COSMO_Intern')).toBe('EC Intern')
-    expect(labelForLeaveCategory('COSMOPsych')).toBe('OT Intern')
     expect(labelForLeaveCategory('Consultant')).toBe('Consultant')
   })
 
@@ -208,7 +202,7 @@ describe('findFullTimeAggregateBreach', () => {
     expect(result.hasBreach).toBe(false)
   })
 
-  it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
+  it('ignores OT Intern — not part of the full-time aggregate', () => {
     const existingCountsByDate = new Map([
       ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_Intern', 1]])],
     ])

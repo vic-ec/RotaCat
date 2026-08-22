@@ -17,7 +17,7 @@ afterEach(() => vi.useRealTimers())
 const DOCTORS = [
   { id: 'intern-1', name: 'Ivy', surname: 'Intern', category: 'Intern', color_code: '#111111' },
   { id: 'registrar-1', name: 'Rae', surname: 'Registrar', category: 'Registrar', color_code: '#222222' },
-  { id: 'cosmo-1', name: 'Cara', surname: 'Cosmo', category: 'COSMO', color_code: '#333333' },
+  { id: 'intern-2', name: 'Cara', surname: 'Cloete', category: 'Intern', color_code: '#333333' },
 ]
 const displayNames = buildDoctorDisplayNames(DOCTORS)
 
@@ -48,13 +48,12 @@ function renderMatrix(overrides = {}) {
 }
 
 describe('InternRotationsMatrix', () => {
-  it('renders month headers and groups rows by category (Intern / Registrar / COSMO)', () => {
+  it('renders month headers and groups rows by category (Intern / Registrar)', () => {
     renderMatrix()
     expect(screen.getByText('Jan')).toBeInTheDocument()
     expect(screen.getByText('Dec')).toBeInTheDocument()
     expect(screen.getAllByText(/Intern/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Registrar/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/COSMO/).length).toBeGreaterThan(0)
     // Row labels use the disambiguated display name as their title, even
     // though the visible text truncates to the surname
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
@@ -174,14 +173,16 @@ describe('InternRotationsMatrix', () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
-    const cosmoHeading = screen.getByRole('button', { name: /COSMO/ })
-    await user.click(within(cosmoHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    // First group in CATEGORY_GROUP_ORDER is Intern — targeted by its own
+    // "+ Add doctor" rather than by the group heading, whose /Intern/ name
+    // also matches the Intern-surnamed doctor rows below it.
+    await user.click(screen.getAllByRole('button', { name: '+ Add doctor' })[0])
     const picker = screen.getByText(/Assign doctor/).closest('div').parentElement
-    await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
+    await user.click(within(picker).getByRole('button', { name: /Cloete/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({
-      doctorId: 'cosmo-1', rotationType: 'EC', subtype: null, startDate: '2027-06-15', endDate: null, createdBy: 'admin-1',
+      doctorId: 'intern-2', rotationType: 'EC', subtype: null, startDate: '2027-06-15', endDate: null, createdBy: 'admin-1',
     }))
-    expect(onSelectDoctor).toHaveBeenCalledWith('cosmo-1')
+    expect(onSelectDoctor).toHaveBeenCalledWith('intern-2')
   })
 
   it('Today is hidden while already browsing the current year', () => {

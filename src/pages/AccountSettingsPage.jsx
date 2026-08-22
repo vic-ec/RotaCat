@@ -36,8 +36,6 @@ const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ valu
 const CATEGORY_LABELS = {
   MO:         'Medical Officer',
   Registrar:  'Registrar',
-  COSMO:      'COSMO',
-  COSMOPsych: 'COSMO (Psych)',
   Intern:     'Intern',
   Consultant: 'Consultant',
 }
@@ -1866,7 +1864,7 @@ export default function AccountSettingsPage() {
         )}
           </SectionRow>
 
-          {/* ── See Rotations (admin only, Intern/Registrar/COSMO only) ──
+          {/* ── See Rotations (admin only, Intern/Registrar only) ──
               Not a SectionRow (nothing expands inline) — a plain
               navigational row to the Rotations planner, landing straight on
               this doctor's card there. Same category set the Rotations page
@@ -1876,7 +1874,7 @@ export default function AccountSettingsPage() {
               Trailing icon uses the exact same wrapper (flex-shrink-0
               rounded p-1) as SectionRow's own chevron above, so it lines up
               in the same right-hand column despite not being one. */}
-          {isAdmin && ['Intern', 'Registrar', 'COSMO'].includes(profile.category) && (
+          {isAdmin && ['Intern', 'Registrar'].includes(profile.category) && (
             <button
               type="button"
               onClick={() => navigate(`/leave?tab=planners&sub=interns&doctor=${profile.id}`)}

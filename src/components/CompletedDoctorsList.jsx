@@ -4,7 +4,7 @@ import { todayStr } from '../lib/dateRange'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 
-// Completed tab of the Rotations page — Intern/Registrar/COSMO doctors
+// Completed tab of the Rotations page — Intern/Registrar doctors
 // who are inactive with no start already scheduled (as opposed to the
 // Upcoming tab's inactive-but-scheduled doctors). "Reactivate" defaults
 // to today: a today-or-earlier date reactivates immediately (the caller

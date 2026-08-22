@@ -28,8 +28,8 @@ vi.mock('./WeekendPlannerChangeLogModal', () => ({
 const PROFILES = [
   { id: 'p1', name: 'Alice', surname: 'Anderson', category: 'MO' },
   { id: 'p2', name: 'Bob', surname: 'Botha', category: 'Registrar' },
-  { id: 'p3', name: 'Carol', surname: 'Cosmo', category: 'COSMO' },
-  { id: 'p4', name: 'Dan', surname: 'Della', category: 'COSMOPsych' },
+  { id: 'p3', name: 'Carol', surname: 'Cloete', category: 'Intern' },
+  { id: 'p4', name: 'Dan', surname: 'Della', category: 'OT_Intern' },
   // A second Registrar, unrostered anywhere in ENTRIES — exists purely so
   // the multi-select add-sheet test has two real candidates for one
   // category to select together.
@@ -43,8 +43,8 @@ const ENTRIES = [
   { id: 'e1', weekend_saturday: '2026-08-01', profile_id: 'p1', category: 'MO' },
   { id: 'e2', weekend_saturday: '2026-08-08', profile_id: 'p1', category: 'MO' },
   { id: 'e3', weekend_saturday: '2026-08-08', profile_id: 'p2', category: 'Registrar' },
-  { id: 'e4', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'COSMO' },
-  { id: 'e5', weekend_saturday: '2026-08-08', profile_id: 'p4', category: 'COSMOPsych' },
+  { id: 'e4', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'EC_Intern' },
+  { id: 'e5', weekend_saturday: '2026-08-08', profile_id: 'p4', category: 'OT_Intern' },
 ]
 
 // p1 has a pending weekend-exception request for 2026-08-22 — a weekend
@@ -591,7 +591,7 @@ describe('WeekendPlannerView', () => {
       expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
     })
 
-    it('doctor picker sheet flags an unresolved Intern/COSMO doctor (no covering rotation record) rather than guessing', async () => {
+    it('doctor picker sheet flags an unresolved Intern (no covering rotation record) rather than guessing', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -600,8 +600,8 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
       const aug15Card = (await view.findByText('Sat 15 - Sun 16 Aug 2026')).closest('.card')
 
-      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[2]) // EC Intern (COSMO group) row
-      const carolCheckbox = await screen.findByRole('checkbox', { name: /Carol Cosmo/ })
+      await user.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[2]) // EC Intern row
+      const carolCheckbox = await screen.findByRole('checkbox', { name: /Carol Cloete/ })
       expect(within(carolCheckbox.closest('label')).getByText('Needs rotation record')).toBeInTheDocument()
     })
 
@@ -628,7 +628,7 @@ describe('WeekendPlannerView', () => {
       expect(within(sheet).getByText('4 of 4 groups planned')).toBeInTheDocument()
       expect(within(sheet).getByText('Anderson')).toBeInTheDocument()
       expect(within(sheet).getByText('Botha')).toBeInTheDocument()
-      expect(within(sheet).getByText('Cosmo')).toBeInTheDocument()
+      expect(within(sheet).getByText('Cloete')).toBeInTheDocument()
       expect(within(sheet).getByText('Della')).toBeInTheDocument()
       // Read-only even for an admin — no remove (x) controls in the sheet,
       // unlike the card's own always-editable inline breakdown below it.
@@ -730,7 +730,7 @@ describe('WeekendPlannerView', () => {
       expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
       expect(within(inspector).getByText('3 roles open')).toBeInTheDocument()
       expect(within(inspector).getByText('Anderson')).toBeInTheDocument() // MO filled
-      expect(within(inspector).getAllByText('Open')).toHaveLength(3) // Registrar/COSMO/COSMOPsych open
+      expect(within(inspector).getAllByText('Open')).toHaveLength(3) // Registrar/EC Intern/OT Intern open
       // View mode has no inline edit controls
       expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
     })
@@ -1075,7 +1075,7 @@ describe('WeekendPlannerView', () => {
       const sep5Row = within(view.getByRole('table')).getByText('Sat 5 - Sun 6 Sept 2026').closest('tr')
       expect(within(sep5Row).getByText('Anderson')).toBeInTheDocument()
       expect(within(sep5Row).getByText('Botha')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Cosmo')).toBeInTheDocument()
+      expect(within(sep5Row).getByText('Cloete')).toBeInTheDocument()
       expect(within(sep5Row).getByText('Della')).toBeInTheDocument()
 
       const sep12Row = within(view.getByRole('table')).getByText('Sat 12 - Sun 13 Sept 2026').closest('tr')
@@ -1090,7 +1090,7 @@ describe('WeekendPlannerView', () => {
       // (same profile, counted as "already assigned"), and its Registrar
       // entry is silently skipped too (that group is already filled on
       // Sept 5 — the normal, uncounted fill-empty behaviour) — leaving
-      // just COSMO and COSMOPsych to insert on Sept 5. August 1's single
+      // just EC Intern and OT Intern to insert on Sept 5. August 1's single
       // MO/p1 entry lands cleanly on Sept 12 (nothing pre-existing there).
       mockResponses['weekend_planner_entries:select'] = {
         data: [...ENTRIES, { id: 'e6', weekend_saturday: '2026-09-05', profile_id: 'p1', category: 'Registrar' }],

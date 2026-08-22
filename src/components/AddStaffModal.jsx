@@ -72,7 +72,7 @@ export default function AddStaffModal({ onClose, onCreated }) {
   const showsRotation = role === 'doctor' && ROTATION_PLANNED_CATEGORIES.has(category)
 
   // The rotation block's EC/OT type is derived, never asked for separately:
-  // for COSMO/Intern it is the Hours choice above restated (the same
+  // for Intern it is the Hours choice above restated (the same
   // contract_type → rotation_type mapping applyHoursChange uses), and a
   // Registrar's rotation is EC-only. A second, independently-set dropdown
   // here would let an admin save a doctor whose contract says OT and whose

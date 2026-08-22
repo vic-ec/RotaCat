@@ -6,8 +6,6 @@ import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 const CATEGORY_LABELS = {
   MO:         'MO',
   Registrar:  'Registrar',
-  COSMO:      'COSMO',
-  COSMOPsych: 'COSMO (Psych)',
   Intern:     'Intern',
   Consultant: 'Consultant',
   Locum:      'Locum',

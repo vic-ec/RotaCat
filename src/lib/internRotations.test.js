@@ -12,7 +12,7 @@ describe('resolveLeaveCapacityColumn', () => {
   it('is a pure pass-through to columnForLeaveCategory for every non-Intern category', () => {
     expect(resolveLeaveCapacityColumn({ category: 'MO', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('MO')
     expect(resolveLeaveCapacityColumn({ category: 'Registrar', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('Registrar')
-    expect(resolveLeaveCapacityColumn({ category: 'COSMO', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
+    expect(resolveLeaveCapacityColumn({ category: 'EC_Intern', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('EC_Intern')
     expect(resolveLeaveCapacityColumn({ category: 'Consultant', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBe('Other')
     expect(resolveLeaveCapacityColumn({ category: 'Locum', profileId: 'p1', date: '2027-01-15', rotationsByDoctorId })).toBeNull()
   })
@@ -122,8 +122,8 @@ describe('endOfRotationFlag', () => {
     expect(endOfRotationFlag({ category: 'Registrar', rotations: [ENDED_ROTATION] }, '2027-06-15')).toEqual(ENDED_ROTATION)
   })
 
-  it('does not flag COSMO — an OT/subtype change is a move within EC, not an exit', () => {
-    expect(endOfRotationFlag({ category: 'COSMO', rotations: [ENDED_ROTATION] }, '2027-06-15')).toBeNull()
+  it('does not flag MO — only Intern and Registrar placements end on a date', () => {
+    expect(endOfRotationFlag({ category: 'MO', rotations: [ENDED_ROTATION] }, '2027-06-15')).toBeNull()
   })
 
   it('does not flag before the 1st of the ending month', () => {

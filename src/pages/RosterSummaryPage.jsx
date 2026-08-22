@@ -18,7 +18,7 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // group (only categories actually present among this month's rows show up
 // as options) and each row's own category label text.
 // Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
-const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
+const CATEGORY_ORDER = ['MO', 'Registrar', 'EC_Intern', 'OT_Intern', 'Intern', 'Locum']
 
 const WEEKDAY_COLUMNS = [{ code: 'WD_08', label: '08h00' }, { code: 'WD_12', label: '12h00' }, { code: 'WD_15', label: '15h00' }, { code: 'WD_22', label: '22h00' }]
 const WEEKEND_COLUMNS = [{ code: 'WE_08', label: '08h00' }, { code: 'WE_13', label: '13h00' }, { code: 'WE_20', label: '20h00' }]
@@ -32,15 +32,15 @@ const CONTRACT_TYPE_ORDER = ['full', 'five_eighths', 'Junior_Doctor_Overtime']
 const CONTRACT_TYPE_LABEL = { full: 'Full-time', five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }
 
 // Sort's fixed category priority: MO, then Registrar, then every Intern-type
-// category (EC before OT within that group) — everything else (COSMO,
-// COSMOPsych, Locum) sorts after, in whatever order the rows already came
+// category (EC before OT within that group) — everything else (an
+// unresolved Intern, Locum) sorts after, in whatever order the rows came
 // in (stable sort). Returns [primaryRank, secondaryRank]; 'desc' just
 // reverses the comparator's sign rather than needing its own rank table.
 function categorySortRank(category) {
   if (category === 'MO') return [0, 0]
   if (category === 'Registrar') return [1, 0]
-  if (category === 'EC_Intern' || category === 'EC_COSMO_Intern') return [2, 0]
-  if (category === 'OT_Intern' || category === 'OT_COSMO_Intern') return [2, 1]
+  if (category === 'EC_Intern') return [2, 0]
+  if (category === 'OT_Intern') return [2, 1]
   if (category === 'Intern') return [2, 2]
   return [3, 0]
 }

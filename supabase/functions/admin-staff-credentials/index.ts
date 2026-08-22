@@ -161,8 +161,9 @@ async function handleCreate(
   if (!CONTRACT_TYPES.includes(contractType)) throw new ValidationError('Unrecognised contract type.')
 
   // Same role/category rule the approval flow applies (see approveOne in
-  // StaffListPage.jsx): a clerk has no doctor category at all, and a locum
-  // only carries one when it is MO or Registrar.
+  // StaffListPage.jsx), and the same one the profiles category_role_rules
+  // CHECK constraint enforces: a clerk has no doctor category at all, and a
+  // locum only carries one when it is MO or Registrar.
   const category =
     role === 'doctor' ? (rawCategory || null) :
     role === 'locum'  ? (['MO', 'Registrar'].includes(rawCategory) ? rawCategory : null) :
@@ -181,7 +182,7 @@ async function handleCreate(
   let rotation: { rotationType: string; subtype: string | null; startDate: string; endDate: string | null } | null = null
   if (rotationInput && trimmed(rotationInput.startDate)) {
     if (!category || !ROTATION_CATEGORIES.includes(category)) {
-      throw new ValidationError('Only Intern, Registrar and COSMO accounts can start with a rotation.')
+      throw new ValidationError('Only Intern and Registrar accounts can start with a rotation.')
     }
     const rotationType = trimmed(rotationInput.rotationType) || 'EC'
     if (!['EC', 'OT'].includes(rotationType)) throw new ValidationError('Rotation type must be EC or OT.')

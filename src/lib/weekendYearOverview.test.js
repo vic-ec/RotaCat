@@ -4,7 +4,7 @@ import { saturdaysInMonth } from './weekendPlanner'
 
 const FULL = {
   MO: [{ profile_id: 'p1' }], Registrar: [{ profile_id: 'p2' }],
-  COSMO: [{ profile_id: 'p3' }], COSMOPsych: [{ profile_id: 'p4' }],
+  EC_Intern: [{ profile_id: 'p3' }], OT_Intern: [{ profile_id: 'p4' }],
 }
 const PARTIAL = { MO: [{ profile_id: 'p1' }] }
 

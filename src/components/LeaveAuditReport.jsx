@@ -44,7 +44,7 @@ function BucketCell({ bucket }) {
 // date range (unlike the doctor-facing "My leave" tracker, which always
 // resets to the current calendar year — leave_requests rows themselves are
 // never deleted or reset, this just aggregates them differently). Filterable
-// by category (the same MO/Registrar/EC COSMO+Intern/OT COSMO+Intern/
+// by category (the same MO/Registrar/EC Intern/OT Intern/
 // Consultant grouping the Annual Leave planner uses), doctor, active/inactive
 // status, and leave type — all behind one Filter button (FilterPanel, same
 // multi-select grouped-facet pattern as the Staff list) rather than four

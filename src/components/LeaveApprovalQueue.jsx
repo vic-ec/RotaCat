@@ -23,8 +23,6 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 const CATEGORY_LABELS = {
   MO:         'Medical Officer',
   Registrar:  'Registrar',
-  COSMO:      'COSMO',
-  COSMOPsych: 'COSMO (Psych)',
   Intern:     'Intern',
   Consultant: 'Consultant',
   Locum:      'Locum',

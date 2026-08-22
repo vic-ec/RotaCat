@@ -25,9 +25,9 @@ const PROGRESS_MESSAGES = [
 // Categories the solver actually schedules — Consultants and Locums
 // are never auto-scheduled so we exclude them from the selection panel
 const SCHEDULABLE_CATEGORIES = [
-  'MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern',
+  'MO', 'Registrar', 'Intern',
   // Future values included so they work automatically when activated
-  'EC_Intern', 'EC_COSMO_Intern', 'OT_Intern', 'OT_COSMO_Intern',
+  'EC_Intern', 'OT_Intern',
 ]
 
 export default function GenerationConfigPage() {

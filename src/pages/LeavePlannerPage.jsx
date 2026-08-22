@@ -145,7 +145,7 @@ export default function LeavePlannerPage() {
   const plannerTabs = [
     ...(canViewYearPlanners ? [{ key: 'annual', label: 'Annual' }, { key: 'special', label: 'Special' }] : []),
     { key: 'weekends', label: 'Weekends' },
-    // Admin-only rotation-block management — covers Intern/Registrar/COSMO
+    // Admin-only rotation-block management — covers Intern/Registrar
     // (see InternRotationsPlanner's Matrix view). Labelled "Rotations" now
     // that Registrars share this page too; key stays 'interns' to avoid
     // touching the underlying table/component/lib naming for a label-only

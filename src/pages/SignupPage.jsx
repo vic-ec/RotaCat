@@ -30,11 +30,11 @@ const ROLE_OPTIONS = [
   },
 ]
 
-// Category options shown only when role = 'doctor'. COSMO deliberately
-// excluded here (2026-08) — Intern is the one choice offered at signup for
-// junior doctors now; COSMO still exists as a category (kept for possible
-// future reuse) but is admin-assigned only, via Staff List / pending
-// review, not self-selected at registration.
+// Category options shown only when role = 'doctor'. Intern is the single
+// choice for junior doctors — an intern signs up as an intern, and whether
+// they're EC or OT comes from their rotation block, not from picking a
+// different category here (see resolveEffectiveCategory in
+// weekendPlanner.js).
 const CATEGORY_OPTIONS = [
   { value: 'MO',         label: 'Medical Officer' },
   { value: 'Registrar',  label: 'Registrar' },

@@ -17,7 +17,7 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ]
 
-// Admin-only rotation-block management for COSMO/Intern/Registrar doctors.
+// Admin-only rotation-block management for Intern/Registrar doctors.
 // Matrix is the only view (the old Table view's one remaining job, adding
 // a new doctor, is covered by the Matrix's own "+ Add doctor" flow) — see
 // InternRotationsMatrix.jsx for the row-per-doctor/column-per-month
@@ -53,9 +53,9 @@ export default function InternRotationsPlanner() {
     setLoading(true)
     setError('')
     const [profilesRes, rotationsData] = await Promise.all([
-      // COSMO/Intern/Registrar -- the OT/72h band (and its LRCHC/DPM-BCH/
-      // Psych subtypes) is shared between COSMO and Intern, and real
-      // rotation rows already exist for COSMO doctors; Registrars share
+      // Intern/Registrar -- interns carry the OT/72h band (and its
+      // LRCHC/DPM-BCH/Psych subtypes) or the EC full-hours band depending
+      // on the block they're in; Registrars share
       // this same rotation timeline but are always EC-only (see
       // rotationTypeOptionsForCategory). scheduled_inactive_date feeds the
       // end-of-rotation queue below (EndOfRotationQueue) — a doctor with
@@ -63,7 +63,7 @@ export default function InternRotationsPlanner() {
       // split doctors across the Active/Upcoming/Completed tabs below.
       supabase.from('profiles')
         .select('id, name, surname, color_code, category, is_active, scheduled_inactive_date, scheduled_active_date')
-        .in('category', ['COSMO', 'Intern', 'Registrar']),
+        .in('category', ['Intern', 'Registrar']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -181,7 +181,7 @@ export default function InternRotationsPlanner() {
 
   return (
     <div>
-      <h2 className="font-display text-lg font-semibold text-ink">Intern, COSMO, &amp; Registrar Rotations</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">Intern &amp; Registrar Rotations</h2>
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}

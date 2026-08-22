@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-// Upcoming tab of the Rotations page — Intern/Registrar/COSMO doctors
+// Upcoming tab of the Rotations page — Intern/Registrar doctors
 // with a future start already scheduled (profiles.scheduled_active_date;
 // see PendingApprovalReviewPage's "Active from" field, and
 // CompletedDoctorsList's own reactivate-with-a-future-date path, both of

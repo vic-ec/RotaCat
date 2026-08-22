@@ -16,9 +16,9 @@ describe('LeaveCapacityBanner', () => {
   })
 
   it('personalised, full: taken meets max shows zero slots available', () => {
-    render(<LeaveCapacityBanner mySlots={{ taken: 1, max: 1 }} columnLabel="OT COSMO / Intern" />)
+    render(<LeaveCapacityBanner mySlots={{ taken: 1, max: 1 }} columnLabel="OT Intern" />)
     expect(screen.getByText('1 of 1 slot taken')).toBeInTheDocument()
-    expect(screen.getByText('0 leave slots available for OT COSMO / Intern')).toBeInTheDocument()
+    expect(screen.getByText('0 leave slots available for OT Intern')).toBeInTheDocument()
   })
 
   it('pooled: names the shared full-time pool instead of implying this column has its own quota', () => {

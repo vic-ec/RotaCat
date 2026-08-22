@@ -238,8 +238,8 @@ describe('MonthWorkspace', () => {
         ['2026-08-16', [
           { profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
           { profileId: 'p2', surname: 'Botha', category: 'Registrar', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
-          { profileId: 'p3', surname: 'Cronje', category: 'COSMO', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
-          { profileId: 'p4', surname: 'Davis', category: 'COSMOPsych', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+          { profileId: 'p3', surname: 'Cronje', category: 'Intern', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
+          { profileId: 'p4', surname: 'Davis', category: 'OT_Intern', status: 'approved', dateFrom: '2026-08-16', dateTo: '2026-08-16' },
         ]],
       ]),
       pendingByDate: new Map(),
@@ -317,7 +317,7 @@ describe('MonthWorkspace', () => {
   it('shows a "Full" verdict banner once the combined cap is reached, with no per-category counts anywhere', async () => {
     const user = userEvent.setup()
     // 2 MO + 1 Registrar = 3, exactly the combined ceiling (full-time cap 2 +
-    // OT COSMO/Intern cap 1) — no more of ANY category can go on leave that
+    // OT Intern cap 1) — no more of ANY category can go on leave that
     // day even though e.g. MO's own cap (2) isn't full.
     const countByColumnPerDate = new Map([
       ['2026-08-12', new Map([['MO', 2], ['Registrar', 1]])],

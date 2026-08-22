@@ -2,23 +2,23 @@
 //
 // These were previously redeclared in StaffListPage.jsx,
 // GenerationConfigPage.jsx, RosterSummaryPage.jsx and AppLayout.jsx, and had
-// drifted apart — the *_COSMO_Intern values in particular were collapsed onto
-// the plain EC/OT Intern labels on two pages and spelled out in full on a
-// third. The distinct spelling wins here: collapsing them loses the COSMO
-// distinction, which is real (a COSMO on an EC rotation is not an EC intern).
+// drifted apart.
+//
+// Two kinds of value live in this enum and both need a label. MO,
+// Registrar, Intern, Consultant and Locum are IDENTITIES — what a person
+// is, as stored on their profiles row. EC_Intern and OT_Intern are
+// RESOLVED categories — what an Intern works out to on a given date, once
+// contract_type and their intern_rotations block are known — and appear on
+// weekend_planner rows rather than on people.
 export const CATEGORY_LABELS = {
-  MO:              'Medical Officer',
-  Registrar:       'Registrar',
-  COSMO:           'COSMO',
-  COSMOPsych:      'COSMO (Psych)',
-  Intern:          'Intern',
-  Consultant:      'Consultant',
-  Locum:           'Locum',
-  // Future values (dormant until Jan 2027)
-  EC_Intern:       'EC Intern',
-  EC_COSMO_Intern: 'EC COSMO Intern',
-  OT_Intern:       'OT Intern',
-  OT_COSMO_Intern: 'OT COSMO Intern',
+  MO:         'Medical Officer',
+  Registrar:  'Registrar',
+  Intern:     'Intern',
+  Consultant: 'Consultant',
+  Locum:      'Locum',
+  // Resolved-only (never assigned to a person)
+  EC_Intern:  'EC Intern',
+  OT_Intern:  'OT Intern',
 }
 
 // Convenience for the common `LABELS[key] || key` fallback.

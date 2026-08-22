@@ -7,16 +7,25 @@ import { AMBIGUOUS_CATEGORIES } from './staffDefaults'
 
 // Column groupings for the planner grid. The scheduler backend's real
 // junior-doctor split is EC (full hours) vs OT (Junior Doctor Overtime
-// hours, contract_type-driven) — COSMOPsych, EC_Intern/OT_Intern, and
-// EC_COSMO_Intern/OT_COSMO_Intern are all still-recognised legacy/dormant
-// category values grouped down to match those same two buckets; MO/
-// Registrar are unambiguous on their own. Consultant/Locum never appear
-// (not part of weekend rotation).
+// hours, contract_type-driven), which is exactly what the EC_Intern and
+// OT_Intern categories mean; MO/Registrar are unambiguous on their own.
+// Consultant/Locum never appear (not part of weekend rotation).
+//
+// 'Intern' sits in the EC column as a fallback only — a doctor whose
+// rotation hasn't been captured yet resolves to their plain base category
+// (see resolveEffectiveCategory below), and the grid still has to put them
+// somewhere rather than dropping them off it.
+//
+// These keys are derived fresh from this list on every render and never
+// persisted — the Weekend Planner change log filters by group key but
+// expands it back to `categories` before querying (see
+// queryWeekendPlannerChanges in changeLog.js), so historical rows keep
+// matching.
 export const CATEGORY_GROUPS = [
   { key: 'MO', label: 'MO', categories: ['MO'] },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'] },
-  { key: 'COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'] },
-  { key: 'COSMOPsych', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'] },
+  { key: 'EC_Intern', label: 'EC Intern', categories: ['EC_Intern', 'Intern'] },
+  { key: 'OT_Intern', label: 'OT Intern', categories: ['OT_Intern'] },
 ]
 
 const GROUP_BY_CATEGORY = new Map(
@@ -37,19 +46,17 @@ const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
 
 // The effective category for a DOCTOR (a profiles row, not a raw
 // weekend_planner_entries row) — for most categories this is just
-// doctor.category unchanged, but for COSMO/Intern specifically it resolves
-// through contract_type first. Two uses: (1) filtering the assignment
-// dropdown by group (groupForCategory(resolvedCategoryForDoctor(d))), and
-// (2) the value actually WRITTEN onto a new weekend_planner_entries row —
-// entries are grouped by their own category, which can be a deliberate
-// override (see groupEntriesByWeekend below), so writing 'COSMOPsych' for
-// an OT-hours doctor here doesn't have to literally match their live
-// profile category; it just has to land in the right bucket, and doing it
-// this way means groupForCategory keeps working unmodified on every
-// existing/historical entry.
+// doctor.category unchanged, but for an Intern it resolves through
+// contract_type first. Two uses: (1) filtering the assignment dropdown by
+// group (groupForCategory(resolvedCategoryForDoctor(d))), and (2) the
+// value actually WRITTEN onto a new weekend_planner_entries row — entries
+// are grouped by their own category, which can be a deliberate override
+// (see groupEntriesByWeekend below), so the value written here doesn't
+// have to literally match the doctor's live profile category; it just has
+// to land in the right bucket.
 export function resolvedCategoryForDoctor(doctor) {
   if (AMBIGUOUS_CATEGORIES.has(doctor?.category)) {
-    return OT_HOURS_CONTRACT_TYPES.has(doctor?.contract_type) ? 'COSMOPsych' : 'COSMO'
+    return OT_HOURS_CONTRACT_TYPES.has(doctor?.contract_type) ? 'OT_Intern' : 'EC_Intern'
   }
   return doctor?.category ?? null
 }
@@ -59,7 +66,7 @@ export function resolvedCategoryForDoctor(doctor) {
 // replacement for resolvedCategoryForDoctor wherever a SPECIFIC weekend's
 // date matters. resolvedCategoryForDoctor answers "what is this doctor
 // right now" (a contract_type snapshot); this answers "what were they on
-// the Saturday being planned," which can differ once an Intern/COSMO
+// the Saturday being planned," which can differ once an Intern
 // doctor's EC/OT rotation timeline is in play — e.g. planning a weekend
 // before their next rotation block starts, or auditing one after a swap.
 //
@@ -76,8 +83,7 @@ export function resolvedCategoryForDoctor(doctor) {
 // call per doctor per picker open.
 //
 // Returns { category, resolved }: resolved=false means the base category
-// IS ambiguous (Intern/COSMO) but no intern_rotations row covers
-// targetDate — category still falls back to the plain base value (same as
+// IS ambiguous (Intern) but no intern_rotations row covers targetDate — category still falls back to the plain base value (same as
 // the DB function), but callers should surface that distinctly (e.g. a
 // "needs a rotation record" indicator), not treat it as a confident
 // resolution. Every other category passes through unchanged with
@@ -93,9 +99,7 @@ export function resolveEffectiveCategory({ category, profileId, targetDate, rota
   if (covering.length === 0) return { category, resolved: false }
 
   const rotationType = covering[0].rotation_type
-  const byRotationType = category === 'Intern'
-    ? { EC: 'EC_Intern', OT: 'OT_Intern' }
-    : { EC: 'EC_COSMO_Intern', OT: 'OT_COSMO_Intern' } // category === 'COSMO'
+  const byRotationType = { EC: 'EC_Intern', OT: 'OT_Intern' }
   return { category: byRotationType[rotationType] ?? category, resolved: true }
 }
 
@@ -160,7 +164,7 @@ export function formatWeekendRange(saturday) {
 }
 
 // Coverage of one weekend's category groups: how many of the 4 rotation
-// groups (MO/Registrar/EC COSMO+Intern/OT COSMO+Intern) have at least one
+// groups (MO/Registrar/EC Intern/OT Intern) have at least one
 // person assigned, and which ones are still open. bySaturdayEntries is the
 // { [groupKey]: [entry, ...] } shape from groupEntriesByWeekend.get(saturday).
 export function weekendCoverageSummary(bySaturdayEntries) {
@@ -274,7 +278,7 @@ export function overlapsPlannedWeekend(entries, dateFrom, dateTo) {
 // { [saturday]: { [groupKey]: [entry, ...] } } for the grid to render.
 // Entries are grouped by their OWN category (not the doctor's profile
 // category) since an entry can be a deliberate override (e.g. a
-// Registrar covering a COSMO slot) — see the column comment on
+// Registrar covering an EC Intern slot) — see the column comment on
 // weekend_planner_entries.category in the migration.
 export function groupEntriesByWeekend(entries) {
   const byWeekend = new Map()

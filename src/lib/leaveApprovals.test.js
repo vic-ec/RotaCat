@@ -26,7 +26,7 @@ describe('findSupervisionBreaches', () => {
 
   it('never flags for a category that does not count toward supervision', () => {
     const breaches = findSupervisionBreaches({
-      profileCategory: 'COSMO',
+      profileCategory: 'Intern',
       minSupervision: 1,
       assignedSupervisionShifts: [
         { date: '2026-08-10', shiftTypeId: 'wd08', remainingSupervisors: 0 },

@@ -246,7 +246,7 @@ describe('findWorstAnnualCapacitySlot', () => {
     expect(result).toEqual({ date: '2026-08-11', taken: 2, max: 2, atCapacity: true, pooled: true })
   })
 
-  it('reads OT COSMO/Intern from its own independent column, not the full-time pool', () => {
+  it('reads OT Intern from its own independent column, not the full-time pool', () => {
     const countByColumnPerDateMap = new Map([
       ['2026-08-10', new Map([['MO', 2], ['Registrar', 1]])], // full-time pool full, OT untouched
     ])

@@ -111,7 +111,7 @@ export const WEEKEND_ACTION_OPTIONS = [
 
 // Same grouping the Weekend Planner grid itself uses (see CATEGORY_GROUPS
 // in lib/weekendPlanner.js) — filtering by the grid's own columns rather
-// than the raw staff_category enum, so "EC COSMO / Intern" matches every
+// than the raw staff_category enum, so "EC Intern" matches every
 // underlying category that group actually covers.
 export const WEEKEND_CATEGORY_FILTER_OPTIONS = [
   { value: '', label: 'All categories' },
@@ -142,9 +142,10 @@ export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, d
 }
 
 // Builds a filtered, server-side query against weekend_planner_changes.
-// categoryGroup is one of CATEGORY_GROUPS' keys (MO/Registrar/COSMO/
-// COSMOPsych) — matched against every underlying staff_category value that
-// group covers, not just the literal enum value.
+// categoryGroup is one of CATEGORY_GROUPS' keys (MO/Registrar/EC_Intern/
+// OT_Intern) — matched against every underlying staff_category value that
+// group covers, not just the literal enum value. That expansion is what
+// keeps pre-2026-08 rows matching after the COSMO values were retired.
 export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, categoryGroup, limit = 300 }) {
   let query = supabase.from('weekend_planner_changes').select('*')
   if (dateFrom) query = query.gte('weekend_saturday', dateFrom)

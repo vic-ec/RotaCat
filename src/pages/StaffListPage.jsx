@@ -57,11 +57,10 @@ function formatRequestValue(value, requestType) {
 const PERMISSION_LABELS = { admin: 'Admin', super_admin: 'Super-admin' }
 
 // five_eighths and Junior Doctor Overtime (formerly psych_overtime) both
-// get a tag — full shows nothing extra. The OT tag matters more than it
-// used to: COSMOPsych retiring as a category (2026-08) means a COSMO/
-// Intern's category no longer shows EC vs OT at a glance the way it did
-// when COSMOPsych was its own category — this tag is now the only
-// per-row indicator of that distinction in this list.
+// get a tag — full shows nothing extra. The OT tag carries real weight
+// here: an intern's category reads "Intern" whether they're EC or OT, so
+// this tag is the only per-row indicator of that distinction in this
+// list.
 const CONTRACT_TAG_LABEL = { five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }
 const CONTRACT_TAG_TITLE = { five_eighths: 'Part-time (⅝ contract)', Junior_Doctor_Overtime: 'Junior Doctor Overtime' }
 
@@ -80,7 +79,7 @@ const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 
 // ── Sort/group ───────────────────────────
-const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
+const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'Intern', 'Locum', 'Clerk']
 const ROLE_GROUP_ORDER = ['doctor', 'locum', 'clerk']
 
 function categoryGroupKey(person) {
@@ -1183,7 +1182,7 @@ export default function StaffListPage() {
                               {person.name ? `${person.name} ` : ''}{person.surname}
                             </span>
                             {/* line-clamp-2, not truncate: a long category
-                                combo (e.g. "COSMO (Psych)") wraps to a
+                                combo (e.g. "OT Intern") wraps to a
                                 second line instead of silently cutting
                                 off. */}
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">

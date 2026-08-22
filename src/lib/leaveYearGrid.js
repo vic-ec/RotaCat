@@ -22,14 +22,17 @@ const MONTH_LABELS = [
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
-  { key: 'EC_Intern', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
-  { key: 'OT_Intern', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
+  { key: 'EC_Intern', label: 'EC Intern', categories: ['EC_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
+  { key: 'OT_Intern', label: 'OT Intern', categories: ['OT_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
 ]
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }
 
-// Anything outside AMBIGUOUS_CATEGORIES resolves through the static
-// COLUMN_BY_CATEGORY map unchanged, same as before 2026-08.
+// Anything outside AMBIGUOUS_CATEGORIES (i.e. anything but a plain Intern)
+// resolves through the static COLUMN_BY_CATEGORY map unchanged. 'Intern'
+// appears in the EC column's own categories list as the safe fallback for
+// an intern with no contract_type to read — columnForLeaveCategory below
+// short-circuits before consulting the map for them.
 const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
 
 const COLUMN_BY_CATEGORY = new Map(
@@ -38,10 +41,10 @@ const COLUMN_BY_CATEGORY = new Map(
 
 // Returns the planner column key for a staff_category, or null if it
 // shouldn't appear on the grid at all (Locum, or an unrecognised value).
-// `contractType` is required for COSMO/Intern specifically — see
-// AMBIGUOUS_CATEGORIES above — since category alone no longer determines
-// EC vs OT for those two. Every other category (including the legacy OT/
-// EC-specific values) ignores contractType entirely.
+// `contractType` is required for Intern specifically — see
+// AMBIGUOUS_CATEGORIES above — since that's the one category that doesn't
+// say EC or OT on its own. Every other category (EC_Intern/OT_Intern
+// included, being already resolved) ignores contractType entirely.
 export function columnForLeaveCategory(category, contractType) {
   if (AMBIGUOUS_CATEGORIES.has(category)) {
     return OT_HOURS_CONTRACT_TYPES.has(contractType) ? 'OT_Intern' : 'EC_Intern'
@@ -80,7 +83,7 @@ export const COLUMN_FULL_LABEL = {
 // Four-state "how full is this day" read for the mobile planner's day/month
 // fill colouring — a visual indicator of the *observed* total headcount on
 // leave (all 4 capacity columns combined, pending+approved combined).
-// Clamped at 3 — the full-time combined cap (2) plus OT COSMO/Intern's own
+// Clamped at 3 — the full-time combined cap (2) plus OT Intern's own
 // separate cap (1), see totalLeaveCeiling below — so 3 really is the
 // ceiling every doctor can hit in practice with the default caps, not just
 // a display simplification. Uses the dedicated
@@ -146,10 +149,10 @@ export function capacityStateForCount(count) {
 }
 
 // The "no more than 2 full-time EC doctors on leave at once" rule spans MO,
-// Registrar, and EC COSMO/Intern combined — e.g. 2 MO, 1 MO + 1 Registrar,
-// 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC
-// COSMO/Intern — never 2 Registrar (already capped at 1 above). OT
-// COSMO/Intern is a separate stream with its own cap (1) and isn't part of
+// Registrar, and EC Intern combined — e.g. 2 MO, 1 MO + 1 Registrar,
+// 1 MO + 1 EC Intern, 1 Registrar + 1 EC Intern, or 2 EC
+// Intern — never 2 Registrar (already capped at 1 above). OT
+// Intern is a separate stream with its own cap (1) and isn't part of
 // this aggregate — it's additive on top, giving an overall ceiling of 3
 // doctors (any category) on leave at once (see totalLeaveCeiling below).
 export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_Intern']
@@ -184,7 +187,7 @@ const LABEL_BY_CATEGORY = new Map(
 // The friendly column label for a raw staff_category — falls back to the
 // raw category for anything not on the grid (Locum, unrecognised values)
 // rather than hiding it entirely. Same contractType requirement as
-// columnForLeaveCategory above, for the same reason (COSMO/Intern alone no
+// columnForLeaveCategory above, for the same reason (Intern alone no
 // longer says EC vs OT).
 export function labelForLeaveCategory(category, contractType) {
   const columnKey = columnForLeaveCategory(category, contractType)
@@ -311,7 +314,7 @@ export function findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existi
 
 // The overall "how many doctors, any category, could be on leave the same
 // day" ceiling — the full-time combined cap plus every capacity column's
-// own max that sits outside that group (today just OT COSMO/Intern, a
+// own max that sits outside that group (today just OT Intern, a
 // separate additive pool). Used wherever the UI needs a single "N of
 // TOTAL" figure rather than just the full-time-only cap.
 export function totalLeaveCeiling(maxFullTime, maxByColumnKey) {

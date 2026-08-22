@@ -59,8 +59,6 @@ const clerkNav = [
 const ROLE_CATEGORY_LABEL = {
   ...CATEGORY_LABELS,
   MO:          'EC Medical Officer',
-  COSMOPsych:  'COSMO Psych',                // legacy value
-  COSMO_Psych: 'OT Intern / COSMO (Psych)',  // legacy value, only used here
 }
 
 // Remembers the last non-account page visited, so the Account Settings

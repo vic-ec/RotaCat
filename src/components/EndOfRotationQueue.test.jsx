@@ -12,21 +12,22 @@ afterEach(() => vi.useRealTimers())
 
 const FLAGGED_INTERN = { id: 'intern-1', name: 'Ivy', surname: 'Intern', category: 'Intern' }
 const OK_REGISTRAR = { id: 'registrar-1', name: 'Rae', surname: 'Registrar', category: 'Registrar' }
-const COSMO_DOCTOR = { id: 'cosmo-1', name: 'Cara', surname: 'Cosmo', category: 'COSMO' }
+const MO_DOCTOR = { id: 'mo-1', name: 'Cara', surname: 'Cloete', category: 'MO' }
 
 const ROTATIONS = [
   // Ended 30 Jun 2027, nothing after it, today (15 Jul) is past the 1st of the ending month -> flagged
   { doctor_id: 'intern-1', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2027-04-01', end_date: '2027-06-30' },
   // Ongoing (null end_date) -> never flagged
   { doctor_id: 'registrar-1', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: null },
-  // Also ended, but COSMO is out of scope entirely
+  // Also ended, but an MO is out of scope entirely — the queue covers
+  // Intern and Registrar placements only
   { doctor_id: 'cosmo-1', rotation_type: 'OT', subtype: 'LRCHC', start_date: '2027-01-01', end_date: '2027-06-30' },
 ]
-const displayNames = buildDoctorDisplayNames([FLAGGED_INTERN, OK_REGISTRAR, COSMO_DOCTOR])
+const displayNames = buildDoctorDisplayNames([FLAGGED_INTERN, OK_REGISTRAR, MO_DOCTOR])
 
 function renderQueue(overrides = {}) {
   const props = {
-    doctors: [FLAGGED_INTERN, OK_REGISTRAR, COSMO_DOCTOR],
+    doctors: [FLAGGED_INTERN, OK_REGISTRAR, MO_DOCTOR],
     rotations: ROTATIONS,
     displayNames,
     onScheduleDeactivation: vi.fn().mockResolvedValue(undefined),
@@ -42,7 +43,7 @@ describe('EndOfRotationQueue', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('lists only the flagged Intern — not the ongoing Registrar or the out-of-scope COSMO', () => {
+  it('lists only the flagged Intern — not the ongoing Registrar or the out-of-scope MO', () => {
     renderQueue()
     expect(screen.getByText('Intern')).toBeInTheDocument()
     expect(screen.queryByText('Registrar')).not.toBeInTheDocument()
@@ -79,7 +80,7 @@ describe('EndOfRotationQueue', () => {
 
   it('excludes a doctor who already has a scheduled deactivation', () => {
     renderQueue({
-      doctors: [{ ...FLAGGED_INTERN, scheduled_inactive_date: '2027-07-01' }, OK_REGISTRAR, COSMO_DOCTOR],
+      doctors: [{ ...FLAGGED_INTERN, scheduled_inactive_date: '2027-07-01' }, OK_REGISTRAR, MO_DOCTOR],
     })
     expect(screen.queryByText('Intern')).not.toBeInTheDocument()
   })

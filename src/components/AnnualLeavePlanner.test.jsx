@@ -17,11 +17,11 @@ vi.mock('../context/AuthContext', () => ({
 //    the default MO cap is 2 and there's only one MO doctor off.
 //  - p2 (Botha, Registrar) approved 12–13 Aug (2 days) — the default
 //    Registrar cap is 1, so both those days are immediately "at cap".
-//  - p3 (Cosmo, EC COSMO/Intern via the 'COSMO' category) has one pending
+//  - p3 (Ndlovu, an Intern, so the EC Intern column) has one pending
 //    request on 20 Aug — pending counts toward the cap too (the real
 //    concurrency rule checks pending+approved together, see
 //    checkAnnualLeaveCapacity in leaveRequests.js), but the default EC
-//    COSMO/Intern cap is 2, so that single pending request alone doesn't
+//    Intern cap is 2, so that single pending request alone doesn't
 //    reach it. Total: 2 pressure days (12, 13).
 // January has nothing at all, for the "Quiet" empty state.
 const LEAVE_REQUESTS = [
@@ -35,7 +35,7 @@ const LEAVE_REQUESTS = [
   },
   {
     id: 'req-3', profile_id: 'p3', date_from: '2026-08-20', date_to: '2026-08-20', leave_type: 'annual',
-    status: 'pending', annual_leave_days: 1, profiles: { name: 'Carol', surname: 'Cosmo', category: 'COSMO' },
+    status: 'pending', annual_leave_days: 1, profiles: { name: 'Carol', surname: 'Ndlovu', category: 'Intern' },
   },
 ]
 
@@ -137,8 +137,8 @@ describe('AnnualLeavePlanner', () => {
     const inspector = within(screen.getByTestId('annual-inspector'))
     expect(inspector.getByText('Leave Slot Utilization')).toBeInTheDocument()
 
-    // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
-    // EC COSMO/Intern request alone — also 1 of 3. Four days total.
+    // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Ndlovu's
+    // pending EC Intern request alone — also 1 of 3. Four days total.
     expect(within(inspector.getByText('1 of 3 slots taken').closest('div')).getByText('4 days')).toBeInTheDocument()
     // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
     expect(within(inspector.getByText('2 of 3 slots taken').closest('div')).getByText('2 days')).toBeInTheDocument()

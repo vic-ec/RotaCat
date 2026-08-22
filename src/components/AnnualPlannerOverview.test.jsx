@@ -210,14 +210,14 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
   })
 
   // Regression: the "Selected month" inspector's per-person list showed a
-  // COSMO/Intern doctor's EC/OT label from category alone, missing
+  // Intern's EC/OT label from category alone, missing
   // contract_type — an OT-hours doctor showed "EC Intern" here even though
   // the day view (which does thread contract_type) correctly showed "OT
   // Intern" for the exact same leave row.
-  it('the selected-month person list labels a COSMO/Intern doctor by contract_type, not category alone', () => {
+  it('the selected-month person list labels an Intern by contract_type, not category alone', () => {
     const approvedByDate = new Map([
       ['2026-08-10', [{
-        profileId: 'p9', surname: 'CodeSpace', category: 'COSMO', contractType: 'Junior_Doctor_Overtime',
+        profileId: 'p9', surname: 'CodeSpace', category: 'Intern', contractType: 'Junior_Doctor_Overtime',
         status: 'approved', dateFrom: '2026-08-10', dateTo: '2026-08-14',
       }]],
     ])

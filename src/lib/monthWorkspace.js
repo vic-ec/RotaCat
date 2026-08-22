@@ -91,7 +91,7 @@ export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, 
 }
 
 // True for any category with a real cap to compare against — the three
-// LEAVE_FULL_TIME_GROUP_KEYS always do (their combined pool), OT COSMO/
+// LEAVE_FULL_TIME_GROUP_KEYS always do (their combined pool), OT
 // Intern does via its own maxByColumnKey entry; false for a column-less
 // category (Other/Consultant) that daysWithRoomForCategory/
 // categoryPressureState below shouldn't be computed for at all.
@@ -102,8 +102,8 @@ function hasCapacityColumn(columnKey, maxByColumnKey) {
 // MO/Registrar/EC_Intern draw from one shared pool (maxFullTime, default 2
 // — see LEAVE_FULL_TIME_GROUP_KEYS/totalLeaveCeiling in leaveYearGrid.js):
 // a day with 1 MO + 1 Registrar already has zero room left for a 3rd
-// MO/Registrar/EC COSMO doctor, even though neither individual column's own
-// historical max (2/1/2) has been hit on its own. OT COSMO/Intern is a
+// MO/Registrar/EC Intern doctor, even though neither individual column's own
+// historical max (2/1/2) has been hit on its own. OT Intern is a
 // separate, independent pool with its own cap (1) — additive, not part of
 // this shared pool.
 // Exported (not just used internally) so leaveRequests.js's
@@ -155,9 +155,9 @@ export function myCategoryDaySlots(columnKey, capacity, maxFullTime) {
 // Personalised day-cell fill for the non-admin mobile month grid
 // (MonthWorkspace's MobileDayCell) — collapses the generic 4-state total
 // headcount read down to the states actually reachable within the
-// viewer's own pool: full-time (MO/Registrar/EC COSMO) has 2 slots, so
+// viewer's own pool: full-time (MO/Registrar/EC Intern) has 2 slots, so
 // 0/1/2 taken maps to available/limited/at capacity (there's no 3rd
-// distinct level to give a "near capacity" step to); OT COSMO/Intern has
+// distinct level to give a "near capacity" step to); OT Intern has
 // only 1 slot, so 0/1 taken jumps straight from available to at capacity
 // with no middle state at all. Admins keep the generic total-based read on
 // every day cell regardless of viewport (their job is cross-category
@@ -203,8 +203,8 @@ export function daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, 
 // headline number), so a viewer gets a useful signal without the raw x/y
 // quota this round's redesign otherwise removes from the day view. Based on
 // the share of the month's days that are already at that pool's cap, not a
-// flat headcount, since MO/Registrar/EC COSMO share one pool and OT
-// COSMO/Intern has its own.
+// flat headcount, since MO/Registrar/EC Intern share one pool and OT
+// Intern has its own.
 export function categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
   if (!hasCapacityColumn(columnKey, maxByColumnKey)) return null
   const dates = datesInMonth(year, month)

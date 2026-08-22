@@ -111,6 +111,34 @@ export const ROTATION_TYPE_COLOR = {
   OT_PSYCH: '#DB2777',   // pink
 }
 
+// The staff_category values an admin actually assigns today, and which of
+// them apply to each role — shared by every admin surface that assigns a
+// category (AccountSettingsPage's admin edit, AddStaffModal's creation
+// form) so a category can never be offerable in one and not the other.
+//
+// Deliberately narrower than the staff_category enum: the EC_*/OT_* values
+// in categoryLabels.js are dormant until Jan 2027 and are not offered
+// anywhere in the UI yet, and 'Locum' is expressed as a role rather than
+// as a doctor's category (see the real data — every locum profile carries
+// a null category). A locum is limited to MO/Registrar, which is what
+// makes shift-claim eligibility resolvable; a clerk has no category at all.
+export const DOCTOR_CATEGORY_VALUES = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern', 'Consultant']
+export const LOCUM_CATEGORY_VALUES = ['MO', 'Registrar']
+
+export function categoryValuesForRole(role) {
+  if (role === 'doctor') return DOCTOR_CATEGORY_VALUES
+  if (role === 'locum') return LOCUM_CATEGORY_VALUES
+  return []
+}
+
+// Categories whose EC/OT placement is planned as a dated rotation block in
+// intern_rotations, and so can be given a starting rotation at creation
+// time. Wider than ROTATION_TRACKED_CATEGORIES in internRotations.js
+// (COSMO/Intern), which answers the different question of whether an hours
+// change writes a rotation block: a registrar's rotation is planned in the
+// same planner, just EC-only (see rotationTypeOptionsForCategory above).
+export const ROTATION_PLANNED_CATEGORIES = new Set(['Intern', 'Registrar', 'COSMO'])
+
 // Contract-type-aware hours lookup — the one PendingApprovalReviewPage and
 // StaffListPage should actually call now. Category alone is only enough
 // for MO/Registrar/Consultant/Locum and the already-unambiguous legacy OT/

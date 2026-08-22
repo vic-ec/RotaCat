@@ -9,6 +9,8 @@ import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
+import AddStaffModal from '../components/AddStaffModal'
+import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
@@ -22,7 +24,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck } from 'lucide-react'
+import { Eye, CircleCheck, Plus } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -314,6 +316,12 @@ export default function StaffListPage() {
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   // Pending confirmation for the Status toggle — { profileId, currentlyActive, firstName } | null
   const [statusConfirm, setStatusConfirm] = useState(null)
+  // Admin-initiated account creation, and reissuing a password for
+  // someone who never received (or lost) the one their account was
+  // created with — both run through the admin-staff-credentials Edge
+  // Function, since only the service role key can mint credentials.
+  const [addStaffOpen, setAddStaffOpen] = useState(false)
+  const [regeneratePasswordFor, setRegeneratePasswordFor] = useState(null)
   const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
@@ -966,6 +974,11 @@ export default function StaffListPage() {
                   mobileMode="inline"
                   active={accountFiltersActive}
                   onClearAll={clearAllFilters}
+                  desktopTrailing={isAdmin && (
+                    <button type="button" onClick={() => setAddStaffOpen(true)} className="btn-primary flex-shrink-0">
+                      <Plus className="h-4 w-4" /> Add staff
+                    </button>
+                  )}
                 />
               </div>
               <FloatingActionMenu
@@ -977,6 +990,10 @@ export default function StaffListPage() {
                   onClearAll: clearAllFilters,
                   sheetTitle: 'Filters',
                 }}
+                /* Same slot the Intern Rotations Matrix puts its own
+                   "+ Add doctor" in, rather than a second free-floating
+                   FAB competing with this one. */
+                primaryAction={isAdmin ? { icon: Plus, label: 'Add staff', onClick: () => setAddStaffOpen(true) } : undefined}
               />
             </>
           )
@@ -1645,6 +1662,16 @@ export default function StaffListPage() {
                 onClick={() => { requestToggleActive(quickActionPerson); closeQuickActions() }}
               />
             )}
+            {/* For anyone who lost the welcome email their account was
+                created with, or never got it — issues a fresh password
+                and emails it. Admin-only, and confirmed in the modal
+                before anything is invalidated. */}
+            {isAdmin && (
+              <QuickActionRow
+                label="Regenerate password"
+                onClick={() => { setRegeneratePasswordFor(quickActionPerson); closeQuickActions() }}
+              />
+            )}
           </div>
         )
       })()}
@@ -1808,6 +1835,20 @@ export default function StaffListPage() {
           />
         )
       })()}
+
+      {addStaffOpen && (
+        <AddStaffModal
+          onClose={() => setAddStaffOpen(false)}
+          onCreated={loadAll}
+        />
+      )}
+
+      {regeneratePasswordFor && (
+        <RegeneratePasswordModal
+          person={regeneratePasswordFor}
+          onClose={() => setRegeneratePasswordFor(null)}
+        />
+      )}
 
       {statusConfirm && (
         <StatusChangeConfirmModal

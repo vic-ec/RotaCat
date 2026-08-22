@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import SetPasswordPage from './pages/SetPasswordPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import DashboardPage from './pages/DashboardPage'
 import StaffListPage from './pages/StaffListPage'
@@ -21,6 +22,17 @@ import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
 import LeavePlannerPage from './pages/LeavePlannerPage'
 import WeekendPlannerPage from './pages/WeekendPlannerPage'
 import PlaceholderPage from './pages/PlaceholderPage'
+
+// Standalone (outside the ProtectedRoute shell) because that shell is
+// exactly what redirects here — routing it inside would loop. The page
+// itself sends anyone whose must_change_password is already false back to
+// the app, so this only has to establish that somebody is signed in.
+function SetPasswordRoute() {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (!session) return <Navigate to="/login" replace />
+  return <SetPasswordPage />
+}
 
 function PendingRoute() {
   const { session, isApproved, loading } = useAuth()
@@ -50,6 +62,7 @@ function AppRoutes() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/set-password" element={<SetPasswordRoute />} />
         <Route path="/pending" element={<PendingRoute />} />
 
         {/* Protected app shell */}

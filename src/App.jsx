@@ -10,6 +10,7 @@ import SignupPage from './pages/SignupPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import SetPasswordPage from './pages/SetPasswordPage'
+import WelcomePage from './pages/WelcomePage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import DashboardPage from './pages/DashboardPage'
 import StaffListPage from './pages/StaffListPage'
@@ -32,6 +33,16 @@ function SetPasswordRoute() {
   if (loading) return null
   if (!session) return <Navigate to="/login" replace />
   return <SetPasswordPage />
+}
+
+// Same reasoning as SetPasswordRoute: the protected shell is what
+// redirects here, so this sits outside it. The page itself sends anyone
+// who has already onboarded back to the app.
+function WelcomeRoute() {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (!session) return <Navigate to="/login" replace />
+  return <WelcomePage />
 }
 
 function PendingRoute() {
@@ -63,6 +74,7 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/set-password" element={<SetPasswordRoute />} />
+        <Route path="/welcome" element={<WelcomeRoute />} />
         <Route path="/pending" element={<PendingRoute />} />
 
         {/* Protected app shell */}

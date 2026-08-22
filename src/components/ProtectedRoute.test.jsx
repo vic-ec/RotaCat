@@ -15,6 +15,7 @@ function renderAt(auth, { adminOnly = false } = {}) {
         <Route path="/login" element={<p>Login</p>} />
         <Route path="/pending" element={<p>Pending</p>} />
         <Route path="/set-password" element={<p>Set password</p>} />
+        <Route path="/welcome" element={<p>Welcome</p>} />
         <Route path="/" element={<p>Dashboard</p>} />
       </Routes>
     </MemoryRouter>
@@ -28,6 +29,7 @@ const APPROVED = {
   isAdmin: false,
   isApproved: true,
   mustChangePassword: false,
+  needsOnboarding: false,
 }
 
 describe('ProtectedRoute', () => {
@@ -60,6 +62,20 @@ describe('ProtectedRoute', () => {
   // pending page can never be used to sit on an admin-issued password.
   it('puts the password gate ahead of the approval gate', () => {
     renderAt({ ...APPROVED, isApproved: false, mustChangePassword: true })
+    expect(screen.getByText('Set password')).toBeInTheDocument()
+  })
+
+  // Onboarding contains the password step, so it has to win — otherwise an
+  // intern on an admin-issued password would be bounced to the standalone
+  // password screen and never reach the rotation questions.
+  it('sends an intern who has not onboarded to /welcome, ahead of the password gate', () => {
+    renderAt({ ...APPROVED, needsOnboarding: true, mustChangePassword: true })
+    expect(screen.getByText('Welcome')).toBeInTheDocument()
+    expect(screen.queryByText('Set password')).not.toBeInTheDocument()
+  })
+
+  it('still uses the standalone password screen once onboarding is done', () => {
+    renderAt({ ...APPROVED, needsOnboarding: false, mustChangePassword: true })
     expect(screen.getByText('Set password')).toBeInTheDocument()
   })
 

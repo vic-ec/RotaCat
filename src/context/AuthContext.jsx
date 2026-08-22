@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { needsOnboarding as profileNeedsOnboarding } from '../lib/onboarding'
 
 const AuthContext = createContext(undefined)
 
@@ -99,6 +100,25 @@ export function AuthProvider({ children }) {
     return { error }
   }
 
+  // Starts an email change. Supabase mails a 6-digit code to the new
+  // address, and — when the project has Secure email change on, which is
+  // the default — a second one to the current address; both have to be
+  // confirmed before the change takes. Callers should verify the new
+  // address first, then re-check user.email and ask for the second code
+  // if it hasn't moved (see WelcomePage's email step).
+  async function changeEmail(newEmail) {
+    const { error } = await supabase.auth.updateUser({ email: newEmail })
+    return { error }
+  }
+
+  // `email` is whichever address received the code being entered — the new
+  // one, or the old one for the second half of a secure email change —
+  // not always the address being moved to.
+  async function verifyEmailChangeOtp(email, token) {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email_change' })
+    return { error }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -120,6 +140,10 @@ export function AuthProvider({ children }) {
   // asks whether an admin has vetted this person at all, and is already
   // settled (and stays settled) for an admin-created account.
   const mustChangePassword = profile?.must_change_password === true
+
+  // An intern or registrar who hasn't told us their rotation dates yet.
+  // Gated ahead of everything else in ProtectedRoute — see /welcome.
+  const needsOnboarding = profileNeedsOnboarding(profile)
 
   // ── Combined app permissions ─────────────────────────────────
   // Centralised here so every screen can gate on a single boolean
@@ -149,6 +173,7 @@ export function AuthProvider({ children }) {
     isSuperAdmin,
     isApproved: profile?.is_approved === true,
     mustChangePassword,
+    needsOnboarding,
     // Permission helpers
     canSubmitLeave,
     canViewWeekendGrid,
@@ -161,6 +186,8 @@ export function AuthProvider({ children }) {
     signUp,
     verifySignupOtp,
     resendSignupOtp,
+    changeEmail,
+    verifyEmailChangeOtp,
     signOut,
     refreshProfile: () => session?.user && loadProfile(session.user.id)
   }

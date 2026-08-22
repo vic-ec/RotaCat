@@ -13,6 +13,7 @@ import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/d
 import SelectMenu from './SelectMenu'
 import LegendSheet from './LegendSheet'
 import DateStepper from './DateStepper'
+import { LegendIcon } from './PlannerIcons'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Every capacity column plus a blended "All categories" option — the mobile
@@ -313,8 +314,8 @@ function AnnualLegendTrigger({ ruleHintIntro, ruleHintBullets }) {
   return (
     <LegendSheet
       trigger={onClick => (
-        <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2.5 text-xs">
-          Legend
+        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+          <LegendIcon className="h-4 w-4" />
         </button>
       )}
       ruleIntro={ruleHintIntro}

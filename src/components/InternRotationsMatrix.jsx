@@ -8,6 +8,7 @@ import DoctorChip from './DoctorChip'
 import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
 import LegendSheet from './LegendSheet'
+import { LegendIcon } from './PlannerIcons'
 import PageActionsMenu from './PageActionsMenu'
 import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
@@ -681,7 +682,7 @@ export default function InternRotationsMatrix({
                   className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
                 >
                   <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
+                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                 </button>
 
                 {!collapsedGroups[group.key] && group.items.map(doctor => {
@@ -782,7 +783,7 @@ export default function InternRotationsMatrix({
                 <LegendSheet
                   title="Legend"
                   trigger={onClick => (
-                    <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2 text-xs">Legend</button>
+                    <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
                   )}
                 >
                   {legendSwatches}
@@ -807,7 +808,7 @@ export default function InternRotationsMatrix({
               className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
             >
               <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-              <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? '' : 'rotate-180'}`} />
+              <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
             </button>
 
             {!collapsedGroups[group.key] && (

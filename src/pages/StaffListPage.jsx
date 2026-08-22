@@ -9,7 +9,9 @@ import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
+import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
@@ -141,7 +143,7 @@ function computeFlyoutPosition(anchorRect, width) {
 // section, or show the missing-contact-detail toast). `indent` pushes
 // Mobile/WhatsApp rows in under their Message/Call header to read as
 // sub-items. `expandable` rows get a chevron matching the Account page's
-// convention — down when closed, rotated to point up when `expanded` — and
+// convention — up when closed, rotated to point down when `expanded` — and
 // go bold while their section is open.
 function QuickActionRow({ icon, label, href, external, muted, expandable, expanded, disabled, title, onClick }) {
   const className = `flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -152,7 +154,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
       {icon && <span className="flex-shrink-0 text-ink-muted">{icon}</span>}
       <span className="flex-1">{label}</span>
       {expandable && (
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? '' : 'rotate-180'}`} />
       )}
     </>
   )
@@ -177,7 +179,7 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // `<a>` when there's somewhere to go (so it behaves like any other link —
 // middle-click, "open in new tab", etc. all work); falls back to a button
 // that surfaces the existing missing-contact-detail toast otherwise. The
-// kebab is left fully intact alongside these for WhatsApp and Grant admin,
+// kebab is left fully intact alongside these for WhatsApp and Update status,
 // which don't have a natural single icon of their own.
 function RowActionIcon({ icon, href, title, onMissing }) {
   const className = 'flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
@@ -264,16 +266,42 @@ function PendingApprovalRow({ person, checked, onToggleCheck, approveAccount, re
 }
 
 export default function StaffListPage() {
-  const { isAdmin, canViewStaffList, isSuperAdmin } = useAuth()
+  const { isAdmin, canViewStaffList } = useAuth()
   // Clerks, Locums, and MO/Registrar doctors are all read-only for account
   // management, but the mobile Quick Actions menu (Message/Call/Mail) is
   // pure contact info -- they all need that same access (see AuthContext's
   // canViewStaffList for the shared role/category rule this mirrors).
-  // Account-settings navigation and admin-granting stay isAdmin/isSuperAdmin
-  // only, unaffected by this.
+  // Account-settings navigation and admin-granting stay isAdmin-only,
+  // unaffected by this.
   const canContact = canViewStaffList
   const navigate = useNavigate()
   const location = useLocation()
+  // The mobile card list's sticky group labels (below, in the accounts
+  // tab's md:hidden branch) need to stick exactly below this sticky
+  // header's real rendered height — a hand-picked pixel constant drifts
+  // out of sync the moment the header's own content changes (it already
+  // has twice: once when the app-bar it used to sit under was removed,
+  // again when the toolbar row moved into a FAB below md), leaving either
+  // a gap the list shows through or an overlap that hides the label.
+  // Measuring it directly removes that whole class of bug. ResizeObserver
+  // re-fires on breakpoint changes too, so this stays correct without a
+  // separate isAdmin/md branch to keep in sync by hand.
+  // getBoundingClientRect(), not entry.contentRect — ResizeObserver's
+  // default box is content-box, which EXCLUDES this header's own padding
+  // (pt-2/pb-3 etc, part of what it actually paints while stuck). Reading
+  // contentRect under-measured the header by exactly that padding, so
+  // group labels stuck a padding's-worth too high — into the zone the
+  // header's own bottom padding still covers, which its higher z-index
+  // then painted over, obscuring the label instead of clearing it.
+  const stickyHeaderRef = useRef(null)
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(0)
+  useEffect(() => {
+    const el = stickyHeaderRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setStickyHeaderHeight(el.getBoundingClientRect().height))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
   const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
@@ -298,6 +326,8 @@ export default function StaffListPage() {
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
   const [selectedRequestIds, setSelectedRequestIds] = useState(new Set())
+  // The account_change_requests row currently open in AccountRequestReviewDrawer, or null.
+  const [expandedRequestId, setExpandedRequestId] = useState(null)
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [requestsSortDirection, setRequestsSortDirection] = useState('asc')
 
@@ -403,6 +433,7 @@ export default function StaffListPage() {
   const [detailSheetPerson, setDetailSheetPerson] = useState(null)
   const detailSheetRef = useRef(null)
   useDismissablePopover(!!detailSheetPerson, () => setDetailSheetPerson(null), detailSheetRef)
+  const detailSheetSwipe = useSwipeToDismiss(() => setDetailSheetPerson(null))
 
   // Long-press (touch and hold) on a row also opens the quick-action menu,
   // alongside the existing kebab tap. `longPressFiredRef` suppresses the
@@ -883,14 +914,20 @@ export default function StaffListPage() {
           app-bar height to offset below any more — this used to add its
           ~49px, which briefly went stale and hid this whole bar behind a
           gap once that header stopped rendering here.
-          The mobile card list's sticky group labels further down are
-          offset to clear this bar's own rendered height, which differs by
-          role since the tab row only exists for admins — see the
-          isAdmin ? 'top-[93px]' : 'top-[50px]' split below.
           No border of its own — PageTabs already supplies the shared
           border-slate-line baseline with a border-accent underline on the
-          active tab, so an outer border here would just double up on it. */}
-      <div className="sticky top-0 z-20 mb-4 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
+          active tab, so an outer border here would just double up on it.
+          The gap below this bar is bottom PADDING, not margin — a sticky
+          element only paints its own padding box; a margin here would leave
+          an unpainted band beneath the stuck header that the list scrolls
+          straight through, visible as a gap the scrolled-past rows show
+          through.
+          stickyHeaderRef feeds stickyHeaderHeight (see above), which the
+          mobile card list's own sticky group labels use as their `top` —
+          measured, not hand-picked, so it can never drift out of sync with
+          this bar's actual rendered height again (see that ref's own
+          comment for the history of it doing exactly that). */}
+      <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {isAdmin && (
           <PageTabs
             tabs={[
@@ -1073,34 +1110,34 @@ export default function StaffListPage() {
                     return (
                     <button
                       onClick={() => toggleGroupCollapsed(group.key)}
-                      // Offset to clear the sticky header above it — taller
-                      // for admins, who also get the tab row (see the
-                      // header's own comment for the maths). This list is
-                      // `md:hidden`, so these are the below-md heights
-                      // only: the toolbar row moved into the Toolbar FAB
-                      // there, taking its 38px (30px control + mt-2) out of
-                      // the header — 93→55 for admins (8 pt-2 + 35 tabs +
-                      // 12 pb-3), 50→20 for everyone else (8 + 12).
-                      className={`sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line ${
-                        isAdmin ? 'top-[55px]' : 'top-[20px]'
-                      }`}
+                      // Sticks flush against the real bottom edge of the
+                      // header above (stickyHeaderRef/stickyHeaderHeight,
+                      // see that ref's own comment) — measured rather than
+                      // a hand-picked constant, so it can't drift out of
+                      // sync with that header's actual rendered height
+                      // (admin vs non-admin, or any future change to what
+                      // renders inside it) the way a fixed px offset here
+                      // already has twice before.
+                      style={{ top: stickyHeaderHeight }}
+                      className="sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
                     >
                       {/* "X active · Y inactive" instead of "X total · Y
                           active" — surfaces the exception (anyone inactive)
                           immediately instead of burying it in a total. */}
                       <span>{group.label} <span className="ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
-                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
                   })()}
                   {(!group.label || !collapsedGroups[group.key]) && (
                   <div className="card divide-y divide-slate-line overflow-hidden">
                     {group.items.map(person => {
-                      // "Doctor · COSMO" rather than category alone — a bare
-                      // category read as a status/location to reviewers, and
-                      // didn't match the role-badge non-doctors show.
+                      // Category alone for a doctor (every role in this app
+                      // implies "doctor" except locum/clerk, so spelling it
+                      // out is redundant) — matches the desktop table and
+                      // every other row style in this file.
                       const secondaryLabel = person.role === 'doctor'
-                        ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+                        ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
                         : (ROLE_LABELS[person.role] || person.role)
                       const contractTag = contractTagText(person)
                       return (
@@ -1129,8 +1166,8 @@ export default function StaffListPage() {
                               {person.name ? `${person.name} ` : ''}{person.surname}
                             </span>
                             {/* line-clamp-2, not truncate: a long category
-                                combo (e.g. "Doctor · COSMO (Psych)") wraps
-                                to a second line instead of silently cutting
+                                combo (e.g. "COSMO (Psych)") wraps to a
+                                second line instead of silently cutting
                                 off. */}
                             <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-muted">
                               <span className="line-clamp-2">{secondaryLabel}</span>
@@ -1207,7 +1244,7 @@ export default function StaffListPage() {
                           <td colSpan={staffTableCols} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
                             <div className="flex items-center justify-between">
                               <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
-                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${!collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
                         </tr>
@@ -1535,7 +1572,7 @@ export default function StaffListPage() {
                                   (ApprovalRow's own extra/approve/reject):
                                   the neutral "go look at it" action leads,
                                   then the two decisions. */}
-                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })} />
+                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => setExpandedRequestId(r.id)} />
                               <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
                               <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
                             </div>
@@ -1558,12 +1595,15 @@ export default function StaffListPage() {
            row in the top/middle of the screen, up from one near the
            bottom). Message/Call open a second, separate flyout popover
            cascading below that row (see below) rather than expanding in
-           place. Mail goes straight to the mail client. Status is set via
-           the status badge itself, so it's not duplicated here. */}
+           place. Mail goes straight to the mail client. Update status
+           reuses the same requestToggleActive/StatusChangeConfirmModal
+           flow as the desktop table's own status toggle — this is the
+           only quick way to flip a doctor's active status from the
+           mobile card list, since its StatusPicker badge renders
+           read-only there. ── */}
       {quickActionPerson && quickActionAnchor && (() => {
         const targetEmail = emailById[quickActionPerson.id]
         const mailHref = targetEmail ? `mailto:${targetEmail}` : null
-        const canGrantAdmin = isSuperAdmin && quickActionPerson.role !== 'clerk'
 
         const menuWidth = 224
         const positionStyle = computeAnchoredPosition(quickActionAnchor, menuWidth)
@@ -1599,12 +1639,10 @@ export default function StaffListPage() {
               href={mailHref}
               onClick={mailHref ? closeQuickActions : missing('Mail')}
             />
-            {canGrantAdmin && (
+            {isAdmin && (
               <QuickActionRow
-                label={quickActionPerson.is_admin ? 'Set admin · Revoke' : 'Set admin · Grant'}
-                disabled={quickActionPerson.is_super_admin}
-                title={quickActionPerson.is_super_admin ? 'Super-admin — manage from their own Account page' : undefined}
-                onClick={() => { if (!quickActionPerson.is_super_admin) { toggleAdmin(quickActionPerson); closeQuickActions() } }}
+                label="Update status"
+                onClick={() => { requestToggleActive(quickActionPerson); closeQuickActions() }}
               />
             )}
           </div>
@@ -1657,7 +1695,7 @@ export default function StaffListPage() {
       {detailSheetPerson && (() => {
         const person = detailSheetPerson
         const secondaryLabel = person.role === 'doctor'
-          ? `${ROLE_LABELS.doctor}${person.category ? ` · ${CATEGORY_LABELS[person.category] || person.category}` : ''}`
+          ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
           : (ROLE_LABELS[person.role] || person.role)
         const formattedPhone = formatPhoneDisplay(person.phone)
         const targetEmail = emailById[person.id]
@@ -1675,16 +1713,19 @@ export default function StaffListPage() {
             ref={detailSheetRef}
             role="dialog"
             aria-modal="true"
+            style={detailSheetSwipe.style}
             className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-slate-line bg-canvas-raised px-5 pb-6 pt-3 shadow-[0_-3px_10px_0_rgba(15,23,42,0.18)] md:hidden"
           >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
+            <div {...detailSheetSwipe.handleProps} className="touch-none">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
 
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
-                <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
+                  <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
+                </div>
+                <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
               </div>
-              <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
             </div>
 
             <div className="mt-3 space-y-1.5 border-t border-slate-line pt-3 text-sm">
@@ -1737,6 +1778,36 @@ export default function StaffListPage() {
           <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
         </div>
       )}
+
+      {expandedRequestId && (() => {
+        const r = accountRequests.find(req => req.id === expandedRequestId)
+        if (!r) return null
+        const secondaryLabel = r.requester?.role === 'doctor'
+          ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
+          : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+        const requesterName = `${r.requester?.name ? `${r.requester.name} ` : ''}${r.requester?.surname || 'Unknown'}`
+        const changeLine = r.request_type !== 'deletion'
+          ? `${formatRequestValue(r.current_value, r.request_type) || '—'} → ${formatRequestValue(r.requested_value, r.request_type)}`
+          : null
+        const submittedDate = r.created_at?.slice(0, 10).split('-').reverse().join('-')
+        const submittedTime = r.created_at?.slice(11, 16)
+        return (
+          <AccountRequestReviewDrawer
+            requesterName={requesterName}
+            secondaryLabel={secondaryLabel}
+            requestTypeLabel={REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
+            changeLine={changeLine}
+            reason={r.reason}
+            deletionWarning={r.request_type === 'deletion' ? 'Approving deactivates the account. The auth user itself must still be removed manually in Supabase.' : null}
+            submittedDate={submittedDate}
+            submittedTime={submittedTime}
+            onClose={() => setExpandedRequestId(null)}
+            onApprove={async () => { await approveRequest(r); setExpandedRequestId(null) }}
+            onReject={async notes => { await rejectRequest(r, notes); setExpandedRequestId(null) }}
+            isActioning={requestActioningId === r.id}
+          />
+        )
+      })()}
 
       {statusConfirm && (
         <StatusChangeConfirmModal

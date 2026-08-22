@@ -45,6 +45,13 @@ function CheckIcon(props) {
     </svg>
   )
 }
+function CloseIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}
 
 // One group's header row (name + selected-count chip + chevron) and, when
 // expanded, its own "All" reset row plus a real multi-select checkbox list.
@@ -90,7 +97,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
             {selected.size}
           </span>
         )}
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${expanded ? '' : 'rotate-180'}`} />
       </button>
       {expanded && (
         <div className="pb-1.5">
@@ -185,7 +192,10 @@ export default function FilterPanel({ groups, className = '' }) {
 
   const activeCount = groups.reduce((sum, g) => sum + g.selected.size, 0)
   const menuWidth = 240
-  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth) : null
+  // Matches the popover's own max-h-[70vh] — see computeAnchoredPosition's
+  // maxHeight comment for why this needs to be passed through rather than
+  // relying on the anchor-position heuristic alone.
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { maxHeight: window.innerHeight * 0.7 }) : null
 
   return (
     <div className="relative flex-shrink-0">
@@ -211,16 +221,33 @@ export default function FilterPanel({ groups, className = '' }) {
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="fixed z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         >
-          {groups.map(group => (
-            <FilterGroup
-              key={group.key}
-              group={group}
-              expanded={expandedKey === group.key}
-              onToggleExpand={() => setExpandedKey(k => (k === group.key ? null : group.key))}
-            />
-          ))}
+          {/* Explicit close, not just outside-click/Escape — a group's own
+              expanded checkbox list can grow past the popover's own edges
+              on a small screen, and Escape+outside-click aren't always
+              obvious to reach for mid-selection. */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-line px-3 py-2">
+            <p className="text-sm font-semibold text-ink">Filter</p>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close"
+              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="overflow-y-auto py-1">
+            {groups.map(group => (
+              <FilterGroup
+                key={group.key}
+                group={group}
+                expanded={expandedKey === group.key}
+                onToggleExpand={() => setExpandedKey(k => (k === group.key ? null : group.key))}
+              />
+            ))}
+          </div>
         </div>,
         document.body
       )}

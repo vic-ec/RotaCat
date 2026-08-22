@@ -6,6 +6,7 @@ import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { contrastTextColor } from '../lib/color'
 import DateStepper from '../components/DateStepper'
+import { TodayIcon } from '../components/PlannerIcons'
 import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
@@ -225,8 +226,8 @@ export default function RosterSummaryPage() {
         </button>
 
         {!isCurrentMonth && (
-          <button type="button" onClick={goToday} className="btn-secondary h-[30px] flex-shrink-0 px-2 text-xs">
-            Today
+          <button type="button" onClick={goToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0">
+            <TodayIcon className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -269,7 +270,7 @@ export default function RosterSummaryPage() {
         aria-expanded={leaveOpen}
         className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-ink-light hover:text-ink"
       >
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${leaveOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${leaveOpen ? '' : 'rotate-180'}`} />
         {leaveOpen ? 'Hide leave breakdown' : 'Show leave breakdown'}
       </button>
 

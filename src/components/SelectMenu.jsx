@@ -53,7 +53,10 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
   }
 
   const menuWidth = anchorRect ? Math.max(anchorRect.width, 160) : 160
-  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { forceDown: alwaysDown }) : null
+  // 240 matches the popover's own max-h-60 — see computeAnchoredPosition's
+  // maxHeight comment. Ignored automatically whenever forceDown/alwaysDown
+  // is set, same as the anchor-position heuristic it refines.
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { forceDown: alwaysDown, maxHeight: 240 }) : null
 
   return (
     <div className={`relative ${className}`}>
@@ -69,7 +72,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
         className="input-field flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>{selected ? selected.label : placeholder}</span>
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
       {open && positionStyle && createPortal(
         <div

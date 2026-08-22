@@ -523,11 +523,13 @@ export default function RosterGridPage() {
             </button>
           )}
 
-          {/* Publish — always shows its full label (unlike Hours Summary/
-              Review log, which collapse to icon-only below md) since it's
-              the one action here with real consequences, so it stays
-              unambiguous at every width. Opens a confirmation instead of
-              publishing immediately. */}
+          {/* Publish — always shows a label (unlike Hours Summary/Review
+              log, which collapse to icon-only below md) since it's the one
+              action here with real consequences, so it stays unambiguous
+              at every width. "Publish" alone rather than "Publish Roster"
+              — the longer label wrapped to two lines at the button's width
+              on mobile. Opens a confirmation instead of publishing
+              immediately. */}
           {isAdmin && rosterMonth.status === 'draft' && (
             <button
               onClick={() => setShowPublishConfirm(true)}
@@ -535,7 +537,7 @@ export default function RosterGridPage() {
               className="btn-primary text-sm"
             >
               <BookUp className="h-4 w-4" />
-              Publish Roster
+              Publish
             </button>
           )}
         </div>

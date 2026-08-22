@@ -221,8 +221,14 @@ export default {
         }
       },
       fontFamily: {
-        display: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Satoshi', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Experimental: Figtree primary instead of Satoshi, for side-by-side
+        // review (previously trialed Inter, Lexend, Public Sans, Archivo,
+        // Plus Jakarta Sans, Manrope, then Onest — see PR history).
+        // index.html loads every candidate unconditionally, so trying a
+        // different one is a one-line swap here. Revert by putting
+        // 'Satoshi' back first in both arrays below.
+        display: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.

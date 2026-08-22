@@ -34,6 +34,23 @@ describe('LeaveYearGrid', () => {
     expect(mobileDayGrid(container)).toBeTruthy()
   })
 
+  it('mobile month glance: shows one badge per person, not one per category — 2 MOs on the same day get 2 MO badges', () => {
+    vi.setSystemTime(new Date('2026-08-01T00:00:00'))
+    const twoMOs = new Map([
+      ['2026-08-10', [
+        { profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'approved' },
+        { profileId: 'doc-2', surname: 'Fry', category: 'MO', status: 'approved' },
+      ]],
+    ])
+    const { container } = render(
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={twoMOs} publicHolidaysByDate={new Map()} />
+    )
+    const grid = mobileDayGrid(container)
+    const dayButton = within(grid).getByText('10').closest('button')
+    expect(within(dayButton).getAllByText('MO')).toHaveLength(2)
+    vi.useRealTimers()
+  })
+
   it('mobile: defaults to the current month and navigates with prev/next', async () => {
     const onYearChange = vi.fn()
     render(<LeaveYearGrid year={2026} onYearChange={onYearChange} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />)

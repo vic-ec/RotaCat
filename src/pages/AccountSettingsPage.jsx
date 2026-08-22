@@ -255,8 +255,10 @@ function LogoutIcon(props) {
 }
 
 // Small icon button — used for the header's "edit profile details" trigger
-// (chevron, down-when-closed/up-when-open, matching the SectionRow
-// accordions elsewhere on the page) and for each Contact row's edit action
+// (chevron, up-when-closed/down-when-open — a deliberate reversal of the
+// usual "points toward where content expands" convention, matching the
+// SectionRow accordions elsewhere on the page) and for each Contact row's
+// edit action
 // (a static pencil — editing a single value rather than expanding a
 // section, so it doesn't need the open/closed rotation). Sized to a 24x24
 // hit area (WCAG 2.5.8's AA minimum) rather than a full 44px target, so it
@@ -272,7 +274,7 @@ function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon
       aria-expanded={expanded}
       className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? 'rotate-180' : ''}` : ''}`} />
+      <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? '' : 'rotate-180'}` : ''}`} />
     </button>
   )
 }
@@ -370,7 +372,7 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
           {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
         </span>
         <span className="flex-shrink-0 rounded p-1 text-ink-muted">
-          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? '' : 'rotate-180'}`} />
         </span>
       </button>
       {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
@@ -1247,8 +1249,14 @@ export default function AccountSettingsPage() {
           not a drill-down from Staff, so this deliberately doesn't say
           "← Staff" unless that's genuinely where the viewer came from (see
           navLabelForPath). Restyled onto the shared Breadcrumb component;
-          the underlying behavior is unchanged. */}
-      <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />
+          the underlying behavior is unchanged.
+          Only rendered for an actual drill-down (routeId present — e.g. a
+          Staff list row linking to /account/:id): the sidebar/bottom-nav
+          Account item always links to the bare /account, which has no
+          routeId, so a viewer who tapped their own primary nav item never
+          sees a "back to X" link implying they navigated in from somewhere
+          they didn't. */}
+      {routeId && <Breadcrumb label={backLabel} onClick={() => navigate(lastPath)} />}
 
       {cropSrc && (
         <AvatarCropModal

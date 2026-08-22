@@ -204,25 +204,25 @@ describe('MonthWorkspace', () => {
     expect(within(cell12).getByText('12')).toHaveClass('font-bold')
   })
 
-  it('toolbar: prev/next/Today/Legend all match the 30px-tall btn-secondary treatment, and the arrow buttons are exactly 30x30', () => {
+  it('toolbar: prev/next/Today/Legend all match the 30px-tall btn-secondary treatment, and every trigger is exactly 30x30', () => {
     // DateStepper hides Today while already on the current month — a
     // non-current month keeps it visible so this can assert its styling.
     renderWorkspace({ month: 9 })
     const prevMonth = screen.getByRole('button', { name: 'Previous month' })
     const nextMonth = screen.getByRole('button', { name: 'Next month' })
     const todayButton = screen.getByRole('button', { name: 'Today' })
-    const legendButton = screen.getByRole('button', { name: /Legend/ })
+    const legendButton = screen.getByRole('button', { name: 'Legend' })
 
     for (const button of [prevMonth, nextMonth, todayButton, legendButton]) {
-      expect(button).toHaveClass('btn-secondary', 'h-[30px]')
+      expect(button).toHaveClass('btn-secondary', 'h-[30px]', 'w-[30px]')
     }
-    expect(prevMonth).toHaveClass('w-[30px]')
-    expect(nextMonth).toHaveClass('w-[30px]')
-    // Legend no longer has its own green tint/triangle glyph.
+    // Today/Legend are icon-only now (no visible text, no green tint
+    // background) — same square treatment as the arrow buttons either
+    // side of them.
     expect(legendButton.className).not.toContain('bg-accent-tint')
-    expect(legendButton).toHaveTextContent('Legend')
-    expect(legendButton).not.toHaveTextContent('▾')
-    expect(legendButton).not.toHaveTextContent('▴')
+    expect(legendButton).toHaveTextContent('')
+    expect(legendButton.querySelector('svg')).toBeInTheDocument()
+    expect(todayButton.querySelector('svg')).toBeInTheDocument()
   })
 
   it('mobile day cells: the badge grid is top-anchored under the date number at a fixed position, not centred within the cell', () => {
@@ -251,6 +251,20 @@ describe('MonthWorkspace', () => {
       expect(cell).toHaveClass('pt-[23px]')
       expect(cell.className).not.toContain('justify-center')
     }
+  })
+
+  it('mobile day cells: shows one badge per person, not one per category — 2 EC Interns on the same day get 2 EC badges', () => {
+    renderWorkspace({
+      approvedByDate: new Map([
+        ['2026-08-12', [
+          { profileId: 'p1', surname: 'Anderson', category: 'EC_Intern', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+          { profileId: 'p2', surname: 'Botha', category: 'EC_Intern', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+        ]],
+      ]),
+      pendingByDate: new Map(),
+    })
+    const cell12 = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
+    expect(within(cell12).getAllByText('EC')).toHaveLength(2)
   })
 
   it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {

@@ -18,10 +18,12 @@ import { endOfRotationFlag } from '../lib/internRotations'
 
 // Top-level "Leave" tabs, each a self-contained destination rather than
 // variants of one generic view — mirrors a mobile UX review's recommended
-// structure: My leave (personal, doctor-only) | Team leave (who's off) |
-// Planners (a nested tab group of reference/admin views) | Requests
-// (approval queue for admins, submission history for doctors) | Rules (the
-// full written policy, in-app instead of only linking out).
+// structure: My leave (personal, doctor-only) | Team leave (its own nested
+// tab group: Current & Upcoming Leave, the week/month/people awareness
+// view, plus All Leave, the admin-only cumulative history) | Planners (a
+// nested tab group of reference/admin views) | Requests (approval queue for
+// admins, submission history for doctors) | Rules (the full written policy,
+// in-app instead of only linking out).
 //
 // An admin's most actionable landing is the Requests queue whenever
 // there's something in it; with nothing pending, Team leave (who's
@@ -44,6 +46,10 @@ function defaultPlannerTab({ canViewYearPlanners }) {
   if (canViewYearPlanners) return 'annual'
   return 'weekends'
 }
+
+// Team leave's own two sub-tabs — Current & Upcoming (the week/month/people
+// awareness view) is always the default; All Leave (the cumulative
+// audit-style history, admin-only) is opt-in via the URL only for admins.
 
 export default function LeavePlannerPage() {
   const { canSubmitLeave, isAdmin, isLocum, isClerk } = useAuth()
@@ -73,11 +79,20 @@ export default function LeavePlannerPage() {
   // Independent fetch, not shared state with InternRotationsPlanner (same
   // reasoning as pendingRequestsBadge — this page and that component
   // don't share state).
+  // is_active: true is required, not optional — EndOfRotationQueue only
+  // ever receives InternRotationsPlanner's activeInterns (it's rendered
+  // under the Active tab, passed activeInterns as its doctors prop), so an
+  // already-inactive doctor can never appear there no matter which tab is
+  // open. Without this filter here, a doctor deactivated by some other
+  // path (never routed through this queue's own "Schedule deactivation",
+  // so scheduled_inactive_date was never set) could still trip
+  // endOfRotationFlag and light up this badge with nothing anywhere in the
+  // UI to resolve it.
   const [endOfRotationBadge, setEndOfRotationBadge] = useState(0)
   useEffect(() => {
     if (!isAdmin) { setEndOfRotationBadge(0); return }
     let cancelled = false
-    supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar'])
+    supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true)
       .then(async ({ data: doctors }) => {
         if (cancelled || !doctors || doctors.length === 0) { if (!cancelled) setEndOfRotationBadge(0); return }
         const { data: rotations } = await supabase.from('intern_rotations')
@@ -130,17 +145,24 @@ export default function LeavePlannerPage() {
   const plannerTabs = [
     ...(canViewYearPlanners ? [{ key: 'annual', label: 'Annual' }, { key: 'special', label: 'Special' }] : []),
     { key: 'weekends', label: 'Weekends' },
-    // Cumulative HR-audit view, admin-only — unlike the doctor-facing "My
-    // leave" tracker (always the current calendar year), this is filterable
-    // to any date range, so leave taken never becomes invisible after a
-    // year rolls over.
-    ...(isAdmin ? [{ key: 'audit', label: 'Audit' }] : []),
     // Admin-only rotation-block management — covers Intern/Registrar/COSMO
     // (see InternRotationsPlanner's Matrix view). Labelled "Rotations" now
     // that Registrars share this page too; key stays 'interns' to avoid
     // touching the underlying table/component/lib naming for a label-only
     // rename.
     ...(isAdmin ? [{ key: 'interns', label: 'Rotations', badge: endOfRotationBadge, badgeColor: 'red' }] : []),
+  ]
+
+  // Team leave's own sub-tabs: the week/month/people awareness view, plus
+  // (admin-only) the cumulative HR history — formerly Planners' "Audit" tab,
+  // relabelled "All Leave" and moved here since it's a Team Leave view, not
+  // a planner, and unlike the doctor-facing "My leave" tracker (always the
+  // current calendar year) it's filterable to any date range so leave taken
+  // never becomes invisible after a year rolls over. Same component, same
+  // layout/FAB/date pickers — only which tab reaches it has changed.
+  const teamTabs = [
+    { key: 'current', label: 'Current & Upcoming Leave' },
+    ...(isAdmin ? [{ key: 'all', label: 'All Leave' }] : []),
   ]
 
   // Tab selection lives in the URL (?tab=...&sub=...), not plain component
@@ -155,6 +177,10 @@ export default function LeavePlannerPage() {
   const tab = tabs.some(t => t.key === requestedTab) ? requestedTab : defaultTopTab({ isAdmin, canSubmitLeave, isClerk, hasPendingRequests: pendingRequestsBadge > 0 })
   const requestedPlannerTab = searchParams.get('sub')
   const plannerTab = plannerTabs.some(t => t.key === requestedPlannerTab) ? requestedPlannerTab : defaultPlannerTab({ canViewYearPlanners })
+  // Same `sub` param Planners uses — never read together, since `tab` picks
+  // exactly one of the two sub-nav'd sections at a time.
+  const requestedTeamTab = searchParams.get('sub')
+  const teamTab = teamTabs.some(t => t.key === requestedTeamTab) ? requestedTeamTab : 'current'
 
   function setTab(nextTab) {
     setSearchParams(prev => {
@@ -167,6 +193,14 @@ export default function LeavePlannerPage() {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.set('tab', 'planners')
+      next.set('sub', nextSub)
+      return next
+    }, { replace: true })
+  }
+  function setTeamTab(nextSub) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', 'team')
       next.set('sub', nextSub)
       return next
     }, { replace: true })
@@ -204,9 +238,25 @@ export default function LeavePlannerPage() {
         </div>
       )}
 
+      {tab === 'team' && teamTabs.length > 1 && (
+        <div
+          className={`mt-4 sticky top-0 z-10 bg-canvas transition-[transform,opacity] duration-200 md:static md:translate-y-0 md:opacity-100 ${
+            subnavVisible ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0 pointer-events-none'
+          }`}
+        >
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Team Leave</h2>
+          <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
+        </div>
+      )}
+
       <div className="mt-6">
         {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
-        {tab === 'team' && <LeaveListView />}
+        {tab === 'team' && (
+          <>
+            {teamTab === 'current' && <LeaveListView />}
+            {teamTab === 'all' && isAdmin && <LeaveAuditReport />}
+          </>
+        )}
         {tab === 'requests' && (
           isAdmin ? (
             <div className="mx-auto md:max-w-2xl">
@@ -225,7 +275,6 @@ export default function LeavePlannerPage() {
             )}
             {plannerTab === 'special' && canViewYearPlanners && <SpecialLeavePlanner />}
             {plannerTab === 'weekends' && <WeekendPlanner />}
-            {plannerTab === 'audit' && isAdmin && <LeaveAuditReport />}
             {plannerTab === 'interns' && isAdmin && <InternRotationsPlanner />}
           </>
         )}

@@ -17,6 +17,7 @@ import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '..
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
+import { LegendIcon } from './PlannerIcons'
 import LegendSheet from './LegendSheet'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -136,8 +137,8 @@ export default function MonthWorkspace({
         <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
           <LegendSheet
             trigger={onClick => (
-              <button type="button" onClick={onClick} className="btn-secondary h-[30px] px-2.5 text-xs">
-                Legend
+              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+                <LegendIcon className="h-4 w-4" />
               </button>
             )}
             ruleIntro={ruleHintIntro}
@@ -229,7 +230,13 @@ export default function MonthWorkspace({
               date={date}
               isToday={date === today}
               isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
-              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).keys()]}
+              // One key per person on leave that day, not one per category
+              // present — a day with 2 EC Interns on leave needs 2 EC
+              // badges, not 1 (splitForOverflow already caps the total
+              // shown and folds the rest into a +N chip, so feeding it
+              // every person here rather than deduped categories is safe).
+              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).entries()]
+                .flatMap(([key, entries]) => entries.map(() => key))}
               capacityState={
                 personalizeFill
                   ? myCategoryCapacityStateForDate(date, myColumnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
@@ -412,7 +419,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
       <span className={`absolute left-1.5 top-1 font-bold ${capacityState.onFillText}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
-          {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
+          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
           {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
         </span>
       )}

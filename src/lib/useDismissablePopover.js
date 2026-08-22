@@ -27,7 +27,19 @@ export function useDismissablePopover(active, onDismiss, ref, excludeRefs) {
       // inside the mobile Filters sheet. Without this, picking an option
       // there registered as an "outside" click on the enclosing sheet and
       // closed it before the sheet's own state could even update.
-      if (e.target.closest('[role="listbox"], [role="menu"]')) return
+      //
+      // `[role="dialog"]` covers the same problem for Modal/ActionSheet —
+      // not portaled, just rendered as a JSX sibling at the bottom of
+      // whatever page opens them, so a dialog opened on top of an already-
+      // open accordion/popover elsewhere on the page (e.g. AccountSettingsPage's
+      // Role & Access SectionRow, still open behind its own "Set to
+      // active?" StatusChangeConfirmModal) isn't a DOM descendant of that
+      // popover's ref either. Without this, the first tap on the dialog's
+      // own Continue/Confirm button registered as an outside click on the
+      // accordion — closing the accordion and swallowing the tap instead of
+      // reaching the button — so a second tap was needed to actually fire
+      // it.
+      if (e.target.closest('[role="listbox"], [role="menu"], [role="dialog"]')) return
       e.stopPropagation()
       e.preventDefault()
       onDismiss()

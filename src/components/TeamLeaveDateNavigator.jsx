@@ -1,4 +1,5 @@
 import DateStepper from './DateStepper'
+import { TodayIcon } from './PlannerIcons'
 import { addDays, formatShortDateRange, todayStr } from '../lib/dateRange'
 import { weekStart } from '../lib/teamLeaveMobile'
 
@@ -20,7 +21,7 @@ export default function TeamLeaveDateNavigator({ view, weekAnchor, onWeekChange,
       <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, -7))} aria-label="Previous week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm">←</button>
       <span className="font-display text-base font-semibold text-ink">{label}</span>
       <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, 7))} aria-label="Next week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm">→</button>
-      <button type="button" onClick={() => onWeekChange(todayStr())} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+      <button type="button" onClick={() => onWeekChange(todayStr())} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
     </div>
   )
 }

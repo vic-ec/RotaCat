@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 
 function CloseIcon(props) {
   return (
@@ -23,6 +24,7 @@ function CloseIcon(props) {
 export default function Modal({ title, onClose, children, footer, maxWidthClassName = 'md:max-w-[520px]' }) {
   const panelRef = useRef(null)
   useDismissablePopover(true, onClose, panelRef)
+  const swipe = useSwipeToDismiss(onClose)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 md:items-center md:p-4" role="presentation">
@@ -31,9 +33,10 @@ export default function Modal({ title, onClose, children, footer, maxWidthClassN
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        style={swipe.style}
         className={`flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-xl rounded-b-none bg-canvas-raised md:rounded-b-xl md:shadow-raised ${maxWidthClassName}`}
       >
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-line px-5 py-4">
+        <div {...swipe.handleProps} className="flex flex-shrink-0 touch-none items-center justify-between border-b border-slate-line px-5 py-4">
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <button
             type="button"

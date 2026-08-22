@@ -23,10 +23,30 @@ export function ActionSheet({ title, onClose, children }) {
         className="card flex max-h-[80vh] w-full max-w-sm flex-col rounded-b-none p-2 sm:rounded-b-lg"
         onClick={e => e.stopPropagation()}
       >
-        {title && <p className="flex-shrink-0 px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>}
+        {title && (
+          <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
+            <p className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <div className="min-h-0 divide-y divide-slate-line overflow-y-auto pb-[max(env(safe-area-inset-bottom),8px)]">{children}</div>
       </div>
     </div>
+  )
+}
+
+function CloseIcon(props) {
+  return (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
   )
 }
 

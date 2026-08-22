@@ -122,7 +122,9 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const selected = options.find(o => o.value === value)
   const menuWidth = isRow ? Math.max(anchor?.width || 0, 200) : 180
-  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
+  // 240 matches the popover's own max-h-60 — see computeAnchoredPosition's
+  // maxHeight comment.
+  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth, { maxHeight: 240 }) : null
 
   return (
     <div className={isRow ? '' : 'relative flex-shrink-0'}>
@@ -141,47 +143,62 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
         {icon}
         <span className={isRow ? 'flex-1' : (compact ? 'hidden' : 'hidden sm:inline')}>{label}</span>
         {isRow && selected && <span aria-hidden="true" className="truncate text-ink-muted">{selected.label}</span>}
-        {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />}
+        {isRow && <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />}
       </button>
       {open && positionStyle && createPortal(
         <div
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="fixed z-50 flex max-h-60 flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         >
-          {searchable && (
-            <div className="px-2 pb-1">
-              <ClearableInput
-                type="text"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder={`Search ${label.toLowerCase()}…`}
-                aria-label={`Search ${label.toLowerCase()}`}
-                clearLabel={`Clear ${label.toLowerCase()} search`}
-                icon={<SearchIcon className="h-4 w-4" />}
-                className="input-field"
-                autoFocus
-              />
-            </div>
-          )}
-          {visibleOptions.length === 0 && (
-            <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
-          )}
-          {visibleOptions.map(opt => (
+          {/* Explicit close, not just outside-click/Escape — see FilterPanel's
+              own header for why. */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-line px-3 py-2">
+            <p className="text-sm font-semibold text-ink">{label}</p>
             <button
-              key={opt.value}
               type="button"
-              onClick={() => { onChange(opt.value); setOpen(false) }}
-              className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
-                opt.value === value
-                  ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
-                  : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
             >
-              {opt.label}
+              <CloseIcon className="h-4 w-4" />
             </button>
-          ))}
+          </div>
+          <div className="overflow-y-auto py-1">
+            {searchable && (
+              <div className="px-2 pb-1">
+                <ClearableInput
+                  type="text"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}…`}
+                  aria-label={`Search ${label.toLowerCase()}`}
+                  clearLabel={`Clear ${label.toLowerCase()} search`}
+                  icon={<SearchIcon className="h-4 w-4" />}
+                  className="input-field"
+                  autoFocus
+                />
+              </div>
+            )}
+            {visibleOptions.length === 0 && (
+              <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
+            )}
+            {visibleOptions.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                  opt.value === value
+                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>,
         document.body
       )}
@@ -226,7 +243,9 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
   const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const menuWidth = Math.max(anchor?.width || 0, 200)
-  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
+  // 288 matches the popover's own max-h-72 — see computeAnchoredPosition's
+  // maxHeight comment.
+  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth, { maxHeight: 288 }) : null
 
   return (
     <div>
@@ -240,63 +259,81 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
       >
         <span className="flex-1">{label}</span>
         <span aria-hidden="true" className="truncate text-ink-muted">{isAll ? 'All' : `${selected.size} selected`}</span>
-        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
       {open && positionStyle && createPortal(
         <div
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="fixed z-50 flex max-h-72 flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
         >
-          {searchable && (
-            <div className="px-2 pb-1">
-              <ClearableInput
-                type="text"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder={`Search ${label.toLowerCase()}…`}
-                aria-label={`Search ${label.toLowerCase()}`}
-                clearLabel={`Clear ${label.toLowerCase()} search`}
-                icon={<SearchIcon className="h-4 w-4" />}
-                className="input-field"
-                autoFocus
-              />
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => onChange(new Set())}
-            className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-          >
-            <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
-              {isAll && <CheckIcon className="h-2.5 w-2.5" />}
-            </span>
-            <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
-          </button>
-          {searchable && visibleOptions.length === 0 && (
-            <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
-          )}
-          {visibleOptions.map(opt => {
-            const checked = selected.has(opt.value)
-            return (
-              <label
-                key={opt.value}
-                className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggleOption(opt.value)}
-                  className="sr-only"
+          {/* Explicit close — this is a secondary popover nested inside
+              MobileFiltersSheet's own primary panel, so an outside tap has
+              to land clear of both to dismiss just this one; a visible x
+              means picking several checkboxes here never requires closing
+              (and reopening) the whole sheet just to move on. */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-slate-line px-3 py-2">
+            <p className="text-sm font-semibold text-ink">{label}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="overflow-y-auto py-1">
+            {searchable && (
+              <div className="px-2 pb-1">
+                <ClearableInput
+                  type="text"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}…`}
+                  aria-label={`Search ${label.toLowerCase()}`}
+                  clearLabel={`Clear ${label.toLowerCase()} search`}
+                  icon={<SearchIcon className="h-4 w-4" />}
+                  className="input-field"
+                  autoFocus
                 />
-                <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
-                  {checked && <CheckIcon className="h-2.5 w-2.5" />}
-                </span>
-                <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
-              </label>
-            )
-          })}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onChange(new Set())}
+              className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            >
+              <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+                {isAll && <CheckIcon className="h-2.5 w-2.5" />}
+              </span>
+              <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
+            </button>
+            {searchable && visibleOptions.length === 0 && (
+              <p className="px-4 py-2 text-sm text-ink-muted">No matches</p>
+            )}
+            {visibleOptions.map(opt => {
+              const checked = selected.has(opt.value)
+              return (
+                <label
+                  key={opt.value}
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-4 py-2 text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleOption(opt.value)}
+                    className="sr-only"
+                  />
+                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+                    {checked && <CheckIcon className="h-2.5 w-2.5" />}
+                  </span>
+                  <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
+                </label>
+              )
+            })}
+          </div>
         </div>,
         document.body
       )}

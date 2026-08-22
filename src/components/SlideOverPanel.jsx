@@ -2,12 +2,14 @@ import { useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 
-// Shared right-edge slide-over shell — RotaCat's existing implementation of
-// the spec's §12 master-detail panel (Account and Pending Approval review
-// already used this exact pattern independently before it was extracted
-// here). 35% width / min 320px on desktop, full-width below 768px (§15's
+// Shared right-edge slide-over shell — RotaCat's implementation of the
+// spec's §12 master-detail panel, currently used by AccountSlideOverPanel.
+// 35% width / min 320px on desktop, full-width below 768px (§15's
 // "collapses to single-column on mobile" — full width IS the single-column
-// collapse here, there's no separate mobile variant to build).
+// collapse here, there's no separate mobile variant to build). A review
+// flow with its own status/×-close header belongs on RequestReviewDrawer
+// instead (see PendingApprovalSlideOverPanel) — this shell has no header
+// of its own, just a scrollable body and an optional footer.
 //
 // Dismissal (outside click / Escape / the default footer's Cancel) always
 // returns to wherever the panel was opened from — `backgroundLocation`, the
@@ -18,12 +20,11 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // panel body that needs to trigger its own dismissal (e.g. after an
 // action completes).
 //
-// `footer`: omit entirely for the default bottom-left Cancel button: pass
+// `footer`: omit entirely for the default bottom-left Cancel button; pass
 // a function `(close) => node` for custom footer content; pass `null`
-// explicitly to render no footer bar at all — for a panel body that
-// already carries its own sticky action footer (e.g.
-// PendingApprovalReviewPage's Approve/Reject bar) and would otherwise show
-// a redundant second "Cancel" strip below it.
+// explicitly to render no footer bar at all, for a panel body that
+// already carries its own close/decision affordance and would otherwise
+// show a redundant second "Cancel" strip below it.
 export default function SlideOverPanel({ fallbackPath = '/', children, footer }) {
   const navigate = useNavigate()
   const location = useLocation()

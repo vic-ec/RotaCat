@@ -4,6 +4,7 @@ import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday } from '../lib/weekendPlanner'
 import DateStepper from './DateStepper'
+import { TodayIcon } from './PlannerIcons'
 
 // A genuinely different read of the same weekend_planner_entries +
 // weekend_exception leave_requests data WeekendYearOverview.jsx uses — this
@@ -81,7 +82,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
         <div className="flex flex-wrap items-center gap-2">
           <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
           {!isOnToday && (
-            <button type="button" onClick={goToToday} className="btn-secondary h-[30px] px-2 text-xs">Today</button>
+            <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
           )}
           <div data-testid="weekend-year-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
             {Object.values(STATE_STYLE).map(state => (

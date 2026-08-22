@@ -15,10 +15,13 @@ describe('DateStepper', () => {
   describe('Today — hidden on the current period, visible once navigated away', () => {
     it('unit="month": hidden while viewing the current month', () => {
       render(<DateStepper unit="month" year={2026} month={8} onChange={vi.fn()} />)
-      // aria-hidden removes it from the accessibility tree, so it's found by
-      // text rather than role here — that removal (plus opacity-0 and
-      // pointer-events-none) is exactly the "hidden" behaviour under test.
-      const today = screen.getByText('Today').closest('button')
+      // aria-hidden makes the button's own computed accessible name empty
+      // (that's the point — a screen reader never announces it at all), so
+      // `getByRole('button', { name: 'Today' })` can't find it here; its
+      // `title` attribute isn't affected by aria-hidden the same way, so
+      // that's what locates it instead. The aria-hidden/tabindex/opacity
+      // trio below is exactly the "hidden" behaviour under test.
+      const today = screen.getByTitle('Today')
       expect(today).toHaveAttribute('aria-hidden', 'true')
       expect(today).toHaveAttribute('tabindex', '-1')
       expect(today).toHaveClass('opacity-0', 'pointer-events-none')
@@ -38,7 +41,7 @@ describe('DateStepper', () => {
     it('unit="year": hidden on the current year, visible and functional on any other', async () => {
       const user = userEvent.setup()
       const { rerender } = render(<DateStepper unit="year" year={2026} onChange={vi.fn()} />)
-      expect(screen.getByText('Today').closest('button')).toHaveAttribute('aria-hidden', 'true')
+      expect(screen.getByTitle('Today')).toHaveAttribute('aria-hidden', 'true')
 
       const onChange = vi.fn()
       rerender(<DateStepper unit="year" year={2025} onChange={onChange} />)

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { ActionSheet } from './ActionSheet'
+import { TodayIcon } from './PlannerIcons'
 
 // month+delta with Dec/Jan year rollover — delta is always ±1 here (prev/
 // next), never an arbitrary jump.
@@ -106,11 +107,13 @@ export default function DateStepper({
           onClick={goToday}
           tabIndex={isCurrentPeriod ? -1 : 0}
           aria-hidden={isCurrentPeriod || undefined}
-          className={`btn-secondary h-[30px] px-2 text-xs transition-opacity duration-200 ${
+          aria-label="Today"
+          title="Today"
+          className={`btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 transition-opacity duration-200 ${
             isCurrentPeriod ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
         >
-          Today
+          <TodayIcon className="h-4 w-4" />
         </button>
       )}
       {children}

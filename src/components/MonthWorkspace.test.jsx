@@ -253,6 +253,20 @@ describe('MonthWorkspace', () => {
     }
   })
 
+  it('mobile day cells: shows one badge per person, not one per category — 2 EC Interns on the same day get 2 EC badges', () => {
+    renderWorkspace({
+      approvedByDate: new Map([
+        ['2026-08-12', [
+          { profileId: 'p1', surname: 'Anderson', category: 'EC_Intern', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+          { profileId: 'p2', surname: 'Botha', category: 'EC_Intern', status: 'approved', dateFrom: '2026-08-12', dateTo: '2026-08-12' },
+        ]],
+      ]),
+      pendingByDate: new Map(),
+    })
+    const cell12 = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
+    expect(within(cell12).getAllByText('EC')).toHaveLength(2)
+  })
+
   it('day view: shows a Consultant entry for an admin, hides it for a non-admin', async () => {
     // The consolidated list omits empty categories entirely now, so a
     // Consultant entry must actually exist on this date to prove the

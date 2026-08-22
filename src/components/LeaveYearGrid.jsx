@@ -174,9 +174,12 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, rotations
           if (!date) return <div key={`blank-${i}`} />
           const phName = publicHolidaysByDate.get(date)
           const entries = leaveByDate.get(date) || []
-          const columnsPresent = [...new Set(entries.map(e =>
+          // One key per person on leave that day, not deduped per category
+          // — see MonthWorkspace.jsx's MobileDayCell for why (same bug, same
+          // fix, both feeding the same splitForOverflow).
+          const columnsPresent = entries.map(e =>
             resolveLeaveCapacityColumn({ category: e.category, profileId: e.profileId, date: e.dateFrom, rotationsByDoctorId })
-          ).filter(Boolean))]
+          ).filter(Boolean)
           const { shown, overflow } = splitForOverflow(columnsPresent)
           const isToday = date === today
 
@@ -192,7 +195,7 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, rotations
               <span className={`text-ink ${phName ? 'font-semibold' : ''}`}>{Number(date.slice(-2))}</span>
               {columnsPresent.length > 0 && (
                 <span className="grid grid-cols-2 gap-0.5">
-                  {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
+                  {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
                   {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
                 </span>
               )}

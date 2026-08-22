@@ -229,7 +229,13 @@ export default function MonthWorkspace({
               date={date}
               isToday={date === today}
               isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
-              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).keys()]}
+              // One key per person on leave that day, not one per category
+              // present — a day with 2 EC Interns on leave needs 2 EC
+              // badges, not 1 (splitForOverflow already caps the total
+              // shown and folds the rest into a +N chip, so feeding it
+              // every person here rather than deduped categories is safe).
+              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).entries()]
+                .flatMap(([key, entries]) => entries.map(() => key))}
               capacityState={
                 personalizeFill
                   ? myCategoryCapacityStateForDate(date, myColumnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
@@ -412,7 +418,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
       <span className={`absolute left-1.5 top-1 font-bold ${capacityState.onFillText}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
-          {shown.map(key => <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
+          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
           {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
         </span>
       )}

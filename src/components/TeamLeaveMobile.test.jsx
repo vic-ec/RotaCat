@@ -67,4 +67,49 @@ describe('TeamLeaveMobile', () => {
     // no chips initially
     expect(screen.queryByText('Clear all')).toBeNull()
   })
+
+  describe("People view's person sheet — sort and filter", () => {
+    const multiLeaveRequests = [
+      {
+        id: 'green-past-annual', profile_id: 'p3', leave_type: 'annual', status: 'approved',
+        date_from: '2025-01-10', date_to: '2025-01-12',
+        profiles: { name: 'Fen', surname: 'Green', category: 'MO' },
+      },
+      {
+        id: 'green-future-sick', profile_id: 'p3', leave_type: 'sick', status: 'approved',
+        date_from: addDays(today, 5), date_to: addDays(today, 6),
+        profiles: { name: 'Fen', surname: 'Green', category: 'MO' },
+      },
+    ]
+
+    function openGreenSheet() {
+      render(<TeamLeaveMobile requests={multiLeaveRequests} />)
+      fireEvent.click(screen.getByRole('button', { name: 'People' }))
+      fireEvent.click(screen.getByText('Fen Green'))
+      return screen.getByRole('dialog')
+    }
+
+    it('defaults to newest first', () => {
+      const sheet = openGreenSheet()
+      const rows = within(sheet).getAllByText(/leave$/i)
+      expect(rows.map(r => r.textContent)).toEqual(['MO · Sick leave', 'MO · Annual leave'])
+    })
+
+    it('Oldest first re-sorts the list', () => {
+      const sheet = openGreenSheet()
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Sort' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Oldest first' }))
+      const rows = within(sheet).getAllByText(/leave$/i)
+      expect(rows.map(r => r.textContent)).toEqual(['MO · Annual leave', 'MO · Sick leave'])
+    })
+
+    it('filtering by leave type narrows the list, with Clear filters to reset', () => {
+      const sheet = openGreenSheet()
+      fireEvent.click(within(sheet).getByRole('button', { name: 'Filter' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Leave Type' }))
+      fireEvent.click(screen.getByRole('checkbox', { name: /Sick leave/ }))
+      expect(within(sheet).getByText('MO · Sick leave')).toBeInTheDocument()
+      expect(within(sheet).queryByText('MO · Annual leave')).toBeNull()
+    })
+  })
 })

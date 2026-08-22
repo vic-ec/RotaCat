@@ -118,9 +118,31 @@ describe('LeavePlannerPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
     await userEvent.click(screen.getByRole('button', { name: 'Annual' }))
     expect(screen.getByText('AnnualStub')).toBeInTheDocument()
+  })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Audit' }))
+  it('admin: Team Leave has its own Current & Upcoming Leave / All Leave sub-tabs, defaulting to Current & Upcoming', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    mockResponses['leave_requests:select'] = { count: 0, error: null }
+    renderPage()
+    expect(await screen.findByText('TeamLeaveStub')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'All Leave' }))
     expect(screen.getByText('AuditStub')).toBeInTheDocument()
+    expect(screen.queryByText('TeamLeaveStub')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Current & Upcoming Leave' }))
+    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
+  })
+
+  it('non-admin viewer of Team Leave does not see the admin-only All Leave sub-tab', async () => {
+    // A viewer who isn't an admin, can't submit their own leave, and isn't a
+    // clerk still sees the Team Leave tab itself (showTeamLeaveTab), but
+    // All Leave stays admin-only.
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: false }
+    renderPage()
+    expect(screen.getByText('TeamLeaveStub')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'All Leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Current & Upcoming Leave' })).not.toBeInTheDocument() // only sub-tab — no sub-nav shown
   })
 
   it('admin: the top-level Requests tab shows a red badge with the pending-leave-request count', async () => {
@@ -142,14 +164,14 @@ describe('LeavePlannerPage', () => {
     expect(within(requestsTab).queryByText('4')).not.toBeInTheDocument()
   })
 
-  it('doctor: does not see the admin-only Audit tab', async () => {
-    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
+  it('Planners never shows an Audit tab — it lives under Team Leave as All Leave now', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
     expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
   })
 
-  it('clerk: defaults to Planners > Annual, no My leave/Team Leave/Requests/Audit', async () => {
+  it('clerk: defaults to Planners > Annual, no My leave/Team Leave/Requests', async () => {
     mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: false, isClerk: true }
     renderPage()
     expect(screen.getByText('AnnualStub')).toBeInTheDocument() // clerk's Planner nav link lands here, not Team Leave
@@ -162,7 +184,6 @@ describe('LeavePlannerPage', () => {
 
     expect(screen.getByRole('button', { name: 'Special' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Weekends' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Audit' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Weekends' }))
     expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
@@ -201,6 +222,13 @@ describe('LeavePlannerPage', () => {
     render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=planners&sub=weekends']}>{children}</MemoryRouter> })
     expect(screen.getByText('WeekendsStub')).toBeInTheDocument()
     expect(screen.queryByText('AnnualStub')).not.toBeInTheDocument()
+  })
+
+  it('resumes the requested Team Leave sub-tab from the URL', () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    render(<LeavePlannerPage />, { wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=team&sub=all']}>{children}</MemoryRouter> })
+    expect(screen.getByText('AuditStub')).toBeInTheDocument()
+    expect(screen.queryByText('TeamLeaveStub')).not.toBeInTheDocument()
   })
 
   it('admin Requests view: narrows/centres the queue, with no back link now that it is a top-level tab', async () => {

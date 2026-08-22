@@ -53,7 +53,10 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
   }
 
   const menuWidth = anchorRect ? Math.max(anchorRect.width, 160) : 160
-  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { forceDown: alwaysDown }) : null
+  // 240 matches the popover's own max-h-60 — see computeAnchoredPosition's
+  // maxHeight comment. Ignored automatically whenever forceDown/alwaysDown
+  // is set, same as the anchor-position heuristic it refines.
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { forceDown: alwaysDown, maxHeight: 240 }) : null
 
   return (
     <div className={`relative ${className}`}>

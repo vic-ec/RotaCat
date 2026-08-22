@@ -192,7 +192,10 @@ export default function FilterPanel({ groups, className = '' }) {
 
   const activeCount = groups.reduce((sum, g) => sum + g.selected.size, 0)
   const menuWidth = 240
-  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth) : null
+  // Matches the popover's own max-h-[70vh] — see computeAnchoredPosition's
+  // maxHeight comment for why this needs to be passed through rather than
+  // relying on the anchor-position heuristic alone.
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, menuWidth, { maxHeight: window.innerHeight * 0.7 }) : null
 
   return (
     <div className="relative flex-shrink-0">

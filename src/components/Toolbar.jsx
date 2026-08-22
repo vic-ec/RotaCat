@@ -122,7 +122,9 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const selected = options.find(o => o.value === value)
   const menuWidth = isRow ? Math.max(anchor?.width || 0, 200) : 180
-  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
+  // 240 matches the popover's own max-h-60 — see computeAnchoredPosition's
+  // maxHeight comment.
+  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth, { maxHeight: 240 }) : null
 
   return (
     <div className={isRow ? '' : 'relative flex-shrink-0'}>
@@ -241,7 +243,9 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
   const searchable = alwaysSearchable || options.length > SEARCH_THRESHOLD
   const visibleOptions = searchable ? filterByQuery(options, query) : options
   const menuWidth = Math.max(anchor?.width || 0, 200)
-  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth) : null
+  // 288 matches the popover's own max-h-72 — see computeAnchoredPosition's
+  // maxHeight comment.
+  const positionStyle = anchor ? computeAnchoredPosition(anchor, menuWidth, { maxHeight: 288 }) : null
 
   return (
     <div>

@@ -40,7 +40,7 @@ export default function PendingApprovalReviewBody({ review }) {
         adminEnabled={review.hasAdmin} onAdminChange={review.onAdminChange}
         adminAvailable={review.adminAvailable}
         adminUnavailableReason="Only doctor accounts can be granted admin access."
-        showScheduling={review.showScheduling}
+        showActiveFrom={review.showActiveFrom} showActiveUntil={review.showActiveUntil}
         activeFrom={review.activeFrom} onActiveFromChange={review.onActiveFromChange}
         activeUntil={review.activeUntil} onActiveUntilChange={review.onActiveUntilChange}
       />

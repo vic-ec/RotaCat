@@ -125,7 +125,7 @@ describe('PendingApprovalReviewPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Medical Officer' }))
 
     const approveBtn = screen.getByRole('button', { name: 'Approve account' })
@@ -143,18 +143,21 @@ describe('PendingApprovalReviewPage', () => {
     })
   })
 
-  it('shows Active from/until fields for Intern but not for MO', async () => {
+  it('shows both Active from/until for Intern, but only Active from for MO', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Intern' }))
     expect(screen.getByLabelText('Active from')).toBeInTheDocument()
     expect(screen.getByLabelText('Active until')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Clinical category *' }))
+    // MO doesn't have the Rotations-page lifecycle a scheduled deactivation
+    // is meant for, but a new MO hire can still start on a future date —
+    // so Active from stays, only Active until drops away.
+    await user.click(screen.getByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Medical Officer' }))
-    expect(screen.queryByLabelText('Active from')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Active from')).toBeInTheDocument()
     expect(screen.queryByLabelText('Active until')).not.toBeInTheDocument()
   })
 
@@ -162,7 +165,7 @@ describe('PendingApprovalReviewPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))
     await user.click(screen.getByRole('button', { name: 'Approve account' }))
 
@@ -177,7 +180,7 @@ describe('PendingApprovalReviewPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))
     await user.type(screen.getByLabelText('Active from'), '2099-01-15')
     await user.click(screen.getByRole('button', { name: 'Approve account' }))
@@ -193,7 +196,7 @@ describe('PendingApprovalReviewPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))
     await user.type(screen.getByLabelText('Active until'), '2099-06-30')
     await user.click(screen.getByRole('button', { name: 'Approve account' }))
@@ -209,7 +212,7 @@ describe('PendingApprovalReviewPage', () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Clinical category *' }))
+    await user.click(await screen.findByRole('button', { name: 'Clinical category' }))
     await user.click(await screen.findByRole('option', { name: 'Medical Officer' }))
     await user.click(screen.getByRole('checkbox', { name: 'Grant admin permissions' }))
 

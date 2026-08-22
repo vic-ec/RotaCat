@@ -106,10 +106,14 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
 
   function handleCategoryChange(value) {
     setCategory(value)
-    if (!SCHEDULABLE_CATEGORIES.has(value)) {
-      setActiveFrom('')
-      setActiveUntil('')
-    }
+    // Active from stays available for any doctor category (MO/Consultant
+    // included) — only clear it once there's no category at all to key it
+    // to. Active until stays Intern/Registrar/COSMO-only (see
+    // SCHEDULABLE_CATEGORIES) — clear it the moment a category switch
+    // hides that field, so a stale value from a previous category can't
+    // silently ride along into approve().
+    if (!value) setActiveFrom('')
+    if (!SCHEDULABLE_CATEGORIES.has(value)) setActiveUntil('')
   }
 
   function handleContractTypeChange(value) {
@@ -144,8 +148,8 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     // it can be set alongside either branch, same field the end-of-
     // rotation queue schedules.
     const today = todayStr()
-    const hasFutureStart = showScheduling && activeFrom && activeFrom > today
-    const scheduledInactiveDate = showScheduling && activeUntil ? activeUntil : null
+    const hasFutureStart = showActiveFrom && activeFrom && activeFrom > today
+    const scheduledInactiveDate = showActiveUntil && activeUntil ? activeUntil : null
 
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
@@ -233,7 +237,13 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
   const showContractType = role === 'doctor' && categoryNeedsContractChoice(category)
   const showSubtype = showContractType && contractType === 'Junior_Doctor_Overtime'
   const adminAvailable = role === 'doctor'
-  const showScheduling = role === 'doctor' && SCHEDULABLE_CATEGORIES.has(category)
+  // Active from: any doctor category, once one's picked — a new hire in
+  // any category can start on a future date. Active until: Intern/
+  // Registrar/COSMO only — a scheduled deactivation is tied to the
+  // Rotations page's lifecycle (see SCHEDULABLE_CATEGORIES above), which
+  // MO/Consultant don't have.
+  const showActiveFrom = role === 'doctor' && Boolean(category)
+  const showActiveUntil = role === 'doctor' && SCHEDULABLE_CATEGORIES.has(category)
 
   const approveDisabledReason =
     role === 'doctor' && !category ? 'Select a role and clinical category to approve.'
@@ -288,7 +298,7 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     hasAdmin, onAdminChange: setHasAdmin,
     activeFrom, onActiveFromChange: setActiveFrom,
     activeUntil, onActiveUntilChange: setActiveUntil,
-    showCategory, showContractType, showSubtype, adminAvailable, showScheduling,
+    showCategory, showContractType, showSubtype, adminAvailable, showActiveFrom, showActiveUntil,
     approveDisabledReason, needsAdminConfirmation,
     accountChecks,
     approve, reject, actioning,

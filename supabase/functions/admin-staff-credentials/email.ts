@@ -1,5 +1,6 @@
 // Welcome email carrying an admin-issued password, sent over the same
-// Gmail SMTP relay the project's auth emails already go through.
+// Gmail SMTP relay the project's auth emails already go through — see
+// smtpConfig below for the GMAIL_SMTP_* secrets it reads.
 //
 // This is the one place the generated password is allowed to leave the
 // function, and it exists in memory only: nothing here logs it, and the
@@ -43,19 +44,28 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+// Reads the GMAIL_SMTP_* secrets set on the project. The credentials are
+// the same Gmail address and app password the Supabase Auth SMTP settings
+// already use for the OTP emails — Auth's own copy isn't readable from a
+// function, so this needs its own.
+//
+// A missing secret throws rather than falling back to some default sender:
+// the caller catches it, reports the email as failed, and shows the admin
+// the generated password to relay by hand, which is a far better outcome
+// than silently not sending.
 function smtpConfig() {
-  const user = Deno.env.get('SMTP_USER')
-  const pass = Deno.env.get('SMTP_PASS')
+  const user = Deno.env.get('GMAIL_SMTP_USER')
+  const pass = Deno.env.get('GMAIL_SMTP_PASS')
   if (!user || !pass) {
-    throw new Error('SMTP is not configured (SMTP_USER / SMTP_PASS are unset).')
+    throw new Error('SMTP is not configured (GMAIL_SMTP_USER / GMAIL_SMTP_PASS are unset).')
   }
   return {
-    hostname: Deno.env.get('SMTP_HOST') ?? 'smtp.gmail.com',
-    port: Number(Deno.env.get('SMTP_PORT') ?? '465'),
+    hostname: Deno.env.get('GMAIL_SMTP_HOST') ?? 'smtp.gmail.com',
+    port: Number(Deno.env.get('GMAIL_SMTP_PORT') ?? '465'),
     username: user,
     password: pass,
-    from: Deno.env.get('SMTP_FROM') ?? user,
-    fromName: Deno.env.get('SMTP_FROM_NAME') ?? 'RotaCat',
+    from: Deno.env.get('GMAIL_SMTP_FROM') ?? user,
+    fromName: Deno.env.get('GMAIL_SMTP_FROM_NAME') ?? 'RotaCat',
   }
 }
 

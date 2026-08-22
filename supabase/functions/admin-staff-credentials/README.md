@@ -31,12 +31,12 @@ are injected by the platform and need no configuration.
 
 | Name | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `SMTP_USER` | yes | — | Gmail relay account. Without it the account is still created; the email step reports as failed and the admin is shown the password to relay by hand. |
-| `SMTP_PASS` | yes | — | Gmail app password, not the account password. |
-| `SMTP_HOST` | no | `smtp.gmail.com` | |
-| `SMTP_PORT` | no | `465` | Implicit TLS on 465; any other port is sent as STARTTLS. |
-| `SMTP_FROM` | no | `SMTP_USER` | |
-| `SMTP_FROM_NAME` | no | `RotaCat` | Display name on the welcome email. |
+| `GMAIL_SMTP_USER` | yes | — | Gmail relay account — the same address as the Supabase Auth SMTP settings. Without it the account is still created; the email step reports as failed and the admin is shown the password to relay by hand. |
+| `GMAIL_SMTP_PASS` | yes | — | Gmail **app password** (16 characters, from myaccount.google.com/apppasswords), not the account password. |
+| `GMAIL_SMTP_HOST` | no | `smtp.gmail.com` | |
+| `GMAIL_SMTP_PORT` | no | `465` | Implicit TLS on 465; any other port is sent as STARTTLS. |
+| `GMAIL_SMTP_FROM` | no | `GMAIL_SMTP_USER` | |
+| `GMAIL_SMTP_FROM_NAME` | no | `RotaCat` | Display name on the welcome email. |
 | `APP_URL` | no | the calling admin's `Origin` | Login link in the email. Set this if admins ever use the app from an origin you don't want emailed out (a preview deployment, localhost). |
 
 ## The generated password

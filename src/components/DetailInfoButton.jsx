@@ -15,8 +15,15 @@ function InfoIcon(props) {
 // (i) button next to a truncated table cell — opens an anchored popover
 // with the full text instead of wrapping the cell and blowing out the
 // row's height, which is what happened before with the review log's
-// Details column.
-export default function DetailInfoButton({ text }) {
+// Details column. Also reused anywhere else a field needs a hover-or-tap
+// hint rather than a permanently-visible caption line (e.g. the pending-
+// approval Active from/until fields) — `label` names what's being
+// revealed for those callers; table-cell truncation callers leave it at
+// the default. Deliberately click/tap-triggered rather than the native
+// `title` attribute: `title` never opens on a touch tap at all (no hover
+// to trigger it), so a mobile viewer got no explainer whatsoever — a
+// real popover works the same way on both.
+export default function DetailInfoButton({ text, label = 'View full details' }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -38,7 +45,7 @@ export default function DetailInfoButton({ text }) {
         ref={triggerRef}
         type="button"
         onClick={toggle}
-        aria-label="View full details"
+        aria-label={label}
         aria-expanded={open}
         className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink"
       >

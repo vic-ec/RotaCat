@@ -1,27 +1,7 @@
 import SelectMenu from './SelectMenu'
 import SectionLabel from './SectionLabel'
+import DetailInfoButton from './DetailInfoButton'
 import { CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS } from '../lib/staffDefaults'
-
-function InfoIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M12 11v5M12 8v.01" />
-    </svg>
-  )
-}
-
-// A field label's own hint, disclosed on hover/focus via the native
-// `title` tooltip instead of sitting permanently underneath the input —
-// this is an admin-facing form field, most of these are self-explanatory
-// once you've filled the form out once, and the rest is one hover away.
-function LabelHint({ text }) {
-  return (
-    <span tabIndex={0} title={text} aria-label={text} className="text-ink-muted hover:text-ink">
-      <InfoIcon className="h-3.5 w-3.5" />
-    </span>
-  )
-}
 
 // Role/category/hours assignment + the admin-permissions decision — the
 // section an admin actually has to make a call on, so unlike
@@ -84,14 +64,27 @@ export default function RoleAndAccessSection({
 
         {(showActiveFrom || showActiveUntil) && (
           <div className="border-t border-slate-line pt-4">
+            {/* Each date field's own hint lives behind its DetailInfoButton
+                rather than a permanently-visible caption — click/tap-
+                triggered, not the native `title` attribute, since `title`
+                never fires on a touch tap at all. The button is a sibling
+                of the <label>, not nested inside it: a <button> is itself
+                labelable, so nesting it in a <label for="..."> pointing at
+                the date input gave that one label two different associated
+                controls at once (the input via `for`, the button via
+                wrapping) — ambiguous for assistive tech, and it's also what
+                broke the tap in the first place: with a plain non-labelable
+                span there instead of a button, tapping it fell through to
+                the label's own default action (focusing/opening the date
+                input) rather than being consumed by the tap target. */}
             <SectionLabel className="mb-3">Configure access period</SectionLabel>
             <div className={`grid grid-cols-1 gap-3 ${showActiveFrom && showActiveUntil ? 'sm:grid-cols-2' : ''}`}>
               {showActiveFrom && (
                 <div>
-                  <label className="label-text inline-flex items-center gap-1.5" htmlFor="active-from-input">
-                    Active from
-                    <LabelHint text="Leave blank to activate immediately on approval." />
-                  </label>
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <label className="label-text mb-0" htmlFor="active-from-input">Active from</label>
+                    <DetailInfoButton label="About Active from" text="Leave blank to activate immediately on approval." />
+                  </div>
                   <input
                     id="active-from-input"
                     type="date"
@@ -103,10 +96,10 @@ export default function RoleAndAccessSection({
               )}
               {showActiveUntil && (
                 <div>
-                  <label className="label-text inline-flex items-center gap-1.5" htmlFor="active-until-input">
-                    Active until
-                    <LabelHint text="Schedules a future deactivation. Leave blank for permanent staff." />
-                  </label>
+                  <div className="mb-1.5 flex items-center gap-1.5">
+                    <label className="label-text mb-0" htmlFor="active-until-input">Active until</label>
+                    <DetailInfoButton label="About Active until" text="Schedules a future deactivation. Leave blank for permanent staff." />
+                  </div>
                   <input
                     id="active-until-input"
                     type="date"

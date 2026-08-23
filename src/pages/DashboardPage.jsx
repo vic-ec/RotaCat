@@ -321,7 +321,7 @@ export default function DashboardPage() {
                 {/* Heading sits on the plain page background; the chips get
                     their own panel underneath, so the row of shift cards
                     reads as one object rather than chips floating loose. */}
-                <SectionHeading>Your shifts this week</SectionHeading>
+                <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
                 <div className="card flex flex-wrap gap-3 p-4">
                   {myShifts.map(e => {
                     const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
@@ -348,7 +348,7 @@ export default function DashboardPage() {
                 <EmptyRow to={MY_LEAVE_PATH} linkLabel="View all leave">No leave booked</EmptyRow>
               ) : (
                 <>
-                  <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Your leave</SectionHeading>
+                  <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Upcoming leave</SectionHeading>
                   <div className="space-y-3">
                     {myLeave.map(lr => <LeaveCard key={lr.id} request={lr} />)}
                   </div>

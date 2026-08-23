@@ -77,8 +77,25 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Fri 14 Aug')).toBeInTheDocument()
     expect(screen.getByText('5 calendar days · 3 leave days')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
+    expect(screen.getByText('Upcoming leave')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
     expect(eqCalls).toContainEqual(['leave_requests', 'profile_id', 'doctor-1'])
+  })
+
+  it('doctor: heads the shifts panel with its own title and a right-aligned roster link', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    mockResponses['roster_entries:select'] = {
+      data: [{ date: '2026-08-03', shift_type: { code: 'WD_08', label: 'Day', start_time: '08:00:00', end_time: '18:00:00', day_type: 'weekday', is_night_shift: false } }],
+      error: null,
+    }
+
+    renderDashboard()
+
+    // Title and link sit together above the panel, not inside it
+    const heading = await screen.findByText('Upcoming shifts')
+    const headingRow = heading.closest('div')
+    expect(within(headingRow).getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster')
+    expect(headingRow.querySelector('.card')).toBeNull()
   })
 
   it('doctor: collapses empty shifts and leave to one inline row each, not empty cards', async () => {

@@ -10,13 +10,20 @@ describe('groupForCategory', () => {
   it('maps finer categories down to the 4 rotation groups', () => {
     expect(groupForCategory('MO')).toBe('MO')
     expect(groupForCategory('Registrar')).toBe('Registrar')
-    expect(groupForCategory('COSMO')).toBe('COSMO')
     expect(groupForCategory('EC_Intern')).toBe('COSMO')
-    expect(groupForCategory('EC_COSMO_Intern')).toBe('COSMO')
     expect(groupForCategory('Intern')).toBe('COSMO')
-    expect(groupForCategory('COSMOPsych')).toBe('COSMOPsych')
     expect(groupForCategory('OT_Intern')).toBe('COSMOPsych')
-    expect(groupForCategory('OT_COSMO_Intern')).toBe('COSMOPsych')
+  })
+
+  // COSMO/COSMOPsych/EC_COSMO_Intern/OT_COSMO_Intern were retired from the
+  // staff_category enum in Aug 2026 (folded into Intern/EC_Intern/OT_Intern,
+  // with every existing row rewritten by that migration) — a raw category
+  // value can never be one of these again, so they no longer map anywhere.
+  it('returns null for the retired COSMO-named category values', () => {
+    expect(groupForCategory('COSMO')).toBeNull()
+    expect(groupForCategory('COSMOPsych')).toBeNull()
+    expect(groupForCategory('EC_COSMO_Intern')).toBeNull()
+    expect(groupForCategory('OT_COSMO_Intern')).toBeNull()
   })
 
   it('returns null for categories that never rotate weekends', () => {
@@ -50,7 +57,7 @@ describe('groupEntriesByWeekend', () => {
   it('groups entries by weekend then by category group', () => {
     const entries = [
       { id: '1', weekend_saturday: '2026-08-01', profile_id: 'p1', category: 'MO' },
-      { id: '2', weekend_saturday: '2026-08-01', profile_id: 'p2', category: 'EC_COSMO_Intern' },
+      { id: '2', weekend_saturday: '2026-08-01', profile_id: 'p2', category: 'EC_Intern' },
       { id: '3', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'Registrar' },
     ]
     const grouped = groupEntriesByWeekend(entries)
@@ -570,7 +577,7 @@ describe('planBatchRestore', () => {
 
 describe('resolveEffectiveCategory', () => {
   it('passes through every non-ambiguous category unchanged and resolved', () => {
-    for (const category of ['MO', 'Registrar', 'Consultant', 'Locum', 'COSMOPsych', 'EC_Intern', null, undefined]) {
+    for (const category of ['MO', 'Registrar', 'Consultant', 'Locum', 'EC_Intern', null, undefined]) {
       expect(resolveEffectiveCategory({ category, profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
         .toEqual({ category: category ?? null, resolved: true })
     }
@@ -610,31 +617,12 @@ describe('resolveEffectiveCategory', () => {
       .toEqual({ category: 'EC_Intern', resolved: true })
   })
 
-  it('resolves a COSMO doctor with an EC rotation to EC_COSMO_Intern', () => {
-    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'EC' }]]])
-    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
-      .toEqual({ category: 'EC_COSMO_Intern', resolved: true })
-  })
-
-  it('resolves a COSMO doctor with an OT rotation to OT_COSMO_Intern', () => {
-    const rotationsByDoctorId = new Map([['p1', [{ start_date: '2026-01-01', end_date: null, rotation_type: 'OT' }]]])
-    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId }))
-      .toEqual({ category: 'OT_COSMO_Intern', resolved: true })
-  })
-
   // Real case: an Intern with no intern_rotations row
   // at all — falls back to the plain base category, flagged unresolved
   // rather than guessed.
   it('falls back to the base category, unresolved, when no rotation covers the target date', () => {
     expect(resolveEffectiveCategory({ category: 'Intern', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
       .toEqual({ category: 'Intern', resolved: false })
-  })
-
-  // Real case: 8 of 11 active COSMOs have no intern_rotations row at all —
-  // the common case, must stay a plain, unaffected COSMO.
-  it('falls back to plain COSMO, unresolved, for a COSMO doctor with no rotation row', () => {
-    expect(resolveEffectiveCategory({ category: 'COSMO', profileId: 'p1', targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
-      .toEqual({ category: 'COSMO', resolved: false })
   })
 
   it('falls back when a rotation row exists but does not cover the target date (starts later)', () => {
@@ -659,9 +647,9 @@ describe('resolveWeekendCategoryForDoctor', () => {
   })
 
   it('still resolves a group key for an unresolved fallback (existing groupForCategory mapping, unchanged)', () => {
-    const doctor = { id: 'p1', category: 'COSMO' }
+    const doctor = { id: 'p1', category: 'Intern' }
     expect(resolveWeekendCategoryForDoctor({ doctor, targetDate: '2026-08-15', rotationsByDoctorId: new Map() }))
-      .toEqual({ category: 'COSMO', groupKey: 'COSMO', resolved: false })
+      .toEqual({ category: 'Intern', groupKey: 'COSMO', resolved: false })
   })
 
   it('returns a null group key for a category outside weekend rotation', () => {

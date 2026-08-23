@@ -23,11 +23,14 @@ const PROGRESS_MESSAGES = [
 ]
 
 // Categories the solver actually schedules — Consultants and Locums
-// are never auto-scheduled so we exclude them from the selection panel
+// are never auto-scheduled so we exclude them from the selection panel.
+// COSMO/COSMOPsych/EC_COSMO_Intern/OT_COSMO_Intern were retired from the
+// staff_category enum in Aug 2026 (folded into Intern/EC_Intern/OT_Intern)
+// — a stale value here isn't just dead, it makes the whole query error.
 const SCHEDULABLE_CATEGORIES = [
-  'MO', 'Registrar', 'COSMO', 'COSMOPsych', 'Intern',
+  'MO', 'Registrar', 'Intern',
   // Future values included so they work automatically when activated
-  'EC_Intern', 'EC_COSMO_Intern', 'OT_Intern', 'OT_COSMO_Intern',
+  'EC_Intern', 'OT_Intern',
 ]
 
 export default function GenerationConfigPage() {

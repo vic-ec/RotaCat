@@ -15,17 +15,17 @@ import { defaultHoursForCategory } from './staffDefaults'
 
 // Doctor categories whose EC/OT status is tracked as a rotation timeline
 // rather than a fixed profiles field — mirrors categoryNeedsContractChoice's
-// AMBIGUOUS_CATEGORIES in staffDefaults.js. Real intern_rotations rows
-// already exist for both COSMO and Intern doctors (the OT/72h band is
-// shared between them), so both are in scope here, not just Intern.
-const ROTATION_TRACKED_CATEGORIES = new Set(['COSMO', 'Intern'])
+// AMBIGUOUS_CATEGORIES in staffDefaults.js. COSMO was retired as a separate
+// staff_category in Aug 2026 and folded into Intern, so Intern is the only
+// rotation-tracked category now.
+const ROTATION_TRACKED_CATEGORIES = new Set(['Intern'])
 
 // The only profiles.category value that needs a rotation lookup at all —
 // see leaveYearGrid.js's LEAVE_CAPACITY_COLUMNS: every other category
-// (including the forward-looking EC_COSMO_Intern/OT_COSMO_Intern values
-// reserved for a separate, not-yet-built EC/OT distinction popup — keep
-// this compatible with that, don't conflate the two) already resolves to a
-// fixed column on its own, with no date dependency.
+// (including the forward-looking EC_Intern/OT_Intern values reserved for a
+// separate, not-yet-built EC/OT distinction popup — keep this compatible
+// with that, don't conflate the two) already resolves to a fixed column on
+// its own, with no date dependency.
 export const INTERN_ROTATION_CATEGORY = 'Intern'
 
 const COLUMN_BY_ROTATION_TYPE = { EC: 'EC_Intern', OT: 'OT_Intern' }
@@ -229,7 +229,7 @@ export async function syncProfileFromCurrentRotation(doctorId) {
 // Applies an EC/OT (+ subtype) change for one doctor — the single write
 // path shared by AccountSettingsPage's admin edit and StaffListPage's
 // approval of a self-service 'hours' request. For a rotation-tracked
-// category (COSMO/Intern) this writes into intern_rotations (closing out
+// category (Intern) this writes into intern_rotations (closing out
 // whatever's currently open, then opening a new current block from today)
 // so the Intern Rotations Planner immediately reflects the change — an
 // Accounts-page edit "feeds" the planner, same as the planner feeds
@@ -280,10 +280,7 @@ export async function applyHoursChange({ profileId, category, contractType, subt
   })
 }
 
-// Categories in scope for the end-of-rotation queue — a COSMO's OT/subtype
-// change is a move within the OT band, not an exit from the rotation
-// system entirely, so COSMO stays out of scope here (unlike
-// ROTATION_TRACKED_CATEGORIES above, which covers both).
+// Categories in scope for the end-of-rotation queue.
 const END_OF_ROTATION_CATEGORIES = new Set(['Intern', 'Registrar'])
 
 // A doctor belongs in the end-of-rotation queue when: their most

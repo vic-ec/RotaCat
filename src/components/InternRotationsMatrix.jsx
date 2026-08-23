@@ -29,13 +29,15 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 const MONTH_COL_WIDTH = 56 // px
 const LABEL_COL_WIDTH = 152 // px
 
-const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar', 'COSMO']
-const CATEGORY_GROUP_LABEL = { Intern: 'Intern', Registrar: 'Registrar', COSMO: 'COSMO' }
+// COSMO was retired as a separate staff_category in Aug 2026 (folded into
+// Intern — see InternRotationsPlanner.jsx) so this page's doctor pool is
+// only ever Intern/Registrar now.
+const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
+const CATEGORY_GROUP_LABEL = { Intern: 'Intern', Registrar: 'Registrar' }
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'All categories' },
   { value: 'Intern', label: 'Intern' },
   { value: 'Registrar', label: 'Registrar' },
-  { value: 'COSMO', label: 'COSMO' },
 ]
 
 const FAR_FUTURE = '9999-12-31' // stand-in for a null (open-ended) end_date in string date-range comparisons only
@@ -128,7 +130,7 @@ function overlapMonthRange(a, b) {
 }
 
 function categoryGroupKey(doctor) {
-  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'COSMO'
+  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
 }
 
 function matchesSearch(doctor, search) {
@@ -140,8 +142,8 @@ function matchesSearch(doctor, search) {
 // The only view this page has — Table and the old 4-month Timeline are
 // both retired (Table's one remaining job, adding a new doctor, is now
 // the "+ Add doctor" flow below). Rows = doctors, grouped by category
-// (Intern / Registrar / COSMO, same visual pattern as the Staff list's
-// category grouping). Desktop: columns = the 12 months of a navigable
+// (Intern / Registrar, same visual pattern as the Staff list's category
+// grouping). Desktop: columns = the 12 months of a navigable
 // year, rotation blocks as colour-coded spanning bars. Mobile: a
 // genuinely different layout, not a shrunk grid — one card per doctor
 // showing only their own covered months as a flush strip, with a bottom
@@ -431,7 +433,7 @@ export default function InternRotationsMatrix({
 
   const overflowMenu = (
     <PageActionsMenu
-      title="Intern, COSMO, & Registrar Rotations"
+      title="Intern & Registrar Rotations"
       items={menuItems}
       trigger={(onClick, open) => (
         <button
@@ -877,7 +879,7 @@ export default function InternRotationsMatrix({
           sheetTitle: 'Filters',
         }}
         legend={{ title: 'Legend', children: legendSwatches }}
-        moreMenu={{ title: 'Intern, COSMO, & Registrar Rotations', items: menuItems }}
+        moreMenu={{ title: 'Intern & Registrar Rotations', items: menuItems }}
       />
 
       {selectedDoctor && (

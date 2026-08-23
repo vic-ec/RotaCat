@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.6.0",
     "@supabase/supabase-js": "^2.45.4",
     "lucide-react": "^1.28.0",
     "react": "^18.3.1",

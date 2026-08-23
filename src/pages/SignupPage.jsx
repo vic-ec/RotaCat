@@ -9,6 +9,7 @@ import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
+import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 
 // Which role the registrant is selecting
@@ -89,6 +90,15 @@ function RoleModal({ role, onClose }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [locumAgency, setLocumAgency] = useState('')
+  // Honeypot — invisible to a real visitor (off-screen, unreachable by tab,
+  // hidden from assistive tech) but a plain-fill bot that populates every
+  // <input> it finds will still write to it. A non-empty value on submit
+  // means the "success"/OTP screen renders as normal (so the bot doesn't
+  // learn to route around it) but signUp is never actually called, so no
+  // Supabase Auth user or profile row gets created for it.
+  const [honeypot, setHoneypot] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -133,6 +143,14 @@ function RoleModal({ role, onClose }) {
     e.preventDefault()
     setError('')
 
+    // Bot caught the honeypot — pretend it worked (no error, same success
+    // screen) without ever calling signUp, so nothing is created and the
+    // bot has no signal to adapt to.
+    if (honeypot) {
+      setSubmitted(true)
+      return
+    }
+
     if (role === 'doctor' && !category) {
       setError('Please select your staff category.')
       return
@@ -142,10 +160,20 @@ function RoleModal({ role, onClose }) {
       setError(pwProblem)
       return
     }
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the verification check.')
+      return
+    }
 
     setSubmitting(true)
-    const { error } = await signUp(email, password, name, surname, role, category || null, phone)
+    const { error } = await signUp(email, password, name, surname, role, category || null, phone, captchaToken)
     setSubmitting(false)
+
+    // A Turnstile token is single-use — reset the widget for a fresh one
+    // regardless of outcome, otherwise a retry after a validation error
+    // would submit the same already-consumed token.
+    turnstileRef.current?.reset()
+    setCaptchaToken('')
 
     if (error) {
       setError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
@@ -274,6 +302,24 @@ function RoleModal({ role, onClose }) {
               onSubmit={handleSubmit}
               className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-4"
             >
+              {/* Honeypot — off-screen and unreachable by keyboard/AT, so a
+                  human visitor never notices or fills it in; a plain-fill
+                  bot that populates every field it finds still will. See
+                  the honeypot state comment above for what happens if it's
+                  non-empty on submit. */}
+              <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+                <label htmlFor="website">Website</label>
+                <input
+                  id="website"
+                  name="website"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+              </div>
+
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">
                   First name
@@ -471,6 +517,12 @@ function RoleModal({ role, onClose }) {
                 <CapsLockNotice show={capsLock.capsOn} />
               </div>
 
+              {TURNSTILE_ENABLED && (
+                <div className="mt-1">
+                  <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+                </div>
+              )}
+
               {error && (
                 <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
                   {error}
@@ -482,7 +534,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 form="role-details-form"
-                disabled={submitting}
+                disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
                 className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose

@@ -141,6 +141,7 @@ describe('WeekendYearOverview', () => {
       expect(dateLine).toBeInTheDocument()
       // Amber, not red — some groups are filled, matching the legend's "amber = partial" fill.
       expect(dateLine).toHaveClass('text-flagAmber')
+      expect(within(panel).getByText('1 of 4 groups staffed')).toBeInTheDocument()
 
       await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
       expect(onPlanWeekend).toHaveBeenCalledWith(aug8)

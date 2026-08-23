@@ -150,6 +150,9 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             <div className="mt-3 border-t border-slate-line pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
               <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendTextClass}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+              <p className="mt-1 text-sm text-ink-light">
+                {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
+              </p>
               <button
                 type="button"
                 onClick={() => onPlanWeekend(nextOpenWeekend)}

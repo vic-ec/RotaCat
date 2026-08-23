@@ -98,14 +98,27 @@ describe('DashboardPage', () => {
     expect(headingRow.querySelector('.card')).toBeNull()
   })
 
-  it('doctor: collapses empty shifts and leave to one inline row each, not empty cards', async () => {
+  it('doctor: keeps the shifts heading and roster link with nothing rostered, message inside the panel', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+
+    renderDashboard()
+
+    // Heading and link stay put even with an empty week — only the panel's
+    // contents change
+    expect(await screen.findByText('Upcoming shifts')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster')
+    const empty = screen.getByText('No shifts in the next 7 days')
+    expect(empty).toHaveClass('card')
+    // The link isn't duplicated inside the panel now the heading carries it
+    expect(within(empty).queryByRole('link')).toBeNull()
+  })
+
+  it('doctor: collapses empty leave to one inline row, not an empty card', async () => {
     mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
 
     renderDashboard()
 
     expect(await screen.findByText('No leave booked')).toBeInTheDocument()
-    expect(screen.getByText('No shifts in the next 7 days')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster')
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
   })
 

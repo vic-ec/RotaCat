@@ -285,7 +285,18 @@ export default function RosterSummaryPage() {
           scroll past it instead. */}
       {!loading && !error && (
         <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-          <table className="w-full min-w-[1400px] border-collapse text-xs">
+          {/* `border-separate` + zero spacing, not `border-collapse`: with
+              collapsed borders a cell's edge is *shared* with its
+              neighbour and owned by the table, and the sticky Doctor
+              column paints on its own compositing layer — so its half of
+              each shared line can land a device pixel off from the rest of
+              the grid, which is what made the doctor rows' lines look
+              thinner than the grid's and step where the two meet.
+              Separated borders give every cell its own line: each edge is
+              drawn exactly once, by one cell, with nothing shared across
+              the sticky boundary. Verified pixel-identical to the
+              collapsed rendering at 2x, 2.625x, 2.75x and 3x. */}
+          <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-xs">
             <thead className="sticky top-0 z-10">
               {/* bg-canvas-sunken on every th (not just the tr) — border-
                   collapse plus sticky positioning otherwise leaves a thin

@@ -3,9 +3,11 @@ import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel for the split-screen card layout — used by
-// forgot-password/reset-password at all breakpoints, and by login/signup
-// on desktop only (they render their own MobileAuthHero below md, with
-// this component's whole desktop block hidden by an ancestor wrapper).
+// reset-password at all breakpoints, and by login/signup on desktop only
+// (they render their own MobileAuthHero below md, with this component's
+// whole desktop block hidden by an ancestor wrapper). Forgot Password is
+// no longer its own page — it's a modal on /login (LoginPage.jsx's
+// ForgotPasswordModal), so it doesn't render this at all.
 export default function AuthHero() {
   return (
     <div className="flex -translate-y-[5px] flex-col items-center justify-center bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">

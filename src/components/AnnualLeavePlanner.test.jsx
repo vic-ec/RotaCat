@@ -139,11 +139,11 @@ describe('AnnualLeavePlanner', () => {
 
     // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
     // EC COSMO/Intern request alone — also 1 of 3. Four days total.
-    expect(within(inspector.getByText('1 of 3 slots taken').closest('div')).getByText('4 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
     // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
-    expect(within(inspector.getByText('2 of 3 slots taken').closest('div')).getByText('2 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
     // Nothing ever reaches 3 of 3 in this fixture.
-    expect(within(inspector.getByText('3 of 3 slots taken').closest('div')).getByText('0 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
   })
 
   it('tapping a name in the date-range list reveals their full leave dates', async () => {

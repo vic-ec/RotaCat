@@ -73,47 +73,11 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
     <div>
       <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
 
-      {/* ── Year panel: year selector (chevrons at the panel margins, same
-          `centered` layout as the Selected month panel's own stepper below)
-          plus the year's totals — each stat cell's fill already doubles as
-          the legend, so no separate Legend trigger is needed here. ── */}
-      <div data-testid="weekend-year-stats" className="mt-4 rounded-lg border border-slate-line bg-canvas-raised p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
-        <div className="mt-1">
-          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
-          <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
-          <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
-          <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
-        </div>
-      </div>
-
-      {/* ── Next weekend needing staff: moved here from the month view
-          (WeekendPlannerView used to compute + show its own version of
-          this), since finding the nearest open weekend across the whole
-          year belongs with the page that already has the whole year
-          loaded. Omitted once every remaining weekend this year is fully
-          staffed. ── */}
-      {nextOpenWeekend && (
-        <div className={`card mt-4 p-4 ${nextOpenWeekendFill.bg}`}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
-          <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
-          <p className="mt-1 text-sm text-ink-light">
-            {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
-          </p>
-          <button
-            type="button"
-            onClick={() => onPlanWeekend(nextOpenWeekend)}
-            className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Plan now
-          </button>
-        </div>
-      )}
-
-      {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
+      {/* ── Main workspace: 4x3 month grid + one sticky rail — same shell as
+          AnnualPlannerOverview's (grid left, single right-hand rail), rather
+          than the year/next-weekend panels sitting as their own full-width
+          blocks above the grid. Mobile (<lg): rail stacked first, full
+          width. Desktop (lg+): grid + w-80 sticky rail side by side. ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
         <div data-testid="weekend-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-4">
           {monthCards.map(m => (
@@ -131,28 +95,65 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           ))}
         </div>
 
-        <div
-          data-testid="weekend-year-inspector"
-          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <div className="mt-1">
-            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+        <div className="order-first flex w-full flex-shrink-0 flex-col gap-4 lg:order-none lg:sticky lg:top-4 lg:w-80">
+          {/* Year selector (chevrons at the panel margins, same `centered`
+              layout as the Selected month panel's own stepper below) plus
+              the year's totals — each stat cell's fill already doubles as
+              the legend, so no separate Legend trigger is needed here. */}
+          <div data-testid="weekend-year-stats" className="rounded-lg border border-slate-line bg-canvas-raised p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
+            <div className="mt-1">
+              <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+              <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+              <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+              <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
+            </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
-            <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
-            <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
-            <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
-          </div>
+          {/* Next weekend needing staff — finding the nearest open weekend
+              across the whole year belongs with the page that already has
+              the whole year loaded. Omitted once every remaining weekend
+              this year is fully staffed. */}
+          {nextOpenWeekend && (
+            <div className={`card p-4 ${nextOpenWeekendFill.bg}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+              <p className="mt-1 text-sm text-ink-light">
+                {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
+              </p>
+              <button
+                type="button"
+                onClick={() => onPlanWeekend(nextOpenWeekend)}
+                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Plan now
+              </button>
+            </div>
+          )}
 
-          <button
-            type="button"
-            onClick={() => onOpenMonth(selectedMonth)}
-            className="btn-primary mt-4 flex w-full items-center justify-center gap-1.5 text-sm"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Open month
-          </button>
+          <div data-testid="weekend-year-inspector" className="rounded-lg border border-slate-line bg-canvas-raised p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
+            <div className="mt-1">
+              <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+              <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
+              <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
+              <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenMonth(selectedMonth)}
+              className="btn-primary mt-4 flex w-full items-center justify-center gap-1.5 text-sm"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open month
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -23,6 +23,13 @@ import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 // mentally filter themselves.
 const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })), { value: 'all', label: 'All categories' }]
 
+// Leave Slot Utilization tiles below read as a plain 1/2/3-of-3 traffic
+// light (green/yellow/red) rather than the day-heatmap's 4-state available/
+// limited/near-capacity/at-capacity scale — there's no "0 of 3" tile here
+// (monthTotalCapacityBreakdown only ever returns levels 1-3), so the levels
+// map onto available/limited/at_capacity directly, skipping near_capacity.
+const UTILIZATION_TILE_STATES = [LEAVE_CAPACITY_STATES[0], LEAVE_CAPACITY_STATES[1], LEAVE_CAPACITY_STATES[3]]
+
 // A 12-month "decision" overview for the Annual Leave planner — replaces
 // the old always-visible day-row spreadsheet as the default landing view.
 // That spreadsheet (LeaveYearGrid) hasn't gone away — it's now the "month
@@ -240,15 +247,12 @@ export default function AnnualPlannerOverview({
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Leave Slot Utilization</p>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
-                const state = LEAVE_CAPACITY_STATES[level]
+                const state = UTILIZATION_TILE_STATES[level - 1]
                 return (
-                  <div key={level} className="flex flex-col items-center gap-1 rounded-lg bg-canvas-sunken py-2 text-center">
-                    <span className="flex items-center gap-1 text-[11px] text-ink-muted">
-                      <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3 slots taken
-                    </span>
-                    <span className={`text-sm font-semibold ${days > 0 ? state.text : 'text-ink-muted'}`}>
-                      {days} {days === 1 ? 'day' : 'days'}
-                    </span>
+                  <div key={level} className={`flex flex-col items-center justify-center gap-0.5 rounded-lg py-2.5 text-center ${state.fill}`}>
+                    <span className={`text-sm font-bold ${state.onFillText}`}>{level} of 3</span>
+                    <span className={`text-[10px] ${state.onFillMuted}`}>slots taken</span>
+                    <span className={`text-xs font-semibold ${state.onFillText}`}>{days} {days === 1 ? 'day' : 'days'}</span>
                   </div>
                 )
               })}

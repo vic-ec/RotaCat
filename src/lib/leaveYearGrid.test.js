@@ -11,17 +11,24 @@ describe('columnForLeaveCategory', () => {
     expect(columnForLeaveCategory('Registrar')).toBe('Registrar')
   })
 
-  it('collapses EC COSMO variants into one column', () => {
+  it('resolves the ambiguous COSMO/Intern categories to EC_Intern by default (no OT contract type)', () => {
     expect(columnForLeaveCategory('COSMO')).toBe('EC_Intern')
     expect(columnForLeaveCategory('EC_Intern')).toBe('EC_Intern')
-    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBe('EC_Intern')
     expect(columnForLeaveCategory('Intern')).toBe('EC_Intern')
   })
 
-  it('collapses OT COSMO variants into one column', () => {
-    expect(columnForLeaveCategory('COSMOPsych')).toBe('OT_Intern')
+  it('collapses OT Intern variants into one column', () => {
     expect(columnForLeaveCategory('OT_Intern')).toBe('OT_Intern')
-    expect(columnForLeaveCategory('OT_COSMO_Intern')).toBe('OT_Intern')
+  })
+
+  // COSMOPsych/EC_COSMO_Intern/OT_COSMO_Intern were retired from the
+  // staff_category enum in Aug 2026 (folded into Intern/EC_Intern/
+  // OT_Intern, with every existing row rewritten by that migration) — a
+  // raw category value can never be one of these again.
+  it('returns null for the retired COSMO-named category values', () => {
+    expect(columnForLeaveCategory('COSMOPsych')).toBeNull()
+    expect(columnForLeaveCategory('EC_COSMO_Intern')).toBeNull()
+    expect(columnForLeaveCategory('OT_COSMO_Intern')).toBeNull()
   })
 
   it('buckets Consultant into Other', () => {
@@ -37,8 +44,8 @@ describe('columnForLeaveCategory', () => {
 describe('labelForLeaveCategory', () => {
   it('returns the friendly column label for a raw category', () => {
     expect(labelForLeaveCategory('MO')).toBe('MO')
-    expect(labelForLeaveCategory('EC_COSMO_Intern')).toBe('EC Intern')
-    expect(labelForLeaveCategory('COSMOPsych')).toBe('OT Intern')
+    expect(labelForLeaveCategory('EC_Intern')).toBe('EC Intern')
+    expect(labelForLeaveCategory('OT_Intern')).toBe('OT Intern')
     expect(labelForLeaveCategory('Consultant')).toBe('Consultant')
   })
 

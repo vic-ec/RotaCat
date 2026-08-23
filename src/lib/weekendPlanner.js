@@ -7,16 +7,20 @@ import { AMBIGUOUS_CATEGORIES } from './staffDefaults'
 
 // Column groupings for the planner grid. The scheduler backend's real
 // junior-doctor split is EC (full hours) vs OT (Junior Doctor Overtime
-// hours, contract_type-driven) — COSMOPsych, EC_Intern/OT_Intern, and
-// EC_COSMO_Intern/OT_COSMO_Intern are all still-recognised legacy/dormant
-// category values grouped down to match those same two buckets; MO/
+// hours, contract_type-driven) — EC_Intern/OT_Intern are the resolved
+// per-weekend values, grouped down to match those two buckets; MO/
 // Registrar are unambiguous on their own. Consultant/Locum never appear
-// (not part of weekend rotation).
+// (not part of weekend rotation). COSMO/COSMOPsych/EC_COSMO_Intern/
+// OT_COSMO_Intern were retired from the staff_category enum in Aug 2026
+// (folded into Intern/EC_Intern/OT_Intern) — the group `key`/`label`
+// below keep their old names (internal identifiers only, never sent to
+// Postgres), but a retired value has no place left in a `categories`
+// list, since those get used directly as query filter values.
 export const CATEGORY_GROUPS = [
   { key: 'MO', label: 'MO', categories: ['MO'] },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'] },
-  { key: 'COSMO', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'] },
-  { key: 'COSMOPsych', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'] },
+  { key: 'COSMO', label: 'EC Intern', categories: ['EC_Intern', 'Intern'] },
+  { key: 'COSMOPsych', label: 'OT Intern', categories: ['OT_Intern'] },
 ]
 
 const GROUP_BY_CATEGORY = new Map(
@@ -37,19 +41,21 @@ const OT_HOURS_CONTRACT_TYPES = new Set(['Junior_Doctor_Overtime'])
 
 // The effective category for a DOCTOR (a profiles row, not a raw
 // weekend_planner_entries row) — for most categories this is just
-// doctor.category unchanged, but for COSMO/Intern specifically it resolves
+// doctor.category unchanged, but for Intern specifically it resolves
 // through contract_type first. Two uses: (1) filtering the assignment
 // dropdown by group (groupForCategory(resolvedCategoryForDoctor(d))), and
 // (2) the value actually WRITTEN onto a new weekend_planner_entries row —
 // entries are grouped by their own category, which can be a deliberate
-// override (see groupEntriesByWeekend below), so writing 'COSMOPsych' for
+// override (see groupEntriesByWeekend below), so writing 'OT_Intern' for
 // an OT-hours doctor here doesn't have to literally match their live
 // profile category; it just has to land in the right bucket, and doing it
 // this way means groupForCategory keeps working unmodified on every
-// existing/historical entry.
+// existing/historical entry. Must return an actual staff_category enum
+// value (this gets written to the DB) — 'COSMO'/'COSMOPsych' were retired
+// in Aug 2026, so EC_Intern/OT_Intern are the values now.
 export function resolvedCategoryForDoctor(doctor) {
   if (AMBIGUOUS_CATEGORIES.has(doctor?.category)) {
-    return OT_HOURS_CONTRACT_TYPES.has(doctor?.contract_type) ? 'COSMOPsych' : 'COSMO'
+    return OT_HOURS_CONTRACT_TYPES.has(doctor?.contract_type) ? 'OT_Intern' : 'EC_Intern'
   }
   return doctor?.category ?? null
 }
@@ -93,9 +99,7 @@ export function resolveEffectiveCategory({ category, profileId, targetDate, rota
   if (covering.length === 0) return { category, resolved: false }
 
   const rotationType = covering[0].rotation_type
-  const byRotationType = category === 'Intern'
-    ? { EC: 'EC_Intern', OT: 'OT_Intern' }
-    : { EC: 'EC_COSMO_Intern', OT: 'OT_COSMO_Intern' } // category === 'COSMO'
+  const byRotationType = { EC: 'EC_Intern', OT: 'OT_Intern' }
   return { category: byRotationType[rotationType] ?? category, resolved: true }
 }
 

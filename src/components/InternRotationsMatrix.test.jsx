@@ -17,7 +17,11 @@ afterEach(() => vi.useRealTimers())
 const DOCTORS = [
   { id: 'intern-1', name: 'Ivy', surname: 'Intern', category: 'Intern', color_code: '#111111' },
   { id: 'registrar-1', name: 'Rae', surname: 'Registrar', category: 'Registrar', color_code: '#222222' },
-  { id: 'cosmo-1', name: 'Cara', surname: 'Cosmo', category: 'COSMO', color_code: '#333333' },
+  // A second, unassigned Intern (category retired its old COSMO carve-out
+  // in Aug 2026 — COSMO doctors are just Intern doctors now, distinguished
+  // by their intern_rotations rows, not a separate staff_category value).
+  // Kept with no rotations so it's the add-doctor flow's only candidate.
+  { id: 'cosmo-1', name: 'Cara', surname: 'Cosmo', category: 'Intern', color_code: '#333333' },
 ]
 const displayNames = buildDoctorDisplayNames(DOCTORS)
 
@@ -48,13 +52,12 @@ function renderMatrix(overrides = {}) {
 }
 
 describe('InternRotationsMatrix', () => {
-  it('renders month headers and groups rows by category (Intern / Registrar / COSMO)', () => {
+  it('renders month headers and groups rows by category (Intern / Registrar)', () => {
     renderMatrix()
     expect(screen.getByText('Jan')).toBeInTheDocument()
     expect(screen.getByText('Dec')).toBeInTheDocument()
     expect(screen.getAllByText(/Intern/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/Registrar/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/COSMO/).length).toBeGreaterThan(0)
     // Row labels use the disambiguated display name as their title, even
     // though the visible text truncates to the surname
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
@@ -174,8 +177,10 @@ describe('InternRotationsMatrix', () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
-    const cosmoHeading = screen.getByRole('button', { name: /COSMO/ })
-    await user.click(within(cosmoHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    // The Intern group heading, not the "Intern" row label/chip elsewhere —
+    // its accessible name includes the group's doctor count ("Intern 2").
+    const internHeading = screen.getByRole('button', { name: /Intern \d/ })
+    await user.click(within(internHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
     const picker = screen.getByText(/Assign doctor/).closest('div').parentElement
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({

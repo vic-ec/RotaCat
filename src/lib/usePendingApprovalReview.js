@@ -13,7 +13,7 @@ import { looksLikeFakeName, looksLikeFakePhone } from './spamHeuristics'
 // for doctors whose Active/Upcoming/Completed status is actually managed
 // through the Rotations page (see InternRotationsPlanner.jsx), not for
 // MO/Consultant, who don't have that lifecycle.
-const SCHEDULABLE_CATEGORIES = new Set(['Intern', 'Registrar', 'COSMO'])
+const SCHEDULABLE_CATEGORIES = new Set(['Intern', 'Registrar'])
 
 export const ROLE_LABELS = { doctor: 'Doctor', locum: 'Locum', clerk: 'Clerk' }
 export const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))
@@ -109,7 +109,7 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     setCategory(value)
     // Active from stays available for any doctor category (MO/Consultant
     // included) — only clear it once there's no category at all to key it
-    // to. Active until stays Intern/Registrar/COSMO-only (see
+    // to. Active until stays Intern/Registrar-only (see
     // SCHEDULABLE_CATEGORIES) — clear it the moment a category switch
     // hides that field, so a stale value from a previous category can't
     // silently ride along into approve().
@@ -240,7 +240,7 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
   const adminAvailable = role === 'doctor'
   // Active from: any doctor category, once one's picked — a new hire in
   // any category can start on a future date. Active until: Intern/
-  // Registrar/COSMO only — a scheduled deactivation is tied to the
+  // Registrar only — a scheduled deactivation is tied to the
   // Rotations page's lifecycle (see SCHEDULABLE_CATEGORIES above), which
   // MO/Consultant don't have.
   const showActiveFrom = role === 'doctor' && Boolean(category)

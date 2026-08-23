@@ -137,42 +137,6 @@ export default function DateStepper({
   )
 }
 
-// Jump-to-month sheet body: a year stepper up top, a 12-month grid below.
-// Tapping a month jumps straight there and closes — no separate "confirm"
-// step, same as every other one-tap sheet in the app.
-function MonthJumpSheet({ year, month, onPick, onClose }) {
-  const [jumpYear, setJumpYear] = useState(year)
-  const months = monthsForYear(jumpYear)
-
-  return (
-    <ActionSheet title="Jump to month" onClose={onClose}>
-      <div className="flex items-center justify-center gap-2 py-3">
-        <button type="button" onClick={() => setJumpYear(y => y - 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous year">←</button>
-        <span className="font-display text-base font-semibold text-ink">{jumpYear}</span>
-        <button type="button" onClick={() => setJumpYear(y => y + 1)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next year">→</button>
-      </div>
-      <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
-        {months.map(m => {
-          const isCurrent = jumpYear === year && m.month === month
-          return (
-            <button
-              key={m.month}
-              type="button"
-              onClick={() => onPick(jumpYear, m.month)}
-              aria-current={isCurrent ? 'true' : undefined}
-              className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
-                isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
-              }`}
-            >
-              {m.label}
-            </button>
-          )
-        })}
-      </div>
-    </ActionSheet>
-  )
-}
-
 // Years don't have a natural enclosing "page" the way months have their
 // year — a 12-year range (same grid shape as the month sheet, just years
 // instead of month names) is the closest equivalent, stepped a whole range
@@ -182,9 +146,106 @@ function yearsRangeStart(year) {
   return Math.floor(year / YEARS_PER_PAGE) * YEARS_PER_PAGE
 }
 
+// The 12-button year grid, shared by YearJumpSheet's own sheet and
+// MonthJumpSheet's embedded "swap to years" view below — same tap-to-pick
+// styling either way.
+function YearGridButtons({ rangeStart, currentYear, onPick }) {
+  const years = Array.from({ length: YEARS_PER_PAGE }, (_, i) => rangeStart + i)
+  return (
+    <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
+      {years.map(y => {
+        const isCurrent = y === currentYear
+        return (
+          <button
+            key={y}
+            type="button"
+            onClick={() => onPick(y)}
+            aria-current={isCurrent ? 'true' : undefined}
+            className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+              isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
+            }`}
+          >
+            {y}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Jump-to-month sheet body: a year stepper up top, a 12-month grid below.
+// Tapping a month jumps straight there and closes — no separate "confirm"
+// step, same as every other one-tap sheet in the app. Tapping the year
+// label itself swaps the body to a 12-year grid (reusing YearGridButtons)
+// instead of stepping one year at a time — picking a year there lands back
+// on the month grid for it, rather than closing the sheet, since a year
+// alone was never a valid pick here. The sheet's own title/accessible name
+// stays "Jump to month" throughout — every caller that opens it already
+// queries by that name, and the year-grid view is still just a step on the
+// way to picking a month, not a separate destination.
+function MonthJumpSheet({ year, month, onPick, onClose }) {
+  const [jumpYear, setJumpYear] = useState(year)
+  const [showYears, setShowYears] = useState(false)
+  const [yearRangeStart, setYearRangeStart] = useState(() => yearsRangeStart(year))
+  const months = monthsForYear(jumpYear)
+
+  function pickYear(y) {
+    setJumpYear(y)
+    setYearRangeStart(yearsRangeStart(y))
+    setShowYears(false)
+  }
+
+  return (
+    <ActionSheet title="Jump to month" onClose={onClose}>
+      <div className="flex items-center justify-center gap-2 py-3">
+        <button
+          type="button"
+          onClick={() => showYears ? setYearRangeStart(r => r - YEARS_PER_PAGE) : setJumpYear(y => y - 1)}
+          className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
+          aria-label={showYears ? 'Previous years' : 'Previous year'}
+        >←</button>
+        <button
+          type="button"
+          onClick={() => setShowYears(v => !v)}
+          className="font-display text-base font-semibold text-ink hover:text-accent"
+        >
+          {showYears ? `${yearRangeStart}–${yearRangeStart + YEARS_PER_PAGE - 1}` : jumpYear}
+        </button>
+        <button
+          type="button"
+          onClick={() => showYears ? setYearRangeStart(r => r + YEARS_PER_PAGE) : setJumpYear(y => y + 1)}
+          className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
+          aria-label={showYears ? 'Next years' : 'Next year'}
+        >→</button>
+      </div>
+      {showYears ? (
+        <YearGridButtons rangeStart={yearRangeStart} currentYear={jumpYear} onPick={pickYear} />
+      ) : (
+        <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
+          {months.map(m => {
+            const isCurrent = jumpYear === year && m.month === month
+            return (
+              <button
+                key={m.month}
+                type="button"
+                onClick={() => onPick(jumpYear, m.month)}
+                aria-current={isCurrent ? 'true' : undefined}
+                className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
+                  isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
+                }`}
+              >
+                {m.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </ActionSheet>
+  )
+}
+
 function YearJumpSheet({ year, onPick, onClose }) {
   const [rangeStart, setRangeStart] = useState(() => yearsRangeStart(year))
-  const years = Array.from({ length: YEARS_PER_PAGE }, (_, i) => rangeStart + i)
 
   return (
     <ActionSheet title="Jump to year" onClose={onClose}>
@@ -193,24 +254,7 @@ function YearJumpSheet({ year, onPick, onClose }) {
         <span className="font-display text-base font-semibold text-ink">{rangeStart}–{rangeStart + YEARS_PER_PAGE - 1}</span>
         <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next years">→</button>
       </div>
-      <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4">
-        {years.map(y => {
-          const isCurrent = y === year
-          return (
-            <button
-              key={y}
-              type="button"
-              onClick={() => onPick(y)}
-              aria-current={isCurrent ? 'true' : undefined}
-              className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
-                isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
-              }`}
-            >
-              {y}
-            </button>
-          )
-        })}
-      </div>
+      <YearGridButtons rangeStart={rangeStart} currentYear={year} onPick={onPick} />
     </ActionSheet>
   )
 }

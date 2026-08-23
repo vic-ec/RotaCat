@@ -230,31 +230,24 @@ export default function AnnualPlannerOverview({
           data-testid="annual-inspector"
           className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
         >
-          {/* Year selector, folded into this same panel — same shell as the
-              Weekend planner's combined rail (Select year / Selected month
-              / Next weekend, one card, divider-separated) rather than the
-              year stepper living apart in the toolbar. */}
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
+          {/* No standalone year selector: the Selected month jump sheet
+              already has a year stepper (and its own 12-year grid, one tap
+              on the year label away — see DateStepper's MonthJumpSheet)
+              that fully covers year navigation. */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+            <Pin className="h-3.5 w-3.5" /> Selected month
+          </div>
           <div className="mt-1">
-            <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
+            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
 
-          <div className="mt-3 border-t border-slate-line pt-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              <Pin className="h-3.5 w-3.5" /> Selected month
-            </div>
-            <div className="mt-1">
-              <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
-              <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
-              <InspectorStat
-                icon={Clock}
-                label="Pending requests"
-                value={`${pendingRequestCountInRange(pendingRows, selMonthStart, selMonthEnd)} requests`}
-              />
-            </div>
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
+            <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
+            <InspectorStat
+              icon={Clock}
+              label="Pending requests"
+              value={`${pendingRequestCountInRange(pendingRows, selMonthStart, selMonthEnd)} requests`}
+            />
           </div>
 
           <div className="mt-3 border-t border-slate-line pt-3">

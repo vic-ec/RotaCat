@@ -129,37 +129,38 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.getByText('Selected month')).toBeInTheDocument()
   })
 
-  it('toolbar carries only the Legend trigger — the year selector lives in the inspector panel instead', () => {
+  it('toolbar carries only the Legend trigger', () => {
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO' })
+    expect(screen.getByRole('button', { name: 'Legend' })).toBeInTheDocument()
+  })
+
+  it('there is no standalone year selector anywhere in the admin/desktop dashboard', () => {
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO' })
     // Rendered as admin so only the one (shared) toolbar/inspector is in
-    // the DOM — the non-admin mobile block duplicates the same "Previous
-    // year"/"Next year" labels, which would otherwise make these queries
-    // ambiguous.
-    mockAuth = { isAdmin: true, isClerk: false }
-    renderOverview({ myCategory: 'MO' })
-    const legendButton = screen.getByRole('button', { name: 'Legend' })
-    expect(legendButton).toBeInTheDocument()
-
-    const panel = screen.getByTestId('annual-inspector')
-    expect(within(panel).queryByRole('button', { name: 'Legend' })).not.toBeInTheDocument()
-    expect(legendButton.closest('div')).not.toContainElement(within(panel).getByRole('button', { name: 'Previous year' }))
+    // the DOM — the non-admin mobile block would otherwise carry its own
+    // "Previous year"/"Next year" labels.
+    expect(screen.queryByText('Select year')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Previous year' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next year' })).not.toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('the inspector panel opens with a Select year section above Selected month, one panel divided by a line', () => {
+  it('the Selected month panel jump sheet can still swap to a year grid, since there is no separate year selector', async () => {
+    const user = userEvent.setup()
     mockAuth = { isAdmin: true, isClerk: false }
-    renderOverview({ myCategory: 'MO' })
+    renderOverview({ myCategory: 'MO', year: 2020 })
 
     const panel = screen.getByTestId('annual-inspector')
-    expect(within(panel).getByText('Select year')).toBeInTheDocument()
-    expect(within(panel).getByText('Selected month')).toBeInTheDocument()
-    const prevYear = within(panel).getByRole('button', { name: 'Previous year' })
-    const nextYear = within(panel).getByRole('button', { name: 'Next year' })
-    expect(prevYear).toHaveClass('h-[30px]', 'w-[30px]')
-    expect(nextYear).toHaveClass('h-[30px]', 'w-[30px]')
+    await user.click(within(panel).getByRole('button', { name: 'January 2020' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
+    await user.click(sheet.getByRole('button', { name: '2020' }))
+    expect(sheet.getByRole('button', { name: '2016' })).toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('the Selected month panel has its own chevrons for stepping through months without touching the year selector above', async () => {
+  it('the Selected month panel has its own chevrons for stepping through months', async () => {
     const user = userEvent.setup()
     mockAuth = { isAdmin: true, isClerk: false }
     // year 2020 (not "today"'s real year) so selectedMonth deterministically

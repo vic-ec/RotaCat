@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Check } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { weekendCoverageSummary, formatWeekendRange } from '../lib/weekendPlanner'
-import { monthWeekendMarkers, yearWeekendTotals, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
+import { monthWeekendMarkers, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
 
 // Small square fill + legend swatch + label per health state — kept to the
@@ -37,7 +37,6 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 
   const months = monthsForYear(year)
   const monthCards = months.map(m => ({ ...m, markers: monthWeekendMarkers(m.year, m.month, byWeekend) }))
-  const totals = yearWeekendTotals(year, byWeekend)
 
   const selectedMarkers = monthCards[selectedMonth - 1].markers
 
@@ -94,30 +93,17 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           ))}
         </div>
 
-        {/* One combined rail card — Select year / Selected month / Next
-            weekend as sections separated by divider lines, matching
-            AnnualPlannerOverview's single-inspector shape, rather than
-            three separate cards of mismatched heights sitting next to the
-            month grid's own uniform cards. */}
+        {/* One combined rail card — Selected month / Next weekend as
+            sections separated by a divider line, matching
+            AnnualPlannerOverview's single-inspector shape. No standalone
+            year selector: the Selected month jump sheet already has a year
+            stepper (and its own 12-year grid, one tap on the year label
+            away — see DateStepper's MonthJumpSheet) that fully covers
+            year navigation, and the year-wide totals a "Select year"
+            section used to show are redundant with the gap-count/complete
+            badges already on every month card in the grid. */}
         <div className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-3 lg:order-none lg:sticky lg:top-4 lg:w-72">
-          {/* Year selector (chevrons at the panel margins, same `centered`
-              layout as the Selected month section's own stepper below) plus
-              the year's totals — each stat cell's fill already doubles as
-              the legend, so no separate Legend trigger is needed here. */}
-          <div data-testid="weekend-year-stats">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
-            <div className="mt-1">
-              <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
-            </div>
-
-            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-line pt-2">
-              <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
-              <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
-              <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
-            </div>
-          </div>
-
-          <div data-testid="weekend-year-inspector" className="mt-3 border-t border-slate-line pt-3">
+          <div data-testid="weekend-year-inspector">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
             <div className="mt-1">
               <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
@@ -184,9 +170,11 @@ function StatCell({ label, value, colorClass, bgClass }) {
 
 // One month's compact overview: title + a single row of small squares, one
 // per Saturday that month (4, occasionally 5), filled by that weekend's
-// health state with a small corner badge showing its gap count — omitted
-// when there's nothing open, so a fully green square stays clean. Mirrors
-// AppLayout.jsx's notification-count badge styling for that corner marker.
+// health state with a small corner badge — a gap count for anything still
+// open, or a solid check for a fully-planned one, so "complete" reads at a
+// glance without needing the year-wide totals a separate Select year
+// section used to spell out. Mirrors AppLayout.jsx's notification-count
+// badge styling for that corner marker.
 function WeekendMonthCard({ month, isSelected, onSelect }) {
   return (
     <button
@@ -206,9 +194,13 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
               title={`${formatShortDate(m.saturday)} — ${style.label}${m.gapCount > 0 ? ` (${m.gapCount} ${m.gapCount === 1 ? 'gap' : 'gaps'})` : ''}`}
             >
               <span className={`block h-8 w-8 rounded-md lg:h-9 lg:w-12 ${style.square}`} />
-              {m.gapCount > 0 && (
+              {m.gapCount > 0 ? (
                 <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
                   {m.gapCount}
+                </span>
+              ) : (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white ring-1 ring-canvas-raised">
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
                 </span>
               )}
             </span>

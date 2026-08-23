@@ -3,7 +3,6 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeekendYearOverview from './WeekendYearOverview'
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
-import { yearWeekendTotals } from '../lib/weekendYearOverview'
 
 // Sandbox clock is 2026-08-0x throughout this session, so August 2026 is
 // always the default-selected month here regardless of which day it lands
@@ -53,13 +52,22 @@ describe('WeekendYearOverview', () => {
     expect(inspector.getByText('No staff').closest('div')).toHaveTextContent('3')
   })
 
-  it('shows whole-year totals via yearWeekendTotals, matching the lib function directly', () => {
+  it('there is no standalone Select year section — year navigation lives in the Selected month jump sheet', () => {
     renderOverview()
-    const totals = yearWeekendTotals(YEAR, BY_WEEKEND)
-    const yearPanel = within(screen.getByTestId('weekend-year-stats'))
-    expect(yearPanel.getByText('Fully staffed').closest('div')).toHaveTextContent(String(totals.fullyPlanned))
-    expect(yearPanel.getByText('Need staff').closest('div')).toHaveTextContent(String(totals.partial))
-    expect(yearPanel.getByText('No staff').closest('div')).toHaveTextContent(String(totals.empty))
+    expect(screen.queryByTestId('weekend-year-stats')).not.toBeInTheDocument()
+    expect(screen.queryByText('Select year')).not.toBeInTheDocument()
+  })
+
+  it('marks a fully-planned weekend with a check badge instead of a gap-count badge', () => {
+    renderOverview()
+    // aug1 is fully planned (0 gaps); aug8 needs staff (3 gaps).
+    const augustCard = grid().getByRole('button', { name: /^August/ })
+    const aug1Square = within(augustCard).getByTitle(/1 Aug — Fully planned/)
+    expect(aug1Square.querySelector('svg')).not.toBeNull()
+    expect(within(aug1Square).queryByText('0')).not.toBeInTheDocument()
+
+    const aug8Square = within(augustCard).getByTitle(/8 Aug — Needs staff/)
+    expect(within(aug8Square).getByText('3')).toBeInTheDocument()
   })
 
   it('clicking an unselected month selects it (updating the inspector) without opening it', async () => {
@@ -94,15 +102,16 @@ describe('WeekendYearOverview', () => {
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
-  it('year nav buttons call onYearChange with prev/next year', async () => {
+  it('stepping the Selected month panel past a year boundary calls onYearChange', async () => {
     const user = userEvent.setup()
     const onYearChange = vi.fn()
-    renderOverview({ onYearChange })
+    // year 2020 (not "today"'s real year) so selectedMonth deterministically
+    // starts at January.
+    renderOverview({ year: 2020, onYearChange })
 
-    await user.click(screen.getByRole('button', { name: 'Previous year' }))
-    expect(onYearChange).toHaveBeenCalledWith(YEAR - 1)
-    await user.click(screen.getByRole('button', { name: 'Next year' }))
-    expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
+    const inspector = within(screen.getByTestId('weekend-year-inspector'))
+    await user.click(inspector.getByRole('button', { name: 'Previous month' }))
+    expect(onYearChange).toHaveBeenCalledWith(2019)
   })
 
   it('Selected month panel has chevrons and a jump-to-month sheet, independent of the year selector above', async () => {

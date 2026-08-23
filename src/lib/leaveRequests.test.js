@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isValidWeekendExceptionRange,
+  isEligibleToSubmitForDateRange,
   isSickBackdateAllowed,
   computeIncludesPublicHoliday,
   findDoubleBookingConflicts,
@@ -153,6 +154,25 @@ describe('isValidWeekendExceptionRange', () => {
 
   it('rejects a range that does not start on a Saturday', () => {
     expect(isValidWeekendExceptionRange('2026-08-02', '2026-08-03')).toBe(false)
+  })
+})
+
+describe('isEligibleToSubmitForDateRange', () => {
+  it('allows any date range for an active doctor, scheduled return date or not', () => {
+    expect(isEligibleToSubmitForDateRange({ isActive: true, scheduledActiveDate: null, dateFrom: '2026-08-01' })).toBe(true)
+  })
+
+  it('blocks an inactive doctor with no scheduled return date at all', () => {
+    expect(isEligibleToSubmitForDateRange({ isActive: false, scheduledActiveDate: null, dateFrom: '2026-08-01' })).toBe(false)
+  })
+
+  it('blocks an inactive doctor requesting a date before their scheduled return', () => {
+    expect(isEligibleToSubmitForDateRange({ isActive: false, scheduledActiveDate: '2026-09-01', dateFrom: '2026-08-31' })).toBe(false)
+  })
+
+  it('allows an inactive doctor requesting a date on or after their scheduled return', () => {
+    expect(isEligibleToSubmitForDateRange({ isActive: false, scheduledActiveDate: '2026-09-01', dateFrom: '2026-09-01' })).toBe(true)
+    expect(isEligibleToSubmitForDateRange({ isActive: false, scheduledActiveDate: '2026-09-01', dateFrom: '2026-09-15' })).toBe(true)
   })
 })
 

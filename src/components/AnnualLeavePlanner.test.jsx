@@ -166,12 +166,11 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
 
-  it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
+  it("shows a public holiday's name on hover in the year grid", async () => {
     mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-10', name: "Women's Day" }], error: null }
     renderPage()
     await grid()
 
-    expect(within(screen.getByTestId('annual-inspector')).getByText('1 days')).toBeInTheDocument()
     expect(screen.getByTitle("Women's Day")).toBeInTheDocument()
   })
 

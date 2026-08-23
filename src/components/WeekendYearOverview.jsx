@@ -51,9 +51,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
   // colors, never green.
   const nextOpenWeekend = nextOpenWeekendInYear(year, byWeekend, today)
   const nextOpenWeekendCoverage = nextOpenWeekend ? weekendCoverageSummary(byWeekend.get(nextOpenWeekend)) : null
-  const nextOpenWeekendFill = nextOpenWeekendCoverage?.filledGroups === 0
-    ? { bg: 'bg-flagRed-bg', text: 'text-flagRed' }
-    : { bg: 'bg-flagAmber-bg', text: 'text-flagAmber' }
+  const nextOpenWeekendTextClass = nextOpenWeekendCoverage?.filledGroups === 0 ? 'text-flagRed' : 'text-flagAmber'
 
   // Selected-month chevrons/jump-sheet: DateStepper itself handles the
   // Dec/Jan year rollover, calling back with whichever year the stepped-to
@@ -96,12 +94,17 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           ))}
         </div>
 
-        <div className="order-first flex w-full flex-shrink-0 flex-col gap-4 lg:order-none lg:sticky lg:top-4 lg:w-72">
+        {/* One combined rail card — Select year / Selected month / Next
+            weekend as sections separated by divider lines, matching
+            AnnualPlannerOverview's single-inspector shape, rather than
+            three separate cards of mismatched heights sitting next to the
+            month grid's own uniform cards. */}
+        <div className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-3 lg:order-none lg:sticky lg:top-4 lg:w-72">
           {/* Year selector (chevrons at the panel margins, same `centered`
-              layout as the Selected month panel's own stepper below) plus
+              layout as the Selected month section's own stepper below) plus
               the year's totals — each stat cell's fill already doubles as
               the legend, so no separate Legend trigger is needed here. */}
-          <div data-testid="weekend-year-stats" className="rounded-lg border border-slate-line bg-canvas-raised p-3">
+          <div data-testid="weekend-year-stats">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
             <div className="mt-1">
               <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
@@ -114,7 +117,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             </div>
           </div>
 
-          <div data-testid="weekend-year-inspector" className="rounded-lg border border-slate-line bg-canvas-raised p-3">
+          <div data-testid="weekend-year-inspector" className="mt-3 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
             <div className="mt-1">
               <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
@@ -139,16 +142,18 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
               across the whole year belongs with the page that already has
               the whole year loaded. Omitted once every remaining weekend
               this year is fully staffed. Below Selected month rather than
-              above it, since Selected month is the panel someone's actively
-              working from. */}
+              above it, since Selected month is the section someone's
+              actively working from. Urgency still reads via the coloured
+              date line (nextOpenWeekendTextClass), not a full tinted
+              section background — matches Annual's plain-section styling. */}
           {nextOpenWeekend && (
-            <div className={`card p-4 ${nextOpenWeekendFill.bg}`}>
+            <div className="mt-3 border-t border-slate-line pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
-              <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendTextClass}`}>{formatWeekendRange(nextOpenWeekend)}</p>
               <button
                 type="button"
                 onClick={() => onPlanWeekend(nextOpenWeekend)}
-                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
+                className="btn-primary mt-2 flex w-full items-center justify-center gap-1.5 text-sm"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Plan now
               </button>

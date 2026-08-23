@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { TriangleAlert, Pin, Calendar, Clock, ExternalLink, ListChecks, Flag, ChevronRight } from 'lucide-react'
+import { Pin, Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
   pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthTotalCapacityBreakdown, monthPublicHolidayCount, entriesInRange, monthCapacityMarkers,
+  monthTotalCapacityBreakdown, entriesInRange, monthCapacityMarkers,
 } from '../lib/annualPlannerOverview'
 import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 import SelectMenu from './SelectMenu'
@@ -202,18 +202,16 @@ export default function AnnualPlannerOverview({
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
-        <DateStepper unit="year" year={year} onChange={onYearChange}>
-          <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
-        </DateStepper>
+        <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
       </div>
 
-      {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
+      {/* ── Main workspace: 3x4 month grid + sticky inspector ── */}
       {/* Mobile (<lg): stacked, full width, inspector shown first so the
           currently-selected month's detail is visible without scrolling
           past the whole grid. Desktop (lg+): unchanged side-by-side layout
           with the sticky w-80 inspector. */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-4">
+        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
           {monthCards.map(m => (
             <MonthCard
               key={m.month}
@@ -232,22 +230,31 @@ export default function AnnualPlannerOverview({
           data-testid="annual-inspector"
           className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
         >
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            <Pin className="h-3.5 w-3.5" /> Selected month
-          </div>
+          {/* Year selector, folded into this same panel — same shell as the
+              Weekend planner's combined rail (Select year / Selected month
+              / Next weekend, one card, divider-separated) rather than the
+              year stepper living apart in the toolbar. */}
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
           <div className="mt-1">
-            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+            <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
-            <InspectorStat icon={Flag} label="Public holidays" value={`${monthPublicHolidayCount(year, selectedMonth, publicHolidaysByDate)} days`} />
-            <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
-            <InspectorStat
-              icon={Clock}
-              label="Pending requests"
-              value={`${pendingRequestCountInRange(pendingRows, selMonthStart, selMonthEnd)} requests`}
-            />
-            <InspectorStat icon={TriangleAlert} label="Capacity warnings" value={`${monthCards[selectedMonth - 1].pressureDayCount} days`} />
+          <div className="mt-3 border-t border-slate-line pt-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              <Pin className="h-3.5 w-3.5" /> Selected month
+            </div>
+            <div className="mt-1">
+              <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
+              <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
+              <InspectorStat
+                icon={Clock}
+                label="Pending requests"
+                value={`${pendingRequestCountInRange(pendingRows, selMonthStart, selMonthEnd)} requests`}
+              />
+            </div>
           </div>
 
           <div className="mt-3 border-t border-slate-line pt-3">
@@ -433,16 +440,20 @@ function MonthCard({ month, isSelected, onSelect }) {
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
+      className={`card p-3 text-left transition-colors lg:p-2 ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       </div>
       <p className="mt-0.5 text-xs text-ink-muted">{month.summaryLine}</p>
 
-      <div className="mt-2 grid grid-cols-7 gap-[3px]">
+      {/* Day cells shrink at lg (h-3→h-2) to offset the extra row the 3-wide
+          grid adds (3x4 instead of 4x3) — keeps the whole year's total
+          height roughly where it was at 4x3, wider cards without the
+          page needing to scroll further to see every month. */}
+      <div className="mt-2 grid grid-cols-7 gap-[3px] lg:mt-1.5 lg:gap-[2px]">
         {cells.map((day, i) => {
-          if (!day) return <span key={`blank-${i}`} className="h-3 w-3" />
+          if (!day) return <span key={`blank-${i}`} className="h-3 w-3 lg:h-2 lg:w-2" />
           const cellClass = day.capacityState.fill
           // A public holiday keeps its normal capacity-state fill (so the
           // colour stays readable) plus a border in a darker shade of that
@@ -450,8 +461,8 @@ function MonthCard({ month, isSelected, onSelect }) {
           // block that hid which capacity state the day was actually in.
           const phRing = day.isPublicHoliday ? `ring-1 ring-inset ${day.capacityState.ringDark}` : ''
           return (
-            <span key={day.date} className="h-3 w-3" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
-              <span className={`block h-3 w-3 rounded-sm ${cellClass} ${phRing}`} />
+            <span key={day.date} className="h-3 w-3 lg:h-2 lg:w-2" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
+              <span className={`block h-3 w-3 rounded-sm lg:h-2 lg:w-2 ${cellClass} ${phRing}`} />
             </span>
           )
         })}

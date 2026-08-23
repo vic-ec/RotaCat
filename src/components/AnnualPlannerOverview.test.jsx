@@ -129,25 +129,33 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.getByText('Selected month')).toBeInTheDocument()
   })
 
-  it('toolbar: the year selector sits with the other nav controls on the right (before the Legend trigger), not attached to the title, and the arrow buttons are 30x30', () => {
-    // Rendered as admin so only the one (shared) toolbar is in the DOM —
-    // the non-admin mobile block duplicates the same "Previous year"/"Next
-    // year" labels, which would otherwise make these queries ambiguous.
+  it('toolbar carries only the Legend trigger — the year selector lives in the inspector panel instead', () => {
+    // Rendered as admin so only the one (shared) toolbar/inspector is in
+    // the DOM — the non-admin mobile block duplicates the same "Previous
+    // year"/"Next year" labels, which would otherwise make these queries
+    // ambiguous.
     mockAuth = { isAdmin: true, isClerk: false }
     renderOverview({ myCategory: 'MO' })
-    const prevYear = screen.getByRole('button', { name: 'Previous year' })
-    const nextYear = screen.getByRole('button', { name: 'Next year' })
+    const legendButton = screen.getByRole('button', { name: 'Legend' })
+    expect(legendButton).toBeInTheDocument()
+
+    const panel = screen.getByTestId('annual-inspector')
+    expect(within(panel).queryByRole('button', { name: 'Legend' })).not.toBeInTheDocument()
+    expect(legendButton.closest('div')).not.toContainElement(within(panel).getByRole('button', { name: 'Previous year' }))
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
+  it('the inspector panel opens with a Select year section above Selected month, one panel divided by a line', () => {
+    mockAuth = { isAdmin: true, isClerk: false }
+    renderOverview({ myCategory: 'MO' })
+
+    const panel = screen.getByTestId('annual-inspector')
+    expect(within(panel).getByText('Select year')).toBeInTheDocument()
+    expect(within(panel).getByText('Selected month')).toBeInTheDocument()
+    const prevYear = within(panel).getByRole('button', { name: 'Previous year' })
+    const nextYear = within(panel).getByRole('button', { name: 'Next year' })
     expect(prevYear).toHaveClass('h-[30px]', 'w-[30px]')
     expect(nextYear).toHaveClass('h-[30px]', 'w-[30px]')
-
-    // Same right-hand group as the Legend trigger, in this order — mirrors
-    // the month view's toolbar, where the date selector and its neighbours
-    // are one cluster on the right rather than paired with the title.
-    const group = prevYear.closest('div')
-    const legendButton = screen.getByRole('button', { name: 'Legend' })
-    expect(group).toContainElement(legendButton)
-    const buttons = [...group.querySelectorAll('button')]
-    expect(buttons.indexOf(nextYear)).toBeLessThan(buttons.indexOf(legendButton))
     mockAuth = { isAdmin: false, isClerk: false }
   })
 

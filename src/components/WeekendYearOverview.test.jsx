@@ -136,10 +136,11 @@ describe('WeekendYearOverview', () => {
 
       // aug1 is fully planned, so aug8 (only MO filled, 3 groups still open)
       // is the nearest one actually needing staff.
-      const panel = screen.getByText('Next weekend needing staff').closest('.card')
-      expect(within(panel).getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
+      const panel = screen.getByText('Next weekend needing staff').closest('div')
+      const dateLine = within(panel).getByText('Sat 8 - Sun 9 Aug 2026')
+      expect(dateLine).toBeInTheDocument()
       // Amber, not red — some groups are filled, matching the legend's "amber = partial" fill.
-      expect(panel).toHaveClass('bg-flagAmber-bg')
+      expect(dateLine).toHaveClass('text-flagAmber')
 
       await user.click(within(panel).getByRole('button', { name: 'Plan now' }))
       expect(onPlanWeekend).toHaveBeenCalledWith(aug8)

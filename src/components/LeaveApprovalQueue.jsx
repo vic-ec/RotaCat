@@ -175,10 +175,11 @@ function LeaveRequestDetailPanel({
 
 // The admin approval inbox — every pending leave_requests row, of any leave
 // type. onBack, when given, renders a small "return to where you opened
-// this from" link above the queue (LeavePlannerPage.jsx wires this to the
-// Annual planner's overview tab, since that's the only place this queue is
-// currently linked from).
-export default function LeaveApprovalQueue({ onBack }) {
+// this from" link above the queue — LeavePlannerPage.jsx wires this
+// whenever the visitor arrived via a planner's own "View requests" link
+// (not when they picked the Requests tab directly from the top nav),
+// passing backLabel to name that specific planner.
+export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [requests, setRequests] = useState([])
@@ -362,7 +363,7 @@ export default function LeaveApprovalQueue({ onBack }) {
 
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-      <ArrowLeft className="h-4 w-4" /> Back to Annual planner
+      <ArrowLeft className="h-4 w-4" /> Back to {backLabel}
     </button>
   )
 

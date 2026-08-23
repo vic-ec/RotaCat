@@ -26,14 +26,14 @@ vi.mock('./WeekendPlannerChangeLogModal', () => ({
 }))
 
 const PROFILES = [
-  { id: 'p1', name: 'Alice', surname: 'Anderson', category: 'MO' },
-  { id: 'p2', name: 'Bob', surname: 'Botha', category: 'Registrar' },
-  { id: 'p3', name: 'Carol', surname: 'Cosmo', category: 'COSMO' },
-  { id: 'p4', name: 'Dan', surname: 'Della', category: 'COSMOPsych' },
+  { id: 'p1', name: 'Alice', surname: 'Anderson', category: 'MO', is_active: true },
+  { id: 'p2', name: 'Bob', surname: 'Botha', category: 'Registrar', is_active: true },
+  { id: 'p3', name: 'Carol', surname: 'Cosmo', category: 'COSMO', is_active: true },
+  { id: 'p4', name: 'Dan', surname: 'Della', category: 'COSMOPsych', is_active: true },
   // A second Registrar, unrostered anywhere in ENTRIES — exists purely so
   // the multi-select add-sheet test has two real candidates for one
   // category to select together.
-  { id: 'p5', name: 'Erin', surname: 'Eaton', category: 'Registrar' },
+  { id: 'p5', name: 'Erin', surname: 'Eaton', category: 'Registrar', is_active: true },
 ]
 
 // 2026-08-01: only MO (p1) filled — needs planning. Also p1's "My Schedule".
@@ -332,8 +332,8 @@ describe('WeekendPlannerView', () => {
       mockResponses['profiles:select'] = {
         data: [
           ...PROFILES,
-          { id: 'p6', name: 'James', surname: 'Nolan', category: 'Registrar' },
-          { id: 'p7', name: 'Priya', surname: 'Nolan', category: 'Registrar' },
+          { id: 'p6', name: 'James', surname: 'Nolan', category: 'Registrar', is_active: true },
+          { id: 'p7', name: 'Priya', surname: 'Nolan', category: 'Registrar', is_active: true },
         ],
         error: null,
       }
@@ -774,7 +774,7 @@ describe('WeekendPlannerView', () => {
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).queryByRole('button', { name: /Edit assignments/ })).not.toBeInTheDocument()
       const link = within(inspector).getByRole('link', { name: /View requests/ })
-      expect(link).toHaveAttribute('href', '/leave?tab=requests')
+      expect(link).toHaveAttribute('href', '/leave?tab=requests&from=weekends')
     })
 
     it('admin: Edit assignments reveals per-category +/x controls, which Done editing hides again', async () => {

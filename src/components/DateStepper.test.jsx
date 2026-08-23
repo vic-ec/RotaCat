@@ -101,6 +101,45 @@ describe('DateStepper', () => {
       const body = screen.getByRole('button', { name: 'December' }).closest('.overflow-y-auto')
       expect(body).not.toBeNull()
     })
+
+    it('tapping the year label swaps to a 12-year grid, renaming the dialog to "Jump to year" and back once a year\'s picked', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
+      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      const dialog = screen.getByRole('dialog') // only one dialog open at a time, name changes below
+
+      await user.click(within(dialog).getByRole('button', { name: '2026' }))
+      expect(dialog).toHaveAttribute('aria-label', 'Jump to year')
+      // 2026 falls in the 2016–2027 page (Math.floor(2026/12)*12 = 2016).
+      expect(within(dialog).getByRole('button', { name: '2020' })).toBeInTheDocument()
+      expect(within(dialog).queryByRole('button', { name: 'March' })).not.toBeInTheDocument()
+
+      // Picking a year lands back on the month grid for it, not closed,
+      // and the dialog's name reverts to "Jump to month".
+      await user.click(within(dialog).getByRole('button', { name: '2020' }))
+      expect(dialog).toHaveAttribute('aria-label', 'Jump to month')
+      expect(within(dialog).getByRole('button', { name: 'March' })).toBeInTheDocument()
+      expect(onChange).not.toHaveBeenCalled()
+
+      await user.click(within(dialog).getByRole('button', { name: 'October' }))
+      expect(onChange).toHaveBeenCalledWith(2020, 10)
+    })
+
+    it('the embedded year grid pages a whole 12-year block at a time, independent of the month stepper', async () => {
+      const user = userEvent.setup()
+      render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} />)
+      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      const dialog = screen.getByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: '2026' }))
+
+      // Initial page is 2016–2027.
+      expect(within(dialog).getByRole('button', { name: '2027' })).toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: 'Next years' }))
+      // Next page is 2028–2039.
+      expect(within(dialog).queryByRole('button', { name: '2027' })).not.toBeInTheDocument()
+      expect(within(dialog).getByRole('button', { name: '2028' })).toBeInTheDocument()
+    })
   })
 
   describe('year jump sheet', () => {

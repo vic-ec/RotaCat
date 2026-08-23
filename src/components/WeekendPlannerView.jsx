@@ -313,7 +313,7 @@ function WeekendInspector({
               </button>
             )}
             {canViewRequests && (
-              <Link to="/leave?tab=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
+              <Link to="/leave?tab=requests&from=weekends" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
                 <Users className="h-3.5 w-3.5" /> View requests
               </Link>
             )}
@@ -896,8 +896,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setError('')
 
     const [profilesRes, entriesRes, myRequestsRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, category, contract_type')
-        .eq('is_approved', true).eq('is_active', true),
+      // No `is_active` filter: a doctor deactivated after being rostered
+      // must keep showing their real name on every past weekend they were
+      // ever assigned to (HR audit-trail requirement) — filtering the
+      // profiles fetch to active-only left deactivated doctors out of
+      // doctorById/displayNames entirely, rendering their historical
+      // entries as "(unknown)". `is_active` is still fetched below so the
+      // *assignable* subset (who can be newly rostered going forward) can
+      // be derived separately — see assignableDoctors.
+      supabase.from('profiles').select('id, name, surname, category, contract_type, is_active')
+        .eq('is_approved', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
         .gte('weekend_saturday', fetchBounds.from).lte('weekend_saturday', fetchBounds.through),
       supabase.from('leave_requests').select('id, date_from, status')
@@ -914,15 +922,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setMyWeekendRequests(myRequestsRes.data || [])
     setLoading(false)
 
-    // Batch-fetched ONCE for every rotation-eligible doctor here, then
-    // resolved client-side per weekend via resolveWeekendCategoryForDoctor
-    // — not one RPC call per doctor per picker open (see that function's
-    // own comment in weekendPlanner.js). Awaited separately from the main
-    // load above so a slow/failed rotations fetch never blocks the planner
-    // grid itself from rendering; a resolver call with no matching rows
-    // just falls back to the doctor's plain base category (resolved:false).
+    // Batch-fetched ONCE for every rotation-eligible, currently-assignable
+    // doctor here, then resolved client-side per weekend via
+    // resolveWeekendCategoryForDoctor — not one RPC call per doctor per
+    // picker open (see that function's own comment in weekendPlanner.js).
+    // Scoped to assignable (active) doctors only: rotations only ever feed
+    // the add-doctor picker/new-assignment category resolution, never
+    // historical entries (those already carry their own persisted
+    // category), so there's no need to fetch rotation data for doctors who
+    // can't be newly assigned anyway. Awaited separately from the main load
+    // above so a slow/failed rotations fetch never blocks the planner grid
+    // itself from rendering; a resolver call with no matching rows just
+    // falls back to the doctor's plain base category (resolved:false).
     try {
-      const rotations = await fetchInternRotationsForDoctorIds(rotationEligibleDoctors.map(d => d.id))
+      const assignableIds = rotationEligibleDoctors.filter(d => d.is_active).map(d => d.id)
+      const rotations = await fetchInternRotationsForDoctorIds(assignableIds)
       setRotationsByDoctorId(groupRotationsByDoctorId(rotations))
     } catch {
       setRotationsByDoctorId(new Map())
@@ -934,13 +948,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     [fetchBounds]
   )
   const byWeekend = useMemo(() => groupEntriesByWeekend(entries), [entries])
+  // `doctors` deliberately holds every rotation-eligible profile regardless
+  // of is_active — doctorById/displayNames resolve names for historical
+  // entries too, so a deactivated doctor's past weekends still show their
+  // real name instead of "(unknown)". assignableDoctors is the active-only
+  // subset actually offered for NEW assignment (the add-doctor picker,
+  // paste-forward) — a deactivated doctor can't be newly rostered, but
+  // their history stays intact.
   const doctorById = useMemo(() => new Map(doctors.map(d => [d.id, d])), [doctors])
   // Surname alone, unless it collides with another rotation-eligible
   // doctor (any category — MO/Registrar/EC/OT all share one namespace
   // here), in which case a first initial (or, if that collides too, the
   // full first name) disambiguates — see buildDoctorDisplayNames.
   const displayNames = useMemo(() => buildDoctorDisplayNames(doctors), [doctors])
-  const activeDoctorIds = useMemo(() => new Set(doctors.map(d => d.id)), [doctors])
+  const assignableDoctors = useMemo(() => doctors.filter(d => d.is_active), [doctors])
+  const activeDoctorIds = useMemo(() => new Set(assignableDoctors.map(d => d.id)), [assignableDoctors])
   const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
 
   // Free browsing in either direction, matching the year overview's own
@@ -1703,7 +1725,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
         <WeekendAddDoctorsSheet
           saturday={openRolePicker.saturday}
           initialGroupKey={openRolePicker.groupKey}
-          doctors={doctors}
+          doctors={assignableDoctors}
           assignedIds={assignedDoctorIds(openRolePicker.saturday)}
           rotationsByDoctorId={rotationsByDoctorId}
           onAdd={(groupKey, profileIds) => { addEntries(openRolePicker.saturday, groupKey, profileIds); setOpenRolePicker(null) }}

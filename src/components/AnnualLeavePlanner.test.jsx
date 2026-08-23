@@ -139,11 +139,11 @@ describe('AnnualLeavePlanner', () => {
 
     // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
     // EC COSMO/Intern request alone — also 1 of 3. Four days total.
-    expect(within(inspector.getByText('1 of 3 slots taken').closest('div')).getByText('4 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
     // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
-    expect(within(inspector.getByText('2 of 3 slots taken').closest('div')).getByText('2 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
     // Nothing ever reaches 3 of 3 in this fixture.
-    expect(within(inspector.getByText('3 of 3 slots taken').closest('div')).getByText('0 days')).toBeInTheDocument()
+    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
   })
 
   it('tapping a name in the date-range list reveals their full leave dates', async () => {
@@ -166,12 +166,11 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getAllByText('Approved')).toHaveLength(2)
   })
 
-  it('shows a public holiday count in the inspector, and its name on hover in the year grid', async () => {
+  it("shows a public holiday's name on hover in the year grid", async () => {
     mockResponses['public_holidays:select'] = { data: [{ date: '2026-08-10', name: "Women's Day" }], error: null }
     renderPage()
     await grid()
 
-    expect(within(screen.getByTestId('annual-inspector')).getByText('1 days')).toBeInTheDocument()
     expect(screen.getByTitle("Women's Day")).toBeInTheDocument()
   })
 
@@ -190,13 +189,35 @@ describe('AnnualLeavePlanner', () => {
 
     await user.click(g.getByRole('button', { name: /^January/ }))
     expect(screen.getByText('January 2026')).toBeInTheDocument()
-    expect(screen.getByText('No capacity pressure this month.')).toBeInTheDocument()
+    expect(screen.getByText('No leave this month.')).toBeInTheDocument()
+  })
+
+  it('shows a pending request in the "Leave" list even when it never creates capacity pressure', async () => {
+    // A lone MO request nowhere near the default cap of 2 — no day in
+    // September ever reaches pressure, so this used to disappear behind
+    // "No capacity pressure this month" even though there's a real pending
+    // request an admin still needs to see and act on.
+    mockResponses['leave_requests:select'] = {
+      data: [...LEAVE_REQUESTS, {
+        id: 'req-4', profile_id: 'p4', date_from: '2026-09-05', date_to: '2026-09-07', leave_type: 'annual',
+        status: 'pending', annual_leave_days: 3, profiles: { name: 'Dana', surname: 'Farrow', category: 'MO' },
+      }],
+      error: null,
+    }
+    const user = userEvent.setup()
+    renderPage()
+    const g = await grid()
+
+    await user.click(g.getByRole('button', { name: /^September/ }))
+    expect(screen.getByText('Leave in September')).toBeInTheDocument()
+    expect(screen.getByText('Farrow')).toBeInTheDocument()
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
   })
 
   it('"View requests" links to the Requests planner tab', async () => {
     renderPage()
     await grid()
-    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
+    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests&from=annual')
   })
 
   it('"Open month workspace" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {

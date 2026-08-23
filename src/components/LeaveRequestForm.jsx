@@ -162,6 +162,8 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         dateTo,
         annualLeaveDays: isAnnual ? Number(annualLeaveDays) : null,
         notes,
+        isActive: profile.is_active,
+        scheduledActiveDate: profile.scheduled_active_date,
       })
       setMsg({
         type: 'success',

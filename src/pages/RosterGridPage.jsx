@@ -131,9 +131,15 @@ export default function RosterGridPage() {
         supabase.from('roster_entries').select('*').eq('roster_month_id', id).order('date').order('position', { nullsFirst: true }),
         // Schedulable roster assignees (§1.2): all doctor categories except
         // Consultant (its own column below), excluding locums/clerks
-        // (role != 'doctor') and inactive profiles.
-        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type')
-          .eq('is_approved', true).eq('is_active', true).eq('role', 'doctor').neq('category', 'Consultant'),
+        // (role != 'doctor'). No `is_active` filter here — a published
+        // roster is a historical record, and a doctor deactivated after
+        // being rostered must keep showing their real name on every past
+        // month they were ever assigned to (HR audit-trail requirement).
+        // `is_active` is still fetched so the *assignable* subset (who can
+        // be newly rostered going forward) can be derived separately — see
+        // assignableProfiles below.
+        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type, is_active')
+          .eq('is_approved', true).eq('role', 'doctor').neq('category', 'Consultant'),
         supabase.from('profiles').select('id, name, surname, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
@@ -238,8 +244,14 @@ export default function RosterGridPage() {
   // Group entries by date + shift code for fast lookup
   const entryMap = buildEntryMap(entries, shiftTypes)
 
-  // Profiles lookup by id
+  // Profiles lookup by id — `profiles` covers every schedulable doctor
+  // regardless of is_active, so this resolves names for historical entries
+  // too. assignableProfiles is the active-only subset actually offered for
+  // NEW assignment (the cell dropdown, the vacancy-reassignment manager) —
+  // a deactivated doctor can't be newly rostered, but their history stays
+  // intact and fully named.
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+  const assignableProfiles = profiles.filter(p => p.is_active)
 
   // Same-surname disambiguation ("J. Nolan" vs "P. Nolan") for every
   // surname-only label on this page — built from the combined shift +
@@ -780,7 +792,7 @@ export default function RosterGridPage() {
       {openDropdown && (
         <DoctorDropdown
           displayNames={displayNames}
-          profiles={profiles.filter(p =>
+          profiles={assignableProfiles.filter(p =>
             // Already working a different shift this same day (§1.3)
             !findSameDayConflict({
               entries, date: openDropdown.date, profileId: p.id, excludeEntryId: openDropdown.entryId,
@@ -809,7 +821,7 @@ export default function RosterGridPage() {
           vacancy={activeVacancy}
           entries={entries}
           shiftTypes={shiftTypes}
-          profiles={profiles}
+          profiles={assignableProfiles}
           displayNames={displayNames}
           rosterMonthId={id}
           onDone={() => { setActiveVacancy(null); refreshEntries() }}

@@ -1,7 +1,7 @@
 // Leave-request submission — pure validation helpers (unit-testable without
 // Supabase) plus the async submission flow that wires them together.
 import { supabase } from './supabase'
-import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate } from './dateRange'
+import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate, formatShortDateRange } from './dateRange'
 import { overlapsPlannedWeekend, groupEntriesByWeekend, weekendCoverageSummary, weekendHealthState } from './weekendPlanner'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
@@ -56,6 +56,23 @@ export function isValidWeekendExceptionRange(dateFrom, dateTo) {
   return dayOfWeek(dateFrom) === 6 // Saturday
     && dateTo === addDays(dateFrom, 1)
     && dayOfWeek(dateTo) === 0 // Sunday
+}
+
+// A deactivated doctor keeps their historical footprint intact everywhere
+// (past roster/weekend entries still show their real name — an HR
+// audit-trail requirement), but shouldn't be able to create NEW leave/
+// weekend obligations for a period they're not expected to be working.
+// The one exception: a doctor with a known, scheduled return date
+// (scheduledActiveDate) can still request dates from that date onward —
+// e.g. putting in weekend preferences ahead of a rotation that's about to
+// start. No scheduled return date at all means submission stays blocked
+// entirely. Comparing dateFrom alone is enough to guarantee the whole
+// range clears the bar: submitLeaveRequest already rejects dateFrom > dateTo
+// before this ever runs, so dateTo can never fall before scheduledActiveDate
+// once dateFrom does.
+export function isEligibleToSubmitForDateRange({ isActive, scheduledActiveDate, dateFrom }) {
+  if (isActive) return true
+  return Boolean(scheduledActiveDate) && dateFrom >= scheduledActiveDate
 }
 
 // Sick leave may be backdated up to `backdateDays` days before today for a
@@ -533,9 +550,17 @@ function todayStr() {
 // Full submission flow: fetches what's needed to validate, blocks on
 // Tier-1 conflicts, computes the two derived flags, and inserts the row.
 // Throws with a user-facing message on any Tier-1 rejection.
-export async function submitLeaveRequest({ profileId, isAdmin, leaveType, dateFrom, dateTo, annualLeaveDays, notes }) {
+export async function submitLeaveRequest({
+  profileId, isAdmin, leaveType, dateFrom, dateTo, annualLeaveDays, notes, isActive, scheduledActiveDate,
+}) {
   if (!dateFrom || !dateTo || dateFrom > dateTo) {
     throw new Error('Please choose a valid date range.')
+  }
+
+  if (!isEligibleToSubmitForDateRange({ isActive, scheduledActiveDate, dateFrom })) {
+    throw new Error(scheduledActiveDate
+      ? `You're marked inactive until ${formatShortDateRange(scheduledActiveDate, scheduledActiveDate)}. Choose a date on or after then.`
+      : "You're marked inactive with no scheduled return date. Contact an admin to submit this request.")
   }
 
   if (leaveType === 'weekend_exception' && !isValidWeekendExceptionRange(dateFrom, dateTo)) {

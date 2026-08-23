@@ -37,7 +37,7 @@ function formatShortDate(dateStr) {
 }
 
 // The Weekend Planner's year-overview landing page for a doctor — same
-// shell as WeekendYearOverview.jsx (toolbar, legend, 4x3 month grid, sticky
+// shell as WeekendYearOverview.jsx (toolbar, legend, 3x4 month grid, sticky
 // inspector, tap-a-month → "Open month" flow) but reading "am I on this
 // weekend" instead of staffing completeness, and with no admin-only stats.
 export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, onOpenMonth }) {
@@ -94,9 +94,9 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
         </div>
       </div>
 
-      {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
+      {/* ── Main workspace: 3x4 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
           {monthCards.map(m => (
             <MyWeekendMonthCard
               key={m.month}
@@ -109,7 +109,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
         <div
           data-testid="my-weekend-year-inspector"
-          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
+          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-72"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
           <div className="mt-1">
@@ -149,12 +149,12 @@ function MyWeekendMonthCard({ month, isSelected, onSelect }) {
       className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
         {month.markers.map(m => {
           const style = STATE_STYLE[m.state]
           return (
-            <span key={m.saturday} className="h-6 w-6" title={`${formatShortDate(m.saturday)} — ${style.label}`}>
-              <span className={`block h-6 w-6 rounded-sm ${style.square}`} />
+            <span key={m.saturday} className="h-8 w-8 lg:h-9 lg:w-12" title={`${formatShortDate(m.saturday)} — ${style.label}`}>
+              <span className={`block h-8 w-8 rounded-md lg:h-9 lg:w-12 ${style.square}`} />
             </span>
           )
         })}

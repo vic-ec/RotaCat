@@ -75,14 +75,14 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-stats')).getByText('Need staff')).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-inspector')).getByText('Need staff')).toBeInTheDocument()
   })
 
   it('clerk: also lands on the staffing year overview', async () => {
     mockAuth = { isAdmin: false, isClerk: true, profile: { id: 'clerk-1' } }
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
-    expect(within(screen.getByTestId('weekend-year-stats')).getByText('Need staff')).toBeInTheDocument()
+    expect(within(screen.getByTestId('weekend-year-inspector')).getByText('Need staff')).toBeInTheDocument()
   })
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
@@ -122,8 +122,16 @@ describe('WeekendPlanner', () => {
     renderPlanner()
     await screen.findByText('Weekend planner')
 
-    await user.click(screen.getByRole('button', { name: 'Next year' }))
-    expect(await screen.findByText('2027')).toBeInTheDocument()
+    // No standalone year stepper anymore — jump to a year via the Selected
+    // month panel's own jump sheet (label -> swap to year grid -> pick a
+    // year -> pick a month, which is what actually fires onChange).
+    const inspector = within(screen.getByTestId('weekend-year-inspector'))
+    await user.click(inspector.getByRole('button', { name: /2026/ }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
+    await user.click(sheet.getByRole('button', { name: '2026' }))
+    await user.click(sheet.getByRole('button', { name: '2027' }))
+    await user.click(sheet.getByRole('button', { name: 'January' }))
+    expect(await within(screen.getByTestId('weekend-year-inspector')).findByText('January 2027')).toBeInTheDocument()
   })
 
   it('a direct ?wview=month URL opens straight into the month view', async () => {

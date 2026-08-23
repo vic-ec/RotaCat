@@ -224,14 +224,16 @@ describe('LeaveApprovalQueue', () => {
     expect(link.className).toMatch(/text-accent/)
   })
 
-  it('renders a back link naming backLabel and calls onBack when clicked', async () => {
+  it('renders a back link naming backLabel (arrow + label, no "Back to" prefix) and calls onBack when clicked', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     const onBack = vi.fn()
     const user = userEvent.setup()
     renderQueue({ onBack, backLabel: 'Annual planner' })
 
     await screen.findByText('Jane Doe')
-    await user.click(screen.getByRole('button', { name: /Back to Annual planner/ }))
+    const backButton = screen.getByRole('button', { name: 'Annual planner' })
+    expect(backButton.querySelector('svg')).not.toBeNull()
+    await user.click(backButton)
     expect(onBack).toHaveBeenCalled()
   })
 
@@ -240,7 +242,7 @@ describe('LeaveApprovalQueue', () => {
     renderQueue()
 
     await screen.findByText('Jane Doe')
-    expect(screen.queryByRole('button', { name: /Back to/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Planners' })).not.toBeInTheDocument()
   })
 
   describe('Capacity assessment', () => {

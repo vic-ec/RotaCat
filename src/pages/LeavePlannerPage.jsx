@@ -47,10 +47,10 @@ function defaultPlannerTab({ canViewYearPlanners }) {
   return 'weekends'
 }
 
-// Named for the "Back to X" link on the Requests tab (see backToPlanner
-// below) — deliberately its own small map rather than reusing plannerTabs'
-// own labels ("Weekends"), since "Back to Weekends" reads oddly next to
-// "Back to Annual planner"/"Back to Special planner".
+// Named for the back link on the Requests tab (see backToPlanner below —
+// rendered as just "← <label>", no "Back to" prefix) — deliberately its own
+// small map rather than reusing plannerTabs' own labels ("Weekends"), since
+// "Weekends" reads oddly next to "Annual planner"/"Special planner".
 const PLANNER_BACK_LABELS = { annual: 'Annual planner', special: 'Special planner', weekends: 'Weekend planner' }
 
 // Team leave's own two sub-tabs — Current & Upcoming (the week/month/people
@@ -195,8 +195,7 @@ export default function LeavePlannerPage() {
       // Only a "View requests" link (from inside a planner) sets `from` —
       // picking a top-level tab via this nav is never that, so any stale
       // `from` left over from an earlier visit gets cleared here rather
-      // than resurfacing a "Back to X planner" link that doesn't apply to
-      // this visit.
+      // than resurfacing a back link that doesn't apply to this visit.
       next.delete('from')
       return next
     }, { replace: true })

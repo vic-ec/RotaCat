@@ -73,13 +73,14 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
     <div>
       <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
 
-      {/* ── Main workspace: 4x3 month grid + one sticky rail — same shell as
-          AnnualPlannerOverview's (grid left, single right-hand rail), rather
-          than the year/next-weekend panels sitting as their own full-width
-          blocks above the grid. Mobile (<lg): rail stacked first, full
-          width. Desktop (lg+): grid + w-80 sticky rail side by side. ── */}
+      {/* ── Main workspace: 3x4 month grid + one sticky rail — bigger cards
+          than Annual's own 4-across grid (Weekend cards hold far less
+          content — a row of Saturday squares, not a day heatmap — so 3
+          across fills the space better without looking sparse). Mobile
+          (<lg): rail stacked first, full width. Desktop (lg+): grid + w-72
+          sticky rail side by side. ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="weekend-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-4">
+        <div data-testid="weekend-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
           {monthCards.map(m => (
             <WeekendMonthCard
               key={m.month}
@@ -95,7 +96,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
           ))}
         </div>
 
-        <div className="order-first flex w-full flex-shrink-0 flex-col gap-4 lg:order-none lg:sticky lg:top-4 lg:w-80">
+        <div className="order-first flex w-full flex-shrink-0 flex-col gap-4 lg:order-none lg:sticky lg:top-4 lg:w-72">
           {/* Year selector (chevrons at the panel margins, same `centered`
               layout as the Selected month panel's own stepper below) plus
               the year's totals — each stat cell's fill already doubles as
@@ -188,18 +189,18 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
       className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2.5 flex flex-wrap gap-2">
         {month.markers.map(m => {
           const style = HEALTH_STYLE[m.health]
           return (
             <span
               key={m.saturday}
-              className="relative h-6 w-6"
+              className="relative h-8 w-8"
               title={`${formatShortDate(m.saturday)} — ${style.label}${m.gapCount > 0 ? ` (${m.gapCount} ${m.gapCount === 1 ? 'gap' : 'gaps'})` : ''}`}
             >
-              <span className={`block h-6 w-6 rounded-sm ${style.square}`} />
+              <span className={`block h-8 w-8 rounded-md ${style.square}`} />
               {m.gapCount > 0 && (
-                <span className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
                   {m.gapCount}
                 </span>
               )}

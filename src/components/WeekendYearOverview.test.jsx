@@ -17,8 +17,8 @@ const [aug1, aug8] = saturdaysInMonth(YEAR, 8)
 const ENTRIES = [
   { id: 'e1', weekend_saturday: aug1, profile_id: 'p1', category: 'MO' },
   { id: 'e2', weekend_saturday: aug1, profile_id: 'p2', category: 'Registrar' },
-  { id: 'e3', weekend_saturday: aug1, profile_id: 'p3', category: 'COSMO' },
-  { id: 'e4', weekend_saturday: aug1, profile_id: 'p4', category: 'COSMOPsych' },
+  { id: 'e3', weekend_saturday: aug1, profile_id: 'p3', category: 'Intern' },
+  { id: 'e4', weekend_saturday: aug1, profile_id: 'p4', category: 'OT_Intern' },
   { id: 'e5', weekend_saturday: aug8, profile_id: 'p1', category: 'MO' },
 ]
 const BY_WEEKEND = groupEntriesByWeekend(ENTRIES)

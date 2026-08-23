@@ -19,11 +19,17 @@ const MONTH_LABELS = [
 // rather than part of it. Consultant/Locum never appear (not part of the
 // leave-eligible doctor roster); Consultant alone falls into an uncapped
 // "Other" column so their leave isn't hidden off the grid.
+// COSMO/COSMOPsych/EC_COSMO_Intern/OT_COSMO_Intern were retired from the
+// staff_category enum in Aug 2026 (folded into Intern/EC_Intern/OT_Intern,
+// with every existing row rewritten by that migration) — these categories
+// arrays get used directly as Supabase query filter values (see
+// AnnualLeavePlanner.jsx's eligible-doctor count), so a retired value here
+// doesn't just go unused, it makes that query error.
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
   { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
-  { key: 'EC_Intern', label: 'EC Intern', categories: ['COSMO', 'EC_Intern', 'EC_COSMO_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
-  { key: 'OT_Intern', label: 'OT Intern', categories: ['COSMOPsych', 'OT_Intern', 'OT_COSMO_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
+  { key: 'EC_Intern', label: 'EC Intern', categories: ['EC_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
+  { key: 'OT_Intern', label: 'OT Intern', categories: ['OT_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
 ]
 
 export const LEAVE_OTHER_COLUMN = { key: 'Other', label: 'Consultant', categories: ['Consultant'] }

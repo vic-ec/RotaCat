@@ -28,8 +28,8 @@ vi.mock('./WeekendPlannerChangeLogModal', () => ({
 const PROFILES = [
   { id: 'p1', name: 'Alice', surname: 'Anderson', category: 'MO', is_active: true },
   { id: 'p2', name: 'Bob', surname: 'Botha', category: 'Registrar', is_active: true },
-  { id: 'p3', name: 'Carol', surname: 'Cosmo', category: 'COSMO', is_active: true },
-  { id: 'p4', name: 'Dan', surname: 'Della', category: 'COSMOPsych', is_active: true },
+  { id: 'p3', name: 'Carol', surname: 'Cosmo', category: 'Intern', is_active: true },
+  { id: 'p4', name: 'Dan', surname: 'Della', category: 'OT_Intern', is_active: true },
   // A second Registrar, unrostered anywhere in ENTRIES — exists purely so
   // the multi-select add-sheet test has two real candidates for one
   // category to select together.
@@ -43,8 +43,8 @@ const ENTRIES = [
   { id: 'e1', weekend_saturday: '2026-08-01', profile_id: 'p1', category: 'MO' },
   { id: 'e2', weekend_saturday: '2026-08-08', profile_id: 'p1', category: 'MO' },
   { id: 'e3', weekend_saturday: '2026-08-08', profile_id: 'p2', category: 'Registrar' },
-  { id: 'e4', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'COSMO' },
-  { id: 'e5', weekend_saturday: '2026-08-08', profile_id: 'p4', category: 'COSMOPsych' },
+  { id: 'e4', weekend_saturday: '2026-08-08', profile_id: 'p3', category: 'Intern' },
+  { id: 'e5', weekend_saturday: '2026-08-08', profile_id: 'p4', category: 'OT_Intern' },
 ]
 
 // p1 has a pending weekend-exception request for 2026-08-22 — a weekend

@@ -171,7 +171,15 @@ export default function ForgotPasswordPage() {
             </div>
 
             {TURNSTILE_ENABLED && (
-              <TurnstileWidget ref={mobileTurnstileRef} onVerify={setMobileCaptchaToken} onExpire={() => setMobileCaptchaToken('')} />
+              // Unlike Sign-in/Signup (a white modal over the teal page,
+              // where the widget's own white fill just blends in), this
+              // form sits directly on the teal panel — give it the same
+              // white "field" backing the email input above already has,
+              // rather than leaving it floating with nothing tying it to
+              // the rest of the form.
+              <div className="rounded-lg bg-canvas-raised p-1.5">
+                <TurnstileWidget ref={mobileTurnstileRef} onVerify={setMobileCaptchaToken} onExpire={() => setMobileCaptchaToken('')} />
+              </div>
             )}
 
             {error && (
@@ -256,7 +264,12 @@ export default function ForgotPasswordPage() {
                   </div>
 
                   {TURNSTILE_ENABLED && (
-                    <TurnstileWidget ref={desktopTurnstileRef} onVerify={setDesktopCaptchaToken} onExpire={() => setDesktopCaptchaToken('')} />
+                    // Same reasoning as the mobile widget above — this
+                    // panel is teal too, so give the widget the same white
+                    // backing the email input already has.
+                    <div className="rounded-lg bg-canvas-raised p-1.5">
+                      <TurnstileWidget ref={desktopTurnstileRef} onVerify={setDesktopCaptchaToken} onExpire={() => setDesktopCaptchaToken('')} />
+                    </div>
                   )}
 
                   {error && (

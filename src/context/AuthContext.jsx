@@ -59,19 +59,22 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  async function signIn(email, password) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+  // captchaToken is required once CAPTCHA protection is enabled on the
+  // Supabase project's Auth settings — see TurnstileWidget.jsx.
+  async function signIn(email, password, captchaToken) {
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
     return { error }
   }
 
   // Updated: accepts role and category for the new account model.
   // role defaults to 'doctor' to keep backward compatibility with any
   // existing callers that only pass email/password/name/surname.
-  async function signUp(email, password, name, surname, role = 'doctor', category = null, phone = null) {
+  async function signUp(email, password, name, surname, role = 'doctor', category = null, phone = null, captchaToken) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        captchaToken,
         data: {
           name,
           surname,

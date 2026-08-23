@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
+import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -12,19 +13,47 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  // Two independent widgets, not one shared piece of state — this page
+  // renders separate mobile and desktop <form> blocks simultaneously
+  // (CSS `md:hidden`/`hidden md:flex` toggles which is visible, but both
+  // are mounted), unlike Signup/Sign-in which share a single modal. A
+  // shared captchaToken/ref would mean two live Turnstile widgets
+  // fighting over one ref and one reset — only the on-screen widget is
+  // ever actually solved by the user, so submit just uses whichever
+  // token exists.
+  const [mobileCaptchaToken, setMobileCaptchaToken] = useState('')
+  const [desktopCaptchaToken, setDesktopCaptchaToken] = useState('')
+  const mobileTurnstileRef = useRef(null)
+  const desktopTurnstileRef = useRef(null)
+  const captchaToken = mobileCaptchaToken || desktopCaptchaToken
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the verification check.')
+      return
+    }
+
     setSubmitting(true)
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     })
 
     setSubmitting(false)
+    // A Turnstile token is single-use — reset both for a fresh one
+    // regardless of outcome, otherwise a retry after a failed request
+    // would submit the same already-consumed token.
+    mobileTurnstileRef.current?.reset()
+    desktopTurnstileRef.current?.reset()
+    setMobileCaptchaToken('')
+    setDesktopCaptchaToken('')
+
     if (error) {
       setError(error.message)
       return
@@ -141,6 +170,10 @@ export default function ForgotPasswordPage() {
               )}
             </div>
 
+            {TURNSTILE_ENABLED && (
+              <TurnstileWidget ref={mobileTurnstileRef} onVerify={setMobileCaptchaToken} onExpire={() => setMobileCaptchaToken('')} />
+            )}
+
             {error && (
               <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
                 {error}
@@ -149,7 +182,7 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
               className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                 transition-colors hover:bg-accent-dark active:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
@@ -222,6 +255,10 @@ export default function ForgotPasswordPage() {
                     )}
                   </div>
 
+                  {TURNSTILE_ENABLED && (
+                    <TurnstileWidget ref={desktopTurnstileRef} onVerify={setDesktopCaptchaToken} onExpire={() => setDesktopCaptchaToken('')} />
+                  )}
+
                   {error && (
                     <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
                       {error}
@@ -230,7 +267,7 @@ export default function ForgotPasswordPage() {
 
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
                     className="mt-2 w-full rounded-lg bg-accent py-3.5 text-lg font-semibold text-white
                       transition-colors hover:bg-accent-dark active:bg-accent-dark
                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose

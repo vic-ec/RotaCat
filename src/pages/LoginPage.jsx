@@ -7,6 +7,7 @@ import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
+import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 // Email + password sign-in form — shared by the desktop inline panel and
 // the mobile sign-in modal so the two surfaces can't drift apart.
@@ -22,6 +23,8 @@ function SignInForm({ autoFocus = false }) {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef(null)
   const capsLock = useCapsLockWarning()
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
@@ -44,11 +47,23 @@ function SignInForm({ autoFocus = false }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the verification check.')
+      return
+    }
+
     setSubmitting(true)
 
-    const { error } = await signIn(email, password)
+    const { error } = await signIn(email, password, captchaToken)
 
     setSubmitting(false)
+    // A Turnstile token is single-use — reset for a fresh one regardless
+    // of outcome, otherwise a retry after a failed sign-in would submit
+    // the same already-consumed token.
+    turnstileRef.current?.reset()
+    setCaptchaToken('')
+
     if (error) {
       if (error.message === 'Invalid login credentials') {
         setError('Incorrect email or password.')
@@ -204,6 +219,10 @@ function SignInForm({ autoFocus = false }) {
         <CapsLockNotice show={capsLock.capsOn} />
       </div>
 
+      {TURNSTILE_ENABLED && (
+        <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+      )}
+
       {error && (
         <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
           {error}
@@ -212,7 +231,7 @@ function SignInForm({ autoFocus = false }) {
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
         className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
           transition-colors hover:bg-accent-dark active:bg-accent-dark
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose

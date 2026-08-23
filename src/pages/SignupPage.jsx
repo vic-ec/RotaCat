@@ -9,6 +9,7 @@ import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
+import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 
 // Which role the registrant is selecting
@@ -96,6 +97,8 @@ function RoleModal({ role, onClose }) {
   // learn to route around it) but signUp is never actually called, so no
   // Supabase Auth user or profile row gets created for it.
   const [honeypot, setHoneypot] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -157,10 +160,20 @@ function RoleModal({ role, onClose }) {
       setError(pwProblem)
       return
     }
+    if (TURNSTILE_ENABLED && !captchaToken) {
+      setError('Please complete the verification check.')
+      return
+    }
 
     setSubmitting(true)
-    const { error } = await signUp(email, password, name, surname, role, category || null, phone)
+    const { error } = await signUp(email, password, name, surname, role, category || null, phone, captchaToken)
     setSubmitting(false)
+
+    // A Turnstile token is single-use — reset the widget for a fresh one
+    // regardless of outcome, otherwise a retry after a validation error
+    // would submit the same already-consumed token.
+    turnstileRef.current?.reset()
+    setCaptchaToken('')
 
     if (error) {
       setError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
@@ -504,6 +517,12 @@ function RoleModal({ role, onClose }) {
                 <CapsLockNotice show={capsLock.capsOn} />
               </div>
 
+              {TURNSTILE_ENABLED && (
+                <div className="mt-1">
+                  <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+                </div>
+              )}
+
               {error && (
                 <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
                   {error}
@@ -515,7 +534,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 form="role-details-form"
-                disabled={submitting}
+                disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
                 className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose

@@ -102,20 +102,23 @@ describe('DateStepper', () => {
       expect(body).not.toBeNull()
     })
 
-    it('tapping the year label swaps to a 12-year grid, still inside the same "Jump to month" sheet', async () => {
+    it('tapping the year label swaps to a 12-year grid, renaming the dialog to "Jump to year" and back once a year\'s picked', async () => {
       const user = userEvent.setup()
       const onChange = vi.fn()
       render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
       await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      const dialog = screen.getByRole('dialog') // only one dialog open at a time, name changes below
 
-      await user.click(screen.getByRole('button', { name: '2026' }))
-      const dialog = screen.getByRole('dialog', { name: 'Jump to month' })
+      await user.click(within(dialog).getByRole('button', { name: '2026' }))
+      expect(dialog).toHaveAttribute('aria-label', 'Jump to year')
       // 2026 falls in the 2016–2027 page (Math.floor(2026/12)*12 = 2016).
       expect(within(dialog).getByRole('button', { name: '2020' })).toBeInTheDocument()
       expect(within(dialog).queryByRole('button', { name: 'March' })).not.toBeInTheDocument()
 
-      // Picking a year lands back on the month grid for it, not closed.
+      // Picking a year lands back on the month grid for it, not closed,
+      // and the dialog's name reverts to "Jump to month".
       await user.click(within(dialog).getByRole('button', { name: '2020' }))
+      expect(dialog).toHaveAttribute('aria-label', 'Jump to month')
       expect(within(dialog).getByRole('button', { name: 'March' })).toBeInTheDocument()
       expect(onChange).not.toHaveBeenCalled()
 
@@ -127,9 +130,9 @@ describe('DateStepper', () => {
       const user = userEvent.setup()
       render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} />)
       await user.click(screen.getByRole('button', { name: 'March 2026' }))
-      await user.click(screen.getByRole('button', { name: '2026' }))
+      const dialog = screen.getByRole('dialog')
+      await user.click(within(dialog).getByRole('button', { name: '2026' }))
 
-      const dialog = screen.getByRole('dialog', { name: 'Jump to month' })
       // Initial page is 2016–2027.
       expect(within(dialog).getByRole('button', { name: '2027' })).toBeInTheDocument()
       await user.click(within(dialog).getByRole('button', { name: 'Next years' }))

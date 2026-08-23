@@ -180,9 +180,10 @@ function YearGridButtons({ rangeStart, currentYear, onPick }) {
 // instead of stepping one year at a time — picking a year there lands back
 // on the month grid for it, rather than closing the sheet, since a year
 // alone was never a valid pick here. The sheet's own title/accessible name
-// stays "Jump to month" throughout — every caller that opens it already
-// queries by that name, and the year-grid view is still just a step on the
-// way to picking a month, not a separate destination.
+// switches to "Jump to year" for that swapped-in view and back to "Jump to
+// month" once a year's picked, so it always names whichever grid is
+// actually showing — callers that open it via the month label should
+// re-query the dialog by name after swapping views.
 function MonthJumpSheet({ year, month, onPick, onClose }) {
   const [jumpYear, setJumpYear] = useState(year)
   const [showYears, setShowYears] = useState(false)
@@ -196,7 +197,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
   }
 
   return (
-    <ActionSheet title="Jump to month" onClose={onClose}>
+    <ActionSheet title={showYears ? 'Jump to year' : 'Jump to month'} onClose={onClose}>
       <div className="flex items-center justify-center gap-2 py-3">
         <button
           type="button"

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Pin, Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
+import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
@@ -234,9 +234,7 @@ export default function AnnualPlannerOverview({
               already has a year stepper (and its own 12-year grid, one tap
               on the year label away — see DateStepper's MonthJumpSheet)
               that fully covers year navigation. */}
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            <Pin className="h-3.5 w-3.5" /> Selected month
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
           <div className="mt-1">
             <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
@@ -312,7 +310,7 @@ export default function AnnualPlannerOverview({
             <button type="button" onClick={() => onOpenWorkspace(selectedMonth)} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
               <ExternalLink className="h-3.5 w-3.5" /> Open month workspace
             </button>
-            <Link to="/leave?tab=requests" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
+            <Link to="/leave?tab=requests&from=annual" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
               <ListChecks className="h-3.5 w-3.5" /> View requests
             </Link>
           </div>

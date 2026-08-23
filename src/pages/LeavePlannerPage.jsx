@@ -47,6 +47,12 @@ function defaultPlannerTab({ canViewYearPlanners }) {
   return 'weekends'
 }
 
+// Named for the "Back to X" link on the Requests tab (see backToPlanner
+// below) — deliberately its own small map rather than reusing plannerTabs'
+// own labels ("Weekends"), since "Back to Weekends" reads oddly next to
+// "Back to Annual planner"/"Back to Special planner".
+const PLANNER_BACK_LABELS = { annual: 'Annual planner', special: 'Special planner', weekends: 'Weekend planner' }
+
 // Team leave's own two sub-tabs — Current & Upcoming (the week/month/people
 // awareness view) is always the default; All Leave (the cumulative
 // audit-style history, admin-only) is opt-in via the URL only for admins.
@@ -186,6 +192,12 @@ export default function LeavePlannerPage() {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.set('tab', nextTab)
+      // Only a "View requests" link (from inside a planner) sets `from` —
+      // picking a top-level tab via this nav is never that, so any stale
+      // `from` left over from an earlier visit gets cleared here rather
+      // than resurfacing a "Back to X planner" link that doesn't apply to
+      // this visit.
+      next.delete('from')
       return next
     }, { replace: true })
   }
@@ -202,6 +214,22 @@ export default function LeavePlannerPage() {
       const next = new URLSearchParams(prev)
       next.set('tab', 'team')
       next.set('sub', nextSub)
+      return next
+    }, { replace: true })
+  }
+
+  // Back-to-planner link on the Requests tab: only shown when the visitor
+  // arrived via a planner's own "View requests" link (`?from=<sub-tab
+  // key>`), not when they picked Requests directly from the top nav — see
+  // setTab, which strips `from` on every plain top-level tab change.
+  const fromPlannerTab = searchParams.get('from')
+  const fromPlannerLabel = PLANNER_BACK_LABELS[fromPlannerTab]
+  function backToPlanner() {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('tab', 'planners')
+      next.set('sub', fromPlannerTab)
+      next.delete('from')
       return next
     }, { replace: true })
   }
@@ -260,9 +288,9 @@ export default function LeavePlannerPage() {
         {tab === 'requests' && (
           isAdmin ? (
             <div className="mx-auto md:max-w-2xl">
-              <LeaveApprovalQueue />
+              <LeaveApprovalQueue onBack={fromPlannerLabel && backToPlanner} backLabel={fromPlannerLabel} />
             </div>
-          ) : canSubmitLeave ? <MyRequestHistory /> : null
+          ) : canSubmitLeave ? <MyRequestHistory onBack={fromPlannerLabel && backToPlanner} backLabel={fromPlannerLabel} /> : null
         )}
         {tab === 'rules' && <div className="mx-auto md:max-w-2xl"><LeaveRulesPage /></div>}
         {tab === 'planners' && (

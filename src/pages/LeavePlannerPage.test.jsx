@@ -43,14 +43,21 @@ vi.mock('../lib/supabase', () => ({
 
 vi.mock('../components/LeaveDashboard', () => ({ default: () => <div>MyLeaveStub</div> }))
 vi.mock('../components/LeaveApprovalQueue', () => ({
-  default: ({ onBack }) => (
+  default: ({ onBack, backLabel }) => (
     <div>
       ApprovalQueueStub
-      {onBack && <button onClick={onBack}>QueueBackStub</button>}
+      {onBack && <button onClick={onBack}>QueueBackStub: {backLabel}</button>}
     </div>
   ),
 }))
-vi.mock('../components/MyRequestHistory', () => ({ default: () => <div>MyRequestHistoryStub</div> }))
+vi.mock('../components/MyRequestHistory', () => ({
+  default: ({ onBack, backLabel }) => (
+    <div>
+      MyRequestHistoryStub
+      {onBack && <button onClick={onBack}>HistoryBackStub: {backLabel}</button>}
+    </div>
+  ),
+}))
 vi.mock('../components/LeaveListView', () => ({ default: () => <div>TeamLeaveStub</div> }))
 vi.mock('../components/AnnualLeavePlanner', () => ({
   default: ({ deepLinkMonth, deepLinkHighlightDate }) => (
@@ -237,7 +244,45 @@ describe('LeavePlannerPage', () => {
     renderPage()
     expect(await screen.findByText('ApprovalQueueStub')).toBeInTheDocument()
     expect(screen.getByText('ApprovalQueueStub').closest('.mx-auto.md\\:max-w-2xl')).toBeInTheDocument()
-    expect(screen.queryByText('QueueBackStub')).not.toBeInTheDocument()
+    expect(screen.queryByText(/QueueBackStub/)).not.toBeInTheDocument()
+  })
+
+  it('admin Requests view arriving via a planner\'s "View requests" link (?from=annual) shows a back link naming that planner', async () => {
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    render(<LeavePlannerPage />, {
+      wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=requests&from=annual']}>{children}</MemoryRouter>,
+    })
+    expect(await screen.findByText(/QueueBackStub: Annual planner/)).toBeInTheDocument()
+  })
+
+  it('clicking the back link returns to that planner\'s sub-tab and clears ?from', async () => {
+    const user = userEvent.setup()
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    render(<LeavePlannerPage />, {
+      wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=requests&from=weekends']}>{children}</MemoryRouter>,
+    })
+    await user.click(await screen.findByRole('button', { name: /QueueBackStub/ }))
+    expect(await screen.findByText('WeekendsStub')).toBeInTheDocument()
+  })
+
+  it('non-admin Requests view arriving via ?from also gets a back link, on MyRequestHistory', async () => {
+    mockAuth = { isLocum: false, isAdmin: false, canSubmitLeave: true }
+    render(<LeavePlannerPage />, {
+      wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=requests&from=weekends']}>{children}</MemoryRouter>,
+    })
+    expect(await screen.findByText(/HistoryBackStub: Weekend planner/)).toBeInTheDocument()
+  })
+
+  it('picking Requests from the top nav directly never carries a stale ?from — no back link', async () => {
+    const user = userEvent.setup()
+    mockAuth = { isLocum: false, isAdmin: true, canSubmitLeave: false }
+    render(<LeavePlannerPage />, {
+      wrapper: ({ children }) => <MemoryRouter initialEntries={['/leave?tab=planners&sub=annual&from=weekends']}>{children}</MemoryRouter>,
+    })
+    expect(await screen.findByText('AnnualStub')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Requests' }))
+    expect(await screen.findByText('ApprovalQueueStub')).toBeInTheDocument()
+    expect(screen.queryByText(/QueueBackStub/)).not.toBeInTheDocument()
   })
 
   // This page only reads the two params and hands them down. Clearing them

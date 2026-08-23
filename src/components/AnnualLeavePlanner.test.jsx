@@ -217,7 +217,7 @@ describe('AnnualLeavePlanner', () => {
   it('"View requests" links to the Requests planner tab', async () => {
     renderPage()
     await grid()
-    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
+    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests&from=annual')
   })
 
   it('"Open month workspace" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {

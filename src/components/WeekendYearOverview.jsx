@@ -195,7 +195,9 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
             >
               <span className={`block h-8 w-8 rounded-md lg:h-9 lg:w-12 ${style.square}`} />
               {m.gapCount > 0 ? (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
+                <span className={`absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised ${
+                  m.health === 'red' ? 'bg-flagRed' : 'bg-flagAmber'
+                }`}>
                   {m.gapCount}
                 </span>
               ) : (

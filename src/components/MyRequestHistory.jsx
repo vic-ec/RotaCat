@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
@@ -16,8 +17,10 @@ const STATUS_BADGE = {
 // view for the "Requests" tab nested under Planners. Distinct from the
 // Leave dashboard's "Upcoming" list (future-only, capped short): this is
 // the complete record, including past and rejected requests, explicitly
-// scoped to the signed-in doctor's own profile_id.
-export default function MyRequestHistory() {
+// scoped to the signed-in doctor's own profile_id. onBack/backLabel mirror
+// LeaveApprovalQueue's own — LeavePlannerPage.jsx wires both the same way,
+// only when the visitor arrived via a planner's "View requests" link.
+export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
   const { profile } = useAuth()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,8 +41,14 @@ export default function MyRequestHistory() {
     setLoading(false)
   }
 
-  if (loading) return <p className="text-sm text-ink-muted">Loading…</p>
-  if (error) return <p className="text-sm text-flagRed">{error}</p>
+  const backLink = onBack && (
+    <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
+      <ArrowLeft className="h-4 w-4" /> Back to {backLabel}
+    </button>
+  )
+
+  if (loading) return <>{backLink}<p className="text-sm text-ink-muted">Loading…</p></>
+  if (error) return <>{backLink}<p className="text-sm text-flagRed">{error}</p></>
 
   const pending = requests.filter(lr => lr.status === 'pending')
   const approved = requests.filter(lr => lr.status === 'approved')
@@ -47,6 +56,7 @@ export default function MyRequestHistory() {
 
   return (
     <div className="space-y-6">
+      {backLink}
       <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" />
       <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" />
       {/* Only when there are any — a declined request still has to be

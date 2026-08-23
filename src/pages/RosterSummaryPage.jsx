@@ -339,13 +339,16 @@ export default function RosterSummaryPage() {
               {filteredRows.map(row => {
                 const band = hoursBand(row)
                 const textColor = row.colorCode ? contrastTextColor(row.colorCode) : undefined
-                // The signed-in doctor's own row is `accent-tint`, a step
-                // lighter than the header's `canvas-sunken` fill — the two
-                // were the same colour, so the highlighted row read as a
-                // second header rather than as "this one is you".
+                // The signed-in doctor's own row: a soft `canvas-cool`
+                // fill plus a teal accent bar down its leading edge. The
+                // fill alone used to be `canvas-sunken` — the header's exact
+                // colour — so the highlighted row read as a second header;
+                // the marker now carries the "this one is you" signal, which
+                // frees the fill to stay light enough that the row never
+                // competes with the header.
                 const isMe = row.profileId === profile?.id
                 return (
-                  <tr key={row.profileId} className={`hover:bg-canvas-sunken/50 ${isMe ? 'bg-accent-tint' : ''}`}>
+                  <tr key={row.profileId} className={`hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool' : ''}`}>
                     {/* Sticky left-0 so Doctor stays visible during horizontal
                         scroll (see the matching th above) — needs its own
                         explicit background (matching the row's own, plain or
@@ -357,7 +360,7 @@ export default function RosterSummaryPage() {
                         auto layout (no table-fixed) is what actually shrinks
                         the column to fit the longest name instead of an
                         arbitrary fixed width. */}
-                    <td className={`sticky left-0 z-[1] border-b border-r border-slate-hairline px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-accent-tint' : 'bg-canvas'}`}>
+                    <td className={`sticky left-0 z-[1] border-b border-r border-slate-hairline px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}>
                       <div className="flex items-center gap-1.5">
                         <span
                           className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"

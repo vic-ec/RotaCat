@@ -101,26 +101,26 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
               layout as the Selected month panel's own stepper below) plus
               the year's totals — each stat cell's fill already doubles as
               the legend, so no separate Legend trigger is needed here. */}
-          <div data-testid="weekend-year-stats" className="rounded-lg border border-slate-line bg-canvas-raised p-4">
+          <div data-testid="weekend-year-stats" className="rounded-lg border border-slate-line bg-canvas-raised p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Select year</p>
             <div className="mt-1">
               <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-line pt-2">
               <StatCell label="Fully staffed" value={totals.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
               <StatCell label="Need staff" value={totals.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
               <StatCell label="No staff" value={totals.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
             </div>
           </div>
 
-          <div data-testid="weekend-year-inspector" className="rounded-lg border border-slate-line bg-canvas-raised p-4">
+          <div data-testid="weekend-year-inspector" className="rounded-lg border border-slate-line bg-canvas-raised p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
             <div className="mt-1">
               <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-line pt-3">
+            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-line pt-2">
               <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
               <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
               <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
@@ -129,7 +129,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             <button
               type="button"
               onClick={() => onOpenMonth(selectedMonth)}
-              className="btn-primary mt-4 flex w-full items-center justify-center gap-1.5 text-sm"
+              className="btn-primary mt-2 flex w-full items-center justify-center gap-1.5 text-sm"
             >
               <ExternalLink className="h-3.5 w-3.5" /> Open month
             </button>
@@ -167,7 +167,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
 // (not just the text) doubles as the legend at a glance.
 function StatCell({ label, value, colorClass, bgClass }) {
   return (
-    <div className={`flex flex-col items-center gap-1 rounded-lg py-2 text-center ${bgClass}`}>
+    <div className={`flex flex-col items-center gap-0.5 rounded-lg py-1.5 text-center ${bgClass}`}>
       <span className="text-xs text-ink-muted">{label}</span>
       <span className={`text-xl font-semibold ${colorClass}`}>{value}</span>
     </div>

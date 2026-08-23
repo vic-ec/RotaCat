@@ -194,10 +194,10 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
           return (
             <span
               key={m.saturday}
-              className="relative h-8 w-8 lg:h-12 lg:w-12"
+              className="relative h-8 w-8 lg:h-9 lg:w-12"
               title={`${formatShortDate(m.saturday)} — ${style.label}${m.gapCount > 0 ? ` (${m.gapCount} ${m.gapCount === 1 ? 'gap' : 'gaps'})` : ''}`}
             >
-              <span className={`block h-8 w-8 rounded-md lg:h-12 lg:w-12 ${style.square}`} />
+              <span className={`block h-8 w-8 rounded-md lg:h-9 lg:w-12 ${style.square}`} />
               {m.gapCount > 0 && (
                 <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
                   {m.gapCount}

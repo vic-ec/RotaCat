@@ -327,13 +327,25 @@ export default function RosterSummaryPage() {
                 )}
               </tr>
             </thead>
-            <tbody>
+            {/* Internal grid lines are `slate-hairline`, declared on the
+                cells themselves (both directions) rather than the column
+                lines on the cell and the row separator on the <tr>: a
+                row-level border paints lighter than a cell-level one at
+                phone pixel ratios, which is what made the columns read as
+                noticeably thicker than the rows. The last row drops its
+                bottom line so it doesn't double up against the container's
+                own rounded frame. */}
+            <tbody className="[&>tr:last-child>td]:border-b-0">
               {filteredRows.map(row => {
                 const band = hoursBand(row)
                 const textColor = row.colorCode ? contrastTextColor(row.colorCode) : undefined
+                // The signed-in doctor's own row is `accent-tint`, a step
+                // lighter than the header's `canvas-sunken` fill — the two
+                // were the same colour, so the highlighted row read as a
+                // second header rather than as "this one is you".
                 const isMe = row.profileId === profile?.id
                 return (
-                  <tr key={row.profileId} className={`border-b border-slate-line last:border-0 hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-sunken' : ''}`}>
+                  <tr key={row.profileId} className={`hover:bg-canvas-sunken/50 ${isMe ? 'bg-accent-tint' : ''}`}>
                     {/* Sticky left-0 so Doctor stays visible during horizontal
                         scroll (see the matching th above) — needs its own
                         explicit background (matching the row's own, plain or
@@ -345,7 +357,7 @@ export default function RosterSummaryPage() {
                         auto layout (no table-fixed) is what actually shrinks
                         the column to fit the longest name instead of an
                         arbitrary fixed width. */}
-                    <td className={`sticky left-0 z-[1] border-r border-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-sunken' : 'bg-canvas'}`}>
+                    <td className={`sticky left-0 z-[1] border-b border-r border-slate-hairline px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-accent-tint' : 'bg-canvas'}`}>
                       <div className="flex items-center gap-1.5">
                         <span
                           className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
@@ -356,33 +368,33 @@ export default function RosterSummaryPage() {
                       </div>
                       <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABELS[row.category] || row.category}</p>
                     </td>
-                    <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
-                    <td className={`border-r border-slate-line px-2 py-1.5 text-center font-semibold ${
+                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
+                    <td className={`border-b border-r border-slate-hairline px-2 py-1.5 text-center font-semibold ${
                       band === 'over' ? 'bg-flagRed-bg text-flagRed' : band === 'under' ? 'bg-flagAmber-bg text-flagAmber' : 'text-ink'
                     }`}>
                       {row.totalHours}
                     </td>
-                    <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-muted">
+                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-muted">
                       {row.locumHours > 0 ? row.locumHours : '—'}
                     </td>
                     {WEEKDAY_COLUMNS.map(c => (
-                      <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {WEEKEND_COLUMNS.map(c => (
-                      <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {PH_WEEKDAY_COLUMNS.map(c => (
-                      <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {PH_WEEKEND_COLUMNS.map(c => (
-                      <td key={c.code} className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
-                    <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.phLieuOwed || '—'}</td>
-                    <td className={`px-2 py-1.5 text-center text-ink-light ${leaveOpen ? 'border-r border-slate-line' : ''}`}>{row.phLieuTaken || '—'}</td>
+                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.phLieuOwed || '—'}</td>
+                    <td className={`border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light ${leaveOpen ? 'border-r border-slate-hairline' : ''}`}>{row.phLieuTaken || '—'}</td>
                     {leaveOpen && (
                       <>
-                        <td className="border-r border-slate-line px-2 py-1.5 text-center text-ink-light">{row.leaveDays || '—'}</td>
-                        <td className="px-2 py-1.5">
+                        <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.leaveDays || '—'}</td>
+                        <td className="border-b border-slate-hairline px-2 py-1.5">
                           <div className="flex flex-wrap gap-1">
                             {Object.entries(row.leaveByType).map(([type, days]) => (
                               <Tag key={type} className="text-[10px]">{LEAVE_TYPE_LABELS[type] || type}: {days}</Tag>

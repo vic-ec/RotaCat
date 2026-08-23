@@ -57,7 +57,16 @@ export default {
           cool: '#F1F8F5'
         },
         slate: {
-          line: '#D7E3DF'       // hairline borders
+          line: '#D7E3DF',      // hairline borders
+          // A lighter line again, for the *inside* of a dense data grid
+          // (Hours Summary). At phone pixel ratios a collapsed 1px table
+          // border paints heavier vertically than horizontally, so a grid
+          // drawn entirely in `line` reads as thick columns crossed by thin
+          // rows. Dropping the internal lines to this weight makes both
+          // directions read as the same hairline; `line` still draws the
+          // outer frame and the header, which need to hold their own
+          // against the sunken header fill.
+          hairline: '#E8F0ED'
         },
         // Single confident accent — teal-blue, not generic "medical blue"
         accent: {

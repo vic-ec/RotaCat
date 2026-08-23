@@ -19,7 +19,19 @@ export const TURNSTILE_ENABLED = Boolean(SITE_KEY)
 // failed submit — a Turnstile token is single-use.
 const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire }, ref) {
   if (!SITE_KEY) return null
-  return <Turnstile ref={ref} siteKey={SITE_KEY} onSuccess={onVerify} onExpire={onExpire} />
+  return (
+    <Turnstile
+      ref={ref}
+      siteKey={SITE_KEY}
+      onSuccess={onVerify}
+      onExpire={onExpire}
+      // "auto" (the default) rendered a dark box that clashed hard with
+      // these forms' white panels — force light to match. "flexible"
+      // stretches it to the same width as the surrounding inputs instead
+      // of sitting as a fixed 300px block.
+      options={{ theme: 'light', size: 'flexible' }}
+    />
+  )
 })
 
 export default TurnstileWidget

@@ -190,7 +190,29 @@ describe('AnnualLeavePlanner', () => {
 
     await user.click(g.getByRole('button', { name: /^January/ }))
     expect(screen.getByText('January 2026')).toBeInTheDocument()
-    expect(screen.getByText('No capacity pressure this month.')).toBeInTheDocument()
+    expect(screen.getByText('No leave this month.')).toBeInTheDocument()
+  })
+
+  it('shows a pending request in the "Leave" list even when it never creates capacity pressure', async () => {
+    // A lone MO request nowhere near the default cap of 2 — no day in
+    // September ever reaches pressure, so this used to disappear behind
+    // "No capacity pressure this month" even though there's a real pending
+    // request an admin still needs to see and act on.
+    mockResponses['leave_requests:select'] = {
+      data: [...LEAVE_REQUESTS, {
+        id: 'req-4', profile_id: 'p4', date_from: '2026-09-05', date_to: '2026-09-07', leave_type: 'annual',
+        status: 'pending', annual_leave_days: 3, profiles: { name: 'Dana', surname: 'Farrow', category: 'MO' },
+      }],
+      error: null,
+    }
+    const user = userEvent.setup()
+    renderPage()
+    const g = await grid()
+
+    await user.click(g.getByRole('button', { name: /^September/ }))
+    expect(screen.getByText('Leave in September')).toBeInTheDocument()
+    expect(screen.getByText('Farrow')).toBeInTheDocument()
+    expect(screen.getByText('Pending review')).toBeInTheDocument()
   })
 
   it('"View requests" links to the Requests planner tab', async () => {

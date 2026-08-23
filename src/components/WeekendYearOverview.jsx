@@ -114,27 +114,6 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
             </div>
           </div>
 
-          {/* Next weekend needing staff — finding the nearest open weekend
-              across the whole year belongs with the page that already has
-              the whole year loaded. Omitted once every remaining weekend
-              this year is fully staffed. */}
-          {nextOpenWeekend && (
-            <div className={`card p-4 ${nextOpenWeekendFill.bg}`}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
-              <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
-              <p className="mt-1 text-sm text-ink-light">
-                {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed
-              </p>
-              <button
-                type="button"
-                onClick={() => onPlanWeekend(nextOpenWeekend)}
-                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Plan now
-              </button>
-            </div>
-          )}
-
           <div data-testid="weekend-year-inspector" className="rounded-lg border border-slate-line bg-canvas-raised p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
             <div className="mt-1">
@@ -155,6 +134,26 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
               <ExternalLink className="h-3.5 w-3.5" /> Open month
             </button>
           </div>
+
+          {/* Next weekend needing staff — finding the nearest open weekend
+              across the whole year belongs with the page that already has
+              the whole year loaded. Omitted once every remaining weekend
+              this year is fully staffed. Below Selected month rather than
+              above it, since Selected month is the panel someone's actively
+              working from. */}
+          {nextOpenWeekend && (
+            <div className={`card p-4 ${nextOpenWeekendFill.bg}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+              <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendFill.text}`}>{formatWeekendRange(nextOpenWeekend)}</p>
+              <button
+                type="button"
+                onClick={() => onPlanWeekend(nextOpenWeekend)}
+                className="btn-primary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Plan now
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -189,16 +188,16 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
       className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
         {month.markers.map(m => {
           const style = HEALTH_STYLE[m.health]
           return (
             <span
               key={m.saturday}
-              className="relative h-8 w-8"
+              className="relative h-8 w-8 lg:h-12 lg:w-12"
               title={`${formatShortDate(m.saturday)} — ${style.label}${m.gapCount > 0 ? ` (${m.gapCount} ${m.gapCount === 1 ? 'gap' : 'gaps'})` : ''}`}
             >
-              <span className={`block h-8 w-8 rounded-md ${style.square}`} />
+              <span className={`block h-8 w-8 rounded-md lg:h-12 lg:w-12 ${style.square}`} />
               {m.gapCount > 0 && (
                 <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised">
                   {m.gapCount}

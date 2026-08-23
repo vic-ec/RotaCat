@@ -173,9 +173,9 @@ describe('entriesInRange', () => {
     ['2026-08-11', [{ profileId: 'p1', surname: 'Ahmed', category: 'MO', dateFrom: '2026-08-11', dateTo: '2026-08-13' }]], // same profile also pending elsewhere in range
   ])
 
-  it('returns every distinct profile touching the range, with surname/category/dateFrom/dateTo carried through', () => {
+  it('returns every distinct profile+status entry touching the range, with surname/category/dateFrom/dateTo carried through', () => {
     const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
-    expect(entries.find(e => e.surname === 'Ahmed')).toEqual({
+    expect(entries.find(e => e.status === 'approved' && e.surname === 'Ahmed')).toEqual({
       profileId: 'p1', surname: 'Ahmed', category: 'MO', status: 'approved', dateFrom: '2026-08-11', dateTo: '2026-08-13',
     })
   })
@@ -190,8 +190,9 @@ describe('entriesInRange', () => {
 
   it('sorts approved entries before pending ones, even out of alphabetical order', () => {
     const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
-    // Zilla (approved) sorts before Davis (pending) despite the alphabet.
-    expect(entries.map(e => e.surname)).toEqual(['Ahmed', 'Zilla', 'Davis'])
+    // Zilla (approved) sorts before Davis (pending) despite the alphabet;
+    // Ahmed appears in both groups (see the dedicated test below).
+    expect(entries.map(e => e.surname)).toEqual(['Ahmed', 'Zilla', 'Ahmed', 'Davis'])
   })
 
   it('sorts by surname within each status group', () => {
@@ -199,9 +200,14 @@ describe('entriesInRange', () => {
     expect(entries.filter(e => e.status === 'approved').map(e => e.surname)).toEqual(['Ahmed', 'Zilla'])
   })
 
-  it('prefers approved status over pending for the same profile', () => {
+  it('keeps both an approved AND a pending entry for the same profile, rather than one silently overwriting the other', () => {
+    // Regression case: Ahmed has an approved leave block AND a separate
+    // still-pending request both touching this range — a profileId-only
+    // dedupe used to let the approved entry silently swallow the pending
+    // one, hiding a real pending request from the reviewer.
     const entries = entriesInRange('2026-08-11', '2026-08-13', { approvedByDate, pendingByDate })
-    expect(entries.find(e => e.surname === 'Ahmed').status).toBe('approved')
+    const ahmedEntries = entries.filter(e => e.surname === 'Ahmed')
+    expect(ahmedEntries.map(e => e.status).sort()).toEqual(['approved', 'pending'])
     expect(entries.find(e => e.surname === 'Davis').status).toBe('pending')
   })
 

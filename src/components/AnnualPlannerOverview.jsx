@@ -50,7 +50,7 @@ export default function AnnualPlannerOverview({
   const currentMonth = Number(today.slice(5, 7))
   const todayYear = Number(today.slice(0, 4))
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
-  const [expandedProfileId, setExpandedProfileId] = useState(null)
+  const [expandedEntryKey, setExpandedEntryKey] = useState(null)
 
   // Selected-month chevrons/jump-sheet (in the inspector panel below) —
   // DateStepper itself handles the Dec/Jan year rollover, calling back
@@ -121,9 +121,16 @@ export default function AnnualPlannerOverview({
   const selectedMonthLabel = months[selectedMonth - 1].label
   const { start: selMonthStart, end: selMonthEnd } = monthBounds(year, selectedMonth)
 
-  const rangeEntries = selectedRange
-    ? entriesInRange(selectedRange.from, selectedRange.to, { approvedByDate, pendingByDate })
-    : []
+  // Falls back to the whole selected month whenever there's no capacity-
+  // pressure sub-range — a pending request that never actually pushes a
+  // category to its cap (e.g. the only Intern out that month) used to make
+  // this whole panel disappear behind "No capacity pressure this month,"
+  // hiding a real pending request an admin still needs to see and act on.
+  const rangeEntries = entriesInRange(
+    selectedRange ? selectedRange.from : selMonthStart,
+    selectedRange ? selectedRange.to : selMonthEnd,
+    { approvedByDate, pendingByDate }
+  )
   const rangeSummary = {
     people: rangeEntries.length,
     approved: rangeEntries.filter(e => e.status === 'approved').length,
@@ -259,41 +266,46 @@ export default function AnnualPlannerOverview({
             </div>
           </div>
 
-          {selectedRange ? (
+          {rangeEntries.length > 0 ? (
             <div className="mt-3 border-t border-slate-line pt-3">
               <p className="text-sm font-semibold text-ink">
-                Leave during {Number(selectedRange.from.slice(-2))}–{Number(selectedRange.to.slice(-2))} {selectedMonthLabel.slice(0, 3)}
+                {selectedRange
+                  ? `Leave during ${Number(selectedRange.from.slice(-2))}–${Number(selectedRange.to.slice(-2))} ${selectedMonthLabel.slice(0, 3)}`
+                  : `Leave in ${selectedMonthLabel}`}
               </p>
               <p className="mt-0.5 text-sm text-ink-muted">
                 {rangeSummary.people} {rangeSummary.people === 1 ? 'person' : 'people'} · {rangeSummary.approved} approved · {rangeSummary.pending} pending
               </p>
               <ul className="mt-2 space-y-0.5">
-                {rangeEntries.map(e => (
-                  <li key={e.profileId}>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedProfileId(id => id === e.profileId ? null : e.profileId)}
-                      className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
-                        <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
-                      </span>
-                      <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
-                      }`}>
-                        {e.status === 'approved' ? 'Approved' : REVIEW_STATUS_LABELS.pending}
-                      </span>
-                    </button>
-                    {expandedProfileId === e.profileId && (
-                      <p className="pl-2 pb-1 text-xs text-ink-muted">Full leave: {formatShortDateRange(e.dateFrom, e.dateTo)}</p>
-                    )}
-                  </li>
-                ))}
+                {rangeEntries.map(e => {
+                  const entryKey = `${e.profileId}-${e.status}`
+                  return (
+                    <li key={entryKey}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedEntryKey(key => key === entryKey ? null : entryKey)}
+                        className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
+                          <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
+                        </span>
+                        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
+                        }`}>
+                          {e.status === 'approved' ? 'Approved' : REVIEW_STATUS_LABELS.pending}
+                        </span>
+                      </button>
+                      {expandedEntryKey === entryKey && (
+                        <p className="pl-2 pb-1 text-xs text-ink-muted">Full leave: {formatShortDateRange(e.dateFrom, e.dateTo)}</p>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ) : (
-            <p className="mt-3 border-t border-slate-line pt-3 text-sm text-ink-muted">No capacity pressure this month.</p>
+            <p className="mt-3 border-t border-slate-line pt-3 text-sm text-ink-muted">No leave this month.</p>
           )}
 
           <div className="mt-4 space-y-2">

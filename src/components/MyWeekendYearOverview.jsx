@@ -149,12 +149,12 @@ function MyWeekendMonthCard({ month, isSelected, onSelect }) {
       className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
         {month.markers.map(m => {
           const style = STATE_STYLE[m.state]
           return (
-            <span key={m.saturday} className="h-8 w-8" title={`${formatShortDate(m.saturday)} — ${style.label}`}>
-              <span className={`block h-8 w-8 rounded-md ${style.square}`} />
+            <span key={m.saturday} className="h-8 w-8 lg:h-12 lg:w-12" title={`${formatShortDate(m.saturday)} — ${style.label}`}>
+              <span className={`block h-8 w-8 rounded-md lg:h-12 lg:w-12 ${style.square}`} />
             </span>
           )
         })}

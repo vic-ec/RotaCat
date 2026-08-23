@@ -138,7 +138,6 @@ describe('WeekendYearOverview', () => {
       // is the nearest one actually needing staff.
       const panel = screen.getByText('Next weekend needing staff').closest('.card')
       expect(within(panel).getByText('Sat 8 - Sun 9 Aug 2026')).toBeInTheDocument()
-      expect(within(panel).getByText('1 of 4 groups staffed')).toBeInTheDocument()
       // Amber, not red — some groups are filled, matching the legend's "amber = partial" fill.
       expect(panel).toHaveClass('bg-flagAmber-bg')
 

@@ -43,7 +43,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
 
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-      <ArrowLeft className="h-4 w-4" /> Back to {backLabel}
+      <ArrowLeft className="h-4 w-4" /> {backLabel}
     </button>
   )
 

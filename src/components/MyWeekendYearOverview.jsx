@@ -96,7 +96,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
       {/* ── Main workspace: 4x3 month grid + sticky inspector ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
+        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-4">
           {monthCards.map(m => (
             <MyWeekendMonthCard
               key={m.month}

@@ -199,7 +199,7 @@ export default function AnnualPlannerOverview({
           past the whole grid. Desktop (lg+): unchanged side-by-side layout
           with the sticky w-80 inspector. */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 xl:grid-cols-4">
+        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-4">
           {monthCards.map(m => (
             <MonthCard
               key={m.month}
@@ -225,7 +225,7 @@ export default function AnnualPlannerOverview({
             <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
           </div>
 
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
             <InspectorStat icon={Flag} label="Public holidays" value={`${monthPublicHolidayCount(year, selectedMonth, publicHolidaysByDate)} days`} />
             <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
             <InspectorStat
@@ -236,21 +236,23 @@ export default function AnnualPlannerOverview({
             <InspectorStat icon={TriangleAlert} label="Capacity warnings" value={`${monthCards[selectedMonth - 1].pressureDayCount} days`} />
           </div>
 
-          <div className="mt-3 space-y-2 border-t border-slate-line pt-3">
+          <div className="mt-3 border-t border-slate-line pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Leave Slot Utilization</p>
-            {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
-              const state = LEAVE_CAPACITY_STATES[level]
-              return (
-                <div key={level} className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-ink-muted">
-                    <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3 slots taken
-                  </span>
-                  <span className={days > 0 ? `font-medium ${state.text}` : 'text-ink-muted'}>
-                    {days} {days === 1 ? 'day' : 'days'}
-                  </span>
-                </div>
-              )
-            })}
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
+                const state = LEAVE_CAPACITY_STATES[level]
+                return (
+                  <div key={level} className="flex flex-col items-center gap-1 rounded-lg bg-canvas-sunken py-2 text-center">
+                    <span className="flex items-center gap-1 text-[11px] text-ink-muted">
+                      <span className={`h-2 w-2 rounded-full ${state.fill}`} /> {level} of 3 slots taken
+                    </span>
+                    <span className={`text-sm font-semibold ${days > 0 ? state.text : 'text-ink-muted'}`}>
+                      {days} {days === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           {selectedRange ? (
@@ -393,9 +395,9 @@ function chipLabelForMonth(month) {
 
 function InspectorStat({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="flex items-center gap-1.5 text-ink-muted"><Icon className="h-3.5 w-3.5" /> {label}</span>
-      <span className="font-medium text-ink">{value}</span>
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center gap-1.5 text-xs text-ink-muted"><Icon className="h-3.5 w-3.5 flex-shrink-0" /> {label}</span>
+      <span className="text-sm font-semibold text-ink">{value}</span>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import {
   categoryNeedsContractChoice,
 } from './staffDefaults'
 import { formatPhoneDisplay, formatPhoneProgressive } from './phone'
+import { looksLikeFakeName, looksLikeFakePhone } from './spamHeuristics'
 
 // Rotation-tracked categories only — a scheduled start/end date is meant
 // for doctors whose Active/Upcoming/Completed status is actually managed
@@ -271,6 +272,20 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
           to: `/account/${duplicateEmailMatch.id}`, linkLabel: 'Review existing account',
         }
       : { key: 'email-unique', ok: true, label: 'Email address is not used by another account' },
+    {
+      key: 'name-plausible',
+      ok: !looksLikeFakeName(firstName, surname),
+      label: looksLikeFakeName(firstName, surname)
+        ? 'Name looks like placeholder/test data'
+        : 'Name does not look like placeholder data',
+    },
+    {
+      key: 'phone-plausible',
+      ok: !looksLikeFakePhone(phone),
+      label: looksLikeFakePhone(phone)
+        ? 'Phone number looks like placeholder/test data'
+        : 'Phone number does not look like placeholder data',
+    },
   ] : []
 
   const detailsFields = [

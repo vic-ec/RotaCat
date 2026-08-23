@@ -89,6 +89,13 @@ function RoleModal({ role, onClose }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [locumAgency, setLocumAgency] = useState('')
+  // Honeypot — invisible to a real visitor (off-screen, unreachable by tab,
+  // hidden from assistive tech) but a plain-fill bot that populates every
+  // <input> it finds will still write to it. A non-empty value on submit
+  // means the "success"/OTP screen renders as normal (so the bot doesn't
+  // learn to route around it) but signUp is never actually called, so no
+  // Supabase Auth user or profile row gets created for it.
+  const [honeypot, setHoneypot] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -132,6 +139,14 @@ function RoleModal({ role, onClose }) {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    // Bot caught the honeypot — pretend it worked (no error, same success
+    // screen) without ever calling signUp, so nothing is created and the
+    // bot has no signal to adapt to.
+    if (honeypot) {
+      setSubmitted(true)
+      return
+    }
 
     if (role === 'doctor' && !category) {
       setError('Please select your staff category.')
@@ -274,6 +289,24 @@ function RoleModal({ role, onClose }) {
               onSubmit={handleSubmit}
               className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-4"
             >
+              {/* Honeypot — off-screen and unreachable by keyboard/AT, so a
+                  human visitor never notices or fills it in; a plain-fill
+                  bot that populates every field it finds still will. See
+                  the honeypot state comment above for what happens if it's
+                  non-empty on submit. */}
+              <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+                <label htmlFor="website">Website</label>
+                <input
+                  id="website"
+                  name="website"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={honeypot}
+                  onChange={(e) => setHoneypot(e.target.value)}
+                />
+              </div>
+
               <div>
                 <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">
                   First name

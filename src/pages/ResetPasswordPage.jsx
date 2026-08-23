@@ -116,7 +116,7 @@ export default function ResetPasswordPage() {
             This password reset link is invalid or has expired. Request a new one to continue.
           </p>
           <Link
-            to="/forgot-password"
+            to="/login?forgot=1"
             className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
           >
             Request a new link

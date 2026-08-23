@@ -7,7 +7,6 @@ import PendingApprovalSlideOverPanel from './components/PendingApprovalSlideOver
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import DashboardPage from './pages/DashboardPage'
@@ -48,7 +47,11 @@ function AppRoutes() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        {/* Retired standalone page — Forgot Password is now a modal on
+            /login (see LoginPage.jsx's ForgotPasswordModal). Kept as a
+            redirect for any stale bookmarks/links, forwarding straight
+            into that modal via the ?forgot=1 deep link. */}
+        <Route path="/forgot-password" element={<Navigate to="/login?forgot=1" replace />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/pending" element={<PendingRoute />} />
 

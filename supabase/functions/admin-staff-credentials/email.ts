@@ -17,14 +17,30 @@
 // can still see and vendor it — laziness here is about when the module is
 // evaluated, not about hiding the dependency.
 
-// Brand tokens, matching tailwind.config.js: accent teal #0F766E, canvas
-// #F3F8F7, ink #1F2937. Inlined as literal hex because an HTML email has
-// no stylesheet to reach for.
-const ACCENT = '#0F766E'
-const CANVAS = '#F3F8F7'
-const INK = '#1F2937'
-const INK_MUTED = '#6B7280'
-const LINE = '#E2E8F0'
+// Brand tokens copied verbatim from tailwind.config.js — inlined as literal
+// hex because an HTML email has no stylesheet to reach for. CANVAS and LINE
+// used to be near-misses (#F3F8F7 and #E2E8F0, neither an actual token);
+// they are the real canvas.cool and slate.line values now, so the email
+// really does match the app rather than approximately matching it.
+const ACCENT = '#0F766E'      // accent.DEFAULT
+const CANVAS = '#F1F8F5'      // canvas.cool
+const RAISED = '#FFFFFF'      // canvas.raised
+const INK = '#1F2937'         // ink.DEFAULT
+const INK_MUTED = '#6B7280'   // ink.muted
+const LINE = '#D7E3DF'        // slate.line
+
+// The "RotaCat" wordmark's two-tone treatment, matching
+// src/components/RotaCat.jsx: "Rota" in ink, "Cat" in accent, set in the
+// serif face at semibold. Fraunces is what the app loads; an email client
+// won't fetch a webfont, so the stack falls through to Georgia — which is
+// the same fallback chain the app's own `font-serif` token declares
+// (Fraunces, ui-serif, Georgia, serif).
+//
+// This is why the header band is white rather than the solid teal it was:
+// the wordmark can only carry its own colours against a light ground.
+// Ink on teal is unreadable and the accent "Cat" would vanish into it.
+const WORDMARK_FONT = "Fraunces, Georgia, 'Times New Roman', serif"
+const WORDMARK = `<span style="font-family:${WORDMARK_FONT};font-size:26px;font-weight:600;letter-spacing:0.2px;color:${INK};">Rota<span style="color:${ACCENT};">Cat</span></span>`
 
 export type WelcomeEmailInput = {
   to: string
@@ -82,15 +98,28 @@ function buildHtml({ firstName, password, appUrl, isReset }: Omit<WelcomeEmailIn
     : ''
 
   return `<!doctype html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <!-- Opt out of the client's dark-mode repaint. Without these, Apple Mail
+         and Gmail invert the card and the wordmark's ink/accent pair comes
+         out as neither. Best-effort: a client that ignores them still gets
+         readable text, just not the app's exact palette. -->
+    <meta name="color-scheme" content="light only">
+    <meta name="supported-color-schemes" content="light only">
+    <style>
+      :root { color-scheme: light only; supported-color-schemes: light only; }
+    </style>
+  </head>
   <body style="margin:0;padding:0;background:${CANVAS};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CANVAS};padding:24px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid ${LINE};border-radius:12px;overflow:hidden;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:${RAISED};border:1px solid ${LINE};border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="background:${ACCENT};padding:20px 28px;">
-                <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.2px;">RotaCat</span>
+              <td style="background:${RAISED};padding:20px 28px;border-bottom:1px solid ${LINE};">
+                ${WORDMARK}
               </td>
             </tr>
             <tr>

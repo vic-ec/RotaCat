@@ -3,12 +3,13 @@ import { useAuth } from '../context/AuthContext'
 
 /**
  * Wraps routes that require a logged-in, approved user.
- * - Not logged in           -> redirect to /login
- * - Logged in, not approved -> show PendingApprovalPage content (via App.jsx routing)
+ * - Not logged in                     -> redirect to /login
+ * - Still on an admin-issued password  -> redirect to /set-password
+ * - Logged in, not approved           -> show PendingApprovalPage content (via App.jsx routing)
  * - adminOnly=true and user is not admin -> redirect to home
  */
 export default function ProtectedRoute({ children, adminOnly = false }) {
-  const { session, profile, loading, isAdmin, isApproved } = useAuth()
+  const { session, profile, loading, isAdmin, isApproved, mustChangePassword } = useAuth()
 
   if (loading) {
     return (
@@ -20,6 +21,14 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
 
   if (!session) {
     return <Navigate to="/login" replace />
+  }
+
+  // Ahead of the approval check on purpose: this is the single choke point
+  // that makes the forced password change unskippable, so it has to catch
+  // every authenticated route before any of them can render, and before
+  // any other redirect can route around it.
+  if (mustChangePassword) {
+    return <Navigate to="/set-password" replace />
   }
 
   if (!isApproved) {

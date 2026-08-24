@@ -8,6 +8,7 @@ import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
+import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useIsDesktop } from '../lib/useIsDesktop'
 
@@ -39,6 +40,11 @@ function SetPasswordForm({ profile, onDone }) {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // One flag per field rather than one shared: this screen asks for three
+  // passwords at once, and revealing the one being checked shouldn't put
+  // the other two on screen alongside it.
+  const [revealed, setRevealed] = useState({ current: false, password: false, confirm: false })
+  const toggleReveal = (field) => setRevealed(r => ({ ...r, [field]: !r[field] }))
   const capsLock = useCapsLockWarning()
 
   async function handleSubmit(e) {
@@ -109,7 +115,8 @@ function SetPasswordForm({ profile, onDone }) {
     await onDone()
   }
 
-  const fieldClass = `w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+  // pr-12 leaves room for the reveal toggle sitting inside the field.
+  const fieldClass = `w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-4 pr-12
     text-base text-ink placeholder:text-ink-muted
     transition-colors focus:border-accent focus:bg-canvas-raised
     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
@@ -121,21 +128,24 @@ function SetPasswordForm({ profile, onDone }) {
         <label htmlFor="current-password" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
           Temporary password
         </label>
-        <input
-          id="current-password"
-          name="current-password"
-          type="password"
-          required
-          autoFocus
-          autoComplete="current-password"
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          onKeyDown={capsLock.onKeyDown}
-          onKeyUp={capsLock.onKeyUp}
-          onBlur={capsLock.onBlur}
-          placeholder="From your welcome email"
-          className={fieldClass}
-        />
+        <div className="relative">
+          <input
+            id="current-password"
+            name="current-password"
+            type={revealed.current ? 'text' : 'password'}
+            required
+            autoFocus
+            autoComplete="current-password"
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            onKeyDown={capsLock.onKeyDown}
+            onKeyUp={capsLock.onKeyUp}
+            onBlur={capsLock.onBlur}
+            placeholder="From your welcome email"
+            className={fieldClass}
+          />
+          <PasswordRevealToggle revealed={revealed.current} onToggle={() => toggleReveal('current')} />
+        </div>
       </div>
 
       <div>
@@ -149,20 +159,23 @@ function SetPasswordForm({ profile, onDone }) {
           </label>
           <PasswordRequirementsInfo />
         </div>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={capsLock.onKeyDown}
-          onKeyUp={capsLock.onKeyUp}
-          onBlur={capsLock.onBlur}
-          placeholder="Enter new password"
-          className={fieldClass}
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={revealed.password ? 'text' : 'password'}
+            required
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={capsLock.onKeyDown}
+            onKeyUp={capsLock.onKeyUp}
+            onBlur={capsLock.onBlur}
+            placeholder="Enter new password"
+            className={fieldClass}
+          />
+          <PasswordRevealToggle revealed={revealed.password} onToggle={() => toggleReveal('password')} />
+        </div>
       </div>
 
       <div>
@@ -176,20 +189,23 @@ function SetPasswordForm({ profile, onDone }) {
           </label>
           <PasswordRequirementsInfo />
         </div>
-        <input
-          id="confirm"
-          name="confirm"
-          type="password"
-          required
-          autoComplete="new-password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          onKeyDown={capsLock.onKeyDown}
-          onKeyUp={capsLock.onKeyUp}
-          onBlur={capsLock.onBlur}
-          placeholder="Re-enter new password"
-          className={fieldClass}
-        />
+        <div className="relative">
+          <input
+            id="confirm"
+            name="confirm"
+            type={revealed.confirm ? 'text' : 'password'}
+            required
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            onKeyDown={capsLock.onKeyDown}
+            onKeyUp={capsLock.onKeyUp}
+            onBlur={capsLock.onBlur}
+            placeholder="Re-enter new password"
+            className={fieldClass}
+          />
+          <PasswordRevealToggle revealed={revealed.confirm} onToggle={() => toggleReveal('confirm')} />
+        </div>
         <CapsLockNotice show={capsLock.capsOn} />
       </div>
 

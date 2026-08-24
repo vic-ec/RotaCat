@@ -7,6 +7,7 @@ import AuthHero from '../components/AuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
 import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
+import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
 
@@ -19,6 +20,10 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  // Per field, not one shared flag — revealing the one you're checking
+  // shouldn't expose the other.
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const capsLock = useCapsLockWarning()
 
   async function handleSubmit(e) {
@@ -118,23 +123,26 @@ export default function ResetPasswordPage() {
                   New password
                   <PasswordRequirementsInfo align="center" />
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={capsLock.onKeyDown}
-                  onKeyUp={capsLock.onKeyUp}
-                  onBlur={capsLock.onBlur}
-                  placeholder="Enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
-                    md:py-3"
-                />
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={capsLock.onKeyDown}
+                    onKeyUp={capsLock.onKeyUp}
+                    onBlur={capsLock.onBlur}
+                    placeholder="Enter new password"
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-4 pr-12
+                      text-base text-ink placeholder:text-ink-muted
+                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
+                      md:py-3"
+                  />
+                  <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword(v => !v)} />
+                </div>
                 <p className="mt-1 text-xs text-ink-muted">{PASSWORD_HINT_SHORT}</p>
               </div>
 
@@ -142,23 +150,26 @@ export default function ResetPasswordPage() {
                 <label htmlFor="confirm" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
                   Confirm password
                 </label>
-                <input
-                  id="confirm"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  onKeyDown={capsLock.onKeyDown}
-                  onKeyUp={capsLock.onKeyUp}
-                  onBlur={capsLock.onBlur}
-                  placeholder="Re-enter new password"
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-canvas-raised
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
-                    md:py-3"
-                />
+                <div className="relative">
+                  <input
+                    id="confirm"
+                    type={showConfirm ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    onKeyDown={capsLock.onKeyDown}
+                    onKeyUp={capsLock.onKeyUp}
+                    onBlur={capsLock.onBlur}
+                    placeholder="Re-enter new password"
+                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-4 pr-12
+                      text-base text-ink placeholder:text-ink-muted
+                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
+                      md:py-3"
+                  />
+                  <PasswordRevealToggle revealed={showConfirm} onToggle={() => setShowConfirm(v => !v)} />
+                </div>
                 <CapsLockNotice show={capsLock.capsOn} />
               </div>
 

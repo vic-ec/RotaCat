@@ -166,6 +166,27 @@ describe('SetPasswordPage', () => {
     expect(updateUser).not.toHaveBeenCalled()
   })
 
+  // Three password fields on one screen — revealing the one being checked
+  // must not put the other two on screen alongside it.
+  it('reveals each password field independently', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const fields = ['Temporary password', 'New password', 'Confirm password']
+    for (const label of fields) {
+      expect(screen.getByLabelText(label)).toHaveAttribute('type', 'password')
+    }
+
+    await user.click(screen.getAllByRole('button', { name: 'Show password' })[1])
+
+    expect(screen.getByLabelText('New password')).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('Temporary password')).toHaveAttribute('type', 'password')
+    expect(screen.getByLabelText('Confirm password')).toHaveAttribute('type', 'password')
+
+    await user.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(screen.getByLabelText('New password')).toHaveAttribute('type', 'password')
+  })
+
   it('sends anyone whose flag is already clear back to the app', () => {
     authState.current = { ...authState.current, mustChangePassword: false }
     renderPage()

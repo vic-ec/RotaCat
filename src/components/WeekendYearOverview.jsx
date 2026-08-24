@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ExternalLink, Check } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
-import { weekendCoverageSummary, formatWeekendRange } from '../lib/weekendPlanner'
+import { weekendCoverageSummary, formatWeekendRange, weekendExceptionsForMonth } from '../lib/weekendPlanner'
 import { monthWeekendMarkers, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
 
@@ -29,7 +29,7 @@ function formatShortDate(dateStr) {
 // Leave planner. byWeekend is the { [saturday]: { [groupKey]: [entry,...] } }
 // Map from groupEntriesByWeekend — the same shape WeekendPlannerView itself
 // already works with.
-export default function WeekendYearOverview({ year, onYearChange, byWeekend, onOpenMonth, onPlanWeekend }) {
+export default function WeekendYearOverview({ year, onYearChange, byWeekend, weekendExceptions = [], displayNames = new Map(), onOpenMonth, onPlanWeekend }) {
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -65,6 +65,14 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
     partial: selectedMarkers.filter(m => m.health === 'amber').length,
     empty: selectedMarkers.filter(m => m.health === 'red').length,
   }
+
+  // Weekend exceptions touching the selected month. A weekend straddling a
+  // month boundary is listed under both months on purpose — see
+  // weekendExceptionsForMonth.
+  const selectedExceptions = useMemo(
+    () => weekendExceptionsForMonth(weekendExceptions, year, selectedMonth),
+    [weekendExceptions, year, selectedMonth],
+  )
 
   return (
     <div>
@@ -114,6 +122,48 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, onO
               <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
               <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
             </div>
+
+            {/* Weekend exceptions for this month — between the staffing
+                counts and Open month, because they qualify those counts: a
+                pending exception means the plan above isn't settled yet.
+                Both approved and pending are listed (pending italicised and
+                badged, matching the leave planners' pending treatment), and
+                a boundary-straddling weekend appears under both its months.
+                These are NOT special leave and carry no special-leave
+                capacity weight — they're an exception to WHICH weekend a
+                doctor works, still approved via Planners -> Requests. The
+                section is omitted entirely when the month has none, rather
+                than showing an empty-state line, so the common case keeps
+                the rail short. */}
+            {selectedExceptions.length > 0 && (
+              <div data-testid="weekend-exception-list" className="mt-2 border-t border-slate-line pt-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  Weekend exceptions ({selectedExceptions.length})
+                </p>
+                <ul className="mt-1 space-y-1">
+                  {selectedExceptions.map(req => {
+                    const isPending = req.status === 'pending'
+                    return (
+                      <li key={req.id} className="flex items-baseline justify-between gap-2 text-xs">
+                        <span className={`min-w-0 truncate ${isPending ? 'italic text-ink-light' : 'text-ink'}`}>
+                          <span className="font-semibold">
+                            {displayNames.get(req.profile_id) || req.profiles?.surname || '?'}
+                          </span>
+                          <span className="text-ink-muted"> · {formatWeekendRange(req.date_from)}</span>
+                        </span>
+                        <span
+                          className={`flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase leading-none ${
+                            isPending ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+                          }`}
+                        >
+                          {isPending ? 'Pending' : 'Approved'}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
 
             <button
               type="button"

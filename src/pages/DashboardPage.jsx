@@ -314,30 +314,33 @@ export default function DashboardPage() {
         <div className="mt-6 space-y-6">
           {/* 1. Next shifts */}
           <section>
+            {/* Heading sits on the plain page background; the chips get
+                their own panel underneath, so the row of shift cards reads
+                as one object rather than chips floating loose. Unlike the
+                other sections, this one keeps its heading and its roster
+                link even with nothing rostered — the week ahead being empty
+                is itself worth stating under a heading, and the link out is
+                exactly what someone with no shifts wants. The empty message
+                sits inside the panel, in place of the chips. */}
+            <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
             {myShifts.length === 0 ? (
-              <EmptyRow to="/roster" linkLabel="View roster">No shifts in the next 7 days</EmptyRow>
+              <p className="card p-4 text-sm text-ink-muted">No shifts in the next 7 days</p>
             ) : (
-              <>
-                {/* Heading sits on the plain page background; the chips get
-                    their own panel underneath, so the row of shift cards
-                    reads as one object rather than chips floating loose. */}
-                <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
-                <div className="card flex flex-wrap gap-3 p-4">
-                  {myShifts.map(e => {
-                    const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
-                    return (
-                      <DateCard
-                        key={`${e.date}-${e.shift_type?.code}`}
-                        date={e.date}
-                        startTime={e.shift_type?.start_time}
-                        endTime={e.shift_type?.end_time}
-                        night={e.shift_type?.is_night_shift === true}
-                        publicHoliday={isPH && (phByDate[e.date] || true)}
-                      />
-                    )
-                  })}
-                </div>
-              </>
+              <div className="card flex flex-wrap gap-3 p-4">
+                {myShifts.map(e => {
+                  const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
+                  return (
+                    <DateCard
+                      key={`${e.date}-${e.shift_type?.code}`}
+                      date={e.date}
+                      startTime={e.shift_type?.start_time}
+                      endTime={e.shift_type?.end_time}
+                      night={e.shift_type?.is_night_shift === true}
+                      publicHoliday={isPH && (phByDate[e.date] || true)}
+                    />
+                  )
+                })}
+              </div>
             )}
           </section>
 

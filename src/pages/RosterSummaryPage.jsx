@@ -285,7 +285,18 @@ export default function RosterSummaryPage() {
           scroll past it instead. */}
       {!loading && !error && (
         <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-          <table className="w-full min-w-[1400px] border-collapse text-xs">
+          {/* `border-separate` + zero spacing, not `border-collapse`: with
+              collapsed borders a cell's edge is *shared* with its
+              neighbour and owned by the table, and the sticky Doctor
+              column paints on its own compositing layer — so its half of
+              each shared line can land a device pixel off from the rest of
+              the grid, which is what made the doctor rows' lines look
+              thinner than the grid's and step where the two meet.
+              Separated borders give every cell its own line: each edge is
+              drawn exactly once, by one cell, with nothing shared across
+              the sticky boundary. Verified pixel-identical to the
+              collapsed rendering at 2x, 2.625x, 2.75x and 3x. */}
+          <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-xs">
             <thead className="sticky top-0 z-10">
               {/* bg-canvas-sunken on every th (not just the tr) — border-
                   collapse plus sticky positioning otherwise leaves a thin
@@ -310,18 +321,18 @@ export default function RosterSummaryPage() {
                 )}
               </tr>
               <tr className="text-[10px] text-ink-muted">
-                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Target</th>
-                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Worked</th>
-                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Locum</th>
-                {WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
-                {WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
-                {PH_WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
-                {PH_WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
-                <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Lieu Owed</th>
-                <th className={`border-b bg-canvas-sunken px-2 py-1 font-medium ${leaveOpen ? 'border-r border-slate-line' : ''}`}>Lieu Taken</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Target</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Worked</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Locum</th>
+                {WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKDAY_COLUMNS.map(c => <th key={c.code} className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                {PH_WEEKEND_COLUMNS.map(c => <th key={c.code} className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">{c.label}</th>)}
+                <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Lieu Owed</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Lieu Taken</th>
                 {leaveOpen && (
                   <>
-                    <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Days</th>
+                    <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Days</th>
                     <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 text-left font-medium">Breakdown</th>
                   </>
                 )}
@@ -360,7 +371,7 @@ export default function RosterSummaryPage() {
                         auto layout (no table-fixed) is what actually shrinks
                         the column to fit the longest name instead of an
                         arbitrary fixed width. */}
-                    <td className={`sticky left-0 z-[1] border-b border-r border-slate-hairline px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}>
+                    <td className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}>
                       <div className="flex items-center gap-1.5">
                         <span
                           className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
@@ -371,32 +382,32 @@ export default function RosterSummaryPage() {
                       </div>
                       <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABELS[row.category] || row.category}</p>
                     </td>
-                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
-                    <td className={`border-b border-r border-slate-hairline px-2 py-1.5 text-center font-semibold ${
+                    <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
+                    <td className={`border-b border-slate-hairline px-2 py-1.5 text-center font-semibold ${
                       band === 'over' ? 'bg-flagRed-bg text-flagRed' : band === 'under' ? 'bg-flagAmber-bg text-flagAmber' : 'text-ink'
                     }`}>
                       {row.totalHours}
                     </td>
-                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-muted">
+                    <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-muted">
                       {row.locumHours > 0 ? row.locumHours : '—'}
                     </td>
                     {WEEKDAY_COLUMNS.map(c => (
-                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {WEEKEND_COLUMNS.map(c => (
-                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {PH_WEEKDAY_COLUMNS.map(c => (
-                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
                     {PH_WEEKEND_COLUMNS.map(c => (
-                      <td key={c.code} className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
+                      <td key={c.code} className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.shiftsByCode[c.code] || 0}</td>
                     ))}
-                    <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.phLieuOwed || '—'}</td>
-                    <td className={`border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light ${leaveOpen ? 'border-r border-slate-hairline' : ''}`}>{row.phLieuTaken || '—'}</td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.phLieuOwed || '—'}</td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.phLieuTaken || '—'}</td>
                     {leaveOpen && (
                       <>
-                        <td className="border-b border-r border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.leaveDays || '—'}</td>
+                        <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.leaveDays || '—'}</td>
                         <td className="border-b border-slate-hairline px-2 py-1.5">
                           <div className="flex flex-wrap gap-1">
                             {Object.entries(row.leaveByType).map(([type, days]) => (

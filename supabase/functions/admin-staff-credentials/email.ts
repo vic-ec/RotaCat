@@ -178,6 +178,19 @@ export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> 
   } finally {
     // Always close, including on a send failure — leaving the connection
     // open would keep the isolate alive past the response.
-    await client.close().catch(() => {})
+    //
+    // Wrapped in try/catch rather than `.catch()` on the return value:
+    // denomailer's close() resolves to undefined here, so chaining .catch
+    // off it threw "Cannot read properties of undefined (reading 'catch')"
+    // — from a finally block, which replaced the successful send with a
+    // TypeError and reported every delivered email as failed. Nothing this
+    // close does is worth failing a sent email over, so a close error is
+    // swallowed entirely. `await undefined` is fine, so this holds whether
+    // or not a future version returns a promise.
+    try {
+      await client.close()
+    } catch {
+      /* the message is already sent (or already failed) — closing is cleanup */
+    }
   }
 }

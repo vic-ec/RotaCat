@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PASSWORD_HINT, PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
+import { PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
 import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
+// Left-anchored: the icon sits close to the sign-up sheet's left edge, so a
+// centred tooltip would spill past it and get clipped.
+import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
@@ -43,34 +46,6 @@ const CATEGORY_OPTIONS = [
   { value: 'Consultant', label: 'Consultant' },
 ]
 
-// Small "i" icon next to the Password label — hover reveals requirements on
-// desktop, tap toggles them on mobile (no hover there).
-function PasswordRequirementsInfo() {
-  const [show, setShow] = useState(false)
-  return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        onBlur={() => setShow(false)}
-        aria-label="Password requirements"
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-ink-muted text-[10px] font-semibold leading-none text-ink-muted transition-colors hover:border-ink hover:text-ink"
-      >
-        i
-      </button>
-      {/* Left-anchored rather than centered under the icon — the icon sits
-          close to the modal's left edge, so a centered tooltip would push
-          past it and get clipped by the modal's overflow-hidden. */}
-      <span
-        className={`pointer-events-none absolute left-0 top-full z-20 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
-          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {PASSWORD_HINT}
-      </span>
-    </span>
-  )
-}
 
 // Popup shown when a role card is picked — replaces the old full-page
 // "step 2" so the base Create-account panel never changes height. The

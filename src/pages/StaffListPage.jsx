@@ -80,6 +80,28 @@ const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 
 // ── Sort/group ───────────────────────────
+// Admin-only marker for an account still sitting on the password an admin
+// generated for it (profiles.must_change_password). It clears itself the
+// moment that person signs in and sets their own, so it doubles as the
+// answer to "did they ever actually get in?" — an admin who creates an
+// account otherwise has no signal at all between creating it and the
+// person turning up on a roster. Pairs with the row's "Regenerate
+// password" action for the case where the answer is no.
+//
+// Neutral palette on purpose: this is informational, not a status. The
+// flag*/success colours are reserved for roster state (see
+// tailwind.config.js), and being new is not a fault.
+function TempPasswordBadge({ className = '' }) {
+  return (
+    <span
+      title="Still using the password issued when this account was created — clears once they sign in and set their own."
+      className={`flex items-center whitespace-nowrap rounded-md border border-ink-muted/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-ink-muted ${className}`}
+    >
+      Temp password
+    </span>
+  )
+}
+
 const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
 const ROLE_GROUP_ORDER = ['doctor', 'locum', 'clerk']
 
@@ -1211,6 +1233,7 @@ export default function StaffListPage() {
                                 Inactive
                               </span>
                             )}
+                            {isAdmin && person.must_change_password && <TempPasswordBadge />}
                           </div>
                           {canContact && (
                             <button
@@ -1395,6 +1418,7 @@ export default function StaffListPage() {
                                     Cancel
                                   </button>
                                 )}
+                                {isAdmin && person.must_change_password && <TempPasswordBadge />}
                               </div>
                             </td>
                             {isAdmin && (

@@ -1,39 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PASSWORD_HINT, PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
+import { PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
 import { supabase } from '../lib/supabase'
 import AuthHero from '../components/AuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
+import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 
-
-// Small "i" icon next to the Password label — hover reveals requirements on
-// desktop, tap toggles them on mobile (no hover there).
-function PasswordRequirementsInfo() {
-  const [show, setShow] = useState(false)
-  return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        onBlur={() => setShow(false)}
-        aria-label="Password requirements"
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-ink-muted text-[10px] font-semibold leading-none text-ink-muted transition-colors hover:border-ink hover:text-ink"
-      >
-        i
-      </button>
-      <span
-        className={`pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
-          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {PASSWORD_HINT}
-      </span>
-    </span>
-  )
-}
 
 export default function ResetPasswordPage() {
   const { user, loading } = useAuth()
@@ -141,7 +116,7 @@ export default function ResetPasswordPage() {
               <div>
                 <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink md:text-base">
                   New password
-                  <PasswordRequirementsInfo />
+                  <PasswordRequirementsInfo align="center" />
                 </label>
                 <input
                   id="password"

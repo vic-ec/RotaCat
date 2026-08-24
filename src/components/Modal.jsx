@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
+import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 
 function CloseIcon(props) {
   return (
@@ -25,6 +26,12 @@ export default function Modal({ title, onClose, children, footer, maxWidthClassN
   const panelRef = useRef(null)
   useDismissablePopover(true, onClose, panelRef)
   const swipe = useSwipeToDismiss(onClose)
+  // The page behind stays put while this is open — see the hook. Paired
+  // with `overscroll-contain` on the scrollable body below: the hook stops
+  // gestures over the sheet's non-scrolling parts (headings, the bordered
+  // info panels in Add staff) reaching the document, and overscroll-contain
+  // stops a scroll that runs off the end of the body from continuing there.
+  useBodyScrollLock(true)
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 md:items-center md:p-4" role="presentation">
@@ -47,7 +54,7 @@ export default function Modal({ title, onClose, children, footer, maxWidthClassN
             <CloseIcon className="h-5 w-5 md:h-4 md:w-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>
         {footer && (
           <div className="flex flex-shrink-0 justify-end gap-2 border-t border-slate-line px-5 py-3">
             {footer}

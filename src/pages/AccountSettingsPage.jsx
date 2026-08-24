@@ -1636,7 +1636,7 @@ export default function AccountSettingsPage() {
                   options={CONTRACT_TYPE_OPTIONS}
                 />
                 <p className="mt-1 text-xs text-ink-muted">
-                  Changing this opens a new current rotation block for {profile.name || 'this doctor'} in the Intern Rotations Planner — it doesn&apos;t overwrite any future blocks already planned there.
+                  Changing this opens a new current rotation block for {profile.name || 'this doctor'} in the Rotations planner — it doesn&apos;t overwrite any future blocks already planned there.
                 </p>
               </div>
             )}

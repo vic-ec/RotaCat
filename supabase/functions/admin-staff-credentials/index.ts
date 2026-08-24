@@ -176,32 +176,12 @@ async function handleCreate(
   if (!activeFrom) throw new ValidationError('Active from is required.')
   if (activeUntil && activeUntil < activeFrom) throw new ValidationError('Active until must be on or after Active from.')
 
-  // Rotation is optional even for the categories that support one — an
-  // admin may not know the incoming intern's first block yet.
-  const rotationInput = payload.rotation as Record<string, unknown> | null | undefined
-  let rotation: { rotationType: string; subtype: string | null; startDate: string; endDate: string | null } | null = null
-  if (rotationInput && trimmed(rotationInput.startDate)) {
-    if (!category || !ROTATION_CATEGORIES.includes(category)) {
-      throw new ValidationError('Only Intern and Registrar accounts can start with a rotation.')
-    }
-    const rotationType = trimmed(rotationInput.rotationType) || 'EC'
-    if (!['EC', 'OT'].includes(rotationType)) throw new ValidationError('Rotation type must be EC or OT.')
-    // Registrar rotations are EC-only — the OT concept belongs to the
-    // Junior_Doctor_Overtime contract, which registrars never carry (see
-    // rotationTypeOptionsForCategory in src/lib/staffDefaults.js).
-    if (category === 'Registrar' && rotationType === 'OT') {
-      throw new ValidationError('Registrar rotations are EC only.')
-    }
-    const startDate = optionalDate(rotationInput.startDate, 'Rotation start')!
-    const endDate = optionalDate(rotationInput.endDate, 'Rotation end')
-    if (endDate && endDate < startDate) throw new ValidationError('Rotation end must be on or after its start.')
-    rotation = {
-      rotationType,
-      subtype: rotationType === 'OT' ? subtype : null,
-      startDate,
-      endDate,
-    }
-  }
+  // Rotations are optional even for the categories that support them — an
+  // admin may not know the incoming intern's placements yet. When they do,
+  // the whole year can be planned up front as a run of blocks rather than
+  // just an opening one, which is what the Rotations planner would
+  // otherwise be opened to do straight after creating the account.
+  const rotations = parseRotations(payload.rotations ?? payload.rotation, category, subtype)
 
   const password = generatePassword()
   // Belt and braces: the generator guarantees this by construction, but a
@@ -285,18 +265,21 @@ async function handleCreate(
     )
   }
 
-  if (rotation) {
-    const { error: rotationError } = await admin.from('intern_rotations').insert({
-      doctor_id: userId,
-      rotation_type: rotation.rotationType,
-      subtype: rotation.subtype,
-      start_date: rotation.startDate,
-      end_date: rotation.endDate,
-      created_by: actorId,
-    })
+  if (rotations.length) {
+    const { error: rotationError } = await admin.from('intern_rotations').insert(
+      rotations.map(r => ({
+        doctor_id: userId,
+        rotation_type: r.rotationType,
+        subtype: r.subtype,
+        start_date: r.startDate,
+        end_date: r.endDate,
+        created_by: actorId,
+      })),
+    )
     // A failed rotation insert is not worth destroying a good account
-    // over — the admin can add the block in the Intern Rotations Planner.
-    // Reported alongside the success so it isn't silent.
+    // over — the admin can add the blocks in the Rotations planner.
+    // Reported alongside the success so it isn't silent. Inserted as one
+    // statement, so this is all-or-nothing: never a half-planned year.
     if (rotationError) {
       const delivery = await deliver({ to: email, firstName: name, password, appUrl, isReset: false })
       return json({
@@ -318,6 +301,66 @@ async function handleCreate(
     // some way to hand the password over. Not persisted anywhere.
     ...(delivery.emailSent ? {} : { password }),
   })
+}
+
+type ParsedRotation = { rotationType: string; subtype: string | null; startDate: string; endDate: string | null }
+
+// Validates the form's rotation blocks into rows for intern_rotations.
+// Blocks with no start date are the form's own empty rows — an admin who
+// added a block and didn't date it — and are dropped rather than rejected.
+function parseRotations(input: unknown, category: string | null, subtype: string | null): ParsedRotation[] {
+  // `rotation` (one object) was the shape before the form could add more
+  // than one block. Still accepted so a browser running a cached copy of
+  // the old frontend against this function doesn't have its rotation
+  // silently dropped — the two deploys are independent.
+  const blocks = Array.isArray(input) ? input : input ? [input] : []
+  if (blocks.length === 0) return []
+
+  const parsed: ParsedRotation[] = []
+  for (const raw of blocks) {
+    const block = (raw ?? {}) as Record<string, unknown>
+    if (!trimmed(block.startDate)) continue
+
+    if (!category || !ROTATION_CATEGORIES.includes(category)) {
+      throw new ValidationError('Only Intern and Registrar accounts can start with a rotation.')
+    }
+    const rotationType = trimmed(block.rotationType) || 'EC'
+    if (!['EC', 'OT'].includes(rotationType)) throw new ValidationError('Rotation type must be EC or OT.')
+    // Registrar rotations are EC-only — the OT concept belongs to the
+    // Junior_Doctor_Overtime contract, which registrars never carry (see
+    // rotationTypeOptionsForCategory in src/lib/staffDefaults.js).
+    if (category === 'Registrar' && rotationType === 'OT') {
+      throw new ValidationError('Registrar rotations are EC only.')
+    }
+    const startDate = optionalDate(block.startDate, 'Rotation start')!
+    const endDate = optionalDate(block.endDate, 'Rotation end')
+    if (endDate && endDate < startDate) throw new ValidationError('Rotation end must be on or after its start.')
+
+    // A per-block subtype wins; the profile-level one is the fallback for a
+    // caller that only sends the block's type. Either way it is dropped on
+    // an EC block, which the subtype_only_for_ot CHECK would reject.
+    const blockSubtype = block.subtype === undefined ? subtype : (trimmed(block.subtype) || null)
+    parsed.push({
+      rotationType,
+      subtype: rotationType === 'OT' ? blockSubtype : null,
+      startDate,
+      endDate,
+    })
+  }
+
+  // Nothing downstream resolves overlapping blocks — rotationForDate takes
+  // the first match — so two blocks covering one day would silently pick a
+  // winner. Rejected here as well as in the form: this is the only check
+  // that holds for any caller.
+  const dated = [...parsed].sort((a, b) => a.startDate.localeCompare(b.startDate))
+  for (let i = 1; i < dated.length; i++) {
+    const prev = dated[i - 1]
+    if (prev.endDate === null || prev.endDate >= dated[i].startDate) {
+      throw new ValidationError('Rotations overlap — give each block an end date before the next one starts.')
+    }
+  }
+
+  return parsed
 }
 
 async function handleRegenerate(

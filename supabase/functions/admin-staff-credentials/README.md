@@ -10,6 +10,13 @@ POST { action: 'create',     ...form fields }  → new confirmed auth user + fil
 POST { action: 'regenerate', profileId }       → fresh password for an existing account
 ```
 
+`create` takes `rotations` as an array of `{ rotationType, subtype, startDate,
+endDate }`, so an Intern's or Registrar's whole year can be planned at
+creation rather than just an opening block. Blocks with no `startDate` are
+dropped; overlapping blocks are rejected, since `rotationForDate` resolves a
+date by taking the first match and would otherwise silently pick a winner.
+All the blocks go in as one insert, so a partial year is never left behind.
+
 Every request is authenticated (`verify_jwt` is on) **and** checked against
 `profiles.is_admin` — a valid JWT only proves "some signed-in account",
 which is not enough to mint credentials.

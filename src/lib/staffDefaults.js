@@ -140,6 +140,19 @@ export function categoryValuesForRole(role) {
   return []
 }
 
+// Whether the Add staff form asks for a category at all.
+//
+// Only doctors, so a locum's Category dropdown is hidden the same way a
+// clerk's is. The category_role_rules CHECK does permit MO/Registrar on a
+// locum, but no locum profile in the live data carries a category and
+// nothing in the app reads one for a locum — shift-claim eligibility
+// included — so asking for it at creation only invites a value that means
+// nothing afterwards. An admin can still set one later from the account
+// page, where categoryValuesForRole keeps offering it.
+export function roleNeedsCategoryAtCreation(role) {
+  return role === 'doctor'
+}
+
 // Categories whose EC/OT placement is planned as a dated rotation block in
 // intern_rotations, and so can be given a starting rotation at creation
 // time. Wider than ROTATION_TRACKED_CATEGORIES in internRotations.js, which

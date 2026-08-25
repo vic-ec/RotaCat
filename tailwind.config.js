@@ -230,14 +230,24 @@ export default {
         }
       },
       fontFamily: {
-        // Experimental: Figtree primary instead of Satoshi, for side-by-side
-        // review (previously trialed Inter, Lexend, Public Sans, Archivo,
-        // Plus Jakarta Sans, Manrope, then Onest — see PR history).
-        // index.html loads every candidate unconditionally, so trying a
-        // different one is a one-line swap here. Revert by putting
-        // 'Satoshi' back first in both arrays below.
-        display: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        sans: ['Figtree', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Figtree is the settled primary — the trial that ran through
+        // Satoshi, Inter, Lexend, Public Sans, Archivo, Plus Jakarta Sans,
+        // Manrope and Onest (see PR history) ended here, and index.html now
+        // loads only what these arrays actually name.
+        //
+        // Manrope sits behind it as the webfont fallback rather than
+        // dropping straight to the system stack: both are geometric sans
+        // faces of similar proportion, so a slow or failed Figtree load
+        // reflows into something close instead of into whatever
+        // system-ui resolves to on that device. The generic entries stay
+        // below it as the last resort.
+        //
+        // `display` and `sans` are deliberately the same stack today —
+        // headings aren't set in a distinct face. The token is kept
+        // separate so giving them one later is a change here rather than
+        // across every heading in the app.
+        display: ['Figtree', 'Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['Figtree', 'Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
         // Serif wordmark treatment reserved for the landing page's "RotaCat"
         // title (AuthHero/MobileAuthHero) — not the app-wide `display` token.

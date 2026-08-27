@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { UsersRound, NotebookTabs, UserCog } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
@@ -13,10 +14,9 @@ import { CATEGORY_LABELS } from '../lib/categoryLabels'
 const adminNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
-  { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
-  { to: '/account', label: 'Account',    icon: UserIcon },
-  { to: '/settings', label: 'Settings',  icon: SlidersIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
+  { to: '/leave',  label: 'Planners',    icon: NotebookTabs },
+  { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
 // Every doctor category gets the same read-only Staff list (contact list)
@@ -24,10 +24,10 @@ const adminNav = [
 const doctorNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
-  { to: '/leave',  label: 'Planners',    icon: ClipboardIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
+  { to: '/leave',  label: 'Planners',    icon: NotebookTabs },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
-  { to: '/account', label: 'Account',    icon: UserIcon },
+  { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
 // Locums: see roster and open shifts, can request locum↔locum swaps, plus
@@ -36,10 +36,10 @@ const doctorNav = [
 const locumNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
-  { to: '/account', label: 'Account',    icon: UserIcon },
+  { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
 // Clerks: read-only. Roster, Staff (contact list), and Planner (Annual /
@@ -48,9 +48,9 @@ const locumNav = [
 const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersIcon },
-  { to: '/leave',  label: 'Planner',     icon: ClipboardIcon },
-  { to: '/account', label: 'Account',    icon: UserIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
+  { to: '/leave',  label: 'Planner',     icon: NotebookTabs },
+  { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
 // The sidebar shows the signed-in user's own role, where a couple of labels
@@ -340,32 +340,6 @@ function CalendarIcon(props) {
     </svg>
   )
 }
-function UsersIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <circle cx="9" cy="8" r="3" />
-      <path strokeLinecap="round" d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 8a3 3 0 100-6M16.5 14c2.5.2 4.5 2.6 4.5 6" />
-    </svg>
-  )
-}
-function ClipboardIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <rect x="5" y="4" width="14" height="17" rx="2" />
-      <path strokeLinecap="round" d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1M8 11h8M8 15h8" />
-    </svg>
-  )
-}
-function SlidersIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h14M22 18h-2" />
-      <circle cx="16" cy="6" r="2" />
-      <circle cx="6" cy="12" r="2" />
-      <circle cx="18" cy="18" r="2" />
-    </svg>
-  )
-}
 function SwapIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
@@ -377,14 +351,6 @@ function ShiftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  )
-}
-function UserIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <circle cx="12" cy="8" r="4" />
-      <path strokeLinecap="round" d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
     </svg>
   )
 }

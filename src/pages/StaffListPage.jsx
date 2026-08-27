@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -24,7 +25,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck, Plus } from 'lucide-react'
+import { Eye, CircleCheck, Plus, ClockAlert } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -86,18 +87,63 @@ const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 // answer to "did they ever actually get in?" — an admin who creates an
 // account otherwise has no signal at all between creating it and the
 // person turning up on a roster. Pairs with the row's "Regenerate
-// password" action for the case where the answer is no.
+// password" action for the case where the answer is no. The temp
+// password itself never expires — must_change_password only clears on
+// a real sign-in, never on a timer — so this stays lit indefinitely
+// until that happens or an admin regenerates it.
 //
-// Neutral palette on purpose: this is informational, not a status. The
-// flag*/success colours are reserved for roster state (see
-// tailwind.config.js), and being new is not a fault.
-function TempPasswordBadge({ className = '' }) {
+// Icon-only (not a permanent text badge) — the explanation shows on
+// hover for a real mouse (checked via pointerType, not CSS :hover,
+// since this opens a portalled panel rather than a same-DOM-subtree
+// sibling a group-hover could reach) and on tap for touch, closing again
+// via useDismissablePopover the same way every other small popover in
+// this file does. Neutral palette on purpose: this is informational, not
+// a status — the flag*/success colours are reserved for roster state
+// (see tailwind.config.js), and being new is not a fault.
+function TempPasswordIndicator({ className = '' }) {
+  const [open, setOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const triggerRef = useRef(null)
+  const popRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), popRef, [triggerRef])
+
+  function show() {
+    setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+  function toggle() {
+    if (open) { setOpen(false); return }
+    show()
+  }
+
+  const width = 210
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
+
   return (
-    <span
-      title="Still using the password issued when this account was created — clears once they sign in and set their own."
-      className={`flex items-center whitespace-nowrap rounded-md border border-ink-muted/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-ink-muted ${className}`}
-    >
-      Temp password
+    <span className={`relative inline-flex flex-shrink-0 ${className}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        onPointerEnter={e => { if (e.pointerType === 'mouse') show() }}
+        onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
+        aria-label="Temporary password in use"
+        aria-expanded={open}
+        className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink"
+      >
+        <ClockAlert className="h-3.5 w-3.5" />
+      </button>
+      {open && positionStyle && createPortal(
+        <div
+          ref={popRef}
+          role="tooltip"
+          style={{ ...positionStyle, width }}
+          className="fixed z-50 rounded-lg border border-slate-line bg-canvas-raised px-3 py-2 text-xs font-medium text-ink shadow-raised"
+        >
+          Temporary password in use
+        </div>,
+        document.body
+      )}
     </span>
   )
 }
@@ -1233,7 +1279,7 @@ export default function StaffListPage() {
                                 Inactive
                               </span>
                             )}
-                            {isAdmin && person.must_change_password && <TempPasswordBadge />}
+                            {isAdmin && person.must_change_password && <TempPasswordIndicator />}
                           </div>
                           {canContact && (
                             <button
@@ -1418,7 +1464,7 @@ export default function StaffListPage() {
                                     Cancel
                                   </button>
                                 )}
-                                {isAdmin && person.must_change_password && <TempPasswordBadge />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
                               </div>
                             </td>
                             {isAdmin && (

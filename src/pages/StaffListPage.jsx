@@ -25,7 +25,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck, Plus, ClockAlert } from 'lucide-react'
+import { Eye, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -93,13 +93,15 @@ const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 // until that happens or an admin regenerates it.
 //
 // Icon-only (not a permanent text badge) — the explanation shows on
-// hover for a real mouse (checked via pointerType, not CSS :hover,
+// hover for a real mouse only (checked via pointerType, not CSS :hover,
 // since this opens a portalled panel rather than a same-DOM-subtree
-// sibling a group-hover could reach) and on tap for touch, closing again
-// via useDismissablePopover the same way every other small popover in
-// this file does. Neutral palette on purpose: this is informational, not
-// a status — the flag*/success colours are reserved for roster state
-// (see tailwind.config.js), and being new is not a fault.
+// sibling a group-hover could reach). No tap-to-open on touch — the
+// mobile card list instead shows this same fact as a static line inside
+// its own detail sheet (see the bottom-sheet block further down), so
+// there's nothing left for a tap here to reveal. Neutral palette on
+// purpose: this is informational, not a status — the flag*/success
+// colours are reserved for roster state (see tailwind.config.js), and
+// being new is not a fault.
 function TempPasswordIndicator({ className = '' }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
@@ -111,10 +113,6 @@ function TempPasswordIndicator({ className = '' }) {
     setAnchorRect(triggerRef.current.getBoundingClientRect())
     setOpen(true)
   }
-  function toggle() {
-    if (open) { setOpen(false); return }
-    show()
-  }
 
   const width = 210
   const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
@@ -124,14 +122,13 @@ function TempPasswordIndicator({ className = '' }) {
       <button
         ref={triggerRef}
         type="button"
-        onClick={toggle}
         onPointerEnter={e => { if (e.pointerType === 'mouse') show() }}
         onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
         aria-label="Temporary password in use"
         aria-expanded={open}
         className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink"
       >
-        <ClockAlert className="h-3.5 w-3.5" />
+        <ShieldAlert className="h-3.5 w-3.5" />
       </button>
       {open && positionStyle && createPortal(
         <div
@@ -1274,12 +1271,16 @@ export default function StaffListPage() {
                                 {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                               </span>
                             )}
-                            {!person.is_active && (
-                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
-                                Inactive
-                              </span>
+                            {(!person.is_active || (isAdmin && person.must_change_password)) && (
+                              <div className="flex items-center gap-1">
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
+                                {!person.is_active && (
+                                  <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
                             )}
-                            {isAdmin && person.must_change_password && <TempPasswordIndicator />}
                           </div>
                           {canContact && (
                             <button
@@ -1821,7 +1822,15 @@ export default function StaffListPage() {
                   <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
                   <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
                 </div>
-                <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                  <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                  {isAdmin && person.must_change_password && (
+                    <span className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-ink-muted">
+                      <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
+                      Temp password in use
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

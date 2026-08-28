@@ -80,13 +80,21 @@ branch.
 To review a branch, point `preview` at its head:
 
 ```
-git fetch origin
-git push --force origin origin/<branch-to-review>:refs/heads/preview
+git fetch origin <branch-to-review>
+git push --force origin FETCH_HEAD:refs/heads/preview
 ```
 
-Vercel redeploys and re-aliases the same hostname to that commit. `preview` is
-a disposable review pointer, never a source of truth: don't commit to it, don't
-merge from it, and expect anyone to force-move it at any time.
+Vercel redeploys and re-aliases the same hostname to that commit — including
+when that commit already has a preview deployment of its own under its real
+branch name.
+
+One exception: Vercel will not build a commit that is already deployed to
+**production**, so pointing `preview` at `main`'s head (or at a PR head that
+has just been merged and promoted) produces no deployment and leaves the alias
+where it was. Review before merging, or push a throwaway commit on top.
+
+`preview` is a disposable review pointer, never a source of truth: don't commit
+to it, don't merge from it, and expect anyone to force-move it at any time.
 
 Preview deployments are behind Vercel SSO (deployment protection is on for
 everything except custom domains), so a reviewer also needs access to the

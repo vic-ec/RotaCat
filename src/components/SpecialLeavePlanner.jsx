@@ -9,13 +9,15 @@ import LeaveYearGrid from './LeaveYearGrid'
 import InlineRuleHint from './InlineRuleHint'
 
 // Special Leave planner: every non-annual leave type (single day, special
-// leave, course/CPD, sick, weekend exception) at any status, PLUS any
-// pending request regardless of type — including pending annual leave,
-// which doesn't show on the Annual Leave tab until approved. No concurrency
-// cap is enforced in code here (that rule only covers annual leave) — the
-// EC Leave Planner sheet does cap special leave at 3 doctors (any category)
-// concurrently, but that's currently a documented guideline only, not a
-// submission-time check.
+// leave, course/CPD, sick) at any status, PLUS any pending request
+// regardless of type — including pending annual leave, which doesn't show
+// on the Annual Leave tab until approved. Weekend exceptions are the one
+// deliberate exclusion at every status: they belong to the Weekend Planner,
+// not here (see the fetch below). No concurrency cap is enforced in code
+// here (that rule only covers annual leave) — the EC Leave Planner sheet
+// does cap special leave at 3 doctors (any category) concurrently, but
+// that's currently a documented guideline only, not a submission-time
+// check.
 export default function SpecialLeavePlanner() {
   const { profile, isClerk } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
@@ -39,6 +41,18 @@ export default function SpecialLeavePlanner() {
         .from('leave_requests')
         .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(name, surname, category)')
         .or('leave_type.neq.annual,status.eq.pending')
+        // ...but never weekend exceptions, at any status. A weekend
+        // exception swaps WHICH weekend a doctor works rather than reducing
+        // required hours, so it is not special leave (SPECIAL_LEAVE_TYPES
+        // excludes it, and it carries no special-leave capacity weight).
+        // It is approved through Planners -> Requests like any other
+        // request, and read on the Weekend Planner's Selected month panel,
+        // which lists approved and pending exceptions for the month —
+        // including a month-straddling weekend, under both its months. This
+        // chains as AND with the .or() above, so a PENDING weekend
+        // exception is excluded here too, rather than slipping back in via
+        // the "any pending request" arm.
+        .neq('leave_type', 'weekend_exception')
         .lte('date_from', yearEnd)
         .gte('date_to', yearStart),
       supabase.from('public_holidays').select('date, name').gte('date', yearStart).lte('date', yearEnd),
@@ -80,7 +94,7 @@ export default function SpecialLeavePlanner() {
   // guideline sentence — reuses leaveByDate rather than a separate fetch,
   // since it's already loaded for the whole year; just narrowed to
   // SPECIAL_LEAVE_TYPES entries first (leaveByDate itself also carries
-  // sick/weekend-exception/pending-annual rows the guideline isn't about).
+  // sick/pending-annual rows the guideline isn't about).
   const pressureDaysThisYear = useMemo(() => {
     const specialOnlyByDate = new Map(
       [...leaveByDate].map(([date, entries]) => [date, entries.filter(e => SPECIAL_LEAVE_TYPES.includes(e.leaveType))])
@@ -96,6 +110,7 @@ export default function SpecialLeavePlanner() {
           "Covers single days off, courses/CPD, and special leave requests — these do not count against the 22-day annual leave allowance.",
           "The requested day/shift is made up elsewhere, unless it's flagged as a \"special leave day.\"",
           'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
+          'Weekend exceptions are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
           'Italicised entries are pending admin approval.',
           'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
         ]}

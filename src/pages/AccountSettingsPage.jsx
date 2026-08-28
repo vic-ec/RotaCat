@@ -19,7 +19,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
-import { categoryNeedsContractChoice, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
+import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
@@ -41,15 +41,12 @@ const CATEGORY_LABELS = {
   Intern:     'Intern',
   Consultant: 'Consultant',
 }
-const DOCTOR_CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-const LOCUM_CATEGORY_OPTIONS = [
-  { value: 'MO', label: 'Medical Officer' },
-  { value: 'Registrar', label: 'Registrar' },
-]
+// Which categories each role may hold lives in staffDefaults.js, shared
+// with AddStaffModal's creation form — an admin creating an account and an
+// admin editing one must never be offered different sets. Only the labels
+// are local.
 function categoryOptionsForRole(role) {
-  if (role === 'doctor') return DOCTOR_CATEGORY_OPTIONS
-  if (role === 'locum') return LOCUM_CATEGORY_OPTIONS
-  return []
+  return categoryValuesForRole(role).map(value => ({ value, label: CATEGORY_LABELS[value] || value }))
 }
 
 // 'hours' requests store a JSON-encoded {contract_type, subtype} in
@@ -1639,7 +1636,7 @@ export default function AccountSettingsPage() {
                   options={CONTRACT_TYPE_OPTIONS}
                 />
                 <p className="mt-1 text-xs text-ink-muted">
-                  Changing this opens a new current rotation block for {profile.name || 'this doctor'} in the Intern Rotations Planner — it doesn&apos;t overwrite any future blocks already planned there.
+                  Changing this opens a new current rotation block for {profile.name || 'this doctor'} in the Rotations planner — it doesn&apos;t overwrite any future blocks already planned there.
                 </p>
               </div>
             )}

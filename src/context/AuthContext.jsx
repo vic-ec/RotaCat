@@ -116,6 +116,14 @@ export function AuthProvider({ children }) {
   const isAdmin      = profile?.is_admin === true
   const isSuperAdmin = profile?.is_super_admin === true
 
+  // Still signed in with a password an admin generated (initial
+  // admin-created account, or a "Regenerate password" since). Gates every
+  // authenticated route behind /set-password until they choose their own —
+  // see ProtectedRoute. Deliberately separate from isApproved: that one
+  // asks whether an admin has vetted this person at all, and is already
+  // settled (and stays settled) for an admin-created account.
+  const mustChangePassword = profile?.must_change_password === true
+
   // ── Combined app permissions ─────────────────────────────────
   // Centralised here so every screen can gate on a single boolean
   // rather than reimplementing role/permission logic independently.
@@ -143,6 +151,7 @@ export function AuthProvider({ children }) {
     isAdmin,
     isSuperAdmin,
     isApproved: profile?.is_approved === true,
+    mustChangePassword,
     // Permission helpers
     canSubmitLeave,
     canViewWeekendGrid,

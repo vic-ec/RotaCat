@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { PASSWORD_HINT, PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
+import { PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
 import { isValidEmail } from '../lib/validateEmail'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import CapsLockNotice from '../components/CapsLockNotice'
+import PasswordRevealToggle from '../components/PasswordRevealToggle'
+// Left-anchored: the icon sits close to the sign-up sheet's left edge, so a
+// centred tooltip would spill past it and get clipped.
+import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
@@ -43,34 +47,6 @@ const CATEGORY_OPTIONS = [
   { value: 'Consultant', label: 'Consultant' },
 ]
 
-// Small "i" icon next to the Password label — hover reveals requirements on
-// desktop, tap toggles them on mobile (no hover there).
-function PasswordRequirementsInfo() {
-  const [show, setShow] = useState(false)
-  return (
-    <span className="group relative inline-flex">
-      <button
-        type="button"
-        onClick={() => setShow(s => !s)}
-        onBlur={() => setShow(false)}
-        aria-label="Password requirements"
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-ink-muted text-[10px] font-semibold leading-none text-ink-muted transition-colors hover:border-ink hover:text-ink"
-      >
-        i
-      </button>
-      {/* Left-anchored rather than centered under the icon — the icon sits
-          close to the modal's left edge, so a centered tooltip would push
-          past it and get clipped by the modal's overflow-hidden. */}
-      <span
-        className={`pointer-events-none absolute left-0 top-full z-20 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${
-          show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {PASSWORD_HINT}
-      </span>
-    </span>
-  )
-}
 
 // Popup shown when a role card is picked — replaces the old full-page
 // "step 2" so the base Create-account panel never changes height. The
@@ -492,26 +468,7 @@ function RoleModal({ role, onClose }) {
                       transition-colors focus:border-accent focus:bg-canvas-raised
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute inset-y-0 right-4 flex items-center text-ink-muted transition-colors hover:text-ink"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? (
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.94 10.94 0 0112 20C7 20 2.73 16.89 1 12c.73-2.06 2-3.85 3.6-5.22" />
-                        <path d="M10.58 10.58A2 2 0 0012 14a2 2 0 001.42-.58" />
-                        <path d="M1 1l22 22" />
-                        <path d="M9.88 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-4.24 5.18" />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
+                  <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} />
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">{PASSWORD_HINT_SHORT}</p>
                 <CapsLockNotice show={capsLock.capsOn} />

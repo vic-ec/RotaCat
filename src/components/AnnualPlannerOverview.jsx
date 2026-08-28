@@ -431,20 +431,20 @@ function MonthCard({ month, isSelected, onSelect }) {
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`card p-3 text-left transition-colors lg:p-2 ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
+      className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       </div>
       <p className="mt-0.5 text-xs text-ink-muted">{month.summaryLine}</p>
 
-      {/* Day cells shrink at lg (h-3→h-2) to offset the extra row the 3-wide
-          grid adds (3x4 instead of 4x3) — keeps the whole year's total
-          height roughly where it was at 4x3, wider cards without the
-          page needing to scroll further to see every month. */}
-      <div className="mt-2 grid grid-cols-7 gap-[3px] lg:mt-1.5 lg:gap-[2px]">
+      {/* Bigger cells than the tight 4x3-grid days had — brings the block's
+          overall height up closer to the Weekend planner's own month
+          cards, and a small fixed radius on a 14px cell reads as a rounded
+          square rather than the near-circle the same radius gave at 8px. */}
+      <div className="mt-2 grid grid-cols-7 gap-1">
         {cells.map((day, i) => {
-          if (!day) return <span key={`blank-${i}`} className="h-3 w-3 lg:h-2 lg:w-2" />
+          if (!day) return <span key={`blank-${i}`} className="h-3.5 w-3.5" />
           const cellClass = day.capacityState.fill
           // A public holiday keeps its normal capacity-state fill (so the
           // colour stays readable) plus a border in a darker shade of that
@@ -452,8 +452,8 @@ function MonthCard({ month, isSelected, onSelect }) {
           // block that hid which capacity state the day was actually in.
           const phRing = day.isPublicHoliday ? `ring-1 ring-inset ${day.capacityState.ringDark}` : ''
           return (
-            <span key={day.date} className="h-3 w-3 lg:h-2 lg:w-2" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
-              <span className={`block h-3 w-3 rounded-sm lg:h-2 lg:w-2 ${cellClass} ${phRing}`} />
+            <span key={day.date} className="h-3.5 w-3.5" title={day.publicHolidayName || `${day.capacityState.label} (${day.totalSlots} of 3)`}>
+              <span className={`block h-3.5 w-3.5 rounded-sm ${cellClass} ${phRing}`} />
             </span>
           )
         })}

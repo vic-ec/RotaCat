@@ -53,6 +53,53 @@ src/
 - **Backend:** see `/backend` (added in a later phase) for the FastAPI
   scheduling engine, deployed separately on Render.
 
+### Previewing a branch: the `preview` branch
+
+Every branch pushed here gets its own Vercel preview deployment, but you can
+only *sign in* on one of them.
+
+Login is gated by Cloudflare Turnstile, and a Turnstile site key only issues
+tokens on hostnames listed in its Hostname Management allowlist. A per-branch
+preview URL (`rotacat-git-<branch>-vhw-ec.vercel.app`) is not on that list, so
+the widget fails with error 110200 (domain not allowed), no token arrives, and
+the submit button stays disabled. Unsetting `VITE_TURNSTILE_SITE_KEY` for the
+Preview environment does not help — Supabase Auth verifies the captcha
+server-side, so sign-in then fails for a *missing* token instead. Nor is there
+a wildcard: Cloudflare rejects `vercel.app` as a public-suffix domain.
+
+So there is one long-lived branch, `preview`, whose Vercel alias never changes:
+
+```
+https://rotacat-git-preview-vhw-ec.vercel.app
+```
+
+That hostname is allowlisted in the Turnstile widget's Hostname Management
+list, so sign-in works there. Nothing needs to change in Cloudflare for a new
+branch.
+
+To review a branch, point `preview` at its head:
+
+```
+git fetch origin <branch-to-review>
+git push --force origin FETCH_HEAD:refs/heads/preview
+```
+
+Vercel redeploys and re-aliases the same hostname to that commit — including
+when that commit already has a preview deployment of its own under its real
+branch name.
+
+One exception: Vercel will not build a commit that is already deployed to
+**production**, so pointing `preview` at `main`'s head (or at a PR head that
+has just been merged and promoted) produces no deployment and leaves the alias
+where it was. Review before merging, or push a throwaway commit on top.
+
+`preview` is a disposable review pointer, never a source of truth: don't commit
+to it, don't merge from it, and expect anyone to force-move it at any time.
+
+Preview deployments are behind Vercel SSO (deployment protection is on for
+everything except custom domains), so a reviewer also needs access to the
+Vic-EC Vercel team to open them.
+
 ## Build phases
 
 - [x] Phase 1 — Supabase schema, auth, RLS policies

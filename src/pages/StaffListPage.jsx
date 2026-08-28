@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -9,6 +10,8 @@ import Tag from '../components/Tag'
 import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
+import AddStaffModal from '../components/AddStaffModal'
+import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
@@ -22,7 +25,7 @@ import {
 import { applyHoursChange } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck } from 'lucide-react'
+import { Eye, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -78,6 +81,70 @@ const SORT_MODE_KEY = 'rotacat:staffSortMode'
 const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 
 // ── Sort/group ───────────────────────────
+// Admin-only marker for an account still sitting on the password an admin
+// generated for it (profiles.must_change_password). It clears itself the
+// moment that person signs in and sets their own, so it doubles as the
+// answer to "did they ever actually get in?" — an admin who creates an
+// account otherwise has no signal at all between creating it and the
+// person turning up on a roster. Pairs with the row's "Regenerate
+// password" action for the case where the answer is no. The temp
+// password itself never expires — must_change_password only clears on
+// a real sign-in, never on a timer — so this stays lit indefinitely
+// until that happens or an admin regenerates it.
+//
+// Icon-only (not a permanent text badge) — the explanation shows on
+// hover for a real mouse only (checked via pointerType, not CSS :hover,
+// since this opens a portalled panel rather than a same-DOM-subtree
+// sibling a group-hover could reach). No tap-to-open on touch — the
+// mobile card list instead shows this same fact as a static line inside
+// its own detail sheet (see the bottom-sheet block further down), so
+// there's nothing left for a tap here to reveal. Neutral palette on
+// purpose: this is informational, not a status — the flag*/success
+// colours are reserved for roster state (see tailwind.config.js), and
+// being new is not a fault.
+function TempPasswordIndicator({ className = '' }) {
+  const [open, setOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const triggerRef = useRef(null)
+  const popRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), popRef, [triggerRef])
+
+  function show() {
+    setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+
+  const width = 210
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
+
+  return (
+    <span className={`relative inline-flex flex-shrink-0 ${className}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onPointerEnter={e => { if (e.pointerType === 'mouse') show() }}
+        onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
+        aria-label="Temporary password in use"
+        aria-expanded={open}
+        className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink"
+      >
+        <ShieldAlert className="h-3.5 w-3.5" />
+      </button>
+      {open && positionStyle && createPortal(
+        <div
+          ref={popRef}
+          role="tooltip"
+          style={{ ...positionStyle, width }}
+          className="fixed z-50 rounded-lg border border-slate-line bg-canvas-raised px-3 py-2 text-xs font-medium text-ink shadow-raised"
+        >
+          Temporary password in use
+        </div>,
+        document.body
+      )}
+    </span>
+  )
+}
+
 const CATEGORY_GROUP_ORDER = ['Consultant', 'Registrar', 'MO', 'COSMO', 'COSMOPsych', 'Intern', 'Locum', 'Clerk']
 const ROLE_GROUP_ORDER = ['doctor', 'locum', 'clerk']
 
@@ -314,6 +381,12 @@ export default function StaffListPage() {
   const [togglingAdminId, setTogglingAdminId] = useState(null)
   // Pending confirmation for the Status toggle — { profileId, currentlyActive, firstName } | null
   const [statusConfirm, setStatusConfirm] = useState(null)
+  // Admin-initiated account creation, and reissuing a password for
+  // someone who never received (or lost) the one their account was
+  // created with — both run through the admin-staff-credentials Edge
+  // Function, since only the service role key can mint credentials.
+  const [addStaffOpen, setAddStaffOpen] = useState(false)
+  const [regeneratePasswordFor, setRegeneratePasswordFor] = useState(null)
   const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
@@ -966,6 +1039,11 @@ export default function StaffListPage() {
                   mobileMode="inline"
                   active={accountFiltersActive}
                   onClearAll={clearAllFilters}
+                  desktopTrailing={isAdmin && (
+                    <button type="button" onClick={() => setAddStaffOpen(true)} className="btn-primary flex-shrink-0">
+                      <Plus className="h-4 w-4" /> Add staff
+                    </button>
+                  )}
                 />
               </div>
               <FloatingActionMenu
@@ -977,6 +1055,10 @@ export default function StaffListPage() {
                   onClearAll: clearAllFilters,
                   sheetTitle: 'Filters',
                 }}
+                /* Same slot the Intern Rotations Matrix puts its own
+                   "+ Add doctor" in, rather than a second free-floating
+                   FAB competing with this one. */
+                primaryAction={isAdmin ? { icon: Plus, label: 'Add staff', onClick: () => setAddStaffOpen(true) } : undefined}
               />
             </>
           )
@@ -1189,10 +1271,15 @@ export default function StaffListPage() {
                                 {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                               </span>
                             )}
-                            {!person.is_active && (
-                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
-                                Inactive
-                              </span>
+                            {(!person.is_active || (isAdmin && person.must_change_password)) && (
+                              <div className="flex items-center gap-1">
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
+                                {!person.is_active && (
+                                  <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                                    Inactive
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
                           {canContact && (
@@ -1378,6 +1465,7 @@ export default function StaffListPage() {
                                     Cancel
                                   </button>
                                 )}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
                               </div>
                             </td>
                             {isAdmin && (
@@ -1645,6 +1733,16 @@ export default function StaffListPage() {
                 onClick={() => { requestToggleActive(quickActionPerson); closeQuickActions() }}
               />
             )}
+            {/* For anyone who lost the welcome email their account was
+                created with, or never got it — issues a fresh password
+                and emails it. Admin-only, and confirmed in the modal
+                before anything is invalidated. */}
+            {isAdmin && (
+              <QuickActionRow
+                label="Regenerate password"
+                onClick={() => { setRegeneratePasswordFor(quickActionPerson); closeQuickActions() }}
+              />
+            )}
           </div>
         )
       })()}
@@ -1724,7 +1822,15 @@ export default function StaffListPage() {
                   <p className="truncate text-base font-semibold text-ink">{person.name ? `${person.name} ` : ''}{person.surname}</p>
                   <p className="line-clamp-2 text-sm text-ink-muted">{secondaryLabel}</p>
                 </div>
-                <span className={`flex-shrink-0 text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                  <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                  {isAdmin && person.must_change_password && (
+                    <span className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-ink-muted">
+                      <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
+                      Temp password in use
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1808,6 +1914,20 @@ export default function StaffListPage() {
           />
         )
       })()}
+
+      {addStaffOpen && (
+        <AddStaffModal
+          onClose={() => setAddStaffOpen(false)}
+          onCreated={loadAll}
+        />
+      )}
+
+      {regeneratePasswordFor && (
+        <RegeneratePasswordModal
+          person={regeneratePasswordFor}
+          onClose={() => setRegeneratePasswordFor(null)}
+        />
+      )}
 
       {statusConfirm && (
         <StatusChangeConfirmModal

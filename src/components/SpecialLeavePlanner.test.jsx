@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import SpecialLeavePlanner from './SpecialLeavePlanner'
 
 vi.mock('../context/AuthContext', () => ({
@@ -11,9 +10,15 @@ vi.mock('../context/AuthContext', () => ({
 // readout of exactly what reaches it, so these tests assert which rows the
 // planner admits rather than how they're drawn.
 vi.mock('./LeaveYearGrid', () => ({
-  default: ({ leaveByDate }) => (
-    <div data-testid="grid">
-      {[...leaveByDate].flatMap(([date, entries]) => entries.map(e => `${date}:${e.leaveType}:${e.surname}`)).join('|')}
+  default: ({ leaveByDate, ruleBullets }) => (
+    <div>
+      <div data-testid="grid">
+        {[...leaveByDate].flatMap(([date, entries]) => entries.map(e => `${date}:${e.leaveType}:${e.surname}`)).join('|')}
+      </div>
+      {/* The rules now ride along to the grid's own Legend sheet rather
+          than rendering as a card here, so this is where the test can see
+          what copy the planner hands over. */}
+      <div data-testid="rule-bullets">{(ruleBullets || []).join('|')}</div>
     </div>
   ),
 }))
@@ -92,11 +97,12 @@ describe('SpecialLeavePlanner', () => {
     expect(calls.or).toContain('leave_type.neq.annual,status.eq.pending')
   })
 
-  it("tells the reader where weekend exceptions went, in the How it works detail", async () => {
-    const user = userEvent.setup()
+  it('hands the grid rule copy saying where weekend exceptions went, with no standalone info card', async () => {
     render(<SpecialLeavePlanner />)
     await screen.findByTestId('grid')
-    await user.click(screen.getByRole('button', { name: 'How it works' }))
-    expect(screen.getByText(/Weekend exceptions are not shown here/)).toBeInTheDocument()
+    expect(screen.getByTestId('rule-bullets')).toHaveTextContent(/Weekend exceptions are not shown here/)
+    // The permanently-open card (and its own "How it works" trigger) is
+    // gone — the Legend sheet inside the grid is the single entry point now.
+    expect(screen.queryByRole('button', { name: 'How it works' })).not.toBeInTheDocument()
   })
 })

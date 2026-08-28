@@ -1359,4 +1359,59 @@ describe('WeekendPlannerView', () => {
       expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('Registrar')
     })
   })
+
+  // Weekend exceptions are not special leave — they swap WHICH weekend a
+  // doctor works — so the month view is one of the two places they surface
+  // (the year overview's Selected month panel is the other).
+  describe('weekend exceptions in the month view', () => {
+    const EXCEPTIONS = [
+      {
+        id: 'x1', profile_id: 'p2', date_from: '2026-08-22', status: 'pending',
+        profiles: { name: 'Bev', surname: 'Bell', category: 'Registrar', contract_type: null },
+      },
+      {
+        id: 'x2', profile_id: 'p1', date_from: '2026-09-05', status: 'approved',
+        profiles: { name: 'Ann', surname: 'Ash', category: 'MO', contract_type: null },
+      },
+    ]
+
+    it('admin: lists this month\'s exceptions with category, type and status, and leaves other months out', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
+      renderView()
+
+      const panel = within((await screen.findAllByTestId('weekend-month-exceptions'))[0])
+      expect(panel.getByText(/Weekend exceptions \(1\)/)).toBeInTheDocument()
+      // "Botha" (from the shared displayNames map built off the profiles
+      // fetch), not "Bell" from the request's own joined row — the resolver
+      // wins so a name reads identically here and on the weekend cards, and
+      // so surname collisions stay disambiguated.
+      expect(panel.getByText('Botha')).toBeInTheDocument()
+      expect(panel.getByText(/Registrar · Weekend exception · /)).toBeInTheDocument()
+      expect(panel.getByText('Pending review')).toBeInTheDocument()
+      // September's exception belongs to September's panel, not August's.
+      expect(panel.queryByText('Ash')).not.toBeInTheDocument()
+    })
+
+    it('admin: flags only the weekends that actually have an exception', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
+      renderView()
+
+      const view = await mobile()
+      await view.findByText('August 2026')
+      // One flag for 2026-08-22, none on the other four August weekends.
+      expect(view.getAllByLabelText('Weekend exception requested')).toHaveLength(1)
+    })
+
+    it('a non-admin never loads everyone\'s exceptions, so no panel renders', async () => {
+      mockAuth = { isAdmin: false, canSubmitLeave: true, profile: { id: 'p1' } }
+      mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
+      renderView()
+
+      const view = await mobile()
+      await view.findByText('August 2026')
+      expect(screen.queryByTestId('weekend-month-exceptions')).not.toBeInTheDocument()
+    })
+  })
 })

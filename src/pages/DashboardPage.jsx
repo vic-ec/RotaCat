@@ -7,6 +7,7 @@ import { getDashboardHoursWarnings } from '../lib/monthlyHours'
 import { todayStr, addDays, formatShortDateRange } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { upcomingRequests } from '../lib/leaveDashboard'
+import { shortLeaveTypeLabel } from '../lib/leaveRequests'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
 import LeaveCard from '../components/LeaveCard'
@@ -494,7 +495,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">
-                  {onLeaveNow.map(lr => fullName(lr.profiles)).join(', ')}
+                  {onLeaveNow.map(lr => `${fullName(lr.profiles)} · ${shortLeaveTypeLabel(lr.leave_type)}`).join(', ')}
                 </p>
               </div>
             )}
@@ -512,7 +513,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">
-                  {onLeaveNext.map(lr => `${fullName(lr.profiles)} (${formatShortDateRange(lr.date_from, lr.date_to)})`).join(', ')}
+                  {onLeaveNext.map(lr => `${fullName(lr.profiles)} · ${shortLeaveTypeLabel(lr.leave_type)} (${formatShortDateRange(lr.date_from, lr.date_to)})`).join(', ')}
                 </p>
               </div>
             </section>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ScrollText, Plus,
+  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -14,6 +14,9 @@ import {
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
 } from '../lib/weekendPlanner'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
+import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { shortLeaveTypeLabel } from '../lib/leaveRequests'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
@@ -540,6 +543,54 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
   )
 }
 
+// This month's weekend exceptions — the month view's counterpart to the
+// year overview's Selected month panel (WeekendYearOverview). Approved and
+// pending both: a pending exception is precisely the thing that makes the
+// month's plan unsettled, so hiding it until approval would defeat the
+// point of showing it to a planner at all.
+//
+// Weekend exceptions are NOT special leave — they swap which weekend a
+// doctor works rather than reducing hours — which is why they surface here
+// and on the Weekend planner rather than on the Special leave tab, and why
+// they carry no leave-capacity weight anywhere.
+function MonthExceptionsPanel({ exceptions, displayNames }) {
+  if (exceptions.length === 0) return null
+  return (
+    <div data-testid="weekend-month-exceptions" className="card mt-3 p-4">
+      <div className="flex items-center gap-1.5">
+        <MessageSquareWarning className="h-4 w-4 text-flagAmber" />
+        <h3 className="text-sm font-semibold text-ink">Weekend exceptions ({exceptions.length})</h3>
+      </div>
+      <ul className="mt-2 divide-y divide-slate-line border-t border-slate-line">
+        {exceptions.map(req => {
+          const isPending = req.status === 'pending'
+          return (
+            <li key={req.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="flex-shrink-0 text-sm font-medium text-ink">
+                  {displayNames.get(req.profile_id) ?? req.profiles?.surname ?? '(unknown)'}
+                </span>
+                <span className="truncate text-xs text-ink-muted">
+                  {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
+                  {' · '}{shortLeaveTypeLabel('weekend_exception')}
+                  {/* formatWeekendRange, not the stored date_to: an exception
+                      always covers exactly one Sat+Sun pair, so the Sunday is
+                      derivable from the Saturday, and this is the same weekend
+                      wording every other surface in this file uses. */}
+                  {' · '}{formatWeekendRange(req.date_from)}
+                </span>
+              </span>
+              <span className={`flex-shrink-0 text-xs font-medium ${isPending ? 'text-flagAmber' : 'text-success'}`}>
+                {isPending ? REVIEW_STATUS_LABELS.pending : 'Approved'}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 // Live status pill for a weekend's own coverage — Complete (success) / "N
 // roles open" (flagAmber) / Empty (flagRed) — always derived fresh from
 // weekendCoverageSummary rather than cached, so it updates the instant a
@@ -859,12 +910,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const today = todayStr()
   const [viewYear, setViewYear] = useState(() => initialYear ?? Number(today.slice(0, 4)))
   const [viewMonth, setViewMonth] = useState(() => initialMonth ?? Number(today.slice(5, 7)))
+  const [weekendExceptions, setWeekendExceptions] = useState([])
 
   // The Requests planner tab only exists for admins (approval queue) and
   // doctors (their own history) — matches the same condition LeavePlannerPage
   // uses to decide whether to render that tab at all, so "View requests"
   // never links somewhere that redirects the visitor elsewhere.
   const canViewRequests = isAdmin || canSubmitLeave
+
+  // Same split WeekendPlanner.jsx's year overview uses: a staffing viewer
+  // reads everyone's exceptions, a doctor only ever their own.
+  const staffingRole = isAdmin || isClerk
 
   const filters = isAdmin ? ADMIN_FILTERS : isClerk ? CLERK_FILTERS : FILTERS_BASE
 
@@ -895,7 +951,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     setLoading(true)
     setError('')
 
-    const [profilesRes, entriesRes, myRequestsRes] = await Promise.all([
+    const [profilesRes, entriesRes, myRequestsRes, allExceptionsRes] = await Promise.all([
       // No `is_active` filter: a doctor deactivated after being rostered
       // must keep showing their real name on every past weekend they were
       // ever assigned to (HR audit-trail requirement) — filtering the
@@ -911,15 +967,28 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       supabase.from('leave_requests').select('id, date_from, status')
         .eq('profile_id', profile?.id ?? '').eq('leave_type', 'weekend_exception')
         .gte('date_from', fetchBounds.from).lte('date_from', fetchBounds.through),
+      // Everyone's exceptions, approved and pending, for the month view's
+      // own exceptions panel — an admin planning a month has to see the
+      // requests that reshape it, not just their own. A doctor gets an
+      // empty list here and keeps only the personal myRequests fetch above,
+      // which drives their own per-card status label.
+      staffingRole
+        ? supabase.from('leave_requests')
+          .select('id, profile_id, date_from, status, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type)')
+          .eq('leave_type', 'weekend_exception').in('status', ['approved', 'pending'])
+          .gte('date_from', fetchBounds.from).lte('date_from', fetchBounds.through)
+        : Promise.resolve({ data: [], error: null }),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
     if (myRequestsRes.error) { setError(myRequestsRes.error.message); setLoading(false); return }
+    if (allExceptionsRes.error) { setError(allExceptionsRes.error.message); setLoading(false); return }
 
     const rotationEligibleDoctors = (profilesRes.data || []).filter(p => groupForCategory(resolvedCategoryForDoctor(p)))
     setDoctors(rotationEligibleDoctors)
     setEntries(entriesRes.data || [])
     setMyWeekendRequests(myRequestsRes.data || [])
+    setWeekendExceptions(allExceptionsRes.data || [])
     setLoading(false)
 
     // Batch-fetched ONCE for every rotation-eligible, currently-assignable
@@ -984,6 +1053,23 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // starts from today) and anything beyond the fetch's runway, without
   // separate min/max bounds logic.
   const fetchedSet = useMemo(() => new Set(saturdays), [saturdays])
+  // Exceptions falling on one of this month's weekends. Keyed by Saturday
+  // (date_from is always the Saturday — see isValidWeekendExceptionRange),
+  // which is also how a weekend straddling a month boundary stays attached
+  // to the month whose Saturday it is, rather than being listed twice in a
+  // view that is explicitly one month of weekends.
+  const monthExceptions = useMemo(() => {
+    const saturdays = new Set(saturdaysInMonth(viewYear, viewMonth))
+    return weekendExceptions
+      .filter(r => saturdays.has(r.date_from))
+      .sort((a, b) => a.date_from.localeCompare(b.date_from) || String(a.id).localeCompare(String(b.id)))
+  }, [weekendExceptions, viewYear, viewMonth])
+
+  const exceptionSaturdays = useMemo(
+    () => new Set(monthExceptions.map(r => r.date_from)),
+    [monthExceptions],
+  )
+
   const monthSaturdays = useMemo(
     () => saturdaysInMonth(viewYear, viewMonth).filter(s => fetchedSet.has(s)),
     [viewYear, viewMonth, fetchedSet]
@@ -1497,6 +1583,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
 
+            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
+
             <div data-testid="weekend-mobile-list" className="mt-3 space-y-3">
               {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
@@ -1539,6 +1627,15 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                         )}
                       </div>
                       <div className="flex flex-shrink-0 items-center gap-1.5">
+                        {/* Sits left of the status pill because it qualifies
+                            it: "Complete" with a pending exception against it
+                            is not the same weekend as a plain "Complete". */}
+                        {exceptionSaturdays.has(saturday) && (
+                          <MessageSquareWarning
+                            className="h-4 w-4 flex-shrink-0 text-flagAmber"
+                            aria-label="Weekend exception requested"
+                          />
+                        )}
                         <Tag variant="status" tone={statusPill.tone}>{statusPill.label}</Tag>
                         {isAdmin && (
                           <button
@@ -1601,6 +1698,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               ))}
               <div className="min-w-0">{renderToolbar('')}</div>
             </div>
+
+            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
 
             <div className="mt-4 flex items-start gap-4">
               <div className="max-h-[60vh] flex-1 overflow-auto rounded-lg border border-slate-line">
@@ -1665,11 +1764,19 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                             )
                           })}
                           <td className="px-3 py-2.5">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                              needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                            }`}>
-                              {needsPlanning ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
-                              {needsPlanning ? `${coverage.openGroups.length} ${coverage.openGroups.length === 1 ? 'gap' : 'gaps'}` : 'Fully planned'}
+                            <span className="inline-flex items-center gap-1.5">
+                              {exceptionSaturdays.has(saturday) && (
+                                <MessageSquareWarning
+                                  className="h-4 w-4 flex-shrink-0 text-flagAmber"
+                                  aria-label="Weekend exception requested"
+                                />
+                              )}
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+                              }`}>
+                                {needsPlanning ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
+                                {needsPlanning ? `${coverage.openGroups.length} ${coverage.openGroups.length === 1 ? 'gap' : 'gaps'}` : 'Fully planned'}
+                              </span>
                             </span>
                           </td>
                         </tr>

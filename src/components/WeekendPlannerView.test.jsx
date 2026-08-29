@@ -1375,7 +1375,7 @@ describe('WeekendPlannerView', () => {
       },
     ]
 
-    it('admin: lists this month\'s exceptions with category, type and status, and leaves other months out', async () => {
+    it('admin: lists this month\'s exceptions with category and status, and leaves other months out', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
       renderView()
@@ -1387,7 +1387,10 @@ describe('WeekendPlannerView', () => {
       // wins so a name reads identically here and on the weekend cards, and
       // so surname collisions stay disambiguated.
       expect(panel.getByText('Botha')).toBeInTheDocument()
-      expect(panel.getByText(/Registrar · Weekend exception · /)).toBeInTheDocument()
+      // Name, category and the weekend — no "Weekend exception" per row, since
+      // the panel heading already says that of every row under it.
+      expect(panel.getByText(/^Registrar · Sat /)).toBeInTheDocument()
+      expect(panel.queryByText(/Weekend exception ·/)).not.toBeInTheDocument()
       expect(panel.getByText('Pending review')).toBeInTheDocument()
       // September's exception belongs to September's panel, not August's.
       expect(panel.queryByText('Ash')).not.toBeInTheDocument()
@@ -1401,7 +1404,24 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       // One flag for 2026-08-22, none on the other four August weekends.
-      expect(view.getAllByLabelText('Weekend exception requested')).toHaveLength(1)
+      expect(view.getAllByLabelText(/Weekend exception requests for/)).toHaveLength(1)
+      expect(view.getByLabelText('Weekend exception requests for 2026-08-22')).toBeInTheDocument()
+    })
+
+    it('admin: tapping a weekend\'s flag opens that weekend\'s requests in a sheet', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
+      renderView()
+
+      const view = await mobile()
+      await view.findByText('August 2026')
+      await userEvent.click(view.getByLabelText('Weekend exception requests for 2026-08-22'))
+
+      const sheet = (await screen.findByRole('heading', { name: 'Weekend exceptions' })).closest('.card')
+      expect(within(sheet).getByText('Botha')).toBeInTheDocument()
+      expect(within(sheet).getByText('Pending review')).toBeInTheDocument()
+      // Scoped to the tapped weekend, not the whole month.
+      expect(within(sheet).queryByText('Anderson')).not.toBeInTheDocument()
     })
 
     it('a non-admin never loads everyone\'s exceptions, so no panel renders', async () => {

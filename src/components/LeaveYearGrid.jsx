@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react'
-import { Users } from 'lucide-react'
+import { useState } from 'react'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, splitForOverflow,
   quartersForYear, datesInMonth, weeksForMonth,
@@ -12,12 +11,10 @@ import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
 import LegendSheet from './LegendSheet'
 import { LegendIcon } from './PlannerIcons'
-import { QuickSelectButton } from './Toolbar'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
-const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', label: 'All' }]
 
 // Shared leave-planner grid for the Annual Leave and Special Leave tabs.
 // Desktop (lg+) gets the full year-at-a-glance spreadsheet-style layout (4
@@ -32,7 +29,7 @@ const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', labe
 // enables the "My leave / All" filter; maxByColumnKey (optional) shows
 // "(max N)" capacity hints — pass it for Annual Leave, omit for Special
 // Leave (no concurrency cap there).
-export default function LeaveYearGrid({ year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId, ruleIntro, ruleBullets }) {
+export default function LeaveYearGrid({ year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, ruleIntro, ruleBullets }) {
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
@@ -43,19 +40,14 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
   // resolve to empty for non-admins via RLS regardless).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
   const [openPH, setOpenPH] = useState(null) // date string or null, desktop hover/tap tooltip
-  const [showMineOnly, setShowMineOnly] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState(null)
 
-  const visibleLeaveByDate = useMemo(() => {
-    if (!showMineOnly || !myProfileId) return leaveByDate
-    const filtered = new Map()
-    for (const [date, entries] of leaveByDate) {
-      const mine = entries.filter(e => e.profileId === myProfileId)
-      if (mine.length) filtered.set(date, mine)
-    }
-    return filtered
-  }, [leaveByDate, showMineOnly, myProfileId])
+  // There is no My leave / All toggle: this grid always shows everyone.
+  // "My leave" duplicated what the My leave tab already does better, and
+  // defaulting a planner to a single person's leave hid the very overlap
+  // the planner exists to show.
+  const visibleLeaveByDate = leaveByDate
 
   function goToMonth(newYear, newMonth) {
     if (newYear !== year) onYearChange(newYear)
@@ -64,19 +56,6 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
 
   return (
     <div className="mt-4">
-      {myProfileId && (
-        <div className="mb-3 flex justify-center">
-          <QuickSelectButton
-            icon={<Users className="h-4 w-4" />}
-            label="View"
-            value={showMineOnly ? 'mine' : 'all'}
-            onChange={v => setShowMineOnly(v === 'mine')}
-            options={VIEW_OPTIONS}
-            isActive={showMineOnly}
-          />
-        </div>
-      )}
-
       {/* Desktop: full year, 4 quarters of 3 months */}
       <div className="hidden lg:block">
         {/* Same legend/rules entry point as mobile. Desktop shows the whole
@@ -139,13 +118,12 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
               ruleIntro={ruleIntro}
               ruleBullets={ruleBullets}
               trigger={onClick => (
-                <button
-                  type="button"
-                  onClick={onClick}
-                  aria-label="Legend"
-                  title="Legend"
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-accent-tint text-accent"
-                >
+                // Same button as AnnualPlannerOverview's AnnualLegendTrigger —
+                // shape, size and secondary-button fill — rather than the
+                // round accent-tint chip this used to be. Two planners sat
+                // side by side under one Planners tab reading their legend
+                // off two different-looking controls.
+                <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
                   <LegendIcon className="h-4 w-4" />
                 </button>
               )}

@@ -120,27 +120,9 @@ describe('LeaveYearGrid', () => {
     vi.useRealTimers()
   })
 
-  it('"My leave" filter hides entries for other profiles', async () => {
-    vi.setSystemTime(new Date('2026-08-01T00:00:00'))
-    const { container } = render(
-      <LeaveYearGrid
-        year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} myProfileId="doc-1"
-      />
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'View' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'My leave' }))
-
-    const grid = mobileDayGrid(container)
-    const dayButton = within(grid).getByText('10').closest('button')
-    await userEvent.click(dayButton)
-
-    const heading = await screen.findByText(/Monday, 2026-08-10/)
-    const sheet = heading.closest('.card')
-    expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
-    expect(screen.queryByText('Stone')).not.toBeInTheDocument() // filtered out of both views entirely, not just this sheet
-    vi.useRealTimers()
-  })
-
+  // The My leave / All toggle was removed: this grid always shows everyone.
+  // "My leave" duplicated the My leave tab, and defaulting a planner to one
+  // person's leave hid the overlap the planner exists to show.
   it('mobile legend: collapsed by default, hides Consultant for a non-admin viewer, shows it for an admin once expanded', async () => {
     const { container, rerender } = render(
       <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
@@ -29,7 +28,6 @@ const RULE_BULLETS = [
 ]
 
 export default function SpecialLeavePlanner() {
-  const { profile, isClerk } = useAuth()
   const [year, setYear] = useState(new Date().getFullYear())
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [displayNames, setDisplayNames] = useState(new Map())
@@ -137,10 +135,6 @@ export default function SpecialLeavePlanner() {
           displayNames={displayNames}
           publicHolidaysByDate={publicHolidaysByDate}
           rotationsByDoctorId={rotationsByDoctorId}
-          // A clerk's access here is read-only "All" only — no personal
-          // leave of their own to filter to — so omitting myProfileId hides
-          // the My leave/All toggle entirely for them (see LeaveYearGrid).
-          myProfileId={isClerk ? null : profile?.id}
         />
       )}
     </div>

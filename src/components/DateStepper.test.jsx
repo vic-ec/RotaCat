@@ -12,42 +12,42 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('DateStepper', () => {
-  describe('Today — hidden on the current period, visible once navigated away', () => {
-    it('unit="month": hidden while viewing the current month', () => {
-      render(<DateStepper unit="month" year={2026} month={8} onChange={vi.fn()} />)
-      // aria-hidden makes the button's own computed accessible name empty
-      // (that's the point — a screen reader never announces it at all), so
-      // `getByRole('button', { name: 'Today' })` can't find it here; its
-      // `title` attribute isn't affected by aria-hidden the same way, so
-      // that's what locates it instead. The aria-hidden/tabindex/opacity
-      // trio below is exactly the "hidden" behaviour under test.
-      const today = screen.getByTitle('Today')
-      expect(today).toHaveAttribute('aria-hidden', 'true')
-      expect(today).toHaveAttribute('tabindex', '-1')
-      expect(today).toHaveClass('opacity-0', 'pointer-events-none')
-    })
-
-    it('unit="month": visible and clickable once viewing a different month', async () => {
+  describe('Today — always visible wherever it is offered', () => {
+    // It used to fade out on the current period. A control that comes and
+    // goes is harder to reach for than one that is simply always there, and
+    // a half-faded button reads as broken rather than as "not needed now".
+    it('unit="month": visible and interactive even while viewing the current month', async () => {
       const user = userEvent.setup()
       const onChange = vi.fn()
-      render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
+      render(<DateStepper unit="month" year={2026} month={8} onChange={onChange} />)
+
       const today = screen.getByRole('button', { name: 'Today' })
       expect(today).not.toHaveAttribute('aria-hidden')
-      expect(today).toHaveClass('opacity-100')
+      expect(today).not.toHaveAttribute('tabindex', '-1')
+      expect(today.className).not.toMatch(/opacity-0|pointer-events-none/)
+
+      // Pressing it while already on the current period is a harmless no-op
+      // from the viewer's side — it still reports the current period.
       await user.click(today)
       expect(onChange).toHaveBeenCalledWith(2026, 8)
     })
 
-    it('unit="year": hidden on the current year, visible and functional on any other', async () => {
+    it('unit="month": jumps back to the current month from a different one', async () => {
+      const user = userEvent.setup()
+      const onChange = vi.fn()
+      render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
+      await user.click(screen.getByRole('button', { name: 'Today' }))
+      expect(onChange).toHaveBeenCalledWith(2026, 8)
+    })
+
+    it('unit="year": visible on the current year and on any other, and functional on both', async () => {
       const user = userEvent.setup()
       const { rerender } = render(<DateStepper unit="year" year={2026} onChange={vi.fn()} />)
-      expect(screen.getByTitle('Today')).toHaveAttribute('aria-hidden', 'true')
+      expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
 
       const onChange = vi.fn()
       rerender(<DateStepper unit="year" year={2025} onChange={onChange} />)
-      const today = screen.getByRole('button', { name: 'Today' })
-      expect(today).not.toHaveAttribute('aria-hidden')
-      await user.click(today)
+      await user.click(screen.getByRole('button', { name: 'Today' }))
       expect(onChange).toHaveBeenCalledWith(2026)
     })
 

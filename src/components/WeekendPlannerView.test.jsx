@@ -1424,6 +1424,59 @@ describe('WeekendPlannerView', () => {
       expect(within(sheet).queryByText('Anderson')).not.toBeInTheDocument()
     })
 
+    // An approved exception means an admin has already decided this doctor
+    // is not working this weekend. Offering them in the picker would invite
+    // an assignment contradicting that decision.
+    it('admin: a doctor with an APPROVED exception is withheld from that weekend\'s add-doctor list', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      // p2 (Botha, Registrar) is excused from 2026-08-15 specifically.
+      mockResponses['leave_requests:select'] = {
+        data: [{
+          id: 'x9', profile_id: 'p2', date_from: '2026-08-15', status: 'approved',
+          profiles: { name: 'Bob', surname: 'Botha', category: 'Registrar', contract_type: null },
+        }],
+        error: null,
+      }
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      // 2026-08-15 has nothing planned, so every Registrar is otherwise free.
+      const aug15Card = (await view.findByText('Sat 15 - Sun 16 Aug 2026')).closest('.card')
+      await userEvent.click(within(aug15Card).getAllByRole('button', { name: 'Open' })[1]) // Registrar row
+      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
+
+      expect(within(sheet).queryByText(/Botha/)).not.toBeInTheDocument()
+      // Eaton, the other Registrar, is unaffected.
+      expect(within(sheet).getByText(/Eaton/)).toBeInTheDocument()
+      // The omission is explained rather than silent.
+      expect(within(sheet).getByTestId('excused-note')).toHaveTextContent(/1 doctor is not listed/)
+    })
+
+    it('admin: the exclusion is per weekend, and a PENDING exception excludes nobody', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['leave_requests:select'] = {
+        data: [
+          // Approved, but for a DIFFERENT weekend than the one opened below.
+          { id: 'x9', profile_id: 'p2', date_from: '2026-08-15', status: 'approved', profiles: { name: 'Bob', surname: 'Botha', category: 'Registrar', contract_type: null } },
+          // Same weekend as the picker, but only pending — not yet granted.
+          { id: 'x10', profile_id: 'p5', date_from: '2026-08-22', status: 'pending', profiles: { name: 'Erin', surname: 'Eaton', category: 'Registrar', contract_type: null } },
+        ],
+        error: null,
+      }
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const aug22Card = (await view.findByText('Sat 22 - Sun 23 Aug 2026')).closest('.card')
+      await userEvent.click(within(aug22Card).getAllByRole('button', { name: 'Open' })[1]) // Registrar row
+      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
+
+      expect(within(sheet).getByText(/Botha/)).toBeInTheDocument()
+      expect(within(sheet).getByText(/Eaton/)).toBeInTheDocument()
+      expect(within(sheet).queryByTestId('excused-note')).not.toBeInTheDocument()
+    })
+
     it('a non-admin never loads everyone\'s exceptions, so no panel renders', async () => {
       mockAuth = { isAdmin: false, canSubmitLeave: true, profile: { id: 'p1' } }
       mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }

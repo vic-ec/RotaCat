@@ -740,19 +740,34 @@ function MobileRoleRow({ group, groupEntries, doctorById, displayNames, isAdmin,
 // close picker meant re-opening it once per name. Candidates still come from
 // the date-aware resolveWeekendCategoryForDoctor (Part 10), not a static
 // category field, so a copied-over EC/OT rotation is reflected immediately.
-// Deliberately no eligibility/conflict filtering beyond "not already
-// assigned this weekend" (leave conflicts, hour caps — out of scope for this
-// pass, already flagged as separate future work).
-function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, rotationsByDoctorId, onAdd, onClose }) {
+// Eligibility filtering is limited to "not already assigned this weekend"
+// and "no approved weekend exception for it" — the latter because an
+// approved exception is a decision that this doctor is not working this
+// weekend, so offering them would invite an assignment contradicting it.
+// Other conflicts (leave overlaps, hour caps) remain out of scope, already
+// flagged as separate future work.
+function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, excusedIds, rotationsByDoctorId, onAdd, onClose }) {
   const [groupKey, setGroupKey] = useState(initialGroupKey)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
+  const excused = excusedIds ?? new Set()
   const group = CATEGORY_GROUPS.find(g => g.key === groupKey)
-  const candidates = doctors
-    .filter(d => !assignedIds.has(d.id))
+  // Excused doctors hold an APPROVED weekend exception for this weekend, so
+  // they are not rosterable on it — offering them here would invite an
+  // assignment that contradicts a decision an admin has already made.
+  const eligible = doctors.filter(d => !assignedIds.has(d.id) && !excused.has(d.id))
+  const candidates = eligible
     .map(d => ({ doctor: d, ...resolveWeekendCategoryForDoctor({ doctor: d, targetDate: saturday, rotationsByDoctorId }) }))
     .filter(r => r.groupKey === groupKey)
     .sort((a, b) => a.doctor.surname.localeCompare(b.doctor.surname))
+
+  // How many of THIS category were withheld — a name vanishing from a
+  // picker with no explanation reads as a bug, and the admin would
+  // otherwise have to go hunting for why.
+  const excusedInGroup = doctors
+    .filter(d => excused.has(d.id) && !assignedIds.has(d.id))
+    .filter(d => resolveWeekendCategoryForDoctor({ doctor: d, targetDate: saturday, rotationsByDoctorId }).groupKey === groupKey)
+    .length
 
   function changeGroup(key) {
     setGroupKey(key)
@@ -808,6 +823,12 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
             </label>
           ))}
         </div>
+
+        {excusedInGroup > 0 && (
+          <p data-testid="excused-note" className="mt-2 text-xs text-ink-muted">
+            {excusedInGroup} {excusedInGroup === 1 ? 'doctor is' : 'doctors are'} not listed — approved weekend exception for this weekend.
+          </p>
+        )}
 
         <button
           type="button"
@@ -1119,6 +1140,25 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     }
     return map
   }, [monthExceptions])
+
+  // Doctors excluded from rostering a given weekend because their exception
+  // was APPROVED. Built from the full fetched range, not monthExceptions,
+  // so it stays correct for any weekend the picker can reach rather than
+  // only the month currently on screen.
+  //
+  // Approved only, deliberately: a pending request has not been granted, so
+  // the doctor is still rosterable until an admin decides. Excluding on
+  // pending would let anyone remove themselves from a weekend simply by
+  // asking.
+  const excusedBySaturday = useMemo(() => {
+    const map = new Map()
+    for (const req of weekendExceptions) {
+      if (req.status !== 'approved') continue
+      if (!map.has(req.date_from)) map.set(req.date_from, new Set())
+      map.get(req.date_from).add(req.profile_id)
+    }
+    return map
+  }, [weekendExceptions])
 
   const monthSaturdays = useMemo(
     () => saturdaysInMonth(viewYear, viewMonth).filter(s => fetchedSet.has(s)),
@@ -1901,6 +1941,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           initialGroupKey={openRolePicker.groupKey}
           doctors={assignableDoctors}
           assignedIds={assignedDoctorIds(openRolePicker.saturday)}
+          excusedIds={excusedBySaturday.get(openRolePicker.saturday)}
           rotationsByDoctorId={rotationsByDoctorId}
           onAdd={(groupKey, profileIds) => { addEntries(openRolePicker.saturday, groupKey, profileIds); setOpenRolePicker(null) }}
           onClose={() => setOpenRolePicker(null)}

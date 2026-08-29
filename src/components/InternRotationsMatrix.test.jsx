@@ -189,12 +189,14 @@ describe('InternRotationsMatrix', () => {
     expect(onSelectDoctor).toHaveBeenCalledWith('cosmo-1')
   })
 
-  it('Today is hidden while already browsing the current year', () => {
+  // Today is permanently visible now (see DateStepper) — it no longer fades
+  // out while you are already on the current period.
+  it('Today stays visible while already browsing the current year', () => {
     renderMatrix() // year: 2027, matches the pinned system date (15 Jun 2027)
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
   })
 
-  it('Today appears once browsing a different year, and jumps back to the current one', async () => {
+  it('Today jumps back to the current year from a different one', async () => {
     const user = userEvent.setup()
     const onYearChange = vi.fn()
     renderMatrix({ year: 2026, onYearChange })

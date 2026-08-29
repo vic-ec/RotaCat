@@ -93,12 +93,15 @@ describe('LeaveYearGrid', () => {
     vi.useRealTimers()
   })
 
-  it('day-detail sheet shows the total-vs-annual days summary when a padding weekend is involved', async () => {
+  // Matches the Annual planner's own day review (MonthWorkspace): one flat
+  // row per person carrying category, leave type and the full leave period,
+  // rather than a section per capacity column with the annual-days summary.
+  it('day-detail sheet rows carry category, shortened leave type, period and status', async () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'))
     const leaveByDate = new Map([
       ['2026-08-10', [{
-        profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'approved',
-        dateFrom: '2026-08-08', dateTo: '2026-08-14', leaveType: 'annual', annualLeaveDays: 5,
+        profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'pending',
+        dateFrom: '2026-08-08', dateTo: '2026-08-14', leaveType: 'maternity',
       }]],
     ])
     const { container } = render(
@@ -109,31 +112,17 @@ describe('LeaveYearGrid', () => {
 
     const heading = await screen.findByText(/Monday, 2026-08-10/)
     const sheet = heading.closest('.card')
-    expect(within(sheet).getByText('7 total days (5 annual leave)')).toBeInTheDocument()
-    vi.useRealTimers()
-  })
-
-  it('"My leave" filter hides entries for other profiles', async () => {
-    vi.setSystemTime(new Date('2026-08-01T00:00:00'))
-    const { container } = render(
-      <LeaveYearGrid
-        year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} myProfileId="doc-1"
-      />
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'View' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'My leave' }))
-
-    const grid = mobileDayGrid(container)
-    const dayButton = within(grid).getByText('10').closest('button')
-    await userEvent.click(dayButton)
-
-    const heading = await screen.findByText(/Monday, 2026-08-10/)
-    const sheet = heading.closest('.card')
     expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
-    expect(screen.queryByText('Stone')).not.toBeInTheDocument() // filtered out of both views entirely, not just this sheet
+    // "Maternity", not "Maternity leave" — the surrounding screen already
+    // says leave. Period is the full request, not just the tapped day.
+    expect(within(sheet).getByText(/MO · Maternity · /)).toBeInTheDocument()
+    expect(within(sheet).getByText('Pending review')).toBeInTheDocument()
     vi.useRealTimers()
   })
 
+  // The My leave / All toggle was removed: this grid always shows everyone.
+  // "My leave" duplicated the My leave tab, and defaulting a planner to one
+  // person's leave hid the overlap the planner exists to show.
   it('mobile legend: collapsed by default, hides Consultant for a non-admin viewer, shows it for an admin once expanded', async () => {
     const { container, rerender } = render(
       <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={new Map()} publicHolidaysByDate={new Map()} />
@@ -143,7 +132,9 @@ describe('LeaveYearGrid', () => {
     // file's own mobileDayGrid() comment) — scope to the mobile container
     // specifically rather than a global query.
     expect(within(container.querySelector('.lg\\:hidden')).queryByText('Consultant')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Legend/ }))
+    // Both viewports carry a Legend trigger now (desktop gained one when the
+    // rules card was folded into the sheet), so scope to the mobile one.
+    await userEvent.click(within(container.querySelector('.lg\\:hidden')).getByRole('button', { name: /Legend/ }))
     const mobileLegend = container.querySelector('.lg\\:hidden')
     expect(within(mobileLegend).getByText('Consultant')).toBeInTheDocument()
 
@@ -155,23 +146,35 @@ describe('LeaveYearGrid', () => {
     mockAuth = { isAdmin: true }
   })
 
-  it('day-detail sheet: shows the Consultant section for an admin, hides it for a non-admin', async () => {
+  // The sheet no longer renders a section per capacity column, so this is
+  // now about the Consultant's ENTRY rather than a header — but the rule it
+  // guards is the same one, and the more important one: a non-admin must
+  // not see Consultant leave at all.
+  it("day-detail sheet: a Consultant's leave shows for an admin and is hidden from a non-admin", async () => {
     vi.setSystemTime(new Date('2026-08-01T00:00:00'))
+    const withConsultant = new Map([
+      ['2026-08-10', [
+        { profileId: 'doc-1', surname: 'Ellis', category: 'MO', status: 'approved', dateFrom: '2026-08-10', dateTo: '2026-08-10', leaveType: 'study' },
+        { profileId: 'doc-3', surname: 'Vance', category: 'Consultant', status: 'approved', dateFrom: '2026-08-10', dateTo: '2026-08-10', leaveType: 'conference' },
+      ]],
+    ])
     const admin = render(
-      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} />
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={withConsultant} publicHolidaysByDate={new Map()} />
     )
     await userEvent.click(within(mobileDayGrid(admin.container)).getByText('10').closest('button'))
     const adminHeading = await screen.findByText(/Monday, 2026-08-10/)
-    expect(within(adminHeading.closest('.card')).getByText('Consultant')).toBeInTheDocument()
+    expect(within(adminHeading.closest('.card')).getByText('Vance')).toBeInTheDocument()
     admin.unmount()
 
     mockAuth = { isAdmin: false }
     const nonAdmin = render(
-      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={LEAVE_BY_DATE} publicHolidaysByDate={new Map()} />
+      <LeaveYearGrid year={2026} onYearChange={vi.fn()} leaveByDate={withConsultant} publicHolidaysByDate={new Map()} />
     )
     await userEvent.click(within(mobileDayGrid(nonAdmin.container)).getByText('10').closest('button'))
     const nonAdminHeading = await screen.findByText(/Monday, 2026-08-10/)
-    expect(within(nonAdminHeading.closest('.card')).queryByText('Consultant')).not.toBeInTheDocument()
+    const nonAdminSheet = nonAdminHeading.closest('.card')
+    expect(within(nonAdminSheet).getByText('Ellis')).toBeInTheDocument()
+    expect(within(nonAdminSheet).queryByText('Vance')).not.toBeInTheDocument()
 
     mockAuth = { isAdmin: true }
     vi.useRealTimers()

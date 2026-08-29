@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday, weekendHealthState, planWeekendPaste,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, weekendExceptionsForMonth, weekendHealthState, planWeekendPaste,
   planWeekendPasteAcrossMonths, planBatchRestore, resolveEffectiveCategory, resolveWeekendCategoryForDoctor,
 } from './weekendPlanner'
 
@@ -181,6 +181,46 @@ describe('weekendExceptionRequestsBySaturday', () => {
 
   it('returns an empty map for no requests', () => {
     expect(weekendExceptionRequestsBySaturday([]).size).toBe(0)
+  })
+})
+
+describe('weekendExceptionsForMonth', () => {
+  // Aug 29-30 sits wholly inside August; Aug 1 likewise. The Aug 31/Sep 1
+  // pair is the month-straddling case that has to appear under BOTH months.
+  const WITHIN_AUG = { id: 'r1', profile_id: 'p1', date_from: '2026-08-01', date_to: '2026-08-02', status: 'approved' }
+  const SPANNING = { id: 'r2', profile_id: 'p2', date_from: '2026-10-31', date_to: '2026-11-01', status: 'pending' }
+  const WITHIN_NOV = { id: 'r3', profile_id: 'p3', date_from: '2026-11-07', date_to: '2026-11-08', status: 'approved' }
+  const ALL = [WITHIN_NOV, SPANNING, WITHIN_AUG]
+
+  it('returns only the requests touching the given month', () => {
+    expect(weekendExceptionsForMonth(ALL, 2026, 8)).toEqual([WITHIN_AUG])
+  })
+
+  it('lists a month-straddling weekend under BOTH of its months', () => {
+    expect(weekendExceptionsForMonth(ALL, 2026, 10)).toEqual([SPANNING])
+    expect(weekendExceptionsForMonth(ALL, 2026, 11)).toEqual([SPANNING, WITHIN_NOV])
+  })
+
+  it('lists a year-straddling weekend under both December and the next January', () => {
+    const newYear = { id: 'r4', profile_id: 'p4', date_from: '2026-12-31', date_to: '2027-01-01', status: 'approved' }
+    expect(weekendExceptionsForMonth([newYear], 2026, 12)).toEqual([newYear])
+    expect(weekendExceptionsForMonth([newYear], 2027, 1)).toEqual([newYear])
+    expect(weekendExceptionsForMonth([newYear], 2027, 2)).toEqual([])
+  })
+
+  it('sorts chronologically regardless of input order', () => {
+    const result = weekendExceptionsForMonth(ALL, 2026, 11)
+    expect(result.map(r => r.id)).toEqual(['r2', 'r3'])
+  })
+
+  it('keeps both approved and pending requests', () => {
+    expect(weekendExceptionsForMonth(ALL, 2026, 11).map(r => r.status)).toEqual(['pending', 'approved'])
+  })
+
+  it('is empty for a month with no exceptions, and tolerates no requests at all', () => {
+    expect(weekendExceptionsForMonth(ALL, 2026, 9)).toEqual([])
+    expect(weekendExceptionsForMonth([], 2026, 8)).toEqual([])
+    expect(weekendExceptionsForMonth(undefined, 2026, 8)).toEqual([])
   })
 })
 

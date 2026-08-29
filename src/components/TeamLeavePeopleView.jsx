@@ -9,7 +9,7 @@ import { QuickSelectButton } from './Toolbar'
 import { buildPeopleLeave } from '../lib/teamLeaveMobile'
 import { todayStr, formatShortDateRange } from '../lib/dateRange'
 import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, shortLeaveTypeLabel } from '../lib/leaveRequests'
 
 const CATEGORY_GROUPS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 
@@ -38,10 +38,15 @@ function groupKeyForDoctor(doctor) {
 
 function PersonRow({ person, onOpen }) {
   const { doctor, current, next } = person
+  // Naming the leave type is the point of these two lines — "On leave" and
+  // "Next" said only *that* someone is away, never what for, which is the
+  // first thing an admin scanning this list wants. Lower-cased because the
+  // label is mid-sentence here ("On maternity", not "On Maternity"), and
+  // shortened because the surrounding words already carry "leave".
   const rightLabel = current
-    ? `On leave · ${formatShortDateRange(current.date_from, current.date_to)}`
+    ? `On ${shortLeaveTypeLabel(current.leave_type).toLowerCase()} · ${formatShortDateRange(current.date_from, current.date_to)}`
     : next
-      ? `Next · ${formatShortDateRange(next.date_from, next.date_to)}`
+      ? `Upcoming ${shortLeaveTypeLabel(next.leave_type).toLowerCase()} · ${formatShortDateRange(next.date_from, next.date_to)}`
       : 'No upcoming leave'
   return (
     <button

@@ -164,4 +164,71 @@ describe('WeekendYearOverview', () => {
       vi.useRealTimers()
     })
   })
+
+  describe('weekend exceptions in the Selected month panel', () => {
+    // Oct 31 / Nov 1 2026 is a real Sat/Sun pair — the month-straddling case
+    // that must show under both October and November.
+    const EXCEPTIONS = [
+      { id: 'x1', profile_id: 'p1', date_from: '2026-08-01', date_to: '2026-08-02', status: 'approved', profiles: { name: 'Ada', surname: 'Nolan' } },
+      { id: 'x2', profile_id: 'p2', date_from: '2026-08-08', date_to: '2026-08-09', status: 'pending', profiles: { name: 'Bo', surname: 'Reddy' } },
+      { id: 'x3', profile_id: 'p3', date_from: '2026-10-31', date_to: '2026-11-01', status: 'pending', profiles: { name: 'Cy', surname: 'Patel' } },
+    ]
+    const NAMES = new Map([['p1', 'Nolan'], ['p2', 'Reddy'], ['p3', 'Patel']])
+
+    function renderWithExceptions(overrides = {}) {
+      return renderOverview({ weekendExceptions: EXCEPTIONS, displayNames: NAMES, ...overrides })
+    }
+
+    function panel() {
+      return within(screen.getByTestId('weekend-exception-list'))
+    }
+
+    it('lists the selected month\'s approved and pending exceptions, with the pending one badged', () => {
+      renderWithExceptions()
+      expect(panel().getByText('Weekend exceptions (2)')).toBeInTheDocument()
+      expect(panel().getByText('Nolan')).toBeInTheDocument()
+      expect(panel().getByText('Reddy')).toBeInTheDocument()
+      expect(panel().getByText('Approved')).toBeInTheDocument()
+      expect(panel().getByText('Pending')).toBeInTheDocument()
+      // Not this month's — October's exception stays out of August.
+      expect(panel().queryByText('Patel')).not.toBeInTheDocument()
+    })
+
+    it('sits below the staffing counts and above Open month', () => {
+      renderWithExceptions()
+      const inspector = screen.getByTestId('weekend-year-inspector')
+      const nodes = [
+        inspector.querySelector('[class*="grid-cols-3"]'),
+        screen.getByTestId('weekend-exception-list'),
+        within(inspector).getByRole('button', { name: 'Open month' }),
+      ]
+      // Each node precedes the next in document order.
+      expect(nodes[0].compareDocumentPosition(nodes[1]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(nodes[1].compareDocumentPosition(nodes[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('shows a month-straddling weekend under BOTH months', async () => {
+      const user = userEvent.setup()
+      renderWithExceptions()
+
+      await user.click(grid().getByRole('button', { name: /^October/ }))
+      expect(panel().getByText('Patel')).toBeInTheDocument()
+      expect(panel().getByText(/Sat 31 Oct - Sun 1 Nov 2026/)).toBeInTheDocument()
+
+      await user.click(grid().getByRole('button', { name: /^November/ }))
+      expect(panel().getByText('Patel')).toBeInTheDocument()
+    })
+
+    it('omits the section entirely for a month with no exceptions', async () => {
+      const user = userEvent.setup()
+      renderWithExceptions()
+      await user.click(grid().getByRole('button', { name: /^September/ }))
+      expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
+    })
+
+    it('renders without exceptions supplied at all', () => {
+      renderOverview()
+      expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
+    })
+  })
 })

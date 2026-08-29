@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { groupEntriesByWeekend } from '../lib/weekendPlanner'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import WeekendYearOverview from './WeekendYearOverview'
 import MyWeekendYearOverview from './MyWeekendYearOverview'
 import WeekendPlannerView from './WeekendPlannerView'
@@ -31,6 +32,8 @@ export default function WeekendPlanner() {
 
   const [entries, setEntries] = useState([])
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
+  const [weekendExceptions, setWeekendExceptions] = useState([])
+  const [displayNames, setDisplayNames] = useState(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   // Copy/paste clipboard for WeekendPlannerView's Copy weekend/month/quarter
@@ -71,10 +74,26 @@ export default function WeekendPlanner() {
       supabase.from('profiles').select('id, name, surname')
         .eq('is_approved', true).eq('is_active', true),
     ]
-    // Only a non-staffing viewer's own weekend-exception requests feed
-    // MyWeekendYearOverview's "pending" state — an admin/clerk never sees
-    // that view, so there's nothing to fetch it for.
-    if (!staffingRole) {
+    // A non-staffing viewer only needs their OWN weekend-exception requests
+    // (MyWeekendYearOverview's "pending" state). A staffing viewer needs
+    // everyone's, approved and pending both, for WeekendYearOverview's
+    // Selected month panel — an admin deciding this month's staffing has to
+    // see the exceptions that reshape it, including the ones still awaiting
+    // their own approval in Planners -> Requests.
+    //
+    // The staffing query is an OVERLAP range (date_from <= yearEnd AND
+    // date_to >= yearStart), not the date_from-only window the personal one
+    // uses: a weekend straddling New Year (Sat 31 Dec / Sun 1 Jan) has to be
+    // reachable from BOTH years' overviews, and filtering on date_from alone
+    // would drop it from the January side. See weekendExceptionsForMonth.
+    if (staffingRole) {
+      queries.push(
+        supabase.from('leave_requests')
+          .select('id, profile_id, date_from, date_to, status, profiles!leave_requests_profile_id_fkey(name, surname)')
+          .eq('leave_type', 'weekend_exception').in('status', ['approved', 'pending'])
+          .lte('date_from', yearEnd).gte('date_to', yearStart)
+      )
+    } else {
       queries.push(
         supabase.from('leave_requests').select('id, date_from, status')
           .eq('profile_id', profile?.id ?? '').eq('leave_type', 'weekend_exception')
@@ -82,13 +101,20 @@ export default function WeekendPlanner() {
       )
     }
 
-    const [entriesRes, profilesRes, myRequestsRes] = await Promise.all(queries)
+    const [entriesRes, profilesRes, requestsRes] = await Promise.all(queries)
     if (entriesRes.error) { setError(entriesRes.error.message); setLoading(false); return }
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
-    if (myRequestsRes?.error) { setError(myRequestsRes.error.message); setLoading(false); return }
+    if (requestsRes?.error) { setError(requestsRes.error.message); setLoading(false); return }
 
     setEntries(entriesRes.data || [])
-    setMyWeekendRequests(myRequestsRes?.data || [])
+    setMyWeekendRequests(staffingRole ? [] : (requestsRes?.data || []))
+    setWeekendExceptions(staffingRole ? (requestsRes?.data || []) : [])
+    // Surname alone unless it collides with another doctor in the same
+    // active roster this fetch already loaded — same rule the leave
+    // planners use, and scoped to the roster rather than just the doctors
+    // holding an exception, so a name never silently changes shape as
+    // exceptions come and go across the year.
+    setDisplayNames(buildDoctorDisplayNames(profilesRes.data || []))
     setLoading(false)
   }
 
@@ -163,6 +189,8 @@ export default function WeekendPlanner() {
             year={year}
             onYearChange={setYear}
             byWeekend={byWeekend}
+            weekendExceptions={weekendExceptions}
+            displayNames={displayNames}
             onOpenMonth={openMonth}
             onPlanWeekend={planWeekend}
           />

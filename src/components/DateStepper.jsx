@@ -63,16 +63,13 @@ export default function DateStepper({
 
   const label = unit === 'year' ? String(year) : `${monthsForYear(year)[month - 1].label} ${year}`
 
-  // Today only means anything once you've actually navigated away from it —
-  // showing it while already looking at the current period is a reset
-  // button with nothing to reset. `showToday` (caller-controlled) decides
-  // whether Today is offered at all here; this decides whether it's visible
-  // right now, once it is. Faded rather than unmounted so the transition is
-  // an actual fade-in, not a layout-shifting pop.
-  const now = new Date()
-  const isCurrentPeriod = unit === 'year'
-    ? year === now.getFullYear()
-    : year === now.getFullYear() && month === now.getMonth() + 1
+  // Today is permanently visible wherever `showToday` offers it at all. It
+  // used to fade out while you were already looking at the current period,
+  // on the reasoning that a reset button with nothing to reset is noise —
+  // but a control that comes and goes is harder to reach for than one
+  // that's simply always there, and a half-faded button reads as broken
+  // rather than as "not needed right now". Pressing it while already on the
+  // current period is a harmless no-op.
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
@@ -105,13 +102,9 @@ export default function DateStepper({
         <button
           type="button"
           onClick={goToday}
-          tabIndex={isCurrentPeriod ? -1 : 0}
-          aria-hidden={isCurrentPeriod || undefined}
           aria-label="Today"
           title="Today"
-          className={`btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 transition-opacity duration-200 ${
-            isCurrentPeriod ? 'pointer-events-none opacity-0' : 'opacity-100'
-          }`}
+          className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0"
         >
           <TodayIcon className="h-4 w-4" />
         </button>

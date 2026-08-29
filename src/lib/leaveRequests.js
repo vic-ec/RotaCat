@@ -37,6 +37,26 @@ export const LEAVE_TYPE_OPTIONS = [
 // else together. weekend_exception is excluded: it's an exception to which
 // specific weekend you work, not a reduction in required hours, so unlike
 // genuine special leave it shouldn't count toward a "days off" tracker.
+// value -> full picklist label ("maternity" -> "Maternity leave"). Several
+// components built this same map inline; this is the one copy worth
+// importing.
+export const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+
+// The compact label for places that already say "leave" in their own
+// surrounding copy, or that are too narrow to spend words on it — a leave
+// planner row reading "Moodley · MO · Maternity leave · 3-4 Sep" repeats a
+// word the whole screen is about, and "On maternity leave · 3-4 Sep" reads
+// better as "On maternity · 3-4 Sep". Strips a trailing " leave" only:
+// "Maternity leave" -> "Maternity", while "Workshop", "Conference",
+// "Course / CPD", "Single day" and "Weekend exception" have no such suffix
+// and pass through untouched. Falls back to the raw value for a leave_type
+// not in the picklist (a new enum member added in Postgres but not yet
+// here), rather than rendering nothing.
+export function shortLeaveTypeLabel(value) {
+  const label = LEAVE_TYPE_LABELS[value] ?? value ?? ''
+  return label.replace(/ leave$/i, '')
+}
+
 export const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
   .map(o => o.value)
   .filter(v => v !== 'annual' && v !== 'sick' && v !== 'weekend_exception')

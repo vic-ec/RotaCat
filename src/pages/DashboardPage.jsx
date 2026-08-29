@@ -7,6 +7,7 @@ import { getDashboardHoursWarnings } from '../lib/monthlyHours'
 import { todayStr, addDays, formatShortDateRange } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { upcomingRequests } from '../lib/leaveDashboard'
+import { shortLeaveTypeLabel } from '../lib/leaveRequests'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
 import LeaveCard from '../components/LeaveCard'
@@ -494,7 +495,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 <p className="mt-1 text-xs text-ink-muted">
-                  {onLeaveNow.map(lr => fullName(lr.profiles)).join(', ')}
+                  {onLeaveNow.map(lr => `${fullName(lr.profiles)} · ${shortLeaveTypeLabel(lr.leave_type)}`).join(', ')}
                 </p>
               </div>
             )}
@@ -511,9 +512,17 @@ export default function DashboardPage() {
                     View team leave ›
                   </Link>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {onLeaveNext.map(lr => `${fullName(lr.profiles)} (${formatShortDateRange(lr.date_from, lr.date_to)})`).join(', ')}
-                </p>
+                {/* One row per person, not a comma-run: each entry carries a
+                    name, a leave type AND a date range, so three or four of
+                    them joined into a single paragraph became a wall of
+                    commas with no scannable boundary between people. */}
+                <ul className="mt-1 space-y-0.5 text-xs text-ink-muted">
+                  {onLeaveNext.map(lr => (
+                    <li key={lr.id}>
+                      {fullName(lr.profiles)} · {shortLeaveTypeLabel(lr.leave_type)} ({formatShortDateRange(lr.date_from, lr.date_to)})
+                    </li>
+                  ))}
+                </ul>
               </div>
             </section>
           )}

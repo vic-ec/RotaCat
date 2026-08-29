@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import WeekendPlanner from './WeekendPlanner'
 import { saturdaysInMonth } from '../lib/weekendPlanner'
+import { addDays } from '../lib/dateRange'
 
 // WeekendPlannerView has its own extensive test suite already — stubbed
 // here so this file stays focused on the orchestration logic (role-based
@@ -28,6 +29,7 @@ vi.mock('../context/AuthContext', () => ({
 }))
 
 const [aug1] = saturdaysInMonth(2026, 8)
+const aug1Sunday = addDays(aug1, 1)
 const ENTRIES = [{ id: 'e1', weekend_saturday: aug1, profile_id: 'p1', category: 'MO' }]
 
 const { mockResponses } = vi.hoisted(() => ({ mockResponses: {} }))
@@ -38,6 +40,7 @@ vi.mock('../lib/supabase', () => ({
       const builder = {
         select() { if (!method) method = 'select'; return builder },
         eq() { return builder },
+        in() { return builder },
         gte() { return builder },
         lte() { return builder },
         then(resolve, reject) {
@@ -76,6 +79,30 @@ describe('WeekendPlanner', () => {
     renderPlanner()
     expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
     expect(within(screen.getByTestId('weekend-year-inspector')).getByText('Need staff')).toBeInTheDocument()
+  })
+
+  // The staffing fetch feeds WeekendYearOverview's Selected month panel;
+  // a non-staffing viewer's identical-looking fetch is their OWN requests
+  // only and must never leak into that panel (they don't see it anyway,
+  // but the two results share one query slot — see WeekendPlanner's load).
+  it('admin: everyone\'s weekend exceptions reach the Selected month panel', async () => {
+    mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
+    mockResponses['leave_requests:select'] = {
+      data: [{ id: 'x1', profile_id: 'p9', date_from: aug1, date_to: aug1Sunday, status: 'pending', profiles: { name: 'Ada', surname: 'Nolan' } }],
+      error: null,
+    }
+    renderPlanner()
+    expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
+    const panel = within(screen.getByTestId('weekend-exception-list'))
+    expect(panel.getByText('Nolan')).toBeInTheDocument()
+    expect(panel.getByText('Pending')).toBeInTheDocument()
+  })
+
+  it('non-staffing viewer: own exception requests never render the staffing panel', async () => {
+    mockResponses['leave_requests:select'] = { data: [{ id: 'x1', date_from: aug1, status: 'pending' }], error: null }
+    renderPlanner()
+    expect(await screen.findByText('My weekends')).toBeInTheDocument()
+    expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
   })
 
   it('clerk: also lands on the staffing year overview', async () => {

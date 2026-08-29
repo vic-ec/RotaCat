@@ -2,7 +2,7 @@
 // flat, admin-populated calendar of who works which weekend, replacing
 // the old computed weekend_offset projection formerly used for both the
 // planner UI and the Leave submission overlap hint.
-import { addDays, dayOfWeek, monthBounds, parseLocalDate } from './dateRange'
+import { addDays, dayOfWeek, monthBounds, parseLocalDate, rangesOverlap } from './dateRange'
 import { AMBIGUOUS_CATEGORIES } from './staffDefaults'
 
 // Column groupings for the planner grid. The scheduler backend's real
@@ -211,6 +211,29 @@ export function isEvenWeekend(saturday) {
 // disambiguate further.
 export function weekendExceptionRequestsBySaturday(requests) {
   return new Map(requests.map(r => [r.date_from, r]))
+}
+
+// Weekend-exception requests (approved or pending) touching a given month,
+// sorted chronologically — the Selected month panel's own list on the
+// admin/clerk year overview. Deliberately OVERLAP, not containment: a
+// weekend_exception covers exactly one Sat+Sun pair
+// (isValidWeekendExceptionRange in leaveRequests.js), so one landing on a
+// month's last Saturday spills its Sunday into the next month, and it has
+// to appear under BOTH months' panels — neither month's weekend picture is
+// complete without it. The same holds across a year boundary (Sat 31 Dec /
+// Sun 1 Jan), which is why the caller's fetch is an overlap query too
+// rather than a date_from-only range.
+//
+// Note this is the ONE place weekend exceptions surface as a planner list:
+// they are explicitly not special leave (SPECIAL_LEAVE_TYPES excludes
+// weekend_exception — it swaps WHICH weekend you work, it doesn't reduce
+// required hours), so they carry no special-leave capacity weight and are
+// approved through Planners -> Requests like any other request.
+export function weekendExceptionsForMonth(requests, year, month) {
+  const { start, end } = monthBounds(year, month)
+  return (requests || [])
+    .filter(r => r.date_from && r.date_to && rangesOverlap(r.date_from, r.date_to, start, end))
+    .sort((a, b) => a.date_from.localeCompare(b.date_from) || String(a.id).localeCompare(String(b.id)))
 }
 
 // Shift codes that land on the Saturday/Sunday of a real weekend — used

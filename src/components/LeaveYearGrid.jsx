@@ -1,22 +1,20 @@
-import { useMemo, useState } from 'react'
-import { Users } from 'lucide-react'
+import { useState } from 'react'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, splitForOverflow,
   quartersForYear, datesInMonth, weeksForMonth,
 } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
-import { dayOfWeek, todayStr } from '../lib/dateRange'
-import { annualDaysSummary } from '../lib/leaveRequests'
+import { dayOfWeek, todayStr, formatShortDateRange } from '../lib/dateRange'
+import { shortLeaveTypeLabel } from '../lib/leaveRequests'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
 import DateStepper from './DateStepper'
 import LegendSheet from './LegendSheet'
 import { LegendIcon } from './PlannerIcons'
-import { QuickSelectButton } from './Toolbar'
+import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
-const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', label: 'All' }]
 
 // Shared leave-planner grid for the Annual Leave and Special Leave tabs.
 // Desktop (lg+) gets the full year-at-a-glance spreadsheet-style layout (4
@@ -31,7 +29,7 @@ const VIEW_OPTIONS = [{ value: 'mine', label: 'My leave' }, { value: 'all', labe
 // enables the "My leave / All" filter; maxByColumnKey (optional) shows
 // "(max N)" capacity hints — pass it for Annual Leave, omit for Special
 // Leave (no concurrency cap there).
-export default function LeaveYearGrid({ year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, myProfileId }) {
+export default function LeaveYearGrid({ year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate, rotationsByDoctorId, maxByColumnKey, ruleIntro, ruleBullets }) {
   const { isAdmin } = useAuth()
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
@@ -42,19 +40,14 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
   // resolve to empty for non-admins via RLS regardless).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
   const [openPH, setOpenPH] = useState(null) // date string or null, desktop hover/tap tooltip
-  const [showMineOnly, setShowMineOnly] = useState(false)
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1)
   const [selectedDate, setSelectedDate] = useState(null)
 
-  const visibleLeaveByDate = useMemo(() => {
-    if (!showMineOnly || !myProfileId) return leaveByDate
-    const filtered = new Map()
-    for (const [date, entries] of leaveByDate) {
-      const mine = entries.filter(e => e.profileId === myProfileId)
-      if (mine.length) filtered.set(date, mine)
-    }
-    return filtered
-  }, [leaveByDate, showMineOnly, myProfileId])
+  // There is no My leave / All toggle: this grid always shows everyone.
+  // "My leave" duplicated what the My leave tab already does better, and
+  // defaulting a planner to a single person's leave hid the very overlap
+  // the planner exists to show.
+  const visibleLeaveByDate = leaveByDate
 
   function goToMonth(newYear, newMonth) {
     if (newYear !== year) onYearChange(newYear)
@@ -63,23 +56,32 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
 
   return (
     <div className="mt-4">
-      {myProfileId && (
-        <div className="mb-3 flex justify-center">
-          <QuickSelectButton
-            icon={<Users className="h-4 w-4" />}
-            label="View"
-            value={showMineOnly ? 'mine' : 'all'}
-            onChange={v => setShowMineOnly(v === 'mine')}
-            options={VIEW_OPTIONS}
-            isActive={showMineOnly}
-          />
-        </div>
-      )}
-
       {/* Desktop: full year, 4 quarters of 3 months */}
       <div className="hidden lg:block">
-        <div className="flex items-center justify-center">
+        {/* Same legend/rules entry point as mobile. Desktop shows the whole
+            year at once and never had one, so folding the rules card into
+            the legend icon would have left desktop with no way to reach
+            them at all. */}
+        <div className="flex items-center justify-center gap-2">
           <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
+          <LegendSheet
+            ruleIntro={ruleIntro}
+            ruleBullets={ruleBullets}
+            trigger={onClick => (
+              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+                <LegendIcon className="h-4 w-4" />
+              </button>
+            )}
+          >
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-sm text-ink-muted">
+              {legendColumns.map(col => (
+                <span key={col.key} className="flex items-center gap-1.5">
+                  <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={16} />
+                  {col.label}
+                </span>
+              ))}
+            </div>
+          </LegendSheet>
         </div>
 
         <div className="mt-4 space-y-6">
@@ -113,14 +115,15 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
         <div className="flex flex-wrap items-center justify-center">
           <DateStepper unit="month" year={year} month={viewMonth} onChange={goToMonth}>
             <LegendSheet
+              ruleIntro={ruleIntro}
+              ruleBullets={ruleBullets}
               trigger={onClick => (
-                <button
-                  type="button"
-                  onClick={onClick}
-                  aria-label="Legend"
-                  title="Legend"
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-accent-tint text-accent"
-                >
+                // Same button as AnnualPlannerOverview's AnnualLegendTrigger —
+                // shape, size and secondary-button fill — rather than the
+                // round accent-tint chip this used to be. Two planners sat
+                // side by side under one Planners tab reading their legend
+                // off two different-looking controls.
+                <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
                   <LegendIcon className="h-4 w-4" />
                 </button>
               )}
@@ -153,7 +156,6 @@ export default function LeaveYearGrid({ year, onYearChange, leaveByDate, display
           entries={visibleLeaveByDate.get(selectedDate) || []}
           phName={publicHolidaysByDate.get(selectedDate)}
           displayNames={displayNames}
-          maxByColumnKey={maxByColumnKey}
           visibleColumns={legendColumns}
           rotationsByDoctorId={rotationsByDoctorId}
           onClose={() => setSelectedDate(null)}
@@ -210,14 +212,33 @@ function MonthGlance({ year, month, leaveByDate, publicHolidaysByDate, rotations
   )
 }
 
-function DayDetailSheet({ date, entries, phName, displayNames = new Map(), maxByColumnKey, visibleColumns, rotationsByDoctorId, onClose }) {
-  const byColumn = new Map()
-  for (const entry of entries) {
-    const key = resolveLeaveCapacityColumn({ category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId })
-    if (!key) continue
-    if (!byColumn.has(key)) byColumn.set(key, [])
-    byColumn.get(key).push(entry)
-  }
+function DayDetailSheet({ date, entries, phName, displayNames = new Map(), visibleColumns, rotationsByDoctorId, onClose }) {
+  // One flat, chronological list rather than a row per capacity column with
+  // "—" against the empty ones. This mirrors MonthWorkspace's own day
+  // review on the Annual planner, deliberately: the two planners' day views
+  // used to answer the same question in two different shapes. Special leave
+  // also has no per-column cap to report (that rule is annual-only), so the
+  // column grouping was carrying a header and an em-dash per category
+  // purely to say "nobody" — a lot of sheet for no information.
+  //
+  // A doctor whose category doesn't resolve to a capacity column falls back
+  // to the Consultant/Other column instead of being dropped, so nobody
+  // silently vanishes from a day they're actually off on.
+  // Still scoped to visibleColumns, which is how a non-admin is kept from
+  // seeing Consultant leave. Flattening the old per-column sections must
+  // not quietly widen who can see what — the grouping was cosmetic, that
+  // filter is not.
+  const visibleKeys = new Set((visibleColumns ?? GRID_COLUMNS).map(c => c.key))
+  const rows = entries
+    .map(entry => {
+      const key = resolveLeaveCapacityColumn({
+        category: entry.category, profileId: entry.profileId, date: entry.dateFrom, rotationsByDoctorId,
+      }) ?? LEAVE_OTHER_COLUMN.key
+      const column = GRID_COLUMNS.find(c => c.key === key) ?? LEAVE_OTHER_COLUMN
+      return { ...entry, columnKey: key, columnLabel: column.label }
+    })
+    .filter(row => visibleKeys.has(row.columnKey))
+
   const dow = dayOfWeek(date)
   const formatted = `${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dow]}, ${date}`
 
@@ -230,38 +251,30 @@ function DayDetailSheet({ date, entries, phName, displayNames = new Map(), maxBy
         </div>
         {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
 
-        <div className="mt-3 space-y-3">
-          {visibleColumns.map(col => {
-            const colEntries = byColumn.get(col.key) || []
-            const max = maxByColumnKey?.[col.key]
-            return (
-              <div key={col.key} className="text-sm">
-                <div className="flex items-center gap-1.5 text-ink-muted">
-                  <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
-                  {col.label}
-                  {max ? <span className="text-xs">({colEntries.length}/{max})</span> : null}
-                </div>
-                {colEntries.length === 0 ? (
-                  <p className="text-ink-muted">—</p>
-                ) : (
-                  <ul className="mt-0.5 space-y-0.5">
-                    {colEntries.map(e => {
-                      const summary = annualDaysSummary({
-                        leave_type: e.leaveType, date_from: e.dateFrom, date_to: e.dateTo, annual_leave_days: e.annualLeaveDays,
-                      })
-                      return (
-                        <li key={e.profileId} className="flex items-baseline justify-between gap-2">
-                          <span className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>{displayNames.get(e.profileId) ?? e.surname}</span>
-                          {summary && <span className="text-xs text-ink-muted">{summary}</span>}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {rows.length === 0 ? (
+          <p className="mt-4 text-sm text-ink-muted">No one is on leave today</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
+            {rows.map(e => (
+              <li key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`} className="flex items-center justify-between gap-2 py-2 text-sm">
+                <span className="flex min-w-0 items-center gap-2">
+                  <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
+                  <span className="flex-shrink-0 text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
+                  <span className="truncate text-xs text-ink-muted">
+                    {[
+                      e.columnLabel,
+                      e.leaveType ? shortLeaveTypeLabel(e.leaveType) : null,
+                      e.dateFrom && e.dateTo ? formatShortDateRange(e.dateFrom, e.dateTo) : null,
+                    ].filter(Boolean).join(' · ')}
+                  </span>
+                </span>
+                <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
+                  {e.status === 'pending' ? REVIEW_STATUS_LABELS.pending : 'Approved'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

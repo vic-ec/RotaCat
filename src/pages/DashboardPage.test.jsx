@@ -209,9 +209,11 @@ describe('DashboardPage', () => {
     renderDashboard()
 
     expect(await screen.findByText('1 away today')).toBeInTheDocument()
-    expect(screen.getByText('On Leave')).toBeInTheDocument()
+    // Each name carries its leave type — "away" alone never said what for,
+    // which is the first thing an admin scanning this wants to know.
+    expect(screen.getByText('On Leave · Sick')).toBeInTheDocument()
     expect(screen.getByText('1 away in the next 7 days')).toBeInTheDocument()
-    expect(screen.getByText(/Soon Doctor/)).toBeInTheDocument()
+    expect(screen.getByText(/Soon Doctor · Annual/)).toBeInTheDocument()
     expect(screen.queryByText(/Later Doctor/)).not.toBeInTheDocument()
     // No client-side profile_id scoping for the admin's team-wide widgets
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)

@@ -1,27 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import SpecialLeavePlanner from './SpecialLeavePlanner'
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ profile: { id: 'p1' }, isClerk: false }),
 }))
 
-// The real grid is covered by LeaveYearGrid.test.jsx — stubbed to a flat
-// readout of exactly what reaches it, so these tests assert which rows the
-// planner admits rather than how they're drawn.
-vi.mock('./LeaveYearGrid', () => ({
+// The overview has its own suite — stubbed here to a flat readout of
+// exactly what reaches it, so these tests assert which rows the planner
+// admits rather than how they're drawn.
+vi.mock('./SpecialPlannerOverview', () => ({
   default: ({ leaveByDate, ruleBullets }) => (
     <div>
       <div data-testid="grid">
         {[...leaveByDate].flatMap(([date, entries]) => entries.map(e => `${date}:${e.leaveType}:${e.surname}`)).join('|')}
       </div>
-      {/* The rules now ride along to the grid's own Legend sheet rather
-          than rendering as a card here, so this is where the test can see
-          what copy the planner hands over. */}
+      {/* The rules ride along to the view's own Legend sheet rather than
+          rendering as a card here, so this is where the test can see what
+          copy the planner hands over. */}
       <div data-testid="rule-bullets">{(ruleBullets || []).join('|')}</div>
     </div>
   ),
+  SpecialLegendTrigger: () => <span />,
 }))
+vi.mock('./SpecialMonthWorkspace', () => ({ default: () => <div>WorkspaceStub</div> }))
 
 vi.mock('../lib/internRotations', () => ({
   fetchInternRotationsForDoctorIds: () => Promise.resolve([]),
@@ -65,6 +68,12 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
+function renderPlanner() {
+  // year/view/month live in the URL now (syear/sview/smonth), so the
+  // component needs a router the way AnnualLeavePlanner's own tests do.
+  return render(<SpecialLeavePlanner />, { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> })
+}
+
 describe('SpecialLeavePlanner', () => {
   beforeEach(() => {
     calls.neq.length = 0
@@ -74,7 +83,7 @@ describe('SpecialLeavePlanner', () => {
   })
 
   it('excludes weekend exceptions from the grid at every status', async () => {
-    render(<SpecialLeavePlanner />)
+    renderPlanner()
     const grid = await screen.findByTestId('grid')
 
     // Genuine special leave (and sick) still land here.
@@ -89,7 +98,7 @@ describe('SpecialLeavePlanner', () => {
   })
 
   it('excludes them at the query, not just in rendering', async () => {
-    render(<SpecialLeavePlanner />)
+    renderPlanner()
     await screen.findByTestId('grid')
     expect(calls.neq).toContainEqual(['leave_type', 'weekend_exception'])
     // Still chained alongside the non-annual/pending filter, which the
@@ -98,7 +107,7 @@ describe('SpecialLeavePlanner', () => {
   })
 
   it('hands the grid rule copy saying where weekend exceptions went, with no standalone info card', async () => {
-    render(<SpecialLeavePlanner />)
+    renderPlanner()
     await screen.findByTestId('grid')
     expect(screen.getByTestId('rule-bullets')).toHaveTextContent(/Weekend exceptions are not shown here/)
     // The permanently-open card (and its own "How it works" trigger) is

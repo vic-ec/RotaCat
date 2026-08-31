@@ -181,7 +181,7 @@ export default function MonthWorkspace({
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
           Mobile (<lg): a compact glance grid (day number + category dots
           only, same treatment as the Special Leave planner's mobile
-          calendar in LeaveYearGrid.jsx) — reading surnames happens in the
+          calendar in SpecialMonthWorkspace.jsx) — reading surnames happens in the
           tap-opened day sheet below instead of being crammed into a
           phone-width cell. */}
       <div className="mt-3 hidden overflow-hidden rounded-lg border border-slate-line lg:block">

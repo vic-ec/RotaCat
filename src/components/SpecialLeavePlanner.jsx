@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP, countSpecialLeavePressureDaysInYear } from '../lib/leaveRequests'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
-import LeaveYearGrid from './LeaveYearGrid'
+import SpecialPlannerOverview from './SpecialPlannerOverview'
+import SpecialMonthWorkspace from './SpecialMonthWorkspace'
 
 // Special Leave planner: every non-annual leave type (single day, special
 // leave, course/CPD, sick) at any status, PLUS any pending request
@@ -27,8 +29,53 @@ const RULE_BULLETS = [
   'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
 ]
 
+// Two views share one year-wide fetch, exactly as AnnualLeavePlanner does:
+// SpecialPlannerOverview (the 12-month landing) and SpecialMonthWorkspace
+// (one month's calendar). year/mode/month live in the URL (`syear`/`sview`/
+// `smonth`) rather than plain state — same reasoning as the Annual
+// planner's ayear/aview/amonth: a backgrounded mobile browser or PWA can be
+// killed and reloaded by the OS at any time, which remounts this component
+// from scratch, and the URL is what survives that.
 export default function SpecialLeavePlanner() {
-  const [year, setYear] = useState(new Date().getFullYear())
+  const [searchParams, setSearchParams] = useSearchParams()
+  const year = Number(searchParams.get('syear')) || new Date().getFullYear()
+  const mode = searchParams.get('sview') === 'workspace' ? 'workspace' : 'overview'
+  const workspaceMonth = Number(searchParams.get('smonth')) || new Date().getMonth() + 1
+
+  function setYear(newYear) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('syear', String(newYear))
+      return next
+    }, { replace: true })
+  }
+
+  function openWorkspace(month) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('smonth', String(month))
+      next.set('sview', 'workspace')
+      return next
+    }, { replace: true })
+  }
+
+  function changeWorkspaceMonth(y, m) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.set('syear', String(y))
+      next.set('smonth', String(m))
+      return next
+    }, { replace: true })
+  }
+
+  function backToOverview() {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('sview')
+      return next
+    }, { replace: true })
+  }
+
   const [leaveByDate, setLeaveByDate] = useState(new Map())
   const [displayNames, setDisplayNames] = useState(new Map())
   const [publicHolidaysByDate, setPublicHolidaysByDate] = useState(new Map())
@@ -121,21 +168,36 @@ export default function SpecialLeavePlanner() {
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
       {!loading && !error && (
-        <LeaveYearGrid
-          year={year}
-          onYearChange={setYear}
-          // Folded into the grid's own Legend sheet rather than sitting in a
-          // permanently-open card above it — one entry point to both the
-          // category key and the rules, matching the Annual planner (see
-          // LegendSheet.jsx, which exists to retire exactly this
-          // "legend button + separate info icon" split).
-          ruleIntro={RULE_INTRO}
-          ruleBullets={RULE_BULLETS}
-          leaveByDate={leaveByDate}
-          displayNames={displayNames}
-          publicHolidaysByDate={publicHolidaysByDate}
-          rotationsByDoctorId={rotationsByDoctorId}
-        />
+        mode === 'overview' ? (
+          <SpecialPlannerOverview
+            year={year}
+            onYearChange={setYear}
+            leaveByDate={leaveByDate}
+            displayNames={displayNames}
+            publicHolidaysByDate={publicHolidaysByDate}
+            onOpenWorkspace={openWorkspace}
+            // The rules reach the viewer through the Legend sheet, not a
+            // permanently-open card — one entry point to both the colour key
+            // and the rules, matching the Annual planner (see LegendSheet.jsx,
+            // which exists to retire exactly that "legend button + separate
+            // info icon" split).
+            ruleIntro={RULE_INTRO}
+            ruleBullets={RULE_BULLETS}
+          />
+        ) : (
+          <SpecialMonthWorkspace
+            year={year}
+            month={workspaceMonth}
+            onMonthChange={changeWorkspaceMonth}
+            leaveByDate={leaveByDate}
+            displayNames={displayNames}
+            publicHolidaysByDate={publicHolidaysByDate}
+            rotationsByDoctorId={rotationsByDoctorId}
+            onBack={backToOverview}
+            ruleIntro={RULE_INTRO}
+            ruleBullets={RULE_BULLETS}
+          />
+        )
       )}
     </div>
   )

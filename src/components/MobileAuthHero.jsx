@@ -1,4 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
+import rotacatMascot from '../assets/rotacat-half-body-mascot.png'
 import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
@@ -24,15 +24,21 @@ export default function MobileAuthHero() {
         </span>
       </p>
 
-      <div className="relative mt-2">
-        <img
-          src={robotLily}
-          alt=""
-          className="relative z-10 h-[min(228px,27dvh)] w-auto translate-y-[5px] select-none"
-          draggable="false"
-        />
-      </div>
-
+      {/* Half-body mascot. Sized by height, like the sheet below it, so the
+          taller portrait crop can never push the sign-in card off a short
+          phone: the dvh term wins on small screens, the px cap on tall ones
+          (~220px wide at the cap, ~270px from `sm` up). Deliberately left
+          unraised (no z-index) so the sheet's rounded top edge, which
+          overlaps this hero by 28px, covers the artwork's flat bottom crop
+          and the cat reads as sitting on the mint panel. alt="" is also
+          deliberate — the wordmark and tagline above already carry
+          everything the image says. */}
+      <img
+        src={rotacatMascot}
+        alt=""
+        className="mt-2 h-[min(345px,40dvh)] w-auto translate-y-[5px] select-none object-contain sm:h-[min(420px,44dvh)]"
+        draggable="false"
+      />
     </div>
   )
 }

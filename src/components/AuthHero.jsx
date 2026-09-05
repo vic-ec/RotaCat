@@ -1,4 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
+import rotacatMascot from '../assets/rotacat-half-body-mascot.png'
 import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
@@ -27,14 +27,20 @@ export default function AuthHero() {
         </span>
       </p>
 
-      <div className="relative mt-3 md:mt-[15px]">
-        <img
-          src={robotLily}
-          alt=""
-          className="relative z-10 h-[202px] w-auto translate-y-[5px] select-none md:h-[357px]"
-          draggable="false"
-        />
-      </div>
+      {/* Half-body mascot, centred under the wordmark with the panel's own
+          py-[5.75rem] as the whitespace below it. Sized by height rather
+          than width because this portrait crop is ~1.6x taller than wide:
+          the vh term keeps the whole branding column (wordmark + tagline +
+          cat + padding) inside a 768px-tall laptop without clipping, and
+          the px cap stops it ballooning on tall displays — roughly 230px
+          wide at 1366x768, 275px at the cap. alt="" is deliberate: the
+          wordmark and tagline beside it already carry the same meaning. */}
+      <img
+        src={rotacatMascot}
+        alt=""
+        className="mt-3 h-[min(250px,30dvh)] w-auto translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[min(430px,45vh)]"
+        draggable="false"
+      />
     </div>
   )
 }

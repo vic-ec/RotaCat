@@ -1,5 +1,4 @@
 import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
-import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
 // Full-bleed hero for the mobile auth layout — fills whatever space is left
@@ -12,16 +11,7 @@ export default function MobileAuthHero() {
         <RotaCat />
       </h1>
       <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
-        Smart ED scheduling, made{' '}
-        <span className="relative inline-block">
-          effortless
-          <img
-            src={butterflyLoop}
-            alt=""
-            className="absolute -top-[16px] -right-[14px] h-[27px] w-[27px] -rotate-8 select-none"
-            draggable="false"
-          />
-        </span>
+        Smart ED scheduling, made effortless
       </p>
 
       {/* Full-body mascot. Sized by height, like the sheet below it, so the
@@ -40,7 +30,7 @@ export default function MobileAuthHero() {
       <img
         src={rotacatMascot}
         alt=""
-        className="mt-2 h-[min(345px,40dvh)] w-auto translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] sm:h-[min(420px,44dvh)]"
+        className="mt-2 h-[min(345px,40dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] sm:h-[min(420px,44dvh)]"
         draggable="false"
       />
     </div>

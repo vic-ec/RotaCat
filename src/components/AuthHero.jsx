@@ -1,5 +1,4 @@
 import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
-import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel for the split-screen card layout — used by
@@ -15,16 +14,7 @@ export default function AuthHero() {
         <RotaCat />
       </h1>
       <p className="mt-3 whitespace-nowrap text-[14.7px] text-ink-muted sm:text-[16.8px] md:text-[18.9px] md:mt-[15px] lg:text-[23.1px]">
-        Smart ED scheduling, made{' '}
-        <span className="relative inline-block">
-          effortless
-          <img
-            src={butterflyLoop}
-            alt=""
-            className="absolute -top-[18px] -right-[14.5px] h-[34px] w-[34px] -rotate-8 select-none"
-            draggable="false"
-          />
-        </span>
+        Smart ED scheduling, made effortless
       </p>
 
       {/* Full-body mascot, centred under the wordmark with the panel's own
@@ -32,13 +22,16 @@ export default function AuthHero() {
           than width because this canvas is ~1.6x taller than wide: the vh
           term keeps the whole branding column (wordmark + tagline + cat +
           padding) inside a 768px-tall laptop without clipping, and the px
-          cap stops it ballooning on tall displays — roughly 230px wide at
-          1366x768, 275px at the cap. alt="" is deliberate: the wordmark and
-          tagline beside it already carry the same meaning. */}
+          cap stops it ballooning on tall displays. max-w-full then yields to
+          the panel on the one breakpoint where this artwork's roster backdrop
+          makes it wider than the panel's padding allows (768px), letting
+          object-contain scale it down rather than overflow. alt="" is
+          deliberate: the wordmark and tagline beside it already carry the
+          same meaning. */}
       <img
         src={rotacatMascot}
         alt=""
-        className="mt-3 h-[min(250px,30dvh)] w-auto translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[min(430px,45vh)]"
+        className="mt-3 h-[min(250px,30dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[min(430px,45vh)]"
         draggable="false"
       />
     </div>

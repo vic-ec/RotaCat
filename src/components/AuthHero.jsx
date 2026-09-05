@@ -1,4 +1,4 @@
-import rotacatMascot from '../assets/rotacat-half-body-mascot.png'
+import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
 import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
@@ -27,14 +27,14 @@ export default function AuthHero() {
         </span>
       </p>
 
-      {/* Half-body mascot, centred under the wordmark with the panel's own
+      {/* Full-body mascot, centred under the wordmark with the panel's own
           py-[5.75rem] as the whitespace below it. Sized by height rather
-          than width because this portrait crop is ~1.6x taller than wide:
-          the vh term keeps the whole branding column (wordmark + tagline +
-          cat + padding) inside a 768px-tall laptop without clipping, and
-          the px cap stops it ballooning on tall displays — roughly 230px
-          wide at 1366x768, 275px at the cap. alt="" is deliberate: the
-          wordmark and tagline beside it already carry the same meaning. */}
+          than width because this canvas is ~1.6x taller than wide: the vh
+          term keeps the whole branding column (wordmark + tagline + cat +
+          padding) inside a 768px-tall laptop without clipping, and the px
+          cap stops it ballooning on tall displays — roughly 230px wide at
+          1366x768, 275px at the cap. alt="" is deliberate: the wordmark and
+          tagline beside it already carry the same meaning. */}
       <img
         src={rotacatMascot}
         alt=""

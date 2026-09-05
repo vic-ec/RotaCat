@@ -1,4 +1,4 @@
-import rotacatMascot from '../assets/rotacat-half-body-mascot.png'
+import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
 import butterflyLoop from '../assets/butterfly-loop.webp'
 import RotaCat from './RotaCat'
 
@@ -24,19 +24,23 @@ export default function MobileAuthHero() {
         </span>
       </p>
 
-      {/* Half-body mascot. Sized by height, like the sheet below it, so the
-          taller portrait crop can never push the sign-in card off a short
+      {/* Full-body mascot. Sized by height, like the sheet below it, so the
+          tall portrait canvas can never push the sign-in card off a short
           phone: the dvh term wins on small screens, the px cap on tall ones
           (~220px wide at the cap, ~270px from `sm` up). Deliberately left
-          unraised (no z-index) so the sheet's rounded top edge, which
-          overlaps this hero by 28px, covers the artwork's flat bottom crop
-          and the cat reads as sitting on the mint panel. alt="" is also
-          deliberate — the wordmark and tagline above already carry
-          everything the image says. */}
+          unraised (no z-index) so the sheet's rounded top edge passes in
+          front of the artwork's opaque white backdrop rather than that
+          backdrop painting a white box over the mint; the canvas carries
+          its own margin below the paws, which keeps them clear of the
+          sheet — except below 640px of viewport height, where the sheet's
+          fixed 44dvh leaves too little room and the paws would tuck behind
+          it, so the cat steps down a size there. alt="" is also deliberate
+          — the wordmark and tagline above already carry everything the
+          image says. */}
       <img
         src={rotacatMascot}
         alt=""
-        className="mt-2 h-[min(345px,40dvh)] w-auto translate-y-[5px] select-none object-contain sm:h-[min(420px,44dvh)]"
+        className="mt-2 h-[min(345px,40dvh)] w-auto translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] sm:h-[min(420px,44dvh)]"
         draggable="false"
       />
     </div>

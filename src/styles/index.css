@@ -97,6 +97,63 @@
 }
 
 @layer components {
+  /* One decorative roster pill in the desktop auth hero's background band
+     (DecorativeRosterGrid) softly brightening, as if RotaCat were quietly
+     working through the rota. Opacity and a faint cool-grey luminance lift
+     only — nothing moves, resizes or takes on colour, so it can't read as an
+     alert. Each pill carries its own duration and delay inline, so the band
+     never pulses in unison.
+
+     @layer base already flattens every animation under
+     prefers-reduced-motion; this stops it outright, so a reduced-motion
+     viewer gets a still band rather than a 0.01ms flash of one. */
+  /* Four-edge fade for the decorative roster band. Two crossed linear
+     gradients intersected, rather than one radial: a radial ellipse pulls the
+     corners in so far that the time headings along the top disappear, while
+     this keeps the middle at full strength and softens only the outer band on
+     each side. mask-composite is the standard property; -webkit-mask-composite
+     with the legacy source-in keyword covers older WebKit. */
+  .roster-band-mask {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 20%, #000 80%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 20%, #000 80%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .roster-pill-pulse {
+    animation-name: rosterPillPulse;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    /* backwards: each pill waits out a delay of up to 8s before its first
+       pulse, and without this it would sit at full strength until then —
+       the band would load fully lit and settle only gradually. */
+    animation-fill-mode: backwards;
+    will-change: opacity;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Four-edge fade for the decorative roster band. Two crossed linear
+     gradients intersected, rather than one radial: a radial ellipse pulls the
+     corners in so far that the time headings along the top disappear, while
+     this keeps the middle at full strength and softens only the outer band on
+     each side. mask-composite is the standard property; -webkit-mask-composite
+     with the legacy source-in keyword covers older WebKit. */
+  .roster-band-mask {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 20%, #000 80%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, #000 20%, #000 80%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .roster-pill-pulse {
+      animation: none !important;
+    }
+  }
+
   /* Buttons and text inputs share a 30px target height app-wide: text-sm's
      20px line-height + 8px vertical padding + a 2px border (real on
      .btn-secondary/.input-field, transparent on .btn-primary so it lines up
@@ -227,5 +284,21 @@
   }
   .icon-btn-active {
     @apply bg-accent text-white;
+  }
+}
+
+/* Sits outside @layer components: keyframes aren't layered rules, and Tailwind
+   keeps them as-is. The pill rests below full strength and briefly comes up to
+   it, so a pulse reads as one assignment settling rather than a light
+   flashing. The 15% window is why each pill's duration is held to 3-4.2s:
+   that keeps every pulse inside the 450-630ms range regardless of its wait. */
+@keyframes rosterPillPulse {
+  0%,
+  15%,
+  100% {
+    opacity: 0.8;
+  }
+  7% {
+    opacity: 1;
   }
 }

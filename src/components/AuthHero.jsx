@@ -1,5 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
-import butterflyLoop from '../assets/butterfly-loop.webp'
+import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
 import RotaCat from './RotaCat'
 
 // Shared hero/branding panel for the split-screen card layout — used by
@@ -15,26 +14,29 @@ export default function AuthHero() {
         <RotaCat />
       </h1>
       <p className="mt-3 whitespace-nowrap text-[14.7px] text-ink-muted sm:text-[16.8px] md:text-[18.9px] md:mt-[15px] lg:text-[23.1px]">
-        Smart ED scheduling, made{' '}
-        <span className="relative inline-block">
-          effortless
-          <img
-            src={butterflyLoop}
-            alt=""
-            className="absolute -top-[18px] -right-[14.5px] h-[34px] w-[34px] -rotate-8 select-none"
-            draggable="false"
-          />
-        </span>
+        Smart ED scheduling, made effortless
       </p>
 
-      <div className="relative mt-3 md:mt-[15px]">
-        <img
-          src={robotLily}
-          alt=""
-          className="relative z-10 h-[202px] w-auto translate-y-[5px] select-none md:h-[357px]"
-          draggable="false"
-        />
-      </div>
+      {/* Full-body mascot, centred under the wordmark with the panel's own
+          py-[5.75rem] as the whitespace below it. Sized by height rather
+          than width because this canvas is ~1.6x taller than wide: the vh
+          term keeps the whole branding column (wordmark + tagline + cat +
+          padding) inside a 768px-tall laptop without clipping, and the px
+          cap stops it ballooning on tall displays. The 260px floor is for
+          landscape phones and tablets: there 45vh collapses the cat to
+          ~150px even though the card, whose height the sign-in form sets,
+          has room for far more. max-w-full then yields to
+          the panel on the one breakpoint where this artwork's roster backdrop
+          makes it wider than the panel's padding allows (768px), letting
+          object-contain scale it down rather than overflow. alt="" is
+          deliberate: the wordmark and tagline beside it already carry the
+          same meaning. */}
+      <img
+        src={rotacatMascot}
+        alt=""
+        className="mt-3 h-[min(250px,30dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[clamp(260px,45vh,430px)]"
+        draggable="false"
+      />
     </div>
   )
 }

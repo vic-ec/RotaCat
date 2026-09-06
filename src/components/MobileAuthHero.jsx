@@ -1,5 +1,4 @@
-import robotLily from '../assets/lily-robot-ginger-full-side-profile-mattshadow.png'
-import butterflyLoop from '../assets/butterfly-loop.webp'
+import rotacatMascot from '../assets/rotacat-full-body-mascot.png'
 import RotaCat from './RotaCat'
 
 // Full-bleed hero for the mobile auth layout — fills whatever space is left
@@ -12,27 +11,31 @@ export default function MobileAuthHero() {
         <RotaCat />
       </h1>
       <p className="mt-2 whitespace-nowrap text-[14.7px] text-ink-muted">
-        Smart ED scheduling, made{' '}
-        <span className="relative inline-block">
-          effortless
-          <img
-            src={butterflyLoop}
-            alt=""
-            className="absolute -top-[16px] -right-[14px] h-[27px] w-[27px] -rotate-8 select-none"
-            draggable="false"
-          />
-        </span>
+        Smart ED scheduling, made effortless
       </p>
 
-      <div className="relative mt-2">
-        <img
-          src={robotLily}
-          alt=""
-          className="relative z-10 h-[min(228px,27dvh)] w-auto translate-y-[5px] select-none"
-          draggable="false"
-        />
-      </div>
-
+      {/* Full-body mascot. Sized by height, like the sheet below it, so the
+          tall portrait canvas can never push the sign-in card off a short
+          phone: the dvh term wins on small screens, the px cap on tall ones
+          (~220px wide at the cap, ~270px from `sm` up). Deliberately left
+          unraised (no z-index) so the sheet's rounded top edge passes in
+          front of the artwork's opaque white backdrop rather than that
+          backdrop painting a white box over the mint; the canvas carries
+          its own margin below the paws, which keeps them clear of the
+          sheet — except below 640px of viewport height, where the sheet's
+          fixed 44dvh leaves too little room and the paws would tuck behind
+          it, so the cat steps down a size there. Below 440px, a phone held
+          landscape, it steps out altogether: the sheet plus the 28px it
+          overlaps leaves so little that any cat big enough to see would be
+          clipped by it, and the wordmark carries the hero on its own. alt="" is also deliberate
+          — the wordmark and tagline above already carry everything the
+          image says. */}
+      <img
+        src={rotacatMascot}
+        alt=""
+        className="mt-2 h-[min(345px,40dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] [@media(max-height:440px)]:hidden sm:h-[min(420px,44dvh)]"
+        draggable="false"
+      />
     </div>
   )
 }

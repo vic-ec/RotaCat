@@ -22,7 +22,10 @@ export default function AuthHero() {
           than width because this canvas is ~1.6x taller than wide: the vh
           term keeps the whole branding column (wordmark + tagline + cat +
           padding) inside a 768px-tall laptop without clipping, and the px
-          cap stops it ballooning on tall displays. max-w-full then yields to
+          cap stops it ballooning on tall displays. The 260px floor is for
+          landscape phones and tablets: there 45vh collapses the cat to
+          ~150px even though the card, whose height the sign-in form sets,
+          has room for far more. max-w-full then yields to
           the panel on the one breakpoint where this artwork's roster backdrop
           makes it wider than the panel's padding allows (768px), letting
           object-contain scale it down rather than overflow. alt="" is
@@ -31,7 +34,7 @@ export default function AuthHero() {
       <img
         src={rotacatMascot}
         alt=""
-        className="mt-3 h-[min(250px,30dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[min(430px,45vh)]"
+        className="mt-3 h-[min(250px,30dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain md:mt-[15px] md:h-[clamp(260px,45vh,430px)]"
         draggable="false"
       />
     </div>

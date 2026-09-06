@@ -24,13 +24,16 @@ export default function MobileAuthHero() {
           its own margin below the paws, which keeps them clear of the
           sheet — except below 640px of viewport height, where the sheet's
           fixed 44dvh leaves too little room and the paws would tuck behind
-          it, so the cat steps down a size there. alt="" is also deliberate
+          it, so the cat steps down a size there. Below 440px, a phone held
+          landscape, it steps out altogether: the sheet plus the 28px it
+          overlaps leaves so little that any cat big enough to see would be
+          clipped by it, and the wordmark carries the hero on its own. alt="" is also deliberate
           — the wordmark and tagline above already carry everything the
           image says. */}
       <img
         src={rotacatMascot}
         alt=""
-        className="mt-2 h-[min(345px,40dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] sm:h-[min(420px,44dvh)]"
+        className="mt-2 h-[min(345px,40dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] [@media(max-height:440px)]:hidden sm:h-[min(420px,44dvh)]"
         draggable="false"
       />
     </div>

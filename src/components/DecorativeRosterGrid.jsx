@@ -39,11 +39,14 @@ function seeded(seed) {
 const rand = seeded(20260906)
 const pick = (arr) => arr[Math.floor(rand() * arr.length)]
 
-// ~30% of pills pulse. The keyframes spend 15% of each cycle on the pulse, so
-// holding the cycle to 3-4.2s gives a 450-630ms brightening after a 2.5-3.6s
-// wait, and leaves roughly 4-5% of the band lit at any moment — a background
-// hum, not a blinking interface.
-const PULSE_SHARE = 0.3
+// Over half the pills pulse, and the keyframes spend 30% of each cycle doing
+// it, so cycles of 3-4.2s give a 0.9-1.3s settle after a 2.1-2.9s wait and
+// leave roughly 16% of the band moving at any moment. The first pass ran a
+// third of that and was imperceptible on a real screen — though the fix that
+// actually mattered was amplitude, in the keyframes: these pills sit ~10
+// levels off white, so fading one to full opacity moved it about two levels.
+// It now darkens as it settles, which is a swing you can see.
+const PULSE_SHARE = 0.55
 
 const BAND = Array.from({ length: ROWS }, (_, row) => ({
   row,
@@ -57,7 +60,7 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
       tone: pick(PILL_TONES),
       bars: Array.from({ length: rand() < 0.45 ? 3 : 2 }, () => 16 + Math.round(rand() * 30)),
       pulse: rand() < PULSE_SHARE,
-      // per-pill cycle and start offset, so no two pills brighten together
+      // per-pill cycle and start offset, so no two pills settle together
       // and none of them keeps a beat
       duration: `${(3 + rand() * 1.2).toFixed(2)}s`,
       delay: `${(rand() * 8).toFixed(2)}s`,
@@ -92,7 +95,7 @@ export default function DecorativeRosterGrid() {
   return (
     <div
       aria-hidden="true"
-      className="roster-band-mask pointer-events-none absolute bottom-[25px] left-1/2 top-[2%] -z-10
+      className="roster-band-mask pointer-events-none absolute bottom-[75px] left-1/2 top-[2%] -z-10
         hidden w-[calc(100%+400px)] max-w-[min(calc(50vw-2rem),40rem)] -translate-x-1/2
         select-none md:block"
     >

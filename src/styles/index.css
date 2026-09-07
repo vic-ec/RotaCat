@@ -288,17 +288,23 @@
 }
 
 /* Sits outside @layer components: keyframes aren't layered rules, and Tailwind
-   keeps them as-is. The pill rests below full strength and briefly comes up to
-   it, so a pulse reads as one assignment settling rather than a light
-   flashing. The 15% window is why each pill's duration is held to 3-4.2s:
-   that keeps every pulse inside the 450-630ms range regardless of its wait. */
+   keeps them as-is. The pill rests below full strength and comes up to it as
+   it settles, so a pulse reads as one assignment landing rather than a light
+   flashing. The brightness step is what makes it visible at all: these pills
+   are only about ten levels off white, so opacity alone moved them a couple of
+   levels and vanished on a real screen. The 30% window is why each pill's
+   duration is held to 3-4.2s — that keeps every settle inside 0.9-1.3s
+   regardless of its wait. */
 @keyframes rosterPillPulse {
   0%,
-  15%,
+  30%,
   100% {
     opacity: 0.8;
+    filter: none;
   }
-  7% {
+  12%,
+  18% {
     opacity: 1;
+    filter: brightness(0.92);
   }
 }

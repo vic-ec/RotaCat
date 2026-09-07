@@ -15,10 +15,12 @@
 // what stops the band being cut off mid-fade — against the mint sign-in side
 // on desktop, or the screen edge on a phone.
 //
-// It stops 40px above the paws from md up against 42px on a phone, which
-// lands both at much the same level over the cat's front legs. The top edge
-// is the same 2% of the mascot's box either way, so the band simply runs
-// deeper on the wider layouts rather than sitting lower.
+// The bottom edge is a share of the mascot's box from md up rather than a
+// fixed inset, which is what keeps it at the phone's level over the front
+// legs as the cat grows: 16% lands it ~17% of the cat's height above the
+// paws at every width, against the phone's 17.4%. As a fixed px it drifted,
+// reading much lower on a tall desktop cat than on a phone. The top edge is
+// the same 2% either way.
 //
 // The band is centred on the cat, which is itself centred in the panel, so
 // it sits centred in the white space. The edge mask fades a symmetric 10% of
@@ -65,11 +67,12 @@ const pick = (arr) => arr[Math.floor(rand() * arr.length)]
 // darkens as it settles, which is a swing you can see.
 const PULSE_SHARE = 0.55
 
-// Three to a cell, everywhere: a cell short of the rest read as a hole in
-// the middle of the roster rather than as a quiet shift. Five rows rather
-// than six is what pays for it — three pills need 41px and six rows only
-// left 37px at 1366x768, so the grid outgrew the band and the bottom row
-// was being hidden by the mask rather than fitting.
+// Every cell carries the same count, so none reads as a hole in the middle
+// of the roster. Five rows rather than six is what pays for it — six left
+// only 37px of row at 1366x768 and the grid outgrew the band, with the
+// surplus hidden by the mask rather than fitting. The third pill is drawn
+// on a phone only: from md up the band is shallower relative to the cat and
+// the third was landing half-clipped on the row line.
 const PILLS_PER_CELL = 3
 
 const BAND = Array.from({ length: ROWS }, (_, row) => ({
@@ -87,12 +90,12 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
   ),
 }))
 
-function Pill({ pill }) {
+function Pill({ pill, className = '' }) {
   return (
     <div
       className={`flex w-full shrink-0 items-center gap-[3px] rounded-[3px] px-[5px] py-[3px] opacity-80 ${
         pill.pulse ? 'roster-pill-pulse' : ''
-      }`}
+      } ${className}`}
       style={{
         backgroundColor: pill.tone,
         animationDuration: pill.pulse ? pill.duration : undefined,
@@ -116,7 +119,7 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+160px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[35px] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
+        md:bottom-[16%] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">
@@ -139,7 +142,9 @@ export default function DecorativeRosterGrid() {
                   border-slate-line/60 px-[6px] py-[5px] last:border-r-0"
               >
                 {cell.map((pill, i) => (
-                  <Pill key={i} pill={pill} />
+                  // the third only fits a phone's rows; from md up it was being
+                  // clipped mid-pill at the row line rather than reading as a pill
+                  <Pill key={i} pill={pill} className={i === 2 ? 'md:hidden' : ''} />
                 ))}
               </div>
             ))}

@@ -23,8 +23,16 @@
 // it sits centred in the white space. The edge mask fades a symmetric 10% of
 // the width on each side and nothing fades inside that: a longer fade, or an
 // opacity on the leading column, washed the first column out well inside the
-// band rather than at its edge. It reaches 195px past the cat from md up and
-// 80px on a phone.
+// band rather than at its edge.
+//
+// From md up it is sized against the tagline rather than the cat: 537px is
+// the tagline's 437 plus 50 a side. Sized off the cat it drifted with the
+// mascot — 17px past the tagline on a landscape phone against 84px on a
+// desktop — because the cat is height-sized and the tagline is not. The cap
+// keeps 30px a side clear of the panel, which is what stops the grid running
+// flush to the panel's edge on the narrower widths where the cap, not the
+// 537, is what decides. A phone in portrait keeps its own width: it reaches
+// 80px past the cat and is the one size where this already looked right.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -107,7 +115,7 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+160px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[85px] md:w-[calc(100%+390px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
+        md:bottom-[85px] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">

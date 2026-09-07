@@ -15,9 +15,10 @@
 // what stops the band being cut off mid-fade — against the mint sign-in side
 // on desktop, or the screen edge on a phone.
 //
-// It stops higher above the paws on mobile (42px against 85px) because the
-// mascot is smaller there, so the same gap in pixels would read as a much
-// larger one.
+// It stops 40px above the paws from md up against 42px on a phone, which
+// lands both at much the same level over the cat's front legs. The top edge
+// is the same 2% of the mascot's box either way, so the band simply runs
+// deeper on the wider layouts rather than sitting lower.
 //
 // The band is centred on the cat, which is itself centred in the panel, so
 // it sits centred in the white space. The edge mask fades a symmetric 10% of
@@ -115,7 +116,7 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+160px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[85px] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
+        md:bottom-[35px] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">

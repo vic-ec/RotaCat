@@ -15,11 +15,11 @@
 // what stops the band being cut off mid-fade — against the mint sign-in side
 // on desktop, or the screen edge on a phone.
 //
-// It stops higher above the paws on mobile (32px against 75px) because the
+// It stops higher above the paws on mobile (42px against 85px) because the
 // mascot is smaller there, so the same gap in pixels would read as a much
-// larger one, and it reaches only 120px past the cat rather than 400px: on a
-// phone the wider band ran the full width of the screen, where the artwork it
-// replaced sat roughly within the mascot's own footprint.
+// larger one. It reaches 50px past the cat on either side from md up, and
+// 60px on a phone — wider than that and it stopped reading as a backdrop to
+// the mascot and started reading as a screen behind it.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -44,12 +44,11 @@ const rand = seeded(20260906)
 const pick = (arr) => arr[Math.floor(rand() * arr.length)]
 
 // Over half the pills pulse, and the keyframes spend 30% of each cycle doing
-// it, so cycles of 3-4.2s give a 0.9-1.3s settle after a 2.1-2.9s wait and
-// leave roughly 16% of the band moving at any moment. The first pass ran a
-// third of that and was imperceptible on a real screen — though the fix that
-// actually mattered was amplitude, in the keyframes: these pills sit ~10
-// levels off white, so fading one to full opacity moved it about two levels.
-// It now darkens as it settles, which is a swing you can see.
+// it, so cycles of 5.5-6.7s give a 1.65-2s settle after a 3.9-4.7s wait and
+// leave roughly 16% of the band moving at any moment. What makes it visible
+// at all is amplitude rather than either of those: these pills sit ~10 levels
+// off white, so fading one to full opacity moved it about two levels. It
+// darkens as it settles, which is a swing you can see.
 const PULSE_SHARE = 0.55
 
 const BAND = Array.from({ length: ROWS }, (_, row) => ({
@@ -66,8 +65,8 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
       pulse: rand() < PULSE_SHARE,
       // per-pill cycle and start offset, so no two pills settle together
       // and none of them keeps a beat
-      duration: `${(3 + rand() * 1.2).toFixed(2)}s`,
-      delay: `${(rand() * 8).toFixed(2)}s`,
+      duration: `${(5.5 + rand() * 1.2).toFixed(2)}s`,
+      delay: `${(rand() * 12).toFixed(2)}s`,
     })),
   ),
 }))
@@ -99,9 +98,9 @@ export default function DecorativeRosterGrid() {
   return (
     <div
       aria-hidden="true"
-      className="roster-band-mask pointer-events-none absolute bottom-[32px] left-1/2 top-[2%] -z-10
+      className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+120px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[75px] md:w-[calc(100%+400px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
+        md:bottom-[85px] md:w-[calc(100%+100px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">

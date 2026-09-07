@@ -19,14 +19,12 @@
 // mascot is smaller there, so the same gap in pixels would read as a much
 // larger one.
 //
-// From lg up the band is deliberately lopsided — 140px past the cat on the
-// left against 60px on the right, 200/60 from xl — so the cat sits right of
-// the roster's centre rather than on it. Centred, the sparse leading column
-// left the visual weight on the cat's right and the composition read as
-// off-balance. The offset comes with a matching reduction in the width cap
-// (twice the offset), because the panel clips: a band that fits centred
-// would have its left fade cut off once it moves. Below lg the panel is too
-// narrow to shift into at all, and mobile stays centred at 60px a side.
+// The band is centred on the cat, which is itself centred in the panel, so
+// it sits centred in the white space. Balance comes from the columns rather
+// than from offsetting the box: the leading column is drawn at 30% and the
+// edge mask fades 26% of the width on the left against 10% on the right, so
+// the roster arrives out of nothing on one side and runs on past the cat on
+// the other. It reaches 195px past the cat from md up and 80px on a phone.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -34,7 +32,7 @@ const PILL_TONES = ['#F7F8F9', '#F1F3F5', '#EAEDF0', '#E4E8EC', '#DEE3E9']
 const BAR_TONE = '#D3D9E0'
 
 const COLUMNS = ['08:00', '12:00', '15:00', '22:00']
-const ROWS = 6
+const ROWS = 5
 
 // Small deterministic PRNG (mulberry32) so the band is stable across renders.
 function seeded(seed) {
@@ -58,15 +56,17 @@ const pick = (arr) => arr[Math.floor(rand() * arr.length)]
 // darkens as it settles, which is a swing you can see.
 const PULSE_SHARE = 0.55
 
+// Three to a cell, everywhere: a cell short of the rest read as a hole in
+// the middle of the roster rather than as a quiet shift. Five rows rather
+// than six is what pays for it — three pills need 41px and six rows only
+// left 37px at 1366x768, so the grid outgrew the band and the bottom row
+// was being hidden by the mask rather than fitting.
+const PILLS_PER_CELL = 3
+
 const BAND = Array.from({ length: ROWS }, (_, row) => ({
   row,
-  // the leading column reads as a row label, the rest as assignments
-  label: {
-    tone: PILL_TONES[0],
-    bars: Array.from({ length: 2 }, () => 18 + Math.round(rand() * 26)),
-  },
   cells: COLUMNS.map(() =>
-    Array.from({ length: 2 + Math.floor(rand() * 2) }, () => ({
+    Array.from({ length: PILLS_PER_CELL }, () => ({
       tone: pick(PILL_TONES),
       bars: Array.from({ length: rand() < 0.45 ? 3 : 2 }, () => 16 + Math.round(rand() * 30)),
       pulse: rand() < PULSE_SHARE,
@@ -81,7 +81,7 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
 function Pill({ pill }) {
   return (
     <div
-      className={`flex w-full items-center gap-[3px] rounded-[3px] px-[5px] py-[4px] opacity-80 ${
+      className={`flex w-full shrink-0 items-center gap-[3px] rounded-[3px] px-[5px] py-[3px] opacity-80 ${
         pill.pulse ? 'roster-pill-pulse' : ''
       }`}
       style={{
@@ -106,19 +106,16 @@ export default function DecorativeRosterGrid() {
     <div
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
-        w-[calc(100%+120px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[85px] md:w-[calc(100%+200px)] md:max-w-[min(calc(50vw-2rem),40rem)]
-        lg:max-w-[min(calc(50vw-2rem-80px),40rem)] lg:-translate-x-[calc(50%+40px)]
-        xl:w-[calc(100%+260px)] xl:max-w-[min(calc(50vw-2rem-140px),40rem)]
-        xl:-translate-x-[calc(50%+70px)]"
+        w-[calc(100%+160px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
+        md:bottom-[85px] md:w-[calc(100%+390px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">
-          <div className="w-[18%]" />
-          {COLUMNS.map((time) => (
+          {COLUMNS.map((time, col) => (
             <div
               key={time}
-              className="flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/45 lg:text-[10px]"
+              className={`flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/45
+                lg:text-[10px] ${col === 0 ? 'opacity-30' : ''}`}
             >
               {time}
             </div>
@@ -126,14 +123,13 @@ export default function DecorativeRosterGrid() {
         </div>
 
         {BAND.map((row) => (
-          <div key={row.row} className="flex flex-1 border-b border-slate-hairline last:border-b-0">
-            <div className="w-[18%] border-r border-slate-line/60 px-[6px] py-[5px] opacity-50">
-              <Pill pill={row.label} />
-            </div>
+          <div key={row.row} className="flex min-h-0 flex-1 border-b border-slate-hairline last:border-b-0">
             {row.cells.map((cell, col) => (
               <div
                 key={col}
-                className="flex flex-1 flex-col gap-[4px] border-r border-slate-line/60 px-[6px] py-[5px] last:border-r-0"
+                className={`flex min-h-0 flex-1 flex-col gap-[4px] overflow-hidden border-r
+                  border-slate-line/60 px-[6px] py-[5px] last:border-r-0
+                  ${col === 0 ? 'opacity-30' : ''}`}
               >
                 {cell.map((pill, i) => (
                   <Pill key={i} pill={pill} />

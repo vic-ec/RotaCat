@@ -17,7 +17,7 @@
 //
 // It stops higher above the paws on mobile (42px against 85px) because the
 // mascot is smaller there, so the same gap in pixels would read as a much
-// larger one. It reaches 50px past the cat on either side from md up, and
+// larger one. It reaches 100px past the cat on either side from md up, and
 // 60px on a phone — wider than that and it stopped reading as a backdrop to
 // the mascot and started reading as a screen behind it.
 
@@ -100,7 +100,7 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+120px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[85px] md:w-[calc(100%+100px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
+        md:bottom-[85px] md:w-[calc(100%+200px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">

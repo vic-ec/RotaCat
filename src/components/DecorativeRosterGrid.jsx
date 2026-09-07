@@ -17,16 +17,23 @@
 //
 // It stops higher above the paws on mobile (42px against 85px) because the
 // mascot is smaller there, so the same gap in pixels would read as a much
-// larger one. It reaches 100px past the cat on either side from md up, and
-// 60px on a phone — wider than that and it stopped reading as a backdrop to
-// the mascot and started reading as a screen behind it.
+// larger one.
+//
+// From lg up the band is deliberately lopsided — 140px past the cat on the
+// left against 60px on the right, 200/60 from xl — so the cat sits right of
+// the roster's centre rather than on it. Centred, the sparse leading column
+// left the visual weight on the cat's right and the composition read as
+// off-balance. The offset comes with a matching reduction in the width cap
+// (twice the offset), because the panel clips: a band that fits centred
+// would have its left fade cut off once it moves. Below lg the panel is too
+// narrow to shift into at all, and mobile stays centred at 60px a side.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
 const PILL_TONES = ['#F7F8F9', '#F1F3F5', '#EAEDF0', '#E4E8EC', '#DEE3E9']
 const BAR_TONE = '#D3D9E0'
 
-const COLUMNS = ['08:00', '12:00', '15:00', '20:00']
+const COLUMNS = ['08:00', '12:00', '15:00', '22:00']
 const ROWS = 6
 
 // Small deterministic PRNG (mulberry32) so the band is stable across renders.
@@ -59,7 +66,7 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
     bars: Array.from({ length: 2 }, () => 18 + Math.round(rand() * 26)),
   },
   cells: COLUMNS.map(() =>
-    Array.from({ length: Math.floor(rand() * 3) + (rand() < 0.25 ? 0 : 1) }, () => ({
+    Array.from({ length: 2 + Math.floor(rand() * 2) }, () => ({
       tone: pick(PILL_TONES),
       bars: Array.from({ length: rand() < 0.45 ? 3 : 2 }, () => 16 + Math.round(rand() * 30)),
       pulse: rand() < PULSE_SHARE,
@@ -100,7 +107,10 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+120px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[85px] md:w-[calc(100%+200px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
+        md:bottom-[85px] md:w-[calc(100%+200px)] md:max-w-[min(calc(50vw-2rem),40rem)]
+        lg:max-w-[min(calc(50vw-2rem-80px),40rem)] lg:-translate-x-[calc(50%+40px)]
+        xl:w-[calc(100%+260px)] xl:max-w-[min(calc(50vw-2rem-140px),40rem)]
+        xl:-translate-x-[calc(50%+70px)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">
@@ -117,7 +127,7 @@ export default function DecorativeRosterGrid() {
 
         {BAND.map((row) => (
           <div key={row.row} className="flex flex-1 border-b border-slate-hairline last:border-b-0">
-            <div className="w-[18%] border-r border-slate-line/60 px-[6px] py-[5px]">
+            <div className="w-[18%] border-r border-slate-line/60 px-[6px] py-[5px] opacity-50">
               <Pill pill={row.label} />
             </div>
             {row.cells.map((cell, col) => (

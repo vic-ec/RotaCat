@@ -15,9 +15,11 @@
 // what stops the band being cut off mid-fade — against the mint sign-in side
 // on desktop, or the screen edge on a phone.
 //
-// It stops higher above the paws on mobile (40px against 75px) because the
+// It stops higher above the paws on mobile (32px against 75px) because the
 // mascot is smaller there, so the same gap in pixels would read as a much
-// larger one.
+// larger one, and it reaches only 120px past the cat rather than 400px: on a
+// phone the wider band ran the full width of the screen, where the artwork it
+// replaced sat roughly within the mascot's own footprint.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -97,9 +99,9 @@ export default function DecorativeRosterGrid() {
   return (
     <div
       aria-hidden="true"
-      className="roster-band-mask pointer-events-none absolute bottom-[40px] left-1/2 top-[2%] -z-10
-        w-[calc(100%+400px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[75px] md:max-w-[min(calc(50vw-2rem),40rem)]"
+      className="roster-band-mask pointer-events-none absolute bottom-[32px] left-1/2 top-[2%] -z-10
+        w-[calc(100%+120px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
+        md:bottom-[75px] md:w-[calc(100%+400px)] md:max-w-[min(calc(50vw-2rem),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">

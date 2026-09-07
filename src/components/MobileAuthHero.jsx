@@ -29,19 +29,25 @@ export default function MobileAuthHero() {
           thing steps out: the sheet plus that 28px leaves so little that any
           cat big enough to see would be clipped, and the wordmark carries the
           hero on its own. */}
-      <div className="relative isolate mt-2 mb-[44px] flex w-fit justify-center [@media(max-height:440px)]:hidden">
+      <div className="relative isolate mt-2 mb-[24px] flex w-fit justify-center [@media(max-height:440px)]:hidden">
         <DecorativeRosterGrid />
 
         {/* Sized by height, like the sheet below it, so the tall portrait
             canvas can never push the sign-in card off a short phone: the dvh
             term wins on small screens, the px cap on tall ones. Below 640px of
             viewport height the sheet's fixed 44dvh leaves too little room, so
-            the cat steps down a size. alt="" is deliberate — the wordmark and
-            tagline above already carry everything the image says. */}
+            the cat steps down a size.
+
+            Every height here is the old flat asset's times 0.792, which is how
+            much of that canvas was actually cat. Swapping in a cut-out at the
+            same CSS height silently grew the cat by a quarter and pushed the
+            wordmark into the top of the screen; these numbers put it back where
+            it was. alt="" is deliberate — the wordmark and tagline above
+            already carry everything the image says. */}
         <img
           src={rotacatMascot}
           alt=""
-          className="relative z-10 h-[min(345px,40dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(200px,34dvh)] sm:h-[min(420px,44dvh)]"
+          className="relative z-10 h-[min(273px,32dvh)] w-auto max-w-full translate-y-[5px] select-none object-contain [@media(max-height:640px)]:h-[min(158px,27dvh)] sm:h-[min(333px,35dvh)]"
           draggable="false"
         />
       </div>

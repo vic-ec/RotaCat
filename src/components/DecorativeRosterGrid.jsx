@@ -20,11 +20,11 @@
 // larger one.
 //
 // The band is centred on the cat, which is itself centred in the panel, so
-// it sits centred in the white space. Balance comes from the columns rather
-// than from offsetting the box: the leading column is drawn at 30% and the
-// edge mask fades 26% of the width on the left against 10% on the right, so
-// the roster arrives out of nothing on one side and runs on past the cat on
-// the other. It reaches 195px past the cat from md up and 80px on a phone.
+// it sits centred in the white space. The edge mask fades a symmetric 10% of
+// the width on each side and nothing fades inside that: a longer fade, or an
+// opacity on the leading column, washed the first column out well inside the
+// band rather than at its edge. It reaches 195px past the cat from md up and
+// 80px on a phone.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -111,11 +111,10 @@ export default function DecorativeRosterGrid() {
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">
-          {COLUMNS.map((time, col) => (
+          {COLUMNS.map((time) => (
             <div
               key={time}
-              className={`flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/45
-                lg:text-[10px] ${col === 0 ? 'opacity-30' : ''}`}
+              className="flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/45 lg:text-[10px]"
             >
               {time}
             </div>
@@ -127,9 +126,8 @@ export default function DecorativeRosterGrid() {
             {row.cells.map((cell, col) => (
               <div
                 key={col}
-                className={`flex min-h-0 flex-1 flex-col gap-[4px] overflow-hidden border-r
-                  border-slate-line/60 px-[6px] py-[5px] last:border-r-0
-                  ${col === 0 ? 'opacity-30' : ''}`}
+                className="flex min-h-0 flex-1 flex-col gap-[4px] overflow-hidden border-r
+                  border-slate-line/60 px-[6px] py-[5px] last:border-r-0"
               >
                 {cell.map((pill, i) => (
                   <Pill key={i} pill={pill} />

@@ -1580,7 +1580,16 @@ export default function AccountSettingsPage() {
             </SectionRow>
           )}
 
-          {/* ── Category, Role & Permissions ─────────────────────── */}
+          {/* ── Category, Role & Permissions ───────────────────────
+              Your own account, or an admin looking at anyone's. A non-admin
+              viewing SOMEONE ELSE (Staff list row → /account/:id) has no
+              business seeing that person's role, category or admin status,
+              and the change-request form below was actively wrong there:
+              submitChangeRequest files against the signed-in user's own id
+              (profile_id: user.id), so submitting it from another person's
+              page raised a request on your own account carrying THEIR
+              current role/category as its "from" value. */}
+          {(isOwnAccount || isAdmin) && (
           <SectionRow
             icon={<ShieldIcon className="h-5 w-5" />}
             title="Role & Access"
@@ -1865,6 +1874,7 @@ export default function AccountSettingsPage() {
           </div>
         )}
           </SectionRow>
+          )}
 
           {/* ── See Rotations (admin only, Intern/Registrar/COSMO only) ──
               Not a SectionRow (nothing expands inline) — a plain

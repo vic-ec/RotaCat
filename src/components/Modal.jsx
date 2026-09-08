@@ -22,7 +22,15 @@ function CloseIcon(props) {
 // `footer`: right-aligned buttons (Cancel then Primary, per spec) — pass
 // them as children of a `<div className="flex justify-end gap-2">`-shaped
 // fragment; Modal just supplies the sticky positioning around them.
-export default function Modal({ title, onClose, children, footer, maxWidthClassName = 'md:max-w-[520px]' }) {
+//
+// `centered`: opt in to a centered card on EVERY viewport rather than the
+// bottom-sheet-below-768px default — for a dialog the viewer deliberately
+// opened from a button and is meant to fill in (My leave's "Request
+// leave"), as opposed to one that drills into whatever they just tapped (a
+// planner day), where rising from the bottom keeps the tapped thing in
+// view. Swipe-to-dismiss goes with the sheet: a centered card isn't
+// anchored to the bottom edge, so a downward drag has nowhere to go.
+export default function Modal({ title, onClose, children, footer, centered = false, maxWidthClassName = 'md:max-w-[520px]' }) {
   const panelRef = useRef(null)
   useDismissablePopover(true, onClose, panelRef)
   const swipe = useSwipeToDismiss(onClose)
@@ -34,16 +42,26 @@ export default function Modal({ title, onClose, children, footer, maxWidthClassN
   useBodyScrollLock(true)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 md:items-center md:p-4" role="presentation">
+    <div
+      className={`fixed inset-0 z-50 flex justify-center bg-ink/20 md:items-center md:p-4 ${
+        centered ? 'items-center p-4' : 'items-end'
+      }`}
+      role="presentation"
+    >
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        style={swipe.style}
-        className={`flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-xl rounded-b-none bg-canvas-raised md:rounded-b-xl md:shadow-raised ${maxWidthClassName}`}
+        style={centered ? undefined : swipe.style}
+        className={`flex max-h-[85vh] w-full flex-col overflow-hidden bg-canvas-raised md:rounded-b-xl md:shadow-raised ${
+          centered ? 'rounded-xl shadow-raised' : 'rounded-t-xl rounded-b-none'
+        } ${maxWidthClassName}`}
       >
-        <div {...swipe.handleProps} className="flex flex-shrink-0 touch-none items-center justify-between border-b border-slate-line px-5 py-4">
+        <div
+          {...(centered ? {} : swipe.handleProps)}
+          className={`flex flex-shrink-0 items-center justify-between border-b border-slate-line px-5 py-4 ${centered ? '' : 'touch-none'}`}
+        >
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           <button
             type="button"

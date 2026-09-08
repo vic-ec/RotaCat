@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { ActionSheet } from './ActionSheet'
 import { TodayIcon } from './PlannerIcons'
@@ -29,7 +30,7 @@ function stepMonth(year, month, delta) {
 // of gating it), but a future one might, so the capability stays available
 // rather than assuming every caller can browse freely forever.
 //
-// Page-specific extras (a "← Back" link, a Legend toggle, a rule-hint icon)
+// Page-specific extras (a "‹ Back" link, a Legend toggle, a rule-hint icon)
 // are deliberately NOT part of this component's API — pass them as
 // `children`, rendered in the same row after the Today button, rather than
 // baking page context into a shared control.
@@ -80,7 +81,7 @@ export default function DateStepper({
         className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={unit === 'year' ? 'Previous year' : 'Previous month'}
       >
-        ←
+        <ChevronLeft className="h-4 w-4" />
       </button>
       <button
         type="button"
@@ -96,7 +97,7 @@ export default function DateStepper({
         className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={unit === 'year' ? 'Next year' : 'Next month'}
       >
-        →
+        <ChevronRight className="h-4 w-4" />
       </button>
       {showToday && (
         <button
@@ -197,7 +198,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
           onClick={() => showYears ? setYearRangeStart(r => r - YEARS_PER_PAGE) : setJumpYear(y => y - 1)}
           className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
           aria-label={showYears ? 'Previous years' : 'Previous year'}
-        >←</button>
+        ><ChevronLeft className="h-4 w-4" /></button>
         <button
           type="button"
           onClick={() => setShowYears(v => !v)}
@@ -210,7 +211,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
           onClick={() => showYears ? setYearRangeStart(r => r + YEARS_PER_PAGE) : setJumpYear(y => y + 1)}
           className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
           aria-label={showYears ? 'Next years' : 'Next year'}
-        >→</button>
+        ><ChevronRight className="h-4 w-4" /></button>
       </div>
       {showYears ? (
         <YearGridButtons rangeStart={yearRangeStart} currentYear={jumpYear} onPick={pickYear} />
@@ -244,9 +245,9 @@ function YearJumpSheet({ year, onPick, onClose }) {
   return (
     <ActionSheet title="Jump to year" onClose={onClose}>
       <div className="flex items-center justify-center gap-2 py-3">
-        <button type="button" onClick={() => setRangeStart(r => r - YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous years">←</button>
+        <button type="button" onClick={() => setRangeStart(r => r - YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous years"><ChevronLeft className="h-4 w-4" /></button>
         <span className="font-display text-base font-semibold text-ink">{rangeStart}–{rangeStart + YEARS_PER_PAGE - 1}</span>
-        <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next years">→</button>
+        <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next years"><ChevronRight className="h-4 w-4" /></button>
       </div>
       <YearGridButtons rangeStart={rangeStart} currentYear={year} onPick={onPick} />
     </ActionSheet>

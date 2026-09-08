@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning,
+  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning, ChevronLeft,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -1502,7 +1502,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       <div className="flex flex-wrap items-center gap-2">
         {onBackToYear && (
           <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-            ← Overview
+            <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
           </button>
         )}
         <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth}>

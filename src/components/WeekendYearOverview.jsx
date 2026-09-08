@@ -138,7 +138,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
             {selectedExceptions.length > 0 && (
               <div data-testid="weekend-exception-list" className="mt-2 border-t border-slate-line pt-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                  Weekend exceptions ({selectedExceptions.length})
+                  Weekend off requests ({selectedExceptions.length})
                 </p>
                 <ul className="mt-1 space-y-1">
                   {selectedExceptions.map(req => {

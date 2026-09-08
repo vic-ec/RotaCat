@@ -4,10 +4,8 @@ import userEvent from '@testing-library/user-event'
 import WeekendYearOverview from './WeekendYearOverview'
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
 
-// Sandbox clock is 2026-08-0x throughout this session, so August 2026 is
-// always the default-selected month here regardless of which day it lands
-// on within August (see WeekendPlannerView.test.jsx's own comment for why
-// pinning to an exact day, rather than just the month, is the fragile part).
+// The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
+// always the default-selected month here.
 const YEAR = 2026
 const [aug1, aug8] = saturdaysInMonth(YEAR, 8)
 
@@ -191,7 +189,7 @@ describe('WeekendYearOverview', () => {
 
     it('lists the selected month\'s approved and pending exceptions, with the pending one badged', () => {
       renderWithExceptions()
-      expect(panel().getByText('Weekend exceptions (2)')).toBeInTheDocument()
+      expect(panel().getByText('Weekend off requests (2)')).toBeInTheDocument()
       expect(panel().getByText('Nolan')).toBeInTheDocument()
       expect(panel().getByText('Reddy')).toBeInTheDocument()
       expect(panel().getByText('Approved')).toBeInTheDocument()

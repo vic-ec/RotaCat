@@ -28,7 +28,7 @@ function monthPersonalMarkers(year, month, byWeekend, profileId, requestsBySatur
 // canvas tone rather than any status colour at all.
 const STATE_STYLE = {
   working: { square: 'bg-accent-tint', swatch: 'bg-accent', label: 'Working' },
-  pending: { square: 'bg-flagAmber-bg', swatch: 'bg-flagAmber', label: 'Exception pending' },
+  pending: { square: 'bg-flagAmber-bg', swatch: 'bg-flagAmber', label: 'Weekend off pending' },
   off: { square: 'bg-canvas-sunken', swatch: 'bg-canvas-sunken', label: 'Off' },
 }
 
@@ -122,7 +122,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
               <span className="font-medium text-accent">{workingCount}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-ink-muted">Exception pending</span>
+              <span className="text-ink-muted">Weekend off pending</span>
               <span className="font-medium text-flagAmber">{pendingCount}</span>
             </div>
           </div>

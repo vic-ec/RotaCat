@@ -24,7 +24,7 @@ const RULE_BULLETS = [
   'Covers single days off, courses/CPD, and special leave requests — these do not count against the 22-day annual leave allowance.',
   'The requested day/shift is made up elsewhere, unless it\'s flagged as a "special leave day."',
   'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
-  'Weekend exceptions are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
+  'Weekend off requests are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
   'Italicised entries are pending admin approval.',
   'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
 ]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
@@ -43,7 +43,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
 
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-      <ArrowLeft className="h-4 w-4" /> {backLabel}
+      <ChevronLeft className="h-4 w-4" /> {backLabel}
     </button>
   )
 

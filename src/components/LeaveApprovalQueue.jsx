@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter } from 'lucide-react'
+import { ChevronLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ProfileAvatar from './ProfileAvatar'
@@ -363,7 +363,7 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
 
   const backLink = onBack && (
     <button type="button" onClick={onBack} className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-      <ArrowLeft className="h-4 w-4" /> {backLabel}
+      <ChevronLeft className="h-4 w-4" /> {backLabel}
     </button>
   )
 

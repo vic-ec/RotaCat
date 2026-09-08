@@ -545,7 +545,7 @@ describe('MonthWorkspace', () => {
 
   it('back button: matches the plain text-link style used elsewhere (e.g. Account), not a bordered/backgrounded chip', () => {
     renderWorkspace()
-    const backButton = screen.getByRole('button', { name: '← Overview' })
+    const backButton = screen.getByRole('button', { name: 'Overview' })
     expect(backButton.className).not.toContain('border')
     expect(backButton.className).not.toContain('btn-secondary')
     expect(backButton).toHaveClass('text-ink-light')
@@ -560,7 +560,7 @@ describe('MonthWorkspace', () => {
     await user.click(screen.getByRole('button', { name: 'Next month' }))
     expect(onMonthChange).toHaveBeenCalledWith(2026, 9)
 
-    await user.click(screen.getByRole('button', { name: '← Overview' }))
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
     expect(onBack).toHaveBeenCalled()
   })
 })

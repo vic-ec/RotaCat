@@ -132,7 +132,7 @@ export default function MonthWorkspace({
           onClick={onBack}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
         >
-          ← Overview
+          <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
         </button>
         <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
           <LegendSheet

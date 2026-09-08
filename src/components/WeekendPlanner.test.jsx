@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -67,12 +67,18 @@ function grid() {
 
 describe('WeekendPlanner', () => {
   beforeEach(() => {
+    // Pinned rather than leaning on the ambient clock happening to be
+    // August 2026: which weekend is "next needing staff", and which month
+    // the year view selects, are both relative to today. Two tests below
+    // used to pin this for themselves; now every test gets it.
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['weekend_planner_entries:select'] = { data: ENTRIES, error: null }
     mockResponses['profiles:select'] = { data: [], error: null }
     mockResponses['leave_requests:select'] = { data: [], error: null }
     mockAuth = { isAdmin: false, isClerk: false, profile: { id: 'p1' } }
   })
+  afterEach(() => vi.useRealTimers())
 
   it('admin: lands on the staffing year overview (WeekendYearOverview)', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
@@ -192,11 +198,10 @@ describe('WeekendPlanner', () => {
   })
 
   it('"Plan now" on the year overview\'s "Next weekend needing staff" panel opens that weekend\'s month, focused on it', async () => {
-    // Pinned so aug1 (2026-08-01) is "today or later" and thus the target —
-    // ENTRIES' only open weekend, since nothing else in the year has any
-    // entry at all (everything else fully empty, hence also "open", but
-    // later in date order).
-    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
+    // The suite-wide clock (1 Aug 2026) makes aug1 "today or later" and
+    // thus the target — ENTRIES' only open weekend, since nothing else in
+    // the year has any entry at all (everything else fully empty, hence
+    // also "open", but later in date order).
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
@@ -205,11 +210,9 @@ describe('WeekendPlanner', () => {
     await user.click(await screen.findByRole('button', { name: 'Plan now' }))
     expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
     expect(screen.getByText(`FocusStub: ${aug1}`)).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it('a plain "Open month" never carries a stale focus target from an earlier "Plan now"', async () => {
-    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
@@ -225,6 +228,5 @@ describe('WeekendPlanner', () => {
 
     expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
     expect(screen.queryByText(/FocusStub:/)).not.toBeInTheDocument()
-    vi.useRealTimers()
   })
 })

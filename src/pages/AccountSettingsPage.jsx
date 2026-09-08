@@ -14,9 +14,10 @@ import PageHeader from '../components/PageHeader'
 import Breadcrumb from '../components/Breadcrumb'
 import SectionLabel from '../components/SectionLabel'
 import CapsLockNotice from '../components/CapsLockNotice'
+import DetailInfoButton from '../components/DetailInfoButton'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
-import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
+import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor, contrastTextColor } from '../lib/color'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
@@ -310,7 +311,14 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
                   (A negative-margin trick was tried here before to cancel out
                   the input's own padding, but that shifted the input's left
                   edge back over the icon; matching box models outright avoids
-                  needing any offset math at all.) */}
+                  needing any offset math at all.)
+                  This only holds while the edit input keeps .input-field's
+                  symmetric py-1: both fields carried a `pt-[3px] pb-[5px]`
+                  override for a while, which kept the same total height but
+                  sat the text 1px high, so the value visibly hopped up on
+                  entering edit mode. Don't reintroduce per-field padding
+                  here — the icon's mt-[5px] above is derived from that same
+                  4px padding-top too. */}
               {value && href ? (
                 <a href={href} className="flex items-center gap-1.5 truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">
                   <span className="truncate">{value}</span>
@@ -948,6 +956,10 @@ export default function AccountSettingsPage() {
   }
   const isColorDirty = colorForm.colorCode !== (profile?.color_code || NEUTRAL_AVATAR_COLOR)
     || colorForm.patternType !== (profile?.pattern_type || null)
+  // Same fallback the roster grid's own chip uses when a doctor has no
+  // colour set, so the preview doesn't show one colour and the roster
+  // another.
+  const appearancePreviewColor = colorForm.colorCode || '#4A90D9'
 
   // ── Password (own account only) ──────────────────────────────
   const pwDirty = Boolean(pwForm.current || pwForm.password || pwForm.confirm)
@@ -1454,7 +1466,7 @@ export default function AccountSettingsPage() {
                   onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   onClear={() => setPhone('')}
                   placeholder="e.g. (082) 123 4567"
-                  className="input-field pt-[3px] pb-[5px]"
+                  className="input-field"
                   clearLabel="Clear mobile number"
                 />
                 <div className="flex items-center gap-3">
@@ -1486,7 +1498,7 @@ export default function AccountSettingsPage() {
                   type="email"
                   value={newEmail}
                   onChange={e => setNewEmail(e.target.value)}
-                  className="input-field pt-[3px] pb-[5px]"
+                  className="input-field"
                   clearLabel="Clear email address"
                 />
                 <p className="text-xs text-ink-muted">
@@ -1935,19 +1947,30 @@ export default function AccountSettingsPage() {
         <SectionLabel>Preferences</SectionLabel>
         <div className="card overflow-hidden divide-y divide-slate-line">
             <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
+          {/* The roster's own assignment chip rather than the avatar: this
+              colour and pattern are worn almost entirely on a roster, so the
+              preview is the thing itself — same box, type scale, colour
+              fallback and pattern maths as RosterGridPage's AssignmentChip,
+              at the size it actually renders there. Small on purpose: a
+              blown-up swatch flatters a pattern that turns to mush at 10px,
+              which is the only size that matters. */}
           <div className="mb-5 flex items-center gap-4">
-            <ProfileAvatar
-              profile={{
-                name: profile.name,
-                surname: profile.surname,
-                color_code: colorForm.colorCode,
-                pattern_type: colorForm.patternType,
+            <span
+              className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+              style={{
+                backgroundColor: appearancePreviewColor,
+                color: contrastTextColor(appearancePreviewColor),
+                ...(colorForm.patternType ? patternBackgroundStyle(colorForm.patternType, appearancePreviewColor, 8) : null),
               }}
-              size={64}
-              ring
-            />
-            <div>
+            >
+              {profile.surname}
+            </span>
+            <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-ink">Profile pattern</p>
+              <DetailInfoButton
+                label="About this preview"
+                text="This is how your name will appear on the roster."
+              />
             </div>
           </div>
 

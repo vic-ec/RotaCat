@@ -1,11 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import AnnualLeavePlanner from './AnnualLeavePlanner'
 
-// Sandbox clock is 2026-08-01 throughout this session, so August is the
-// default-selected month and the default-viewed year is 2026.
+// The clock is pinned to 1 Aug 2026 (see beforeEach) so August is the
+// default-selected month and 2026 the default-viewed year. This used to
+// lean on the ambient sandbox clock happening to be August 2026, which
+// silently turned the whole file red the moment real time rolled into
+// September.
 let mockAuth = { profile: { id: 'p1' }, isAdmin: true }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
@@ -90,6 +93,7 @@ async function grid() {
 
 describe('AnnualLeavePlanner', () => {
   beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
@@ -97,6 +101,7 @@ describe('AnnualLeavePlanner', () => {
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' }, isAdmin: true }
   })
+  afterEach(() => vi.useRealTimers())
 
   it('renders all 12 months and defaults the selection to the current month (August)', async () => {
     renderPage()

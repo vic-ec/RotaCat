@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -47,6 +47,12 @@ function mobileBlock(container) {
 }
 
 describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
+  // Pinned rather than leaning on the ambient clock happening to be August
+  // 2026 — the Current/Coming/Previous grouping below is relative to
+  // "today", so an unpinned clock turns these red on the 1st of September.
+  beforeEach(() => vi.setSystemTime(new Date(2026, 7, 6, 9, 0, 0))) // 6 Aug 2026
+  afterEach(() => vi.useRealTimers())
+
   it('defaults the category picker to the viewer\'s own column', () => {
     const { container } = renderOverview({ myCategory: 'MO' })
     expect(within(mobileBlock(container)).getByText('MO')).toBeInTheDocument()

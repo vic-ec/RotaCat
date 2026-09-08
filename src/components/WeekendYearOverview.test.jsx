@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeekendYearOverview from './WeekendYearOverview'
@@ -38,6 +38,12 @@ function grid() {
 }
 
 describe('WeekendYearOverview', () => {
+  // Pinned rather than leaning on the ambient clock happening to be August
+  // 2026. Nested blocks below that need a different "now" still set their
+  // own inside their own beforeEach, which runs after this one.
+  beforeEach(() => vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))) // 1 Aug 2026
+  afterEach(() => vi.useRealTimers())
+
   it('defaults the inspector/selection to the current month (August) and shows its per-health counts', () => {
     renderOverview()
     const augustCard = grid().getByRole('button', { name: /^August/ })

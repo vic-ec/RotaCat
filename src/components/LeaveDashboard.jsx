@@ -7,6 +7,7 @@ import { leaveTrackersForYear, upcomingRequests } from '../lib/leaveDashboard'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
 import LeaveCard from './LeaveCard'
+import Modal from './Modal'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
@@ -85,17 +86,20 @@ export default function LeaveDashboard() {
         )}
       </section>
 
-      {showForm ? (
-        <div>
-          <p className="label-text">Request leave</p>
-          <div className="mt-1">
-            <LeaveRequestForm onSubmitted={load} />
-          </div>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setShowForm(true)} className="btn-primary">
-          Request leave
-        </button>
+      <button type="button" onClick={() => setShowForm(true)} className="btn-primary">
+        Request leave
+      </button>
+
+      {/* Centered on every viewport, not the usual bottom sheet — this one
+          is opened deliberately from a button and then filled in, rather
+          than drilling into something the viewer just tapped (a planner
+          day), where rising from the bottom keeps that thing in view.
+          Closes on submit, after `load` has refreshed the tracker and
+          Upcoming list behind it, so the new request is already there. */}
+      {showForm && (
+        <Modal title="Request leave" onClose={() => setShowForm(false)} centered>
+          <LeaveRequestForm onSubmitted={() => { load(); setShowForm(false) }} />
+        </Modal>
       )}
     </div>
   )

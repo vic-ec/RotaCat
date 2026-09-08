@@ -89,7 +89,7 @@ export default function LeaveRulesPage() {
         </ul>
 
         <div>
-          <strong>Requests for Weekend Exceptions (“weekends off”):</strong>
+          <strong>Requests for Weekend Off:</strong>
           <ul className="list-disc space-y-1 pl-5">
             <li>If you request an “ON” weekend off, you will be rostered on one of your “OFF” weekends to make up your weekend hours.</li>
             <li>If you do not want this, then you have to put in annual leave days.</li>
@@ -108,7 +108,7 @@ export default function LeaveRulesPage() {
           <li>Please note that <strong>incorrect or misrepresented</strong> leave requests will be rejected.</li>
           <li>An admin reviews and approves (or rejects) the request before it is confirmed.</li>
           <li>Approved annual leave then appears on the Annual Leave planner; everything else will appear on the Special Leave Planner.</li>
-          <li>Requests for “Weekend Exceptions” that are approved will appear on the Weekend Planner.</li>
+          <li>Requests for “Weekend Off” that are approved will appear on the Weekend Planner.</li>
         </ol>
       </Section>
 

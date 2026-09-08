@@ -67,7 +67,7 @@ const ADMIN_FILTERS = [
 // Clerks are read-only "All" access only — "My weekends"/"My requests" are
 // personal/actionable views that don't apply to them.
 const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
-const EXCEPTION_STATUS_LABEL = { pending: 'Exception pending', approved: 'Exception approved', rejected: 'Exception rejected' }
+const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected' }
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -558,7 +558,7 @@ function MonthExceptionsPanel({ exceptions, displayNames }) {
     <div data-testid="weekend-month-exceptions" className="card mt-3 p-4">
       <div className="flex items-center gap-1.5">
         <MessageSquareWarning className="h-4 w-4 text-flagAmber" />
-        <h3 className="text-sm font-semibold text-ink">Weekend exceptions ({exceptions.length})</h3>
+        <h3 className="text-sm font-semibold text-ink">Weekend off requests ({exceptions.length})</h3>
       </div>
       <ul className="mt-2 divide-y divide-slate-line border-t border-slate-line">
         {exceptions.map(req => {
@@ -602,7 +602,7 @@ function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose })
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">Weekend exceptions</h2>
+          <h2 className="font-display text-base font-bold text-ink">Weekend off requests</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
         <p className="mt-1 text-sm text-ink-muted">{formatWeekendRange(saturday)}</p>
@@ -826,7 +826,7 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
 
         {excusedInGroup > 0 && (
           <p data-testid="excused-note" className="mt-2 text-xs text-ink-muted">
-            {excusedInGroup} {excusedInGroup === 1 ? 'doctor is' : 'doctors are'} not listed — approved weekend exception for this weekend.
+            {excusedInGroup} {excusedInGroup === 1 ? 'doctor is' : 'doctors are'} not listed — approved weekend off for this weekend.
           </p>
         )}
 
@@ -1725,7 +1725,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           <button
                             type="button"
                             onClick={() => setExceptionsSaturday(saturday)}
-                            aria-label={`Weekend exception requests for ${saturday}`}
+                            aria-label={`Weekend off requests for ${saturday}`}
                             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
                           >
                             <MessageSquareWarning className="h-4 w-4" />
@@ -1869,7 +1869,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                 <button
                                   type="button"
                                   onClick={() => setExceptionsSaturday(saturday)}
-                                  aria-label={`Weekend exception requests for ${saturday}`}
+                                  aria-label={`Weekend off requests for ${saturday}`}
                                   className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
                                 >
                                   <MessageSquareWarning className="h-4 w-4" />

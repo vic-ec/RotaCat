@@ -109,7 +109,7 @@ describe('SpecialLeavePlanner', () => {
   it('hands the grid rule copy saying where weekend exceptions went, with no standalone info card', async () => {
     renderPlanner()
     await screen.findByTestId('grid')
-    expect(screen.getByTestId('rule-bullets')).toHaveTextContent(/Weekend exceptions are not shown here/)
+    expect(screen.getByTestId('rule-bullets')).toHaveTextContent(/Weekend off requests are not shown here/)
     // The permanently-open card (and its own "How it works" trigger) is
     // gone — the Legend sheet inside the grid is the single entry point now.
     expect(screen.queryByRole('button', { name: 'How it works' })).not.toBeInTheDocument()

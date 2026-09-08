@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import MyWeekendYearOverview from './MyWeekendYearOverview'
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
 
-// Sandbox clock is 2026-08-0x throughout this session, so August 2026 is
+// The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
 // always the default-selected month.
 const YEAR = 2026
 const [aug1, aug8] = saturdaysInMonth(YEAR, 8)
@@ -40,11 +40,11 @@ describe('MyWeekendYearOverview', () => {
   beforeEach(() => vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))) // 1 Aug 2026
   afterEach(() => vi.useRealTimers())
 
-  it('renders the personal-read legend (Working/Exception pending/Off)', () => {
+  it('renders the personal-read legend (Working/Weekend off pending/Off)', () => {
     renderOverview()
     const legend = within(screen.getByTestId('weekend-year-legend'))
     expect(legend.getByText('Working')).toBeInTheDocument()
-    expect(legend.getByText('Exception pending')).toBeInTheDocument()
+    expect(legend.getByText('Weekend off pending')).toBeInTheDocument()
     expect(legend.getByText('Off')).toBeInTheDocument()
   })
 
@@ -56,7 +56,7 @@ describe('MyWeekendYearOverview', () => {
     const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
     expect(inspector.getByText('August 2026')).toBeInTheDocument()
     expect(inspector.getByText('Working').closest('div')).toHaveTextContent('1')
-    expect(inspector.getByText('Exception pending').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('Weekend off pending').closest('div')).toHaveTextContent('1')
   })
 
   it('clicking an unselected month selects it without opening it', async () => {

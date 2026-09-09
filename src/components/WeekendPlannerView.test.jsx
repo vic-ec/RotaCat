@@ -425,7 +425,9 @@ describe('WeekendPlannerView', () => {
       await pickFilter(view, user, 'My requests')
       const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
-      expect(within(aug22Heading.closest('.card')).getByText('Weekend off pending')).toBeInTheDocument()
+      // Named, not a bare status: a column of these under this filter has
+      // to say whose request each one is.
+      expect(within(aug22Heading.closest('.card')).getByText('Anderson • Weekend-off request pending')).toBeInTheDocument()
     })
 
     it('month navigation moves forward, and back again past the starting month — browsing is unbounded, like the year overview', async () => {

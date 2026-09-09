@@ -67,7 +67,17 @@ const ADMIN_FILTERS = [
 // Clerks are read-only "All" access only — "My weekends"/"My requests" are
 // personal/actionable views that don't apply to them.
 const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
-const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected' }
+// The viewer's own weekend-off request, as it reads on a weekend card, the
+// inspector and the detail sheet: "Ellis • Weekend-off request approved".
+// Named rather than a bare status, because under the My requests filter a
+// column of "Weekend off approved" lines says what happened without ever
+// saying whose request it was — and these lines only ever describe the
+// signed-in doctor's own request, so the name is theirs.
+const EXCEPTION_STATUS_WORD = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
+function myRequestLine(status, name) {
+  const outcome = `Weekend-off request ${EXCEPTION_STATUS_WORD[status] ?? status}`
+  return name ? `${name} • ${outcome}` : outcome
+}
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -251,7 +261,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, canViewRequests,
+  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, myRequestName, canViewRequests,
   removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
 }) {
   const [editing, setEditing] = useState(false)
@@ -282,7 +292,7 @@ function WeekendInspector({
 
       {myRequest && (
         <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+          {myRequestLine(myRequest.status, myRequestName)}
         </p>
       )}
 
@@ -391,7 +401,7 @@ function WeekendInspector({
 // fast glance — status + assignments only, reusing WeekendInspector's own
 // read-only AssignmentSummaryRow rather than rebuilding that breakdown a
 // second time.
-function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, onClose }) {
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, onClose }) {
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
   const badge = weekendBadge(saturday, weekendIndex)
@@ -421,7 +431,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
 
         {myRequest && (
           <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+            {myRequestLine(myRequest.status, myRequestName)}
           </p>
         )}
 
@@ -1097,6 +1107,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const assignableDoctors = useMemo(() => doctors.filter(d => d.is_active), [doctors])
   const activeDoctorIds = useMemo(() => new Set(assignableDoctors.map(d => d.id)), [assignableDoctors])
   const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
+  // Whatever the roster itself calls this doctor (surname, or surname plus
+  // first name where it collides) — the same name their own assignments
+  // render under, so a request line and an assignment read as one person.
+  const myName = profile ? (displayNames.get(profile.id) ?? profile.surname) : null
 
   // Free browsing in either direction, matching the year overview's own
   // unbounded prev/next — widens (re-centres, really) fetchBounds the
@@ -1712,7 +1726,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                         </p>
                         {myRequest && (
                           <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+                            {myRequestLine(myRequest.status, myName)}
                           </p>
                         )}
                       </div>
@@ -1895,6 +1909,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     isAdmin={isAdmin}
                     saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
+                    myRequestName={myName}
                     canViewRequests={canViewRequests}
                     removeEntry={removeEntry}
                     onClearWeekend={saturday => setClearWeekendTarget(saturday)}
@@ -1931,6 +1946,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           displayNames={displayNames}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
+          myRequestName={myName}
           onClose={() => setDetailSaturday(null)}
         />
       )}

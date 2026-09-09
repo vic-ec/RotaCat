@@ -126,12 +126,28 @@ search/sort/filter row goes through the one shared `Toolbar` component
 
 | Element | Spec |
 |---|---|
-| Search input | Fixed width **320px** on desktop (`compact` prop shrinks this instead, for a row that must never wrap — see below; `stretch` grows it instead, so the controls after it reach the container's right edge — for a page whose list sits in a narrow centred column, where 320px left the row stopping short of the list it filters). Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
+| Search input | **320px** on desktop by default; two opt-outs, `compact` and `stretch` — see *Search width* below. Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
 | Sort | Include on every list with more than ~5 items and a meaningful order (name, date, status). Passed as `sortFacets` — single-select. |
 | Filter | Two shapes, pick whichever matches the data: `filterFacets` (single-select, one dropdown per facet — e.g. Roster's Sort direction) or `filterGroups` (multi-select, `FilterPanel`-shaped groups behind one `[Filter ▾ (n)]` trigger — e.g. Staff's Role/Category/Status/Admin). Both can be passed together. |
 | Clear (×) | **Only rendered when a search term or filter is active** (`active` prop) — never shown by default. |
 | `trailing` / `desktopTrailing` | An extra control appended after Clear (`trailing`, both breakpoints — e.g. a `ViewToggle`) or before Clear on desktop only (`desktopTrailing` — a nav cluster mobile already renders elsewhere). |
 | Active filter chips | Not currently implemented — filter state is only visible via each facet/FilterPanel's own active-count badge. |
+
+**Search width** — three settings, and which one a page takes follows from the
+width of the content the toolbar filters, not from taste:
+
+| Setting | Width | Use it when |
+|---|---|---|
+| *(default)* | Fixed `320px` | The content below is wide enough that a 320px box doesn't leave the row visibly short of it — the Staff data table (`max-w-7xl`) and anything else full-bleed. |
+| `compact` | Shrinks, capped at `320px` | The row must never wrap and something else on it needs the space (e.g. WeekendPlannerView's month toolbar). Shrinks to fit; never grows past 320px just because there's room. |
+| `stretch` | Grows to fill the row | The content below sits in a narrow centred column (`max-w-2xl`), where a fixed 320px leaves dead space between the last control and the list's own right edge. The search takes the slack, which carries Sort/Filter/trailing out to the container's right edge. |
+
+`stretch` moves where the controls sit, never their order, and never the
+search's left edge — that stays aligned with the left edge of the content
+below it, which is the alignment the fixed width was protecting in the first
+place. Currently set on Roster's Active/Archive/Bin toolbars
+(`RosterDashboardPage.jsx`), whose list is `max-w-2xl`. `compact` and
+`stretch` are mutually exclusive; `stretch` wins if both are passed.
 
 **Mobile behavior** — two modes via `mobileMode`:
 - `"sheet"` (default): Sort/Filter facets collapse into one "Filters" bottom sheet trigger (§15). `filterGroups`, if passed, still renders as its own always-visible `FilterPanel` trigger — it's never swept into the sheet.

@@ -68,14 +68,15 @@ const ADMIN_FILTERS = [
 // personal/actionable views that don't apply to them.
 const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
 // The viewer's own weekend-off request, as it reads on a weekend card, the
-// inspector and the detail sheet: "Ellis • Weekend-off request approved".
-// Named rather than a bare status, because under the My requests filter a
-// column of "Weekend off approved" lines says what happened without ever
-// saying whose request it was — and these lines only ever describe the
-// signed-in doctor's own request, so the name is theirs.
-const EXCEPTION_STATUS_WORD = { pending: 'pending', approved: 'approved', rejected: 'rejected' }
+// inspector and the detail sheet: "Ellis • Weekend off approved". Named
+// rather than a bare status, because under the My requests filter a column
+// of statuses says what happened without ever saying whose request it was —
+// and these lines only ever describe the signed-in doctor's own request, so
+// the name is theirs. Sentence case, not the uppercase these small labels
+// usually take: a surname shouted in caps reads as a different word.
+const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected' }
 function myRequestLine(status, name) {
-  const outcome = `Weekend-off request ${EXCEPTION_STATUS_WORD[status] ?? status}`
+  const outcome = EXCEPTION_STATUS_LABEL[status] ?? status
   return name ? `${name} • ${outcome}` : outcome
 }
 const MONTH_LABELS = [
@@ -291,7 +292,7 @@ function WeekendInspector({
       </div>
 
       {myRequest && (
-        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+        <p className="mt-2 text-xs font-semibold text-ink-light">
           {myRequestLine(myRequest.status, myRequestName)}
         </p>
       )}
@@ -430,7 +431,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
         </div>
 
         {myRequest && (
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+          <p className="mt-2 text-xs font-semibold text-ink-light">
             {myRequestLine(myRequest.status, myRequestName)}
           </p>
         )}
@@ -1725,7 +1726,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           Wknd {monthSaturdays.indexOf(saturday) + 1} · {even ? 'Even' : 'Odd'}
                         </p>
                         {myRequest && (
-                          <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                          <p className="mt-0.5 text-xs font-semibold text-ink-light">
                             {myRequestLine(myRequest.status, myName)}
                           </p>
                         )}

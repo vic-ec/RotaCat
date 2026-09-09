@@ -189,6 +189,25 @@ describe('MyWeekendYearOverview', () => {
     expect(within(dashboard().getByTestId('weekend-year-legend')).getByText('Weekend off approved')).toBeInTheDocument()
   })
 
+  it('the Showing picker switches the finder to the whole department\'s weekends', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    const augustTile = () => finder().getAllByRole('button').find(b => b.textContent.startsWith('August'))
+    expect(augustTile()).toHaveTextContent('1 working')
+
+    // The trigger is named by its current value, the same as every other
+    // SelectMenu in the app.
+    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(screen.getByRole('option', { name: 'All weekends' }))
+
+    // Staffing read now: aug1 has an MO and a Registrar but not all four
+    // rotation groups, so the month is short rather than fully planned.
+    expect(augustTile()).toHaveTextContent('0 of 5 planned')
+    expect(augustTile()).toHaveTextContent('open slots across the month')
+    expect(augustTile()).not.toHaveTextContent('1 working')
+    expect(within(screen.getByTestId('my-weekend-month-finder')).getByText('Fully planned')).toBeInTheDocument()
+  })
+
   it('has no gap-count badges (this view is not a staffing-health read)', () => {
     renderOverview()
     const augustCard = screen.getByRole('button', { name: 'August' })

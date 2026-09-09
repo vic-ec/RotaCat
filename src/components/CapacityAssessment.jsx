@@ -25,7 +25,7 @@ function SlotGauge({ preview }) {
   const state = capacityAssessmentState(preview)
   const remaining = preview.max - preview.taken
   const slotWord = preview.max === 1 ? 'slot' : 'slots'
-  const poolNote = preview.pooled ? `shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `for ${preview.columnLabel}`
+  const poolNote = preview.pooled ? `in the shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `for ${preview.columnLabel}`
 
   return (
     <div className={`rounded-lg p-3 ${state.tint}`}>
@@ -34,7 +34,7 @@ function SlotGauge({ preview }) {
         1 of {preview.max} leave {slotWord} is reserved for this request.
       </p>
       <p className="mt-0.5 text-xs text-ink-muted">
-        {remaining} of {preview.max} {slotWord} left — {poolNote}.
+        {remaining} of {preview.max} {slotWord} left {poolNote}.
       </p>
     </div>
   )

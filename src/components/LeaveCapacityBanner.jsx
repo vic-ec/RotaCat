@@ -38,7 +38,7 @@ export default function LeaveCapacityBanner({
           </p>
           {pooled ? (
             <p className="mt-0.5 text-xs text-ink-muted">
-              {available} leave slot{available !== 1 ? 's' : ''} available — shared pool: {LEAVE_FULL_TIME_POOL_LABEL}
+              {available} leave slot{available !== 1 ? 's' : ''} available in the shared pool: {LEAVE_FULL_TIME_POOL_LABEL}
             </p>
           ) : (
             <p className="mt-0.5 text-xs text-ink-muted">

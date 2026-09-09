@@ -310,7 +310,18 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
       )}
 
       <div>
-        <label htmlFor="leave-notes" className="label-text">Motivations — see Rules for details</label>
+        <label htmlFor="leave-notes" className="label-text">
+          Motivations — see{' '}
+          {/* Opens in a new tab rather than navigating: this form is often
+              half-filled by the time someone goes looking for the rule, and
+              leaving the page would lose what they typed. A plain anchor
+              rather than a Link — target="_blank" gets a fresh document
+              either way, so routing context buys nothing here. */}
+          <a href="/leave?tab=rules" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:text-accent-dark">
+            Rules
+          </a>{' '}
+          for details
+        </label>
         <textarea
           id="leave-notes"
           value={notes}

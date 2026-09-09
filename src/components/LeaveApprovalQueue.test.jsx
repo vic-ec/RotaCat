@@ -255,7 +255,7 @@ describe('LeaveApprovalQueue', () => {
       const dialog = await openPanel(user)
       expect(await within(dialog).findByText('Capacity available')).toBeInTheDocument()
       expect(within(dialog).getByText('1 of 2 leave slots is reserved for this request.')).toBeInTheDocument()
-      expect(within(dialog).getByText(/1 of 2 slots left — shared pool:/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/1 of 2 slots left in the shared pool:/)).toBeInTheDocument()
     })
 
     it('shows "Limited capacity" once more than half the pool is taken', async () => {
@@ -266,7 +266,7 @@ describe('LeaveApprovalQueue', () => {
 
       const dialog = await openPanel(user)
       expect(await within(dialog).findByText('Limited capacity')).toBeInTheDocument()
-      expect(within(dialog).getByText(/1 of 3 slots left — for OT Intern/)).toBeInTheDocument()
+      expect(within(dialog).getByText(/1 of 3 slots left for OT Intern/)).toBeInTheDocument()
     })
 
     it('shows "At capacity" once every slot is taken, and folds it into the approve confirmation gate', async () => {
@@ -278,7 +278,7 @@ describe('LeaveApprovalQueue', () => {
       const dialog = await openPanel(user)
       expect(await within(dialog).findByText('At capacity')).toBeInTheDocument()
       expect(within(dialog).getByText('1 of 2 leave slots is reserved for this request.')).toBeInTheDocument()
-      expect(within(dialog).getByText('0 of 2 slots left — shared pool: MO, Registrar, EC Intern.')).toBeInTheDocument()
+      expect(within(dialog).getByText('0 of 2 slots left in the shared pool: MO, Registrar, EC Intern.')).toBeInTheDocument()
 
       // At-capacity requires the same second-click confirmation a Tier-2
       // warning would, even though no warning fired.

@@ -161,7 +161,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       </div>
     )
   }
-  const legend = legendFor(Object.values(STATE_STYLE))
+  const legend = legendFor(Object.values(scope === 'all' ? HEALTH_STYLE : STATE_STYLE))
   const todayButton = !isOnToday && (
     <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
   )
@@ -224,6 +224,17 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">My weekends</h2>
         <div className="flex flex-wrap items-center gap-2">
+          {/* The same scope the finder and the month view share, so the
+              choice survives a trip into a month and back out. Narrow, and
+              in the toolbar rather than over the grid: unlike the finder's
+              single column of months, the grid's own heading row is where
+              a control that reframes all twelve cards belongs. */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="weekend-scope-desktop" className="text-sm text-ink-muted">Showing</label>
+            <div className="w-40">
+              <SelectMenu id="weekend-scope-desktop" value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+            </div>
+          </div>
           <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
           {todayButton}
           {legend}
@@ -237,6 +248,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
             <MyWeekendMonthCard
               key={m.month}
               month={m}
+              scope={scope}
               isSelected={m.month === selectedMonth}
               onSelect={() => m.month === selectedMonth ? onOpenMonth(m.month) : setSelectedMonth(m.month)}
             />
@@ -317,13 +329,17 @@ function MyWeekendMonthTile({ month, scope, onOpen }) {
           <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
           <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.className}`}>{chip.text}</span>
         </div>
-        <div className="mt-2 flex gap-[2px]">
+        {/* A month has four or five weekends, so these blocks are wide. At
+            6px tall with a 2px gap they merged into a single rule from
+            reading distance — taller, with a gap you can see, reads as
+            separate weekends. */}
+        <div className="mt-2 flex gap-1.5">
           {markers.map(m => {
             const style = all ? HEALTH_STYLE[m.state] : STATE_STYLE[m.state]
             return (
               <span
                 key={m.saturday}
-                className={`h-1.5 flex-1 rounded-sm ${style.swatch}`}
+                className={`h-2.5 flex-1 rounded-sm ${style.swatch}`}
                 title={`${formatShortDate(m.saturday)} — ${style.label}`}
               />
             )
@@ -336,10 +352,13 @@ function MyWeekendMonthTile({ month, scope, onOpen }) {
   )
 }
 
-// The desktop grid's month card — always the personal read; the finder's
-// All weekends scope is a mobile-only affordance (the desktop viewer has
-// the month view's own All weekends filter one click away).
-function MyWeekendMonthCard({ month, isSelected, onSelect }) {
+// The desktop grid's month card. It follows the same Showing scope as the
+// mobile finder: on 'all' each block is the weekend's staffing health
+// rather than this doctor's own working/off state, so the two views never
+// disagree about what a colour means.
+function MyWeekendMonthCard({ month, isSelected, onSelect, scope }) {
+  const all = scope === 'all'
+  const markers = all ? month.staffingMarkers : month.markers
   return (
     <button
       type="button"
@@ -349,8 +368,8 @@ function MyWeekendMonthCard({ month, isSelected, onSelect }) {
     >
       <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
-        {month.markers.map(m => {
-          const style = STATE_STYLE[m.state]
+        {markers.map(m => {
+          const style = all ? HEALTH_STYLE[m.state] : STATE_STYLE[m.state]
           return (
             <span key={m.saturday} className="h-8 w-8 lg:h-9 lg:w-12" title={`${formatShortDate(m.saturday)} — ${style.label}`}>
               <span className={`block h-8 w-8 rounded-md lg:h-9 lg:w-12 ${style.square}`} />

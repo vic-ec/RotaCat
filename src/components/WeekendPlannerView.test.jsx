@@ -427,7 +427,7 @@ describe('WeekendPlannerView', () => {
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
       // Named, not a bare status: a column of these under this filter has
       // to say whose request each one is.
-      expect(within(aug22Heading.closest('.card')).getByText('Anderson • Weekend-off request pending')).toBeInTheDocument()
+      expect(within(aug22Heading.closest('.card')).getByText('Anderson • Weekend off pending')).toBeInTheDocument()
     })
 
     it('month navigation moves forward, and back again past the starting month — browsing is unbounded, like the year overview', async () => {

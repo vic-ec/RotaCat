@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
-import { saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday } from '../lib/weekendPlanner'
+import { saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday, weekendCoverageSummary, weekendHealthState } from '../lib/weekendPlanner'
 import DateStepper from './DateStepper'
+import SelectMenu from './SelectMenu'
 import { TodayIcon } from './PlannerIcons'
 
 // A genuinely different read of the same weekend_planner_entries +
@@ -29,6 +30,19 @@ function monthPersonalMarkers(year, month, byWeekend, profileId, requestsBySatur
   })
 }
 
+// The department's read of the same months, for the finder's All weekends
+// scope: who is on each weekend rather than whether the viewer is. Same
+// green/amber/red staffing states the admin year overview uses (see
+// weekendHealthState), because "all weekends" is that question, and a
+// personal working/off palette can't answer it.
+function monthStaffingMarkers(year, month, byWeekend) {
+  return saturdaysInMonth(year, month).map(saturday => {
+    const bySaturday = byWeekend.get(saturday)
+    const { filledGroups, totalGroups } = weekendCoverageSummary(bySaturday)
+    return { saturday, state: weekendHealthState(bySaturday), filledGroups, totalGroups }
+  })
+}
+
 // Working / pending / approved counts for one month's markers — the numbers
 // the Selected month panel and each month tile both report.
 function monthTotals(markers) {
@@ -45,6 +59,17 @@ function monthTotals(markers) {
 // gives accent. Exception pending stays flagAmber (a genuine roster-state
 // flag: this weekend's plan is still unsettled), and off is a neutral
 // canvas tone rather than any status colour at all.
+const SCOPE_OPTIONS = [
+  { value: 'mine', label: 'My weekends' },
+  { value: 'all', label: 'All weekends' },
+]
+
+const HEALTH_STYLE = {
+  green: { swatch: 'bg-success', label: 'Fully planned' },
+  amber: { swatch: 'bg-flagAmber', label: 'Needs staff' },
+  red: { swatch: 'bg-flagRed', label: 'Empty' },
+}
+
 const STATE_STYLE = {
   working: { square: 'bg-accent-tint', swatch: 'bg-accent', label: 'Working' },
   pending: { square: 'bg-flagAmber-bg', swatch: 'bg-flagAmber', label: 'Weekend off pending' },
@@ -69,10 +94,18 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
+  // Which read the month finder gives: the viewer's own weekends, or the
+  // whole department's. Personal leads, since that's what a doctor opens
+  // this page for; the desktop grid below stays personal either way.
+  const [scope, setScope] = useState('mine')
   const requestsBySaturday = weekendExceptionRequestsBySaturday(myRequests)
 
   const months = monthsForYear(year)
-  const monthCards = months.map(m => ({ ...m, markers: monthPersonalMarkers(m.year, m.month, byWeekend, myProfileId, requestsBySaturday) }))
+  const monthCards = months.map(m => ({
+    ...m,
+    markers: monthPersonalMarkers(m.year, m.month, byWeekend, myProfileId, requestsBySaturday),
+    staffingMarkers: monthStaffingMarkers(m.year, m.month, byWeekend),
+  }))
 
   const selectedTotals = monthTotals(monthCards[selectedMonth - 1].markers)
 
@@ -108,15 +141,18 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
     setSelectedMonth(m)
   }
 
-  const legend = (
-    <div data-testid="weekend-year-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
-      {Object.values(STATE_STYLE).map(state => (
-        <span key={state.label} className="flex items-center gap-1.5">
-          <span className={`h-2.5 w-2.5 rounded-sm ${state.swatch}`} /> {state.label}
-        </span>
-      ))}
-    </div>
-  )
+  function legendFor(states) {
+    return (
+      <div data-testid="weekend-year-legend" className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+        {states.map(state => (
+          <span key={state.label} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-sm ${state.swatch}`} /> {state.label}
+          </span>
+        ))}
+      </div>
+    )
+  }
+  const legend = legendFor(Object.values(STATE_STYLE))
   const todayButton = !isOnToday && (
     <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
   )
@@ -136,13 +172,20 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
             {todayButton}
           </div>
         </div>
-        <div className="mt-2">{legend}</div>
+        <div className="mt-2">{legendFor(Object.values(scope === 'all' ? HEALTH_STYLE : STATE_STYLE))}</div>
+
+        {/* Above the months, not beside the year: it changes what every
+            tile below means, so it reads as the heading for the list. */}
+        <div className="mt-3">
+          <label className="label-text">Showing</label>
+          <SelectMenu value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+        </div>
 
         {currentMonthCard && (
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Current month</p>
             <div className="mt-2 space-y-2">
-              <MyWeekendMonthTile month={currentMonthCard} onOpen={() => onOpenMonth(currentMonthCard.month)} />
+              <MyWeekendMonthTile month={currentMonthCard} scope={scope} onOpen={() => onOpenMonth(currentMonthCard.month)} />
             </div>
           </div>
         )}
@@ -151,7 +194,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Coming months</p>
             <div className="mt-2 space-y-2">
-              {comingMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} onOpen={() => onOpenMonth(m.month)} />)}
+              {comingMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} scope={scope} onOpen={() => onOpenMonth(m.month)} />)}
             </div>
           </div>
         )}
@@ -160,7 +203,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Previous months</p>
             <div className="mt-2 space-y-2">
-              {previousMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} onOpen={() => onOpenMonth(m.month)} />)}
+              {previousMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} scope={scope} onOpen={() => onOpenMonth(m.month)} />)}
             </div>
           </div>
         )}
@@ -237,10 +280,23 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 // One month as a single line of weekend blocks — the mobile finder's row,
 // matching the Annual/Special planners' month tiles. Reports the same three
 // numbers the Selected month panel does, per month, since the finder
-// replaces that panel on a phone.
-function MyWeekendMonthTile({ month, onOpen }) {
+// replaces that panel on a phone. Under the All weekends scope the same row
+// switches to the department's staffing read instead.
+function MyWeekendMonthTile({ month, scope, onOpen }) {
+  const all = scope === 'all'
+  const markers = all ? month.staffingMarkers : month.markers
   const totals = monthTotals(month.markers)
   const requests = totals.pending + totals.approved
+  const fullyPlanned = month.staffingMarkers.filter(m => m.state === 'green').length
+  const openSlots = month.staffingMarkers.reduce((sum, m) => sum + (m.totalGroups - m.filledGroups), 0)
+
+  const chip = all
+    ? { text: `${fullyPlanned} of ${markers.length} planned`, className: fullyPlanned === markers.length ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber' }
+    : { text: totals.working === 0 ? 'No weekends' : `${totals.working} working`, className: totals.working > 0 ? 'bg-accent-tint text-accent' : 'bg-canvas-sunken text-ink-muted' }
+  const summary = all
+    ? (openSlots === 0 ? 'Every rotation group planned' : `${openSlots} open ${openSlots === 1 ? 'slot' : 'slots'} across the month`)
+    : (requests === 0 ? 'No weekend off requests' : `Weekend off requests: ${totals.pending} pending, ${totals.approved} approved`)
+
   return (
     <button
       type="button"
@@ -250,32 +306,30 @@ function MyWeekendMonthTile({ month, onOpen }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
-          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-            totals.working > 0 ? 'bg-accent-tint text-accent' : 'bg-canvas-sunken text-ink-muted'
-          }`}>
-            {totals.working === 0 ? 'No weekends' : `${totals.working} working`}
-          </span>
+          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${chip.className}`}>{chip.text}</span>
         </div>
         <div className="mt-2 flex gap-[2px]">
-          {month.markers.map(m => (
-            <span
-              key={m.saturday}
-              className={`h-1.5 flex-1 rounded-sm ${STATE_STYLE[m.state].swatch}`}
-              title={`${formatShortDate(m.saturday)} — ${STATE_STYLE[m.state].label}`}
-            />
-          ))}
+          {markers.map(m => {
+            const style = all ? HEALTH_STYLE[m.state] : STATE_STYLE[m.state]
+            return (
+              <span
+                key={m.saturday}
+                className={`h-1.5 flex-1 rounded-sm ${style.swatch}`}
+                title={`${formatShortDate(m.saturday)} — ${style.label}`}
+              />
+            )
+          })}
         </div>
-        <p className="mt-1.5 text-xs text-ink-muted">
-          {requests === 0
-            ? 'No weekend off requests'
-            : `Weekend off requests: ${totals.pending} pending, ${totals.approved} approved`}
-        </p>
+        <p className="mt-1.5 text-xs text-ink-muted">{summary}</p>
       </div>
       <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
     </button>
   )
 }
 
+// The desktop grid's month card — always the personal read; the finder's
+// All weekends scope is a mobile-only affordance (the desktop viewer has
+// the month view's own All weekends filter one click away).
 function MyWeekendMonthCard({ month, isSelected, onSelect }) {
   return (
     <button

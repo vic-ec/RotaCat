@@ -28,14 +28,14 @@
 // opacity on the leading column, washed the first column out well inside the
 // band rather than at its edge.
 //
-// From md up it is sized against the tagline rather than the cat: 537px is
-// the tagline's 437 plus 50 a side. Sized off the cat it drifted with the
-// mascot — 17px past the tagline on a landscape phone against 84px on a
-// desktop — because the cat is height-sized and the tagline is not. The cap
-// keeps 30px a side clear of the panel, which is what stops the grid running
-// flush to the panel's edge on the narrower widths where the cap, not the
-// 537, is what decides. A phone in portrait keeps its own width: it reaches
-// 80px past the cat and is the one size where this already looked right.
+// From md up it is sized against the tagline rather than the cat: 437px is
+// the tagline's own width, so the band's edges sit level with the ends of
+// the text. Sized off the cat it drifted with the mascot — 17px past the
+// tagline on a landscape phone against 84px on a desktop — because the cat
+// is height-sized and the tagline is not. The cap keeps 30px a side clear of
+// the panel, which is what stops the grid running flush to the panel's edge
+// on the narrower widths where the cap, not the 437, decides. A phone in
+// portrait keeps its own width, which already looked right.
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
@@ -67,18 +67,23 @@ const pick = (arr) => arr[Math.floor(rand() * arr.length)]
 // darkens as it settles, which is a swing you can see.
 const PULSE_SHARE = 0.55
 
-// Every cell carries the same count, so none reads as a hole in the middle
-// of the roster. Five rows rather than six is what pays for it — six left
-// only 37px of row at 1366x768 and the grid outgrew the band, with the
-// surplus hidden by the mask rather than fitting. The third pill is drawn
-// on a phone only: from md up the band is shallower relative to the cat and
-// the third was landing half-clipped on the row line.
-const PILLS_PER_CELL = 3
+// Two or three to a cell — never one, which read as a hole in the middle of
+// the roster. Five rows rather than six is what pays for it: six left only
+// 37px of row at 1366x768 and the grid outgrew the band, with the surplus
+// hidden by the mask rather than fitting.
+//
+// A third pill needs 45px of row once the cell's padding is counted, and the
+// row is a fifth of a band that is itself a share of the cat, which is sized
+// against the viewport's height. So the third is drawn only where the height
+// is there for it: the split layout on a viewport at least 800px tall. Below
+// that — every phone in portrait, every phone in landscape, a short desktop
+// window — it landed part-clipped on the row line rather than reading as a
+// pill, so those sizes show two.
 
 const BAND = Array.from({ length: ROWS }, (_, row) => ({
   row,
   cells: COLUMNS.map(() =>
-    Array.from({ length: PILLS_PER_CELL }, () => ({
+    Array.from({ length: 2 + Math.floor(rand() * 2) }, () => ({
       tone: pick(PILL_TONES),
       bars: Array.from({ length: rand() < 0.45 ? 3 : 2 }, () => 16 + Math.round(rand() * 30)),
       pulse: rand() < PULSE_SHARE,
@@ -89,6 +94,8 @@ const BAND = Array.from({ length: ROWS }, (_, row) => ({
     })),
   ),
 }))
+
+const THIRD_PILL = 'max-md:hidden [@media(max-height:799px)]:hidden'
 
 function Pill({ pill, className = '' }) {
   return (
@@ -119,7 +126,7 @@ export default function DecorativeRosterGrid() {
       aria-hidden="true"
       className="roster-band-mask pointer-events-none absolute bottom-[42px] left-1/2 top-[2%] -z-10
         w-[calc(100%+160px)] max-w-[calc(100vw-3rem)] -translate-x-1/2 select-none
-        md:bottom-[16%] md:w-[537px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
+        md:bottom-[16%] md:w-[437px] md:max-w-[min(calc(50vw-2rem-60px),40rem)]"
     >
       <div className="flex h-full flex-col pt-[7%] opacity-90">
         <div className="flex border-b border-slate-line/60 pb-[4px]">
@@ -142,9 +149,12 @@ export default function DecorativeRosterGrid() {
                   border-slate-line/60 px-[6px] py-[5px] last:border-r-0"
               >
                 {cell.map((pill, i) => (
-                  // the third only fits a phone's rows; from md up it was being
-                  // clipped mid-pill at the row line rather than reading as a pill
-                  <Pill key={i} pill={pill} className={i === 2 ? 'md:hidden' : ''} />
+                  <Pill
+                    key={i}
+                    pill={pill}
+                    // the third is drawn only where the row has the 45px it needs
+                    className={i === 2 ? THIRD_PILL : ''}
+                  />
                 ))}
               </div>
             ))}

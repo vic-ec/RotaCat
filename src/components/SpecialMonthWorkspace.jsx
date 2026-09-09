@@ -30,7 +30,7 @@ const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 // SPECIAL_LEAVE_SOFT_CAP — a documented guideline, not an enforced rule).
 export default function SpecialMonthWorkspace({
   year, month, onMonthChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate = new Map(),
-  rotationsByDoctorId, onBack, onDataChanged, myCategory, myContractType, ruleIntro, ruleBullets,
+  rotationsByDoctorId, onBack, onDataChanged, ruleIntro, ruleBullets,
 }) {
   const { isAdmin } = useAuth()
   // Consultant leave is admin-only (EC_LEAVE_PLANNER_RULES.md's Consultant
@@ -47,10 +47,6 @@ export default function SpecialMonthWorkspace({
   const countsByDate = specialCountsByDate(leaveByDate)
   const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
   const markersByDate = new Map(monthMarkers.map(m => [m.date, m]))
-  const monthGuidelineDays = monthMarkers.filter(m => m.overSoftCap).length
-  const myColumnLabel = GRID_COLUMNS.find(
-    c => c.key === resolveLeaveCapacityColumn({ category: myCategory, contractType: myContractType })
-  )?.label ?? null
 
   function rowsForDate(date) {
     return (leaveByDate.get(date) || [])
@@ -78,23 +74,6 @@ export default function SpecialMonthWorkspace({
           <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
           <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
         </div>
-      </div>
-
-      {/* Where the viewer stands this month, before the grid. Special
-          leave's guideline is shared across categories, so unlike Annual's
-          per-category banner this says so outright rather than quoting a
-          number that only applies to one group — "check other categories"
-          would be answering a question the rule doesn't ask. */}
-      <div className="mt-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
-        {myColumnLabel
-          ? <>You&apos;re counted under <span className="font-semibold">{myColumnLabel}</span>. </>
-          : null}
-        Special leave runs on one shared guideline — no more than{' '}
-        <span className="font-semibold">{SPECIAL_LEAVE_SOFT_CAP} doctors of any category</span> at once — so the
-        same slots apply to every category.{' '}
-        {monthGuidelineDays > 0
-          ? <>{monthGuidelineDays} {monthGuidelineDays === 1 ? 'day' : 'days'} in {monthLabel} {monthGuidelineDays === 1 ? 'is' : 'are'} already at it.</>
-          : <>No day in {monthLabel} has reached it.</>}
       </div>
 
       {/* Desktop: full weekday names and named cells with surnames read
@@ -230,6 +209,10 @@ function DayPanel({ date, rows, count, phName, displayNames, onClose, onSubmitte
           <LeaveRequestForm
             initialDateFrom={date}
             initialDateTo={date}
+            // Opened from the Special tab, so the type leads with Special
+            // leave rather than Annual — still a plain dropdown the
+            // requester can change.
+            initialLeaveType="special_leave"
             onSubmitted={() => { setShowRequestForm(false); onSubmitted?.() }}
           />
         </div>

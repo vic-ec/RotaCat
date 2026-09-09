@@ -318,14 +318,24 @@ function SpecialMonthTile({ month, categoryKey, onOpen }) {
   )
 }
 
-// Days, not just a state name: "Above guideline" alone doesn't say whether
-// that's one awkward day or half the month. Quiet months keep the plain
-// label, where there's nothing to count.
+// Days, not just a state name: "Limited" alone doesn't say whether that's
+// one awkward day or half the month. Same wording the Annual planner's own
+// month tiles use (chipLabelForMonth there), so a chip means the same thing
+// on both tabs — with one state Annual can't reach: special leave has no
+// enforced cap, so a day CAN go past the 3-doctor guideline, and "No
+// capacity" would understate a day that is already over it.
 function chipLabelForMonth(month) {
-  const overGuideline = month.markers.filter(d => d.overSoftCap).length
-  if (overGuideline > 0) return `${SPECIAL_LEAVE_SOFT_CAP}+ on ${overGuideline} day${overGuideline === 1 ? '' : 's'}`
-  const busiest = month.markers.reduce((max, d) => Math.max(max, d.count), 0)
-  return busiest === 0 ? 'Quiet' : `Up to ${busiest} at once`
+  const days = key => month.markers.filter(d => d.capacityState.key === key).length
+  const overGuideline = month.markers.filter(d => d.count > SPECIAL_LEAVE_SOFT_CAP).length
+  if (overGuideline > 0) return `Capacity exceeded on ${dayCount(overGuideline)}`
+  if (month.worstState.key === 'at_capacity') return `No capacity on ${dayCount(days('at_capacity'))}`
+  if (month.worstState.key === 'near_capacity') return `Near capacity on ${dayCount(days('near_capacity'))}`
+  if (month.worstState.key === 'limited') return `Limited capacity on ${dayCount(days('limited'))}`
+  return month.worstState.label // "Available" — nothing to quantify
+}
+
+function dayCount(days) {
+  return `${days} day${days === 1 ? '' : 's'}`
 }
 
 // Same trigger the Annual planner uses, and the same single entry point to
@@ -342,10 +352,18 @@ export function SpecialLegendTrigger({ ruleIntro, ruleBullets }) {
       )}
     >
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
+        {/* Annual's state names, with the slot count each one stands for —
+            the names are what a doctor reads on both tabs, and the count is
+            what makes them concrete here, where the "cap" is one shared
+            guideline of SPECIAL_LEAVE_SOFT_CAP rather than a per-category
+            quota. The last state covers 3/3 and anything past it, since
+            nothing stops a day going over. */}
         {LEAVE_CAPACITY_STATES.map((state, i) => (
           <span key={state.key} className="flex items-center gap-1.5">
             <span className={`h-2.5 w-2.5 rounded-sm ${state.fill}`} />
-            {i === 0 ? 'Nobody' : i >= SPECIAL_LEAVE_SOFT_CAP ? `${SPECIAL_LEAVE_SOFT_CAP}+ (above guideline)` : `${i} on leave`}
+            {i >= SPECIAL_LEAVE_SOFT_CAP
+              ? `${state.label} (${SPECIAL_LEAVE_SOFT_CAP}/${SPECIAL_LEAVE_SOFT_CAP} or more)`
+              : `${state.label} (${i}/${SPECIAL_LEAVE_SOFT_CAP})`}
           </span>
         ))}
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>

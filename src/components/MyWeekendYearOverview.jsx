@@ -89,15 +89,24 @@ function formatShortDate(dateStr) {
 // shell as WeekendYearOverview.jsx (toolbar, legend, 3x4 month grid, sticky
 // inspector, tap-a-month → "Open month" flow) but reading "am I on this
 // weekend" instead of staffing completeness, and with no admin-only stats.
-export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, onOpenMonth }) {
+export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, initialScope, onScopeChange, onOpenMonth }) {
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
   // Which read the month finder gives: the viewer's own weekends, or the
-  // whole department's. Personal leads, since that's what a doctor opens
-  // this page for; the desktop grid below stays personal either way.
-  const [scope, setScope] = useState('mine')
+  // whole department's. Seeded from whatever scope the planner is already
+  // showing (the month view's own filter chips write to the same place), so
+  // coming back from a month doesn't reset it. Anything that isn't "all" —
+  // including the month view's My requests/Needs planning chips, which have
+  // no counterpart here — reads as personal. Personal is also the default:
+  // it's what a doctor opens this page for. The desktop grid below stays
+  // personal either way.
+  const [scope, setScopeState] = useState(initialScope === 'all' ? 'all' : 'mine')
+  function setScope(next) {
+    setScopeState(next)
+    onScopeChange?.(next)
+  }
   const requestsBySaturday = weekendExceptionRequestsBySaturday(myRequests)
 
   const months = monthsForYear(year)

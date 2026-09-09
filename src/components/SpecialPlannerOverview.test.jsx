@@ -166,13 +166,37 @@ describe('SpecialPlannerOverview', () => {
       // Defaults to the viewer's own group — one MO of the three people out.
       expect(august().getByText('1 on leave')).toBeInTheDocument()
       // The chip reads the true shared count (all 3), not the filtered one.
-      expect(august().getByText('3+ on 1 day')).toBeInTheDocument()
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
 
       // The picker's trigger is named by its current value (SelectMenu).
       await user.click(tiles().getByRole('button', { name: 'MO' }))
       await user.click(await screen.findByRole('option', { name: 'Registrar' }))
       expect(august().getByText('2 on leave')).toBeInTheDocument()
-      expect(august().getByText('3+ on 1 day')).toBeInTheDocument()
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+    })
+
+    // The chip names the same states the Annual tab's month tiles do, plus
+    // one Annual can't reach: special leave has no enforced cap, so a day
+    // can go past the 3-doctor guideline entirely.
+    it('names capacity states the way the Annual planner does, including going over the guideline', () => {
+      const august = () => within(tiles().getByText('Current month').closest('div'))
+      const dayWith = ids => new Map([['2026-08-10', ids.map(id => entry(id, 'study', '2026-08-10', '2026-08-10'))]])
+
+      const empty = renderOverview({ leaveByDate: new Map() })
+      expect(august().getByText('Available')).toBeInTheDocument()
+      empty.unmount()
+
+      const one = renderOverview({ leaveByDate: dayWith(['p1']) })
+      expect(august().getByText('Limited capacity on 1 day')).toBeInTheDocument()
+      one.unmount()
+
+      const three = renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3']) })
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+      three.unmount()
+
+      // A fourth doctor on the same day: past the guideline, not merely at it.
+      renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3', 'p4']) })
+      expect(august().getByText('Capacity exceeded on 1 day')).toBeInTheDocument()
     })
   })
 })

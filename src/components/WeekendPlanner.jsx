@@ -29,6 +29,14 @@ export default function WeekendPlanner() {
   const year = Number(searchParams.get('wyear')) || new Date().getFullYear()
   const view = searchParams.get('wview') === 'month' ? 'month' : 'year'
   const month = Number(searchParams.get('wmonth')) || new Date().getMonth() + 1
+  // Which weekends the planner is showing, shared across both views so a
+  // scope chosen in one is still in force in the other: 'mine'/'all' are
+  // the year overview's own Showing picker, and the month view adds its
+  // own 'my-requests'/'needs-planning' chips, which the year view reads as
+  // personal. In the URL for the same reason year/view/month are — a
+  // backgrounded PWA remounting must not silently drop the viewer back to
+  // a scope they didn't choose.
+  const scope = searchParams.get('wshow') || null
 
   const [entries, setEntries] = useState([])
   const [myWeekendRequests, setMyWeekendRequests] = useState([])
@@ -159,6 +167,14 @@ export default function WeekendPlanner() {
     }, { replace: true })
   }
 
+  function setScope(next) {
+    setSearchParams(prev => {
+      const nextParams = new URLSearchParams(prev)
+      nextParams.set('wshow', next)
+      return nextParams
+    }, { replace: true })
+  }
+
   function backToYear() {
     setFocusSaturday(null)
     setSearchParams(prev => {
@@ -180,6 +196,8 @@ export default function WeekendPlanner() {
             initialYear={year}
             initialMonth={month}
             initialFocusSaturday={focusSaturday}
+            initialFilter={scope}
+            onFilterChange={setScope}
             onBackToYear={backToYear}
             clipboard={clipboard}
             setClipboard={setClipboard}
@@ -201,6 +219,8 @@ export default function WeekendPlanner() {
             byWeekend={byWeekend}
             myRequests={myWeekendRequests}
             myProfileId={profile?.id}
+            initialScope={scope}
+            onScopeChange={setScope}
             onOpenMonth={openMonth}
           />
         )

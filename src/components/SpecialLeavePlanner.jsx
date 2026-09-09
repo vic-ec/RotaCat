@@ -198,8 +198,6 @@ export default function SpecialLeavePlanner() {
             displayNames={displayNames}
             publicHolidaysByDate={publicHolidaysByDate}
             rotationsByDoctorId={rotationsByDoctorId}
-            myCategory={profile?.category}
-            myContractType={profile?.contract_type}
             onBack={backToOverview}
             onDataChanged={load}
             ruleIntro={RULE_INTRO}

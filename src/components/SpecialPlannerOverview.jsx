@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Clock, ExternalLink, ListChecks } from 'lucide-react'
-import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
+import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import SelectMenu from './SelectMenu'
+import {
+  monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN,
+} from '../lib/leaveYearGrid'
+import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { SPECIAL_LEAVE_SOFT_CAP, shortLeaveTypeLabel } from '../lib/leaveRequests'
 import { formatShortDateRange, todayStr } from '../lib/dateRange'
 import {
@@ -27,12 +32,15 @@ import { LegendIcon } from './PlannerIcons'
 // headcount is an identical colour on both tabs.
 export default function SpecialPlannerOverview({
   year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate = new Map(),
+  rotationsByDoctorId = new Map(), myCategory, myContractType,
   onOpenWorkspace, ruleIntro, ruleBullets,
 }) {
+  const { isAdmin } = useAuth()
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
+  const [categoryKey, setCategoryKey] = useState(() => defaultCategoryKey(myCategory, myContractType))
 
   const countsByDate = specialCountsByDate(leaveByDate)
   const monthCards = monthsForYear(year).map(m => {
@@ -44,6 +52,32 @@ export default function SpecialPlannerOverview({
   const selected = monthCards[selectedMonth - 1]
   const selectedEntries = specialMonthEntries(year, selectedMonth, leaveByDate)
 
+  // Non-admin mobile month tiles. The day bars and the state chip stay on
+  // the TRUE shared count — special leave's guideline is 3 doctors of any
+  // category (SPECIAL_LEAVE_SOFT_CAP), so unlike Annual there is no
+  // per-category capacity to filter and colouring a filtered subset would
+  // read as "my category has room" when the shared pool is already full.
+  // The picker filters WHO each tile counts, not what the colours mean.
+  const filteredMonthCards = monthCards.map(m => {
+    const entries = specialMonthEntries(year, m.month, leaveByDate)
+      .filter(e => matchesCategory(e, categoryKey, rotationsByDoctorId))
+    const worstState = m.markers.reduce(
+      (worst, d) => LEAVE_CAPACITY_STATES.indexOf(d.capacityState) > LEAVE_CAPACITY_STATES.indexOf(worst) ? d.capacityState : worst,
+      LEAVE_CAPACITY_STATES[0]
+    )
+    return { ...m, worstState, people: new Set(entries.map(e => e.profileId)).size }
+  })
+  // Only the browsed year's own relationship to today matters — a past year
+  // has no current/coming month, a future year no current/previous. Same
+  // split as AnnualPlannerOverview's.
+  const currentMonthCard = todayYear === year ? filteredMonthCards.find(m => m.month === currentMonth) : null
+  const comingMonthCards = todayYear === year
+    ? filteredMonthCards.filter(m => m.month > currentMonth)
+    : year > todayYear ? filteredMonthCards : []
+  const previousMonthCards = todayYear === year
+    ? filteredMonthCards.filter(m => m.month < currentMonth)
+    : year < todayYear ? filteredMonthCards : []
+
   // DateStepper handles the Dec/Jan rollover itself, calling back with
   // whichever year the stepped-to month landed in — only forward that up
   // when it differs from the year already being browsed.
@@ -54,6 +88,66 @@ export default function SpecialPlannerOverview({
 
   return (
     <div>
+      {/* ── Non-admin mobile: the same month-finder shape the Annual tab
+          uses, so the two planner tabs read as one system — year stepper,
+          a category picker, then the months split by time rather than a
+          12-card grid a doctor has to scan. Admins keep the departmental
+          dashboard on every viewport (cross-category exception management,
+          where a filter would hide the very overlaps they need to see), and
+          it remains on desktop for everyone. ── */}
+      {!isAdmin && (
+        <div data-testid="special-month-finder" className="lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-semibold text-ink">Special planner</h2>
+            <div className="flex items-center gap-2">
+              <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
+              <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
+            </div>
+          </div>
+
+          {/* "Showing", not Annual's "Showing capacity for": special leave
+              has one shared 3-doctor guideline rather than a cap per
+              category, so this narrows who you're looking at — it can't
+              narrow the capacity, which is the same number for everyone. */}
+          <div className="mt-3">
+            <label className="label-text">Showing</label>
+            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+          </div>
+
+          {currentMonthCard && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Current month</p>
+              <div className="mt-2 space-y-2">
+                <SpecialMonthTile month={currentMonthCard} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(currentMonthCard.month)} />
+              </div>
+            </div>
+          )}
+
+          {comingMonthCards.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Coming months</p>
+              <div className="mt-2 space-y-2">
+                {comingMonthCards.map(m => (
+                  <SpecialMonthTile key={m.month} month={m} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(m.month)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {previousMonthCards.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Previous months</p>
+              <div className="mt-2 space-y-2">
+                {previousMonthCards.map(m => (
+                  <SpecialMonthTile key={m.month} month={m} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(m.month)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className={isAdmin ? '' : 'hidden lg:block'}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Special planner</h2>
         <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
@@ -145,8 +239,93 @@ export default function SpecialPlannerOverview({
           </div>
         </div>
       </div>
+      </div>
     </div>
   )
+}
+
+// Same category vocabulary as the Annual planner's own picker, so the two
+// tabs name the groups identically — even though here it filters who's
+// counted rather than which cap applies.
+const CATEGORY_FILTER_OPTIONS = [
+  ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),
+  { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
+  { value: 'all', label: 'All categories' },
+]
+
+// Open on the viewer's own group, so the first thing they see is their own
+// people rather than a blend they'd have to filter mentally. Anyone whose
+// category doesn't map to a group (or who has none) gets everything.
+function defaultCategoryKey(myCategory, myContractType) {
+  if (!myCategory) return 'all'
+  const column = columnKeyFor({ category: myCategory, contractType: myContractType })
+  return CATEGORY_FILTER_OPTIONS.some(o => o.value === column) ? column : 'all'
+}
+
+function columnKeyFor({ category, contractType, profileId, date, rotationsByDoctorId }) {
+  return resolveLeaveCapacityColumn({ category, contractType, profileId, date, rotationsByDoctorId })
+}
+
+// An Intern's group depends on the rotation they're actually on at the time
+// (EC vs OT), which is why this resolves per entry against its own start
+// date rather than bucketing the doctor once — same resolution the Annual
+// planner's capacity counting uses.
+function matchesCategory(entry, categoryKey, rotationsByDoctorId) {
+  if (categoryKey === 'all') return true
+  return columnKeyFor({
+    category: entry.category,
+    contractType: entry.contractType,
+    profileId: entry.profileId,
+    date: entry.dateFrom,
+    rotationsByDoctorId,
+  }) === categoryKey
+}
+
+// One month as a single row: name, a chip for the worst shared-capacity day
+// in it, and a strip of one bar per day. The bars are the whole point —
+// they answer "which part of this month is busy" at a glance without
+// opening it, which a 12-card mini-calendar grid can't do on a phone.
+function SpecialMonthTile({ month, categoryKey, onOpen }) {
+  const who = categoryKey === 'all'
+    ? `${month.people} ${month.people === 1 ? 'person' : 'people'} on leave`
+    : `${month.people} on leave`
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="card flex w-full items-center gap-3 p-3 text-left transition-colors hover:border-accent/40"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
+          <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${month.worstState.tint} ${month.worstState.text}`}>
+            {chipLabelForMonth(month)}
+          </span>
+        </div>
+        <div className="mt-2 flex gap-[2px]">
+          {month.markers.map(d => (
+            <span
+              key={d.date}
+              className={`h-1.5 flex-1 rounded-sm ${d.capacityState.fill}`}
+              title={d.publicHolidayName || `${d.count} on special leave`}
+            />
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-ink-muted">{month.people === 0 ? 'Nobody on leave' : who}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
+    </button>
+  )
+}
+
+// Days, not just a state name: "Above guideline" alone doesn't say whether
+// that's one awkward day or half the month. Quiet months keep the plain
+// label, where there's nothing to count.
+function chipLabelForMonth(month) {
+  const overGuideline = month.markers.filter(d => d.overSoftCap).length
+  if (overGuideline > 0) return `${SPECIAL_LEAVE_SOFT_CAP}+ on ${overGuideline} day${overGuideline === 1 ? '' : 's'}`
+  const busiest = month.markers.reduce((max, d) => Math.max(max, d.count), 0)
+  return busiest === 0 ? 'Quiet' : `Up to ${busiest} at once`
 }
 
 // Same trigger the Annual planner uses, and the same single entry point to

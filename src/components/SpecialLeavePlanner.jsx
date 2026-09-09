@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
@@ -37,6 +38,7 @@ const RULE_BULLETS = [
 // killed and reloaded by the OS at any time, which remounts this component
 // from scratch, and the URL is what survives that.
 export default function SpecialLeavePlanner() {
+  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('syear')) || new Date().getFullYear()
   const mode = searchParams.get('sview') === 'workspace' ? 'workspace' : 'overview'
@@ -175,6 +177,9 @@ export default function SpecialLeavePlanner() {
             leaveByDate={leaveByDate}
             displayNames={displayNames}
             publicHolidaysByDate={publicHolidaysByDate}
+            rotationsByDoctorId={rotationsByDoctorId}
+            myCategory={profile?.category}
+            myContractType={profile?.contract_type}
             onOpenWorkspace={openWorkspace}
             // The rules reach the viewer through the Legend sheet, not a
             // permanently-open card — one entry point to both the colour key

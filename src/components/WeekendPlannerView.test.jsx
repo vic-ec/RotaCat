@@ -425,7 +425,9 @@ describe('WeekendPlannerView', () => {
       await pickFilter(view, user, 'My requests')
       const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
       expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
-      expect(within(aug22Heading.closest('.card')).getByText('Exception pending')).toBeInTheDocument()
+      // Named, not a bare status: a column of these under this filter has
+      // to say whose request each one is.
+      expect(within(aug22Heading.closest('.card')).getByText('Anderson • Weekend off pending')).toBeInTheDocument()
     })
 
     it('month navigation moves forward, and back again past the starting month — browsing is unbounded, like the year overview', async () => {
@@ -1381,7 +1383,7 @@ describe('WeekendPlannerView', () => {
       renderView()
 
       const panel = within((await screen.findAllByTestId('weekend-month-exceptions'))[0])
-      expect(panel.getByText(/Weekend exceptions \(1\)/)).toBeInTheDocument()
+      expect(panel.getByText(/Weekend off requests \(1\)/)).toBeInTheDocument()
       // "Botha" (from the shared displayNames map built off the profiles
       // fetch), not "Bell" from the request's own joined row — the resolver
       // wins so a name reads identically here and on the weekend cards, and
@@ -1404,8 +1406,8 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
       // One flag for 2026-08-22, none on the other four August weekends.
-      expect(view.getAllByLabelText(/Weekend exception requests for/)).toHaveLength(1)
-      expect(view.getByLabelText('Weekend exception requests for 2026-08-22')).toBeInTheDocument()
+      expect(view.getAllByLabelText(/Weekend off requests for/)).toHaveLength(1)
+      expect(view.getByLabelText('Weekend off requests for 2026-08-22')).toBeInTheDocument()
     })
 
     it('admin: tapping a weekend\'s flag opens that weekend\'s requests in a sheet', async () => {
@@ -1415,9 +1417,9 @@ describe('WeekendPlannerView', () => {
 
       const view = await mobile()
       await view.findByText('August 2026')
-      await userEvent.click(view.getByLabelText('Weekend exception requests for 2026-08-22'))
+      await userEvent.click(view.getByLabelText('Weekend off requests for 2026-08-22'))
 
-      const sheet = (await screen.findByRole('heading', { name: 'Weekend exceptions' })).closest('.card')
+      const sheet = (await screen.findByRole('heading', { name: 'Weekend off requests' })).closest('.card')
       expect(within(sheet).getByText('Botha')).toBeInTheDocument()
       expect(within(sheet).getByText('Pending review')).toBeInTheDocument()
       // Scoped to the tapped weekend, not the whole month.

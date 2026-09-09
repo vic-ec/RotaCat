@@ -1,11 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import AnnualLeavePlanner from './AnnualLeavePlanner'
 
-// Sandbox clock is 2026-08-01 throughout this session, so August is the
-// default-selected month and the default-viewed year is 2026.
+// The clock is pinned to 1 Aug 2026 (see beforeEach) so August is the
+// default-selected month and 2026 the default-viewed year. This used to
+// lean on the ambient sandbox clock happening to be August 2026, which
+// silently turned the whole file red the moment real time rolled into
+// September.
 let mockAuth = { profile: { id: 'p1' }, isAdmin: true }
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
@@ -90,6 +93,7 @@ async function grid() {
 
 describe('AnnualLeavePlanner', () => {
   beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
@@ -97,6 +101,7 @@ describe('AnnualLeavePlanner', () => {
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' }, isAdmin: true }
   })
+  afterEach(() => vi.useRealTimers())
 
   it('renders all 12 months and defaults the selection to the current month (August)', async () => {
     renderPage()
@@ -226,12 +231,12 @@ describe('AnnualLeavePlanner', () => {
     await grid()
 
     await user.click(screen.getByRole('button', { name: /Open month workspace/ }))
-    expect(screen.getByRole('button', { name: '← Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByText('Sunday')).toBeInTheDocument() // full weekday name column header
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
     expect(screen.queryByText('Selected month')).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '← Overview' }))
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
     expect(await screen.findByText('Selected month')).toBeInTheDocument()
   })
 
@@ -241,7 +246,7 @@ describe('AnnualLeavePlanner', () => {
     // (see AnnualLeavePlanner.jsx's header comment for why plain useState
     // can't survive an OS-killed-and-reloaded PWA).
     renderPage(['/?ayear=2026&aview=workspace&amonth=8'])
-    expect(await screen.findByRole('button', { name: '← Overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByText('Sunday')).toBeInTheDocument()
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
   })
@@ -255,14 +260,14 @@ describe('AnnualLeavePlanner', () => {
   // admin on the *current* month's overview instead of the request's month.
   it('a deep link opens the workspace on the request\'s own month, not the current one', async () => {
     renderPage(['/?month=2026-10&highlight=2026-10-03'], { deepLinkMonth: '2026-10', deepLinkHighlightDate: '2026-10-03' })
-    expect(await screen.findByRole('button', { name: '← Overview' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getAllByText('October 2026').length).toBeGreaterThan(0)
     expect(screen.queryByText('August 2026')).not.toBeInTheDocument()
   })
 
   it('a deep link leaves the URL holding the request\'s month, with the one-shot params stripped', async () => {
     renderPage(['/?month=2026-10&highlight=2026-10-03'], { deepLinkMonth: '2026-10', deepLinkHighlightDate: '2026-10-03' })
-    await screen.findByRole('button', { name: '← Overview' })
+    await screen.findByRole('button', { name: 'Overview' })
     const search = screen.getByTestId('location-probe').textContent
     expect(search).toContain('aview=workspace')
     expect(search).toContain('amonth=10')

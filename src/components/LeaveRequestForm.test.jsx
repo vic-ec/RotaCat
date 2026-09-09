@@ -74,7 +74,7 @@ describe('LeaveRequestForm', () => {
 
     // Switch leave type via the app's own SelectMenu (button + listbox, not a native <select>)
     await user.click(screen.getByText('Annual leave'))
-    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
 
     const saturdayInput = screen.getByLabelText('Saturday')
     await user.type(saturdayInput, '2026-08-01') // a Saturday
@@ -148,7 +148,7 @@ describe('LeaveRequestForm', () => {
     render(<LeaveRequestForm />)
 
     await user.click(screen.getByText('Annual leave'))
-    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
     await user.type(screen.getByLabelText('Saturday'), '2026-08-01')
 
     expect(await screen.findByText(/pulls the doctor out of the strict day\/night alternation pattern/)).toBeInTheDocument()
@@ -162,7 +162,7 @@ describe('LeaveRequestForm', () => {
     render(<LeaveRequestForm />)
 
     await user.click(screen.getByText('Annual leave'))
-    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
     await user.type(screen.getByLabelText('Saturday'), '2026-08-01')
 
     expect(await screen.findByText('This weekend is currently 3 of 4 groups planned.')).toBeInTheDocument()
@@ -174,7 +174,7 @@ describe('LeaveRequestForm', () => {
     render(<LeaveRequestForm />)
 
     await user.click(screen.getByText('Annual leave'))
-    await user.click(await screen.findByRole('option', { name: 'Weekend exception' }))
+    await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
 
     expect(screen.queryByText(/pulls the doctor out of the strict day\/night alternation pattern/)).not.toBeInTheDocument()
     expect(fetchWeekendExceptionPreview).not.toHaveBeenCalled()

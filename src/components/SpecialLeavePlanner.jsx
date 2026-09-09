@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
@@ -24,7 +25,7 @@ const RULE_BULLETS = [
   'Covers single days off, courses/CPD, and special leave requests — these do not count against the 22-day annual leave allowance.',
   'The requested day/shift is made up elsewhere, unless it\'s flagged as a "special leave day."',
   'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
-  'Weekend exceptions are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
+  'Weekend off requests are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
   'Italicised entries are pending admin approval.',
   'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
 ]
@@ -37,6 +38,7 @@ const RULE_BULLETS = [
 // killed and reloaded by the OS at any time, which remounts this component
 // from scratch, and the URL is what survives that.
 export default function SpecialLeavePlanner() {
+  const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('syear')) || new Date().getFullYear()
   const mode = searchParams.get('sview') === 'workspace' ? 'workspace' : 'overview'
@@ -175,6 +177,9 @@ export default function SpecialLeavePlanner() {
             leaveByDate={leaveByDate}
             displayNames={displayNames}
             publicHolidaysByDate={publicHolidaysByDate}
+            rotationsByDoctorId={rotationsByDoctorId}
+            myCategory={profile?.category}
+            myContractType={profile?.contract_type}
             onOpenWorkspace={openWorkspace}
             // The rules reach the viewer through the Legend sheet, not a
             // permanently-open card — one entry point to both the colour key
@@ -194,6 +199,7 @@ export default function SpecialLeavePlanner() {
             publicHolidaysByDate={publicHolidaysByDate}
             rotationsByDoctorId={rotationsByDoctorId}
             onBack={backToOverview}
+            onDataChanged={load}
             ruleIntro={RULE_INTRO}
             ruleBullets={RULE_BULLETS}
           />

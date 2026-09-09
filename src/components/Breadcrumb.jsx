@@ -1,14 +1,7 @@
 import { useNavigate } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
 
-function ArrowLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
-  )
-}
-
-// Shared "← Label" back-navigation link — extracted from the near-identical
+// Shared "‹ Label" back-navigation link — extracted from the near-identical
 // buttons Account and Staff had each independently built. Use only when it
 // adds navigation info not already available from tabs or the sidebar; never
 // show one that duplicates an already-active tab. See
@@ -36,7 +29,7 @@ export default function Breadcrumb({ label, to, onClick, className = '' }) {
       onClick={handleClick}
       className={`mb-4 inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink ${className}`}
     >
-      <ArrowLeftIcon className="h-4 w-4 flex-shrink-0" />
+      <ChevronLeft className="h-4 w-4 flex-shrink-0" />
       <span className="truncate">{label}</span>
     </button>
   )

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning,
+  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning, ChevronLeft,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -67,7 +67,18 @@ const ADMIN_FILTERS = [
 // Clerks are read-only "All" access only — "My weekends"/"My requests" are
 // personal/actionable views that don't apply to them.
 const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
-const EXCEPTION_STATUS_LABEL = { pending: 'Exception pending', approved: 'Exception approved', rejected: 'Exception rejected' }
+// The viewer's own weekend-off request, as it reads on a weekend card, the
+// inspector and the detail sheet: "Ellis • Weekend off approved". Named
+// rather than a bare status, because under the My requests filter a column
+// of statuses says what happened without ever saying whose request it was —
+// and these lines only ever describe the signed-in doctor's own request, so
+// the name is theirs. Sentence case, not the uppercase these small labels
+// usually take: a surname shouted in caps reads as a different word.
+const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected' }
+function myRequestLine(status, name) {
+  const outcome = EXCEPTION_STATUS_LABEL[status] ?? status
+  return name ? `${name} • ${outcome}` : outcome
+}
 const MONTH_LABELS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -251,7 +262,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, canViewRequests,
+  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, myRequestName, canViewRequests,
   removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
 }) {
   const [editing, setEditing] = useState(false)
@@ -281,8 +292,8 @@ function WeekendInspector({
       </div>
 
       {myRequest && (
-        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+        <p className="mt-2 text-xs font-semibold text-ink-light">
+          {myRequestLine(myRequest.status, myRequestName)}
         </p>
       )}
 
@@ -391,7 +402,7 @@ function WeekendInspector({
 // fast glance — status + assignments only, reusing WeekendInspector's own
 // read-only AssignmentSummaryRow rather than rebuilding that breakdown a
 // second time.
-function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, onClose }) {
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, onClose }) {
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
   const badge = weekendBadge(saturday, weekendIndex)
@@ -420,8 +431,8 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
         </div>
 
         {myRequest && (
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+          <p className="mt-2 text-xs font-semibold text-ink-light">
+            {myRequestLine(myRequest.status, myRequestName)}
           </p>
         )}
 
@@ -558,7 +569,7 @@ function MonthExceptionsPanel({ exceptions, displayNames }) {
     <div data-testid="weekend-month-exceptions" className="card mt-3 p-4">
       <div className="flex items-center gap-1.5">
         <MessageSquareWarning className="h-4 w-4 text-flagAmber" />
-        <h3 className="text-sm font-semibold text-ink">Weekend exceptions ({exceptions.length})</h3>
+        <h3 className="text-sm font-semibold text-ink">Weekend off requests ({exceptions.length})</h3>
       </div>
       <ul className="mt-2 divide-y divide-slate-line border-t border-slate-line">
         {exceptions.map(req => {
@@ -602,7 +613,7 @@ function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose })
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">Weekend exceptions</h2>
+          <h2 className="font-display text-base font-bold text-ink">Weekend off requests</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
         <p className="mt-1 text-sm text-ink-muted">{formatWeekendRange(saturday)}</p>
@@ -826,7 +837,7 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
 
         {excusedInGroup > 0 && (
           <p data-testid="excused-note" className="mt-2 text-xs text-ink-muted">
-            {excusedInGroup} {excusedInGroup === 1 ? 'doctor is' : 'doctors are'} not listed — approved weekend exception for this weekend.
+            {excusedInGroup} {excusedInGroup === 1 ? 'doctor is' : 'doctors are'} not listed — approved weekend off for this weekend.
           </p>
         )}
 
@@ -909,7 +920,7 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
 // this page computing its own "next open weekend" shortcut, since that
 // panel now owns finding one across the whole year, not just this page's
 // own rolling fetch window.
-export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard, initialFocusSaturday } = {}) {
+export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard, initialFocusSaturday, initialFilter, onFilterChange } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -926,11 +937,20 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
-  // An admin's default concern is the whole roster, not their own rotation
-  // (they may not even be on it) — lands on "All weekends" rather than
-  // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
-  // leading with the same chip above.
-  const [filter, setFilter] = useState(isAdmin || isClerk ? 'all' : 'mine')
+  // Seeded from initialFilter — whatever the year overview's own Showing
+  // picker was left on, so opening a month doesn't silently drop back to
+  // this page's default. Absent (opened directly at /weekend, no scope
+  // chosen yet), it falls back to that default: an admin's concern is the
+  // whole roster, not their own rotation (they may not even be on it), so
+  // they land on "All weekends" rather than sharing non-admins' "My
+  // weekends", matching ADMIN_FILTERS leading with the same chip above.
+  const [filter, setFilterState] = useState(initialFilter || (isAdmin || isClerk ? 'all' : 'mine'))
+  // Every filter change is reported up, so going back to the year view
+  // lands on the same scope this page was left on.
+  function setFilter(next) {
+    setFilterState(next)
+    onFilterChange?.(next)
+  }
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open
@@ -1097,6 +1117,10 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const assignableDoctors = useMemo(() => doctors.filter(d => d.is_active), [doctors])
   const activeDoctorIds = useMemo(() => new Set(assignableDoctors.map(d => d.id)), [assignableDoctors])
   const myRequestsBySaturday = useMemo(() => weekendExceptionRequestsBySaturday(myWeekendRequests), [myWeekendRequests])
+  // Whatever the roster itself calls this doctor (surname, or surname plus
+  // first name where it collides) — the same name their own assignments
+  // render under, so a request line and an assignment read as one person.
+  const myName = profile ? (displayNames.get(profile.id) ?? profile.surname) : null
 
   // Free browsing in either direction, matching the year overview's own
   // unbounded prev/next — widens (re-centres, really) fetchBounds the
@@ -1502,7 +1526,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       <div className="flex flex-wrap items-center gap-2">
         {onBackToYear && (
           <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-            ← Overview
+            <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
           </button>
         )}
         <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth}>
@@ -1711,8 +1735,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           Wknd {monthSaturdays.indexOf(saturday) + 1} · {even ? 'Even' : 'Odd'}
                         </p>
                         {myRequest && (
-                          <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                            {EXCEPTION_STATUS_LABEL[myRequest.status] ?? myRequest.status}
+                          <p className="mt-0.5 text-xs font-semibold text-ink-light">
+                            {myRequestLine(myRequest.status, myName)}
                           </p>
                         )}
                       </div>
@@ -1725,7 +1749,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           <button
                             type="button"
                             onClick={() => setExceptionsSaturday(saturday)}
-                            aria-label={`Weekend exception requests for ${saturday}`}
+                            aria-label={`Weekend off requests for ${saturday}`}
                             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
                           >
                             <MessageSquareWarning className="h-4 w-4" />
@@ -1869,7 +1893,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                 <button
                                   type="button"
                                   onClick={() => setExceptionsSaturday(saturday)}
-                                  aria-label={`Weekend exception requests for ${saturday}`}
+                                  aria-label={`Weekend off requests for ${saturday}`}
                                   className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
                                 >
                                   <MessageSquareWarning className="h-4 w-4" />
@@ -1895,6 +1919,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     isAdmin={isAdmin}
                     saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
+                    myRequestName={myName}
                     canViewRequests={canViewRequests}
                     removeEntry={removeEntry}
                     onClearWeekend={saturday => setClearWeekendTarget(saturday)}
@@ -1931,6 +1956,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           displayNames={displayNames}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
+          myRequestName={myName}
           onClose={() => setDetailSaturday(null)}
         />
       )}

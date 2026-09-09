@@ -28,7 +28,10 @@ export const LEAVE_TYPE_OPTIONS = [
   { value: 'course', label: 'Course / CPD' },
   { value: 'conference', label: 'Conference' },
   { value: 'single_day', label: 'Single day' },
-  { value: 'weekend_exception', label: 'Weekend exception' },
+  // Stored value stays `weekend_exception` (it's a Postgres enum member and
+  // the name the weekend planner's flow is built around); only what staff
+  // read was renamed to "Weekend off".
+  { value: 'weekend_exception', label: 'Weekend off' },
 ]
 
 // Every leave type but annual, sick, and weekend_exception, grouped into one
@@ -48,7 +51,7 @@ export const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => 
 // word the whole screen is about, and "On maternity leave · 3-4 Sep" reads
 // better as "On maternity · 3-4 Sep". Strips a trailing " leave" only:
 // "Maternity leave" -> "Maternity", while "Workshop", "Conference",
-// "Course / CPD", "Single day" and "Weekend exception" have no such suffix
+// "Course / CPD", "Single day" and "Weekend off" have no such suffix
 // and pass through untouched. Falls back to the raw value for a leave_type
 // not in the picklist (a new enum member added in Postgres but not yet
 // here), rather than rendering nothing.
@@ -584,7 +587,7 @@ export async function submitLeaveRequest({
   }
 
   if (leaveType === 'weekend_exception' && !isValidWeekendExceptionRange(dateFrom, dateTo)) {
-    throw new Error('A weekend exception must cover exactly one Saturday and the following Sunday.')
+    throw new Error('A weekend off must cover exactly one Saturday and the following Sunday.')
   }
 
   if (leaveType === 'annual') {

@@ -1,13 +1,13 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MyWeekendYearOverview from './MyWeekendYearOverview'
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
 
-// Sandbox clock is 2026-08-0x throughout this session, so August 2026 is
+// The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
 // always the default-selected month.
 const YEAR = 2026
-const [aug1, aug8] = saturdaysInMonth(YEAR, 8)
+const [aug1, aug8, aug15] = saturdaysInMonth(YEAR, 8)
 const MY_PROFILE_ID = 'p1'
 
 // p1 (the signed-in doctor) is rostered on aug1 (working), has a pending
@@ -19,6 +19,12 @@ const ENTRIES = [
 ]
 const BY_WEEKEND = groupEntriesByWeekend(ENTRIES)
 const MY_REQUESTS = [{ id: 'r1', date_from: aug8, status: 'pending' }]
+
+// jsdom applies no breakpoints, so the mobile month finder and the desktop
+// dashboard (toolbar + month grid + inspector) are both in the DOM. Toolbar
+// controls exist once in each, so scope those queries to one of them.
+const dashboard = () => within(screen.getByTestId('my-weekend-dashboard'))
+const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
 
 function renderOverview(overrides = {}) {
   return render(
@@ -35,23 +41,33 @@ function renderOverview(overrides = {}) {
 }
 
 describe('MyWeekendYearOverview', () => {
-  it('renders the personal-read legend (Working/Exception pending/Off)', () => {
+  // Pinned rather than leaning on the ambient clock happening to be August
+  // 2026 — "which weekends are still ahead" is relative to today.
+  beforeEach(() => vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))) // 1 Aug 2026
+  afterEach(() => vi.useRealTimers())
+
+  it('renders the personal-read legend (Working/Weekend off pending/Off)', () => {
     renderOverview()
-    const legend = within(screen.getByTestId('weekend-year-legend'))
+    const legend = within(dashboard().getByTestId('weekend-year-legend'))
     expect(legend.getByText('Working')).toBeInTheDocument()
-    expect(legend.getByText('Exception pending')).toBeInTheDocument()
+    expect(legend.getByText('Weekend off pending')).toBeInTheDocument()
     expect(legend.getByText('Off')).toBeInTheDocument()
   })
 
-  it('defaults to the current month (August) and shows working/pending counts for it', () => {
+  it('defaults to the current month (August) and shows working/request counts for it', () => {
     renderOverview()
     const augustCard = screen.getByRole('button', { name: 'August' })
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
 
     const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
     expect(inspector.getByText('August 2026')).toBeInTheDocument()
-    expect(inspector.getByText('Working').closest('div')).toHaveTextContent('1')
-    expect(inspector.getByText('Exception pending').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('Weekends working').closest('div')).toHaveTextContent('1')
+    // One request on file this month, pending — and an approved count that
+    // reads 0 rather than being absent, so "nothing approved yet" is said
+    // out loud instead of inferred from a missing line.
+    expect(inspector.getByText('Weekend off requests').closest('div')).toHaveTextContent('1')
+    expect(inspector.getByText('1 pending')).toBeInTheDocument()
+    expect(inspector.getByText('0 approved')).toBeInTheDocument()
   })
 
   it('clicking an unselected month selects it without opening it', async () => {
@@ -87,9 +103,9 @@ describe('MyWeekendYearOverview', () => {
     const onYearChange = vi.fn()
     renderOverview({ onYearChange })
 
-    await user.click(screen.getByRole('button', { name: 'Previous year' }))
+    await user.click(dashboard().getByRole('button', { name: 'Previous year' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR - 1)
-    await user.click(screen.getByRole('button', { name: 'Next year' }))
+    await user.click(dashboard().getByRole('button', { name: 'Next year' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
   })
 
@@ -100,18 +116,18 @@ describe('MyWeekendYearOverview', () => {
     const onYearChange = vi.fn()
     renderOverview({ year: YEAR - 1, onYearChange })
 
-    await user.click(screen.getByRole('button', { name: 'Today' }))
+    await user.click(dashboard().getByRole('button', { name: 'Today' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR)
   })
 
   it('Today also resets a selected month within the current year, and hides again once back on today', async () => {
     const user = userEvent.setup()
     renderOverview()
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(dashboard().queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'January' }))
-    await user.click(screen.getByRole('button', { name: 'Today' }))
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    await user.click(dashboard().getByRole('button', { name: 'Today' }))
+    expect(dashboard().queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'August' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -127,6 +143,69 @@ describe('MyWeekendYearOverview', () => {
     const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
     await user.click(sheet.getByRole('button', { name: 'March' }))
     expect(inspector.getByText('March 2026')).toBeInTheDocument()
+  })
+
+  it('lists months as single lines of weekend blocks, current month first', () => {
+    renderOverview()
+    const headings = finder().getAllByText(/^(Current month|Coming months|Previous months)$/).map(n => n.textContent)
+    expect(headings).toEqual(['Current month', 'Coming months', 'Previous months'])
+
+    // August is the current month, so it leads — ahead of both the rest of
+    // the year and January–July.
+    const tiles = finder().getAllByRole('button').filter(b => /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(b.textContent))
+    expect(tiles).toHaveLength(12)
+    expect(tiles[0]).toHaveTextContent('August')
+    expect(tiles[1]).toHaveTextContent('September')
+    // Aug, then Sep–Dec, then Jan onwards.
+    expect(tiles[5]).toHaveTextContent('January')
+  })
+
+  it('each month tile carries its own working and request counts, and opens the month', async () => {
+    const user = userEvent.setup()
+    const onOpenMonth = vi.fn()
+    renderOverview({
+      onOpenMonth,
+      myRequests: [...MY_REQUESTS, { id: 'r2', date_from: aug15, status: 'approved' }],
+    })
+
+    const august = finder().getAllByRole('button').find(b => b.textContent.startsWith('August'))
+    expect(august).toHaveTextContent('1 working')
+    expect(august).toHaveTextContent('Weekend off requests: 1 pending, 1 approved')
+    // A month with nothing on file says so rather than showing three zeroes.
+    const march = finder().getAllByRole('button').find(b => b.textContent.startsWith('March'))
+    expect(march).toHaveTextContent('No weekends')
+    expect(march).toHaveTextContent('No weekend off requests')
+
+    await user.click(august)
+    expect(onOpenMonth).toHaveBeenCalledWith(8)
+  })
+
+  it('counts an approved weekend off separately from a pending one', () => {
+    renderOverview({ myRequests: [...MY_REQUESTS, { id: 'r2', date_from: aug15, status: 'approved' }] })
+    const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
+    expect(inspector.getByText('Weekend off requests').closest('div')).toHaveTextContent('2')
+    expect(inspector.getByText('1 pending')).toBeInTheDocument()
+    expect(inspector.getByText('1 approved')).toBeInTheDocument()
+    expect(within(dashboard().getByTestId('weekend-year-legend')).getByText('Weekend off approved')).toBeInTheDocument()
+  })
+
+  it('the Showing picker switches the finder to the whole department\'s weekends', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    const augustTile = () => finder().getAllByRole('button').find(b => b.textContent.startsWith('August'))
+    expect(augustTile()).toHaveTextContent('1 working')
+
+    // The trigger is named by its current value, the same as every other
+    // SelectMenu in the app.
+    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(screen.getByRole('option', { name: 'All weekends' }))
+
+    // Staffing read now: aug1 has an MO and a Registrar but not all four
+    // rotation groups, so the month is short rather than fully planned.
+    expect(augustTile()).toHaveTextContent('0 of 5 planned')
+    expect(augustTile()).toHaveTextContent('open slots across the month')
+    expect(augustTile()).not.toHaveTextContent('1 working')
+    expect(within(screen.getByTestId('my-weekend-month-finder')).getByText('Fully planned')).toBeInTheDocument()
   })
 
   it('has no gap-count badges (this view is not a staffing-health read)', () => {

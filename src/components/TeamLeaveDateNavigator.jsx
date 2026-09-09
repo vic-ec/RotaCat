@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import DateStepper from './DateStepper'
 import { TodayIcon } from './PlannerIcons'
 import { addDays, formatShortDateRange, todayStr } from '../lib/dateRange'
@@ -18,9 +19,9 @@ export default function TeamLeaveDateNavigator({ view, weekAnchor, onWeekChange,
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, -7))} aria-label="Previous week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm">←</button>
+      <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, -7))} aria-label="Previous week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm"><ChevronLeft className="h-4 w-4" /></button>
       <span className="font-display text-base font-semibold text-ink">{label}</span>
-      <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, 7))} aria-label="Next week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm">→</button>
+      <button type="button" onClick={() => onWeekChange(addDays(weekAnchor, 7))} aria-label="Next week" className="btn-secondary h-[30px] w-[30px] p-0 text-sm"><ChevronRight className="h-4 w-4" /></button>
       <button type="button" onClick={() => onWeekChange(todayStr())} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
     </div>
   )

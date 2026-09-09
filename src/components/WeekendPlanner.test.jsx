@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -12,9 +12,11 @@ import { addDays } from '../lib/dateRange'
 // hand-off) rather than re-testing everything underneath it, same reasoning
 // as LeavePlannerPage.test.jsx stubbing its own tab content.
 vi.mock('./WeekendPlannerView', () => ({
-  default: ({ initialYear, initialMonth, initialFocusSaturday, onBackToYear, clipboard, setClipboard }) => (
+  default: ({ initialYear, initialMonth, initialFocusSaturday, onBackToYear, clipboard, setClipboard, initialFilter, onFilterChange }) => (
     <div>
       MonthViewStub: {initialYear}-{initialMonth}
+      <span>FilterStub: {initialFilter ?? 'none'}</span>
+      <button onClick={() => onFilterChange('my-requests')}>SetFilterStub</button>
       {initialFocusSaturday && <span>FocusStub: {initialFocusSaturday}</span>}
       {clipboard && <span>ClipboardStub: {clipboard}</span>}
       <button onClick={() => setClipboard(`copied-${initialMonth}`)}>SetClipboardStub</button>
@@ -67,12 +69,18 @@ function grid() {
 
 describe('WeekendPlanner', () => {
   beforeEach(() => {
+    // Pinned rather than leaning on the ambient clock happening to be
+    // August 2026: which weekend is "next needing staff", and which month
+    // the year view selects, are both relative to today. Two tests below
+    // used to pin this for themselves; now every test gets it.
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['weekend_planner_entries:select'] = { data: ENTRIES, error: null }
     mockResponses['profiles:select'] = { data: [], error: null }
     mockResponses['leave_requests:select'] = { data: [], error: null }
     mockAuth = { isAdmin: false, isClerk: false, profile: { id: 'p1' } }
   })
+  afterEach(() => vi.useRealTimers())
 
   it('admin: lands on the staffing year overview (WeekendYearOverview)', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
@@ -101,7 +109,7 @@ describe('WeekendPlanner', () => {
   it('non-staffing viewer: own exception requests never render the staffing panel', async () => {
     mockResponses['leave_requests:select'] = { data: [{ id: 'x1', date_from: aug1, status: 'pending' }], error: null }
     renderPlanner()
-    expect(await screen.findByText('My weekends')).toBeInTheDocument()
+    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
     expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
   })
 
@@ -114,8 +122,10 @@ describe('WeekendPlanner', () => {
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
     renderPlanner()
-    expect(await screen.findByText('My weekends')).toBeInTheDocument()
-    const legend = within(screen.getByTestId('weekend-year-legend'))
+    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
+    // Mobile finder and desktop dashboard both carry one — jsdom applies no
+    // breakpoints, so both are in the DOM. Either answers this question.
+    const legend = within(screen.getAllByTestId('weekend-year-legend')[0])
     expect(legend.getByText('Working')).toBeInTheDocument() // personal-read legend
     expect(legend.queryByText('Fully planned')).not.toBeInTheDocument()
   })
@@ -161,6 +171,31 @@ describe('WeekendPlanner', () => {
     expect(await within(screen.getByTestId('weekend-year-inspector')).findByText('January 2027')).toBeInTheDocument()
   })
 
+  // The Showing picker on the year view and the month view's filter chips
+  // are one setting: whichever was chosen last is what both views show.
+  it('carries the year view\'s Showing scope into the month view, and back again', async () => {
+    const user = userEvent.setup()
+    renderPlanner()
+    const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
+    await screen.findByTestId('my-weekend-month-finder')
+
+    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(await screen.findByRole('option', { name: 'All weekends' }))
+
+    await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
+    expect(await screen.findByText('FilterStub: all')).toBeInTheDocument()
+
+    // A filter the year view has no chip for still round-trips: it holds
+    // the month view's own choice, and reads as personal on the tiles.
+    await user.click(screen.getByRole('button', { name: 'SetFilterStub' }))
+    await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
+    await screen.findByTestId('my-weekend-month-finder')
+    expect(finder().getByRole('button', { name: 'My weekends' })).toBeInTheDocument()
+
+    await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
+    expect(await screen.findByText('FilterStub: my-requests')).toBeInTheDocument()
+  })
+
   it('a direct ?wview=month URL opens straight into the month view', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner(['/?wyear=2026&wview=month&wmonth=3'])
@@ -192,11 +227,10 @@ describe('WeekendPlanner', () => {
   })
 
   it('"Plan now" on the year overview\'s "Next weekend needing staff" panel opens that weekend\'s month, focused on it', async () => {
-    // Pinned so aug1 (2026-08-01) is "today or later" and thus the target —
-    // ENTRIES' only open weekend, since nothing else in the year has any
-    // entry at all (everything else fully empty, hence also "open", but
-    // later in date order).
-    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
+    // The suite-wide clock (1 Aug 2026) makes aug1 "today or later" and
+    // thus the target — ENTRIES' only open weekend, since nothing else in
+    // the year has any entry at all (everything else fully empty, hence
+    // also "open", but later in date order).
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
@@ -205,11 +239,9 @@ describe('WeekendPlanner', () => {
     await user.click(await screen.findByRole('button', { name: 'Plan now' }))
     expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
     expect(screen.getByText(`FocusStub: ${aug1}`)).toBeInTheDocument()
-    vi.useRealTimers()
   })
 
   it('a plain "Open month" never carries a stale focus target from an earlier "Plan now"', async () => {
-    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
@@ -225,6 +257,5 @@ describe('WeekendPlanner', () => {
 
     expect(await screen.findByText(/MonthViewStub: 2026-6/)).toBeInTheDocument()
     expect(screen.queryByText(/FocusStub:/)).not.toBeInTheDocument()
-    vi.useRealTimers()
   })
 })

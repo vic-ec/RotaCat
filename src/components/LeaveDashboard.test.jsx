@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render as rtlRender, screen } from '@testing-library/react'
+import { render as rtlRender, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LeaveDashboard from './LeaveDashboard'
@@ -80,6 +80,24 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Request leave' }))
     expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
+  })
+
+  it('opens the request form in a dialog, closable without submitting', async () => {
+    mockQueues.leave_requests = [{ data: [], error: null }]
+    const user = userEvent.setup()
+    render(<LeaveDashboard />)
+    await screen.findByText('Leave tracker')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Request leave' }))
+    const dialog = screen.getByRole('dialog', { name: 'Request leave' })
+    expect(within(dialog).getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    // The trigger is still there to reopen it — it isn't consumed by opening.
+    expect(screen.getByRole('button', { name: 'Request leave' })).toBeInTheDocument()
   })
 
   it('links a tracker with pending requests through to the Requests tab, and omits the link with none pending', async () => {

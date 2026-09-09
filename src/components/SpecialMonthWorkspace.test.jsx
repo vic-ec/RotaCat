@@ -41,10 +41,17 @@ function desktopDay(container, dayNumber) {
   return within(grid).getByText(String(dayNumber)).closest('button')
 }
 
+// Mobile dot grid counterpart of desktopDay — the phone cells carry the
+// category badges, the desktop ones carry surnames.
+function mobileDay(container, dayNumber) {
+  const grid = container.querySelector('.lg\\:hidden')
+  return within(grid).getByText(String(dayNumber)).closest('button')
+}
+
 describe('SpecialMonthWorkspace', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))
-    mockAuth = { isAdmin: true }
+    mockAuth = { isAdmin: true, canSubmitLeave: true }
   })
 
   it('renders a calendar grid with names read straight off the day cells', () => {
@@ -66,7 +73,8 @@ describe('SpecialMonthWorkspace', () => {
     const { container } = renderWorkspace()
     await user.click(desktopDay(container, 10))
 
-    const panel = (await screen.findByText(/Monday, 2026-08-10/)).closest('.card')
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByText(/Monday, 2026-08-10/)).toBeInTheDocument()
     expect(within(panel).getByText('Ellis')).toBeInTheDocument()
     // Full request period, not just the day clicked, and the shortened type.
     expect(within(panel).getByText(/MO · Maternity · /)).toBeInTheDocument()
@@ -80,7 +88,8 @@ describe('SpecialMonthWorkspace', () => {
     const user = userEvent.setup()
     const { container } = renderWorkspace()
     await user.click(desktopDay(container, 12))
-    const panel = (await screen.findByText(/Wednesday, 2026-08-12/)).closest('.card')
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByText(/Wednesday, 2026-08-12/)).toBeInTheDocument()
     expect(within(panel).getByText('No one is on leave today')).toBeInTheDocument()
   })
 
@@ -96,8 +105,67 @@ describe('SpecialMonthWorkspace', () => {
     expect(within(day10).queryByText('Vance')).not.toBeInTheDocument()
 
     await user.click(day10)
-    const panel = (await screen.findByText(/Monday, 2026-08-10/)).closest('.card')
+    const panel = await screen.findByRole('dialog')
     expect(within(panel).queryByText('Vance')).not.toBeInTheDocument()
+  })
+
+  // The guideline banner that used to sit above the grid is deliberately
+  // gone: the day panel already states the slots for the day being asked
+  // about, and a permanent month-wide restatement of a rule nothing
+  // enforces was noise above every grid.
+  it('has no capacity banner above the grid', () => {
+    renderWorkspace({ myCategory: 'MO' })
+    expect(screen.queryByText(/shared guideline/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/counted under/)).not.toBeInTheDocument()
+  })
+
+  it('shows category badges on the mobile day cells', () => {
+    const { container } = renderWorkspace()
+    const day10 = mobileDay(container, 10)
+    expect(within(day10).getByText('MO')).toBeInTheDocument()
+    expect(within(day10).getByText('C')).toBeInTheDocument()
+  })
+
+  it('counts the day panel\'s slots against the shared soft cap', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWorkspace()
+    await user.click(desktopDay(container, 10))
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByText('2 of 3 slots taken')).toBeInTheDocument()
+    expect(panel).toHaveTextContent('1 slot available (guideline, any category)')
+  })
+
+  // The count is the true shared one — a non-admin can't see WHO the
+  // Consultant is, but the slot they occupy still has to be counted, or the
+  // guideline would read as looser than it is.
+  it('still counts hidden Consultant leave in a non-admin\'s slot line', async () => {
+    mockAuth = { isAdmin: false, canSubmitLeave: true }
+    const user = userEvent.setup()
+    const { container } = renderWorkspace()
+    await user.click(desktopDay(container, 10))
+    const panel = await screen.findByRole('dialog')
+    expect(within(panel).getByText('2 of 3 slots taken')).toBeInTheDocument()
+    expect(within(panel).queryByText('Vance')).not.toBeInTheDocument()
+  })
+
+  it('opens the request form for the clicked day, and hides it from viewers who cannot submit', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWorkspace()
+    await user.click(desktopDay(container, 12))
+    await user.click(await screen.findByRole('button', { name: 'Request leave for this day' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    // Opened from the Special tab, so the type leads with Special leave —
+    // the SelectMenu trigger is named by its current value.
+    expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('Close'))
+    mockAuth = { isAdmin: true, canSubmitLeave: false }
+    const second = renderWorkspace()
+    await user.click(desktopDay(second.container, 12))
+    await screen.findByRole('dialog')
+    expect(screen.queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
   })
 
   it('Back returns to the overview', async () => {

@@ -117,4 +117,86 @@ describe('SpecialPlannerOverview', () => {
     await user.click(grid().getByRole('button', { name: /^January/ }))
     expect(inspector().queryByText('Above guideline')).not.toBeInTheDocument()
   })
+
+  // ── Non-admin mobile month finder (mirrors the Annual tab's) ──────────
+  describe('non-admin mobile month finder', () => {
+    beforeEach(() => { mockAuth = { isAdmin: false } })
+
+    function tiles() {
+      return within(screen.getByTestId('special-month-finder'))
+    }
+
+    it('groups months as Current, then Coming, then Previous', () => {
+      renderOverview()
+      const finder = tiles()
+      expect(within(finder.getByText('Current month').closest('div')).getByText('August')).toBeInTheDocument()
+
+      const coming = finder.getByText('Coming months').closest('div')
+      expect(within(coming).getByText('September')).toBeInTheDocument()
+      expect(within(coming).getByText('December')).toBeInTheDocument()
+      expect(within(coming).queryByText('August')).not.toBeInTheDocument()
+
+      const previous = finder.getByText('Previous months').closest('div')
+      expect(within(previous).getByText('January')).toBeInTheDocument()
+      expect(within(previous).getByText('July')).toBeInTheDocument()
+    })
+
+    it('opens a month straight from its tile', async () => {
+      const user = userEvent.setup()
+      const onOpenWorkspace = vi.fn()
+      renderOverview({ onOpenWorkspace })
+      await user.click(within(tiles().getByText('Current month').closest('div')).getByRole('button'))
+      expect(onOpenWorkspace).toHaveBeenCalledWith(8)
+    })
+
+    // The picker narrows WHO is counted. It deliberately does not touch the
+    // capacity colours: special leave's guideline is 3 doctors of any
+    // category, so a per-category colour would claim capacity that doesn't
+    // exist.
+    it('filters the people count by category, leaving the shared capacity chip alone', async () => {
+      const user = userEvent.setup()
+      const mixed = new Map([['2026-08-10', [
+        { ...entry('p1', 'study', '2026-08-10', '2026-08-10'), category: 'MO' },
+        { ...entry('p2', 'workshop', '2026-08-10', '2026-08-10'), category: 'Registrar' },
+        { ...entry('p3', 'conference', '2026-08-10', '2026-08-10'), category: 'Registrar' },
+      ]]])
+      renderOverview({ leaveByDate: mixed, myCategory: 'MO' })
+
+      const august = () => within(tiles().getByText('Current month').closest('div'))
+      // Defaults to the viewer's own group — one MO of the three people out.
+      expect(august().getByText('1 on leave')).toBeInTheDocument()
+      // The chip reads the true shared count (all 3), not the filtered one.
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+
+      // The picker's trigger is named by its current value (SelectMenu).
+      await user.click(tiles().getByRole('button', { name: 'MO' }))
+      await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+      expect(august().getByText('2 on leave')).toBeInTheDocument()
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+    })
+
+    // The chip names the same states the Annual tab's month tiles do, plus
+    // one Annual can't reach: special leave has no enforced cap, so a day
+    // can go past the 3-doctor guideline entirely.
+    it('names capacity states the way the Annual planner does, including going over the guideline', () => {
+      const august = () => within(tiles().getByText('Current month').closest('div'))
+      const dayWith = ids => new Map([['2026-08-10', ids.map(id => entry(id, 'study', '2026-08-10', '2026-08-10'))]])
+
+      const empty = renderOverview({ leaveByDate: new Map() })
+      expect(august().getByText('Available')).toBeInTheDocument()
+      empty.unmount()
+
+      const one = renderOverview({ leaveByDate: dayWith(['p1']) })
+      expect(august().getByText('Limited capacity on 1 day')).toBeInTheDocument()
+      one.unmount()
+
+      const three = renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3']) })
+      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+      three.unmount()
+
+      // A fourth doctor on the same day: past the guideline, not merely at it.
+      renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3', 'p4']) })
+      expect(august().getByText('Capacity exceeded on 1 day')).toBeInTheDocument()
+    })
+  })
 })

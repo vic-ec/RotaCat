@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Navigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { usePendingApprovalReview } from '../lib/usePendingApprovalReview'
 import PendingApprovalReviewBody from '../components/PendingApprovalReviewBody'
@@ -53,7 +53,7 @@ export default function PendingApprovalReviewPage() {
         onClick={() => navigate('/staff')}
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> Pending approvals
+        <ChevronLeft className="h-4 w-4" /> Pending approvals
       </button>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">

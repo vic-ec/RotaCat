@@ -80,6 +80,19 @@ export default function AnnualPlannerOverview({
   const pressureDates = useMemo(() => pressureDatesInYear(countByColumnPerDate, maxByColumnKey), [countByColumnPerDate, maxByColumnKey])
 
   const months = monthsForYear(year)
+  // The same read feeds two card shapes — the mobile tile and, for a
+  // non-admin, the desktop month card — so it is computed once here rather
+  // than twice with a chance of drifting.
+  const capacityByMonth = new Map(months.map(m => {
+    const markers = monthCapacityMarkers(m.year, m.month, categoryKey, { countByColumnPerDate, maxByColumnKey, publicHolidaysByDate })
+    const worstState = markers.reduce(
+      (worst, d) => LEAVE_CAPACITY_STATES.indexOf(d.capacityState) > LEAVE_CAPACITY_STATES.indexOf(worst) ? d.capacityState : worst,
+      LEAVE_CAPACITY_STATES[0]
+    )
+    return [m.month, { markers, worstState }]
+  }))
+  const categoryMonthCards = months.map(m => ({ ...m, ...capacityByMonth.get(m.month) }))
+
   const monthCards = months.map(m => {
     const markers = monthDayMarkers(m.year, m.month, {
       approvedByDate, pendingByDate, pressureDates, publicHolidaysByDate, countByColumnPerDate,
@@ -87,7 +100,12 @@ export default function AnnualPlannerOverview({
     const pressureDayCount = markers.filter(d => d.isPressure).length
     const { start, end } = monthBounds(m.year, m.month)
     const pendingCount = pendingRequestCountInRange(pendingRows, start, end)
-    return { ...m, markers, pressureDayCount, pendingCount, summaryLine: monthSummaryLine({ pressureDayCount, pendingCount }) }
+    const capacity = capacityByMonth.get(m.month)
+    return {
+      ...m, markers, pressureDayCount, pendingCount,
+      summaryLine: monthSummaryLine({ pressureDayCount, pendingCount }),
+      capacityMarkers: capacity.markers, worstState: capacity.worstState,
+    }
   })
 
   // Category-scoped month list for the non-admin mobile view (see the
@@ -97,14 +115,6 @@ export default function AnnualPlannerOverview({
   // desktop still get. worstState drives the tile's label chip: the most
   // severe state reached that month, so a single day at capacity still
   // surfaces even if most of the month is clear.
-  const categoryMonthCards = months.map(m => {
-    const markers = monthCapacityMarkers(m.year, m.month, categoryKey, { countByColumnPerDate, maxByColumnKey, publicHolidaysByDate })
-    const worstState = markers.reduce(
-      (worst, d) => LEAVE_CAPACITY_STATES.indexOf(d.capacityState) > LEAVE_CAPACITY_STATES.indexOf(worst) ? d.capacityState : worst,
-      LEAVE_CAPACITY_STATES[0]
-    )
-    return { ...m, markers, worstState }
-  })
   // Only the browsed year's own relationship to today matters here — a past
   // year has no "current"/"coming" month at all (every month in it already
   // happened), a future year has no "current"/"previous" (none of it has
@@ -217,6 +227,7 @@ export default function AnnualPlannerOverview({
               key={m.month}
               month={m}
               isSelected={m.month === selectedMonth}
+              isAdmin={isAdmin}
               // Clicking an unselected month just selects it (updating the
               // inspector); clicking the already-selected one goes straight
               // to its month workspace — a second click on the same month
@@ -311,7 +322,7 @@ export default function AnnualPlannerOverview({
               <ExternalLink className="h-3.5 w-3.5" /> Open month workspace
             </button>
             <Link to="/leave?tab=requests&from=annual" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ListChecks className="h-3.5 w-3.5" /> View requests
+              <ListChecks className="h-3.5 w-3.5" /> {isAdmin ? 'View requests' : 'View my requests'}
             </Link>
           </div>
         </div>
@@ -359,7 +370,7 @@ function AnnualLegendTrigger({ ruleHintIntro, ruleHintBullets }) {
 // days are limited/full) rather than a separate "N pressure days" line
 // repeating a coarser version of the same fact.
 function CategoryMonthTile({ month, onOpen }) {
-  const chipLabel = chipLabelForMonth(month)
+  const chipLabel = chipLabelForMonth(month.worstState, month.markers)
   return (
     <button
       type="button"
@@ -395,16 +406,16 @@ function CategoryMonthTile({ month, onOpen }) {
 // "available" needs no count, and near-capacity has no default combination
 // of category caps that reaches it (see categoryDayCapacityState in
 // annualPlannerOverview.js), so there's nothing to quantify there yet.
-function chipLabelForMonth(month) {
-  if (month.worstState.key === 'limited') {
-    const days = month.markers.filter(d => d.capacityState.key === 'limited').length
+function chipLabelForMonth(worstState, markers) {
+  if (worstState.key === 'limited') {
+    const days = markers.filter(d => d.capacityState.key === 'limited').length
     return `Limited capacity on ${days} day${days === 1 ? '' : 's'}`
   }
-  if (month.worstState.key === 'at_capacity') {
-    const days = month.markers.filter(d => d.capacityState.key === 'at_capacity').length
+  if (worstState.key === 'at_capacity') {
+    const days = markers.filter(d => d.capacityState.key === 'at_capacity').length
     return `No capacity on ${days} day${days === 1 ? '' : 's'}`
   }
-  return month.worstState.label
+  return worstState.label
 }
 
 function InspectorStat({ icon: Icon, label, value }) {
@@ -422,7 +433,7 @@ function InspectorStat({ icon: Icon, label, value }) {
 // available, yellow = limited, orange = near capacity, red = at capacity),
 // so the grid reads as a heatmap of "can I take leave here" at a glance
 // rather than requiring a tap to find out.
-function MonthCard({ month, isSelected, onSelect }) {
+function MonthCard({ month, isSelected, onSelect, isAdmin }) {
   const leadingBlanks = (dayOfWeek(month.markers[0].date) + 6) % 7 // Monday-start
   const cells = [...Array(leadingBlanks).fill(null), ...month.markers]
 
@@ -436,7 +447,17 @@ function MonthCard({ month, isSelected, onSelect }) {
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       </div>
-      <p className="mt-0.5 text-xs text-ink-muted">{month.summaryLine}</p>
+      {/* "2 pressure days · 1 pending" answers an admin's question — how much
+          is this month going to cost me to run. A doctor is asking whether
+          they can take leave, which is what the capacity chip says, and it
+          is the same wording their phone already gives them. */}
+      {isAdmin ? (
+        <p className="mt-0.5 text-xs text-ink-muted">{month.summaryLine}</p>
+      ) : (
+        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${month.worstState.tint} ${month.worstState.text}`}>
+          {chipLabelForMonth(month.worstState, month.capacityMarkers)}
+        </span>
+      )}
 
       {/* Bigger cells than the tight 4x3-grid days had — brings the block's
           overall height up closer to the Weekend planner's own month

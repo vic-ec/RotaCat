@@ -24,6 +24,7 @@ import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
 import { ActionSheet, ActionSheetButton } from './ActionSheet'
 import Toolbar from './Toolbar'
+import SelectMenu from './SelectMenu'
 import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
 
@@ -56,7 +57,6 @@ function boundsAroundMonth(year, month) {
 // the same leftmost chip as everyone else.
 const FILTERS_BASE = [
   { key: 'mine', label: 'My weekends' },
-  { key: 'my-requests', label: 'My requests' },
   { key: 'all', label: 'All weekends' },
 ]
 const ADMIN_FILTERS = [
@@ -64,8 +64,8 @@ const ADMIN_FILTERS = [
   ...FILTERS_BASE.filter(f => f.key !== 'all'),
   { key: 'needs-planning', label: 'Needs planning' },
 ]
-// Clerks are read-only "All" access only — "My weekends"/"My requests" are
-// personal/actionable views that don't apply to them.
+// Clerks are read-only "All" access only — "My weekends" is a personal view
+// that doesn't apply to them.
 const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
 // The viewer's own weekend-off request, as it reads on a weekend card, the
 // inspector and the detail sheet: "Ellis • Weekend off approved". Named
@@ -1219,6 +1219,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     const bySaturday = byWeekend.get(saturday)
     if (filter === 'needs-planning') return weekendCoverageSummary(bySaturday).openGroups.length > 0
     if (filter === 'mine') return isProfileAssignedToWeekend(bySaturday, profile?.id)
+    // No longer offered as a choice (it went with the Filter pill), but a
+    // link or a stored wshow from before can still arrive carrying it.
     if (filter === 'my-requests') return myRequestsBySaturday.has(saturday)
     return true
   })
@@ -1543,23 +1545,40 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // own margin would just misalign against nav-row siblings that don't
   // carry one) — two different layouts sharing the same underlying search/
   // filter state, not two different controls.
+  // Scope moved out to the Showing picker beside the month nav, so the
+  // toolbar is just the search now. Without `compact` it takes Toolbar's
+  // standard 320px, which is the inspector's own width — and since it is
+  // the right-hand child of a justify-between row whose width the inspector
+  // also ends at, the two line up on both edges.
   function renderToolbar(className) {
     return (
       <Toolbar
-        compact
         className={className}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search name…"
-        filterFacets={[{
-          key: 'filter', icon: <Filter className="h-4 w-4" />, label: 'Filter',
-          value: filter, onChange: setFilter,
-          options: filters.map(f => ({ value: f.key, label: f.label })),
-          isActive: filter !== defaultFilter,
-        }]}
-        active={Boolean(searchQuery) || filter !== defaultFilter}
-        onClearAll={() => { setSearchQuery(''); setFilter(defaultFilter) }}
+        active={Boolean(searchQuery)}
+        onClearAll={() => setSearchQuery('')}
       />
+    )
+  }
+
+  // "Showing" — the one scope control, matching the year view's. Admins get
+  // Needs planning as a third option rather than a separate filter.
+  function renderScopePicker(id) {
+    if (filters.length < 2) return null
+    return (
+      <div className="flex items-center gap-2">
+        <label htmlFor={id} className="whitespace-nowrap text-sm text-ink-muted">Showing</label>
+        <div className="w-44">
+          <SelectMenu
+            id={id}
+            value={filter}
+            onChange={setFilter}
+            options={filters.map(f => ({ value: f.key, label: f.label }))}
+          />
+        </div>
+      </div>
     )
   }
 
@@ -1610,7 +1629,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 while FloatingActionMenu stops at `md`, so the md–lg band
                 (tablets, most landscape phones) keeps the inline row it
                 already had rather than losing search/filter entirely. */}
-            <div className="mt-4 hidden md:block">{renderToolbar('mb-4')}</div>
+            <div className="mt-4 hidden md:block">
+              {filters.length > 1 && (
+                <div className="mb-3">{renderScopePicker('weekend-scope-tablet')}</div>
+              )}
+              {renderToolbar('mb-4')}
+            </div>
             {/* Fixed-positioned, so where it sits in this block is
                 immaterial — kept next to the toolbar row it replaces. The
                 Legend trigger deliberately stays out of it (see the sticky
@@ -1801,6 +1825,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 this merge (not just a shared wrapper) is what actually fixes
                 it. */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
+              <div className="flex flex-wrap items-center gap-3">
               {renderMonthNav(isAdmin && (
                 <div className="flex items-center gap-3">
                   <PageActionsMenu
@@ -1814,6 +1839,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
                 </div>
               ))}
+              {renderScopePicker('weekend-scope-desktop')}
+              </div>
               <div className="min-w-0">{renderToolbar('')}</div>
             </div>
 

@@ -138,9 +138,13 @@ function list(view) {
 // every other duplicated-per-viewport control; the popped-open option list
 // is a portal straight onto document.body regardless, so that half still
 // queries `screen` directly.
-async function pickFilter(view, user, label) {
-  await user.click(view.getByRole('button', { name: 'Filter' }))
-  await user.click(await screen.findByRole('button', { name: label }))
+// Scope moved out of the Toolbar's Filter pill into a "Showing" SelectMenu
+// beside the month nav. Both viewport copies render in jsdom, so target the
+// one in the block under test by its own id; the option list portals to
+// document.body either way.
+async function pickFilter(view, user, label, id = 'weekend-scope-tablet') {
+  await user.click(document.getElementById(id))
+  await user.click(await screen.findByRole('option', { name: label }))
 }
 
 async function showAll(view, user) {
@@ -193,18 +197,14 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      // Toolbar's mobile trigger is named "Filters" (its default
-      // mobileSheetTitle) — distinct from the desktop facet's "Filter". Now
-      // that Toolbar itself is rendered once per viewport (mobile's own row
-      // here, desktop's merged into its nav row), this still needs scoping
-      // to `view` like everything else duplicated per viewport.
-      const filterButton = view.getByRole('button', { name: 'Filters' })
-      expect(within(filterButton).queryByText('Filters')).not.toBeInTheDocument() // icon only — name comes from aria-label, no visible text child
-      expect(filterButton.className).toContain('w-[30px]')
+      // The Filter pill is gone — scope is the "Showing" select above the
+      // search, and the toolbar row is search alone.
+      expect(view.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument()
+      expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
 
-      const row = filterButton.closest('div.md\\:hidden')
-      expect(row.className).toContain('flex-nowrap')
-      expect(row.className).not.toContain('flex-col')
+      const scope = document.getElementById('weekend-scope-tablet')
+      expect(scope).toBeInTheDocument()
+      expect(view.getByLabelText('Showing')).toBe(scope)
     })
 
     it('mobile: Review log lives inside the More actions kebab, and still opens the review log', async () => {
@@ -245,10 +245,9 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'Filter' }))
-      const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
-      expect(chips.map(c => c.textContent)).toEqual(['My weekends', 'My requests', 'All weekends'])
-      expect(screen.getByRole('button', { name: 'My weekends' })).toHaveClass('bg-accent')
+      await user.click(document.getElementById('weekend-scope-tablet'))
+      const options = screen.getAllByRole('option')
+      expect(options.map(o => o.textContent)).toEqual(['My weekends', 'All weekends'])
       await user.keyboard('{Escape}')
 
       // Only p1's own two weekends show by default
@@ -381,20 +380,17 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(view.getByRole('button', { name: 'Filter' }))
-      const chips = screen.getAllByRole('button', { name: /^(My weekends|My requests|All weekends|Needs planning)$/ })
-      expect(chips.map(c => c.textContent)).toEqual(['All weekends', 'My weekends', 'My requests', 'Needs planning'])
+      await user.click(document.getElementById('weekend-scope-tablet'))
+      const options = screen.getAllByRole('option')
+      expect(options.map(o => o.textContent)).toEqual(['All weekends', 'My weekends', 'Needs planning'])
     })
 
     it('admin: lands on "All weekends" by default; non-admin still lands on "My weekends"', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
-      const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
-      await user.click(view.getByRole('button', { name: 'Filter' }))
-      expect(screen.getByRole('button', { name: 'All weekends' })).toHaveClass('bg-accent')
-      expect(screen.getByRole('button', { name: 'My weekends' })).not.toHaveClass('bg-accent')
+      expect(document.getElementById('weekend-scope-tablet')).toHaveTextContent('All weekends')
     })
 
     it('non-admin: "Needs planning" filter does not exist', async () => {
@@ -416,17 +412,20 @@ describe('WeekendPlannerView', () => {
       expect(view.queryByText('Sat 15 - Sun 16 Aug 2026')).not.toBeInTheDocument() // nobody assigned
     })
 
-    it('"My requests" filter shows weekends with the doctor\'s own weekend-exception request, with a status badge', async () => {
+    // "My requests" went with the Filter pill — the scope picker offers My
+    // weekends / All weekends (and Needs planning for admins) only. The
+    // request badge it used to check is still drawn, so All weekends is
+    // where that assertion lives now.
+    it('a weekend carrying the doctor\'s own weekend-off request shows a named status badge', async () => {
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await pickFilter(view, user, 'My requests')
+      await showAll(view, user)
       const aug22Heading = await view.findByText('Sat 22 - Sun 23 Aug 2026')
-      expect(view.queryByText('Sat 8 - Sun 9 Aug 2026')).not.toBeInTheDocument() // in My weekends, not My requests
-      // Named, not a bare status: a column of these under this filter has
-      // to say whose request each one is.
+      // Named, not a bare status: a column of these has to say whose
+      // request each one is.
       expect(within(aug22Heading.closest('.card')).getByText('Anderson • Weekend off pending')).toBeInTheDocument()
     })
 
@@ -962,16 +961,18 @@ describe('WeekendPlannerView', () => {
       expect(within(menu).getByRole('button', { name: 'Review log' })).toBeInTheDocument()
     })
 
-    it('desktop: search and Filter share one row without wrapping, and Filter renders icon-only', async () => {
+    it('desktop: the toolbar row is search alone — scope is the Showing select by the month nav', async () => {
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
-      const filterButton = view.getByRole('button', { name: 'Filter' })
-      const label = within(filterButton).getByText('Filter')
-      expect(label.className).toBe('hidden')
+      expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
+      expect(document.getElementById('weekend-scope-desktop')).toBeInTheDocument()
 
-      const row = filterButton.closest('div.md\\:flex')
+      const row = document.getElementById('weekend-scope-desktop')
+        .closest('div.justify-between')
+        .querySelector('div.md\\:flex')
+      expect(row.querySelector('input[placeholder="Search name…"]')).not.toBeNull()
       expect(row.className).toContain('flex-nowrap')
     })
 
@@ -991,18 +992,20 @@ describe('WeekendPlannerView', () => {
       // scoped this way since the placeholder text alone would otherwise
       // also match Toolbar's own internal mobile-half input.
       const monthButton = view.getByRole('button', { name: 'August 2026' })
-      const desktopFilterButton = view.getByRole('button', { name: 'Filter' })
-      const searchInput = desktopFilterButton.closest('div.md\\:flex').querySelector('input[placeholder="Search name…"]')
+      const scope = document.getElementById('weekend-scope-desktop')
+      const searchInput = scope.closest('div.justify-between').querySelector('div.md\\:flex input[placeholder="Search name…"]')
       const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
 
       const row = monthButton.closest('div.justify-between')
       expect(row).not.toBeNull()
       expect(row.contains(searchInput)).toBe(true)
       expect(row.contains(moreActionsButton)).toBe(true)
+      expect(row.contains(scope)).toBe(true)
 
-      // Capped rather than free to fill the whole row (max-w-xs, from
-      // Toolbar's own compact desktop styling).
-      expect(searchInput.closest('div.max-w-xs')).not.toBeNull()
+      // Toolbar's standard 320px, not the old capped-and-shrinkable
+      // `compact` width — it is the inspector's own width, and the row's
+      // right edge is the inspector's right edge, so the two line up.
+      expect(searchInput.closest('div.w-80')).not.toBeNull()
     })
 
     it('desktop: the Legend trigger next to More Actions opens a sheet with "How it works" as its footer', async () => {

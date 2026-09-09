@@ -343,7 +343,7 @@ describe('MonthWorkspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     expect(screen.getByText('2 of 2 slots taken')).toBeInTheDocument()
-    expect(screen.getByText('0 leave slots available — shared pool: MO, Registrar, EC Intern')).toBeInTheDocument()
+    expect(screen.getByText('0 leave slots available in the shared pool: MO, Registrar, EC Intern')).toBeInTheDocument()
     expect(screen.queryByText(/available for MO/)).not.toBeInTheDocument() // pooled wording, not the column-alone read
     expect(screen.queryByText(/Full —/)).not.toBeInTheDocument() // personalised banner replaces the generic one, not both
     mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false }

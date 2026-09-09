@@ -234,7 +234,7 @@ export default function SpecialPlannerOverview({
               <ExternalLink className="h-3.5 w-3.5" /> Open month
             </button>
             <Link to="/leave?tab=requests&from=special" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ListChecks className="h-3.5 w-3.5" /> View requests
+              <ListChecks className="h-3.5 w-3.5" /> {isAdmin ? 'View requests' : 'View my requests'}
             </Link>
           </div>
         </div>

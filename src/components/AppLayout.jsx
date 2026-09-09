@@ -241,7 +241,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col pb-[54px] md:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
         {/* Top bar — mobile only, and Dashboard-only: every other mobile
             page starts straight into its own content/nav instead, the same
             way a native app only brands its home tab. Sign-out lives on the
@@ -270,8 +270,15 @@ export default function AppLayout() {
         </main>
       </div>
 
-      {/* Bottom nav — mobile, primary navigation only */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised md:hidden">
+      {/* Bottom nav — mobile, primary navigation only.
+
+          The safe-area inset is padding on the bar rather than an offset:
+          the fill still reaches the bottom of the screen (an offset would
+          leave a strip of page showing under it) while the items sit above
+          the home indicator instead of behind it. Resolves to 0 on a device
+          without one, so nothing changes elsewhere. Matches what
+          MobileFiltersSheet, ActionSheet and the FAB already do. */}
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised pb-[env(safe-area-inset-bottom)] md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

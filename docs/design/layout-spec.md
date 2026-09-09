@@ -126,7 +126,7 @@ search/sort/filter row goes through the one shared `Toolbar` component
 
 | Element | Spec |
 |---|---|
-| Search input | Fixed width **320px** on desktop (`compact` prop shrinks this instead, for a row that must never wrap — see below). Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
+| Search input | Fixed width **320px** on desktop (`compact` prop shrinks this instead, for a row that must never wrap — see below; `stretch` grows it instead, so the controls after it reach the container's right edge — for a page whose list sits in a narrow centred column, where 320px left the row stopping short of the list it filters). Placeholder always states exactly what's searched, e.g. "Search by surname or first name…", "Search by month or year…" — never a generic "Search…" |
 | Sort | Include on every list with more than ~5 items and a meaningful order (name, date, status). Passed as `sortFacets` — single-select. |
 | Filter | Two shapes, pick whichever matches the data: `filterFacets` (single-select, one dropdown per facet — e.g. Roster's Sort direction) or `filterGroups` (multi-select, `FilterPanel`-shaped groups behind one `[Filter ▾ (n)]` trigger — e.g. Staff's Role/Category/Status/Admin). Both can be passed together. |
 | Clear (×) | **Only rendered when a search term or filter is active** (`active` prop) — never shown by default. |

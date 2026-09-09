@@ -454,6 +454,7 @@ export default function Toolbar({
   mobileMode = 'sheet',
   trailing, desktopTrailing,
   className = 'mb-4',
+  stretch = false,
 }) {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const facets = [...sortFacets, ...filterFacets]
@@ -476,9 +477,16 @@ export default function Toolbar({
       {/* Desktop / tablet row — search fixed at 320px (or shrinkable up to
           that same 320px, in compact mode — shrinks to fit a narrower row
           without ever ballooning past it just because the row has room),
-          facets + filterGroups + desktopTrailing + clear + trailing */}
+          facets + filterGroups + desktopTrailing + clear + trailing.
+
+          `stretch` opts out of the 320px standard (layout-spec §"Search
+          input"): the search grows to take whatever the row has spare, so
+          the controls after it are carried out to the container's right
+          edge. For a page whose list sits in a narrow centred column, where
+          a 320px box left the row stopping well short of the list it
+          filters. It changes where the controls sit, not their order. */}
       <div className="hidden flex-nowrap items-center gap-2 md:flex">
-        <div className={compact ? 'min-w-0 max-w-xs flex-1' : 'w-80 flex-shrink-0'}>
+        <div className={stretch ? 'min-w-0 flex-1' : (compact ? 'min-w-0 max-w-xs flex-1' : 'w-80 flex-shrink-0')}>
           <ClearableInput
             type="text"
             value={searchValue}

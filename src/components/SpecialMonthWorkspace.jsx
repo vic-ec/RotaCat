@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { weeksForMonth, monthsForYear, COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
-import { shortLeaveTypeLabel } from '../lib/leaveRequests'
+import { shortLeaveTypeLabel, SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
 import { todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
 import { specialCountsByDate, specialMonthMarkers } from '../lib/specialPlanner'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge from './CategoryBadge'
 import DateStepper from './DateStepper'
+import Modal from './Modal'
+import LeaveRequestForm from './LeaveRequestForm'
 import { SpecialLegendTrigger } from './SpecialPlannerOverview'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -28,7 +30,7 @@ const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 // SPECIAL_LEAVE_SOFT_CAP — a documented guideline, not an enforced rule).
 export default function SpecialMonthWorkspace({
   year, month, onMonthChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate = new Map(),
-  rotationsByDoctorId, onBack, ruleIntro, ruleBullets,
+  rotationsByDoctorId, onBack, onDataChanged, myCategory, myContractType, ruleIntro, ruleBullets,
 }) {
   const { isAdmin } = useAuth()
   // Consultant leave is admin-only (EC_LEAVE_PLANNER_RULES.md's Consultant
@@ -43,9 +45,12 @@ export default function SpecialMonthWorkspace({
   const weeks = weeksForMonth(year, month)
   const monthLabel = monthsForYear(year)[month - 1].label
   const countsByDate = specialCountsByDate(leaveByDate)
-  const markersByDate = new Map(
-    specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate).map(m => [m.date, m])
-  )
+  const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
+  const markersByDate = new Map(monthMarkers.map(m => [m.date, m]))
+  const monthGuidelineDays = monthMarkers.filter(m => m.overSoftCap).length
+  const myColumnLabel = GRID_COLUMNS.find(
+    c => c.key === resolveLeaveCapacityColumn({ category: myCategory, contractType: myContractType })
+  )?.label ?? null
 
   function rowsForDate(date) {
     return (leaveByDate.get(date) || [])
@@ -73,6 +78,23 @@ export default function SpecialMonthWorkspace({
           <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
           <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
         </div>
+      </div>
+
+      {/* Where the viewer stands this month, before the grid. Special
+          leave's guideline is shared across categories, so unlike Annual's
+          per-category banner this says so outright rather than quoting a
+          number that only applies to one group — "check other categories"
+          would be answering a question the rule doesn't ask. */}
+      <div className="mt-4 rounded-lg border border-flagBlue/30 bg-flagBlue-bg px-3 py-2 text-xs text-flagBlue">
+        {myColumnLabel
+          ? <>You&apos;re counted under <span className="font-semibold">{myColumnLabel}</span>. </>
+          : null}
+        Special leave runs on one shared guideline — no more than{' '}
+        <span className="font-semibold">{SPECIAL_LEAVE_SOFT_CAP} doctors of any category</span> at once — so the
+        same slots apply to every category.{' '}
+        {monthGuidelineDays > 0
+          ? <>{monthGuidelineDays} {monthGuidelineDays === 1 ? 'day' : 'days'} in {monthLabel} {monthGuidelineDays === 1 ? 'is' : 'are'} already at it.</>
+          : <>No day in {monthLabel} has reached it.</>}
       </div>
 
       {/* Desktop: full weekday names and named cells with surnames read
@@ -129,16 +151,34 @@ export default function SpecialMonthWorkspace({
           {weeks.flat().map((date, i) => {
             if (!date) return <span key={`blank-${i}`} />
             const marker = markersByDate.get(date)
+            // Which categories are out, not just how many people — the same
+            // EC/MO/Reg/OT badges the day panel and the Annual grid use, so
+            // a doctor can see at a glance whether it's their own group
+            // taking the slots. Capped at three with a +N tail; the cells
+            // are one-seventh of a phone screen wide.
+            const badges = [...new Set(rowsForDate(date).map(r => r.columnKey))]
             return (
               <button
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`flex aspect-square flex-col items-center justify-center rounded-md border text-xs ${
+                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border text-xs ${
                   date === today ? 'border-accent' : 'border-slate-line'
                 } ${marker?.count > 0 ? marker.capacityState.fill : 'bg-canvas-raised'}`}
               >
                 <span className={marker?.count > 0 ? marker.capacityState.onFillText : 'text-ink'}>{Number(date.slice(-2))}</span>
+                {badges.length > 0 && (
+                  <span className="flex items-center gap-[1px]">
+                    {badges.slice(0, 3).map(key => (
+                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} />
+                    ))}
+                    {badges.length > 3 && (
+                      <span className={`text-[8px] font-semibold ${marker?.count > 0 ? marker.capacityState.onFillText : 'text-ink-muted'}`}>
+                        +{badges.length - 3}
+                      </span>
+                    )}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -149,9 +189,11 @@ export default function SpecialMonthWorkspace({
         <DayPanel
           date={selectedDate}
           rows={rowsForDate(selectedDate)}
+          count={countsByDate.get(selectedDate) || 0}
           phName={publicHolidaysByDate.get(selectedDate)}
           displayNames={displayNames}
           onClose={() => setSelectedDate(null)}
+          onSubmitted={onDataChanged}
         />
       )}
 
@@ -163,14 +205,49 @@ export default function SpecialMonthWorkspace({
 // One day's leave, in the same row shape the Annual planner's day review
 // uses — category badge, name, category, leave type, full leave period,
 // status — so a row reads identically on both planner tabs.
-function DayPanel({ date, rows, phName, displayNames, onClose }) {
+// Built on the shared Modal — a bottom sheet on mobile, a centered card on
+// desktop — so tapping a day here lands exactly where tapping a day on the
+// Annual planner does, rather than in this tab's own hand-rolled panel.
+function DayPanel({ date, rows, count, phName, displayNames, onClose, onSubmitted }) {
+  const { canSubmitLeave } = useAuth()
+  const [showRequestForm, setShowRequestForm] = useState(false)
   const formatted = `${WEEKDAY_NAMES[dayOfWeek(date)]}, ${date}`
+  const remaining = Math.max(0, SPECIAL_LEAVE_SOFT_CAP - count)
+  const atGuideline = count >= SPECIAL_LEAVE_SOFT_CAP
+
+  if (showRequestForm) {
+    return (
+      <Modal title={formatted} onClose={onClose} maxWidthClassName="md:max-w-lg">
+        <button
+          type="button"
+          onClick={() => setShowRequestForm(false)}
+          className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Back
+        </button>
+        <div className="mt-2">
+          <LeaveRequestForm
+            initialDateFrom={date}
+            initialDateTo={date}
+            onSubmitted={() => { setShowRequestForm(false); onSubmitted?.() }}
+          />
+        </div>
+      </Modal>
+    )
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
-      <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">{formatted}</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+    <Modal title={formatted} onClose={onClose} maxWidthClassName="md:max-w-lg">
+      <div>
+        {/* Slots, worded as the guideline it actually is — special leave has
+            no enforced cap, so "N of 3 taken" must not imply a request over
+            it will be refused the way the Annual banner's does. */}
+        <div className={`rounded-lg px-3 py-2 text-sm ${atGuideline ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-light'}`}>
+          <span className="font-semibold">{count} of {SPECIAL_LEAVE_SOFT_CAP} slots taken</span>
+          {atGuideline
+            ? ' — at the guideline for special leave (any category). Requests still go through; an admin decides.'
+            : ` — ${remaining} ${remaining === 1 ? 'slot' : 'slots'} available (guideline, any category).`}
         </div>
         {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
 
@@ -198,7 +275,17 @@ function DayPanel({ date, rows, phName, displayNames, onClose }) {
             ))}
           </ul>
         )}
+
+        {canSubmitLeave && (
+          <button
+            type="button"
+            onClick={() => setShowRequestForm(true)}
+            className="btn-primary mt-4 w-full text-sm"
+          >
+            Request leave for this day
+          </button>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }

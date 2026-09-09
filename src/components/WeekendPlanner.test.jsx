@@ -107,7 +107,7 @@ describe('WeekendPlanner', () => {
   it('non-staffing viewer: own exception requests never render the staffing panel', async () => {
     mockResponses['leave_requests:select'] = { data: [{ id: 'x1', date_from: aug1, status: 'pending' }], error: null }
     renderPlanner()
-    expect(await screen.findByText('My weekends')).toBeInTheDocument()
+    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
     expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
   })
 
@@ -120,8 +120,10 @@ describe('WeekendPlanner', () => {
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
     renderPlanner()
-    expect(await screen.findByText('My weekends')).toBeInTheDocument()
-    const legend = within(screen.getByTestId('weekend-year-legend'))
+    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
+    // Mobile finder and desktop dashboard both carry one — jsdom applies no
+    // breakpoints, so both are in the DOM. Either answers this question.
+    const legend = within(screen.getAllByTestId('weekend-year-legend')[0])
     expect(legend.getByText('Working')).toBeInTheDocument() // personal-read legend
     expect(legend.queryByText('Fully planned')).not.toBeInTheDocument()
   })

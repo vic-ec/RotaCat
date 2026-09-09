@@ -920,7 +920,7 @@ function WeekendCardMenu({ saturday, hasClipboard, isSourceCard, canCopy, onCopy
 // this page computing its own "next open weekend" shortcut, since that
 // panel now owns finding one across the whole year, not just this page's
 // own rolling fetch window.
-export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard, initialFocusSaturday } = {}) {
+export default function WeekendPlannerView({ initialYear, initialMonth, onBackToYear, clipboard, setClipboard, initialFocusSaturday, initialFilter, onFilterChange } = {}) {
   const { isAdmin, isClerk, canSubmitLeave, profile } = useAuth()
   const [doctors, setDoctors] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
@@ -937,11 +937,20 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
-  // An admin's default concern is the whole roster, not their own rotation
-  // (they may not even be on it) — lands on "All weekends" rather than
-  // sharing non-admins' "My weekends" default, matching ADMIN_FILTERS
-  // leading with the same chip above.
-  const [filter, setFilter] = useState(isAdmin || isClerk ? 'all' : 'mine')
+  // Seeded from initialFilter — whatever the year overview's own Showing
+  // picker was left on, so opening a month doesn't silently drop back to
+  // this page's default. Absent (opened directly at /weekend, no scope
+  // chosen yet), it falls back to that default: an admin's concern is the
+  // whole roster, not their own rotation (they may not even be on it), so
+  // they land on "All weekends" rather than sharing non-admins' "My
+  // weekends", matching ADMIN_FILTERS leading with the same chip above.
+  const [filter, setFilterState] = useState(initialFilter || (isAdmin || isClerk ? 'all' : 'mine'))
+  // Every filter change is reported up, so going back to the year view
+  // lands on the same scope this page was left on.
+  function setFilter(next) {
+    setFilterState(next)
+    onFilterChange?.(next)
+  }
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open

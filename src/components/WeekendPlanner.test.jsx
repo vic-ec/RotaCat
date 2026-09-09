@@ -12,9 +12,11 @@ import { addDays } from '../lib/dateRange'
 // hand-off) rather than re-testing everything underneath it, same reasoning
 // as LeavePlannerPage.test.jsx stubbing its own tab content.
 vi.mock('./WeekendPlannerView', () => ({
-  default: ({ initialYear, initialMonth, initialFocusSaturday, onBackToYear, clipboard, setClipboard }) => (
+  default: ({ initialYear, initialMonth, initialFocusSaturday, onBackToYear, clipboard, setClipboard, initialFilter, onFilterChange }) => (
     <div>
       MonthViewStub: {initialYear}-{initialMonth}
+      <span>FilterStub: {initialFilter ?? 'none'}</span>
+      <button onClick={() => onFilterChange('my-requests')}>SetFilterStub</button>
       {initialFocusSaturday && <span>FocusStub: {initialFocusSaturday}</span>}
       {clipboard && <span>ClipboardStub: {clipboard}</span>}
       <button onClick={() => setClipboard(`copied-${initialMonth}`)}>SetClipboardStub</button>
@@ -167,6 +169,31 @@ describe('WeekendPlanner', () => {
     await user.click(sheet.getByRole('button', { name: '2027' }))
     await user.click(sheet.getByRole('button', { name: 'January' }))
     expect(await within(screen.getByTestId('weekend-year-inspector')).findByText('January 2027')).toBeInTheDocument()
+  })
+
+  // The Showing picker on the year view and the month view's filter chips
+  // are one setting: whichever was chosen last is what both views show.
+  it('carries the year view\'s Showing scope into the month view, and back again', async () => {
+    const user = userEvent.setup()
+    renderPlanner()
+    const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
+    await screen.findByTestId('my-weekend-month-finder')
+
+    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(await screen.findByRole('option', { name: 'All weekends' }))
+
+    await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
+    expect(await screen.findByText('FilterStub: all')).toBeInTheDocument()
+
+    // A filter the year view has no chip for still round-trips: it holds
+    // the month view's own choice, and reads as personal on the tiles.
+    await user.click(screen.getByRole('button', { name: 'SetFilterStub' }))
+    await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
+    await screen.findByTestId('my-weekend-month-finder')
+    expect(finder().getByRole('button', { name: 'My weekends' })).toBeInTheDocument()
+
+    await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
+    expect(await screen.findByText('FilterStub: my-requests')).toBeInTheDocument()
   })
 
   it('a direct ?wview=month URL opens straight into the month view', async () => {

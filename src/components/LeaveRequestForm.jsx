@@ -19,11 +19,14 @@ const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automa
 // initialDateFrom/initialDateTo: optional prefill for a specific date (or
 // range) — used by the Annual planner's month workspace when someone opens
 // this form from a day they clicked, rather than starting from a blank
-// date field. Submission itself is unaffected: still always files under
-// the signed-in user's own profile via useAuth(), same as before.
-export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '' }) {
+// date field. initialLeaveType does the same for the type: the Special
+// planner opens this form from a special-leave day, where landing on
+// "Annual leave" would be the one type that tab isn't about. Submission
+// itself is unaffected: still always files under the signed-in user's own
+// profile via useAuth(), same as before.
+export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual' }) {
   const { profile, isAdmin } = useAuth()
-  const [leaveType, setLeaveType] = useState('annual')
+  const [leaveType, setLeaveType] = useState(initialLeaveType)
   const [dateFrom, setDateFrom] = useState(initialDateFrom)
   const [dateTo, setDateTo] = useState(initialDateTo)
   const [annualLeaveDays, setAnnualLeaveDays] = useState('')

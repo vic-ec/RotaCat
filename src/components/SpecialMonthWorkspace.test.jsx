@@ -109,13 +109,14 @@ describe('SpecialMonthWorkspace', () => {
     expect(within(panel).queryByText('Vance')).not.toBeInTheDocument()
   })
 
-  it('names the viewer\'s own column and the shared guideline in the info box', () => {
+  // The guideline banner that used to sit above the grid is deliberately
+  // gone: the day panel already states the slots for the day being asked
+  // about, and a permanent month-wide restatement of a rule nothing
+  // enforces was noise above every grid.
+  it('has no capacity banner above the grid', () => {
     renderWorkspace({ myCategory: 'MO' })
-    const info = screen.getByText(/Special leave runs on one shared guideline/)
-    expect(within(info).getByText('MO')).toBeInTheDocument()
-    expect(within(info).getByText('3 doctors of any category')).toBeInTheDocument()
-    // Nothing in August 2026 reaches 3 concurrent doctors in this fixture.
-    expect(info).toHaveTextContent('No day in August has reached it.')
+    expect(screen.queryByText(/shared guideline/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/counted under/)).not.toBeInTheDocument()
   })
 
   it('shows category badges on the mobile day cells', () => {
@@ -154,6 +155,9 @@ describe('SpecialMonthWorkspace', () => {
     await user.click(await screen.findByRole('button', { name: 'Request leave for this day' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    // Opened from the Special tab, so the type leads with Special leave —
+    // the SelectMenu trigger is named by its current value.
+    expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
     expect(within(dialog).queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
 
     await user.click(screen.getByLabelText('Close'))

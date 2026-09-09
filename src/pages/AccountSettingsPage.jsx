@@ -591,15 +591,19 @@ export default function AccountSettingsPage() {
     })
   }, [profile])
 
+  // These three depend on `user`'s primitives rather than the object: it is
+  // rebuilt from storage on every auth event, including the SIGNED_IN
+  // auth-js re-emits each time the tab is refocused, so depending on its
+  // identity re-ran the two queries below on every return to the page.
   useEffect(() => {
     if (isOwnAccount && user) setNewEmail(user.email || '')
-  }, [user, isOwnAccount])
+  }, [user, user?.email, isOwnAccount])
 
   useEffect(() => {
     if (!user) return
     loadMyRequests()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMyRequests is redefined every render; including it would refetch in a loop
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     if (!isSuperAdmin || !user || !isOwnAccount) return
@@ -609,7 +613,8 @@ export default function AccountSettingsPage() {
       .eq('is_admin', true)
       .neq('id', user.id)
       .then(({ data }) => setOtherAdmins(data || []))
-  }, [isSuperAdmin, user, isOwnAccount])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user.id is the only field read; the object itself changes identity on every auth event
+  }, [isSuperAdmin, user?.id, isOwnAccount])
 
   useEffect(() => {
     if (!targetId) return

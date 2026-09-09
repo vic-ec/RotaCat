@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(undefined)
@@ -8,8 +8,16 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Whose profile we hold, or have a fetch in flight for. A ref rather than
+  // state because the auth listener below is registered once and would
+  // otherwise close over `profile` as it was on first render — null, forever.
+  const loadedProfileUserId = useRef(null)
+
   // Fetch the profile row that matches the logged-in auth user
   async function loadProfile(userId) {
+    // Claimed before awaiting, so a second caller arriving mid-flight sees
+    // the fetch is already covered rather than starting its own.
+    loadedProfileUserId.current = userId
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -18,6 +26,9 @@ export function AuthProvider({ children }) {
 
     if (error) {
       console.error('Failed to load profile:', error.message)
+      // Released, so the next event retries instead of trusting a profile
+      // that never arrived.
+      loadedProfileUserId.current = null
       setProfile(null)
       return
     }
@@ -42,17 +53,33 @@ export function AuthProvider({ children }) {
     // through the pending-approval page before the real profile lands.
     // Routine events (token refresh, etc.) already have a correct profile
     // loaded, so they refresh it quietly in the background instead.
+    //
+    // The guard below is what makes that description true. auth-js registers
+    // its own `visibilitychange` listener (it has to, to drive
+    // autoRefreshToken) and on every return to the tab it re-reads the stored
+    // session and notifies subscribers — with `SIGNED_IN`, not
+    // `TOKEN_REFRESHED`, and with no dedupe, even when nothing expired. That
+    // took the branch above: `loading` back to true, which stops
+    // ProtectedRoute rendering its children, which unmounts AppLayout and the
+    // whole current page and re-runs every effect in it on the way back. Up
+    // to ~20 queries per refocus on the roster grid, times each open tab,
+    // for a session that had not changed. So: same user, nothing to do.
+    // USER_UPDATED is the one same-user event that genuinely changes the
+    // record, and it still reloads quietly.
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (session?.user) {
-        if (event === 'SIGNED_IN') {
-          setLoading(true)
-          loadProfile(session.user.id).finally(() => setLoading(false))
-        } else {
-          loadProfile(session.user.id)
-        }
-      } else {
+      const userId = session?.user?.id ?? null
+      if (!userId) {
+        loadedProfileUserId.current = null
         setProfile(null)
+        return
+      }
+      if (userId === loadedProfileUserId.current && event !== 'USER_UPDATED') return
+      if (event === 'SIGNED_IN') {
+        setLoading(true)
+        loadProfile(userId).finally(() => setLoading(false))
+      } else {
+        loadProfile(userId)
       }
     })
 

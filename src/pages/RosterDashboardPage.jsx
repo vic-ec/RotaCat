@@ -536,6 +536,7 @@ function RosterToolbar({
       <div className="hidden md:block">
         <Toolbar
           className="mb-4"
+          stretch
           searchValue={search}
           onSearchChange={onSearchChange}
           searchPlaceholder="Search by month or year…"

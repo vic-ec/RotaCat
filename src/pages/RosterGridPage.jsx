@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { contrastTextColor } from '../lib/color'
-import { patternBackgroundStyle } from '../lib/avatarPatterns'
 import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
@@ -17,6 +15,18 @@ import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import Toolbar from '../components/Toolbar'
+import ViewToggle from '../components/ViewToggle'
+import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
+import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+
+// Two ways to read the same month. Rows is the day-by-day grid the roster
+// has always been; Lanes turns it ninety degrees, a row per doctor. Both
+// are the same data and the same filters — only the axis changes.
+const ROSTER_LAYOUTS = [
+  { key: 'rows', label: 'Rows', icon: Rows3 },
+  { key: 'lanes', label: 'Lanes', icon: Columns3 },
+]
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -81,6 +91,9 @@ export default function RosterGridPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('month') // 'month' | 'week'
+  const [layout, setLayout] = useState('rows')       // 'rows' | 'lanes'
+  const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState(new Set())
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
@@ -258,6 +271,34 @@ export default function RosterGridPage() {
   // Consultant pools so a collision between the two still resolves, even
   // though they're assigned via separate columns/dropdowns.
   const displayNames = buildDoctorDisplayNames([...profiles, ...consultantProfiles])
+
+  // One filter drives both layouts: Lanes drops the rows that don't match,
+  // Rows keeps every chip but dims the ones that don't — hiding a name from
+  // a day's staffing would misreport the day, where dimming just answers
+  // "where am I".
+  const categoryOptions = [...new Set(
+    [...profiles, ...consultantProfiles].map(p => p.category).filter(Boolean)
+  )].sort().map(c => ({ value: c, label: labelForLeaveCategory(c) || c }))
+
+  const filtersActive = Boolean(search.trim()) || filterCategory.size > 0
+
+  function matchesFilter(profile) {
+    if (!profile) return false
+    if (filterCategory.size > 0 && !filterCategory.has(profile.category)) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    const shown = displayNames?.get(profile.id) ?? profile.surname ?? ''
+    return `${profile.name ?? ''} ${profile.surname ?? ''} ${shown}`.toLowerCase().includes(q)
+  }
+
+  const lanesProfiles = [...profiles, ...consultantProfiles]
+    .filter(p => p.is_active !== false)
+    .filter(matchesFilter)
+
+  function clearFilters() {
+    setSearch('')
+    setFilterCategory(new Set())
+  }
 
   async function handleCellClick(date, shiftCode, existingEntry) {
     if (!isAdmin) return
@@ -654,7 +695,41 @@ export default function RosterGridPage() {
         </div>
       )}
 
-      {/* Grid — horizontally scrollable */}
+      {/* Layout switch + find-a-doctor row. `stretch` so the search reaches
+          the grid's own right edge rather than stopping short of the table
+          it filters (layout-spec, Search width). */}
+      <div className="mb-3">
+        <Toolbar
+          className=""
+          stretch
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by surname…"
+          filterGroups={categoryOptions.length > 0 ? [{
+            key: 'category', label: 'Category',
+            options: categoryOptions,
+            selected: filterCategory, onChange: setFilterCategory,
+          }] : []}
+          active={filtersActive}
+          onClearAll={clearFilters}
+          trailing={<ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />}
+        />
+      </div>
+
+      {layout === 'lanes' ? (
+        <>
+          <RosterLanesView
+            days={visibleDays}
+            profiles={lanesProfiles}
+            entries={entries}
+            shiftTypes={shiftTypes}
+            displayNames={displayNames}
+            entryMap={entryMap}
+          />
+          <LanesLegend />
+        </>
+      ) : (
+      /* Grid — horizontally scrollable */
       <div className="overflow-x-auto rounded-lg border border-slate-line">
         <table className="w-full min-w-[580px] table-fixed border-collapse text-xs">
           {/* Every column 20px narrower than before: date 64px -> 44px;
@@ -682,13 +757,13 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
-              const headerBg = isWeekend ? 'bg-gray-300' : 'bg-canvas-sunken'
+              const headerBg = isWeekend ? 'bg-accent-panel' : 'bg-canvas-sunken'
 
               return (
                 <tr
                   key={day.dateStr}
                   className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-gray-300' : 'bg-canvas-raised'
+                    isWeekend ? 'bg-canvas-sunken' : 'bg-canvas-raised'
                   } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
@@ -760,6 +835,7 @@ export default function RosterGridPage() {
                               key={entry.id}
                               entry={entry}
                               profile={profileMap[entry.profile_id]}
+                              dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
                               onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
@@ -787,6 +863,7 @@ export default function RosterGridPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Dropdown */}
       {openDropdown && (
@@ -840,15 +917,23 @@ export default function RosterGridPage() {
 }
 
 // ── DoctorChip ─────────────────────────────────────────────────────────────
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true }) {
+// One assignment. The surface stays plain and the doctor's own colour sits
+// on the left rail instead of filling the whole chip: at 39 approved
+// doctors a grid of full fills reads as a quilt, and the fill was the only
+// thing separating one day from the next. A 3px rail still lets someone
+// find themselves at a glance, which was the one job the fill did well.
+//
+// The shift is not named here — the column heading above says which shift
+// this is, so a code in the cell would be the third statement of it and is
+// most of the width back.
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false }) {
   if (entry.is_locum) {
     return (
       <div
         onClick={isAdmin ? onClick : undefined}
-        className={`rounded px-1.5 py-0.5 text-[10px] font-medium text-flagAmber ${
+        className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[10px] font-medium text-flagAmber ${
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
-        }`}
-        style={{ backgroundColor: '#FBF1E3', border: '1px dashed #B8762E' }}
+        } ${dimmed ? 'opacity-30' : ''}`}
       >
         {entry.locum_name || '[ ]'}
       </div>
@@ -857,8 +942,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
 
   if (!profile) return null
 
-  const bgColor = profile.color_code || '#4A90D9'
-  const patternStyle = profile.pattern_type ? patternBackgroundStyle(profile.pattern_type, bgColor, 8) : null
+  const railColor = profile.color_code || '#4A90D9'
   const draggableNow = isAdmin && canDrag
 
   return (
@@ -866,13 +950,15 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-        isAdmin ? 'cursor-pointer hover:opacity-85' : ''
-      } ${entry.is_manual_override ? 'ring-1 ring-flagBlue ring-offset-1' : ''}`}
-      style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
+      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${
+        isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+      } ${entry.is_manual_override ? 'ring-1 ring-flagBlue' : ''} ${dimmed ? 'opacity-30' : ''}`}
+      style={{ borderLeftColor: railColor }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
-      {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
+      <span className="truncate">
+        {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
+      </span>
     </div>
   )
 }
@@ -918,19 +1004,20 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
   const consultant = existing?.consultant_profile_id
     ? consultantProfiles.find(p => p.id === existing.consultant_profile_id)
     : null
-  const bgColor = consultant?.color_code || '#4A90D9'
-  const patternStyle = consultant?.pattern_type ? patternBackgroundStyle(consultant.pattern_type, bgColor, 8) : null
+  // Same slot treatment as DoctorChip — the consultant is one more name in
+  // the row, so it should not be the one full-colour block left on it.
+  const railColor = consultant?.color_code || '#4A90D9'
 
   return (
     <>
       <div onClick={isAdmin ? () => setOpen(true) : undefined} className={isAdmin ? 'cursor-pointer' : ''}>
         {consultant ? (
           <div
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isAdmin ? 'hover:opacity-85' : ''}`}
-            style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
+            className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
+            style={{ borderLeftColor: railColor }}
             title={`${consultant.name} ${consultant.surname}`}
           >
-            {displayNames?.get(consultant.id) ?? consultant.surname}
+            <span className="truncate">{displayNames?.get(consultant.id) ?? consultant.surname}</span>
           </div>
         ) : existing?.consultant_name ? (
           <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>

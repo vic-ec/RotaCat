@@ -126,6 +126,21 @@ export default {
           DEFAULT: '#22A06B',
           bg: '#E3F5EC'
         },
+        // One step per shift start time, for the roster's Doctor Lanes
+        // view — see src/lib/shiftBands.js for why these are a ramp rather
+        // than six unrelated hues, and why they are deliberately not drawn
+        // from the flag*/success family (a time of day is not a state).
+        // Morning to night: the accent family lightest-to-deepest through
+        // the day shifts, then rose for the two that run past midnight.
+        // ink-light clears 4.5:1 on every one of them.
+        shift: {
+          '08': '#E6F5F1',
+          '12': '#C7E8E0',
+          '13': '#B7E0D6',
+          '15': '#A5D6CB',
+          '20': '#F0CFDB',
+          '22': '#E4B6C7'
+        },
         // Weekend-parity ("Even"/"Odd") signal — a doctor works every weekend
         // of a given parity in a given month, so this needs its own color
         // family, distinct from both the flag*/success roster-state palette

@@ -16,11 +16,17 @@ const CATEGORY_ORDER = ['Consultant', 'EC', 'MO', 'Registrar', 'EC Intern', 'OT 
 // week (7) never does, so its columns share the width instead.
 const DAY_COL_MIN = 30
 
-// …and no more than this much, which is what stops a seven-column week
-// handing 168px to a cell holding "08h" while the name beside it is cut
-// off. The table takes a max-width off it, so a short week renders at its
-// own comfortable size rather than stretching to fill a desktop panel.
-const DAY_COL_MAX = 96
+// A week (seven columns, once padded) always has room to spare on a
+// desktop panel, where a month never does. Given the spare width, every
+// column grows into it rather than the table stopping short and leaving
+// the panel half empty — so below this many columns the name column is
+// sized as a share of the table instead of a flat width.
+const FILLS_PANEL_UPTO = 7
+
+// How much wider the name column is than a day column once they are
+// sharing the table. Holds it clearly the widest without giving a column
+// of surnames a third of the grid.
+const NAME_TO_DAY = 1.35
 
 // The name column is sized off the longest name actually in the table
 // rather than a flat width, so "Van Schalkwyk" is not the one lane nobody
@@ -34,11 +40,20 @@ const NAME_CH_PX = 7.7
 const NAME_COL_MIN = 128
 const NAME_COL_MAX = 200
 
-// Plain pixels, deliberately. A `max(…, %)` here would read better but
-// Chromium rejects a percentage inside a math function on a <col> — it
-// falls back to the even share, which is the bug this is fixing.
+// Plain pixels, deliberately. A `max(<px>, <%>)` here would say all of
+// this in one value, but Chromium rejects a percentage inside a math
+// function on a <col> and silently falls back to the even column share.
+// So the two live as separate custom properties and a media query in
+// index.css picks between them — pixels on a phone, where the table is at
+// its minimum and the column needs every one of them; a share from md up,
+// where there is width to go round.
 function nameColumnWidth(maxNameLength) {
   return Math.round(Math.min(Math.max(maxNameLength * NAME_CH_PX + 16, NAME_COL_MIN), NAME_COL_MAX))
+}
+
+function nameColumnShare(dayColumnCount) {
+  if (dayColumnCount > FILLS_PANEL_UPTO) return null
+  return `${((NAME_TO_DAY / (dayColumnCount + NAME_TO_DAY)) * 100).toFixed(2)}%`
 }
 
 function categoryRank(category) {
@@ -112,6 +127,7 @@ export default function RosterLanesView({
   const columns = buildDayColumns(days, padToWeek)
   const nameFor = profile => displayNames?.get(profile.id) ?? profile.surname ?? ''
   const nameCol = nameColumnWidth(Math.max(...lanes.map(p => nameFor(p).length)))
+  const nameShare = nameColumnShare(columns.length)
 
   // A consultant's entry is keyed CONSULTANT rather than by shift code, so
   // it never reaches byProfileDate — read it off the same map the day-rows
@@ -134,11 +150,12 @@ export default function RosterLanesView({
         className="w-full table-fixed border-collapse text-xs"
         style={{
           minWidth: nameCol + columns.length * DAY_COL_MIN,
-          maxWidth: nameCol + columns.length * DAY_COL_MAX,
+          '--lanes-name-w': `${nameCol}px`,
+          ...(nameShare ? { '--lanes-name-w-md': nameShare } : null),
         }}
       >
         <colgroup>
-          <col style={{ width: nameCol }} />
+          <col className="lanes-name-col" />
           {columns.map(col => <col key={col.key} />)}
         </colgroup>
         <caption className="sr-only">
@@ -162,21 +179,30 @@ export default function RosterLanesView({
               }
               const [, , d] = day.dateStr.split('-')
               const off = day.dayType !== 'weekday'
+              // Date over weekday initial — two lines, the same two in every
+              // column. A public holiday used to add a "PH" chip on a third
+              // line, which pushed those two up and left the holiday columns
+              // out of line with the rest of the row. The rose box now wraps
+              // the date itself rather than sitting under it, so every
+              // column is the same height and the marker is still the
+              // unmistakable thing in the row.
+              const stamp = (
+                <>
+                  <span className="block tabular-nums">{Number(d)}</span>
+                  <span className="block text-[9px] font-normal">{DAY_INITIALS[dayOfWeek(day.dateStr)]}</span>
+                </>
+              )
               return (
                 <th
                   key={key}
                   scope="col"
-                  className={`border-b border-slate-line px-0 py-1 text-center text-[10px] font-semibold ${
+                  className={`border-b border-slate-line px-0.5 py-1 text-center text-[10px] font-semibold ${
                     off ? 'bg-accent-tint text-accent-dark' : 'bg-canvas-raised text-ink-muted'
                   }`}
                 >
-                  <span className="block tabular-nums">{Number(d)}</span>
-                  <span className="block text-[9px] font-normal">{DAY_INITIALS[dayOfWeek(day.dateStr)]}</span>
-                  {day.phName && (
-                    <span className="mt-0.5 block">
-                      <PublicHolidayBadge name={day.phName} />
-                    </span>
-                  )}
+                  {day.phName
+                    ? <PublicHolidayBadge name={day.phName}>{stamp}</PublicHolidayBadge>
+                    : stamp}
                 </th>
               )
             })}

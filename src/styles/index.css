@@ -113,6 +113,26 @@
      this keeps the middle at full strength and softens only the outer band on
      each side. mask-composite is the standard property; -webkit-mask-composite
      with the legacy source-in keyword covers older WebKit. */
+  /* Doctor Lanes' name column. Two widths, because one value cannot serve
+     both ends: on a phone the table sits at its own min-width and the
+     column needs a fixed number of pixels or a long surname is cut off,
+     while from md up a seven-day week has width to spare and every column
+     should grow into it rather than the table stopping short of the panel.
+     The component sets both custom properties; a month sets only the first,
+     since 31 columns never leave the panel with room going spare.
+
+     This is a media query rather than `width: max(<px>, <%>)` because
+     Chromium rejects a percentage inside a math function on a <col> and
+     falls back to the even column share. */
+  .lanes-name-col {
+    width: var(--lanes-name-w);
+  }
+  @media (min-width: 768px) {
+    .lanes-name-col {
+      width: var(--lanes-name-w-md, var(--lanes-name-w));
+    }
+  }
+
   .roster-band-mask {
     -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 10%, #000 90%, transparent 100%),
       linear-gradient(to bottom, transparent 0%, #000 16%, #000 84%, transparent 100%);

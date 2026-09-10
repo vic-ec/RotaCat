@@ -153,6 +153,37 @@ describe('RosterLanesView', () => {
     expect(within(laneFor('Venter')).getByTitle('2026-08-10 — PHW 22h-10h')).toBeInTheDocument()
   })
 
+  it('marks a public holiday by wrapping the date, not by adding a line under it', () => {
+    // The bug: a "PH" chip on a third line pushed the date and weekday
+    // initial up, so holiday columns sat out of line with every other
+    // column in the header row. Every column is two lines now.
+    renderLanes()
+    const headers = screen.getAllByRole('columnheader').filter(th => th.getAttribute('scope') === 'col')
+    const ph = headers.find(th => th.textContent.startsWith('9'))
+    const ordinary = headers.find(th => th.textContent.startsWith('7'))
+    expect(ph.textContent).not.toContain('PH')
+    // The date and its initial are inside the rose box, and nothing else is.
+    const box = within(ph).getByRole('button')
+    expect(box.className).toContain('bg-rose')
+    expect(box).toHaveTextContent('9')
+    expect(box).toHaveTextContent('S')
+    // Same two lines as a plain column — the holiday rides along for a
+    // screen reader without taking a line of its own.
+    expect(ordinary.querySelectorAll('span.block')).toHaveLength(2)
+    expect(box.querySelectorAll('span.block')).toHaveLength(2)
+  })
+
+  it('keeps the holiday popover, and still names the day it falls on', () => {
+    renderLanes()
+    const ph = screen.getAllByRole('columnheader').find(th => th.textContent.startsWith('9'))
+    const box = within(ph).getByRole('button')
+    // An aria-label here would have replaced the date — the header would
+    // announce the holiday but not which day it is.
+    expect(box).not.toHaveAttribute('aria-label')
+    expect(ph).toHaveAccessibleName(/9.*S.*Women's Day/s)
+    expect(within(ph).getByRole('tooltip')).toHaveTextContent("National Women's Day")
+  })
+
   it('draws a weekend column lighter than the header row it sits under', () => {
     // The complaint that prompted this: weekend/PH cells were canvas.sunken,
     // the same fill as the header cells, so the two blocks merged.
@@ -178,8 +209,14 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     return within(laneFor(surname)).getAllByRole('cell')
   }
 
+  // The name column's two widths live as custom properties on the table —
+  // index.css picks between them per breakpoint, which jsdom does not lay
+  // out, so the properties themselves are what there is to assert on.
   function nameColWidth() {
-    return parseInt(document.querySelector('colgroup col').style.width, 10)
+    return parseInt(screen.getByRole('table').style.getPropertyValue('--lanes-name-w'), 10)
+  }
+  function nameColShare() {
+    return screen.getByRole('table').style.getPropertyValue('--lanes-name-w-md')
   }
 
   it('pads a short week out to seven day columns', () => {
@@ -236,12 +273,27 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     expect(nameColWidth()).toBe(128)
   })
 
-  it('caps the table so a seven-day week does not stretch across a desktop', () => {
+  it('grows every column to fill the panel, the name column with them', () => {
+    // A padded week always has width to spare on a desktop panel. Left at a
+    // flat pixel width the table stopped short and left the panel half
+    // empty, so from md up the name column takes a share instead — 1.35
+    // day columns' worth, which keeps it the widest without giving a
+    // column of surnames a third of the grid.
     renderLanes({ days: SHORT_WEEK, padToWeek: true })
-    const table = screen.getByRole('table')
-    // name floor + 7 day columns at their 96px ceiling.
-    expect(table.style.maxWidth).toBe('800px')
-    expect(table.style.minWidth).toBe('338px')
+    expect(nameColShare()).toBe('16.17%')
+    // …and the pixel width is still there for the phone, where the share
+    // would be too few pixels to hold a surname.
+    expect(nameColWidth()).toBe(128)
+    expect(screen.getByRole('table').style.minWidth).toBe('338px')
+  })
+
+  it('leaves a month on pixels — 31 columns never leave the panel room to spare', () => {
+    const month = Array.from({ length: 31 }, (_, i) => ({
+      dateStr: `2026-08-${String(i + 1).padStart(2, '0')}`, dayType: 'weekday', phName: null,
+    }))
+    renderLanes({ days: month })
+    expect(nameColShare()).toBe('')
+    expect(nameColWidth()).toBe(128)
   })
 
   it('stretches the category heading across the padded columns too', () => {

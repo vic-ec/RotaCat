@@ -42,6 +42,19 @@ SRC = 'src/assets/rotaCat-full-body-mascot-dark-theme.png'
 DST = 'src/assets/RotaCat-full-body-mascot-dark-transparentBG-dehaloed.png'
 
 BACKDROP_LUM = 36      # backdrop tops out at 33; the abdomen pocket opens at 44
+# The cat is drawn with a near-black outline stroke (luminance 3-8) which is
+# DARKER than the backdrop around it (13-16, and 10.4 at its darkest on the
+# frame's border). Keyed on "dark = background" that stroke goes too, and the
+# cat is trimmed to just inside its own outline — which is what chewed the
+# chunks out of the bottoms of the paws and the tail, where the stroke is all
+# that separates the shaded underside from the ground. Anything below this is
+# the cat's outline, not backdrop.
+OUTLINE_LUM = 8
+# Even with the stroke kept, the contact edge comes back a little ragged
+# where it grazes the ground shadow. A closing over the lower part of the
+# silhouette rounds the paws back out. Only ever adds, and only down here.
+FOOT_SMOOTH = 18
+FOOT_BAND = 320        # px above the lowest point of the cat
 WARM = -6
 SEAM_CLOSE = 6
 BLOOM_LUM = 85         # the jaw lobe reaches 64
@@ -73,9 +86,16 @@ rgb = np.array(Image.open(SRC).convert('RGB')).astype(np.float32)
 lum = 0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]
 blueness = rgb[:, :, 2] - rgb[:, :, 0]
 
-silhouette = ndimage.binary_fill_holes(
-    ~_edge_component((lum < BACKDROP_LUM) & (blueness > WARM))
-)
+backdrop = _edge_component((lum >= OUTLINE_LUM) & (lum < BACKDROP_LUM) & (blueness > WARM))
+silhouette = ndimage.binary_fill_holes(~backdrop)
+
+# Keeping the outline stroke also keeps any stray sub-8 speck in the
+# backdrop, so drop everything that is not the cat itself.
+lab, n = ndimage.label(silhouette, structure=S3)
+if n > 1:
+    sizes = ndimage.sum(silhouette, lab, range(1, n + 1))
+    silhouette = lab == (1 + int(np.argmax(sizes)))
+
 silhouette = ndimage.binary_fill_holes(
     ndimage.binary_closing(silhouette, structure=_disk(SEAM_CLOSE))
 )
@@ -85,6 +105,13 @@ lab, _ = ndimage.label(bloom | ~silhouette, structure=S3)
 edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
 silhouette &= ~(bloom & np.isin(lab, edge[edge != 0]))
 silhouette = ndimage.binary_fill_holes(silhouette)
+
+# Round the paws and the tail's underside back out. Confined to the foot of
+# the silhouette so the ears and whiskers are nowhere near it.
+lowest = np.where(silhouette.any(axis=1))[0].max()
+foot = np.zeros_like(silhouette)
+foot[max(0, lowest - FOOT_BAND):] = True
+silhouette |= ndimage.binary_closing(silhouette, structure=_disk(FOOT_SMOOTH)) & foot
 
 cat_a = np.clip(ndimage.gaussian_filter(silhouette.astype(np.float32), FEATHER), 0, 1)
 
@@ -115,6 +142,12 @@ for name, (y, x) in {'abdomen': (1255, 425), 'toe gap': (1545, 187), 'paw unders
     assert a[y, x] == 255, '%s is not solid (alpha %d)' % (name, a[y, x])
 for name, (y, x) in {'bloom lobe': (500, 470), 'bloom at jaw': (470, 560)}.items():
     assert a[y, x] == 0, '%s survived (alpha %d)' % (name, a[y, x])
+# The bottoms that were being chewed off: the paw and the tail must reach
+# down to their own outline stroke, not stop short of it. These probes sit
+# ON that stroke, which is the feathered edge, so they are near-opaque
+# rather than 255 — reaching it at all is the thing being asserted.
+assert a[1636, 200] >= 240, 'left paw is cut short (alpha %d at its outline)' % a[1636, 200]
+assert a[1716, 450] >= 240, 'tail underside is cut short (alpha %d at its outline)' % a[1716, 450]
 assert a[1745, 470] > 40, 'no contact shadow under the paws (alpha %d)' % a[1745, 470]
 assert a[80, 60] == 0, 'shadow or bloom reached the top corner'
 

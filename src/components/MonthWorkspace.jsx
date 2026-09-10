@@ -361,7 +361,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
     >
       <div className="flex items-center justify-between">
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-white' : capacityState.onFillText
+          isToday ? 'bg-accent text-on-fill' : capacityState.onFillText
         }`}>
           {dateNum}
         </span>

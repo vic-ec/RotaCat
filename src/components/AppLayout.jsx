@@ -209,8 +209,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start ${
                   isActive
-                    ? 'bg-accent text-canvas-raised'
-                    : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised'
+                    ? 'bg-accent text-on-fill'
+                    : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-on-fill'
                 }`
               }
             >
@@ -232,7 +232,7 @@ export default function AppLayout() {
           <button
             onClick={handleSignOut}
             title="Sign out"
-            className="flex w-full items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised lg:justify-start"
+            className="flex w-full items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-on-fill lg:justify-start"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
             <span className="hidden lg:inline">Sign out</span>
@@ -315,7 +315,7 @@ export default function AppLayout() {
 function NavBadge({ count }) {
   return (
     <span
-      className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised"
+      className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-on-fill ring-1 ring-canvas-raised"
       aria-label={`${count} pending`}
     >
       {count > 9 ? '9+' : count}

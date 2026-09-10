@@ -864,7 +864,7 @@ export default function InternRotationsMatrix({
         type="button"
         onClick={openAddDoctor}
         aria-label="Add doctor"
-        className="fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised md:flex"
+        className="fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill shadow-raised md:flex"
       >
         <Plus className="h-6 w-6" />
       </button>

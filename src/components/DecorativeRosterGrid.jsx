@@ -39,8 +39,21 @@
 
 // Restrained greys only — near-white through pale blue-grey. The roster must
 // stay quieter than the mascot, which is the panel's only colour.
-const PILL_TONES = ['#F7F8F9', '#F1F3F5', '#EAEDF0', '#E4E8EC', '#DEE3E9']
-const BAR_TONE = '#D3D9E0'
+//
+// These are applied as inline styles rather than Tailwind classes (each pill
+// picks its tone at random, so the class names could not be statically
+// extracted). That means a `bg-*` utility would not reach them, and the
+// theme has to be read straight from the custom properties instead — the
+// dark theme redefines each to a tone that stays quiet against its own
+// ground rather than glowing on it. See src/styles/index.css.
+const PILL_TONES = [
+  'rgb(var(--color-band-1))',
+  'rgb(var(--color-band-2))',
+  'rgb(var(--color-band-3))',
+  'rgb(var(--color-band-4))',
+  'rgb(var(--color-band-5))'
+]
+const BAR_TONE = 'rgb(var(--color-band-bar))'
 
 const COLUMNS = ['08:00', '12:00', '15:00', '22:00']
 const ROWS = 5

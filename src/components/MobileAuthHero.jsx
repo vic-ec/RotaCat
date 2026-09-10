@@ -1,6 +1,6 @@
-import rotacatMascot from '../assets/rotacat-full-body-mascot-cutout.png'
 import DecorativeRosterGrid from './DecorativeRosterGrid'
 import RotaCat from './RotaCat'
+import { useAuthMascot } from '../lib/useAuthMascot'
 
 // Full-bleed hero for the mobile auth layout — fills whatever space is left
 // above the bottom sheet (via flex-1 from the parent column), no border or
@@ -10,6 +10,8 @@ import RotaCat from './RotaCat'
 // relying on one baked into the mascot, which is why it uses the transparent
 // cut-out: an opaque mascot would hide the band behind it.
 export default function MobileAuthHero() {
+  const rotacatMascot = useAuthMascot()
+
   return (
     <div className="flex flex-1 -translate-y-[5px] flex-col items-center justify-center bg-canvas-raised px-6">
       <h1 className="font-serif text-[66px] font-semibold leading-none text-ink">

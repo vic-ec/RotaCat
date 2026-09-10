@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
-import { CircleCheck, ExternalLink, CalendarClock } from 'lucide-react'
+import { CircleCheck, ExternalLink, CalendarClock, Contrast } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import { LAST_PATH_KEY } from '../components/AppLayout'
@@ -444,6 +445,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
+  const { theme, setTheme, themes } = useTheme()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
@@ -1758,7 +1760,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={transferSuperAdmin}
                         disabled={transferSaving}
-                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
+                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
                       >
                         {transferSaving ? 'Transferring…' : 'Confirm transfer'}
                       </button>
@@ -2044,6 +2046,44 @@ export default function AccountSettingsPage() {
           </div>
             </SectionRow>
 
+            {/* Colour theme. Only ever shown on your own account: the
+                preference is stored per device for whoever is looking, so
+                offering it on /account/:id would let an admin "change" a
+                colleague's theme and silently restyle their own app instead. */}
+            {isOwnAccount && (
+            <SectionRow icon={<Contrast className="h-5 w-5" />} title="Colour theme" subtitle="Applies to this device only">
+          <div className="flex flex-col gap-2">
+            {themes.map(t => {
+              const selected = theme === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTheme(t.id)}
+                  aria-pressed={selected}
+                  className={`flex items-center gap-3 rounded-lg border-2 px-3 py-2.5 text-left transition-colors ${
+                    selected
+                      ? 'border-accent bg-accent-tint'
+                      : 'border-slate-line bg-canvas-raised hover:bg-canvas-sunken active:bg-canvas-sunken'
+                  }`}
+                >
+                  <span className="flex flex-shrink-0 overflow-hidden rounded border border-slate-line">
+                    {t.swatch.map(c => (
+                      <span key={c} className="h-6 w-4" style={{ backgroundColor: c }} />
+                    ))}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-ink">{t.label}</span>
+                    <span className="block text-xs text-ink-muted">{t.hint}</span>
+                  </span>
+                  {selected && <CircleCheck className="h-4 w-4 flex-shrink-0 text-accent" aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
+            </SectionRow>
+            )}
+
             <SectionRow icon={<BellIcon className="h-5 w-5" />} title="Notifications">
           <div className="flex items-center justify-between border-b border-slate-line pb-3">
             <p className="text-sm font-medium text-ink">All notifications</p>
@@ -2125,7 +2165,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={requestDeletion}
                         disabled={deleteSaving}
-                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
+                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
                       >
                         {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
                       </button>
@@ -2137,7 +2177,7 @@ export default function AccountSettingsPage() {
                 ) : (
                   <button
                     onClick={() => setDeleteConfirming(true)}
-                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90 active:opacity-90"
+                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
                   >
                     Request account deletion
                   </button>

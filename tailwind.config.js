@@ -46,18 +46,18 @@ export default {
         // Base palette — clinical-operations UI: high-legibility text on a
         // cool mint-teal ground (RotaCat v2 tokens).
         ink: {
-          DEFAULT: '#1F2937',   // primary text
-          light: '#4B5563',     // secondary text
-          muted: '#6B7280'      // tertiary / placeholder text
+          DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',   // primary text
+          light: 'rgb(var(--color-ink-light) / <alpha-value>)',     // secondary text
+          muted: 'rgb(var(--color-ink-muted) / <alpha-value>)'      // tertiary / placeholder text
         },
         canvas: {
-          DEFAULT: '#FEFFFE',   // app background
-          raised: '#FFFFFF',    // cards, panels
-          sunken: '#DCEEE7',    // input backgrounds, table stripes
-          cool: '#F1F8F5'
+          DEFAULT: 'rgb(var(--color-canvas) / <alpha-value>)',   // app background
+          raised: 'rgb(var(--color-canvas-raised) / <alpha-value>)',    // cards, panels
+          sunken: 'rgb(var(--color-canvas-sunken) / <alpha-value>)',    // input backgrounds, table stripes
+          cool: 'rgb(var(--color-canvas-cool) / <alpha-value>)'  // #F1F8F5
         },
         slate: {
-          line: '#D7E3DF',      // hairline borders
+          line: 'rgb(var(--color-slate-line) / <alpha-value>)',      // hairline borders
           // A lighter line again, for the *inside* of a dense data grid
           // (Hours Summary). At phone pixel ratios a collapsed 1px table
           // border paints heavier vertically than horizontally, so a grid
@@ -66,18 +66,35 @@ export default {
           // directions read as the same hairline; `line` still draws the
           // outer frame and the header, which need to hold their own
           // against the sunken header fill.
-          hairline: '#E8F0ED'
+          hairline: 'rgb(var(--color-slate-hairline) / <alpha-value>)'  // #E8F0ED
         },
+        // Label colour for anything filled with a solid brand or status colour
+        // (accent, success, danger, flag*, rose). White on the light theme's
+        // deep teal is 5.47:1; on the dark theme's mint it would be 2.20:1, so
+        // that theme swaps in the ground colour (8.35:1). Any such fill needs
+        // `text-on-fill`, never a literal `text-white`.
+        'on-fill': 'rgb(var(--color-on-fill) / <alpha-value>)',
+
+        // The cap* heatmap fills below are deliberately identical in both
+        // themes, so the dark label that sits on the pale ones must not follow
+        // `ink` (which inverts). This one never changes.
+        'on-heat': 'rgb(var(--color-on-heat) / <alpha-value>)',
+
+        // Full-bleed background behind the desktop login/signup card. Was a
+        // raw `bg-accent`, which the dark theme would turn into a full-screen
+        // mint; it needs to resolve per theme, so it gets its own token.
+        'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
+
         // Single confident accent — teal-blue, not generic "medical blue"
         accent: {
-          DEFAULT: '#0F766E',
-          dark: '#115E59',
-          light: '#D7EEE8',
-          tint: '#E6F5F1',
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',  // #0F766E
+          dark: 'rgb(var(--color-accent-dark) / <alpha-value>)',  // #115E59
+          light: 'rgb(var(--color-accent-light) / <alpha-value>)',  // #D7EEE8
+          tint: 'rgb(var(--color-accent-tint) / <alpha-value>)',  // #E6F5F1
           // Deeper, cooler mint for auth panels/sheets — same family as
           // accent.light but with more presence against white and better
           // contrast for the text sitting on it.
-          panel: '#C7E8E0',
+          panel: 'rgb(var(--color-accent-panel) / <alpha-value>)',  // #C7E8E0
           // `night` is the third step in each DateCard tone family: the
           // time panel of a *night* shift (shift_types.is_night_shift),
           // one shade darker again than the `deep`/`light` day footer, in
@@ -88,43 +105,43 @@ export default {
           // so the difference is unmistakable side by side) and every one
           // keeps the time text (ink-light) above 4.5:1 — 5.27:1 here.
           // See dateWeekend/rose/flagRed below for the other three.
-          night: '#B7E0D6'
+          night: 'rgb(var(--color-accent-night) / <alpha-value>)'  // #B7E0D6
         },
         // Secondary brand accent — warm pink from Lily's collar.
         // Used for links, highlights, and illustrative/marketing touches
         // (login, empty states, onboarding). Not a third "status" color —
         // keep roster-state meaning exclusively on the flag* colors below.
         rose: {
-          DEFAULT: '#D6577E',
-          dark: '#B8456F',
-          light: '#F8E3EA',
-          tint: '#FCF0F3',
+          DEFAULT: 'rgb(var(--color-rose) / <alpha-value>)',  // #D6577E
+          dark: 'rgb(var(--color-rose-dark) / <alpha-value>)',  // #B8456F
+          light: 'rgb(var(--color-rose-light) / <alpha-value>)',  // #F8E3EA
+          tint: 'rgb(var(--color-rose-tint) / <alpha-value>)',  // #FCF0F3
           // Night-shift time panel on a public-holiday date — see
           // accent.night. ink-light on this: 5.27:1.
-          night: '#F0CFDB'
+          night: 'rgb(var(--color-rose-night) / <alpha-value>)'  // #F0CFDB
         },
         // Reserved STRICTLY for roster-state semantics — never general UI
         flagRed: {
-          DEFAULT: '#C0362C',
-          bg: '#FBEAE8',
+          DEFAULT: 'rgb(var(--color-flagRed) / <alpha-value>)',  // #C0362C
+          bg: 'rgb(var(--color-flagRed-bg) / <alpha-value>)',  // #FBEAE8
           // One step more saturated than `bg` — same role as accent.light/
           // rose.light, for the shift DateCard's two-panel split.
-          deep: '#F1DBD9',
+          deep: 'rgb(var(--color-flagRed-deep) / <alpha-value>)',  // #F1DBD9
           // Night-shift time panel on a conflicted date — see accent.night.
           // ink-light on this: 4.78:1.
-          night: '#E8C6C2'
+          night: 'rgb(var(--color-flagRed-night) / <alpha-value>)'  // #E8C6C2
         },
         flagAmber: {
-          DEFAULT: '#B7791F',
-          bg: '#FBF1E1'
+          DEFAULT: 'rgb(var(--color-flagAmber) / <alpha-value>)',  // #B7791F
+          bg: 'rgb(var(--color-flagAmber-bg) / <alpha-value>)'  // #FBF1E1
         },
         flagBlue: {
-          DEFAULT: '#3457A6',
-          bg: '#EAEEF8'
+          DEFAULT: 'rgb(var(--color-flagBlue) / <alpha-value>)',  // #3457A6
+          bg: 'rgb(var(--color-flagBlue-bg) / <alpha-value>)'  // #EAEEF8
         },
         success: {
-          DEFAULT: '#22A06B',
-          bg: '#E3F5EC'
+          DEFAULT: 'rgb(var(--color-success) / <alpha-value>)',  // #22A06B
+          bg: 'rgb(var(--color-success-bg) / <alpha-value>)'  // #E3F5EC
         },
         // Weekend-parity ("Even"/"Odd") signal — a doctor works every weekend
         // of a given parity in a given month, so this needs its own color
@@ -135,12 +152,12 @@ export default {
         // green/red would. `tint` pairs with `DEFAULT` the same way accent/
         // rose's own tint does, for a badge's bg+text combo.
         groupEven: {
-          DEFAULT: '#6366F1',
-          tint: '#E0E7FF'
+          DEFAULT: 'rgb(var(--color-groupEven) / <alpha-value>)',  // #6366F1
+          tint: 'rgb(var(--color-groupEven-tint) / <alpha-value>)'  // #E0E7FF
         },
         groupOdd: {
-          DEFAULT: '#64748B',
-          tint: '#E2E8F0'
+          DEFAULT: 'rgb(var(--color-groupOdd) / <alpha-value>)',  // #64748B
+          tint: 'rgb(var(--color-groupOdd-tint) / <alpha-value>)'  // #E2E8F0
         },
         // Dedicated destructive-action red for .btn-danger/.btn-danger-outline
         // — deliberately its own token rather than reusing flagRed, which is
@@ -148,9 +165,9 @@ export default {
         // comment above). This one means "this button does something
         // destructive," not "this roster entry conflicts."
         danger: {
-          DEFAULT: '#DC2626',
-          dark: '#B91C1C',
-          bg: '#FEE2E2'
+          DEFAULT: 'rgb(var(--color-danger) / <alpha-value>)',  // #DC2626
+          dark: 'rgb(var(--color-danger-dark) / <alpha-value>)',  // #B91C1C
+          bg: 'rgb(var(--color-danger-bg) / <alpha-value>)'  // #FEE2E2
         },
         // DateCard's weekend tone — a genuinely neutral light gray, distinct
         // from every other tint in this palette (all mint/teal or
@@ -158,16 +175,16 @@ export default {
         // another shade of teal. `ink` is verified >=4.5:1 against `tint`
         // (9.37:1) — see the contrast check run for this component.
         dateWeekend: {
-          tint: '#F3F4F6',
-          ink: '#374151',
+          tint: 'rgb(var(--color-dateWeekend-tint) / <alpha-value>)',  // #F3F4F6
+          ink: 'rgb(var(--color-dateWeekend-ink) / <alpha-value>)',  // #374151
           // One step more saturated than `tint`, for the shift DateCard's
           // two-panel split (top: date, bottom: time) — same neutral-gray
           // family, just deeper, so the two panels read as distinct
           // without a divider line. Matches Tailwind's own gray-200.
-          deep: '#E5E7EB',
+          deep: 'rgb(var(--color-dateWeekend-deep) / <alpha-value>)',  // #E5E7EB
           // Night-shift time panel on a weekend date — see accent.night.
           // Tailwind's gray-300; ink-light on this: 5.13:1.
-          night: '#D1D5DB'
+          night: 'rgb(var(--color-dateWeekend-night) / <alpha-value>)'  // #D1D5DB
         },
         // A dedicated "on leave" presence colour — deliberately separate
         // from the flag* palette above (reserved strictly for roster-state
@@ -175,8 +192,8 @@ export default {
         // person's current status, not a roster flag. Used by
         // ProfileAvatar's StatusBadge/StatusPicker only.
         statusAway: {
-          DEFAULT: '#EAB308',
-          bg: '#FEF9C3'
+          DEFAULT: 'rgb(var(--color-statusAway) / <alpha-value>)',  // #EAB308
+          bg: 'rgb(var(--color-statusAway-bg) / <alpha-value>)'  // #FEF9C3
         },
         // Dedicated 4-step "leave capacity" heatmap palette (Annual Leave
         // planner day/month fill) — kept separate from the flag*/success
@@ -194,11 +211,11 @@ export default {
         // it still reads as its own hue instead of every state converging
         // on the same near-black brown at high darkness).
         capAvailable: {
-          DEFAULT: '#16A34A',
-          light: '#3DB369',
-          tint: '#DCFCE7',
-          dark: '#166534',
-          ink: '#15803D'
+          DEFAULT: 'rgb(var(--color-capAvailable) / <alpha-value>)',  // #16A34A
+          light: 'rgb(var(--color-capAvailable-light) / <alpha-value>)',  // #3DB369
+          tint: 'rgb(var(--color-capAvailable-tint) / <alpha-value>)',  // #DCFCE7
+          dark: 'rgb(var(--color-capAvailable-dark) / <alpha-value>)',  // #166534
+          ink: 'rgb(var(--color-capAvailable-ink) / <alpha-value>)'  // #15803D
         },
         // Brighter/lighter than the other three states' DEFAULT->light step
         // — the original #EAB308 (Tailwind yellow-500) read as too dark
@@ -208,25 +225,25 @@ export default {
         // and day-block fill) and the month/day view (`light`) all render
         // identically instead of two subtly different darker yellows.
         capLimited: {
-          DEFAULT: '#FACC15',
-          light: '#FBD12C',
-          tint: '#FEF9C3',
-          dark: '#854D0E',
-          ink: '#A16207'
+          DEFAULT: 'rgb(var(--color-capLimited) / <alpha-value>)',  // #FACC15
+          light: 'rgb(var(--color-capLimited-light) / <alpha-value>)',  // #FBD12C
+          tint: 'rgb(var(--color-capLimited-tint) / <alpha-value>)',  // #FEF9C3
+          dark: 'rgb(var(--color-capLimited-dark) / <alpha-value>)',  // #854D0E
+          ink: 'rgb(var(--color-capLimited-ink) / <alpha-value>)'  // #A16207
         },
         capNear: {
-          DEFAULT: '#F97316',
-          light: '#FA8B3D',
-          tint: '#FFEDD5',
-          dark: '#9A3412',
-          ink: '#C2410C'
+          DEFAULT: 'rgb(var(--color-capNear) / <alpha-value>)',  // #F97316
+          light: 'rgb(var(--color-capNear-light) / <alpha-value>)',  // #FA8B3D
+          tint: 'rgb(var(--color-capNear-tint) / <alpha-value>)',  // #FFEDD5
+          dark: 'rgb(var(--color-capNear-dark) / <alpha-value>)',  // #9A3412
+          ink: 'rgb(var(--color-capNear-ink) / <alpha-value>)'  // #C2410C
         },
         capAtCapacity: {
-          DEFAULT: '#DC2626',
-          light: '#E24A4A',
-          tint: '#FEE2E2',
-          dark: '#991B1B',
-          ink: '#B91C1C'
+          DEFAULT: 'rgb(var(--color-capAtCapacity) / <alpha-value>)',  // #DC2626
+          light: 'rgb(var(--color-capAtCapacity-light) / <alpha-value>)',  // #E24A4A
+          tint: 'rgb(var(--color-capAtCapacity-tint) / <alpha-value>)',  // #FEE2E2
+          dark: 'rgb(var(--color-capAtCapacity-dark) / <alpha-value>)',  // #991B1B
+          ink: 'rgb(var(--color-capAtCapacity-ink) / <alpha-value>)'  // #B91C1C
         }
       },
       fontFamily: {
@@ -266,8 +283,12 @@ export default {
         lg: '12px'
       },
       boxShadow: {
-        card: '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 6px -1px rgba(15, 23, 42, 0.06)',
-        raised: '0 4px 16px -2px rgba(15, 23, 42, 0.16)'
+        // Both shadows are theme-dependent: the light theme's slate-tinted
+        // rgba is invisible on the dark theme's near-black ground, which
+        // leans on a border instead. Values live beside the colour tokens in
+        // src/styles/index.css.
+        card: 'var(--shadow-card)',
+        raised: 'var(--shadow-raised)'
       }
     }
   },

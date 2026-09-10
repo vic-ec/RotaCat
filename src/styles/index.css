@@ -2,6 +2,236 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Colour tokens ────────────────────────────────────────────────────────
+   Every colour in tailwind.config.js resolves through one of these. Values
+   are bare `r g b` channels, not hex: Tailwind composes them as
+   `rgb(var(--token) / <alpha-value>)` so opacity modifiers (`bg-accent/25`,
+   of which this app has 120) still work. A hex string here would compile to
+   `rgb(#0F766E / 0.25)`, which browsers drop silently.
+
+   `:root` is the light theme and stays the default, so an app that never
+   sets `data-theme` renders exactly as it always has.
+   ------------------------------------------------------------------------ */
+:root {
+  /* ink */
+  --color-ink: 31 41 55;                      /* #1F2937 */
+  --color-ink-light: 75 85 99;                /* #4B5563 */
+  --color-ink-muted: 107 114 128;             /* #6B7280 */
+  /* canvas */
+  --color-canvas: 254 255 254;                /* #FEFFFE */
+  --color-canvas-raised: 255 255 255;         /* #FFFFFF */
+  --color-canvas-sunken: 220 238 231;         /* #DCEEE7 */
+  --color-canvas-cool: 241 248 245;           /* #F1F8F5 */
+  /* slate */
+  --color-slate-line: 215 227 223;            /* #D7E3DF */
+  --color-slate-hairline: 232 240 237;        /* #E8F0ED */
+  /* accent */
+  --color-accent: 15 118 110;                 /* #0F766E */
+  --color-accent-dark: 17 94 89;              /* #115E59 */
+  --color-accent-light: 215 238 232;          /* #D7EEE8 */
+  --color-accent-tint: 230 245 241;           /* #E6F5F1 */
+  --color-accent-panel: 199 232 224;          /* #C7E8E0 */
+  --color-accent-night: 183 224 214;          /* #B7E0D6 */
+  /* rose */
+  --color-rose: 214 87 126;                   /* #D6577E */
+  --color-rose-dark: 184 69 111;              /* #B8456F */
+  --color-rose-light: 248 227 234;            /* #F8E3EA */
+  --color-rose-tint: 252 240 243;             /* #FCF0F3 */
+  --color-rose-night: 240 207 219;            /* #F0CFDB */
+  /* flagRed */
+  --color-flagRed: 192 54 44;                 /* #C0362C */
+  --color-flagRed-bg: 251 234 232;            /* #FBEAE8 */
+  --color-flagRed-deep: 241 219 217;          /* #F1DBD9 */
+  --color-flagRed-night: 232 198 194;         /* #E8C6C2 */
+  /* flagAmber */
+  --color-flagAmber: 183 121 31;              /* #B7791F */
+  --color-flagAmber-bg: 251 241 225;          /* #FBF1E1 */
+  /* flagBlue */
+  --color-flagBlue: 52 87 166;                /* #3457A6 */
+  --color-flagBlue-bg: 234 238 248;           /* #EAEEF8 */
+  /* success */
+  --color-success: 34 160 107;                /* #22A06B */
+  --color-success-bg: 227 245 236;            /* #E3F5EC */
+  /* groupEven */
+  --color-groupEven: 99 102 241;              /* #6366F1 */
+  --color-groupEven-tint: 224 231 255;        /* #E0E7FF */
+  /* groupOdd */
+  --color-groupOdd: 100 116 139;              /* #64748B */
+  --color-groupOdd-tint: 226 232 240;         /* #E2E8F0 */
+  /* danger */
+  --color-danger: 220 38 38;                  /* #DC2626 */
+  --color-danger-dark: 185 28 28;             /* #B91C1C */
+  --color-danger-bg: 254 226 226;             /* #FEE2E2 */
+  /* dateWeekend */
+  --color-dateWeekend-tint: 243 244 246;      /* #F3F4F6 */
+  --color-dateWeekend-ink: 55 65 81;          /* #374151 */
+  --color-dateWeekend-deep: 229 231 235;      /* #E5E7EB */
+  --color-dateWeekend-night: 209 213 219;     /* #D1D5DB */
+  /* statusAway */
+  --color-statusAway: 234 179 8;              /* #EAB308 */
+  --color-statusAway-bg: 254 249 195;         /* #FEF9C3 */
+  /* capAvailable */
+  --color-capAvailable: 22 163 74;            /* #16A34A */
+  --color-capAvailable-light: 61 179 105;     /* #3DB369 */
+  --color-capAvailable-tint: 220 252 231;     /* #DCFCE7 */
+  --color-capAvailable-dark: 22 101 52;       /* #166534 */
+  --color-capAvailable-ink: 21 128 61;        /* #15803D */
+  /* capLimited */
+  --color-capLimited: 250 204 21;             /* #FACC15 */
+  --color-capLimited-light: 251 209 44;       /* #FBD12C */
+  --color-capLimited-tint: 254 249 195;       /* #FEF9C3 */
+  --color-capLimited-dark: 133 77 14;         /* #854D0E */
+  --color-capLimited-ink: 161 98 7;           /* #A16207 */
+  /* capNear */
+  --color-capNear: 249 115 22;                /* #F97316 */
+  --color-capNear-light: 250 139 61;          /* #FA8B3D */
+  --color-capNear-tint: 255 237 213;          /* #FFEDD5 */
+  --color-capNear-dark: 154 52 18;            /* #9A3412 */
+  --color-capNear-ink: 194 65 12;             /* #C2410C */
+  /* capAtCapacity */
+  --color-capAtCapacity: 220 38 38;           /* #DC2626 */
+  --color-capAtCapacity-light: 226 74 74;     /* #E24A4A */
+  --color-capAtCapacity-tint: 254 226 226;    /* #FEE2E2 */
+  --color-capAtCapacity-dark: 153 27 27;      /* #991B1B */
+  --color-capAtCapacity-ink: 185 28 28;       /* #B91C1C */
+
+  /* band — DecorativeRosterGrid's pills. Applied from JS as inline styles,
+     so these are read as `rgb(var(--color-band-3))` rather than through a
+     Tailwind class. */
+  --color-band-1: 247 248 249;                /* #F7F8F9 */
+  --color-band-2: 241 243 245;                /* #F1F3F5 */
+  --color-band-3: 234 237 240;                /* #EAEDF0 */
+  --color-band-4: 228 232 236;                /* #E4E8EC */
+  --color-band-5: 222 227 233;                /* #DEE3E9 */
+  --color-band-bar: 211 217 224;              /* #D3D9E0 */
+
+  /* auth-ground — the full-bleed background behind the desktop login card.
+     Deep teal reads as a frame; the dark theme's mint would not, so it uses
+     a ground one step below `canvas` instead. */
+  --color-auth-ground: 15 118 110;            /* #0F766E */
+
+  /* Label for anything filled with a solid brand or status colour.
+     The light theme puts white on its deep teal (5.47:1). */
+  --color-on-fill: 255 255 255;               /* #FFFFFF */
+
+  /* The cap* heatmap fills are the same in both themes, so the dark label
+     that sits on the pale ones (capLimited) must not follow `ink`. */
+  --color-on-heat: 31 41 55;                  /* #1F2937 */
+
+  --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 6px -1px rgba(15, 23, 42, 0.06);
+  --shadow-raised: 0 4px 16px -2px rgba(15, 23, 42, 0.16);
+}
+
+/* Neutral dark. Surface roles invert here: `canvas` is the darkest ground
+   and `canvas-raised` the lightest panel. Sampled from the Quiet Rows and
+   Doctor Lanes layouts; every text-on-fill pair is verified at >= 4.5:1. */
+:root[data-theme="neutral-dark"] {
+  color-scheme: dark;
+  /* ink */
+  --color-ink: 228 234 234;                   /* #E4EAEA */
+  --color-ink-light: 168 186 180;             /* #A8BAB4 */
+  --color-ink-muted: 126 150 144;             /* #7E9690 */
+  /* canvas */
+  --color-canvas: 15 22 19;                   /* #0F1613 */
+  --color-canvas-raised: 29 47 43;            /* #1D2F2B */
+  --color-canvas-sunken: 23 33 30;            /* #17211E */
+  --color-canvas-cool: 26 35 34;              /* #1A2322 */
+  /* slate */
+  --color-slate-line: 43 70 63;               /* #2B463F */
+  --color-slate-hairline: 37 57 55;           /* #253937 */
+  /* accent */
+  --color-accent: 110 189 174;                /* #6EBDAE */
+  --color-accent-dark: 134 207 193;           /* #86CFC1 */
+  --color-accent-light: 36 64 58;             /* #24403A */
+  --color-accent-tint: 27 42 39;              /* #1B2A27 */
+  --color-accent-panel: 31 51 46;             /* #1F332E */
+  --color-accent-night: 22 34 31;             /* #16221F */
+  /* rose */
+  --color-rose: 219 143 166;                  /* #DB8FA6 */
+  --color-rose-dark: 233 168 187;             /* #E9A8BB */
+  --color-rose-light: 58 37 44;               /* #3A252C */
+  --color-rose-tint: 43 29 34;                /* #2B1D22 */
+  --color-rose-night: 51 32 39;               /* #332027 */
+  /* flagRed */
+  --color-flagRed: 220 132 119;               /* #DC8477 */
+  --color-flagRed-bg: 49 32 30;               /* #31201E */
+  --color-flagRed-deep: 58 38 36;             /* #3A2624 */
+  --color-flagRed-night: 43 29 27;            /* #2B1D1B */
+  /* flagAmber */
+  --color-flagAmber: 224 177 92;              /* #E0B15C */
+  --color-flagAmber-bg: 49 40 15;             /* #31280F */
+  /* flagBlue */
+  --color-flagBlue: 130 154 219;              /* #829ADB */
+  --color-flagBlue-bg: 31 37 63;              /* #1F253F */
+  /* success */
+  --color-success: 111 216 160;               /* #6FD8A0 */
+  --color-success-bg: 22 48 31;               /* #16301F */
+  /* groupEven */
+  --color-groupEven: 138 140 245;             /* #8A8CF5 */
+  --color-groupEven-tint: 23 30 56;           /* #171E38 */
+  /* groupOdd */
+  --color-groupOdd: 154 166 182;              /* #9AA6B6 */
+  --color-groupOdd-tint: 27 38 52;            /* #1B2634 */
+  /* danger */
+  --color-danger: 232 114 114;                /* #E87272 */
+  --color-danger-dark: 240 158 158;           /* #F09E9E */
+  --color-danger-bg: 56 23 23;                /* #381717 */
+  /* dateWeekend */
+  --color-dateWeekend-tint: 30 33 36;         /* #1E2124 */
+  --color-dateWeekend-ink: 199 205 212;       /* #C7CDD4 */
+  --color-dateWeekend-deep: 36 40 44;         /* #24282C */
+  --color-dateWeekend-night: 43 48 53;        /* #2B3035 */
+  /* statusAway */
+  --color-statusAway: 249 210 87;             /* #F9D257 */
+  --color-statusAway-bg: 56 53 23;            /* #383517 */
+  /* capAvailable */
+  --color-capAvailable: 22 163 74;            /* #16A34A */
+  --color-capAvailable-light: 61 179 105;     /* #3DB369 */
+  --color-capAvailable-tint: 23 56 34;        /* #173822 */
+  --color-capAvailable-dark: 22 101 52;       /* #166534 */
+  --color-capAvailable-ink: 106 231 153;      /* #6AE799 */
+  /* capLimited */
+  --color-capLimited: 250 204 21;             /* #FACC15 */
+  --color-capLimited-light: 251 209 44;       /* #FBD12C */
+  --color-capLimited-tint: 56 53 23;          /* #383517 */
+  --color-capLimited-dark: 133 77 14;         /* #854D0E */
+  --color-capLimited-ink: 248 183 89;         /* #F8B759 */
+  /* capNear */
+  --color-capNear: 249 115 22;                /* #F97316 */
+  --color-capNear-light: 250 139 61;          /* #FA8B3D */
+  --color-capNear-tint: 56 42 23;             /* #382A17 */
+  --color-capNear-dark: 154 52 18;            /* #9A3412 */
+  --color-capNear-ink: 245 136 92;            /* #F5885C */
+  /* capAtCapacity */
+  --color-capAtCapacity: 220 38 38;           /* #DC2626 */
+  --color-capAtCapacity-light: 226 74 74;     /* #E24A4A */
+  --color-capAtCapacity-tint: 56 23 23;       /* #381717 */
+  --color-capAtCapacity-dark: 153 27 27;      /* #991B1B */
+  --color-capAtCapacity-ink: 234 113 113;     /* #EA7171 */
+
+  /* band — retoned; the light tones would glow against this ground. */
+  --color-band-1: 22 31 29;                   /* #161F1D */
+  --color-band-2: 24 34 31;                   /* #18221F */
+  --color-band-3: 27 39 36;                   /* #1B2724 */
+  --color-band-4: 30 44 41;                   /* #1E2C29 */
+  --color-band-5: 34 51 48;                   /* #223330 */
+  --color-band-bar: 43 70 63;                 /* #2B463F */
+
+  --color-auth-ground: 10 16 14;              /* #0A100E */
+
+  /* White on this theme's mint accent is 2.20:1 — unreadable. The ground
+     colour on it is 8.35:1, so solid fills carry a dark label here. */
+  --color-on-fill: 15 22 19;                  /* #0F1613 */
+
+  /* Unchanged: the heatmap fills it sits on are unchanged too. */
+  --color-on-heat: 31 41 55;                  /* #1F2937 */
+
+  /* A slate-tinted drop shadow does nothing against #0F1613, so depth comes
+     from a lifted border plus a deeper, wider shadow. */
+  --shadow-card: 0 1px 2px 0 rgba(0, 0, 0, 0.36), 0 1px 6px -1px rgba(0, 0, 0, 0.28);
+  --shadow-raised: 0 8px 26px -6px rgba(0, 0, 0, 0.55);
+}
+
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
@@ -16,7 +246,7 @@
 
   /* Visible keyboard focus everywhere — accessibility floor */
   :focus-visible {
-    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline: 2px solid rgb(var(--color-accent));
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -36,8 +266,8 @@
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 1000px theme('colors.canvas.raised') inset;
-    -webkit-text-fill-color: theme('colors.ink.DEFAULT');
+    -webkit-box-shadow: 0 0 0 1000px rgb(var(--color-canvas-raised)) inset;
+    -webkit-text-fill-color: rgb(var(--color-ink));
     transition: background-color 5000s ease-in-out 0s;
   }
 
@@ -238,7 +468,7 @@
            disabled:cursor-not-allowed disabled:opacity-50;
   }
   .toolbar-pill-active {
-    @apply bg-accent text-white;
+    @apply bg-accent text-on-fill;
   }
   .toolbar-pill-idle {
     @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
@@ -264,7 +494,7 @@
     @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
            border-accent/25 bg-canvas text-ink-light transition-colors
            hover:bg-canvas-sunken hover:text-ink
-           active:bg-accent active:text-white hover:active:bg-accent hover:active:text-white;
+           active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
   }
 
   /* Small square icon-only trigger — same bordered/idle/active family as
@@ -280,10 +510,10 @@
   }
   .icon-btn-idle {
     @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink
-           active:bg-accent active:text-white hover:active:bg-accent hover:active:text-white;
+           active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
   }
   .icon-btn-active {
-    @apply bg-accent text-white;
+    @apply bg-accent text-on-fill;
   }
 }
 

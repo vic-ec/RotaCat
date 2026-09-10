@@ -471,7 +471,7 @@ export default function RosterGridPage() {
             <button
               onClick={() => setViewMode('month')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'month' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                viewMode === 'month' ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               Month
@@ -479,7 +479,7 @@ export default function RosterGridPage() {
             <button
               onClick={() => setViewMode('week')}
               className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'week' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+                viewMode === 'week' ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               Week

@@ -221,7 +221,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
             onClick={() => setOpen(o => !o)}
             aria-label={open ? 'Close quick actions' : 'Quick actions'}
             aria-expanded={open}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill shadow-raised"
           >
             {/* ⊕ → ✕ over the same 100ms as the first button's reveal, so
                 the trigger and the stack start moving together — and snaps
@@ -311,7 +311,7 @@ function FabItem({ icon: Icon, label, onClick, active, open, index }) {
         motion-reduce:!transition-none ${
         open ? 'pointer-events-auto visible scale-100 opacity-100' : 'invisible scale-0 opacity-0'
       } ${
-        active ? 'bg-accent text-white' : 'bg-canvas-raised text-ink hover:bg-canvas-sunken'
+        active ? 'bg-accent text-on-fill' : 'bg-canvas-raised text-ink hover:bg-canvas-sunken'
       }`}
     >
       <Icon className="h-[18px] w-[18px]" />

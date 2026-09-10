@@ -74,7 +74,7 @@ export default function ClearableInput({ value, onChange, onClear, onFocus, onBl
           onMouseDown={e => e.preventDefault()}
           aria-label={clearLabel}
           tabIndex={-1}
-          className={`absolute top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-white hover:bg-ink-muted/70 ${isPassword ? 'right-7' : 'right-2'}`}
+          className={`absolute top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-canvas hover:bg-ink-muted/70 ${isPassword ? 'right-7' : 'right-2'}`}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="h-2.5 w-2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />

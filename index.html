@@ -8,6 +8,24 @@
          still available; this only stops the unwanted zoom-in. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0F766E" />
+
+    <!-- Applies the saved colour theme before the first paint. Without this
+         a dark-theme user gets one white frame while the bundle boots, which
+         is the most visible thing the app does wrong on a night shift. Kept
+         inline and unbundled for that reason; the key and the theme ids are
+         mirrored from src/context/ThemeContext.jsx and must stay in step. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('rotacat.theme')
+          if (t === 'neutral-dark') {
+            document.documentElement.dataset.theme = t
+            var m = document.querySelector('meta[name="theme-color"]')
+            if (m) m.setAttribute('content', '#0F1613')
+          }
+        } catch (e) { /* private mode: fall through to the light default */ }
+      })()
+    </script>
     <meta name="description" content="RotaCat — Smart ED scheduling, made effortless" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

@@ -476,14 +476,14 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
           <button
             type="button"
             onClick={() => setMode('fill-empty')}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'fill-empty' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'fill-empty' ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken'}`}
           >
             Fill empty groups only
           </button>
           <button
             type="button"
             onClick={() => setMode('overwrite')}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'overwrite' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken'}`}
+            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'overwrite' ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken'}`}
           >
             Overwrite instead
           </button>
@@ -2069,7 +2069,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       )}
 
       {toastVisible && lastAction && (
-        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-lg">
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-canvas shadow-lg">
           <span>{lastAction.label}</span>
           <button
             type="button"

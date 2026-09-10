@@ -93,7 +93,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
       >
         <span className="flex-1">{label}</span>
         {selected.size > 0 && (
-          <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-white">
+          <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-semibold text-on-fill">
             {selected.size}
           </span>
         )}
@@ -121,7 +121,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
             onClick={() => onChange(new Set())}
             className="flex w-full items-center gap-2.5 px-4 py-1.5 text-left text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
           >
-            <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+            <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
               {isAll && <CheckIcon className="h-2.5 w-2.5" />}
             </span>
             <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
@@ -143,7 +143,7 @@ function FilterGroup({ group, expanded, onToggleExpand }) {
                     onChange={() => toggleOption(opt.value)}
                     className="sr-only"
                   />
-                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
                     {checked && <CheckIcon className="h-2.5 w-2.5" />}
                   </span>
                   <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>

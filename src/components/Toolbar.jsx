@@ -191,7 +191,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
                 onClick={() => { onChange(opt.value); setOpen(false) }}
                 className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
                   opt.value === value
-                    ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                    ? 'bg-accent font-semibold text-on-fill hover:bg-accent-dark active:bg-accent-dark'
                     : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
                 }`}
               >
@@ -305,7 +305,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
               onClick={() => onChange(new Set())}
               className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-ink-light transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
-              <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+              <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border ${isAll ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
                 {isAll && <CheckIcon className="h-2.5 w-2.5" />}
               </span>
               <span className={isAll ? 'font-semibold text-ink' : ''}>All</span>
@@ -326,7 +326,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
                     onChange={() => toggleOption(opt.value)}
                     className="sr-only"
                   />
-                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-white' : 'border-slate-line'}`}>
+                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border ${checked ? 'border-accent bg-accent text-on-fill' : 'border-slate-line'}`}>
                     {checked && <CheckIcon className="h-2.5 w-2.5" />}
                   </span>
                   <span className={checked ? 'font-semibold text-ink' : ''}>{opt.label}</span>
@@ -529,7 +529,7 @@ export default function Toolbar({
               onClick={() => setMobileSheetOpen(true)}
               aria-label={mobileSheetTitle}
               className={`flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${compact ? 'w-[30px]' : ''} ${
-                active ? 'bg-accent text-white' : 'bg-canvas text-ink-light'
+                active ? 'bg-accent text-on-fill' : 'bg-canvas text-ink-light'
               }`}
             >
               <FiltersIcon className="h-4 w-4" />

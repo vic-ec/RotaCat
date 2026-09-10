@@ -1881,7 +1881,7 @@ export default function StaffListPage() {
       {/* ── Missing-contact toast ────────────────────── */}
       {toast && (
         <div className="fixed inset-x-0 bottom-20 z-[60] flex justify-center px-4 md:bottom-6">
-          <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-white shadow-raised">{toast}</div>
+          <div className="rounded-lg bg-ink px-4 py-2.5 text-sm text-canvas shadow-raised">{toast}</div>
         </div>
       )}
 

@@ -109,7 +109,7 @@ export default function SpecialMonthWorkspace({
                     and this is the same marker the Annual grid uses. */}
                 <span className="flex items-center justify-between gap-1">
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-                    date === today ? 'bg-accent text-white' : marker?.capacityState.onFillText ?? 'text-ink'
+                    date === today ? 'bg-accent text-on-fill' : marker?.capacityState.onFillText ?? 'text-ink'
                   }`}>
                     {Number(date.slice(-2))}
                   </span>

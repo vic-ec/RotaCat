@@ -24,7 +24,7 @@ export default function PublicHolidayBadge({ name }) {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-label={`${label} — ${statusText}`}
-        className="flex h-5 w-5 items-center justify-center rounded bg-rose text-[10px] font-semibold leading-none text-white transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark"
+        className="flex h-5 w-5 items-center justify-center rounded bg-rose text-[10px] font-semibold leading-none text-on-fill transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark"
       >
         PH
       </button>

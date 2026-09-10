@@ -32,7 +32,7 @@ export default function PasswordRequirementsInfo({ align = 'left' }) {
       </button>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute top-full z-20 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-white shadow-card transition-opacity ${anchorClass} ${
+        className={`pointer-events-none absolute top-full z-20 mt-2 w-56 rounded-lg bg-ink px-3 py-2 text-xs font-normal normal-case text-canvas shadow-card transition-opacity ${anchorClass} ${
           show ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
       >

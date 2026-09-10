@@ -547,12 +547,16 @@ export default function RosterGridPage() {
 
           {/* Undo Publish — reverts back to draft; sits where Publish would
               be, since the two states (draft/published) are mutually
-              exclusive and this button only ever shows for the other one. */}
+              exclusive and this button only ever shows for the other one.
+              Dressed as .btn-danger-outline, the Reject/Decline shape:
+              taking a published roster back off the wall is a negative
+              action, and the outline (rather than solid .btn-danger) keeps
+              it from shouting at an admin who only came to look. */}
           {isAdmin && rosterMonth.status === 'published' && (
             <button
               onClick={handleUnpublish}
               disabled={publishing}
-              className="btn-secondary text-sm"
+              className="btn-danger-outline text-sm"
               aria-label="Undo Publish"
               title="Undo Publish"
             >

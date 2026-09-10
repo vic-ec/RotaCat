@@ -178,6 +178,10 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     return within(laneFor(surname)).getAllByRole('cell')
   }
 
+  function nameColWidth() {
+    return parseInt(document.querySelector('colgroup col').style.width, 10)
+  }
+
   it('pads a short week out to seven day columns', () => {
     renderLanes({ days: SHORT_WEEK, padToWeek: true })
     expect(dayCells('Landers')).toHaveLength(7)
@@ -201,6 +205,43 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
   it('does not pad the month view, where a short run is the whole month', () => {
     renderLanes({ days: SHORT_WEEK })
     expect(dayCells('Landers')).toHaveLength(2)
+  })
+
+  it('grows the name column for a long surname rather than truncating it', () => {
+    // The complaint: a flat 88px column cut "Van Schalkwyk" short while
+    // each day column beside it took 168px to hold "08h".
+    renderLanes({
+      days: SHORT_WEEK,
+      padToWeek: true,
+      displayNames: new Map([['d1', 'Van Schalkwyk-Botha']]),
+    })
+    // 19 characters at ~7.7px plus the cell's padding, well clear of the
+    // 128px floor a table of short surnames would sit at.
+    expect(nameColWidth()).toBe(162)
+  })
+
+  it('caps the name column so one long name cannot take the table over', () => {
+    renderLanes({
+      days: SHORT_WEEK,
+      padToWeek: true,
+      displayNames: new Map([['d1', 'Van Schalkwyk-Oosthuizen-Bezuidenhout']]),
+    })
+    expect(nameColWidth()).toBe(200)
+  })
+
+  it('holds a floor when every surname is short, so it stays the widest column', () => {
+    // Day columns are capped at 96px; the name column's floor sits above
+    // that, which is what makes "widest" true rather than coincidental.
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    expect(nameColWidth()).toBe(128)
+  })
+
+  it('caps the table so a seven-day week does not stretch across a desktop', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    const table = screen.getByRole('table')
+    // name floor + 7 day columns at their 96px ceiling.
+    expect(table.style.maxWidth).toBe('800px')
+    expect(table.style.minWidth).toBe('338px')
   })
 
   it('stretches the category heading across the padded columns too', () => {

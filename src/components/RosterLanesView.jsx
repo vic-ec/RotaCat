@@ -15,7 +15,31 @@ const CATEGORY_ORDER = ['Consultant', 'EC', 'MO', 'Registrar', 'EC Intern', 'OT 
 // scrolling sideways. A full month (31 of them) always scrolls; a padded
 // week (7) never does, so its columns share the width instead.
 const DAY_COL_MIN = 30
-const NAME_COL = 88
+
+// …and no more than this much, which is what stops a seven-column week
+// handing 168px to a cell holding "08h" while the name beside it is cut
+// off. The table takes a max-width off it, so a short week renders at its
+// own comfortable size rather than stretching to fill a desktop panel.
+const DAY_COL_MAX = 96
+
+// The name column is sized off the longest name actually in the table
+// rather than a flat width, so "Van Schalkwyk" is not the one lane nobody
+// can read. One `ch` is ~7.7px at the table's own text-xs and the cells
+// are a step smaller again (text-[11px]), so counting characters
+// overestimates — the safe direction. The floor keeps it wider than any
+// day column even when every surname is short (which is what makes it the
+// widest column, always); the ceiling stops one double-barrelled name
+// taking the table over.
+const NAME_CH_PX = 7.7
+const NAME_COL_MIN = 128
+const NAME_COL_MAX = 200
+
+// Plain pixels, deliberately. A `max(…, %)` here would read better but
+// Chromium rejects a percentage inside a math function on a <col> — it
+// falls back to the even share, which is the bug this is fixing.
+function nameColumnWidth(maxNameLength) {
+  return Math.round(Math.min(Math.max(maxNameLength * NAME_CH_PX + 16, NAME_COL_MIN), NAME_COL_MAX))
+}
 
 function categoryRank(category) {
   const i = CATEGORY_ORDER.indexOf(category)
@@ -86,6 +110,8 @@ export default function RosterLanesView({
   }
 
   const columns = buildDayColumns(days, padToWeek)
+  const nameFor = profile => displayNames?.get(profile.id) ?? profile.surname ?? ''
+  const nameCol = nameColumnWidth(Math.max(...lanes.map(p => nameFor(p).length)))
 
   // A consultant's entry is keyed CONSULTANT rather than by shift code, so
   // it never reaches byProfileDate — read it off the same map the day-rows
@@ -106,10 +132,13 @@ export default function RosterLanesView({
           crushing 31 columns into a phone. */}
       <table
         className="w-full table-fixed border-collapse text-xs"
-        style={{ minWidth: NAME_COL + columns.length * DAY_COL_MIN }}
+        style={{
+          minWidth: nameCol + columns.length * DAY_COL_MIN,
+          maxWidth: nameCol + columns.length * DAY_COL_MAX,
+        }}
       >
         <colgroup>
-          <col style={{ width: NAME_COL }} />
+          <col style={{ width: nameCol }} />
           {columns.map(col => <col key={col.key} />)}
         </colgroup>
         <caption className="sr-only">
@@ -157,7 +186,7 @@ export default function RosterLanesView({
           {lanes.map(profile => {
             const worked = byProfileDate.get(profile.id)
             const rows = []
-            const name = displayNames?.get(profile.id) ?? profile.surname
+            const name = nameFor(profile)
 
             // A category heading whenever the group changes, so a
             // consultant's month and a registrar's read as separate blocks.

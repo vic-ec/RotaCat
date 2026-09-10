@@ -19,6 +19,7 @@ import Toolbar from '../components/Toolbar'
 import ViewToggle from '../components/ViewToggle'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -26,6 +27,14 @@ import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 const ROSTER_LAYOUTS = [
   { key: 'rows', label: 'Rows', icon: Rows3 },
   { key: 'lanes', label: 'Lanes', icon: Columns3 },
+]
+
+// How much of the month is on screen. No icons: two plain words read
+// faster than a pair of calendar glyphs, and ViewToggle keeps a label
+// visible at every width when there's no icon to fall back to.
+const ROSTER_RANGES = [
+  { key: 'month', label: 'Month' },
+  { key: 'week', label: 'Week' },
 ]
 
 const MONTH_NAMES = [
@@ -46,29 +55,12 @@ function isDriftMuted(rosterMonthId, drift) {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Shift display headers matching the PDF layout
-const WEEKDAY_SHIFTS = [
-  { code: 'WD_08', label: '08h00' },
-  { code: 'WD_12', label: '12h00' },
-  { code: 'WD_15', label: '15h00' },
-  { code: 'WD_22', label: '22h00' },
-]
-const WEEKEND_SHIFTS = [
-  { code: 'WE_08', label: '08h00' },
-  { code: 'WE_13', label: '13h00' },
-  { code: 'WE_20', label: '20h00' },
-]
-const PH_WEEKDAY_SHIFTS = [
-  { code: 'PHW_08', label: '08h00' },
-  { code: 'PHW_12', label: '12h00' },
-  { code: 'PHW_15', label: '15h00' },
-  { code: 'PHW_22', label: '22h00' },
-]
-const PH_WEEKEND_SHIFTS = [
-  { code: 'PH_08', label: '08h00' },
-  { code: 'PH_13', label: '13h00' },
-  { code: 'PH_20', label: '20h00' },
-]
+// Shift display headers. The label is the shift's own name ("WD 08h-18h")
+// rather than a bare start time — see src/lib/shiftLabels.js.
+const WEEKDAY_SHIFTS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'])
+const WEEKEND_SHIFTS = shiftColumns(['WE_08', 'WE_13', 'WE_20'])
+const PH_WEEKDAY_SHIFTS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'])
+const PH_WEEKEND_SHIFTS = shiftColumns(['PH_08', 'PH_13', 'PH_20'])
 
 function getShiftsForDay(dayType) {
   if (dayType === 'weekday') return WEEKDAY_SHIFTS
@@ -506,26 +498,19 @@ export default function RosterGridPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex rounded-lg border border-slate-line bg-canvas-raised overflow-hidden">
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'month' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'week' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              Week
-            </button>
-          </div>
+        {/* flex-wrap, not nowrap: two view toggles plus up to three action
+            buttons overflow a narrow phone otherwise, and this cluster
+            wrapping onto a second line is the cheapest way out. */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* The two view switches sit side by side, as one cluster: they
+              answer neighbouring questions (what shape the roster is drawn
+              in, and how much of it at once) and pairing them keeps either
+              from reading as a property of the toolbar row below. Rows/
+              Lanes comes first — pick the shape, then the span. Both are
+              the shared ViewToggle rather than one being hand-rolled, so
+              they line up at the same 30px height. */}
+          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
 
           {/* Hours Summary — visible to every role that can view this page
               except locum (matches Roster Hours Summary's own visibility
@@ -695,13 +680,15 @@ export default function RosterGridPage() {
         </div>
       )}
 
-      {/* Layout switch + find-a-doctor row. `stretch` so the search reaches
-          the grid's own right edge rather than stopping short of the table
-          it filters (layout-spec, Search width). */}
+      {/* Find-a-doctor row: search at the standard 320px (layout-spec,
+          Search width), Filter beside it. `mobileMode="inline"` so the two
+          share one row on a phone instead of Filter dropping below a
+          full-width search box — this row sits directly above a grid that
+          already wants every vertical pixel it can get. */}
       <div className="mb-3">
         <Toolbar
           className=""
-          stretch
+          mobileMode="inline"
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by surname…"
@@ -712,7 +699,6 @@ export default function RosterGridPage() {
           }] : []}
           active={filtersActive}
           onClearAll={clearFilters}
-          trailing={<ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />}
         />
       </div>
 
@@ -725,6 +711,7 @@ export default function RosterGridPage() {
             shiftTypes={shiftTypes}
             displayNames={displayNames}
             entryMap={entryMap}
+            padToWeek={viewMode === 'week'}
           />
           <LanesLegend />
         </>
@@ -757,13 +744,17 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
+              // The shift-time header cells are the darkest fill in the
+              // grid; a weekend/PH row's own body sits two steps lighter
+              // (canvas.cool, not canvas.sunken) so the header reads as a
+              // header rather than merging into the tinted rows under it.
               const headerBg = isWeekend ? 'bg-accent-panel' : 'bg-canvas-sunken'
 
               return (
                 <tr
                   key={day.dateStr}
                   className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-canvas-sunken' : 'bg-canvas-raised'
+                    isWeekend ? 'bg-canvas-cool' : 'bg-canvas-raised'
                   } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
@@ -791,7 +782,7 @@ export default function RosterGridPage() {
                   {/* Consultant column */}
                   <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
-                      <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
+                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
                         Consultant
                       </div>
                     )}
@@ -825,7 +816,7 @@ export default function RosterGridPage() {
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
+                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
                             {label}
                           </div>
                         )}
@@ -887,7 +878,7 @@ export default function RosterGridPage() {
           onRemove={openDropdown.entryId ? () => removeEntry(openDropdown.entryId) : null}
           onClose={() => setOpenDropdown(null)}
           date={openDropdown.date}
-          shiftCode={openDropdown.shiftCode}
+          shiftCode={labelForShiftCode(openDropdown.shiftCode)}
         />
       )}
 

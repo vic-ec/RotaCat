@@ -146,4 +146,67 @@ describe('RosterLanesView', () => {
     renderLanes({ displayNames: new Map([['d1', 'B. Landers']]) })
     expect(screen.getByRole('rowheader', { name: 'B. Landers' })).toBeInTheDocument()
   })
+
+  it('names a cell with the shift, not the database code, on hover', () => {
+    renderLanes()
+    expect(within(laneFor('Landers')).getByTitle('2026-08-07 — WD 08h-18h')).toBeInTheDocument()
+    // Stored PHW_22, shown as PH — see shiftLabels.js.
+    expect(within(laneFor('Venter')).getByTitle('2026-08-10 — PH 22h-10h')).toBeInTheDocument()
+  })
+
+  it('draws a weekend column lighter than the header row it sits under', () => {
+    // The complaint that prompted this: weekend/PH cells were canvas.sunken,
+    // the same fill as the header cells, so the two blocks merged.
+    renderLanes()
+    const off = within(laneFor('Sathi')).getAllByText('·')
+    expect(off.some(td => td.className.includes('bg-canvas-cool'))).toBe(true)
+    expect(off.some(td => td.className.includes('bg-canvas-sunken'))).toBe(false)
+  })
+})
+
+// A month's first and last weeks are short. Left alone, a two-day week gave
+// its two days a third of the table each and let the name column take the
+// rest — the week read nothing like the five full weeks beside it.
+describe('RosterLanesView — a short week padded to seven columns', () => {
+  // Sat 1 and Sun 2 August 2026: the tail of a Monday-start week, so five
+  // blanks belong in front of them.
+  const SHORT_WEEK = [
+    { dateStr: '2026-08-01', dayType: 'weekend', phName: null },
+    { dateStr: '2026-08-02', dayType: 'weekend', phName: null },
+  ]
+
+  function dayCells(surname) {
+    return within(laneFor(surname)).getAllByRole('cell')
+  }
+
+  it('pads a short week out to seven day columns', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    expect(dayCells('Landers')).toHaveLength(7)
+  })
+
+  it('puts the blanks on the side the month boundary cut', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    const headers = screen.getAllByRole('columnheader').filter(th => th.getAttribute('scope') === 'col')
+    // Doctor, then five blanks, then the 1st and the 2nd.
+    expect(headers.map(th => th.textContent)).toEqual(['Doctor', '1S', '2S'])
+    expect(dayCells('Landers').slice(0, 5).every(td => td.textContent === '')).toBe(true)
+  })
+
+  it('leaves a full week alone', () => {
+    const fullWeek = ['03', '04', '05', '06', '07', '08', '09']
+      .map(d => ({ dateStr: `2026-08-${d}`, dayType: 'weekday', phName: null }))
+    renderLanes({ days: fullWeek, padToWeek: true })
+    expect(dayCells('Landers')).toHaveLength(7)
+  })
+
+  it('does not pad the month view, where a short run is the whole month', () => {
+    renderLanes({ days: SHORT_WEEK })
+    expect(dayCells('Landers')).toHaveLength(2)
+  })
+
+  it('stretches the category heading across the padded columns too', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    const heading = screen.getAllByRole('columnheader').find(th => th.getAttribute('scope') === 'colgroup')
+    expect(heading).toHaveAttribute('colspan', '8')
+  })
 })

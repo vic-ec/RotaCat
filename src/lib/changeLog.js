@@ -6,6 +6,7 @@
 // only what a human changed afterward. Failures are swallowed
 // (fire-and-forget): a log write should never block or roll back the
 // actual edit it's recording.
+import { labelForShiftCode } from './shiftLabels'
 import { supabase } from './supabase'
 import { parseLocalDate } from './dateRange'
 import { CATEGORY_GROUPS, groupEntriesByWeekend, planBatchRestore } from './weekendPlanner'
@@ -183,20 +184,20 @@ export function rosterChangeDetail(change, nameById) {
   const after = nameById.get(change.profile_id_after) || null
 
   if (change.action === 'move') {
-    return `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${change.shift_code_before} to ${dateFmt} ${change.shift_code}`
+    return `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${labelForShiftCode(change.shift_code_before)} to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   }
   if (change.action === 'remove') {
-    return `removed ${before ?? '(unassigned)'} from ${dateFmt} ${change.shift_code}`
+    return `removed ${before ?? '(unassigned)'} from ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   }
   if (change.action === 'unassign') {
-    return `vacated ${dateFmt} ${change.shift_code} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
+    return `vacated ${dateFmt} ${labelForShiftCode(change.shift_code)} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
   }
-  if (before) return `${dateFmt} ${change.shift_code} ${before} → ${after ?? '(unassigned)'}`
-  return `assigned ${after ?? '(unassigned)'} to ${dateFmt} ${change.shift_code}`
+  if (before) return `${dateFmt} ${labelForShiftCode(change.shift_code)} ${before} → ${after ?? '(unassigned)'}`
+  return `assigned ${after ?? '(unassigned)'} to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
 }
 
 // One human-readable line per roster_entry_changes row, e.g.:
-// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Ellis → Vaughn"
+// "[29 Jul 2026, 19:45:03] Claude Codespace edited August 2026 roster: 7 Aug 2026 WD 12h-22h Ellis → Vaughn"
 export function formatRosterChangeLine(change, nameById, monthLabel) {
   const actor = nameById.get(change.changed_by) || 'Unknown'
   return `[${formatTimestamp(change.changed_at)}] ${actor} edited ${monthLabel} roster: ${rosterChangeDetail(change, nameById)}`

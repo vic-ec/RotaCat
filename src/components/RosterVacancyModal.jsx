@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from './DoctorDropdown'
 import { findSameDayConflict } from '../lib/rosterVacancy'
+import { labelForShiftCode } from '../lib/shiftLabels'
 import { logRosterEntryChange } from '../lib/changeLog'
 
 function applyEntryPatch(entries, entryId, patch) {
@@ -113,7 +114,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
         onRemove={null}
         onClose={onClose}
         date={vacancy.date}
-        shiftCode={vacancy.shiftCode}
+        shiftCode={labelForShiftCode(vacancy.shiftCode)}
       />
     )
   }
@@ -122,7 +123,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
       <div className="card w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
         <p className="text-sm font-medium text-ink">
-          {doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'} is on a published shift — {vacancy.shiftCode} on {vacancy.date}
+          {doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'} is on a published shift — {labelForShiftCode(vacancy.shiftCode)} on {vacancy.date}
         </p>
         <p className="mt-1 text-xs text-ink-muted">This roster is published — what should happen to this shift?</p>
 

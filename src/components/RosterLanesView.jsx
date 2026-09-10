@@ -1,4 +1,5 @@
 import { bandForCode, SHIFT_STARTS, SHIFT_BAND } from '../lib/shiftBands'
+import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import PublicHolidayBadge from './PublicHolidayBadge'
 
@@ -10,6 +11,12 @@ const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 // its own raw value rather than being dropped.
 const CATEGORY_ORDER = ['Consultant', 'EC', 'MO', 'Registrar', 'EC Intern', 'OT Intern', 'Locum']
 
+// Each day column gets at least this much room before the table starts
+// scrolling sideways. A full month (31 of them) always scrolls; a padded
+// week (7) never does, so its columns share the width instead.
+const DAY_COL_MIN = 30
+const NAME_COL = 88
+
 function categoryRank(category) {
   const i = CATEGORY_ORDER.indexOf(category)
   return i === -1 ? CATEGORY_ORDER.length : i
@@ -18,6 +25,23 @@ function categoryRank(category) {
 function dayOfWeek(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
   return new Date(y, m - 1, d).getDay()
+}
+
+// A short week — the first and last of a month — padded out to a full
+// seven columns with blanks, so every week of the month is drawn at the
+// same width with its days under the same column positions. Without this,
+// a week 1 holding only a Saturday and a Sunday gave those two days a
+// third of the table each and let the name column swallow the rest.
+//
+// Weeks run Monday to Sunday (buildWeeks in RosterGridPage), so Monday is
+// column 0 and the blanks fall on whichever end the month boundary cut.
+function buildDayColumns(days, padToWeek) {
+  const columns = days.map(day => ({ key: day.dateStr, day }))
+  if (!padToWeek || columns.length === 0 || columns.length >= 7) return columns
+  const lead = (dayOfWeek(days[0].dateStr) + 6) % 7
+  for (let i = lead - 1; i >= 0; i--) columns.unshift({ key: `pad-lead-${i}`, day: null })
+  while (columns.length < 7) columns.push({ key: `pad-tail-${columns.length}`, day: null })
+  return columns
 }
 
 // The roster turned ninety degrees: a row per doctor, a column per day, one
@@ -33,7 +57,7 @@ function dayOfWeek(dateStr) {
 // already belongs to one person, so spending colour on identity would say
 // something the row label already says. See src/lib/shiftBands.js.
 export default function RosterLanesView({
-  days, profiles, entries, shiftTypes, displayNames, entryMap,
+  days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false,
 }) {
   // date -> profileId -> the shift code they hold that day. A doctor works
   // at most one shift a day (findSameDayConflict enforces it), so this is a
@@ -61,6 +85,8 @@ export default function RosterLanesView({
     )
   }
 
+  const columns = buildDayColumns(days, padToWeek)
+
   // A consultant's entry is keyed CONSULTANT rather than by shift code, so
   // it never reaches byProfileDate — read it off the same map the day-rows
   // view uses.
@@ -74,7 +100,18 @@ export default function RosterLanesView({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-line">
-      <table className="w-full border-collapse text-xs">
+      {/* table-fixed with an explicit colgroup, so the day columns split the
+          spare width evenly instead of the name column taking it all — the
+          min-width below is what makes a long month scroll rather than
+          crushing 31 columns into a phone. */}
+      <table
+        className="w-full table-fixed border-collapse text-xs"
+        style={{ minWidth: NAME_COL + columns.length * DAY_COL_MIN }}
+      >
+        <colgroup>
+          <col style={{ width: NAME_COL }} />
+          {columns.map(col => <col key={col.key} />)}
+        </colgroup>
         <caption className="sr-only">
           One row per doctor, one column per day. Each cell shows the start time of the shift that
           doctor works that day.
@@ -87,15 +124,21 @@ export default function RosterLanesView({
             >
               Doctor
             </th>
-            {days.map(day => {
+            {columns.map(({ key, day }) => {
+              // A <td> rather than a <th>: filler heads no column, and a
+              // scope-less header cell would leave a screen reader
+              // announcing a column that isn't there.
+              if (!day) {
+                return <td key={key} data-pad="true" className="border-b border-slate-line bg-canvas-raised" />
+              }
               const [, , d] = day.dateStr.split('-')
               const off = day.dayType !== 'weekday'
               return (
                 <th
-                  key={day.dateStr}
+                  key={key}
                   scope="col"
-                  className={`min-w-[26px] border-b border-slate-line px-0 py-1 text-center text-[10px] font-semibold ${
-                    off ? 'bg-canvas-sunken text-ink' : 'bg-canvas-raised text-ink-muted'
+                  className={`border-b border-slate-line px-0 py-1 text-center text-[10px] font-semibold ${
+                    off ? 'bg-accent-tint text-accent-dark' : 'bg-canvas-raised text-ink-muted'
                   }`}
                 >
                   <span className="block tabular-nums">{Number(d)}</span>
@@ -114,6 +157,7 @@ export default function RosterLanesView({
           {lanes.map(profile => {
             const worked = byProfileDate.get(profile.id)
             const rows = []
+            const name = displayNames?.get(profile.id) ?? profile.surname
 
             // A category heading whenever the group changes, so a
             // consultant's month and a registrar's read as separate blocks.
@@ -123,7 +167,7 @@ export default function RosterLanesView({
                 <tr key={`grp-${profile.category ?? 'other'}`}>
                   <th
                     scope="colgroup"
-                    colSpan={days.length + 1}
+                    colSpan={columns.length + 1}
                     className="sticky left-0 border-b border-slate-line bg-accent-tint px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-accent-dark"
                   >
                     {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
@@ -134,13 +178,20 @@ export default function RosterLanesView({
 
             rows.push(
               <tr key={profile.id} className="border-b border-slate-hairline last:border-b-0">
+                {/* Truncated rather than wrapped: a two-line name would set
+                    the height of every cell in its row, and the column is
+                    narrow on purpose so the days get the width. */}
                 <th
                   scope="row"
-                  className="sticky left-0 z-10 min-w-[112px] border-r border-slate-line bg-canvas-raised px-2 py-1 text-left text-[11px] font-medium text-ink"
+                  title={name}
+                  className="sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-1 text-left text-[11px] font-medium text-ink"
                 >
-                  {displayNames?.get(profile.id) ?? profile.surname}
+                  {name}
                 </th>
-                {days.map(day => {
+                {columns.map(({ key, day }) => {
+                  if (!day) {
+                    return <td key={key} data-pad="true" className="border-r border-slate-hairline bg-canvas-raised" />
+                  }
                   const code = worked?.get(day.dateStr)
                   const band = code ? bandForCode(code) : null
                   const isConsultant = consultantOn.get(day.dateStr) === profile.id
@@ -149,9 +200,9 @@ export default function RosterLanesView({
                   if (!band && !isConsultant) {
                     return (
                       <td
-                        key={day.dateStr}
+                        key={key}
                         className={`border-r border-slate-hairline text-center text-[10px] text-ink-muted ${
-                          off ? 'bg-canvas-sunken' : ''
+                          off ? 'bg-canvas-cool' : ''
                         }`}
                       >
                         ·
@@ -166,10 +217,10 @@ export default function RosterLanesView({
                   const text = band ? band.text : 'text-accent-dark'
                   const label = band ? band.label : 'On call'
                   return (
-                    <td key={day.dateStr} className="border-r border-slate-hairline p-0">
+                    <td key={key} className="border-r border-slate-hairline p-0">
                       <span
                         className={`block px-0.5 py-1 text-center text-[10px] font-semibold tabular-nums ${fill} ${text}`}
-                        title={`${day.dateStr} — ${code || 'Consultant on call'}`}
+                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}`}
                       >
                         {band ? label : 'C'}
                       </span>

@@ -19,7 +19,7 @@ describe('formatRosterChangeLine', () => {
       profile_id_after: 'vaughn-1',
     }
     const line = formatRosterChangeLine(change, nameById, 'August 2026')
-    expect(line).toContain('Claude Codespace edited August 2026 roster: 7 Aug 2026 WD_12 Ellis → Vaughn')
+    expect(line).toContain('Claude Codespace edited August 2026 roster: 7 Aug 2026 WD 12h-22h Ellis → Vaughn')
     expect(line).toMatch(/^\[\d{2} \w{3} \d{4}, \d{2}:\d{2}:\d{2}\]/)
   })
 
@@ -33,7 +33,7 @@ describe('formatRosterChangeLine', () => {
       profile_id_before: null,
       profile_id_after: 'vaughn-1',
     }
-    expect(formatRosterChangeLine(change, nameById, 'August 2026')).toContain('assigned Vaughn to 7 Aug 2026 WD_12')
+    expect(formatRosterChangeLine(change, nameById, 'August 2026')).toContain('assigned Vaughn to 7 Aug 2026 WD 12h-22h')
   })
 
   it('formats a remove', () => {
@@ -46,7 +46,7 @@ describe('formatRosterChangeLine', () => {
       profile_id_before: 'ellis-1',
       profile_id_after: null,
     }
-    expect(formatRosterChangeLine(change, nameById, 'August 2026')).toContain('removed Ellis from 7 Aug 2026 WD_12')
+    expect(formatRosterChangeLine(change, nameById, 'August 2026')).toContain('removed Ellis from 7 Aug 2026 WD 12h-22h')
   })
 
   it('formats a move using the before date/shift, not the after ones', () => {
@@ -62,7 +62,7 @@ describe('formatRosterChangeLine', () => {
       shift_code_before: 'WD_12',
     }
     expect(formatRosterChangeLine(change, nameById, 'August 2026'))
-      .toContain('moved Ellis from 7 Aug 2026 WD_12 to 8 Aug 2026 WD_15')
+      .toContain('moved Ellis from 7 Aug 2026 WD 12h-22h to 8 Aug 2026 WD 15h-01h')
   })
 
   it('formats an unassign, flagging when it was also advertised', () => {
@@ -77,7 +77,7 @@ describe('formatRosterChangeLine', () => {
       advertised: true,
     }
     expect(formatRosterChangeLine(change, nameById, 'August 2026'))
-      .toContain('vacated 7 Aug 2026 WD_12 (was Ellis) and opened it for locum cover')
+      .toContain('vacated 7 Aug 2026 WD 12h-22h (was Ellis) and opened it for locum cover')
   })
 
   it('falls back to "Unknown" for an actor id with no resolved name', () => {

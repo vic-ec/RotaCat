@@ -108,10 +108,20 @@ export default function SpecialMonthWorkspace({
                 {marker?.isPublicHoliday && (
                   <span className="mt-0.5 block truncate text-[10px] font-medium text-accent">{marker.publicHolidayName}</span>
                 )}
+                {/* A badge per name, as on the phone cells and in the day
+                    panel — a surname alone doesn't say which group is out,
+                    which is the question a doctor scanning the month is
+                    actually asking. Per name rather than one badge per
+                    category group (the Annual grid's shape): this cell caps
+                    at three names, so grouping would save no rows. */}
                 <span className="mt-0.5 block space-y-0.5">
                   {rows.slice(0, 3).map(e => (
-                    <span key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`} className={`block truncate text-[11px] ${e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink-light'}`}>
-                      {displayNames.get(e.profileId) ?? e.surname}
+                    <span
+                      key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`}
+                      className={`flex items-center gap-1 text-[11px] leading-tight ${e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink-light'}`}
+                    >
+                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} />
+                      <span className="truncate">{displayNames.get(e.profileId) ?? e.surname}</span>
                     </span>
                   ))}
                   {rows.length > 3 && <span className="block text-[10px] text-ink-muted">+{rows.length - 3} more</span>}

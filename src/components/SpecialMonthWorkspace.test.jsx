@@ -54,11 +54,14 @@ describe('SpecialMonthWorkspace', () => {
     mockAuth = { isAdmin: true, canSubmitLeave: true }
   })
 
-  it('renders a calendar grid with names read straight off the day cells', () => {
+  it('renders a calendar grid with names and category badges read straight off the day cells', () => {
     const { container } = renderWorkspace()
     const day10 = desktopDay(container, 10)
     expect(within(day10).getByText('Ellis')).toBeInTheDocument()
     expect(within(day10).getByText('Vance')).toBeInTheDocument()
+    // Ellis is an MO, Vance a Consultant — each name carries its own badge.
+    expect(within(day10).getByText('MO')).toBeInTheDocument()
+    expect(within(day10).getByText('C')).toBeInTheDocument()
   })
 
   it('marks a public holiday on the grid', () => {

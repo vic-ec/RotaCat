@@ -121,11 +121,14 @@ describe('WeekendPlanner', () => {
   })
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
+    const user = userEvent.setup()
     renderPlanner()
     expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
-    // Mobile finder and desktop dashboard both carry one — jsdom applies no
+    // The colour key sits behind the Legend icon, as on the other planners.
+    // Mobile finder and desktop dashboard each carry one — jsdom applies no
     // breakpoints, so both are in the DOM. Either answers this question.
-    const legend = within(screen.getAllByTestId('weekend-year-legend')[0])
+    await user.click(screen.getAllByRole('button', { name: 'Legend' })[0])
+    const legend = within(screen.getByTestId('weekend-year-legend'))
     expect(legend.getByText('Working')).toBeInTheDocument() // personal-read legend
     expect(legend.queryByText('Fully planned')).not.toBeInTheDocument()
   })

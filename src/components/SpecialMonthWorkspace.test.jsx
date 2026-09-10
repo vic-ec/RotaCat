@@ -182,11 +182,11 @@ describe('SpecialMonthWorkspace', () => {
     expect(screen.queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
   })
 
-  it('Back returns to the overview', async () => {
+  it('Overview returns to the year view', async () => {
     const user = userEvent.setup()
     const onBack = vi.fn()
     renderWorkspace({ onBack })
-    await user.click(screen.getByRole('button', { name: /Back/ }))
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
     expect(onBack).toHaveBeenCalled()
   })
 })

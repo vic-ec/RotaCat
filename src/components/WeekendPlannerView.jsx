@@ -11,7 +11,7 @@ import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
   saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
-  isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
+  isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths, WEEKEND_RULE_BULLETS,
 } from '../lib/weekendPlanner'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
@@ -84,14 +84,6 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-// The "How it works" explanation — the Legend sheet's own footer (see
-// MonthLegendTrigger) on both viewports, not a separate standalone banner.
-const RULE_BULLETS = [
-  'No more than one person per slot.',
-  'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
-  'Use surnames when populating the planner.',
-]
-
 // The 3 consecutive months starting at (year, month) — "whichever month is
 // currently viewed, plus the next 2" — for Copy quarter/Paste quarter/Clear
 // quarter, all keyed off whatever the toolbar's month nav is currently
@@ -664,7 +656,7 @@ function weekendStatusPill(coverage) {
 function MonthLegendTrigger({ counts, triggerClassName }) {
   return (
     <LegendSheet
-      ruleBullets={RULE_BULLETS}
+      ruleBullets={WEEKEND_RULE_BULLETS}
       trigger={onClick => (
         <button type="button" onClick={onClick} aria-label="Legend and how it works" className={triggerClassName}>
           <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" />{counts.complete} planned</span>
@@ -1523,14 +1515,19 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // extension point) — different per viewport (mobile: the More actions
   // kebab; desktop: More Actions + the Legend trigger), so this stays a
   // function rather than one shared JSX constant.
+  function renderBackLink() {
+    if (!onBackToYear) return null
+    return (
+      <button type="button" onClick={onBackToYear} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
+        <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
+      </button>
+    )
+  }
+
   function renderMonthNav(extra) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        {onBackToYear && (
-          <button type="button" onClick={onBackToYear} className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink">
-            <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
-          </button>
-        )}
+        <span className="mr-1">{renderBackLink()}</span>
         <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth}>
           {extra}
         </DateStepper>
@@ -1825,23 +1822,34 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 this merge (not just a shared wrapper) is what actually fixes
                 it. */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
+              {/* Left to right: back out of the month, then the two controls
+                  that narrow what the table shows (search, then scope), then
+                  the admin extras. */}
               <div className="flex flex-wrap items-center gap-3">
-              {renderMonthNav(isAdmin && (
-                <div className="flex items-center gap-3">
-                  <PageActionsMenu
-                    items={weekendMenuItems}
-                    trigger={(onClick, open) => (
-                      <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
-                        <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
-                      </button>
-                    )}
-                  />
-                  <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
-                </div>
-              ))}
-              {renderScopePicker('weekend-scope-desktop')}
+                {renderBackLink()}
+                <div className="min-w-0">{renderToolbar('')}</div>
+                {renderScopePicker('weekend-scope-desktop')}
+                {isAdmin && (
+                  <div className="flex items-center gap-3">
+                    <PageActionsMenu
+                      items={weekendMenuItems}
+                      trigger={(onClick, open) => (
+                        <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
+                          <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
+                        </button>
+                      )}
+                    />
+                    <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
+                  </div>
+                )}
               </div>
-              <div className="min-w-0">{renderToolbar('')}</div>
+              {/* Month stepper + Today, width-matched to the Selected weekend
+                  panel directly below it (both w-80), so the two line up on
+                  both edges instead of the stepper floating over the table.
+                  `centered` is what makes the label fill that width. */}
+              <div className="w-80 flex-shrink-0">
+                <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} centered />
+              </div>
             </div>
 
             <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />

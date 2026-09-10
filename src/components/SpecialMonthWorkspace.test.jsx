@@ -64,6 +64,17 @@ describe('SpecialMonthWorkspace', () => {
     expect(within(day10).getByText('C')).toBeInTheDocument()
   })
 
+  // The whole cell carries the capacity colour, not a corner dot — the
+  // same heat-map read the Annual planner's grid gives.
+  it('fills each day cell with its own capacity state', () => {
+    const { container } = renderWorkspace()
+    // Two doctors out on the 10th of three guideline slots — near capacity.
+    expect(desktopDay(container, 10).className).toContain('bg-capNear-light')
+    // Nobody out on the 12th: available is a state, not the absence of one.
+    expect(desktopDay(container, 12).className).toContain('bg-capAvailable-light')
+    expect(mobileDay(container, 10).className).toContain('bg-capNear-light')
+  })
+
   it('marks a public holiday on the grid', () => {
     const { container } = renderWorkspace()
     expect(within(desktopDay(container, 9)).getByText("Women's Day")).toBeInTheDocument()

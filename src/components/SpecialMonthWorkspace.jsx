@@ -78,7 +78,11 @@ export default function SpecialMonthWorkspace({
 
       {/* Desktop: full weekday names and named cells with surnames read
           straight off the grid. Mobile: a compact dot grid, tapped for the
-          same day panel — mirrors MonthWorkspace's own two grids. */}
+          same day panel — mirrors MonthWorkspace's own two grids, including
+          how they colour: every cell is filled by its own capacity state
+          (green available → red at capacity), so the month reads as a heat
+          map at a glance rather than needing a corner dot to be found and
+          decoded one day at a time. */}
       <div className="mt-4 hidden overflow-hidden rounded-lg border border-slate-line lg:block">
         <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
           {WEEKDAY_NAMES.map(d => (
@@ -95,18 +99,23 @@ export default function SpecialMonthWorkspace({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`min-h-[86px] border-b border-r border-slate-line p-1.5 text-left align-top transition-colors hover:bg-canvas-sunken ${
-                  date === today ? 'ring-1 ring-inset ring-accent' : ''
-                }`}
+                className={`min-h-[86px] border-b border-r border-slate-line p-1.5 text-left align-top transition-colors hover:brightness-95 ${
+                  marker?.capacityState.light ?? ''
+                } ${marker?.isPublicHoliday ? 'ring-2 ring-inset ring-ink' : ''}`}
               >
+                {/* Today is the date number's own accent chip rather than a
+                    ring around the cell: a ring in a fifth colour on top of
+                    a red or orange fill is just another thing to decode,
+                    and this is the same marker the Annual grid uses. */}
                 <span className="flex items-center justify-between gap-1">
-                  <span className="text-xs font-semibold text-ink">{Number(date.slice(-2))}</span>
-                  {marker?.count > 0 && (
-                    <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-sm ${marker.capacityState.fill}`} />
-                  )}
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
+                    date === today ? 'bg-accent text-white' : marker?.capacityState.onFillText ?? 'text-ink'
+                  }`}>
+                    {Number(date.slice(-2))}
+                  </span>
                 </span>
                 {marker?.isPublicHoliday && (
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-accent">{marker.publicHolidayName}</span>
+                  <span className={`mt-0.5 block truncate text-[10px] font-medium ${marker.capacityState.onFillMuted}`}>{marker.publicHolidayName}</span>
                 )}
                 {/* A badge per name, as on the phone cells and in the day
                     panel — a surname alone doesn't say which group is out,
@@ -118,13 +127,15 @@ export default function SpecialMonthWorkspace({
                   {rows.slice(0, 3).map(e => (
                     <span
                       key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`}
-                      className={`flex items-center gap-1 text-[11px] leading-tight ${e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink-light'}`}
+                      className={`flex items-center gap-1 text-[11px] leading-tight ${
+                        e.status === 'pending' ? `italic ${marker?.capacityState.onFillMuted}` : marker?.capacityState.onFillText
+                      }`}
                     >
                       <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} />
                       <span className="truncate">{displayNames.get(e.profileId) ?? e.surname}</span>
                     </span>
                   ))}
-                  {rows.length > 3 && <span className="block text-[10px] text-ink-muted">+{rows.length - 3} more</span>}
+                  {rows.length > 3 && <span className={`block text-[10px] ${marker?.capacityState.onFillMuted}`}>+{rows.length - 3} more</span>}
                 </span>
               </button>
             )
@@ -152,17 +163,17 @@ export default function SpecialMonthWorkspace({
                 type="button"
                 onClick={() => setSelectedDate(date)}
                 className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border text-xs ${
-                  date === today ? 'border-accent' : 'border-slate-line'
-                } ${marker?.count > 0 ? marker.capacityState.fill : 'bg-canvas-raised'}`}
+                  marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
+                } ${date === today ? 'ring-1 ring-accent' : ''} ${marker?.capacityState.light ?? 'bg-canvas-raised'}`}
               >
-                <span className={marker?.count > 0 ? marker.capacityState.onFillText : 'text-ink'}>{Number(date.slice(-2))}</span>
+                <span className={marker?.capacityState.onFillText ?? 'text-ink'}>{Number(date.slice(-2))}</span>
                 {badges.length > 0 && (
                   <span className="flex items-center gap-[1px]">
                     {badges.slice(0, 3).map(key => (
                       <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} />
                     ))}
                     {badges.length > 3 && (
-                      <span className={`text-[8px] font-semibold ${marker?.count > 0 ? marker.capacityState.onFillText : 'text-ink-muted'}`}>
+                      <span className={`text-[8px] font-semibold ${marker?.capacityState.onFillText ?? 'text-ink-muted'}`}>
                         +{badges.length - 3}
                       </span>
                     )}

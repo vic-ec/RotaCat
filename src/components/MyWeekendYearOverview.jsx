@@ -180,7 +180,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           both at once. ── */}
       <div data-testid="my-weekend-month-finder" className="lg:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold text-ink">My weekends</h2>
+          <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
           <div className="flex flex-wrap items-center gap-2">
             <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
             {todayButton}
@@ -226,7 +226,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       {/* ── Toolbar: year selector, then this page's own Today, then Legend,
           all in one cluster on the right. ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">My weekends</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
         <div className="flex flex-wrap items-center gap-2">
           {/* The same scope the finder and the month view share, so the
               choice survives a trip into a month and back out. Narrow, and

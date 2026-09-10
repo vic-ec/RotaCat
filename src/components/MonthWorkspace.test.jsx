@@ -204,21 +204,29 @@ describe('MonthWorkspace', () => {
     expect(within(cell12).getByText('12')).toHaveClass('font-bold')
   })
 
-  it('toolbar: prev/next/Today/Legend all match the 30px-tall btn-secondary treatment, and every trigger is exactly 30x30', () => {
-    // DateStepper hides Today while already on the current month — a
-    // non-current month keeps it visible so this can assert its styling.
+  it('toolbar: the stepper is one enclosed control, with Today/Legend as 30x30 squares beside it', () => {
     renderWorkspace({ month: 9 })
     const prevMonth = screen.getByRole('button', { name: 'Previous month' })
     const nextMonth = screen.getByRole('button', { name: 'Next month' })
     const todayButton = screen.getByRole('button', { name: 'Today' })
     const legendButton = screen.getByRole('button', { name: 'Legend' })
 
-    for (const button of [prevMonth, nextMonth, todayButton, legendButton]) {
-      expect(button).toHaveClass('btn-secondary', 'h-[30px]', 'w-[30px]')
+    // Chevrons and label share one bordered container rather than carrying
+    // a border each — three actions, one control to look at.
+    const stepper = prevMonth.parentElement
+    expect(stepper).toHaveClass('border', 'rounded-lg')
+    expect(stepper).toContainElement(nextMonth)
+    expect(stepper).toContainElement(screen.getByRole('button', { name: 'September 2026' }))
+    for (const chevron of [prevMonth, nextMonth]) {
+      expect(chevron.className).not.toContain('btn-secondary')
+      expect(chevron).toHaveClass('h-[30px]')
     }
-    // Today/Legend are icon-only now (no visible text, no green tint
-    // background) — same square treatment as the arrow buttons either
-    // side of them.
+
+    // Today/Legend stay standalone squares outside it, same height.
+    for (const button of [todayButton, legendButton]) {
+      expect(button).toHaveClass('btn-secondary', 'h-[30px]', 'w-[30px]')
+      expect(stepper).not.toContainElement(button)
+    }
     expect(legendButton.className).not.toContain('bg-accent-tint')
     expect(legendButton).toHaveTextContent('')
     expect(legendButton.querySelector('svg')).toBeInTheDocument()

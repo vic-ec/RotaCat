@@ -76,7 +76,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
 
   return (
     <div>
-      <h2 className="font-display text-lg font-semibold text-ink">Weekend planner</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
 
       {/* ── Main workspace: 3x4 month grid + one sticky rail — bigger cards
           than Annual's own 4-across grid (Weekend cards hold far less

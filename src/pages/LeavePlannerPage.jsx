@@ -289,7 +289,14 @@ export default function LeavePlannerPage() {
             <div className="mx-auto md:max-w-2xl">
               <LeaveApprovalQueue onBack={fromPlannerLabel && backToPlanner} backLabel={fromPlannerLabel} />
             </div>
-          ) : canSubmitLeave ? <MyRequestHistory onBack={fromPlannerLabel && backToPlanner} backLabel={fromPlannerLabel} /> : null
+          ) : canSubmitLeave ? (
+            // Same column width as the admin queue above and as My leave /
+            // Rules — a doctor's own request list was the one panel on this
+            // page still running the full page width.
+            <div className="mx-auto md:max-w-2xl">
+              <MyRequestHistory onBack={fromPlannerLabel && backToPlanner} backLabel={fromPlannerLabel} />
+            </div>
+          ) : null
         )}
         {tab === 'rules' && <div className="mx-auto md:max-w-2xl"><LeaveRulesPage /></div>}
         {tab === 'planners' && (

@@ -41,11 +41,12 @@ function stepMonth(year, month, delta) {
 // exactly the kind of thing a shared stepper should solve once, for both
 // units alike.
 //
-// `centered`: opt-in, off by default — flanks the label with `flex-1
-// text-center` instead of the default left-flowing row, so the chevrons
-// sit at equal distance from the label on both sides. For a standalone
-// "selected period" display (e.g. an inspector panel's own month/year
-// heading) rather than a toolbar row sharing space with other controls.
+// `centered`: opt-in, off by default — stretches the control to its
+// container's full width and centres the label inside it, so the chevrons
+// sit hard against both edges. For a standalone "selected period" display
+// (e.g. an inspector panel's own month/year heading) rather than a toolbar
+// row sharing space with other controls, where the stepper should stay its
+// own natural width so every planner's stepper is the same size.
 export default function DateStepper({
   unit, year, month, onChange, showToday = true, canGoPrev = true, canGoNext = true, children, centered = false,
 }) {
@@ -74,31 +75,39 @@ export default function DateStepper({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
-      <button
-        type="button"
-        onClick={() => go(-1)}
-        disabled={!canGoPrev}
-        className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label={unit === 'year' ? 'Previous year' : 'Previous month'}
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => setJumpOpen(true)}
-        className={`font-display text-base font-semibold text-ink hover:text-accent ${centered ? 'flex-1 text-center' : ''}`}
-      >
-        {label}
-      </button>
-      <button
-        type="button"
-        onClick={() => go(1)}
-        disabled={!canGoNext}
-        className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-        aria-label={unit === 'year' ? 'Next year' : 'Next month'}
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
+      {/* One enclosed control, not two square buttons flanking a bare
+          label: chevrons and label share a single border, so the stepper
+          reads as one thing to press rather than three unrelated bits of
+          chrome. They stay three separate <button>s inside it — a button
+          can't nest buttons, and prev/next/jump are three different
+          actions — but nothing about the seams says so. */}
+      <div className={`inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          disabled={!canGoPrev}
+          className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-l-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label={unit === 'year' ? 'Previous year' : 'Previous month'}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setJumpOpen(true)}
+          className={`whitespace-nowrap px-2 font-display text-base font-semibold text-ink transition-colors hover:text-accent ${centered ? 'flex-1 text-center' : ''}`}
+        >
+          {label}
+        </button>
+        <button
+          type="button"
+          onClick={() => go(1)}
+          disabled={!canGoNext}
+          className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-r-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          aria-label={unit === 'year' ? 'Next year' : 'Next month'}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
       {showToday && (
         <button
           type="button"

@@ -4,9 +4,13 @@ import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
 import {
   saturdaysInMonth, isProfileAssignedToWeekend, weekendExceptionRequestsBySaturday,
-  weekendCoverageSummary, weekendHealthState, WEEKEND_RULE_BULLETS,
+  weekendCoverageSummary, weekendHealthState, nextSaturdayToRequestOff, WEEKEND_RULE_BULLETS,
 } from '../lib/weekendPlanner'
+import { addDays } from '../lib/dateRange'
 import DateStepper from './DateStepper'
+import LeaveRequestForm from './LeaveRequestForm'
+import Modal from './Modal'
+import PlannerRequestPanel, { PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
 import LegendSheet from './LegendSheet'
 import SelectMenu from './SelectMenu'
 import { LegendIcon, TodayIcon } from './PlannerIcons'
@@ -98,7 +102,7 @@ function formatShortDate(dateStr) {
 // shell as WeekendYearOverview.jsx (toolbar, legend, 3x4 month grid, sticky
 // inspector, tap-a-month → "Open month" flow) but reading "am I on this
 // weekend" instead of staffing completeness, and with no admin-only stats.
-export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, initialScope, onScopeChange, onOpenMonth }) {
+export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, myRequests, myProfileId, initialScope, onScopeChange, onOpenMonth, onDataChanged }) {
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -162,6 +166,38 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   // Annual and Special planners — four colour names ate the row this page
   // shares with the year stepper and the scope picker, and the key is
   // something you consult once, not something you read on every visit.
+  const [requestOpen, setRequestOpen] = useState(false)
+  // The weekend a request would be about: the next one this doctor is
+  // rostered on, searched across the whole browsed year rather than the
+  // selected month, since "let me off the next one" doesn't care which
+  // month card happens to be selected.
+  const requestSaturday = nextSaturdayToRequestOff({
+    saturdays: monthCards.flatMap(m => m.markers.map(mk => mk.saturday)),
+    byWeekend,
+    profileId: myProfileId,
+    today,
+  })
+  // No capacity reading — weekends have none to report. The panel exists to
+  // hold the scope picker (its only home now) and the one action this page
+  // never offered.
+  // `id` differs per viewport: jsdom (and a real browser at a breakpoint
+  // boundary) has both copies in the document, and two controls can't share
+  // one id or the label points at whichever came first.
+  function renderRequestPanel(id) {
+    return (
+      <PlannerRequestPanel
+        eyebrow={`Weekend planner · ${year}`}
+        actionLabel="Request weekend off"
+        onAction={() => setRequestOpen(true)}
+      >
+        <label className="mt-1.5 block text-[11px] font-semibold text-ink-muted" htmlFor={id}>Showing</label>
+        <div className="mt-1">
+          <SelectMenu id={id} value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
+        </div>
+      </PlannerRequestPanel>
+    )
+  }
+
   const legend = <WeekendLegendTrigger states={Object.values(scope === 'all' ? HEALTH_STYLE : STATE_STYLE)} />
   // Always there, not only while browsing away from today: a control that
   // comes and goes is harder to reach for than one that is simply always
@@ -189,10 +225,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
         </div>
         {/* Above the months, not beside the year: it changes what every
             tile below means, so it reads as the heading for the list. */}
-        <div className="mt-3">
-          <label className="label-text">Showing</label>
-          <SelectMenu value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
-        </div>
+        <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
 
         {currentMonthCard && (
           <div className="mt-4">
@@ -228,17 +261,9 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {/* The same scope the finder and the month view share, so the
-              choice survives a trip into a month and back out. Narrow, and
-              in the toolbar rather than over the grid: unlike the finder's
-              single column of months, the grid's own heading row is where
-              a control that reframes all twelve cards belongs. */}
-          <div className="flex items-center gap-2">
-            <label htmlFor="weekend-scope-desktop" className="text-sm text-ink-muted">Showing</label>
-            <div className="w-40">
-              <SelectMenu id="weekend-scope-desktop" value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
-            </div>
-          </div>
+          {/* Showing now lives in the rail panel below, beside the action it
+              frames — one control, not one per viewport plus one in the
+              toolbar. */}
           <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
           {todayButton}
           {legend}
@@ -259,9 +284,11 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           ))}
         </div>
 
+        <div className={`order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 ${PANEL_DESKTOP_WIDTH}`}>
+        {renderRequestPanel('weekend-scope-desktop')}
         <div
           data-testid="my-weekend-year-inspector"
-          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-72"
+          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
           <div className="mt-1">
@@ -296,8 +323,20 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
             <ExternalLink className="h-3.5 w-3.5" /> Open month
           </button>
         </div>
+        </div>
       </div>
       </div>
+
+      {requestOpen && (
+        <Modal title="Request weekend off" onClose={() => setRequestOpen(false)} centered>
+          <LeaveRequestForm
+            initialLeaveType="weekend_exception"
+            initialDateFrom={requestSaturday}
+            initialDateTo={addDays(requestSaturday, 1)}
+            onSubmitted={() => { setRequestOpen(false); onDataChanged?.() }}
+          />
+        </Modal>
+      )}
     </div>
   )
 }

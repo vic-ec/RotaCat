@@ -44,7 +44,7 @@ function desktopDay(container, dayNumber) {
 // Mobile dot grid counterpart of desktopDay — the phone cells carry the
 // category badges, the desktop ones carry surnames.
 function mobileDay(container, dayNumber) {
-  const grid = container.querySelector('.lg\\:hidden')
+  const grid = within(container).getByTestId('special-mobile-grid')
   return within(grid).getByText(String(dayNumber)).closest('button')
 }
 
@@ -73,6 +73,28 @@ describe('SpecialMonthWorkspace', () => {
     // Nobody out on the 12th: available is a state, not the absence of one.
     expect(desktopDay(container, 12).className).toContain('bg-capAvailable-light')
     expect(mobileDay(container, 10).className).toContain('bg-capNear-light')
+  })
+
+  // The Special tab had no request path short of finding a tappable day.
+  it('offers a request panel on both viewports, reporting the month against the guideline', async () => {
+    const user = userEvent.setup()
+    renderWorkspace()
+    // Nothing in the fixture reaches 3 doctors on one day.
+    expect(screen.getAllByText(/days are at the 3-doctor guideline/)).toHaveLength(2)
+    expect(screen.getAllByText('Special leave · August')).toHaveLength(2)
+
+    // Straight into the request form for a sensible date, no day-hunting.
+    await user.click(screen.getAllByRole('button', { name: 'Request special leave' })[0])
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+  })
+
+  it('hides the panel action from a viewer who cannot submit leave', () => {
+    mockAuth = { isAdmin: true, canSubmitLeave: false }
+    renderWorkspace()
+    expect(screen.getAllByText(/guideline/).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Request special leave' })).not.toBeInTheDocument()
   })
 
   it('marks a public holiday on the grid', () => {

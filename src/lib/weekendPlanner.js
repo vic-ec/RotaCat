@@ -552,6 +552,19 @@ export function planBatchRestore({ batchChanges, existingByWeekend, activeDoctor
   return { toInsert, toDelete, skipped }
 }
 
+// The Saturday a "Request weekend off" button should open on: the next
+// weekend (today or later) this doctor is actually rostered to work, since
+// that is the one they'd be asking to be let off. Falls back to the next
+// Saturday on the calendar when they're on nothing else this year — a
+// blank date field would just make them hunt for one. `byWeekend` is
+// groupEntriesByWeekend's Map; `saturdays` is the pool to search, in
+// chronological order.
+export function nextSaturdayToRequestOff({ saturdays, byWeekend, profileId, today }) {
+  const upcoming = (saturdays || []).filter(s => s >= today)
+  const rostered = upcoming.find(s => isProfileAssignedToWeekend(byWeekend?.get(s), profileId))
+  return rostered ?? nextWeekendSaturday(today)
+}
+
 // The Weekend Planner's "How it works" bullets — shown in the Legend sheet
 // on both the year overview and the month view, so the rules read the same
 // wherever a viewer opens them.

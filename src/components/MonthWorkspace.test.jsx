@@ -538,11 +538,31 @@ describe('MonthWorkspace', () => {
     const user = userEvent.setup()
     renderWorkspace()
 
-    expect(await screen.findByText('For Medical Officer · August')).toBeInTheDocument()
-    expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
+    // One panel per viewport (jsdom renders both the phone card and the
+    // desktop one) — both read the same numbers.
+    expect((await screen.findAllByText('For Medical Officer · August'))).toHaveLength(2)
+    expect(screen.getAllByText(/of 31 days have room for your category/)).toHaveLength(2)
 
-    await user.click(screen.getByRole('button', { name: 'Request leave' }))
+    await user.click(screen.getAllByRole('button', { name: 'Request annual leave' })[0])
     expect(screen.getByText(/LeaveRequestFormStub: 2026-08-06 to 2026-08-06/)).toBeInTheDocument()
+  })
+
+  // The desktop grid had no request path at all until this panel — the
+  // phone card was lg:hidden and this page has no rail to hang one in.
+  it('"Your leave" card: renders on desktop too, as a 320px card over the grid', () => {
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    const { container } = renderWorkspace()
+    const desktopSlot = container.querySelector('.lg\\:flex.justify-end, .justify-end.lg\\:flex')
+    expect(desktopSlot).not.toBeNull()
+    expect(within(desktopSlot).getByText('For Medical Officer · August')).toBeInTheDocument()
+    expect(desktopSlot.querySelector('.w-80')).not.toBeNull()
+  })
+
+  it('"Your leave" card: no action for a viewer who cannot submit leave', () => {
+    mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false, profile: { category: 'MO' } }
+    renderWorkspace()
+    expect(screen.getAllByText(/of 31 days have room/).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Request annual leave' })).not.toBeInTheDocument()
   })
 
   it('"Your leave" card: renders nothing for a category with no capacity column (e.g. Consultant)', () => {

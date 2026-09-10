@@ -202,9 +202,11 @@ describe('WeekendPlannerView', () => {
       expect(view.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument()
       expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
 
+      // The tablet band keeps its own picker; phones get the same control
+      // inside the request panel instead, so both labels exist in jsdom.
       const scope = document.getElementById('weekend-scope-tablet')
       expect(scope).toBeInTheDocument()
-      expect(view.getByLabelText('Showing')).toBe(scope)
+      expect(view.getAllByLabelText('Showing')).toContain(scope)
     })
 
     it('mobile: Review log lives inside the More actions kebab, and still opens the review log', async () => {
@@ -961,19 +963,24 @@ describe('WeekendPlannerView', () => {
       expect(within(menu).getByRole('button', { name: 'Review log' })).toBeInTheDocument()
     })
 
-    it('desktop: the toolbar row is search alone — scope is the Showing select by the month nav', async () => {
+    it('desktop: the toolbar row is search alone — scope moved into the request panel in the rail', async () => {
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
       expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
-      expect(document.getElementById('weekend-scope-desktop')).toBeInTheDocument()
 
-      const row = document.getElementById('weekend-scope-desktop')
-        .closest('div.justify-between')
-        .querySelector('div.md\\:flex')
-      expect(row.querySelector('input[placeholder="Search name…"]')).not.toBeNull()
-      expect(row.className).toContain('flex-nowrap')
+      // Search still shares the toolbar row with the back link and stepper.
+      const row = view.getByRole('button', { name: 'August 2026' }).closest('div.justify-between')
+      expect(row.querySelector('div.md\\:flex input[placeholder="Search name…"]')).not.toBeNull()
+
+      // Scope sits beside the action it frames, above the Selected weekend
+      // panel — not loose in the toolbar.
+      const scope = document.getElementById('weekend-scope-desktop')
+      expect(scope).toBeInTheDocument()
+      expect(row.contains(scope)).toBe(false)
+      const panel = scope.closest('div.rounded-xl')
+      expect(within(panel).getByRole('button', { name: 'Request weekend off' })).toBeInTheDocument()
     })
 
     it('desktop: search+filter share one row with the month nav/More Actions/Legend cluster, and the search field is width-capped rather than stretching full width', async () => {
@@ -992,15 +999,13 @@ describe('WeekendPlannerView', () => {
       // scoped this way since the placeholder text alone would otherwise
       // also match Toolbar's own internal mobile-half input.
       const monthButton = view.getByRole('button', { name: 'August 2026' })
-      const scope = document.getElementById('weekend-scope-desktop')
-      const searchInput = scope.closest('div.justify-between').querySelector('div.md\\:flex input[placeholder="Search name…"]')
+      const searchInput = monthButton.closest('div.justify-between').querySelector('div.md\\:flex input[placeholder="Search name…"]')
       const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
 
       const row = monthButton.closest('div.justify-between')
       expect(row).not.toBeNull()
       expect(row.contains(searchInput)).toBe(true)
       expect(row.contains(moreActionsButton)).toBe(true)
-      expect(row.contains(scope)).toBe(true)
 
       // Toolbar's standard 320px, not the old capped-and-shrinkable
       // `compact` width — it is the inspector's own width, and the row's

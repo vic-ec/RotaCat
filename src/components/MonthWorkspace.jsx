@@ -16,6 +16,7 @@ import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import PlannerRequestPanel, { PanelReading, PANEL_DESKTOP_WRAPPER, PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
 import DateStepper from './DateStepper'
 import { LegendIcon } from './PlannerIcons'
 import LegendSheet from './LegendSheet'
@@ -178,13 +179,32 @@ export default function MonthWorkspace({
         </DateStepper>
       </div>
 
+      {/* Desktop: the same capacity panel the phone has had all along,
+          as a 320px card right-aligned over the grid — this page has no
+          right-hand rail to hang it in, and until now a desktop viewer had
+          no way to request leave from the planner at all. */}
+      <div className={`${PANEL_DESKTOP_WRAPPER} mt-3`}>
+        <YourLeaveCard
+          className={PANEL_DESKTOP_WIDTH}
+          profile={profile}
+          year={year}
+          month={month}
+          monthLabel={monthLabel}
+          maxByColumnKey={maxByColumnKey}
+          maxFullTime={maxFullTime}
+          countByColumnPerDate={countByColumnPerDate}
+          rotationsByDoctorId={rotationsByDoctorId}
+          onRequestLeave={openRequestLeave}
+        />
+      </div>
+
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
           Mobile (<lg): a compact glance grid (day number + category dots
           only, same treatment as the Special Leave planner's mobile
           calendar in SpecialMonthWorkspace.jsx) — reading surnames happens in the
           tap-opened day sheet below instead of being crammed into a
           phone-width cell. */}
-      <div className="mt-3 hidden overflow-hidden rounded-lg border border-slate-line lg:block">
+      <div className="hidden overflow-hidden rounded-lg border border-slate-line lg:block">
         <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
           {WEEKDAY_NAMES.map(d => (
             <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-ink-muted">{d}</div>
@@ -289,8 +309,7 @@ export default function MonthWorkspace({
 // see resolveLeaveCapacityColumn) — a note below makes that explicit
 // whenever an override is active, and it resets on every month change so a
 // stale "previewing OT" state can't silently follow the viewer around.
-function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave }) {
-  const { canSubmitLeave } = useAuth()
+function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave, className = 'mb-3' }) {
   const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
   const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
@@ -309,11 +328,10 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
   if (!stat || !state) return null
 
   return (
-    <div className="mb-3 rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">
-          For {COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · {monthLabel}
-        </p>
+    <PlannerRequestPanel
+      className={className}
+      eyebrow={`For ${COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · ${monthLabel}`}
+      aside={(
         <button
           type="button"
           onClick={() => setPickerOpen(o => !o)}
@@ -321,7 +339,12 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
         >
           {isOverridden ? 'Change' : 'Check other'}
         </button>
-      </div>
+      )}
+      // Says which leave, now that the same page can also lead to a special
+      // leave request: "Request leave" alone doesn't say which kind.
+      actionLabel="Request annual leave"
+      onAction={onRequestLeave}
+    >
       {pickerOpen && (
         <div className="mt-1.5">
           <SelectMenu
@@ -337,16 +360,12 @@ function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFu
           <button type="button" onClick={() => setOverrideColumnKey(null)} className="underline">Reset</button>
         </p>
       )}
-      <p className="mt-1.5 flex items-baseline gap-1.5">
-        <span className={`font-display text-3xl font-bold tabular-nums ${state.text}`}>{stat.withRoom}</span>
-        <span className="text-xs text-ink-muted">of {stat.total} days have room for {isOverridden ? 'that' : 'your'} category</span>
-      </p>
-      {canSubmitLeave && (
-        <button type="button" onClick={onRequestLeave} className="btn-primary mt-2 block w-full text-center text-xs">
-          Request leave
-        </button>
-      )}
-    </div>
+      <PanelReading
+        value={stat.withRoom}
+        valueClassName={state.text}
+        unit={`of ${stat.total} days have room for ${isOverridden ? 'that' : 'your'} category`}
+      />
+    </PlannerRequestPanel>
   )
 }
 

@@ -25,8 +25,7 @@ const WEEKDAY_COLUMNS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'], shift
 const WEEKEND_COLUMNS = shiftColumns(['WE_08', 'WE_13', 'WE_20'], shiftTimeRange)
 // PH falling on a weekday uses the 4-slot PHW_* code set; PH falling on a
 // weekend uses the 3-slot PH_* set — same weekday/weekend shift-count split
-// as the ordinary Weekday/Weekend sections above, just for PH days. The
-// column *labels* invert those prefixes on purpose — see shiftLabels.js.
+// as the ordinary Weekday/Weekend sections above, just for PH days.
 const PH_WEEKDAY_COLUMNS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'], shiftTimeRange)
 const PH_WEEKEND_COLUMNS = shiftColumns(['PH_08', 'PH_13', 'PH_20'], shiftTimeRange)
 

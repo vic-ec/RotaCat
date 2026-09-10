@@ -150,8 +150,7 @@ describe('RosterLanesView', () => {
   it('names a cell with the shift, not the database code, on hover', () => {
     renderLanes()
     expect(within(laneFor('Landers')).getByTitle('2026-08-07 — WD 08h-18h')).toBeInTheDocument()
-    // Stored PHW_22, shown as PH — see shiftLabels.js.
-    expect(within(laneFor('Venter')).getByTitle('2026-08-10 — PH 22h-10h')).toBeInTheDocument()
+    expect(within(laneFor('Venter')).getByTitle('2026-08-10 — PHW 22h-10h')).toBeInTheDocument()
   })
 
   it('draws a weekend column lighter than the header row it sits under', () => {

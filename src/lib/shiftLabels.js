@@ -7,14 +7,12 @@
 // This file is the one place that turns a code into something that does —
 // nothing here renames a stored value.
 //
-// The public-holiday prefixes are deliberately NOT the stored ones. The
-// database uses PHW_* for a holiday falling on a *weekday* (the four-shift
-// clock) and PH_* for one falling on a *weekend* (the three-shift clock);
-// the labels read the other way round — PH for the weekday set and PHW,
-// "public holiday, weekend", for the weekend set, which is how the unit
-// says it out loud. The times are the giveaway either way:
-// 08h-18h/12h-22h/15h-01h/22h-10h is always the weekday clock and
-// 08h-20h/13h-23h/20h-10h always the weekend one.
+// The public-holiday prefixes follow the stored codes: PHW_* is a holiday
+// falling on a *weekday* (the four-shift clock) and PH_* one falling on a
+// *weekend* (the three-shift clock), and the labels say the same. The
+// times are the giveaway either way: 08h-18h/12h-22h/15h-01h/22h-10h is
+// always the weekday clock and 08h-20h/13h-23h/20h-10h always the weekend
+// one.
 //
 // Split into prefix and time range because the two live in different
 // places: the roster grid interleaves all four day types down one table
@@ -31,15 +29,15 @@ const SHIFT_PARTS = {
   WE_08: ['WE', '08h-20h'],
   WE_13: ['WE', '13h-23h'],
   WE_20: ['WE', '20h-10h'],
-  // Public holiday falling on a weekday — stored PHW_*, shown as PH
-  PHW_08: ['PH', '08h-18h'],
-  PHW_12: ['PH', '12h-22h'],
-  PHW_15: ['PH', '15h-01h'],
-  PHW_22: ['PH', '22h-10h'],
-  // Public holiday falling on a weekend — stored PH_*, shown as PHW
-  PH_08: ['PHW', '08h-20h'],
-  PH_13: ['PHW', '13h-23h'],
-  PH_20: ['PHW', '20h-10h'],
+  // Public holiday falling on a weekday
+  PHW_08: ['PHW', '08h-18h'],
+  PHW_12: ['PHW', '12h-22h'],
+  PHW_15: ['PHW', '15h-01h'],
+  PHW_22: ['PHW', '22h-10h'],
+  // Public holiday falling on a weekend
+  PH_08: ['PH', '08h-20h'],
+  PH_13: ['PH', '13h-23h'],
+  PH_20: ['PH', '20h-10h'],
 }
 
 export const SHIFT_LABEL = Object.fromEntries(

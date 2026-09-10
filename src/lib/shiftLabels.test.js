@@ -27,18 +27,23 @@ describe('shiftLabels', () => {
     expect(labelForShiftCode('WE_20')).toBe('WE 20h-10h')
   })
 
-  it('shows a weekday public holiday as PH, on the weekday clock', () => {
-    // Stored as PHW_* (the database's "public holiday, weekday"), labelled
-    // PH — the inversion is deliberate, see the module comment. The times
-    // are what make it unambiguous: 08h-18h is only ever a weekday.
-    expect(labelForShiftCode('PHW_08')).toBe('PH 08h-18h')
-    expect(labelForShiftCode('PHW_22')).toBe('PH 22h-10h')
+  it('keeps the stored PHW_ prefix for a weekday public holiday', () => {
+    // PHW_* is the database's "public holiday, weekday" — the four-shift
+    // clock. Prefix and times agree: 08h-18h is only ever a weekday.
+    expect(labelForShiftCode('PHW_08')).toBe('PHW 08h-18h')
+    expect(labelForShiftCode('PHW_22')).toBe('PHW 22h-10h')
   })
 
-  it('shows a weekend public holiday as PHW, on the weekend clock', () => {
-    expect(labelForShiftCode('PH_08')).toBe('PHW 08h-20h')
-    expect(labelForShiftCode('PH_13')).toBe('PHW 13h-23h')
-    expect(labelForShiftCode('PH_20')).toBe('PHW 20h-10h')
+  it('keeps the stored PH_ prefix for a weekend public holiday', () => {
+    expect(labelForShiftCode('PH_08')).toBe('PH 08h-20h')
+    expect(labelForShiftCode('PH_13')).toBe('PH 13h-23h')
+    expect(labelForShiftCode('PH_20')).toBe('PH 20h-10h')
+  })
+
+  it('never lets a PH label collide with the PHW one at the same hour', () => {
+    // The two sets share the 08h start; only the prefix and the end time
+    // tell a weekday holiday from a weekend one.
+    expect(labelForShiftCode('PHW_08')).not.toBe(labelForShiftCode('PH_08'))
   })
 
   it('never labels two codes the same thing', () => {

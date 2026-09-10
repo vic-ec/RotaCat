@@ -1843,12 +1843,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   </div>
                 )}
               </div>
-              {/* Month stepper + Today, width-matched to the Selected weekend
-                  panel directly below it (both w-80), so the two line up on
-                  both edges instead of the stepper floating over the table.
-                  `centered` is what makes the label fill that width. */}
-              <div className="w-80 flex-shrink-0">
-                <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} centered />
+              {/* Right-aligned over the Selected weekend panel, but at the
+                  stepper's own natural width rather than stretched to the
+                  panel's — every planner's stepper is then the same size,
+                  which matters more than the two edges lining up. */}
+              <div className="flex-shrink-0">
+                <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} />
               </div>
             </div>
 

@@ -38,7 +38,7 @@ export default function PublicHolidayBadge({ name, children }) {
         // but not which day it falls on. The holiday goes in after it
         // instead.
         aria-label={wraps ? undefined : `${label} — ${statusText}`}
-        className={`rounded bg-rose text-white transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark ${
+        className={`rounded bg-rose text-on-fill transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark ${
           wraps
             ? 'block w-full px-0.5 py-0.5'
             : 'flex h-5 w-5 items-center justify-center text-[10px] font-semibold leading-none'

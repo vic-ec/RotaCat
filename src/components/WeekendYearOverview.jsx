@@ -251,7 +251,7 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
                   {m.gapCount}
                 </span>
               ) : (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white ring-1 ring-canvas-raised">
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-on-fill ring-1 ring-canvas-raised">
                   <Check className="h-2.5 w-2.5" strokeWidth={3} />
                 </span>
               )}

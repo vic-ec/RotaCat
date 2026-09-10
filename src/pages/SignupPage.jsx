@@ -246,7 +246,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 disabled={verifying || otp.length !== 6}
-                className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
+                className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -492,7 +492,7 @@ function RoleModal({ role, onClose }) {
                 type="submit"
                 form="role-details-form"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
+                className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -542,7 +542,7 @@ export default function SignupPage() {
       </div>
 
       {/* Desktop: split-screen card, unchanged */}
-      <div className="hidden min-h-screen flex-col items-center justify-center bg-accent px-4 py-10 md:flex">
+      <div className="hidden min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10 md:flex">
         <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
           <AuthHero />
 

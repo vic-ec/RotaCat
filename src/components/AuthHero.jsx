@@ -1,6 +1,6 @@
-import rotacatMascot from '../assets/rotacat-full-body-mascot-cutout.png'
 import DecorativeRosterGrid from './DecorativeRosterGrid'
 import RotaCat from './RotaCat'
+import { useAuthMascot } from '../lib/useAuthMascot'
 
 // Shared hero/branding panel for the split-screen card layout — used by
 // reset-password at all breakpoints, and by login/signup on desktop only
@@ -15,6 +15,8 @@ import RotaCat from './RotaCat'
 // the band a stacking context to sit behind the cat in, and `overflow-hidden`
 // keeps it from spilling past the panel's edge into the sign-in side.
 export default function AuthHero() {
+  const rotacatMascot = useAuthMascot()
+
   return (
     <div className="relative isolate flex -translate-y-[5px] flex-col items-center justify-center overflow-hidden bg-canvas-raised px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">
       <h1 className="font-serif text-6xl font-semibold leading-none text-ink md:text-[82.5px]">

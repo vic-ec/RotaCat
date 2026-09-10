@@ -90,7 +90,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
               onClick={() => { onChange(opt.value); setOpen(false) }}
               className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
                 opt.value === value
-                  ? 'bg-accent font-semibold text-white hover:bg-accent-dark active:bg-accent-dark'
+                  ? 'bg-accent font-semibold text-on-fill hover:bg-accent-dark active:bg-accent-dark'
                   : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >

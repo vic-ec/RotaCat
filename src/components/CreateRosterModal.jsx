@@ -44,7 +44,7 @@ function RosterOptionButton({ label, tooltip, onClick }) {
       <span
         role="tooltip"
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-48 -translate-x-1/2 rounded bg-ink px-2.5 py-1.5 text-xs text-white opacity-0 shadow-raised transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+        className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-48 -translate-x-1/2 rounded bg-ink px-2.5 py-1.5 text-xs text-canvas opacity-0 shadow-raised transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
       >
         {tooltip}
       </span>

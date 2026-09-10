@@ -122,7 +122,7 @@ export const LEAVE_CAPACITY_STATES = [
   {
     key: 'limited', label: 'Limited',
     fill: 'bg-capLimited', light: 'bg-capLimited-light', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
-    text: 'text-capLimited-ink', onFillText: 'text-ink', onFillMuted: 'text-ink-light',
+    text: 'text-capLimited-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'near_capacity', label: 'Near capacity',

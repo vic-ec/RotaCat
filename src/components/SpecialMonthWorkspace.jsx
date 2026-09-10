@@ -68,7 +68,7 @@ export default function SpecialMonthWorkspace({
           onClick={onBack}
           className="flex items-center gap-1 rounded px-1.5 py-1 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
         >
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> Overview
         </button>
         <div className="flex items-center gap-2">
           <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
@@ -162,11 +162,16 @@ export default function SpecialMonthWorkspace({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border text-xs ${
+                className={`relative flex aspect-square flex-col items-center gap-0.5 rounded-md border pt-[19px] text-xs ${
                   marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
                 } ${date === today ? 'ring-1 ring-accent' : ''} ${marker?.capacityState.light ?? 'bg-canvas-raised'}`}
               >
-                <span className={marker?.capacityState.onFillText ?? 'text-ink'}>{Number(date.slice(-2))}</span>
+                {/* Pinned to the corner rather than centred in the flex
+                    flow, exactly as the Annual grid's phone cells do it: a
+                    centred number sits at a different height on a day with
+                    badges than on one without, so the row of numbers
+                    wandered as you scanned across a week. */}
+                <span className={`absolute left-1.5 top-1 font-bold ${marker?.capacityState.onFillText ?? 'text-ink'}`}>{Number(date.slice(-2))}</span>
                 {badges.length > 0 && (
                   <span className="flex items-center gap-[1px]">
                     {badges.slice(0, 3).map(key => (

@@ -551,3 +551,12 @@ export function planBatchRestore({ batchChanges, existingByWeekend, activeDoctor
 
   return { toInsert, toDelete, skipped }
 }
+
+// The Weekend Planner's "How it works" bullets — shown in the Legend sheet
+// on both the year overview and the month view, so the rules read the same
+// wherever a viewer opens them.
+export const WEEKEND_RULE_BULLETS = [
+  'No more than one person per slot.',
+  'If your name is listed in a specific colour for a given month, you work every weekend in that colour that month.',
+  'Use surnames when populating the planner.',
+]

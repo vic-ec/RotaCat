@@ -26,6 +26,13 @@ const MY_REQUESTS = [{ id: 'r1', date_from: aug8, status: 'pending' }]
 const dashboard = () => within(screen.getByTestId('my-weekend-dashboard'))
 const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
 
+// The colour key lives behind the Legend icon now (as on the Annual and
+// Special planners), so reading it means opening the sheet.
+async function openLegend(user, scopeRoot = dashboard) {
+  await user.click(scopeRoot().getByRole('button', { name: 'Legend' }))
+  return within(screen.getByTestId('weekend-year-legend'))
+}
+
 function renderOverview(overrides = {}) {
   return render(
     <MyWeekendYearOverview
@@ -46,9 +53,10 @@ describe('MyWeekendYearOverview', () => {
   beforeEach(() => vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))) // 1 Aug 2026
   afterEach(() => vi.useRealTimers())
 
-  it('renders the personal-read legend (Working/Weekend off pending/Off)', () => {
+  it('renders the personal-read legend (Working/Weekend off pending/Off) behind the Legend icon', async () => {
+    const user = userEvent.setup()
     renderOverview()
-    const legend = within(dashboard().getByTestId('weekend-year-legend'))
+    const legend = await openLegend(user)
     expect(legend.getByText('Working')).toBeInTheDocument()
     expect(legend.getByText('Weekend off pending')).toBeInTheDocument()
     expect(legend.getByText('Off')).toBeInTheDocument()
@@ -120,14 +128,16 @@ describe('MyWeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR)
   })
 
-  it('Today also resets a selected month within the current year, and hides again once back on today', async () => {
+  // Today stays put rather than appearing only once you've browsed away —
+  // same call DateStepper's own Today makes.
+  it('Today resets a selected month within the current year, and stays in place', async () => {
     const user = userEvent.setup()
     renderOverview()
-    expect(dashboard().queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(dashboard().getByRole('button', { name: 'Today' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'January' }))
     await user.click(dashboard().getByRole('button', { name: 'Today' }))
-    expect(dashboard().queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(dashboard().getByRole('button', { name: 'Today' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'August' })).toHaveAttribute('aria-pressed', 'true')
   })
 
@@ -186,7 +196,12 @@ describe('MyWeekendYearOverview', () => {
     expect(inspector.getByText('Weekend off requests').closest('div')).toHaveTextContent('2')
     expect(inspector.getByText('1 pending')).toBeInTheDocument()
     expect(inspector.getByText('1 approved')).toBeInTheDocument()
-    expect(within(dashboard().getByTestId('weekend-year-legend')).getByText('Weekend off approved')).toBeInTheDocument()
+  })
+
+  it('names the approved-weekend-off state in the legend', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    expect((await openLegend(user)).getByText('Weekend off approved')).toBeInTheDocument()
   })
 
   it('the Showing picker switches the finder to the whole department\'s weekends', async () => {
@@ -205,7 +220,26 @@ describe('MyWeekendYearOverview', () => {
     expect(augustTile()).toHaveTextContent('0 of 5 planned')
     expect(augustTile()).toHaveTextContent('open slots across the month')
     expect(augustTile()).not.toHaveTextContent('1 working')
-    expect(within(screen.getByTestId('my-weekend-month-finder')).getByText('Fully planned')).toBeInTheDocument()
+    // The legend follows the scope: staffing states, not personal ones.
+    expect((await openLegend(user, finder)).getByText('Fully planned')).toBeInTheDocument()
+  })
+
+  // Regression: the desktop cards read a `square` fill the staffing states
+  // didn't have, so switching to All weekends left twelve blank cards.
+  it('keeps the desktop month cards filled under All weekends', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    const august = () => screen.getByRole('button', { name: 'August' })
+    const blocks = card => [...card.querySelectorAll('span[class*="rounded-md"]')]
+    expect(blocks(august()).length).toBeGreaterThan(0)
+
+    // The desktop picker carries a real <label>, so it's named "Showing"
+    // rather than by its current value the way the finder's is.
+    await user.click(dashboard().getByRole('button', { name: 'Showing' }))
+    await user.click(await screen.findByRole('option', { name: 'All weekends' }))
+
+    const filled = blocks(august()).filter(b => /bg-(success|flagAmber|flagRed)-bg/.test(b.className))
+    expect(filled).toHaveLength(blocks(august()).length)
   })
 
   it('has no gap-count badges (this view is not a staffing-health read)', () => {

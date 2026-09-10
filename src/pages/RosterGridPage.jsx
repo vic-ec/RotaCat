@@ -952,7 +952,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       onClick={isAdmin ? onClick : undefined}
       className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
-      } ${entry.is_manual_override ? 'ring-1 ring-flagBlue' : ''} ${dimmed ? 'opacity-30' : ''}`}
+      } ${dimmed ? 'opacity-30' : ''}`}
       style={{ borderLeftColor: railColor }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >

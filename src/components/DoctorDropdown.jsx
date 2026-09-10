@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { X } from 'lucide-react'
 import ClearableInput from './ClearableInput'
 
 // Doctor picker popover — search by name, pick to assign, optional "Remove
@@ -11,19 +13,43 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
     `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Escape closes it, like every other dismissable layer in the app.
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Assign doctor — ${shiftCode} on ${date}`}
         className="card w-full max-w-xs p-0 shadow-raised overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="border-b border-slate-line px-3 py-2.5">
-          <p className="text-xs font-medium text-ink-muted mb-1.5">
-            Assign doctor — {shiftCode} on {date}
-          </p>
+          {/* Explicit close as well as the backdrop and Escape: on a phone
+              the backdrop either side of a max-w-xs card is a thin strip,
+              and there is nothing on screen that says tapping it does
+              anything. */}
+          <div className="mb-1.5 flex items-start justify-between gap-2">
+            <p className="text-xs font-medium text-ink-muted">
+              Assign doctor — {shiftCode} on {date}
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-mr-1 -mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <ClearableInput
             autoFocus
             value={search}

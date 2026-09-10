@@ -181,7 +181,7 @@ describe('InternRotationsMatrix', () => {
     // its accessible name includes the group's doctor count ("Intern 2").
     const internHeading = screen.getByRole('button', { name: /Intern \d/ })
     await user.click(within(internHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
-    const picker = screen.getByText(/Assign doctor/).closest('div').parentElement
+    const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({
       doctorId: 'cosmo-1', rotationType: 'EC', subtype: null, startDate: '2027-06-15', endDate: null, createdBy: 'admin-1',

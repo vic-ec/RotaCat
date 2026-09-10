@@ -99,9 +99,9 @@ export default function SpecialMonthWorkspace({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`min-h-[86px] border-b border-r border-slate-line p-1.5 text-left align-top transition-colors hover:brightness-95 ${
-                  marker?.capacityState.light ?? ''
-                } ${marker?.isPublicHoliday ? 'ring-2 ring-inset ring-ink' : ''}`}
+                className={`min-h-[86px] border-b border-r border-slate-line p-1.5 text-left align-top transition-colors hover:bg-canvas-sunken ${
+                  marker?.isPublicHoliday ? 'ring-2 ring-inset ring-ink' : ''
+                }`}
               >
                 {/* Today is the date number's own accent chip rather than a
                     ring around the cell: a ring in a fifth colour on top of
@@ -109,13 +109,15 @@ export default function SpecialMonthWorkspace({
                     and this is the same marker the Annual grid uses. */}
                 <span className="flex items-center justify-between gap-1">
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-                    date === today ? 'bg-accent text-on-fill' : marker?.capacityState.onFillText ?? 'text-ink'
+                    date === today
+                      ? 'bg-accent text-on-fill'
+                      : marker ? `${marker.capacityState.fill} ${marker.capacityState.onFillText}` : 'text-ink'
                   }`}>
                     {Number(date.slice(-2))}
                   </span>
                 </span>
                 {marker?.isPublicHoliday && (
-                  <span className={`mt-0.5 block truncate text-[10px] font-medium ${marker.capacityState.onFillMuted}`}>{marker.publicHolidayName}</span>
+                  <span className="mt-0.5 block truncate text-[10px] font-medium text-ink-muted">{marker.publicHolidayName}</span>
                 )}
                 {/* A badge per name, as on the phone cells and in the day
                     panel — a surname alone doesn't say which group is out,
@@ -164,16 +166,18 @@ export default function SpecialMonthWorkspace({
                 onClick={() => setSelectedDate(date)}
                 className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border text-xs ${
                   marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
-                } ${date === today ? 'ring-1 ring-accent' : ''} ${marker?.capacityState.light ?? 'bg-canvas-raised'}`}
+                } ${date === today ? 'ring-1 ring-accent' : ''} bg-canvas-raised`}
               >
-                <span className={marker?.capacityState.onFillText ?? 'text-ink'}>{Number(date.slice(-2))}</span>
+                <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ${
+                  marker ? `${marker.capacityState.fill} ${marker.capacityState.onFillText}` : 'text-ink'
+                }`}>{Number(date.slice(-2))}</span>
                 {badges.length > 0 && (
                   <span className="flex items-center gap-[1px]">
                     {badges.slice(0, 3).map(key => (
                       <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} />
                     ))}
                     {badges.length > 3 && (
-                      <span className={`text-[8px] font-semibold ${marker?.capacityState.onFillText ?? 'text-ink-muted'}`}>
+                      <span className="text-[8px] font-semibold text-ink-muted">
                         +{badges.length - 3}
                       </span>
                     )}

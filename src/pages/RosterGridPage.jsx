@@ -484,8 +484,8 @@ export default function RosterGridPage() {
           <div className="mt-1 flex items-center gap-2">
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
               rosterMonth.status === 'published'
-                ? 'bg-success-bg text-success'
-                : 'bg-flagAmber-bg text-flagAmber'
+                ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
+                : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
             }`}>
               {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
             </span>
@@ -814,7 +814,7 @@ export default function RosterGridPage() {
                         key={code}
                         className={`border-r border-slate-line align-top p-0 ${
                           colIdx === shifts.length - 1 ? 'border-r-0' : ''
-                        } ${hasShortfall ? 'bg-flagRed-bg' : hasLocum ? 'bg-flagAmber-bg' : ''}`}
+                        } ${hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >

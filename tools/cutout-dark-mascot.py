@@ -1,23 +1,27 @@
-"""Cut the dark-theme RotaCat mascot out of its navy backdrop.
+"""Cut the dark-theme RotaCat mascot off its navy backdrop.
 
-The obvious approach — key out the backdrop — does not work here, for three
-reasons found the hard way:
+The auth hero draws its roster band in the DOM behind the mascot so the
+pills can pulse, so the asset has to be transparent — the light-theme
+mascot is a cut-out for the same reason.
 
-  * The backdrop is a smooth radial gradient (luminance 14-33), not a flat
-    colour, so there is no single colour to key.
-  * The cat is drawn with dark navy seam lines between its plates, as dark
-    and as blue as the backdrop. Keying them out opens slots straight
-    through the body, which on the auth hero would let the roster band
-    pulse through the cat's chest.
-  * A soft glow rings the silhouette. Any threshold loose enough to remove
-    it is loose enough to eat the cat's own shadowed plating.
+What makes this image awkward is that parts of the cat are darker than the
+backdrop. The belly in shadow is rgb(9,14,22) against a backdrop of
+rgb(7,16,31): no colour rule can tell them apart, and a threshold loose
+enough to remove the backdrop's glow chews the abdomen, the toes and the
+underside of the tail straight out of the silhouette.
 
-So this works the other way round: find the *cat* rather than the
-backdrop. A pixel belongs to the cat if it is bright enough to be lit
-plating, or warm enough to be copper or the rose collar — neither of which
-the backdrop or its glow ever is. That leaves the seam lines and the inner
-ears out, and they come back as enclosed holes, which is exactly what they
-are.
+Geometry is what saves it. Keyed tightly — below the backdrop's own
+ceiling of 33 rather than anywhere near the cat's shadows — the shadowed
+belly is *enclosed* by the legs and haunch rather than open to the frame's
+edge, so filling holes restores it. That only holds under about 44: above
+that the pocket joins the outside and the abdomen is lost.
+
+The cost of keying this tightly is that the backdrop's glow, which is
+brighter than the threshold, stays as a soft halo around the silhouette.
+That is deliberate. This asset's whole job is to sit on the dark panel,
+where the halo is invisible against it; every attempt to trim it also took
+the whiskers with it (~1000px above luminance 70), which is the worse
+trade by far.
 """
 import numpy as np
 from PIL import Image
@@ -26,12 +30,13 @@ from scipy import ndimage
 SRC = 'src/assets/rotaCat-full-body-mascot-dark-theme.png'
 DST = 'src/assets/rotaCat-full-body-mascot-dark-theme-cutout.png'
 
-CAT_LUM = 70    # lit plating starts ~104; the backdrop tops out at 33 and
-                # its glow well below this
-WARM = -6       # blue-minus-red; the copper and the collar are warm, the
-                # backdrop and glow never are
-SEAM_CLOSE = 6  # px radius — seals the seam lines between plates
-FEATHER = 0.9   # px
+# The backdrop measures 14-33 across the frame. 36 clears it; the abdomen
+# pocket stops being enclosed at 44, so this sits deliberately nearer the
+# floor of that window than the ceiling.
+BACKDROP_LUM = 36
+WARM = -6        # blue-minus-red: the copper and collar are warm, the backdrop never is
+SEAM_CLOSE = 6   # px radius — the dark seam lines between the cat's plates
+FEATHER = 0.9    # px
 
 S8 = np.ones((3, 3), bool)
 
@@ -51,25 +56,27 @@ rgb = np.array(Image.open(SRC).convert('RGB')).astype(np.float32)
 lum = 0.2126 * rgb[:, :, 0] + 0.7152 * rgb[:, :, 1] + 0.0722 * rgb[:, :, 2]
 warmth = rgb[:, :, 2] - rgb[:, :, 0]
 
-cat = (lum > CAT_LUM) | (warmth < WARM)
+backdrop = _touches_border((lum < BACKDROP_LUM) & (warmth > WARM))
 
-# Close the seam lines, then fill what they enclose: the seams, the pupils,
-# the dark inner ears. Closing only ever adds, so the whiskers — one or two
-# pixels wide — survive it, where an erosion would have cost them.
-subject = ndimage.binary_fill_holes(ndimage.binary_closing(cat, structure=_disk(SEAM_CLOSE)))
+# Everything the backdrop does not reach is the cat — including the shadowed
+# belly, which is enclosed rather than open.
+subject = ndimage.binary_fill_holes(~backdrop)
 
-# Anything still open to the frame's edge is backdrop, however bright the
-# glow made it.
-subject = ndimage.binary_fill_holes(~_touches_border(~subject))
+# The plates are separated by seam lines as dark as the backdrop. Where one
+# runs out to the silhouette's edge it opens a slot through the body, which
+# on the hero would let the band pulse through the cat. Closing seals any
+# intrusion narrower than 2*SEAM_CLOSE, and only ever adds — so unlike an
+# erosion it cannot cost the whiskers.
+subject = ndimage.binary_fill_holes(ndimage.binary_closing(subject, structure=_disk(SEAM_CLOSE)))
 
-# One pixel in, so no rim of backdrop rides along as a fringe on a ground
-# that isn't navy.
 subject = ndimage.binary_erosion(subject, structure=S8)
 
 alpha = np.clip(ndimage.gaussian_filter(subject.astype(np.float32), FEATHER), 0, 1)
 Image.fromarray(np.dstack([rgb, alpha * 255]).astype(np.uint8), 'RGBA').save(DST)
 
-ys, xs = np.where(alpha > 0.5)
-print('wrote %s' % DST)
-print('opaque %.1f%% of frame; bbox x[%d:%d] y[%d:%d] of %dx%d'
-      % (100 * (alpha > 0.5).mean(), xs.min(), xs.max(), ys.min(), ys.max(), rgb.shape[1], rgb.shape[0]))
+# The four places a loose key destroys first — a regression check, not decoration.
+for name, (y, x) in {'abdomen': (1255, 425), 'paw underside': (1580, 150),
+                     'toe gap': (1545, 187), 'tail lower edge': (1690, 430)}.items():
+    assert alpha[y, x] > 0.5, '%s went transparent' % name
+print('wrote %s — opaque %.1f%% of frame; abdomen, toes and tail all solid'
+      % (DST, 100 * (alpha > 0.5).mean()))

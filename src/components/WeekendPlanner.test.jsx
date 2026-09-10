@@ -182,7 +182,7 @@ describe('WeekendPlanner', () => {
     const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
     await screen.findByTestId('my-weekend-month-finder')
 
-    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(finder().getByRole('button', { name: 'Showing' }))
     await user.click(await screen.findByRole('option', { name: 'All weekends' }))
 
     await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
@@ -193,7 +193,7 @@ describe('WeekendPlanner', () => {
     await user.click(screen.getByRole('button', { name: 'SetFilterStub' }))
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
     await screen.findByTestId('my-weekend-month-finder')
-    expect(finder().getByRole('button', { name: 'My weekends' })).toBeInTheDocument()
+    expect(within(finder().getByLabelText('Showing').closest('div')).getByText('My weekends')).toBeInTheDocument()
 
     await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
     expect(await screen.findByText('FilterStub: my-requests')).toBeInTheDocument()

@@ -2,7 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MyWeekendYearOverview from './MyWeekendYearOverview'
+
+// The request panel reads canSubmitLeave, and its form talks to Supabase —
+// both stubbed here so this suite stays about the year overview itself.
+let mockAuth = { canSubmitLeave: true, profile: { id: 'p1' } }
+vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
+vi.mock('./LeaveRequestForm', () => ({
+  default: ({ initialLeaveType, initialDateFrom, initialDateTo }) => (
+    <p>LeaveRequestFormStub: {initialLeaveType} {initialDateFrom} to {initialDateTo}</p>
+  ),
+}))
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
+import { addDays } from '../lib/dateRange'
 
 // The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
 // always the default-selected month.
@@ -50,7 +61,10 @@ function renderOverview(overrides = {}) {
 describe('MyWeekendYearOverview', () => {
   // Pinned rather than leaning on the ambient clock happening to be August
   // 2026 — "which weekends are still ahead" is relative to today.
-  beforeEach(() => vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0))) // 1 Aug 2026
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 1, 9, 0, 0)) // 1 Aug 2026
+    mockAuth = { canSubmitLeave: true, profile: { id: 'p1' } }
+  })
   afterEach(() => vi.useRealTimers())
 
   it('renders the personal-read legend (Working/Weekend off pending/Off) behind the Legend icon', async () => {
@@ -212,7 +226,7 @@ describe('MyWeekendYearOverview', () => {
 
     // The trigger is named by its current value, the same as every other
     // SelectMenu in the app.
-    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(finder().getByRole('button', { name: 'Showing' }))
     await user.click(screen.getByRole('option', { name: 'All weekends' }))
 
     // Staffing read now: aug1 has an MO and a Registrar but not all four
@@ -240,6 +254,24 @@ describe('MyWeekendYearOverview', () => {
 
     const filled = blocks(august()).filter(b => /bg-(success|flagAmber|flagRed)-bg/.test(b.className))
     expect(filled).toHaveLength(blocks(august()).length)
+  })
+
+  // The year view had no request path at all: a doctor could see they were
+  // on every weekend in September and had nowhere to say so.
+  it('Request weekend off opens the form on the next weekend this doctor works', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    await user.click(dashboard().getByRole('button', { name: 'Request weekend off' }))
+    // p1 is rostered on aug1, which is today — the weekend they'd be asking
+    // about, not merely the next Saturday on the calendar.
+    expect(screen.getByText(`LeaveRequestFormStub: weekend_exception ${aug1} to ${addDays(aug1, 1)}`)).toBeInTheDocument()
+  })
+
+  it('hides the request action from a viewer who cannot submit leave, keeping the scope picker', () => {
+    mockAuth = { canSubmitLeave: false, profile: { id: 'p1' } }
+    renderOverview()
+    expect(screen.queryByRole('button', { name: 'Request weekend off' })).not.toBeInTheDocument()
+    expect(dashboard().getByLabelText('Showing')).toBeInTheDocument()
   })
 
   it('has no gap-count badges (this view is not a staffing-health read)', () => {

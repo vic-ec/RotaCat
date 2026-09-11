@@ -71,7 +71,7 @@ describe('SpecialPlannerOverview', () => {
   it('counts a multi-day request once in the approved/pending tallies', () => {
     renderOverview()
     // Ellis spans 10-11 Aug but is one request, so approved reads 1 not 2.
-    expect(inspector().getByText(/2 people · 1 approved · 1 pending/)).toBeInTheDocument()
+    expect(inspector().getByText(/1 approved · 1 pending/)).toBeInTheDocument()
   })
 
   it('a second click on the already-selected month opens it, the first click just selects', async () => {

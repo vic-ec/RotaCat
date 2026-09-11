@@ -13,7 +13,9 @@
 // what says MO or Reg; the colour only ever says how full the day is.
 //
 // The neutral fill is a fixed hex rather than a token: it is the same slate
-// in both themes, and white letters on it clear 7:1 either way.
+// in both themes, and white letters on it clear 7:1 either way. A capacity
+// fill has to carry its own letter colour though — white on the yellow is
+// 1.5:1, so `textFill` travels with `fill` rather than being assumed.
 const FONT_SIZE_BY_LENGTH = { 1: 17, 2: 14, 3: 12.5 }
 const NEUTRAL_FILL = '#4B5563'
 
@@ -22,7 +24,7 @@ const NEUTRAL_FILL = '#4B5563'
 // dot before it reads as a badge.
 const RING = 'rgb(var(--color-canvas-raised))'
 
-export default function CategoryBadge({ label, size = 20, className = '', fill = NEUTRAL_FILL }) {
+export default function CategoryBadge({ label, size = 20, className = '', fill = NEUTRAL_FILL, textFill = '#FFFFFF' }) {
   const fontSize = FONT_SIZE_BY_LENGTH[label.length] ?? 12.5
   return (
     <svg
@@ -42,7 +44,7 @@ export default function CategoryBadge({ label, size = 20, className = '', fill =
           border instead of a crisp one. */}
       <circle cx="22" cy="22" r="19" fill={fill} stroke={RING} strokeWidth="1" />
       <text
-        x="22" y="22" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
+        x="22" y="22" fontSize={fontSize} fontWeight="700" fill={textFill}
         textAnchor="middle" dominantBaseline="central" fontFamily="inherit"
       >
         {label}
@@ -58,15 +60,16 @@ export default function CategoryBadge({ label, size = 20, className = '', fill =
 // 5-category day (all 4 capacity columns plus Consultant) is rare but
 // possible. Takes the same `fill` as the badges it stands in for, so a
 // capacity-coloured row doesn't end on a neutral chip.
-export function CategoryOverflowChip({ count, size = 16, fill = NEUTRAL_FILL }) {
+export function CategoryOverflowChip({ count, size = 16, fill = NEUTRAL_FILL, textFill = '#FFFFFF' }) {
   return (
     <span
-      className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
+      className="flex flex-shrink-0 items-center justify-center rounded-full font-bold"
       style={{
         width: size,
         height: size,
         fontSize: Math.max(7, Math.round(size * 0.5)),
         background: fill,
+        color: textFill,
         border: `1px solid ${RING}`,
       }}
     >

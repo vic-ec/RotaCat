@@ -265,10 +265,16 @@ export default function AnnualPlannerOverview({
               {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
                 const state = UTILIZATION_TILE_STATES[level - 1]
                 return (
-                  <div key={level} className={`flex flex-col items-center justify-center gap-0.5 rounded-lg py-2.5 text-center ${state.fill}`}>
-                    <span className={`text-sm font-bold ${state.onFillText}`}>{level} of 3</span>
-                    <span className={`text-[10px] ${state.onFillMuted}`}>slots taken</span>
-                    <span className={`text-xs font-semibold ${state.onFillText}`}>{days} {days === 1 ? 'day' : 'days'}</span>
+                  // Same treatment as the day panel's capacity banner — a
+                  // recessed tint with a ring in the state's own colour,
+                  // rather than a solid block. Three saturated blocks side by
+                  // side were the loudest thing on the page on either ground,
+                  // and on the dark theme they read as lit panels rather than
+                  // as a legend.
+                  <div key={level} className={`flex flex-col items-center justify-center gap-0.5 rounded-lg py-2.5 text-center ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
+                    <span className={`text-sm font-bold ${state.text}`}>{level} of 3</span>
+                    <span className="text-[10px] text-ink-muted">slots taken</span>
+                    <span className={`text-xs font-semibold ${state.text}`}>{days} {days === 1 ? 'day' : 'days'}</span>
                   </div>
                 )
               })}
@@ -283,7 +289,7 @@ export default function AnnualPlannerOverview({
                   : `Leave in ${selectedMonthLabel}`}
               </p>
               <p className="mt-0.5 text-sm text-ink-muted">
-                {rangeSummary.people} {rangeSummary.people === 1 ? 'person' : 'people'} · {rangeSummary.approved} approved · {rangeSummary.pending} pending
+                {rangeSummary.approved} approved · {rangeSummary.pending} pending
               </p>
               <ul className="mt-2 space-y-0.5">
                 {rangeEntries.map(e => {

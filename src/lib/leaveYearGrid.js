@@ -109,9 +109,9 @@ export const COLUMN_FULL_LABEL = {
 //               `dark` so available/limited/near/at-capacity still read as
 //               four different hues instead of converging on the same
 //               near-black brown once darkened enough for contrast.
-//   swatch                  the same colour as `fill`, as a raw CSS value —
-//                           for an SVG fill attribute, which cannot take a
-//                           Tailwind class
+//   swatch / swatchInk      the same colours as `fill` / `onFillText`, as raw
+//                           CSS values — for an SVG fill attribute, which
+//                           cannot take a Tailwind class
 //   onFillText/onFillMuted  primary/secondary text colour for content
 //               sitting on top of the solid `fill`/`light` background (day
 //               numbers, entries) — dark ink on the light `limited`
@@ -124,22 +124,22 @@ export const COLUMN_FULL_LABEL = {
 export const LEAVE_CAPACITY_STATES = [
   {
     key: 'available', label: 'Available',
-    fill: 'bg-capAvailable', swatch: 'rgb(var(--color-capAvailable))', light: 'bg-capAvailable-light', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
+    fill: 'bg-capAvailable', swatch: 'rgb(var(--color-capAvailable))', swatchInk: 'rgb(var(--color-on-heat))', light: 'bg-capAvailable-light', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
     text: 'text-capAvailable-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'limited', label: 'Limited',
-    fill: 'bg-capLimited', swatch: 'rgb(var(--color-capLimited))', light: 'bg-capLimited-light', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
+    fill: 'bg-capLimited', swatch: 'rgb(var(--color-capLimited))', swatchInk: 'rgb(var(--color-on-heat))', light: 'bg-capLimited-light', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
     text: 'text-capLimited-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'near_capacity', label: 'Near capacity',
-    fill: 'bg-capNear', swatch: 'rgb(var(--color-capNear))', light: 'bg-capNear-light', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
+    fill: 'bg-capNear', swatch: 'rgb(var(--color-capNear))', swatchInk: 'rgb(var(--color-on-heat))', light: 'bg-capNear-light', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
     text: 'text-capNear-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'at_capacity', label: 'At capacity',
-    fill: 'bg-capAtCapacity', swatch: 'rgb(var(--color-capAtCapacity))', light: 'bg-capAtCapacity-light', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', ringDark: 'ring-capAtCapacity-dark',
+    fill: 'bg-capAtCapacity', swatch: 'rgb(var(--color-capAtCapacity))', swatchInk: '#FFFFFF', light: 'bg-capAtCapacity-light', tint: 'bg-capAtCapacity-tint', dark: 'bg-capAtCapacity-dark', ringDark: 'ring-capAtCapacity-dark',
     text: 'text-capAtCapacity-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
   },
 ]

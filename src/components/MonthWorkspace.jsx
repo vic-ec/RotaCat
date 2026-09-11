@@ -402,7 +402,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-center gap-1 text-[11px] leading-tight">
-            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} fill={capacityState.swatch} />
+            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} fill={capacityState.swatch} textFill={capacityState.swatchInk} />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
@@ -444,8 +444,8 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
       <span className="absolute left-1.5 top-1 font-bold text-ink">{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
-          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} fill={capacityState.swatch} />)}
-          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} fill={capacityState.swatch} />}
+          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} fill={capacityState.swatch} textFill={capacityState.swatchInk} />)}
+          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} fill={capacityState.swatch} textFill={capacityState.swatchInk} />}
         </span>
       )}
     </button>

@@ -76,11 +76,11 @@ export default function AccountActionFooter({
           type="button"
           onClick={startApprove}
           disabled={isActioning || Boolean(approveDisabledReason)}
-          className="btn-success flex-1 py-2.5 text-[15px]"
+          className="btn-success flex-1"
         >
           {isActioning ? 'Approving…' : 'Approve account'}
         </button>
-        <button type="button" onClick={() => setMode('rejecting')} disabled={isActioning} className="btn-danger-outline py-2.5 text-[15px]">
+        <button type="button" onClick={() => setMode('rejecting')} disabled={isActioning} className="btn-danger-outline">
           Reject…
         </button>
       </div>

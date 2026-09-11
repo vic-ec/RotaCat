@@ -28,7 +28,7 @@ function SlotGauge({ preview }) {
   const poolNote = preview.pooled ? `in the shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `for ${preview.columnLabel}`
 
   return (
-    <div className={`rounded-lg p-3 ${state.tint}`}>
+    <div className={`rounded-lg p-3 ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
       <p className={`text-sm font-bold ${state.text}`}>{ASSESSMENT_HEADING[state.key]}</p>
       <p className="mt-0.5 text-xs text-ink-light">
         1 of {preview.max} leave {slotWord} is reserved for this request.
@@ -49,7 +49,7 @@ function SlotGauge({ preview }) {
 // warning IS a rule exception being knowingly overridden.
 function RequiresReview({ warnings }) {
   return (
-    <div className="rounded-lg bg-danger-bg p-3">
+    <div className="rounded-lg bg-danger-bg p-3 ring-1 ring-inset ring-danger/45">
       <p className="text-sm font-bold text-danger">Requires review</p>
       <div className="mt-1.5 space-y-1.5">
         {warnings.supervisionBreaches.length > 0 && (

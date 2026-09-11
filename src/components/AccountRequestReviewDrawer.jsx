@@ -34,16 +34,16 @@ export default function AccountRequestReviewDrawer({
             <button type="button" onClick={() => { setRejecting(false); setRejectNotes('') }} disabled={isActioning} className="btn-secondary">
               Cancel
             </button>
-            <button type="button" onClick={() => onReject(rejectNotes)} disabled={isActioning} className="btn-danger flex-1 py-2.5 text-[15px]">
+            <button type="button" onClick={() => onReject(rejectNotes)} disabled={isActioning} className="btn-danger flex-1">
               {isActioning ? 'Rejecting…' : 'Confirm reject'}
             </button>
           </div>
         ) : (
           <div className="flex w-full items-center gap-3">
-            <button type="button" onClick={onApprove} disabled={isActioning} className="btn-success flex-1 py-2.5 text-[15px]">
+            <button type="button" onClick={onApprove} disabled={isActioning} className="btn-success flex-1">
               {isActioning ? 'Approving…' : 'Approve request'}
             </button>
-            <button type="button" onClick={() => setRejecting(true)} disabled={isActioning} className="btn-danger-outline py-2.5 text-[15px]">
+            <button type="button" onClick={() => setRejecting(true)} disabled={isActioning} className="btn-danger-outline">
               Reject…
             </button>
           </div>

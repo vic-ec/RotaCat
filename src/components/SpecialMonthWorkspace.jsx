@@ -178,7 +178,7 @@ export default function SpecialMonthWorkspace({
                         e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'
                       }`}
                     >
-                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} fill={marker?.capacityState.swatch} />
+                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} fill={marker?.capacityState.swatch} textFill={marker?.capacityState.swatchInk} />
                       <span className="truncate">{displayNames.get(e.profileId) ?? e.surname}</span>
                     </span>
                   ))}
@@ -223,7 +223,7 @@ export default function SpecialMonthWorkspace({
                 {badges.length > 0 && (
                   <span className="flex items-center gap-[1px]">
                     {badges.slice(0, 3).map(key => (
-                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} fill={marker?.capacityState.swatch} />
+                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} fill={marker?.capacityState.swatch} textFill={marker?.capacityState.swatchInk} />
                     ))}
                     {badges.length > 3 && (
                       <span className="text-[8px] font-semibold text-ink-muted">
@@ -251,7 +251,6 @@ export default function SpecialMonthWorkspace({
         />
       )}
 
-      <p className="mt-3 text-xs text-ink-muted">{monthLabel} {year} · tap a day for detail</p>
     </div>
   )
 }

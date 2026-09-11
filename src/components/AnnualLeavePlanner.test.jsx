@@ -131,7 +131,7 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByText('Selected month')).toBeInTheDocument()
     expect(screen.getByText('August 2026')).toBeInTheDocument()
     expect(screen.getByText('Leave during 12–13 Aug')).toBeInTheDocument() // the Registrar at-cap range
-    expect(screen.getByText('2 people · 2 approved · 0 pending')).toBeInTheDocument()
+    expect(screen.getByText('2 approved · 0 pending')).toBeInTheDocument()
     expect(screen.getByText('Anderson')).toBeInTheDocument() // also on leave those days
     expect(screen.getByText('Botha')).toBeInTheDocument()
   })

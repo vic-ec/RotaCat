@@ -205,7 +205,7 @@ export default function SpecialPlannerOverview({
             <div className="mt-3 border-t border-slate-line pt-3">
               <p className="text-sm font-semibold text-ink">Leave in {selected.label}</p>
               <p className="mt-0.5 text-sm text-ink-muted">
-                {selected.stats.people} {selected.stats.people === 1 ? 'person' : 'people'} · {selected.stats.approved} approved · {selected.stats.pending} pending
+                {selected.stats.approved} approved · {selected.stats.pending} pending
               </p>
               <ul data-testid="special-month-entries" className="mt-2 space-y-0.5">
                 {selectedEntries.map(e => (

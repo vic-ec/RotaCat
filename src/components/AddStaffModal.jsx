@@ -241,7 +241,7 @@ export default function AddStaffModal({ onClose, onCreated }) {
         title={result.emailSent ? 'Account created' : 'Account created — email not sent'}
         onClose={() => { onCreated?.(); onClose() }}
         footer={
-          <button type="button" className="btn-primary flex-1 py-2.5 text-[15px]" onClick={() => { onCreated?.(); onClose() }}>
+          <button type="button" className="btn-primary flex-1" onClick={() => { onCreated?.(); onClose() }}>
             Done
           </button>
         }
@@ -286,13 +286,13 @@ export default function AddStaffModal({ onClose, onCreated }) {
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="btn-secondary px-3 py-2.5 text-[15px]" onClick={onClose} disabled={submitting}>
+          <button type="button" className="btn-secondary px-3" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
-          <button type="button" className="btn-secondary px-3 py-2.5 text-[15px]" onClick={clearForm} disabled={submitting}>
+          <button type="button" className="btn-secondary px-3" onClick={clearForm} disabled={submitting}>
             Clear form
           </button>
-          <button type="submit" form="add-staff-form" className="btn-primary flex-1 whitespace-nowrap px-3 py-2.5 text-[15px]" disabled={submitting}>
+          <button type="submit" form="add-staff-form" className="btn-primary flex-1 whitespace-nowrap px-3" disabled={submitting}>
             {submitting ? 'Creating…' : 'Create account'}
           </button>
         </>

@@ -20,7 +20,7 @@ export default function LeaveRequestDecisionFooter({
           type="button"
           onClick={onRejectConfirm}
           disabled={isActioning || !rejectNotes.trim()}
-          className="btn-danger flex-1 py-2.5 text-[15px]"
+          className="btn-danger flex-1"
         >
           {isActioning ? 'Declining…' : 'Confirm decline'}
         </button>
@@ -34,7 +34,7 @@ export default function LeaveRequestDecisionFooter({
         type="button"
         onClick={onApprove}
         disabled={approveDisabled}
-        className="btn-success flex-1 py-2.5 text-[15px]"
+        className="btn-success flex-1"
       >
         {approveLabel}
       </button>
@@ -42,7 +42,7 @@ export default function LeaveRequestDecisionFooter({
         type="button"
         onClick={onDeclineStart}
         disabled={isActioning}
-        className="btn-danger-outline py-2.5 text-[15px]"
+        className="btn-danger-outline"
       >
         Decline…
       </button>

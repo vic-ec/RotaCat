@@ -143,7 +143,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
       <div className="card flex w-full max-w-5xl max-h-[85vh] flex-col p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">Review log — Weekend planner</h2>
@@ -307,7 +307,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
           than a sibling, so it needs its own stopPropagation to cancel
           without also closing the review log behind it. */}
       {confirmBatch && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/20 px-4" onClick={() => setConfirmBatch(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center scrim px-4" onClick={() => setConfirmBatch(null)}>
           <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
             <h3 className="font-display text-base font-bold text-ink">Restore this action?</h3>
             <p className="mt-2 text-sm text-ink-light">

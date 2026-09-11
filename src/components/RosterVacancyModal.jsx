@@ -120,7 +120,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
       <div className="card w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
         <p className="text-sm font-medium text-ink">
           {doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'} is on a published shift — {labelForShiftCode(vacancy.shiftCode)} on {vacancy.date}

@@ -129,6 +129,15 @@
      page's own near-black so the mascot has a ground to sit on. */
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
 
+
+  /* Modal scrim. Not `ink` at low alpha: `ink` inverts with the theme, so on
+     the dark theme that veil turns light and washes the page out instead of
+     dimming it. Colour and alpha both move per theme — a 20% black over an
+     already-dark app barely registers, so the dark values go deeper. */
+  --scrim: rgba(31, 41, 55, 0.20);
+  --scrim-strong: rgba(31, 41, 55, 0.50);
+  --scrim-heavy: rgba(31, 41, 55, 0.65);
+
   /* Label for anything filled with a solid brand or status colour.
      The light theme puts white on its deep teal (5.47:1). */
   --color-on-fill: 255 255 255;               /* #FFFFFF */
@@ -248,6 +257,11 @@
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
+
+  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim-strong: rgba(0, 0, 0, 0.68);
+  --scrim-heavy: rgba(0, 0, 0, 0.78);
+
   /* White on this theme's mint accent is 2.20:1 — unreadable. The ground
      colour on it is 8.35:1, so solid fills carry a dark label here. */
   --color-on-fill: 15 22 19;                  /* #0F1613 */
@@ -356,6 +370,12 @@
 }
 
 @layer components {
+  /* The three scrim weights the app uses, so a modal never hardcodes an
+     `ink` alpha that inverts with the theme. */
+  .scrim { background-color: var(--scrim); }
+  .scrim-strong { background-color: var(--scrim-strong); }
+  .scrim-heavy { background-color: var(--scrim-heavy); }
+
   /* One decorative roster pill in the desktop auth hero's background band
      (DecorativeRosterGrid) softly brightening, as if RotaCat were quietly
      working through the rota. Opacity and a faint cool-grey luminance lift

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
+import { LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 
 describe('LeaveCapacityBanner', () => {
   it('personalised, available: 0 of N taken shows the open-slots read', () => {
@@ -42,10 +43,27 @@ describe('LeaveCapacityBanner', () => {
     expect(screen.getByText('No annual leave slots available for any category today.')).toBeInTheDocument()
   })
 
-  it('renders nothing when mySlots is absent and the day is not full', () => {
+  it('renders nothing with neither a personal pool nor a day capacity state', () => {
     const { container } = render(
       <LeaveCapacityBanner mySlots={null} atFullCapacity={false} totalSlots={1} totalCeiling={3} />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  // The generic banner used to appear only once a day was full, so every other
+  // day showed nothing at all — which read as "no capacity rule here" rather
+  // than "one of three slots is already gone".
+  it('reports a day that is not yet full, not just a full one', () => {
+    render(
+      <LeaveCapacityBanner
+        mySlots={null}
+        atFullCapacity={false}
+        dayCapacityState={LEAVE_CAPACITY_STATES[1]}
+        totalSlots={1}
+        totalCeiling={3}
+      />
+    )
+    expect(screen.getByText('1 of 3 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('2 annual leave slots available across all doctor categories.')).toBeInTheDocument()
   })
 })

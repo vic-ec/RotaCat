@@ -114,7 +114,7 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
       <div className="card flex w-full max-w-5xl max-h-[85vh] flex-col p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">Review log — {monthLabel}</h2>

@@ -1,4 +1,4 @@
-// Shared bottom-sheet action-list shell — fixed inset-0, bg-ink/20,
+// Shared bottom-sheet action-list shell — fixed inset-0, scrim,
 // items-end on mobile / items-center on desktop, rounded-b-none
 // sm:rounded-b-lg — for short action lists (per-card ⋮ menus, page-level
 // overflow menus, confirmation sheets) so there's one sheet pattern instead
@@ -15,7 +15,7 @@
 // the sheet reads as stuck open over a still-interactive page.
 export function ActionSheet({ title, onClose, children }) {
   return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

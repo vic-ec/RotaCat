@@ -109,6 +109,13 @@ function renderWorkspace(overrides, initialEntries = ['/']) {
   })
 }
 
+// The day's capacity is carried by the category badges' fill, not by the
+// cell background or the date number — so this is what "what colour is this
+// day" means now.
+function badgeFill(cell) {
+  return cell.querySelector('svg circle')?.getAttribute('fill')
+}
+
 describe('MonthWorkspace', () => {
   beforeEach(() => {
     fromCalls.length = 0
@@ -181,14 +188,14 @@ describe('MonthWorkspace', () => {
     const admin = renderWorkspace({ countByColumnPerDate })
     // Admin's generic read: total 2 of 3 -> "Near capacity" (orange), not yet "At capacity".
     const adminMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
-    expect(within(adminMobileCell).getByText('12').className).toMatch(/\bbg-capNear\b/)
+    expect(badgeFill(adminMobileCell)).toBe('rgb(var(--color-capNear))')
     admin.unmount()
 
     // A non-admin MO viewer's own shared pool is already full (2 of 2) -> "At capacity" (red).
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
     renderWorkspace({ countByColumnPerDate })
     const doctorMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
-    expect(within(doctorMobileCell).getByText('12').className).toMatch(/\bbg-capAtCapacity\b/)
+    expect(badgeFill(doctorMobileCell)).toBe('rgb(var(--color-capAtCapacity))')
   })
 
   it('mobile day cells: the date number is pinned to a fixed top-left position via absolute positioning, not centred with the badge grid', () => {
@@ -308,16 +315,18 @@ describe('MonthWorkspace', () => {
     expect(botha).toHaveClass('italic')
   })
 
-  it('checking capacity: clicking a day shows no per-category quotas or the old header pill', async () => {
+  it('checking capacity: the day panel reports the combined total, and no per-category quotas', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
     expect(await screen.findByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
-    // The old top-right "N of 3 slots taken" pill is gone entirely now (removed
-    // in favour of the top banner, which this mock admin — no `profile` in
-    // mockAuth, so no personal category — doesn't get since the day isn't full).
-    expect(screen.queryByText('2 of 3 slots taken')).not.toBeInTheDocument()
+    // The old top-right pill is gone; its number now lives in the top banner,
+    // which reports every capacity state rather than only the full one. This
+    // mock admin has no `profile` in mockAuth and so no personal category,
+    // which is exactly the viewer the generic banner is for.
+    expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
+    expect(screen.getByText('1 annual leave slot available across all doctor categories.')).toBeInTheDocument()
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
   })

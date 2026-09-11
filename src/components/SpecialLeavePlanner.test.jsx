@@ -101,9 +101,9 @@ describe('SpecialLeavePlanner', () => {
     renderPlanner()
     await screen.findByTestId('grid')
     expect(calls.neq).toContainEqual(['leave_type', 'weekend_exception'])
-    // Still chained alongside the non-annual/pending filter, which the
-    // weekend-exception exclusion narrows rather than replaces.
-    expect(calls.or).toContain('leave_type.neq.annual,status.eq.pending')
+    // Chained alongside the annual exclusion, which the weekend-exception
+    // one narrows rather than replaces.
+    expect(calls.neq).toContainEqual(['leave_type', 'annual'])
   })
 
   it('hands the grid rule copy saying where weekend exceptions went, with no standalone info card', async () => {

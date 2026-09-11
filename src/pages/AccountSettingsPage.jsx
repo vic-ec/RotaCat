@@ -397,7 +397,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim-strong p-4">
       <div className="card w-full max-w-sm p-5">
         <h3 className="mb-3 text-sm font-semibold text-ink">Adjust your photo</h3>
         <div className="relative h-72 w-full overflow-hidden rounded-lg bg-canvas-sunken">

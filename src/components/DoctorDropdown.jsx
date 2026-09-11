@@ -22,7 +22,7 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center scrim px-4"
       onClick={onClose}
     >
       <div

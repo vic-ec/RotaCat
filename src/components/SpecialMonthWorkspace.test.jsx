@@ -36,6 +36,10 @@ function renderWorkspace(props = {}) {
 
 // jsdom applies no breakpoints, so the desktop grid and the mobile dot grid
 // are both in the DOM. Scope day queries to the desktop one.
+function badgeFill(cell) {
+  return cell.querySelector('svg circle')?.getAttribute('fill')
+}
+
 function desktopDay(container, dayNumber) {
   const grid = container.querySelector('.hidden.lg\\:block')
   return within(grid).getByText(String(dayNumber)).closest('button')
@@ -64,17 +68,18 @@ describe('SpecialMonthWorkspace', () => {
     expect(within(day10).getByText('C')).toBeInTheDocument()
   })
 
-  // The capacity colour rides on the date number, not the whole cell: a month
-  // of full-bleed fills reads as a wall of colour and forces every name in the
-  // cell to be legible against four different backgrounds. Same four states,
-  // same colours, same read as the Annual planner's grid.
-  it('marks each day with its own capacity state on the date number', () => {
+  // Capacity is carried by the category badges' fill, not by the cell
+  // background or the date number: a month of full-bleed fills reads as a wall
+  // of colour and forces every name in the cell to stay legible against four
+  // different grounds. A day with nobody out has no badges and so no colour at
+  // all, which is the one state that needs no signal.
+  it('colours each day\'s category badges by its capacity state', () => {
     const { container } = renderWorkspace()
     // Two doctors out on the 10th of three guideline slots — near capacity.
-    expect(within(desktopDay(container, 10)).getByText('10').className).toMatch(/\bbg-capNear\b/)
-    // Nobody out on the 12th: available is a state, not the absence of one.
-    expect(within(desktopDay(container, 12)).getByText('12').className).toMatch(/\bbg-capAvailable\b/)
-    expect(within(mobileDay(container, 10)).getByText('10').className).toMatch(/\bbg-capNear\b/)
+    expect(badgeFill(desktopDay(container, 10))).toBe('rgb(var(--color-capNear))')
+    expect(badgeFill(mobileDay(container, 10))).toBe('rgb(var(--color-capNear))')
+    // Nobody out on the 12th: no badges to colour.
+    expect(badgeFill(desktopDay(container, 12))).toBeUndefined()
   })
 
   // The Special tab had no request path short of finding a tappable day.
@@ -170,7 +175,7 @@ describe('SpecialMonthWorkspace', () => {
     await user.click(desktopDay(container, 10))
     const panel = await screen.findByRole('dialog')
     expect(within(panel).getByText('2 of 3 slots taken')).toBeInTheDocument()
-    expect(panel).toHaveTextContent('1 slot available (guideline, any category)')
+    expect(panel).toHaveTextContent('1 slot available across all doctor categories.')
   })
 
   // The count is the true shared one — a non-admin can't see WHO the

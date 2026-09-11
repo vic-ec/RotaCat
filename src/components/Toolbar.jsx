@@ -358,7 +358,7 @@ export function MobileFiltersSheet({ title, facets = [], groups = [], active, on
   const sheetRef = useRef(null)
   useDismissablePopover(true, onClose, sheetRef)
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/20 md:hidden" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end scrim md:hidden" role="presentation">
       <div
         ref={sheetRef}
         role="dialog"

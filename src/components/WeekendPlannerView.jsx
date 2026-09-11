@@ -389,7 +389,7 @@ function WeekendInspector({
 
 // Mobile-only read-only quick-glance for a weekend, opened by tapping a
 // card's date header — mirrors LeaveYearGrid.jsx's DayDetailSheet (fixed
-// inset-0, bg-ink/20, items-end on mobile / items-center on desktop). This
+// inset-0, the shared `scrim` class, items-end on mobile / items-center on desktop). This
 // is deliberately NOT a replacement for the mobile card's own
 // always-expanded, fully editable breakdown below it (which stays exactly
 // as-is): that inline view already has everything, admin controls
@@ -404,7 +404,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
   const badge = weekendBadge(saturday, weekendIndex)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -443,7 +443,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
 }
 
 // Copy/Paste's confirmation step, styled like WeekendDriftDetailsModal.jsx
-// (fixed inset-0, bg-ink/20, items-center, card max-w-lg p-5) — nothing is
+// (fixed inset-0, scrim, items-center, card max-w-lg p-5) — nothing is
 // written until this is confirmed. Owns the fill-empty/overwrite mode
 // toggle locally and recomputes planWeekendPasteAcrossMonths (the pure
 // planner in weekendPlanner.js) on every mode/prop change so the preview counts below
@@ -461,7 +461,7 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
   const weekendCount = Math.min(sourceWeekendCount, targetWeekendCount)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-b-none p-5 sm:max-h-[80vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">Paste {clipboard.sourceLabel} into {targetLabel}</h2>
@@ -524,7 +524,7 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
 // (how many weekend_planner_entries rows this specific action would delete).
 function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
@@ -606,7 +606,7 @@ function MonthExceptionsPanel({ exceptions, displayNames }) {
 // identically wherever it appears.
 function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold text-ink">Weekend off requests</h2>
@@ -790,7 +790,7 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-base font-bold text-ink">Add doctor — {formatWeekendRange(saturday)}</h2>

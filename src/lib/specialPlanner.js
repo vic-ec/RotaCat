@@ -15,9 +15,10 @@ import { dayOfWeek } from './dateRange'
 import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP } from './leaveRequests'
 
 // Distinct doctors per date, counting only genuine special leave. The
-// planner's own `byDate` deliberately also carries sick leave and pending
-// annual (both worth seeing on the tab), but neither is what the 3-doctor
-// guideline is about, so neither colours a day.
+// planner's own `byDate` also carries sick leave — worth seeing on the tab,
+// but not what the 3-doctor guideline is about, so it does not colour a day.
+// Annual never reaches here at all: it is filtered out at the fetch, since
+// it belongs to the Annual planner and its own enforced cap.
 export function specialCountsByDate(byDate) {
   const counts = new Map()
   for (const [date, entries] of byDate) {
@@ -57,10 +58,10 @@ export function leadingBlanksForMonth(markers) {
 
 // Headline numbers for one month: how many distinct doctors have special
 // leave in it, how many requests are approved vs pending, and how many
-// days sit at or above the guideline. Counts every entry the planner
-// shows (sick and pending annual included) for the request tallies, since
-// those are "what is on this tab this month"; the pressure day count stays
-// special-leave-only, matching the guideline it reports against.
+// days sit at or above the guideline. Counts every entry the planner shows
+// (sick included) for the request tallies, since those are "what is on this
+// tab this month"; the pressure day count stays special-leave-only, matching
+// the guideline it reports against.
 export function specialMonthStats(year, month, byDate, countsByDate) {
   const dates = datesInMonth(year, month)
   const people = new Set()

@@ -43,7 +43,7 @@ export default function Modal({ title, onClose, children, footer, centered = fal
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex justify-center bg-ink/20 md:items-center md:p-4 ${
+      className={`fixed inset-0 z-50 flex justify-center scrim md:items-center md:p-4 ${
         centered ? 'items-center p-4' : 'items-end'
       }`}
       role="presentation"

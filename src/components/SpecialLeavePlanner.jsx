@@ -10,21 +10,22 @@ import SpecialPlannerOverview from './SpecialPlannerOverview'
 import SpecialMonthWorkspace from './SpecialMonthWorkspace'
 
 // Special Leave planner: every non-annual leave type (single day, special
-// leave, course/CPD, sick) at any status, PLUS any pending request
-// regardless of type — including pending annual leave, which doesn't show
-// on the Annual Leave tab until approved. Weekend exceptions are the one
-// deliberate exclusion at every status: they belong to the Weekend Planner,
-// not here (see the fetch below). No concurrency cap is enforced in code
+// leave, course/CPD, sick) at any status. Annual is excluded at every
+// status — it belongs to the Annual Leave tab and its own enforced 3-doctor
+// cap, and carrying pending annual here as well put a single request on two
+// planners under two different capacity rules. Weekend exceptions are the
+// other deliberate exclusion at every status: they belong to the Weekend
+// Planner, not here (see the fetch below). No concurrency cap is enforced in code
 // here (that rule only covers annual leave) — the EC Leave Planner sheet
 // does cap special leave at 3 doctors (any category) concurrently, but
 // that's currently a documented guideline only, not a submission-time
 // check.
-const RULE_INTRO = "Single days off, courses/CPD, and special leave don't count against the 22-day annual leave allowance. Shows every status, plus any pending request of any type."
+const RULE_INTRO = "Single days off, courses/CPD, and special leave don't count against the 22-day annual leave allowance. Shows every leave type but annual, at every status."
 
 const RULE_BULLETS = [
   'Covers single days off, courses/CPD, and special leave requests — these do not count against the 22-day annual leave allowance.',
   'The requested day/shift is made up elsewhere, unless it\'s flagged as a "special leave day."',
-  'Shows every non-annual leave type at any status, plus any pending request of any type — including pending annual leave not yet approved onto the Annual Leave tab.',
+  'Shows every non-annual leave type at any status. Annual leave — approved or pending — lives on the Annual Leave tab only.',
   'Weekend off requests are not shown here — they swap which weekend you work rather than reducing your hours. Request and track them on the Weekend planner; approval still runs through Planners → Requests.',
   'Italicised entries are pending admin approval.',
   'Guideline: no more than 3 doctors (any category) applying for special leave at the same time — not yet checked automatically at submission, unlike the Annual Leave cap (see the Annual Leave tab).',
@@ -97,7 +98,10 @@ export default function SpecialLeavePlanner() {
       supabase
         .from('leave_requests')
         .select('profile_id, date_from, date_to, leave_type, status, annual_leave_days, profiles!leave_requests_profile_id_fkey(name, surname, category)')
-        .or('leave_type.neq.annual,status.eq.pending')
+        // Every leave type but annual, at any status. Annual belongs to the
+        // Annual planner and its own enforced cap; carrying it here too put
+        // one request on two planners under two different capacity rules.
+        .neq('leave_type', 'annual')
         // ...but never weekend exceptions, at any status. A weekend
         // exception swaps WHICH weekend a doctor works rather than reducing
         // required hours, so it is not special leave (SPECIAL_LEAVE_TYPES
@@ -120,7 +124,14 @@ export default function SpecialLeavePlanner() {
     const byDate = buildLeaveByDate(leaveRes.data || [], { yearFrom: year, yearTo: year })
     const reshaped = new Map()
     for (const [date, entries] of byDate) {
-      reshaped.set(date, entries.map(e => ({
+      // Annual leave belongs to the Annual planner and only to it. This tab
+      // used to carry pending annual alongside sick and special so a viewer
+      // could see everything pending at once, but that made the same request
+      // appear on two planners with two different capacity rules attached to
+      // it — 3 doctors enforced on one, a 3-doctor guideline on the other.
+      const entriesHere = entries.filter(e => e.leave_type !== 'annual')
+      if (entriesHere.length === 0) continue
+      reshaped.set(date, entriesHere.map(e => ({
         profileId: e.profile_id, surname: e.profiles?.surname ?? '?', category: e.profiles?.category, status: e.status,
         dateFrom: e.date_from, dateTo: e.date_to, leaveType: e.leave_type, annualLeaveDays: e.annual_leave_days,
       })))

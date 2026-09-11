@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
-import { weeksForMonth, monthsForYear, COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
+import { weeksForMonth, monthsForYear, COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS, capacityStateForCount } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { shortLeaveTypeLabel, SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
 import { todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
@@ -151,11 +151,12 @@ export default function SpecialMonthWorkspace({
                     ring around the cell: a ring in a fifth colour on top of
                     a red or orange fill is just another thing to decode,
                     and this is the same marker the Annual grid uses. */}
+                {/* Same treatment as the Annual grid: the number is plain
+                    and pinned top-left on every cell, and the day's pressure
+                    is carried by the category badges' fill instead. */}
                 <span className="flex items-center justify-between gap-1">
                   <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-                    date === today
-                      ? 'bg-accent text-on-fill'
-                      : marker ? `${marker.capacityState.fill} ${marker.capacityState.onFillText}` : 'text-ink'
+                    date === today ? 'bg-accent text-on-fill' : 'text-ink'
                   }`}>
                     {Number(date.slice(-2))}
                   </span>
@@ -174,14 +175,14 @@ export default function SpecialMonthWorkspace({
                     <span
                       key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`}
                       className={`flex items-center gap-1 text-[11px] leading-tight ${
-                        e.status === 'pending' ? `italic ${marker?.capacityState.onFillMuted}` : marker?.capacityState.onFillText
+                        e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'
                       }`}
                     >
-                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} />
+                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} fill={marker?.capacityState.swatch} />
                       <span className="truncate">{displayNames.get(e.profileId) ?? e.surname}</span>
                     </span>
                   ))}
-                  {rows.length > 3 && <span className={`block text-[10px] ${marker?.capacityState.onFillMuted}`}>+{rows.length - 3} more</span>}
+                  {rows.length > 3 && <span className="block text-[10px] text-ink-muted">+{rows.length - 3} more</span>}
                 </span>
               </button>
             )
@@ -212,23 +213,17 @@ export default function SpecialMonthWorkspace({
                   marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
                 } ${date === today ? 'ring-1 ring-accent' : ''} bg-canvas-raised`}
               >
-                {/* Capacity rides on this dot rather than filling the whole
-                    cell: a month of full-bleed colour is hard on the eye on
-                    either ground, and it forces every name in the cell to be
-                    legible against four different backgrounds.
-
-                    Pinned to the corner rather than centred in the flex flow,
+                {/* Plain number; capacity is on the badges below. Pinned to
+                    the corner rather than centred in the flex flow,
                     exactly as the Annual grid's phone cells do it: a centred
                     number sits at a different height on a day with badges than
                     on one without, so the row of numbers wandered as you
                     scanned across a week. */}
-                <span className={`absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-bold ${
-                  marker ? `${marker.capacityState.fill} ${marker.capacityState.onFillText}` : 'text-ink'
-                }`}>{Number(date.slice(-2))}</span>
+                <span className="absolute left-1.5 top-1 font-bold text-ink">{Number(date.slice(-2))}</span>
                 {badges.length > 0 && (
                   <span className="flex items-center gap-[1px]">
                     {badges.slice(0, 3).map(key => (
-                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} />
+                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} fill={marker?.capacityState.swatch} />
                     ))}
                     {badges.length > 3 && (
                       <span className="text-[8px] font-semibold text-ink-muted">
@@ -296,6 +291,7 @@ function DayPanel({ date, rows, count, phName, displayNames, initialShowRequestF
   const formatted = `${WEEKDAY_NAMES[dayOfWeek(date)]}, ${date}`
   const remaining = Math.max(0, SPECIAL_LEAVE_SOFT_CAP - count)
   const atGuideline = count >= SPECIAL_LEAVE_SOFT_CAP
+  const panelState = capacityStateForCount(count)
 
   if (showRequestForm) {
     return (
@@ -328,12 +324,22 @@ function DayPanel({ date, rows, count, phName, displayNames, initialShowRequestF
       <div>
         {/* Slots, worded as the guideline it actually is — special leave has
             no enforced cap, so "N of 3 taken" must not imply a request over
-            it will be refused the way the Annual banner's does. */}
-        <div className={`rounded-lg px-3 py-2 text-sm ${atGuideline ? 'bg-flagAmber-bg text-flagAmber' : 'bg-canvas-sunken text-ink-light'}`}>
-          <span className="font-semibold">{count} of {SPECIAL_LEAVE_SOFT_CAP} slots taken</span>
-          {atGuideline
-            ? ' — at the guideline for special leave (any category). Requests still go through; an admin decides.'
-            : ` — ${remaining} ${remaining === 1 ? 'slot' : 'slots'} available (guideline, any category).`}
+            it will be refused the way the Annual banner's does. It carries
+            the day's capacity colour at every count, not just at the
+            guideline: the Annual planner reports each state and a day here
+            showing nothing read as "no guideline applies". */}
+        <div className={`flex items-start gap-2 rounded-lg p-3 text-sm ring-1 ring-inset ${panelState.tint} ${panelState.ringDark}`}>
+          <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${panelState.dark}`}>
+            {atGuideline ? '!' : count === 0 ? '✓' : '!'}
+          </span>
+          <div>
+            <p className={`font-bold ${panelState.text}`}>{count} of {SPECIAL_LEAVE_SOFT_CAP} slots taken</p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {atGuideline
+                ? 'At the guideline for special leave. Requests still go through; an admin decides.'
+                : `${remaining} ${remaining === 1 ? 'slot' : 'slots'} available across all doctor categories.`}
+            </p>
+          </div>
         </div>
         {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
 

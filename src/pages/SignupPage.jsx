@@ -182,7 +182,7 @@ function RoleModal({ role, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/65 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center scrim-heavy p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div

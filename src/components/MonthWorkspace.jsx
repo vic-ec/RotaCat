@@ -379,14 +379,14 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
       className={`flex min-h-[104px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:bg-canvas-sunken ${phName ? 'ring-2 ring-inset ring-ink' : ''}`}
     >
       <div className="flex items-center justify-between">
-        {/* Capacity now rides on the date number rather than filling the
-            whole cell. A month of full-bleed fills reads as a wall of colour
-            — hard on the eye on either ground, and it forces every name in
-            the cell to be legible against four different backgrounds. The
-            dot carries the same four states in the same colours, and the
-            names go back to plain ink. */}
+        {/* Day number stays plain and top-left, in the same place on every
+            cell whatever it holds. Capacity is on the category badges below
+            (see CategoryBadge's `fill`): the number is how you find a date,
+            not how you read the day's pressure, and giving it a coloured
+            disc made every cell look occupied even when nobody was away.
+            Today keeps its accent chip — that is identity, not capacity. */}
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-on-fill' : `${capacityState.fill} ${capacityState.onFillText}`
+          isToday ? 'bg-accent text-on-fill' : 'text-ink'
         }`}>
           {dateNum}
         </span>
@@ -402,7 +402,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
       <div className="flex-1 space-y-0.5 overflow-hidden">
         {[...entriesByColumn.entries()].map(([key, entries]) => (
           <div key={key} className="flex items-center gap-1 text-[11px] leading-tight">
-            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} />
+            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} fill={capacityState.swatch} />
             <span className="truncate">
               {entries.map((e, i) => (
                 <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
@@ -441,11 +441,11 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
           space is left over depending on occupancy, which previously made
           the same row of badges sit at a different height from one day to
           the next. */}
-      <span className={`absolute left-1.5 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-bold ${capacityState.fill} ${capacityState.onFillText}`}>{dateNum}</span>
+      <span className="absolute left-1.5 top-1 font-bold text-ink">{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
-          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} />)}
-          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} />}
+          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} fill={capacityState.swatch} />)}
+          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} fill={capacityState.swatch} />}
         </span>
       )}
     </button>

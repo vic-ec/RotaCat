@@ -25,7 +25,7 @@ export default function LegendSheet({ title = 'Legend', trigger, children, ruleI
         // see that component: rendered from FloatingActionMenu's stack, this
         // overlay would otherwise inherit `pointer-events: none` and let
         // every tap fall through to the page instead of dismissing.
-        <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center bg-ink/20 sm:items-center sm:px-4" onClick={() => setOpen(false)}>
+        <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={() => setOpen(false)}>
           <div
             role="dialog"
             aria-modal="true"

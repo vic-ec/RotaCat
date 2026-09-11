@@ -17,10 +17,12 @@ import { LEAVE_FULL_TIME_POOL_LABEL } from '../lib/leaveYearGrid'
 //     different pooled category who filled it.
 //   - `mySlots` null/undefined -> falls back to the generic cross-
 //     category banner (DayReviewModal only — a viewer with no capacity
-//     column, e.g. Consultant/admin), shown only once `atFullCapacity`;
-//     otherwise renders nothing. LeaveRequestForm never hits this branch,
-//     since its own preview never sets mySlots without a resolvable
-//     column in the first place.
+//     column, e.g. Consultant/admin). It reports every state, not just the
+//     full one: a day showing nothing at all read as "no capacity rule
+//     here" rather than "two of three slots are already gone", which is the
+//     single most useful thing to know before asking for the day.
+//     LeaveRequestForm never hits this branch, since its own preview never
+//     sets mySlots without a resolvable column in the first place.
 export default function LeaveCapacityBanner({
   mySlots, columnLabel, pooled, atFullCapacity, dayCapacityState, totalSlots, totalCeiling,
 }) {
@@ -28,7 +30,7 @@ export default function LeaveCapacityBanner({
     const available = mySlots.max - mySlots.taken
     const state = bannerStateForSlots(mySlots)
     return (
-      <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${state.tint}`}>
+      <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
         <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${state.dark}`}>
           {available <= 0 ? '✕' : available === mySlots.max ? '✓' : '!'}
         </span>
@@ -50,13 +52,26 @@ export default function LeaveCapacityBanner({
     )
   }
 
-  if (!atFullCapacity) return null
+  // No personal pool and no day state to fall back on — nothing truthful to
+  // say. LeaveRequestForm never lands here (it always passes mySlots), but a
+  // caller that did would otherwise crash on a missing state.
+  if (!dayCapacityState) return null
+
+  const remaining = Math.max(0, totalCeiling - totalSlots)
   return (
-    <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ${dayCapacityState.tint}`}>
-      <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>✕</span>
+    <div className={`mb-3 flex items-start gap-2 rounded-lg p-3 ring-1 ring-inset ${dayCapacityState.tint} ${dayCapacityState.ringDark}`}>
+      <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${dayCapacityState.dark}`}>
+        {atFullCapacity ? '✕' : totalSlots === 0 ? '✓' : '!'}
+      </span>
       <div>
-        <p className={`text-sm font-bold ${dayCapacityState.text}`}>Full — {totalSlots} of {totalCeiling} slots taken</p>
-        <p className="mt-0.5 text-xs text-ink-muted">No annual leave slots available for any category today.</p>
+        <p className={`text-sm font-bold ${dayCapacityState.text}`}>
+          {atFullCapacity ? 'Full — ' : ''}{totalSlots} of {totalCeiling} slots taken
+        </p>
+        <p className="mt-0.5 text-xs text-ink-muted">
+          {atFullCapacity
+            ? 'No annual leave slots available for any category today.'
+            : `${remaining} annual leave slot${remaining !== 1 ? 's' : ''} available across all doctor categories.`}
+        </p>
       </div>
     </div>
   )

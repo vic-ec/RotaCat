@@ -8,15 +8,17 @@ function entry(profileId, leaveType, dateFrom, dateTo, status = 'approved', surn
 }
 
 // 2026-08-10: three doctors on genuine special leave (at the guideline),
-// plus one sick and one pending-annual, neither of which the guideline is
-// about. 2026-08-11: one doctor only.
+// plus one sick and one pending study day — sick is not what the guideline
+// counts, and the pending row is there to prove status does not change the
+// count. Annual never appears: it is filtered out at the fetch, so it can
+// no longer reach this lib at all. 2026-08-11: one doctor only.
 const BY_DATE = new Map([
   ['2026-08-10', [
     entry('p1', 'study', '2026-08-10', '2026-08-11'),
     entry('p2', 'conference', '2026-08-10', '2026-08-10'),
     entry('p3', 'maternity', '2026-08-10', '2026-08-10'),
     entry('p4', 'sick', '2026-08-10', '2026-08-10'),
-    entry('p5', 'annual', '2026-08-10', '2026-08-10', 'pending'),
+    entry('p5', 'sick', '2026-08-10', '2026-08-10', 'pending'),
   ]],
   ['2026-08-11', [entry('p1', 'study', '2026-08-10', '2026-08-11')]],
 ])
@@ -24,7 +26,7 @@ const BY_DATE = new Map([
 describe('specialCountsByDate', () => {
   it('counts distinct doctors on genuine special leave only', () => {
     const counts = specialCountsByDate(BY_DATE)
-    // 5 entries that day, but sick and pending-annual are not special leave.
+    // 5 entries that day, but neither sick row is special leave.
     expect(counts.get('2026-08-10')).toBe(3)
     expect(counts.get('2026-08-11')).toBe(1)
   })
@@ -82,7 +84,7 @@ describe('specialMonthStats', () => {
   it('counts people and requests, and days above the guideline', () => {
     const stats = specialMonthStats(2026, 8, BY_DATE, specialCountsByDate(BY_DATE))
     expect(stats.people).toBe(5)
-    expect(stats.pending).toBe(1) // the pending annual row
+    expect(stats.pending).toBe(1) // the pending sick row
     expect(stats.approved).toBe(4)
     expect(stats.pressureDays).toBe(1) // only 2026-08-10
   })

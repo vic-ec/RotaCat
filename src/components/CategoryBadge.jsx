@@ -1,23 +1,28 @@
-// Solid neutral-slate circle badge (white border, white letters) used
-// everywhere a leave-planner grid marks which staff category a doctor
-// belongs to. Replaces the old per-category coloured dots (COLUMN_DOT_COLOR)
-// — every category renders in the same neutral colour, so it can never be
-// mistaken for the Annual planner's capacity heat map (available/limited/
-// near/at-capacity), which is the only place colour still carries
-// planner-specific meaning. Category identity lives entirely in the letter,
-// and the badge itself stays neutral per the app's category/status badge
-// convention (see Tag.jsx's ROLE_CLASS) — category is identity, not status,
-// so it never competes with the app's status/heat-map colour palette.
+// Circle badge marking which staff category a doctor belongs to, used
+// everywhere a leave-planner grid lists people. Category identity lives
+// entirely in the letter — never in the colour — so the badge defaults to
+// one neutral slate for every category and can't be read as a status.
 //
-// Hardcodes a fixed neutral hex (#4B5563, matching the `ink.light` token)
-// rather than a Tailwind class/CSS var — this badge represents the
-// product's own fixed-light UI, so it must render identically regardless of
-// the (currently unused, unwired) dark theme tokens living elsewhere in
-// tailwind.config.js.
+// `fill` is the one exception, and only the month-view planner grids pass
+// it. There, the badge doubles as the day's capacity signal: the cells used
+// to carry that as a full-bleed background, which on any theme reads as a
+// wall of colour and forces every name in the cell to stay legible against
+// four different grounds. Colouring the badges instead puts the signal on
+// the thing you are already looking at — one doctor out is yellow, two
+// orange, three red — and leaves the cell itself alone. The letter is still
+// what says MO or Reg; the colour only ever says how full the day is.
+//
+// The neutral fill is a fixed hex rather than a token: it is the same slate
+// in both themes, and white letters on it clear 7:1 either way.
 const FONT_SIZE_BY_LENGTH = { 1: 17, 2: 14, 3: 12.5 }
 const NEUTRAL_FILL = '#4B5563'
 
-export default function CategoryBadge({ label, size = 20, className = '' }) {
+// The badge's outer ring is the surface it sits on, not a literal white —
+// on the dark theme a white ring around a small circle reads as a bright
+// dot before it reads as a badge.
+const RING = 'rgb(var(--color-canvas-raised))'
+
+export default function CategoryBadge({ label, size = 20, className = '', fill = NEUTRAL_FILL }) {
   const fontSize = FONT_SIZE_BY_LENGTH[label.length] ?? 12.5
   return (
     <svg
@@ -32,11 +37,10 @@ export default function CategoryBadge({ label, size = 20, className = '' }) {
           path itself, so it sits flush against the fill with no gap
           between them. Two disconnected circles left an unfilled band
           between the fill's edge and the ring that showed through to
-          whatever was behind the badge (visible as a mismatched colour
-          ring on the capacity-tinted day cells). Stroke is fully opaque
-          white — a translucent stroke let the fill show through it,
-          reading as a muted/greyed border instead of a crisp white one. */}
-      <circle cx="22" cy="22" r="19" fill={NEUTRAL_FILL} stroke="#FFFFFF" strokeWidth="1" />
+          whatever was behind the badge. Stroke is fully opaque — a
+          translucent one let the fill show through, reading as a muted
+          border instead of a crisp one. */}
+      <circle cx="22" cy="22" r="19" fill={fill} stroke={RING} strokeWidth="1" />
       <text
         x="22" y="22" fontSize={fontSize} fontWeight="700" fill="#FFFFFF"
         textAnchor="middle" dominantBaseline="central" fontFamily="inherit"
@@ -52,12 +56,19 @@ export default function CategoryBadge({ label, size = 20, className = '' }) {
 // being readable — shows the first 3 plus a "+N" chip for the rest rather
 // than shrinking every badge to fit all 5. Consultant is uncapped, so a
 // 5-category day (all 4 capacity columns plus Consultant) is rare but
-// possible.
-export function CategoryOverflowChip({ count, size = 16 }) {
+// possible. Takes the same `fill` as the badges it stands in for, so a
+// capacity-coloured row doesn't end on a neutral chip.
+export function CategoryOverflowChip({ count, size = 16, fill = NEUTRAL_FILL }) {
   return (
     <span
       className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white"
-      style={{ width: size, height: size, fontSize: Math.max(7, Math.round(size * 0.5)), background: NEUTRAL_FILL, border: '1px solid #FFFFFF' }}
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.max(7, Math.round(size * 0.5)),
+        background: fill,
+        border: `1px solid ${RING}`,
+      }}
     >
       +{count}
     </span>

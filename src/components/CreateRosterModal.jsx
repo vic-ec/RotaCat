@@ -7,7 +7,7 @@
 // blurb as a hover tooltip rather than static copy, per the spec.
 export default function CreateRosterModal({ onClose, onGenerate, onBuild }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
       <div className="card w-full max-w-lg p-5" onClick={e => e.stopPropagation()}>
         <h2 className="font-display text-lg font-bold text-ink">Which roster do you want to create?</h2>
 

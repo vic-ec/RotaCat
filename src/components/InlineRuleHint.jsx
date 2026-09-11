@@ -45,7 +45,7 @@ export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFA
           {icon ?? <CircleQuestionMark className="h-4 w-4" />}
         </button>
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={() => setShowModal(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={() => setShowModal(false)}>
             <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-lg font-bold text-ink">How it works</h2>
@@ -98,7 +98,7 @@ export default function InlineRuleHint({ inline, intro, bullets, rulesUrl = DEFA
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/20 px-4" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={() => setShowModal(false)}>
           <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-bold text-ink">How it works</h2>

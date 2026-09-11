@@ -464,7 +464,7 @@ export default function AddStaffModal({ onClose, onCreated }) {
             <button
               type="button"
               onClick={addBlock}
-              className="btn-secondary mt-3 flex w-full items-center justify-center gap-1.5 text-xs"
+              className="btn-secondary mt-3 flex w-full items-center justify-center gap-1.5"
             >
               <Plus className="h-3.5 w-3.5" /> Add rotation
             </button>

@@ -176,6 +176,10 @@ export default function InternRotationsMatrix({
   // panel out from under whoever was still picking a date.
   const [blockDrafts, setBlockDrafts] = useState({})
   const [newOverlapModal, setNewOverlapModal] = useState(null) // { a, b } | null
+  // Rotation awaiting delete confirmation, or null. Removing a block drops a
+  // real date range off someone's record and there is no undo, so the X asks
+  // first rather than acting on the single tap.
+  const [removingRotation, setRemovingRotation] = useState(null)
   const seenOverlapPairsRef = useRef(new Map()) // doctorId -> Set of pair keys already surfaced
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -314,6 +318,7 @@ export default function InternRotationsMatrix({
   }
 
   async function handleBlockRemove(rotation) {
+    setRemovingRotation(null)
     setSavingBlockId(rotation.id)
     setBlockError('')
     try {
@@ -538,7 +543,7 @@ export default function InternRotationsMatrix({
                 )
               })}
             </div>
-            <button type="button" onClick={() => setEditing(true)} className="btn-secondary mt-3 w-full text-xs">
+            <button type="button" onClick={() => setEditing(true)} className="btn-secondary mt-3 w-full">
               Edit rotations
             </button>
           </>
@@ -563,7 +568,7 @@ export default function InternRotationsMatrix({
                     />
                     <button
                       type="button"
-                      onClick={() => handleBlockRemove(rotation)}
+                      onClick={() => setRemovingRotation(rotation)}
                       disabled={rowSaving}
                       aria-label="Remove block"
                       title="Remove block"
@@ -604,11 +609,15 @@ export default function InternRotationsMatrix({
               type="button"
               onClick={handleAddBlock}
               disabled={savingBlockId === 'new'}
-              className="btn-secondary flex w-full items-center justify-center gap-1.5 text-xs disabled:opacity-50"
+              className="btn-secondary flex w-full items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" /> {savingBlockId === 'new' ? 'Adding…' : 'Add block'}
             </button>
-            <button type="button" onClick={finishEditing} className="w-full text-center text-xs text-ink-muted hover:text-ink">
+            {/* A real button, not a bare text link: it closes the editor and
+                flushes any uncommitted date draft, which is the same weight of
+                action as the two buttons above it and was sitting at 16px
+                against their 30. */}
+            <button type="button" onClick={finishEditing} className="btn-ghost w-full">
               Done editing
             </button>
           </div>
@@ -640,6 +649,27 @@ export default function InternRotationsMatrix({
       <p className="mt-2 text-xs text-ink-muted">
         This doesn&apos;t block saving — adjust the dates above if this wasn&apos;t intended.
       </p>
+    </Modal>
+  )
+
+  const removeModal = removingRotation && (
+    <Modal
+      title="Delete this rotation?"
+      onClose={() => setRemovingRotation(null)}
+      maxWidthClassName="md:max-w-[420px]"
+      footer={
+        <>
+          <button type="button" onClick={() => setRemovingRotation(null)} className="btn-secondary text-sm">No</button>
+          <button type="button" onClick={() => handleBlockRemove(removingRotation)} className="btn-danger text-sm">Yes, delete</button>
+        </>
+      }
+    >
+      <p className="text-sm text-ink">
+        {typeLabel(rotationTypeKey(removingRotation.rotation_type, removingRotation.subtype))},{' '}
+        {removingRotation.start_date} – {removingRotation.end_date || 'ongoing'}, will be removed from{' '}
+        {displayNames?.get(selectedDoctor?.id) ?? selectedDoctor?.surname}&apos;s record.
+      </p>
+      <p className="mt-2 text-xs text-ink-muted">This cannot be undone.</p>
     </Modal>
   )
 
@@ -756,6 +786,7 @@ export default function InternRotationsMatrix({
         {addDoctorPicker}
         {addDoctorError && <p className="mt-2 text-xs text-flagRed">{addDoctorError}</p>}
         {overlapModal}
+        {removeModal}
       </div>
     )
   }
@@ -895,6 +926,7 @@ export default function InternRotationsMatrix({
         </div>
       )}
       {overlapModal}
+      {removeModal}
     </div>
   )
 }

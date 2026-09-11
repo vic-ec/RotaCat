@@ -122,7 +122,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
                     <button type="button" onClick={() => onViewInMatrix(doctor.id)} className="text-xs font-medium text-accent hover:underline">
                       View in Matrix
                     </button>
-                    <button type="button" onClick={() => startScheduling({ doctor, lastRotation })} className="btn-secondary px-2 py-1 text-xs">
+                    <button type="button" onClick={() => startScheduling({ doctor, lastRotation })} className="btn-secondary px-2">
                       Schedule deactivation
                     </button>
                     <button
@@ -152,7 +152,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
                     type="button"
                     onClick={() => confirmScheduling(doctor.id)}
                     disabled={saving || !draftDate}
-                    className="btn-primary px-2 py-1 text-xs disabled:opacity-50"
+                    className="btn-primary px-2 disabled:opacity-50"
                   >
                     {saving ? 'Saving…' : 'Confirm'}
                   </button>

@@ -637,7 +637,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               <button
                 key={action.label}
                 onClick={() => action.onClick([...selected])}
-                className="btn-secondary px-3 py-1.5 text-xs"
+                className="btn-secondary px-3"
               >
                 {action.label} ({selected.size})
               </button>

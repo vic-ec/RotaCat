@@ -664,7 +664,7 @@ function DayReviewModal({
                           >
                             {isActioning ? 'Rejecting…' : 'Confirm reject'}
                           </button>
-                          <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary text-xs">Cancel</button>
+                          <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary">Cancel</button>
                         </div>
                       </div>
                     ) : (
@@ -672,11 +672,11 @@ function DayReviewModal({
                         <button
                           onClick={() => (warned || capacityWarned) && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
                           disabled={isActioning || warningsById[request.id] === undefined}
-                          className="btn-primary text-xs"
+                          className="btn-primary"
                         >
                           {isActioning ? 'Approving…' : (warned || capacityWarned) ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'}
                         </button>
-                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-secondary text-xs">
+                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-secondary">
                           Reject
                         </button>
                       </div>

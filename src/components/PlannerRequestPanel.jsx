@@ -25,7 +25,7 @@ export default function PlannerRequestPanel({ eyebrow, aside, children, actionLa
       </div>
       {children}
       {canSubmitLeave && actionLabel && (
-        <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center text-xs">
+        <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center">
           {actionLabel}
         </button>
       )}

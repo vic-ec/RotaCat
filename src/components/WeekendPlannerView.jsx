@@ -332,7 +332,7 @@ function WeekendInspector({
                   type="button"
                   onClick={() => onCopyWeekend(saturday)}
                   disabled={coverage.filledGroups === 0}
-                  className="btn-secondary flex flex-1 items-center justify-center gap-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  className="btn-secondary flex flex-1 items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Copy className="h-3.5 w-3.5" /> Copy weekend
                 </button>
@@ -340,7 +340,7 @@ function WeekendInspector({
                   <button
                     type="button"
                     onClick={() => onPasteWeekend(saturday)}
-                    className="btn-secondary flex flex-1 items-center justify-center gap-1.5 text-xs"
+                    className="btn-secondary flex flex-1 items-center justify-center gap-1.5"
                   >
                     <ClipboardPaste className="h-3.5 w-3.5" /> Paste weekend
                   </button>
@@ -1649,12 +1649,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend’s ⋮ menu to paste' : ''}</span>
               <div className="flex items-center gap-2">
                 {clipboard.granularity === 'month' && (
-                  <button type="button" onClick={openMonthPaste} className="btn-primary px-3 py-1 text-xs">
+                  <button type="button" onClick={openMonthPaste} className="btn-primary px-3">
                     Paste into {MONTH_LABELS[viewMonth - 1]} {viewYear}
                   </button>
                 )}
                 {clipboard.granularity === 'quarter' && (
-                  <button type="button" onClick={openQuarterPaste} className="btn-primary px-3 py-1 text-xs">
+                  <button type="button" onClick={openQuarterPaste} className="btn-primary px-3">
                     Paste into {quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}
                   </button>
                 )}

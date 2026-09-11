@@ -76,7 +76,7 @@ export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDat
                     type="button"
                     onClick={() => activateNow(doctor.id)}
                     disabled={rowSaving}
-                    className="btn-secondary px-2 py-1 text-xs disabled:opacity-50"
+                    className="btn-secondary px-2 disabled:opacity-50"
                   >
                     {rowSaving ? 'Activating…' : 'Activate now'}
                   </button>
@@ -98,7 +98,7 @@ export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDat
                   type="button"
                   onClick={() => saveDate(doctor.id)}
                   disabled={rowSaving || !draftDate}
-                  className="btn-primary px-2 py-1 text-xs disabled:opacity-50"
+                  className="btn-primary px-2 disabled:opacity-50"
                 >
                   {rowSaving ? 'Saving…' : 'Save'}
                 </button>

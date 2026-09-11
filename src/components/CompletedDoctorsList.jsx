@@ -83,7 +83,7 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
                 </span>
               </div>
               {!isReactivating && (
-                <button type="button" onClick={e => { e.stopPropagation(); startReactivating(doctor) }} className="btn-secondary px-2 py-1 text-xs">
+                <button type="button" onClick={e => { e.stopPropagation(); startReactivating(doctor) }} className="btn-secondary px-2">
                   Reactivate
                 </button>
               )}
@@ -103,7 +103,7 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
                   type="button"
                   onClick={() => confirmReactivate(doctor.id)}
                   disabled={rowSaving || !draftDate}
-                  className="btn-primary px-2 py-1 text-xs disabled:opacity-50"
+                  className="btn-primary px-2 disabled:opacity-50"
                 >
                   {rowSaving ? 'Saving…' : draftDate <= todayStr() ? 'Activate now' : 'Schedule'}
                 </button>

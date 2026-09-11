@@ -180,7 +180,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
                     type="button"
                     onClick={() => setConfirmBatch(batch)}
                     disabled={restoringBatchId !== null}
-                    className="btn-secondary flex-shrink-0 px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    className="btn-secondary flex-shrink-0 px-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {restoringBatchId === batch.batchId ? 'Restoring…' : 'Restore this'}
                   </button>

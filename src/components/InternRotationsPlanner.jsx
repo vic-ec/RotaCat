@@ -31,7 +31,14 @@ export default function InternRotationsPlanner() {
   const [tab, setTab] = useState('active')
   const [interns, setInterns] = useState([])
   const [rotations, setRotations] = useState([])
-  const [loading, setLoading] = useState(true)
+  // First paint only. `load()` runs again after every mutation, and gating
+  // the page on a per-refetch flag unmounted InternRotationsMatrix each time
+  // — which threw away its `editing` state, so picking a date, adding a
+  // block or deleting one all closed the rotation editor out from under
+  // whoever was using it. Refetches now swap the data underneath a matrix
+  // that stays mounted; per-block progress is shown by the matrix's own
+  // `savingBlockId` instead.
+  const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState('')
   const today = todayStr()
   const currentYear = Number(today.slice(0, 4))
@@ -50,7 +57,6 @@ export default function InternRotationsPlanner() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    setLoading(true)
     setError('')
     const [profilesRes, rotationsData] = await Promise.all([
       // Intern/Registrar -- the OT/72h band (and its LRCHC/DPM-BCH/Psych
@@ -69,10 +75,10 @@ export default function InternRotationsPlanner() {
         .in('category', ['Intern', 'Registrar']),
       fetchAllInternRotations().catch(err => { setError(err.message); return [] }),
     ])
-    if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
+    if (profilesRes.error) { setError(profilesRes.error.message); setInitialLoading(false); return }
     setInterns(profilesRes.data || [])
     setRotations(rotationsData)
-    setLoading(false)
+    setInitialLoading(false)
   }
 
   // One-shot "open this doctor's card" deep link — the Staff account
@@ -86,7 +92,7 @@ export default function InternRotationsPlanner() {
   // URL once consumed so switching tabs and back doesn't reopen it.
   useEffect(() => {
     const doctorId = searchParams.get('doctor')
-    if (!doctorId || loading) return
+    if (!doctorId || initialLoading) return
     const doctor = interns.find(d => d.id === doctorId)
     if (doctor) {
       if (doctor.is_active) { setTab('active'); setSelectedDoctorId(doctor.id) }
@@ -99,7 +105,7 @@ export default function InternRotationsPlanner() {
       return next
     }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once interns finishes its first load, consuming whichever doctor id was in the URL at that point
-  }, [loading, interns])
+  }, [initialLoading, interns])
 
   // Active = the Matrix's own doctor pool, unchanged. Upcoming/Completed
   // split the rest by whether a future start is already scheduled (see
@@ -187,15 +193,15 @@ export default function InternRotationsPlanner() {
       <h2 className="font-display text-lg font-semibold text-ink">Intern &amp; Registrar Rotations</h2>
 
       {error && <p className="mt-3 text-sm text-flagRed">{error}</p>}
-      {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
+      {initialLoading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
 
-      {!loading && (
+      {!initialLoading && (
         <div className="mt-3">
           <PageTabs tabs={tabsWithBadges} active={tab} onChange={setTab} ariaLabel="Rotations" size="sub" />
         </div>
       )}
 
-      {!loading && tab === 'active' && (
+      {!initialLoading && tab === 'active' && (
         <>
           <div className="mt-3">
             <EndOfRotationQueue
@@ -227,7 +233,7 @@ export default function InternRotationsPlanner() {
         </>
       )}
 
-      {!loading && tab === 'upcoming' && (
+      {!initialLoading && tab === 'upcoming' && (
         <UpcomingDoctorsList
           doctors={upcomingInterns}
           displayNames={displayNames}
@@ -236,7 +242,7 @@ export default function InternRotationsPlanner() {
         />
       )}
 
-      {!loading && tab === 'completed' && (
+      {!initialLoading && tab === 'completed' && (
         <CompletedDoctorsList
           doctors={completedInterns}
           displayNames={displayNames}

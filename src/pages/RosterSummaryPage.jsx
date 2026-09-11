@@ -11,6 +11,7 @@ import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import { shiftColumns, shiftTimeRange } from '../lib/shiftLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -20,13 +21,13 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
 const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
 
-const WEEKDAY_COLUMNS = [{ code: 'WD_08', label: '08h00' }, { code: 'WD_12', label: '12h00' }, { code: 'WD_15', label: '15h00' }, { code: 'WD_22', label: '22h00' }]
-const WEEKEND_COLUMNS = [{ code: 'WE_08', label: '08h00' }, { code: 'WE_13', label: '13h00' }, { code: 'WE_20', label: '20h00' }]
+const WEEKDAY_COLUMNS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'], shiftTimeRange)
+const WEEKEND_COLUMNS = shiftColumns(['WE_08', 'WE_13', 'WE_20'], shiftTimeRange)
 // PH falling on a weekday uses the 4-slot PHW_* code set; PH falling on a
 // weekend uses the 3-slot PH_* set — same weekday/weekend shift-count split
 // as the ordinary Weekday/Weekend sections above, just for PH days.
-const PH_WEEKDAY_COLUMNS = [{ code: 'PHW_08', label: '08h00' }, { code: 'PHW_12', label: '12h00' }, { code: 'PHW_15', label: '15h00' }, { code: 'PHW_22', label: '22h00' }]
-const PH_WEEKEND_COLUMNS = [{ code: 'PH_08', label: '08h00' }, { code: 'PH_13', label: '13h00' }, { code: 'PH_20', label: '20h00' }]
+const PH_WEEKDAY_COLUMNS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'], shiftTimeRange)
+const PH_WEEKEND_COLUMNS = shiftColumns(['PH_08', 'PH_13', 'PH_20'], shiftTimeRange)
 
 const CONTRACT_TYPE_ORDER = ['full', 'five_eighths', 'Junior_Doctor_Overtime']
 const CONTRACT_TYPE_LABEL = { full: 'Full-time', five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }

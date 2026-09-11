@@ -85,12 +85,12 @@ const HEALTH_STYLE = {
 
 const STATE_STYLE = {
   working: { square: 'bg-accent-tint', swatch: 'bg-accent', label: 'Working' },
-  pending: { square: 'bg-flagAmber-bg', swatch: 'bg-flagAmber', label: 'Weekend off pending' },
+  pending: { square: 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45', swatch: 'bg-flagAmber', label: 'Weekend off pending' },
   // Approved is a settled roster state, the resolved half of the same
   // pending flag above — success, the same pairing every other request read
   // in the app uses, rather than a fourth neutral tone that would leave
   // "approved" looking indistinguishable from "never asked".
-  approvedOff: { square: 'bg-success-bg', swatch: 'bg-success', label: 'Weekend off approved' },
+  approvedOff: { square: 'bg-success-bg ring-1 ring-inset ring-success/45', swatch: 'bg-success', label: 'Weekend off approved' },
   off: { square: 'bg-canvas-sunken', swatch: 'bg-canvas-sunken', label: 'Off' },
 }
 
@@ -355,7 +355,7 @@ function MyWeekendMonthTile({ month, scope, onOpen }) {
   const openSlots = month.staffingMarkers.reduce((sum, m) => sum + (m.totalGroups - m.filledGroups), 0)
 
   const chip = all
-    ? { text: `${fullyPlanned} of ${markers.length} planned`, className: fullyPlanned === markers.length ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber' }
+    ? { text: `${fullyPlanned} of ${markers.length} planned`, className: fullyPlanned === markers.length ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45' : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45' }
     : { text: totals.working === 0 ? 'No weekends' : `${totals.working} working`, className: totals.working > 0 ? 'bg-accent-tint text-accent' : 'bg-canvas-sunken text-ink-muted' }
   const summary = all
     ? (openSlots === 0 ? 'Every rotation group planned' : `${openSlots} open ${openSlots === 1 ? 'slot' : 'slots'} across the month`)

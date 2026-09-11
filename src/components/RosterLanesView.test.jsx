@@ -1,0 +1,304 @@
+import { describe, it, expect } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
+import RosterLanesView from './RosterLanesView'
+import { startForCode, bandForCode, SHIFT_START } from '../lib/shiftBands'
+
+// A short month: a Friday, its weekend, and a Monday public holiday — the
+// four day types the roster issues, so every shift pattern appears.
+const DAYS = [
+  { dateStr: '2026-08-07', dayType: 'weekday', phName: null },
+  { dateStr: '2026-08-08', dayType: 'weekend', phName: null },
+  { dateStr: '2026-08-09', dayType: 'PH', phName: "National Women's Day" },
+  { dateStr: '2026-08-10', dayType: 'PH_weekday', phName: 'Observed' },
+]
+
+const PROFILES = [
+  { id: 'c1', name: 'Ada', surname: 'Sathi', category: 'Consultant', is_active: true },
+  { id: 'd1', name: 'Bo', surname: 'Landers', category: 'MO', is_active: true },
+  { id: 'd2', name: 'Cy', surname: 'Venter', category: 'Registrar', is_active: true },
+]
+
+const SHIFT_TYPES = { s1: 'WD_08', s2: 'WE_20', s3: 'PH_13', s4: 'PHW_22' }
+
+const ENTRIES = [
+  { id: 'e1', profile_id: 'd1', shift_type_id: 's1', date: '2026-08-07', is_locum: false },
+  { id: 'e2', profile_id: 'd1', shift_type_id: 's2', date: '2026-08-08', is_locum: false },
+  { id: 'e3', profile_id: 'd2', shift_type_id: 's3', date: '2026-08-09', is_locum: false },
+  { id: 'e4', profile_id: 'd2', shift_type_id: 's4', date: '2026-08-10', is_locum: false },
+  // A locum placeholder has no doctor behind it, so it belongs to no lane.
+  { id: 'e5', profile_id: null, shift_type_id: 's1', date: '2026-08-08', is_locum: true },
+]
+
+const ENTRY_MAP = {
+  '2026-08-07|CONSULTANT': [{ id: 'x1', consultant_profile_id: 'c1' }],
+}
+
+function renderLanes(props = {}) {
+  return render(
+    <RosterLanesView
+      days={DAYS}
+      profiles={PROFILES}
+      entries={ENTRIES}
+      shiftTypes={SHIFT_TYPES}
+      displayNames={new Map()}
+      entryMap={ENTRY_MAP}
+      {...props}
+    />
+  )
+}
+
+function laneFor(surname) {
+  return screen.getByRole('rowheader', { name: surname }).closest('tr')
+}
+
+describe('shiftBands', () => {
+  it('maps every shift code the roster issues to its start hour', () => {
+    // Guards against a code being added to shift_types without a band: an
+    // unmapped code renders an empty lane cell, which reads as "not
+    // working" — a wrong answer, not a missing one.
+    expect(Object.keys(SHIFT_START).sort()).toEqual([
+      'PHW_08', 'PHW_12', 'PHW_15', 'PHW_22',
+      'PH_08', 'PH_13', 'PH_20',
+      'WD_08', 'WD_12', 'WD_15', 'WD_22',
+      'WE_08', 'WE_13', 'WE_20',
+    ].sort())
+  })
+
+  it('gives the weekday and weekend clocks their own starts', () => {
+    expect(startForCode('WD_12')).toBe('12')
+    expect(startForCode('WE_13')).toBe('13')
+    expect(startForCode('WD_22')).toBe('22')
+    expect(startForCode('WE_20')).toBe('20')
+  })
+
+  it('returns null for a code it has not been taught, rather than throwing', () => {
+    expect(startForCode('WD_99')).toBeNull()
+    expect(bandForCode('WD_99')).toBeNull()
+    expect(bandForCode(undefined)).toBeNull()
+  })
+})
+
+describe('RosterLanesView', () => {
+  it('labels a worked day with the shift start time, not a letter', () => {
+    // D/L/N was the first attempt and L read as "leave" in a grid that also
+    // shows leave. The time says which shift without a key.
+    renderLanes()
+    const lane = within(laneFor('Landers'))
+    expect(lane.getByText('08h')).toBeInTheDocument()
+    expect(lane.getByText('20h')).toBeInTheDocument()
+  })
+
+  it('reads the weekend and public-holiday clocks correctly', () => {
+    renderLanes()
+    const lane = within(laneFor('Venter'))
+    expect(lane.getByText('13h')).toBeInTheDocument()  // PH_13, a Sunday holiday
+    expect(lane.getByText('22h')).toBeInTheDocument()  // PHW_22, a Monday holiday
+  })
+
+  it('colours a cell by its start time', () => {
+    renderLanes()
+    const lane = within(laneFor('Landers'))
+    expect(lane.getByText('08h').className).toContain('bg-shift-08')
+    expect(lane.getByText('20h').className).toContain('bg-shift-20')
+  })
+
+  it('marks a day off with a dot rather than leaving the cell blank', () => {
+    renderLanes()
+    // Venter works only the last two days of this fixture.
+    expect(within(laneFor('Venter')).getAllByText('·')).toHaveLength(2)
+  })
+
+  it('shows a consultant as on call, not as a shift they do not hold', () => {
+    renderLanes()
+    const lane = within(laneFor('Sathi'))
+    expect(lane.getByText('C')).toBeInTheDocument()
+    expect(lane.queryByText('08h')).not.toBeInTheDocument()
+  })
+
+  it('gives no lane to a locum placeholder — it belongs to no doctor', () => {
+    renderLanes()
+    expect(screen.queryByRole('rowheader', { name: /\[ \]/ })).not.toBeInTheDocument()
+    // ...and the real assignment on that same day is still drawn.
+    expect(within(laneFor('Landers')).getByText('20h')).toBeInTheDocument()
+  })
+
+  it('groups lanes by category, consultants first', () => {
+    renderLanes()
+    const headings = screen.getAllByRole('columnheader')
+      .filter(th => th.getAttribute('scope') === 'colgroup')
+      .map(th => th.textContent)
+    expect(headings[0]).toBe('Consultant')
+  })
+
+  it('renders only the profiles it is given, so a filter can narrow it', () => {
+    renderLanes({ profiles: PROFILES.filter(p => p.category === 'MO') })
+    expect(screen.getByRole('rowheader', { name: 'Landers' })).toBeInTheDocument()
+    expect(screen.queryByRole('rowheader', { name: 'Venter' })).not.toBeInTheDocument()
+  })
+
+  it('says so when a filter leaves nothing, instead of an empty table', () => {
+    renderLanes({ profiles: [] })
+    expect(screen.getByText('No doctors match this search.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('prefers the disambiguated display name over the bare surname', () => {
+    renderLanes({ displayNames: new Map([['d1', 'B. Landers']]) })
+    expect(screen.getByRole('rowheader', { name: 'B. Landers' })).toBeInTheDocument()
+  })
+
+  it('names a cell with the shift, not the database code, on hover', () => {
+    renderLanes()
+    expect(within(laneFor('Landers')).getByTitle('2026-08-07 — WD 08h-18h')).toBeInTheDocument()
+    expect(within(laneFor('Venter')).getByTitle('2026-08-10 — PHW 22h-10h')).toBeInTheDocument()
+  })
+
+  it('marks a public holiday by wrapping the date, not by adding a line under it', () => {
+    // The bug: a "PH" chip on a third line pushed the date and weekday
+    // initial up, so holiday columns sat out of line with every other
+    // column in the header row. Every column is two lines now.
+    renderLanes()
+    const headers = screen.getAllByRole('columnheader').filter(th => th.getAttribute('scope') === 'col')
+    const ph = headers.find(th => th.textContent.startsWith('9'))
+    const ordinary = headers.find(th => th.textContent.startsWith('7'))
+    expect(ph.textContent).not.toContain('PH')
+    // The date and its initial are inside the rose box, and nothing else is.
+    const box = within(ph).getByRole('button')
+    expect(box.className).toContain('bg-rose')
+    expect(box).toHaveTextContent('9')
+    expect(box).toHaveTextContent('S')
+    // Same two lines as a plain column — the holiday rides along for a
+    // screen reader without taking a line of its own.
+    expect(ordinary.querySelectorAll('span.block')).toHaveLength(2)
+    expect(box.querySelectorAll('span.block')).toHaveLength(2)
+  })
+
+  it('keeps the holiday popover, and still names the day it falls on', () => {
+    renderLanes()
+    const ph = screen.getAllByRole('columnheader').find(th => th.textContent.startsWith('9'))
+    const box = within(ph).getByRole('button')
+    // An aria-label here would have replaced the date — the header would
+    // announce the holiday but not which day it is.
+    expect(box).not.toHaveAttribute('aria-label')
+    expect(ph).toHaveAccessibleName(/9.*S.*Women's Day/s)
+    expect(within(ph).getByRole('tooltip')).toHaveTextContent("National Women's Day")
+  })
+
+  it('draws a weekend column lighter than the header row it sits under', () => {
+    // The complaint that prompted this: weekend/PH cells were canvas.sunken,
+    // the same fill as the header cells, so the two blocks merged.
+    renderLanes()
+    const off = within(laneFor('Sathi')).getAllByText('·')
+    expect(off.some(td => td.className.includes('bg-canvas-cool'))).toBe(true)
+    expect(off.some(td => td.className.includes('bg-canvas-sunken'))).toBe(false)
+  })
+})
+
+// A month's first and last weeks are short. Left alone, a two-day week gave
+// its two days a third of the table each and let the name column take the
+// rest — the week read nothing like the five full weeks beside it.
+describe('RosterLanesView — a short week padded to seven columns', () => {
+  // Sat 1 and Sun 2 August 2026: the tail of a Monday-start week, so five
+  // blanks belong in front of them.
+  const SHORT_WEEK = [
+    { dateStr: '2026-08-01', dayType: 'weekend', phName: null },
+    { dateStr: '2026-08-02', dayType: 'weekend', phName: null },
+  ]
+
+  function dayCells(surname) {
+    return within(laneFor(surname)).getAllByRole('cell')
+  }
+
+  // The name column's two widths live as custom properties on the table —
+  // index.css picks between them per breakpoint, which jsdom does not lay
+  // out, so the properties themselves are what there is to assert on.
+  function nameColWidth() {
+    return parseInt(screen.getByRole('table').style.getPropertyValue('--lanes-name-w'), 10)
+  }
+  function nameColShare() {
+    return screen.getByRole('table').style.getPropertyValue('--lanes-name-w-md')
+  }
+
+  it('pads a short week out to seven day columns', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    expect(dayCells('Landers')).toHaveLength(7)
+  })
+
+  it('puts the blanks on the side the month boundary cut', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    const headers = screen.getAllByRole('columnheader').filter(th => th.getAttribute('scope') === 'col')
+    // Doctor, then five blanks, then the 1st and the 2nd.
+    expect(headers.map(th => th.textContent)).toEqual(['Doctor', '1S', '2S'])
+    expect(dayCells('Landers').slice(0, 5).every(td => td.textContent === '')).toBe(true)
+  })
+
+  it('leaves a full week alone', () => {
+    const fullWeek = ['03', '04', '05', '06', '07', '08', '09']
+      .map(d => ({ dateStr: `2026-08-${d}`, dayType: 'weekday', phName: null }))
+    renderLanes({ days: fullWeek, padToWeek: true })
+    expect(dayCells('Landers')).toHaveLength(7)
+  })
+
+  it('does not pad the month view, where a short run is the whole month', () => {
+    renderLanes({ days: SHORT_WEEK })
+    expect(dayCells('Landers')).toHaveLength(2)
+  })
+
+  it('grows the name column for a long surname rather than truncating it', () => {
+    // The complaint: a flat 88px column cut "Van Schalkwyk" short while
+    // each day column beside it took 168px to hold "08h".
+    renderLanes({
+      days: SHORT_WEEK,
+      padToWeek: true,
+      displayNames: new Map([['d1', 'Van Schalkwyk-Botha']]),
+    })
+    // 19 characters at ~7.7px plus the cell's padding, well clear of the
+    // 128px floor a table of short surnames would sit at.
+    expect(nameColWidth()).toBe(162)
+  })
+
+  it('caps the name column so one long name cannot take the table over', () => {
+    renderLanes({
+      days: SHORT_WEEK,
+      padToWeek: true,
+      displayNames: new Map([['d1', 'Van Schalkwyk-Oosthuizen-Bezuidenhout']]),
+    })
+    expect(nameColWidth()).toBe(200)
+  })
+
+  it('holds a floor when every surname is short, so it stays the widest column', () => {
+    // Day columns are capped at 96px; the name column's floor sits above
+    // that, which is what makes "widest" true rather than coincidental.
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    expect(nameColWidth()).toBe(128)
+  })
+
+  it('grows every column to fill the panel, the name column with them', () => {
+    // A padded week always has width to spare on a desktop panel. Left at a
+    // flat pixel width the table stopped short and left the panel half
+    // empty, so from md up the name column takes a share instead — 1.35
+    // day columns' worth, which keeps it the widest without giving a
+    // column of surnames a third of the grid.
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    expect(nameColShare()).toBe('16.17%')
+    // …and the pixel width is still there for the phone, where the share
+    // would be too few pixels to hold a surname.
+    expect(nameColWidth()).toBe(128)
+    expect(screen.getByRole('table').style.minWidth).toBe('338px')
+  })
+
+  it('leaves a month on pixels — 31 columns never leave the panel room to spare', () => {
+    const month = Array.from({ length: 31 }, (_, i) => ({
+      dateStr: `2026-08-${String(i + 1).padStart(2, '0')}`, dayType: 'weekday', phName: null,
+    }))
+    renderLanes({ days: month })
+    expect(nameColShare()).toBe('')
+    expect(nameColWidth()).toBe(128)
+  })
+
+  it('stretches the category heading across the padded columns too', () => {
+    renderLanes({ days: SHORT_WEEK, padToWeek: true })
+    const heading = screen.getAllByRole('columnheader').find(th => th.getAttribute('scope') === 'colgroup')
+    expect(heading).toHaveAttribute('colspan', '8')
+  })
+})

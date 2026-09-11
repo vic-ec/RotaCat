@@ -55,7 +55,7 @@ describe('RosterVacancyManager — recursive swap workflow', () => {
     )
 
     // Step 1: choose screen for Alice's WD_08 vacancy
-    expect(await screen.findByText(/Alice Anderson is on a published shift — WD_08 on 2026-08-10/)).toBeInTheDocument()
+    expect(await screen.findByText(/Alice Anderson is on a published shift — WD 08h-18h on 2026-08-10/)).toBeInTheDocument()
 
     // Step 2: pick "Swap with another doctor" -> DoctorDropdown opens, Alice excluded from the list
     await user.click(screen.getByRole('button', { name: /swap with another doctor/i }))
@@ -67,7 +67,7 @@ describe('RosterVacancyManager — recursive swap workflow', () => {
     await user.click(screen.getByText('Brown'))
 
     expect(onDone).not.toHaveBeenCalled()
-    expect(await screen.findByText(/Bob Brown is on a published shift — WD_15 on 2026-08-10/)).toBeInTheDocument()
+    expect(await screen.findByText(/Bob Brown is on a published shift — WD 15h-01h on 2026-08-10/)).toBeInTheDocument()
 
     // Step 4: resolve the cascaded vacancy — the chain should now finish.
     await user.click(screen.getByRole('button', { name: /open, don't advertise/i }))

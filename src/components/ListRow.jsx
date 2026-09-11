@@ -216,9 +216,9 @@ export const REJECT_ICON = <X className="h-4 w-4" strokeWidth={2.5} />
 // of source order. The bare `active:` fill stays for touch, which presses
 // without ever hovering.
 const APPROVAL_ACTION_TONE_CLASS = {
-  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success hover:active:bg-success active:text-white',
-  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger hover:active:bg-danger active:text-white',
-  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent hover:active:bg-accent active:text-white',
+  success: 'border-success/40 text-success hover:border-success hover:bg-success-bg active:border-success active:bg-success hover:active:bg-success active:text-on-fill',
+  danger: 'border-danger/40 text-danger hover:border-danger hover:bg-danger-bg active:border-danger active:bg-danger hover:active:bg-danger active:text-on-fill',
+  neutral: 'border-accent/40 text-accent hover:border-accent hover:bg-accent-tint active:border-accent active:bg-accent hover:active:bg-accent active:text-on-fill',
 }
 export function ApprovalAction({ icon, label, tone = 'neutral', onClick, disabled }) {
   return (

@@ -165,7 +165,7 @@ function YearGridButtons({ rangeStart, currentYear, onPick }) {
             onClick={() => onPick(y)}
             aria-current={isCurrent ? 'true' : undefined}
             className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
-              isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
+              isCurrent ? 'bg-accent text-on-fill' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
             }`}
           >
             {y}
@@ -235,7 +235,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
                 onClick={() => onPick(jumpYear, m.month)}
                 aria-current={isCurrent ? 'true' : undefined}
                 className={`rounded-md px-2 py-2 text-sm font-medium transition-colors ${
-                  isCurrent ? 'bg-accent text-white' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
+                  isCurrent ? 'bg-accent text-on-fill' : 'bg-canvas-sunken text-ink hover:bg-accent-tint'
                 }`}
               >
                 {m.label}

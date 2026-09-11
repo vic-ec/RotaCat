@@ -864,7 +864,7 @@ export default function InternRotationsMatrix({
         type="button"
         onClick={openAddDoctor}
         aria-label="Add doctor"
-        className="fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-raised md:flex"
+        className="fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill shadow-raised md:flex"
       >
         <Plus className="h-6 w-6" />
       </button>
@@ -890,7 +890,7 @@ export default function InternRotationsMatrix({
 
       {addDoctorPicker}
       {addDoctorError && (
-        <div className="fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
+        <div className="fixed inset-x-0 bottom-[calc(70px+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 md:bottom-4">
           <p className="rounded-lg bg-flagRed-bg px-3 py-2 text-xs text-flagRed shadow-raised">{addDoctorError}</p>
         </div>
       )}

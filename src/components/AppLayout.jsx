@@ -209,8 +209,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors lg:justify-start ${
                   isActive
-                    ? 'bg-accent text-canvas-raised'
-                    : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised'
+                    ? 'bg-accent text-on-fill'
+                    : 'text-ink-light hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-on-fill'
                 }`
               }
             >
@@ -232,7 +232,7 @@ export default function AppLayout() {
           <button
             onClick={handleSignOut}
             title="Sign out"
-            className="flex w-full items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-canvas-raised lg:justify-start"
+            className="flex w-full items-center justify-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-ink-light transition-colors hover:bg-accent-light hover:text-ink-light active:bg-accent active:text-on-fill lg:justify-start"
           >
             <LogoutIcon className="h-[18px] w-[18px]" />
             <span className="hidden lg:inline">Sign out</span>
@@ -241,7 +241,7 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col pb-[54px] md:pb-0">
+      <div className="flex min-w-0 flex-1 flex-col pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
         {/* Top bar — mobile only, and Dashboard-only: every other mobile
             page starts straight into its own content/nav instead, the same
             way a native app only brands its home tab. Sign-out lives on the
@@ -270,8 +270,15 @@ export default function AppLayout() {
         </main>
       </div>
 
-      {/* Bottom nav — mobile, primary navigation only */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised md:hidden">
+      {/* Bottom nav — mobile, primary navigation only.
+
+          The safe-area inset is padding on the bar rather than an offset:
+          the fill still reaches the bottom of the screen (an offset would
+          leave a strip of page showing under it) while the items sit above
+          the home indicator instead of behind it. Resolves to 0 on a device
+          without one, so nothing changes elsewhere. Matches what
+          MobileFiltersSheet, ActionSheet and the FAB already do. */}
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised pb-[env(safe-area-inset-bottom)] md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -315,7 +322,7 @@ export default function AppLayout() {
 function NavBadge({ count }) {
   return (
     <span
-      className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-white ring-1 ring-canvas-raised"
+      className="absolute -right-1.5 -top-1 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-flagRed px-1 text-[9px] font-semibold leading-none text-on-fill ring-1 ring-canvas-raised"
       aria-label={`${count} pending`}
     >
       {count > 9 ? '9+' : count}

@@ -64,15 +64,17 @@ describe('SpecialMonthWorkspace', () => {
     expect(within(day10).getByText('C')).toBeInTheDocument()
   })
 
-  // The whole cell carries the capacity colour, not a corner dot — the
-  // same heat-map read the Annual planner's grid gives.
-  it('fills each day cell with its own capacity state', () => {
+  // The capacity colour rides on the date number, not the whole cell: a month
+  // of full-bleed fills reads as a wall of colour and forces every name in the
+  // cell to be legible against four different backgrounds. Same four states,
+  // same colours, same read as the Annual planner's grid.
+  it('marks each day with its own capacity state on the date number', () => {
     const { container } = renderWorkspace()
     // Two doctors out on the 10th of three guideline slots — near capacity.
-    expect(desktopDay(container, 10).className).toContain('bg-capNear-light')
+    expect(within(desktopDay(container, 10)).getByText('10').className).toMatch(/\bbg-capNear\b/)
     // Nobody out on the 12th: available is a state, not the absence of one.
-    expect(desktopDay(container, 12).className).toContain('bg-capAvailable-light')
-    expect(mobileDay(container, 10).className).toContain('bg-capNear-light')
+    expect(within(desktopDay(container, 12)).getByText('12').className).toMatch(/\bbg-capAvailable\b/)
+    expect(within(mobileDay(container, 10)).getByText('10').className).toMatch(/\bbg-capNear\b/)
   })
 
   // The Special tab had no request path short of finding a tappable day.

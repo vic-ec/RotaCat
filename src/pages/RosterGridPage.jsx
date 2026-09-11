@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { contrastTextColor } from '../lib/color'
-import { patternBackgroundStyle } from '../lib/avatarPatterns'
 import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
@@ -17,6 +15,27 @@ import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import Toolbar from '../components/Toolbar'
+import ViewToggle from '../components/ViewToggle'
+import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
+import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
+
+// Two ways to read the same month. Rows is the day-by-day grid the roster
+// has always been; Lanes turns it ninety degrees, a row per doctor. Both
+// are the same data and the same filters — only the axis changes.
+const ROSTER_LAYOUTS = [
+  { key: 'rows', label: 'Rows', icon: Rows3 },
+  { key: 'lanes', label: 'Lanes', icon: Columns3 },
+]
+
+// How much of the month is on screen. No icons: two plain words read
+// faster than a pair of calendar glyphs, and ViewToggle keeps a label
+// visible at every width when there's no icon to fall back to.
+const ROSTER_RANGES = [
+  { key: 'month', label: 'Month' },
+  { key: 'week', label: 'Week' },
+]
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -36,29 +55,12 @@ function isDriftMuted(rosterMonthId, drift) {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-// Shift display headers matching the PDF layout
-const WEEKDAY_SHIFTS = [
-  { code: 'WD_08', label: '08h00' },
-  { code: 'WD_12', label: '12h00' },
-  { code: 'WD_15', label: '15h00' },
-  { code: 'WD_22', label: '22h00' },
-]
-const WEEKEND_SHIFTS = [
-  { code: 'WE_08', label: '08h00' },
-  { code: 'WE_13', label: '13h00' },
-  { code: 'WE_20', label: '20h00' },
-]
-const PH_WEEKDAY_SHIFTS = [
-  { code: 'PHW_08', label: '08h00' },
-  { code: 'PHW_12', label: '12h00' },
-  { code: 'PHW_15', label: '15h00' },
-  { code: 'PHW_22', label: '22h00' },
-]
-const PH_WEEKEND_SHIFTS = [
-  { code: 'PH_08', label: '08h00' },
-  { code: 'PH_13', label: '13h00' },
-  { code: 'PH_20', label: '20h00' },
-]
+// Shift display headers. The label is the shift's own name ("WD 08h-18h")
+// rather than a bare start time — see src/lib/shiftLabels.js.
+const WEEKDAY_SHIFTS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'])
+const WEEKEND_SHIFTS = shiftColumns(['WE_08', 'WE_13', 'WE_20'])
+const PH_WEEKDAY_SHIFTS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'])
+const PH_WEEKEND_SHIFTS = shiftColumns(['PH_08', 'PH_13', 'PH_20'])
 
 function getShiftsForDay(dayType) {
   if (dayType === 'weekday') return WEEKDAY_SHIFTS
@@ -81,6 +83,9 @@ export default function RosterGridPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('month') // 'month' | 'week'
+  const [layout, setLayout] = useState('rows')       // 'rows' | 'lanes'
+  const [search, setSearch] = useState('')
+  const [filterCategory, setFilterCategory] = useState(new Set())
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
@@ -258,6 +263,34 @@ export default function RosterGridPage() {
   // Consultant pools so a collision between the two still resolves, even
   // though they're assigned via separate columns/dropdowns.
   const displayNames = buildDoctorDisplayNames([...profiles, ...consultantProfiles])
+
+  // One filter drives both layouts: Lanes drops the rows that don't match,
+  // Rows keeps every chip but dims the ones that don't — hiding a name from
+  // a day's staffing would misreport the day, where dimming just answers
+  // "where am I".
+  const categoryOptions = [...new Set(
+    [...profiles, ...consultantProfiles].map(p => p.category).filter(Boolean)
+  )].sort().map(c => ({ value: c, label: labelForLeaveCategory(c) || c }))
+
+  const filtersActive = Boolean(search.trim()) || filterCategory.size > 0
+
+  function matchesFilter(profile) {
+    if (!profile) return false
+    if (filterCategory.size > 0 && !filterCategory.has(profile.category)) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    const shown = displayNames?.get(profile.id) ?? profile.surname ?? ''
+    return `${profile.name ?? ''} ${profile.surname ?? ''} ${shown}`.toLowerCase().includes(q)
+  }
+
+  const lanesProfiles = [...profiles, ...consultantProfiles]
+    .filter(p => p.is_active !== false)
+    .filter(matchesFilter)
+
+  function clearFilters() {
+    setSearch('')
+    setFilterCategory(new Set())
+  }
 
   async function handleCellClick(date, shiftCode, existingEntry) {
     if (!isAdmin) return
@@ -451,8 +484,8 @@ export default function RosterGridPage() {
           <div className="mt-1 flex items-center gap-2">
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
               rosterMonth.status === 'published'
-                ? 'bg-success-bg text-success'
-                : 'bg-flagAmber-bg text-flagAmber'
+                ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
+                : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
             }`}>
               {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
             </span>
@@ -465,26 +498,19 @@ export default function RosterGridPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex rounded-lg border border-slate-line bg-canvas-raised overflow-hidden">
-            <button
-              onClick={() => setViewMode('month')}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'month' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'week' ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
-              }`}
-            >
-              Week
-            </button>
-          </div>
+        {/* flex-wrap, not nowrap: two view toggles plus up to three action
+            buttons overflow a narrow phone otherwise, and this cluster
+            wrapping onto a second line is the cheapest way out. */}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* The two view switches sit side by side, as one cluster: they
+              answer neighbouring questions (what shape the roster is drawn
+              in, and how much of it at once) and pairing them keeps either
+              from reading as a property of the toolbar row below. Rows/
+              Lanes comes first — pick the shape, then the span. Both are
+              the shared ViewToggle rather than one being hand-rolled, so
+              they line up at the same 30px height. */}
+          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
 
           {/* Hours Summary — visible to every role that can view this page
               except locum (matches Roster Hours Summary's own visibility
@@ -521,12 +547,16 @@ export default function RosterGridPage() {
 
           {/* Undo Publish — reverts back to draft; sits where Publish would
               be, since the two states (draft/published) are mutually
-              exclusive and this button only ever shows for the other one. */}
+              exclusive and this button only ever shows for the other one.
+              Dressed as .btn-danger-outline, the Reject/Decline shape:
+              taking a published roster back off the wall is a negative
+              action, and the outline (rather than solid .btn-danger) keeps
+              it from shouting at an admin who only came to look. */}
           {isAdmin && rosterMonth.status === 'published' && (
             <button
               onClick={handleUnpublish}
               disabled={publishing}
-              className="btn-secondary text-sm"
+              className="btn-danger-outline text-sm"
               aria-label="Undo Publish"
               title="Undo Publish"
             >
@@ -654,7 +684,43 @@ export default function RosterGridPage() {
         </div>
       )}
 
-      {/* Grid — horizontally scrollable */}
+      {/* Find-a-doctor row: search at the standard 320px (layout-spec,
+          Search width), Filter beside it. `mobileMode="inline"` so the two
+          share one row on a phone instead of Filter dropping below a
+          full-width search box — this row sits directly above a grid that
+          already wants every vertical pixel it can get. */}
+      <div className="mb-3">
+        <Toolbar
+          className=""
+          mobileMode="inline"
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by surname…"
+          filterGroups={categoryOptions.length > 0 ? [{
+            key: 'category', label: 'Category',
+            options: categoryOptions,
+            selected: filterCategory, onChange: setFilterCategory,
+          }] : []}
+          active={filtersActive}
+          onClearAll={clearFilters}
+        />
+      </div>
+
+      {layout === 'lanes' ? (
+        <>
+          <RosterLanesView
+            days={visibleDays}
+            profiles={lanesProfiles}
+            entries={entries}
+            shiftTypes={shiftTypes}
+            displayNames={displayNames}
+            entryMap={entryMap}
+            padToWeek={viewMode === 'week'}
+          />
+          <LanesLegend />
+        </>
+      ) : (
+      /* Grid — horizontally scrollable */
       <div className="overflow-x-auto rounded-lg border border-slate-line">
         <table className="w-full min-w-[580px] table-fixed border-collapse text-xs">
           {/* Every column 20px narrower than before: date 64px -> 44px;
@@ -682,13 +748,17 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
-              const headerBg = isWeekend ? 'bg-gray-300' : 'bg-canvas-sunken'
+              // The shift-time header cells are the darkest fill in the
+              // grid; a weekend/PH row's own body sits two steps lighter
+              // (canvas.cool, not canvas.sunken) so the header reads as a
+              // header rather than merging into the tinted rows under it.
+              const headerBg = isWeekend ? 'bg-accent-panel' : 'bg-canvas-sunken'
 
               return (
                 <tr
                   key={day.dateStr}
                   className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-gray-300' : 'bg-canvas-raised'
+                    isWeekend ? 'bg-canvas-cool' : 'bg-canvas-raised'
                   } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
@@ -716,7 +786,7 @@ export default function RosterGridPage() {
                   {/* Consultant column */}
                   <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
-                      <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
+                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
                         Consultant
                       </div>
                     )}
@@ -744,13 +814,13 @@ export default function RosterGridPage() {
                         key={code}
                         className={`border-r border-slate-line align-top p-0 ${
                           colIdx === shifts.length - 1 ? 'border-r-0' : ''
-                        } ${hasShortfall ? 'bg-flagRed-bg' : hasLocum ? 'bg-flagAmber-bg' : ''}`}
+                        } ${hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className={`border-b border-slate-line px-1.5 py-1 text-center font-semibold text-ink-muted ${headerBg}`}>
+                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
                             {label}
                           </div>
                         )}
@@ -760,6 +830,7 @@ export default function RosterGridPage() {
                               key={entry.id}
                               entry={entry}
                               profile={profileMap[entry.profile_id]}
+                              dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
                               onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
@@ -787,6 +858,7 @@ export default function RosterGridPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Dropdown */}
       {openDropdown && (
@@ -810,7 +882,7 @@ export default function RosterGridPage() {
           onRemove={openDropdown.entryId ? () => removeEntry(openDropdown.entryId) : null}
           onClose={() => setOpenDropdown(null)}
           date={openDropdown.date}
-          shiftCode={openDropdown.shiftCode}
+          shiftCode={labelForShiftCode(openDropdown.shiftCode)}
         />
       )}
 
@@ -840,15 +912,23 @@ export default function RosterGridPage() {
 }
 
 // ── DoctorChip ─────────────────────────────────────────────────────────────
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true }) {
+// One assignment. The surface stays plain and the doctor's own colour sits
+// on the left rail instead of filling the whole chip: at 39 approved
+// doctors a grid of full fills reads as a quilt, and the fill was the only
+// thing separating one day from the next. A 3px rail still lets someone
+// find themselves at a glance, which was the one job the fill did well.
+//
+// The shift is not named here — the column heading above says which shift
+// this is, so a code in the cell would be the third statement of it and is
+// most of the width back.
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false }) {
   if (entry.is_locum) {
     return (
       <div
         onClick={isAdmin ? onClick : undefined}
-        className={`rounded px-1.5 py-0.5 text-[10px] font-medium text-flagAmber ${
+        className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[10px] font-medium text-flagAmber ${
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
-        }`}
-        style={{ backgroundColor: '#FBF1E3', border: '1px dashed #B8762E' }}
+        } ${dimmed ? 'opacity-30' : ''}`}
       >
         {entry.locum_name || '[ ]'}
       </div>
@@ -857,8 +937,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
 
   if (!profile) return null
 
-  const bgColor = profile.color_code || '#4A90D9'
-  const patternStyle = profile.pattern_type ? patternBackgroundStyle(profile.pattern_type, bgColor, 8) : null
+  const railColor = profile.color_code || '#4A90D9'
   const draggableNow = isAdmin && canDrag
 
   return (
@@ -866,13 +945,15 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-        isAdmin ? 'cursor-pointer hover:opacity-85' : ''
-      } ${entry.is_manual_override ? 'ring-1 ring-flagBlue ring-offset-1' : ''}`}
-      style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
+      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${
+        isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+      } ${dimmed ? 'opacity-30' : ''}`}
+      style={{ borderLeftColor: railColor }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
-      {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
+      <span className="truncate">
+        {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
+      </span>
     </div>
   )
 }
@@ -918,19 +999,20 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
   const consultant = existing?.consultant_profile_id
     ? consultantProfiles.find(p => p.id === existing.consultant_profile_id)
     : null
-  const bgColor = consultant?.color_code || '#4A90D9'
-  const patternStyle = consultant?.pattern_type ? patternBackgroundStyle(consultant.pattern_type, bgColor, 8) : null
+  // Same slot treatment as DoctorChip — the consultant is one more name in
+  // the row, so it should not be the one full-colour block left on it.
+  const railColor = consultant?.color_code || '#4A90D9'
 
   return (
     <>
       <div onClick={isAdmin ? () => setOpen(true) : undefined} className={isAdmin ? 'cursor-pointer' : ''}>
         {consultant ? (
           <div
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${isAdmin ? 'hover:opacity-85' : ''}`}
-            style={{ backgroundColor: bgColor, color: contrastTextColor(bgColor), ...patternStyle }}
+            className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
+            style={{ borderLeftColor: railColor }}
             title={`${consultant.name} ${consultant.surname}`}
           >
-            {displayNames?.get(consultant.id) ?? consultant.surname}
+            <span className="truncate">{displayNames?.get(consultant.id) ?? consultant.surname}</span>
           </div>
         ) : existing?.consultant_name ? (
           <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>

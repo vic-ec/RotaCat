@@ -218,7 +218,7 @@ function SetPasswordForm({ profile, onDone }) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-white
+        className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
           transition-colors hover:bg-accent-dark active:bg-accent-dark
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
           disabled:opacity-60
@@ -272,7 +272,7 @@ export default function SetPasswordPage() {
   // the emailed login link lands people first.
   if (!isDesktop) {
     return (
-      <div className="flex min-h-dvh flex-col bg-canvas-raised">
+      <div className="flex min-h-dvh flex-col bg-auth-hero">
         <MobileAuthHero />
 
         <div className="relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pb-5 pt-6">
@@ -288,7 +288,7 @@ export default function SetPasswordPage() {
 
   // Desktop: split-screen card, matching Login and Sign-up.
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-accent px-4 py-10">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10">
       <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
         <AuthHero />
 

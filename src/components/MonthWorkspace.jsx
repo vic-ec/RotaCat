@@ -164,14 +164,14 @@ export default function MonthWorkspace({
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
               {mobileLegendStates.map(state => (
                 <span key={state.key} className="flex items-center gap-1.5">
-                  <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+                  <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
                 </span>
               ))}
             </div>
             <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
               {LEAVE_CAPACITY_STATES.map(state => (
                 <span key={state.key} className="flex items-center gap-1.5">
-                  <span className={`h-2.5 w-2.5 rounded-sm ${state.light}`} /> {state.label}
+                  <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
                 </span>
               ))}
             </div>
@@ -376,16 +376,22 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[104px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:brightness-95 ${phName ? 'ring-2 ring-inset ring-ink' : ''} ${capacityState.light}`}
+      className={`flex min-h-[104px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:bg-canvas-sunken ${phName ? 'ring-2 ring-inset ring-ink' : ''}`}
     >
       <div className="flex items-center justify-between">
+        {/* Capacity now rides on the date number rather than filling the
+            whole cell. A month of full-bleed fills reads as a wall of colour
+            — hard on the eye on either ground, and it forces every name in
+            the cell to be legible against four different backgrounds. The
+            dot carries the same four states in the same colours, and the
+            names go back to plain ink. */}
         <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-white' : capacityState.onFillText
+          isToday ? 'bg-accent text-on-fill' : `${capacityState.fill} ${capacityState.onFillText}`
         }`}>
           {dateNum}
         </span>
       </div>
-      {phName && <span className={`truncate text-[10px] font-medium ${capacityState.onFillMuted}`}>{phName}</span>}
+      {phName && <span className="truncate text-[10px] font-medium text-ink-muted">{phName}</span>}
       {/* This list clips vertically once it outgrows the cell's fixed
           min-height, via overflow-hidden below — but a `ring` (box-shadow)
           bleeds outside its own box and gets clipped by that same
@@ -399,7 +405,7 @@ function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacit
             <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} />
             <span className="truncate">
               {entries.map((e, i) => (
-                <span key={e.profileId} className={e.status === 'pending' ? `italic ${capacityState.onFillMuted}` : capacityState.onFillText}>
+                <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
                   {displayNames.get(e.profileId) ?? e.surname}{i < entries.length - 1 ? ', ' : ''}
                 </span>
               ))}
@@ -419,9 +425,9 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-[23px] text-xs ${capacityState.light} ${
+      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-[23px] text-xs ${
         isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
-      } ${isToday ? 'ring-1 ring-accent' : ''} hover:brightness-95`}
+      } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
     >
       {/* Pinned to the same corner on every cell via absolute positioning,
           taken out of the flex flow entirely — otherwise this shares the
@@ -435,7 +441,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
           space is left over depending on occupancy, which previously made
           the same row of badges sit at a different height from one day to
           the next. */}
-      <span className={`absolute left-1.5 top-1 font-bold ${capacityState.onFillText}`}>{dateNum}</span>
+      <span className={`absolute left-1.5 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-bold ${capacityState.fill} ${capacityState.onFillText}`}>{dateNum}</span>
       {columnsPresent.length > 0 && (
         <span className="grid grid-cols-2 gap-0.5">
           {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} />)}

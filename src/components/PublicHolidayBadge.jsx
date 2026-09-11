@@ -8,7 +8,14 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // than the shift cells beside it. The day now carries a small badge and the
 // name is revealed on hover (desktop) or tap (mobile, where :hover never
 // fires on its own).
-export default function PublicHolidayBadge({ name }) {
+//
+// `children` turns the badge inside out: instead of a "PH" chip sitting
+// beside what it marks, the rose box wraps the caller's own content. Doctor
+// Lanes needs that — its day headers are one narrow column each, and a chip
+// under the date made the public-holiday columns two lines taller than
+// every other column in the row. Same popover either way; only the box
+// around it changes.
+export default function PublicHolidayBadge({ name, children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useDismissablePopover(open, () => setOpen(false), ref)
@@ -17,16 +24,28 @@ export default function PublicHolidayBadge({ name }) {
   const label = baseName || 'Public holiday'
   const statusText = observed ? 'Observed public holiday' : 'Public holiday'
 
+  const wraps = children != null
+
   return (
-    <span ref={ref} className="group relative inline-block">
+    <span ref={ref} className={`group relative ${wraps ? 'block' : 'inline-block'}`}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        aria-label={`${label} — ${statusText}`}
-        className="flex h-5 w-5 items-center justify-center rounded bg-rose text-[10px] font-semibold leading-none text-white transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark"
+        // Only the chip takes an aria-label. On the wrapping variant the
+        // caller's content is the date, and an aria-label here would
+        // replace it — leaving a column header that announces the holiday
+        // but not which day it falls on. The holiday goes in after it
+        // instead.
+        aria-label={wraps ? undefined : `${label} — ${statusText}`}
+        className={`rounded bg-rose text-on-fill transition-colors hover:bg-rose-dark focus:outline-none focus:ring-1 focus:ring-rose-dark ${
+          wraps
+            ? 'block w-full px-0.5 py-0.5'
+            : 'flex h-5 w-5 items-center justify-center text-[10px] font-semibold leading-none'
+        }`}
       >
-        PH
+        {children ?? 'PH'}
+        {wraps && <span className="sr-only"> — {label}, {statusText}</span>}
       </button>
       {/* Opens to the right, over the Consultant column: the grid sits in an
           `overflow-x-auto` wrapper, so a tooltip dropping below a short row

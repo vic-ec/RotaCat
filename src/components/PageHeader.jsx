@@ -22,7 +22,7 @@ export default function PageHeader({ title, badge, action }) {
         <h1 className="font-display text-xl font-bold text-ink md:text-2xl">{title}</h1>
         {badge > 0 && (
           <span
-            className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-flagRed px-1.5 text-xs font-semibold text-white"
+            className="flex h-5 min-w-[20px] flex-shrink-0 items-center justify-center rounded-full bg-flagRed px-1.5 text-xs font-semibold text-on-fill"
             aria-label={`${badge} need attention`}
           >
             {badge}

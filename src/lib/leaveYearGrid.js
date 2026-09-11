@@ -113,21 +113,26 @@ export const COLUMN_FULL_LABEL = {
 //               sitting on top of the solid `fill`/`light` background (day
 //               numbers, entries) — dark ink on the light `limited`
 //               (yellow) state, white on the three darker states.
+// `onFillText` is the label that sits on a state's own fill — since the month
+// planners moved capacity onto the date-number dot, this is the only thing
+// making the number readable. It is per state rather than one value because
+// white clears 4.5:1 on the red alone: on the green, yellow and orange it
+// lands between 1.5:1 and 3.3:1, so those carry the dark `on-heat` label.
 export const LEAVE_CAPACITY_STATES = [
   {
     key: 'available', label: 'Available',
     fill: 'bg-capAvailable', light: 'bg-capAvailable-light', tint: 'bg-capAvailable-tint', dark: 'bg-capAvailable-dark', ringDark: 'ring-capAvailable-dark',
-    text: 'text-capAvailable-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
+    text: 'text-capAvailable-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'limited', label: 'Limited',
     fill: 'bg-capLimited', light: 'bg-capLimited-light', tint: 'bg-capLimited-tint', dark: 'bg-capLimited-dark', ringDark: 'ring-capLimited-dark',
-    text: 'text-capLimited-ink', onFillText: 'text-ink', onFillMuted: 'text-ink-light',
+    text: 'text-capLimited-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'near_capacity', label: 'Near capacity',
     fill: 'bg-capNear', light: 'bg-capNear-light', tint: 'bg-capNear-tint', dark: 'bg-capNear-dark', ringDark: 'ring-capNear-dark',
-    text: 'text-capNear-ink', onFillText: 'text-white', onFillMuted: 'text-white/75',
+    text: 'text-capNear-ink', onFillText: 'text-on-heat', onFillMuted: 'text-on-heat/75',
   },
   {
     key: 'at_capacity', label: 'At capacity',

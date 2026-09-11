@@ -22,7 +22,7 @@ export default function ViewToggle({ view, onChange, options }) {
             onClick={() => onChange(o.key)}
             aria-label={o.label}
             className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors ${
-              view === o.key ? 'bg-accent text-white' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+              view === o.key ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}
           >
             {Icon && <Icon className="h-3.5 w-3.5 flex-shrink-0" />}

@@ -181,14 +181,14 @@ describe('MonthWorkspace', () => {
     const admin = renderWorkspace({ countByColumnPerDate })
     // Admin's generic read: total 2 of 3 -> "Near capacity" (orange), not yet "At capacity".
     const adminMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
-    expect(adminMobileCell.className).toContain('bg-capNear-light')
+    expect(within(adminMobileCell).getByText('12').className).toMatch(/\bbg-capNear\b/)
     admin.unmount()
 
     // A non-admin MO viewer's own shared pool is already full (2 of 2) -> "At capacity" (red).
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
     renderWorkspace({ countByColumnPerDate })
     const doctorMobileCell = screen.getAllByText('12').map(el => el.closest('button')).find(b => b?.className.includes('min-h-[64px]'))
-    expect(doctorMobileCell.className).toContain('bg-capAtCapacity-light')
+    expect(within(doctorMobileCell).getByText('12').className).toMatch(/\bbg-capAtCapacity\b/)
   })
 
   it('mobile day cells: the date number is pinned to a fixed top-left position via absolute positioning, not centred with the badge grid', () => {

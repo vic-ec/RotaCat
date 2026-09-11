@@ -13,9 +13,9 @@ import DateStepper from './DateStepper'
 // concept). Red is a solid fill rather than the -bg+text pairing amber/green
 // use — "empty" is the one state genuinely worth calling out at a glance.
 const HEALTH_STYLE = {
-  green: { square: 'bg-success-bg', swatch: 'bg-success', label: 'Fully planned' },
-  amber: { square: 'bg-flagAmber-bg', swatch: 'bg-flagAmber', label: 'Needs staff' },
-  red: { square: 'bg-flagRed-bg', swatch: 'bg-flagRed', label: 'Empty' },
+  green: { square: 'bg-success-bg ring-1 ring-inset ring-success/45', swatch: 'bg-success', label: 'Fully planned' },
+  amber: { square: 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45', swatch: 'bg-flagAmber', label: 'Needs staff' },
+  red: { square: 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45', swatch: 'bg-flagRed', label: 'Empty' },
 }
 
 function formatShortDate(dateStr) {
@@ -118,9 +118,9 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
             </div>
 
             <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-line pt-2">
-              <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg" />
-              <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg" />
-              <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg" />
+              <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg ring-1 ring-inset ring-success/45" />
+              <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45" />
+              <StatCell label="No staff" value={selectedStats.empty} colorClass="text-flagRed" bgClass="bg-flagRed-bg ring-1 ring-inset ring-flagRed/45" />
             </div>
 
             {/* Weekend exceptions for this month — between the staffing
@@ -153,7 +153,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
                         </span>
                         <span
                           className={`flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase leading-none ${
-                            isPending ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
+                            isPending ? 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45' : 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
                           }`}
                         >
                           {isPending ? 'Pending' : 'Approved'}
@@ -251,7 +251,7 @@ function WeekendMonthCard({ month, isSelected, onSelect }) {
                   {m.gapCount}
                 </span>
               ) : (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white ring-1 ring-canvas-raised">
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-on-fill ring-1 ring-canvas-raised">
                   <Check className="h-2.5 w-2.5" strokeWidth={3} />
                 </span>
               )}

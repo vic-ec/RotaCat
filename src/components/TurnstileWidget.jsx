@@ -1,5 +1,7 @@
 import { forwardRef } from 'react'
 import { Turnstile } from '@marsidev/react-turnstile'
+import { useTheme } from '../context/ThemeContext'
+import { DARK_THEME } from '../lib/themes'
 
 const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
@@ -18,18 +20,26 @@ export const TURNSTILE_ENABLED = Boolean(SITE_KEY)
 // underlying widget's `reset()`, used to get a fresh token after a
 // failed submit — a Turnstile token is single-use.
 const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire }, ref) {
+  const { theme } = useTheme()
   if (!SITE_KEY) return null
+  const widgetTheme = theme === DARK_THEME ? 'dark' : 'light'
   return (
     <Turnstile
+      // Cloudflare reads the theme when it renders the widget into its
+      // iframe, so a changed option does not repaint an existing one. The
+      // key remounts it instead — the cost is a fresh token, which is no
+      // loss: a token is single-use and nobody switches theme mid-submit.
+      key={widgetTheme}
       ref={ref}
       siteKey={SITE_KEY}
       onSuccess={onVerify}
       onExpire={onExpire}
-      // "auto" (the default) rendered a dark box that clashed hard with
-      // these forms' white panels — force light to match. "flexible"
-      // stretches it to the same width as the surrounding inputs instead
-      // of sitting as a fixed 300px block.
-      options={{ theme: 'light', size: 'flexible' }}
+      // Follows the app's own theme rather than Turnstile's "auto", which
+      // keys off the OS and so showed a dark box on the light forms (and
+      // would show a white one on the dark theme for anyone whose device
+      // says light). "flexible" stretches it to the width of the inputs
+      // around it instead of sitting as a fixed 300px block.
+      options={{ theme: widgetTheme, size: 'flexible' }}
     />
   )
 })

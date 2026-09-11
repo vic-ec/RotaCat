@@ -84,6 +84,7 @@ export default {
         // raw `bg-accent`, which the dark theme would turn into a full-screen
         // mint; it needs to resolve per theme, so it gets its own token.
         'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
+        'auth-hero': 'rgb(var(--color-auth-hero) / <alpha-value>)',
 
         // Single confident accent — teal-blue, not generic "medical blue"
         accent: {

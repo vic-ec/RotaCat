@@ -272,7 +272,7 @@ export default function SetPasswordPage() {
   // the emailed login link lands people first.
   if (!isDesktop) {
     return (
-      <div className="flex min-h-dvh flex-col bg-canvas-raised">
+      <div className="flex min-h-dvh flex-col bg-auth-hero">
         <MobileAuthHero />
 
         <div className="relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pb-5 pt-6">

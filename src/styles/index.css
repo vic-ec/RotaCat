@@ -120,6 +120,14 @@
      Deep teal reads as a frame; the dark theme's mint would not, so it uses
      a ground one step below `canvas` instead. */
   --color-auth-ground: 15 118 110;            /* #0F766E */
+  /* The hero half of the auth card, and the whole of it on a phone. Its own
+     token rather than canvas-raised because the two themes want opposite
+     things from it: on white the cat needs a light panel to sit on, while on
+     the dark theme canvas-raised (#1D2F2B) and the sign-in sheet's
+     accent-panel (#1F332E) are 1.04:1 apart — near enough the same colour
+     that the hero and the sheet read as one surface. Dark drops it to the
+     page's own near-black so the mascot has a ground to sit on. */
+  --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
 
   /* Label for anything filled with a solid brand or status colour.
      The light theme puts white on its deep teal (5.47:1). */
@@ -238,6 +246,7 @@
   --color-band-bar: 43 70 63;                 /* #2B463F */
 
   --color-auth-ground: 10 16 14;              /* #0A100E */
+  --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
   /* White on this theme's mint accent is 2.20:1 — unreadable. The ground
      colour on it is 8.35:1, so solid fills carry a dark label here. */

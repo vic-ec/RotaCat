@@ -13,7 +13,7 @@ export default function MobileAuthHero() {
   const rotacatMascot = useAuthMascot()
 
   return (
-    <div className="flex flex-1 -translate-y-[5px] flex-col items-center justify-center bg-canvas-raised px-6">
+    <div className="flex flex-1 -translate-y-[5px] flex-col items-center justify-center bg-auth-hero px-6">
       <h1 className="font-serif text-[66px] font-semibold leading-none text-ink">
         <RotaCat />
       </h1>

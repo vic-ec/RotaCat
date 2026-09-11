@@ -502,6 +502,27 @@
            disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* A disabled destructive button should stop looking destructive.
+     `opacity-50` leaves the red in place and just mixes it with whatever is
+     behind: on the dark theme #E87272 composites down to #82504E, which
+     reads as a muddier red rather than as an unavailable control — and next
+     to an enabled "Decline…" in the real red, as a second, different red.
+
+     Going fully neutral says "not yet" without shouting "danger", and it
+     lands on the same grey in both themes because every value here is a
+     token. Specificity does the work: `.btn-danger:disabled` is a class plus
+     a pseudo-class, so it beats the `disabled:opacity-50` the @apply above
+     generates at the same weight, on source order.
+
+     Deliberately limited to the destructive pair. A disabled Approve still
+     fades, which is the right emphasis for an action that is merely not
+     ready yet rather than one being actively withheld. */
+  .btn-danger:disabled,
+  .btn-danger-outline:disabled {
+    @apply bg-canvas-sunken text-ink-muted opacity-100 shadow-none;
+    border-color: rgb(var(--color-slate-line));
+  }
+
   /* Transparent background, minimal (fully transparent) border — for
      low-emphasis actions that shouldn't compete visually with a page's real
      primary/secondary buttons. Border stays in the box model (transparent,

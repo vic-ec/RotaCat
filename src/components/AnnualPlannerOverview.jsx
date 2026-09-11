@@ -159,7 +159,7 @@ export default function AnnualPlannerOverview({
       {!isAdmin && (
         <div className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Annual Leave Planner</h2>
             <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
               <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
             </DateStepper>
@@ -211,7 +211,7 @@ export default function AnnualPlannerOverview({
       <div className={isAdmin ? '' : 'hidden lg:block'}>
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">Annual planner</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Annual Leave Planner</h2>
         <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
       </div>
 

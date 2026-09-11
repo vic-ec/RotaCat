@@ -222,6 +222,7 @@ export default function WeekendPlanner() {
             initialScope={scope}
             onScopeChange={setScope}
             onOpenMonth={openMonth}
+            onDataChanged={load}
           />
         )
       )}

@@ -98,7 +98,7 @@ export default function SpecialPlannerOverview({
       {!isAdmin && (
         <div data-testid="special-month-finder" className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-semibold text-ink">Special planner</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Special Leave Planner</h2>
             <div className="flex items-center gap-2">
               <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
               <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
@@ -149,7 +149,7 @@ export default function SpecialPlannerOverview({
 
       <div className={isAdmin ? '' : 'hidden lg:block'}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">Special planner</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Special Leave Planner</h2>
         <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
       </div>
 

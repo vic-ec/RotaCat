@@ -85,7 +85,7 @@ describe('WeekendPlanner', () => {
   it('admin: lands on the staffing year overview (WeekendYearOverview)', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     renderPlanner()
-    expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
+    expect(await screen.findByText('Weekend Planner')).toBeInTheDocument()
     expect(within(screen.getByTestId('weekend-year-inspector')).getByText('Need staff')).toBeInTheDocument()
   })
 
@@ -100,7 +100,7 @@ describe('WeekendPlanner', () => {
       error: null,
     }
     renderPlanner()
-    expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
+    expect(await screen.findByText('Weekend Planner')).toBeInTheDocument()
     const panel = within(screen.getByTestId('weekend-exception-list'))
     expect(panel.getByText('Nolan')).toBeInTheDocument()
     expect(panel.getByText('Pending')).toBeInTheDocument()
@@ -109,23 +109,26 @@ describe('WeekendPlanner', () => {
   it('non-staffing viewer: own exception requests never render the staffing panel', async () => {
     mockResponses['leave_requests:select'] = { data: [{ id: 'x1', date_from: aug1, status: 'pending' }], error: null }
     renderPlanner()
-    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Weekend Planner')).length).toBeGreaterThan(0)
     expect(screen.queryByTestId('weekend-exception-list')).not.toBeInTheDocument()
   })
 
   it('clerk: also lands on the staffing year overview', async () => {
     mockAuth = { isAdmin: false, isClerk: true, profile: { id: 'clerk-1' } }
     renderPlanner()
-    expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
+    expect(await screen.findByText('Weekend Planner')).toBeInTheDocument()
     expect(within(screen.getByTestId('weekend-year-inspector')).getByText('Need staff')).toBeInTheDocument()
   })
 
   it('doctor: lands on the personal year overview (MyWeekendYearOverview) instead', async () => {
+    const user = userEvent.setup()
     renderPlanner()
-    expect((await screen.findAllByText('My weekends')).length).toBeGreaterThan(0)
-    // Mobile finder and desktop dashboard both carry one — jsdom applies no
+    expect((await screen.findAllByText('Weekend Planner')).length).toBeGreaterThan(0)
+    // The colour key sits behind the Legend icon, as on the other planners.
+    // Mobile finder and desktop dashboard each carry one — jsdom applies no
     // breakpoints, so both are in the DOM. Either answers this question.
-    const legend = within(screen.getAllByTestId('weekend-year-legend')[0])
+    await user.click(screen.getAllByRole('button', { name: 'Legend' })[0])
+    const legend = within(screen.getByTestId('weekend-year-legend'))
     expect(legend.getByText('Working')).toBeInTheDocument() // personal-read legend
     expect(legend.queryByText('Fully planned')).not.toBeInTheDocument()
   })
@@ -134,7 +137,7 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     // August is already selected by default (current month) — one click opens it.
     await user.click(grid().getByRole('button', { name: /^August/ }))
@@ -145,19 +148,19 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
     await user.click(grid().getByRole('button', { name: /^August/ }))
     await screen.findByText(/MonthViewStub/)
 
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
-    expect(await screen.findByText('Weekend planner')).toBeInTheDocument()
+    expect(await screen.findByText('Weekend Planner')).toBeInTheDocument()
   })
 
   it('year navigation persists in the URL and re-fetches for the new year', async () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     // No standalone year stepper anymore — jump to a year via the Selected
     // month panel's own jump sheet (label -> swap to year grid -> pick a
@@ -179,7 +182,7 @@ describe('WeekendPlanner', () => {
     const finder = () => within(screen.getByTestId('my-weekend-month-finder'))
     await screen.findByTestId('my-weekend-month-finder')
 
-    await user.click(finder().getByRole('button', { name: 'My weekends' }))
+    await user.click(finder().getByRole('button', { name: 'Showing' }))
     await user.click(await screen.findByRole('option', { name: 'All weekends' }))
 
     await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
@@ -190,7 +193,7 @@ describe('WeekendPlanner', () => {
     await user.click(screen.getByRole('button', { name: 'SetFilterStub' }))
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
     await screen.findByTestId('my-weekend-month-finder')
-    expect(finder().getByRole('button', { name: 'My weekends' })).toBeInTheDocument()
+    expect(within(finder().getByLabelText('Showing').closest('div')).getByText('My weekends')).toBeInTheDocument()
 
     await user.click(finder().getAllByRole('button').find(b => b.textContent.startsWith('August')))
     expect(await screen.findByText('FilterStub: my-requests')).toBeInTheDocument()
@@ -210,7 +213,7 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     await user.click(grid().getByRole('button', { name: /^August/ }))
     await screen.findByText(/MonthViewStub: 2026-8/)
@@ -218,7 +221,7 @@ describe('WeekendPlanner', () => {
     expect(await screen.findByText('ClipboardStub: copied-8')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     await user.click(grid().getByRole('button', { name: /^June/ }))
     await user.click(screen.getByRole('button', { name: 'Open month' }))
@@ -234,7 +237,7 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     await user.click(await screen.findByRole('button', { name: 'Plan now' }))
     expect(await screen.findByText(/MonthViewStub: 2026-8/)).toBeInTheDocument()
@@ -245,13 +248,13 @@ describe('WeekendPlanner', () => {
     mockAuth = { isAdmin: true, isClerk: false, profile: { id: 'admin-1' } }
     const user = userEvent.setup()
     renderPlanner()
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
 
     await user.click(await screen.findByRole('button', { name: 'Plan now' }))
     expect(await screen.findByText(`FocusStub: ${aug1}`)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'BackToYearStub' }))
-    await screen.findByText('Weekend planner')
+    await screen.findByText('Weekend Planner')
     await user.click(grid().getByRole('button', { name: /^June/ }))
     await user.click(screen.getByRole('button', { name: 'Open month' }))
 

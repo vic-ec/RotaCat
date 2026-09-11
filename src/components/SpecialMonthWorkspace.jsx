@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext'
 import CategoryBadge from './CategoryBadge'
 import DateStepper from './DateStepper'
 import Modal from './Modal'
+import PlannerRequestPanel, { PanelReading, PANEL_DESKTOP_WRAPPER, PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
 import LeaveRequestForm from './LeaveRequestForm'
 import { SpecialLegendTrigger } from './SpecialPlannerOverview'
 
@@ -40,6 +41,10 @@ export default function SpecialMonthWorkspace({
     (isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(c => c.key !== LEAVE_OTHER_COLUMN.key)).map(c => c.key)
   )
   const [selectedDate, setSelectedDate] = useState(null)
+  // Opening the day panel straight onto its request form — the panel's
+  // "Request special leave" action, which is the same journey as tapping a
+  // day and pressing "Request leave for this day", one step shorter.
+  const [openFormOnOpen, setOpenFormOnOpen] = useState(false)
 
   const today = todayStr()
   const weeks = weeksForMonth(year, month)
@@ -47,6 +52,21 @@ export default function SpecialMonthWorkspace({
   const countsByDate = specialCountsByDate(leaveByDate)
   const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
   const markersByDate = new Map(monthMarkers.map(m => [m.date, m]))
+  const monthGuidelineDays = monthMarkers.filter(m => m.overSoftCap).length
+
+  // Today when today is in the month being viewed, else the 1st — so a
+  // doctor browsing ahead still lands on a sensible date rather than an
+  // empty field. Same rule the Annual planner's own panel uses.
+  function openRequestLeave() {
+    const isCurrentMonth = year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7))
+    setOpenFormOnOpen(true)
+    setSelectedDate(isCurrentMonth ? today : `${year}-${String(month).padStart(2, '0')}-01`)
+  }
+
+  function closeDayPanel() {
+    setSelectedDate(null)
+    setOpenFormOnOpen(false)
+  }
 
   function rowsForDate(date) {
     return (leaveByDate.get(date) || [])
@@ -68,12 +88,36 @@ export default function SpecialMonthWorkspace({
           onClick={onBack}
           className="flex items-center gap-1 rounded px-1.5 py-1 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
         >
-          <ChevronLeft className="h-4 w-4" /> Back
+          <ChevronLeft className="h-4 w-4" /> Overview
         </button>
         <div className="flex items-center gap-2">
           <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
           <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
         </div>
+      </div>
+
+      {/* Where this month stands, and the way to ask — the Special tab had
+          no request path at all short of finding a tappable day cell. The
+          reading is the month's pressure days rather than Annual's
+          days-with-room: special leave's only capacity number is the
+          shared 3-doctor guideline, and the short list (the days already
+          at it) is the one worth naming. */}
+      <div className={`${PANEL_DESKTOP_WRAPPER} mt-3`}>
+        <SpecialRequestPanel
+          className={PANEL_DESKTOP_WIDTH}
+          monthLabel={monthLabel}
+          guidelineDays={monthGuidelineDays}
+          totalDays={monthMarkers.length}
+          onRequestLeave={openRequestLeave}
+        />
+      </div>
+      <div className="mt-3 lg:hidden">
+        <SpecialRequestPanel
+          monthLabel={monthLabel}
+          guidelineDays={monthGuidelineDays}
+          totalDays={monthMarkers.length}
+          onRequestLeave={openRequestLeave}
+        />
       </div>
 
       {/* Desktop: full weekday names and named cells with surnames read
@@ -145,7 +189,7 @@ export default function SpecialMonthWorkspace({
         </div>
       </div>
 
-      <div className="mt-4 lg:hidden">
+      <div data-testid="special-mobile-grid" className="mt-4 lg:hidden">
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
         </div>
@@ -164,11 +208,21 @@ export default function SpecialMonthWorkspace({
                 key={date}
                 type="button"
                 onClick={() => setSelectedDate(date)}
-                className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-md border text-xs ${
+                className={`relative flex aspect-square flex-col items-center gap-0.5 rounded-md border pt-[19px] text-xs ${
                   marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
                 } ${date === today ? 'ring-1 ring-accent' : ''} bg-canvas-raised`}
               >
-                <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ${
+                {/* Capacity rides on this dot rather than filling the whole
+                    cell: a month of full-bleed colour is hard on the eye on
+                    either ground, and it forces every name in the cell to be
+                    legible against four different backgrounds.
+
+                    Pinned to the corner rather than centred in the flex flow,
+                    exactly as the Annual grid's phone cells do it: a centred
+                    number sits at a different height on a day with badges than
+                    on one without, so the row of numbers wandered as you
+                    scanned across a week. */}
+                <span className={`absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-bold ${
                   marker ? `${marker.capacityState.fill} ${marker.capacityState.onFillText}` : 'text-ink'
                 }`}>{Number(date.slice(-2))}</span>
                 {badges.length > 0 && (
@@ -196,7 +250,8 @@ export default function SpecialMonthWorkspace({
           count={countsByDate.get(selectedDate) || 0}
           phName={publicHolidaysByDate.get(selectedDate)}
           displayNames={displayNames}
-          onClose={() => setSelectedDate(null)}
+          initialShowRequestForm={openFormOnOpen}
+          onClose={closeDayPanel}
           onSubmitted={onDataChanged}
         />
       )}
@@ -206,15 +261,38 @@ export default function SpecialMonthWorkspace({
   )
 }
 
+// The Special tab's own fill of the shared planner panel: no per-category
+// reading to give (the guideline is one shared number for everyone), so it
+// reports how much of the month is already at it.
+function SpecialRequestPanel({ monthLabel, guidelineDays, totalDays, onRequestLeave, className }) {
+  const atGuideline = guidelineDays > 0
+  return (
+    <PlannerRequestPanel
+      className={className}
+      eyebrow={`Special leave · ${monthLabel}`}
+      actionLabel="Request special leave"
+      onAction={onRequestLeave}
+    >
+      <PanelReading
+        value={guidelineDays}
+        valueClassName={atGuideline ? 'text-capNear-ink' : 'text-capAvailable-ink'}
+        unit={atGuideline
+          ? `of ${totalDays} days are at the ${SPECIAL_LEAVE_SOFT_CAP}-doctor guideline — the rest have room`
+          : `days are at the ${SPECIAL_LEAVE_SOFT_CAP}-doctor guideline — every day this month has room`}
+      />
+    </PlannerRequestPanel>
+  )
+}
+
 // One day's leave, in the same row shape the Annual planner's day review
 // uses — category badge, name, category, leave type, full leave period,
 // status — so a row reads identically on both planner tabs.
 // Built on the shared Modal — a bottom sheet on mobile, a centered card on
 // desktop — so tapping a day here lands exactly where tapping a day on the
 // Annual planner does, rather than in this tab's own hand-rolled panel.
-function DayPanel({ date, rows, count, phName, displayNames, onClose, onSubmitted }) {
+function DayPanel({ date, rows, count, phName, displayNames, initialShowRequestForm = false, onClose, onSubmitted }) {
   const { canSubmitLeave } = useAuth()
-  const [showRequestForm, setShowRequestForm] = useState(false)
+  const [showRequestForm, setShowRequestForm] = useState(initialShowRequestForm)
   const formatted = `${WEEKDAY_NAMES[dayOfWeek(date)]}, ${date}`
   const remaining = Math.max(0, SPECIAL_LEAVE_SOFT_CAP - count)
   const atGuideline = count >= SPECIAL_LEAVE_SOFT_CAP

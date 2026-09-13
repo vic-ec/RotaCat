@@ -11,11 +11,15 @@ import { CATEGORY_LABELS } from '../lib/categoryLabels'
 // Each role sees a tailored nav — preserving the original
 // adminNav / doctorNav pattern and extending it for locum + clerk.
 
+// Order is the same story in every role: where am I (Dashboard), what am I
+// working (Roster), what am I asking for (Planners / Open shifts / Swaps),
+// who else is there (Staff), then me (Account). Staff sits second-from-last
+// because it is a contact list — looked up occasionally, not worked in.
 const adminNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/leave',  label: 'Planners',    icon: NotebookTabs },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
@@ -24,21 +28,25 @@ const adminNav = [
 const doctorNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/leave',  label: 'Planners',    icon: NotebookTabs },
   { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
-// Locums: see roster and open shifts, can request locum↔locum swaps, plus
-// the same read-only Staff list access as Clerks and doctors.
-// No leave, no weekend grid (enforced via canViewWeekendGrid in those pages).
+// Locums: see roster and open shifts, plus the same read-only Staff list
+// access as Clerks and doctors. No leave, no weekend grid (enforced via
+// canViewWeekendGrid in those pages).
+//
+// Swaps is deliberately off this bar: Open shifts is how a locum picks up
+// work, and a second "ask someone else" entry beside it was one nav slot
+// for the rarer half of that pair. The /swaps route itself is untouched and
+// still open to them — this is which doors are signposted, not which exist.
 const locumNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/shifts', label: 'Open shifts', icon: ShiftIcon },
-  { to: '/swaps',  label: 'Swaps',       icon: SwapIcon },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/account', label: 'Account',    icon: UserCog },
 ]
 
@@ -48,8 +56,8 @@ const locumNav = [
 const clerkNav = [
   { to: '/',       label: 'Dashboard',   icon: HomeIcon,      end: true },
   { to: '/roster', label: 'Roster',      icon: CalendarIcon },
-  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/leave',  label: 'Planner',     icon: NotebookTabs },
+  { to: '/staff',  label: 'Staff',       icon: UsersRound },
   { to: '/account', label: 'Account',    icon: UserCog },
 ]
 

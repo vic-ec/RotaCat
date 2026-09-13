@@ -150,7 +150,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 flex max-h-60 flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
+          className="fixed z-50 flex max-h-60 flex-col overflow-hidden rounded-xl border border-edge bg-canvas-raised shadow-raised"
         >
           {/* Explicit close, not just outside-click/Escape — see FilterPanel's
               own header for why. */}
@@ -266,7 +266,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 flex max-h-72 flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
+          className="fixed z-50 flex max-h-72 flex-col overflow-hidden rounded-xl border border-edge bg-canvas-raised shadow-raised"
         >
           {/* Explicit close — this is a secondary popover nested inside
               MobileFiltersSheet's own primary panel, so an outside tap has

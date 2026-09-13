@@ -135,7 +135,7 @@ function TempPasswordIndicator({ className = '' }) {
           ref={popRef}
           role="tooltip"
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-slate-line bg-canvas-raised px-3 py-2 text-xs font-medium text-ink shadow-raised"
+          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised px-3 py-2 text-xs font-medium text-ink shadow-raised"
         >
           Temporary password in use
         </div>,
@@ -1705,7 +1705,7 @@ export default function StaffListPage() {
             ref={quickActionMenuRef}
             role="menu"
             style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+            className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
           >
             <QuickActionRow
               icon={<MessageIcon className="h-5 w-5" />}
@@ -1776,7 +1776,7 @@ export default function StaffListPage() {
             ref={secondaryMenuRef}
             role="menu"
             style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+            className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
           >
             <QuickActionRow label="Mobile" muted href={mobileHref} onClick={mobileHref ? closeQuickActions : missing()} />
             <QuickActionRow label="WhatsApp" muted href={waHref} external onClick={waHref ? closeQuickActions : missing()} />

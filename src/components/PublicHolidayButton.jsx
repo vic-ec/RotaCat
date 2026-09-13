@@ -47,7 +47,7 @@ export default function PublicHolidayButton({ name }) {
         <div
           ref={popRef}
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-slate-line bg-canvas-raised p-3 text-sm text-ink shadow-raised"
+          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 text-sm text-ink shadow-raised"
         >
           {name || 'Public holiday'}
         </div>,

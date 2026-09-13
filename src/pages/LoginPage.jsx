@@ -251,7 +251,7 @@ function SignInModal({ isOpen, onClose, triggerRef, onForgotPassword }) {
       aria-hidden={!isOpen}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-slate-line bg-canvas-raised p-5 shadow-raised"
+        className="w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
@@ -359,7 +359,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
       aria-hidden={!isOpen}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-slate-line bg-canvas-raised p-5 shadow-raised"
+        className="w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
         {submitted ? (

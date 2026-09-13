@@ -122,7 +122,7 @@ function DateTimePopoverButton({ iso, Icon, label }) {
           role="dialog"
           aria-label={label}
           style={{ ...positionStyle, width: panelWidth }}
-          className="fixed z-50 rounded-xl border border-slate-line bg-canvas-raised px-3 py-2 text-sm font-medium text-ink shadow-raised"
+          className="fixed z-50 rounded-xl border border-edge bg-canvas-raised px-3 py-2 text-sm font-medium text-ink shadow-raised"
         >
           {formatDateTime(iso)}
         </div>,

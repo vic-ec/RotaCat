@@ -105,7 +105,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
       style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))', right: 'max(1rem, env(safe-area-inset-right))' }}
     >
       {searchOpen ? (
-        <div className="flex w-[calc(100vw-2rem)] max-w-sm items-center gap-1 rounded-full border border-slate-line bg-canvas-raised py-1 pl-3 pr-1 shadow-raised">
+        <div className="flex w-[calc(100vw-2rem)] max-w-sm items-center gap-1 rounded-full border border-edge bg-canvas-raised py-1 pl-3 pr-1 shadow-raised">
           <Search className="h-4 w-4 flex-shrink-0 text-ink-muted" />
           {/* ClearableInput wraps its <input> in a positioning div, so the
               flex sizing has to go on that wrapper — putting it on the

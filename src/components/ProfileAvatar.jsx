@@ -72,7 +72,7 @@ export function StatusPicker({ active, onLeave, size = 16, interactive = false, 
       {open && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="absolute left-0 top-full z-30 mt-1 w-32 overflow-hidden rounded-lg border border-edge bg-canvas-raised py-1 shadow-raised"
         >
           <button
             type="button"

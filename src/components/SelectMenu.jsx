@@ -79,7 +79,7 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
           ref={menuRef}
           role="listbox"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-slate-line bg-canvas-raised py-1 shadow-raised"
+          className="fixed z-50 max-h-60 overflow-y-auto rounded-lg border border-edge bg-canvas-raised py-1 shadow-raised"
         >
           {options.map(opt => (
             <button

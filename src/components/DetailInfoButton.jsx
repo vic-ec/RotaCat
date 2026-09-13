@@ -55,7 +55,7 @@ export default function DetailInfoButton({ text, label = 'View full details' }) 
         <div
           ref={popRef}
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-slate-line bg-canvas-raised p-3 text-sm text-ink-light shadow-raised"
+          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 text-sm text-ink-light shadow-raised"
         >
           {text}
         </div>,

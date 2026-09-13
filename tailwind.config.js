@@ -86,6 +86,12 @@ export default {
         'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
         'auth-hero': 'rgb(var(--color-auth-hero) / <alpha-value>)',
 
+        // Ground for a form field — input, select, textarea, date picker.
+        // Sits below its container on the dark theme rather than matching
+        // it, which is what a field inside a modal or card needs; on light
+        // it resolves to the same white it always was.
+        field: 'rgb(var(--color-field) / <alpha-value>)',
+
         // Outline for a surface floating above the page (modal, slide-over).
         // Stronger than `slate-line`, which is for cards sitting *in* the
         // page — a floating surface has to separate from whatever is behind

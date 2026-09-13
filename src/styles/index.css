@@ -130,10 +130,25 @@
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
 
 
-  /* Edge for a surface that floats above the page — modals, slide-overs.
-     Cards use `slate-line`; these need more, because on the dark theme a
-     drop shadow cannot separate anything: the shadow is black and so is the
-     page under it. The edge does that work instead. */
+  /* Form-field ground. Its own token rather than `canvas-raised`, which is
+     what fields used to take: inside a modal or a card — where most forms
+     live — that is the exact colour of the panel behind them, so on the
+     dark theme every input, select and date picker dissolved into its own
+     background and the form read as a list of labels. A field is a recess
+     in its surface, not another panel floating on it, so on dark it goes
+     darker than the panel (1.23:1 below it, with its `slate-line` border at
+     1.68:1 against the fill). On light it stays the white it always was —
+     there the panel is already white and the border alone has always been
+     enough, and `canvas-sunken` there is a mint tint, not a neutral well. */
+  --color-field: 255 255 255;                 /* #FFFFFF — same as canvas-raised */
+
+  /* Edge for a surface that floats above the page — modals, slide-overs,
+     action sheets, and every anchored popover (a dropdown's option list, a
+     Filter or Sort menu, an info bubble). Cards sitting *in* the page keep
+     `slate-line`; a floating one needs more, because on the dark theme a
+     drop shadow cannot separate anything — the shadow is black and so is
+     whatever is under it. The edge does that work instead, and it is what
+     tells you where a dropdown opened over a modal ends. */
   --color-edge: 198 214 209;                  /* #C6D6D1 */
 
   /* Modal scrim. Not `ink` at low alpha: `ink` inverts with the theme, so on
@@ -263,6 +278,12 @@
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
+
+  /* Darker than the panel it sits in (1.23:1), so a field reads as a recess
+     rather than dissolving into the modal or card around it. On the page
+     ground it lands almost flat instead, where its border carries the
+     shape — an outlined box rather than a raised chip. */
+  --color-field: 19 29 26;                    /* #131D1A */
 
   /* 2.30:1 against the panel it outlines — enough to read as an edge without
      becoming a bright outline in its own right. */
@@ -549,7 +570,7 @@
   }
 
   .input-field {
-    @apply w-full rounded border border-slate-line bg-canvas-raised px-3 py-1
+    @apply w-full rounded border border-slate-line bg-field px-3 py-1
            text-sm text-ink placeholder:text-ink-muted
            focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
   }

@@ -1313,7 +1313,7 @@ export default function AccountSettingsPage() {
                     <ProfileAvatar profile={profile} size={44} />
                   </button>
                   {isOwnAccount && photoMenuOpen && (
-                    <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-slate-line bg-canvas-raised shadow-raised">
+                    <div className="absolute left-0 top-full z-20 mt-2 w-44 overflow-hidden rounded-lg border border-edge bg-canvas-raised shadow-raised">
                       <button
                         type="button"
                         onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click() }}

@@ -90,7 +90,7 @@ function RowActions({ actions }) {
             ref={menuRef}
             role="menu"
             style={{ ...positionStyle, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-xl border border-slate-line bg-canvas-raised py-1 shadow-raised"
+            className="fixed z-50 overflow-hidden rounded-xl border border-edge bg-canvas-raised py-1 shadow-raised"
           >
             {actions.map(a => (
               <button

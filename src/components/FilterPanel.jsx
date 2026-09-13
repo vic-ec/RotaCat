@@ -221,7 +221,7 @@ export default function FilterPanel({ groups, className = '' }) {
           ref={menuRef}
           role="menu"
           style={{ ...positionStyle, width: menuWidth }}
-          className="fixed z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border border-slate-line bg-canvas-raised shadow-raised"
+          className="fixed z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-xl border border-edge bg-canvas-raised shadow-raised"
         >
           {/* Explicit close, not just outside-click/Escape — a group's own
               expanded checkbox list can grow past the popover's own edges

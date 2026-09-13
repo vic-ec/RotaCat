@@ -52,7 +52,7 @@ export default function DateFieldButton({ label, value, onChange, min, max, requ
   return (
     <span
       onClick={openPicker}
-      className={`relative inline-flex h-[30px] w-36 flex-shrink-0 items-center gap-1.5 rounded border border-slate-line bg-canvas-raised px-2 text-sm ${className}`}
+      className={`relative inline-flex h-[30px] w-36 flex-shrink-0 items-center gap-1.5 rounded border border-slate-line bg-field px-2 text-sm ${className}`}
     >
       <CalendarIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />
       <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : label}</span>

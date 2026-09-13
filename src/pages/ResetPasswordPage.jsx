@@ -135,9 +135,9 @@ export default function ResetPasswordPage() {
                     onKeyUp={capsLock.onKeyUp}
                     onBlur={capsLock.onBlur}
                     placeholder="Enter new password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-4 pr-12
+                    className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      transition-colors focus:border-accent focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                       md:py-3"
                   />
@@ -162,9 +162,9 @@ export default function ResetPasswordPage() {
                     onKeyUp={capsLock.onKeyUp}
                     onBlur={capsLock.onBlur}
                     placeholder="Re-enter new password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-4 pr-12
+                    className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      transition-colors focus:border-accent focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
                       md:py-3"
                   />

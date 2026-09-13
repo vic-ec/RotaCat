@@ -114,9 +114,9 @@ function SignInForm({ autoFocus = false, onForgotPassword }) {
             onBlur={() => setEmailTouched(true)}
             aria-invalid={emailInvalid}
             placeholder="you@example.com"
-            className={`w-full rounded-lg border-2 bg-canvas-raised py-2 pl-12 pr-4
+            className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
               text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:bg-canvas-raised
+              transition-colors focus:bg-field
               focus:outline focus:outline-2 focus:outline-offset-2
               md:py-3 md:text-lg
               ${emailInvalid
@@ -173,9 +173,9 @@ function SignInForm({ autoFocus = false, onForgotPassword }) {
             onKeyUp={capsLock.onKeyUp}
             onBlur={capsLock.onBlur}
             placeholder="••••••••"
-            className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
+            className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-12 pr-12
               text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:border-accent focus:bg-canvas-raised
+              transition-colors focus:border-accent focus:bg-field
               focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
               md:py-3 md:text-lg"
           />
@@ -426,9 +426,9 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
                     onBlur={() => setEmailTouched(true)}
                     aria-invalid={emailInvalid}
                     placeholder="you@example.com"
-                    className={`w-full rounded-lg border-2 bg-canvas-raised py-2 pl-12 pr-4
+                    className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:bg-canvas-raised
+                      transition-colors focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2
                       ${emailInvalid
                         ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'

@@ -86,6 +86,11 @@ export default {
         'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
         'auth-hero': 'rgb(var(--color-auth-hero) / <alpha-value>)',
 
+        // The Create-account page's three role cards — see index.css for why
+        // they cannot just be `canvas` on both themes.
+        'auth-choice': 'rgb(var(--color-auth-choice) / <alpha-value>)',
+        'auth-choice-hover': 'rgb(var(--color-auth-choice-hover) / <alpha-value>)',
+
         // Ground for a form field — input, select, textarea, date picker.
         // Sits below its container on the dark theme rather than matching
         // it, which is what a field inside a modal or card needs; on light

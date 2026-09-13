@@ -130,6 +130,18 @@
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
 
 
+  /* The Create-account page's three role cards. Their own tokens because the
+     two themes disagree about which way a card sits on the mint sheet they
+     are on: light lifts it (white on mint), and dark cannot — `canvas-raised`
+     and `accent-panel` are 1.04:1 apart there, and the `canvas` they used to
+     take is the page's near-black, so the choices read as three holes in the
+     sheet rather than three cards on it. Dark lifts a step within the accent
+     family instead, at the same 1.30:1 off the panel that white gets on
+     light. Hover darkens in both themes, which is what every other control
+     in the app does on dark. */
+  --color-auth-choice: 254 255 254;           /* #FEFFFE — same as canvas */
+  --color-auth-choice-hover: 220 238 231;     /* #DCEEE7 — same as canvas-sunken */
+
   /* Form-field ground. Its own token rather than `canvas-raised`, which is
      what fields used to take: inside a modal or a card — where most forms
      live — that is the exact colour of the panel behind them, so on the
@@ -278,6 +290,12 @@
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
+
+  /* 1.30:1 above accent-panel, matching what white gets over mint on light;
+     ink clears 7.5:1 on it and ink-light 4.67:1. Hover deepens rather than
+     lifts — a lift bright enough to notice pushed ink-light under 4.5:1. */
+  --color-auth-choice: 40 70 64;              /* #284640 */
+  --color-auth-choice-hover: 34 58 52;        /* #223A34 */
 
   /* Darker than the panel it sits in (1.23:1), so a field reads as a recess
      rather than dissolving into the modal or card around it. On the page

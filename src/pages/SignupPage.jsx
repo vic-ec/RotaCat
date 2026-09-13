@@ -231,9 +231,9 @@ function RoleModal({ role, onClose }) {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
-                className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                   text-center text-lg tracking-[0.3em] text-ink placeholder:tracking-normal placeholder:text-ink-muted
-                  transition-colors focus:border-accent focus:bg-canvas-raised
+                  transition-colors focus:border-accent focus:bg-field
                   focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
               />
 
@@ -309,9 +309,9 @@ function RoleModal({ role, onClose }) {
                   autoComplete="given-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    transition-colors focus:border-accent focus:bg-field
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                 />
               </div>
@@ -328,9 +328,9 @@ function RoleModal({ role, onClose }) {
                   autoComplete="family-name"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    transition-colors focus:border-accent focus:bg-field
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                 />
               </div>
@@ -348,9 +348,9 @@ function RoleModal({ role, onClose }) {
                   inputMode="numeric"
                   value={formatPhoneProgressive(phone)}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                     text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-canvas-raised
+                    transition-colors focus:border-accent focus:bg-field
                     focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                 />
               </div>
@@ -367,9 +367,9 @@ function RoleModal({ role, onClose }) {
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                    className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                       text-base text-ink transition-colors
-                      focus:border-accent focus:bg-canvas-raised
+                      focus:border-accent focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   >
                     <option value="">Select category…</option>
@@ -394,9 +394,9 @@ function RoleModal({ role, onClose }) {
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
                     placeholder="Agency name"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised px-4 py-2
+                    className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      transition-colors focus:border-accent focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   />
                 </div>
@@ -425,9 +425,9 @@ function RoleModal({ role, onClose }) {
                     onBlur={() => setEmailTouched(true)}
                     aria-invalid={emailInvalid}
                     placeholder="you@example.com"
-                    className={`w-full rounded-lg border-2 bg-canvas-raised py-2 pl-12 pr-4
+                    className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:bg-canvas-raised
+                      transition-colors focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2
                       ${emailInvalid
                         ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
@@ -463,9 +463,9 @@ function RoleModal({ role, onClose }) {
                     onKeyUp={capsLock.onKeyUp}
                     onBlur={capsLock.onBlur}
                     placeholder="Enter password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-canvas-raised py-2 pl-12 pr-12
+                    className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-canvas-raised
+                      transition-colors focus:border-accent focus:bg-field
                       focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
                   />
                   <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} />
@@ -523,7 +523,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-2.5 text-center transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
+                className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -555,7 +555,7 @@ export default function SignupPage() {
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="w-full rounded-xl border-2 border-accent/50 bg-canvas p-4 text-center transition-colors hover:border-accent hover:bg-canvas-sunken active:border-accent active:bg-canvas-sunken"
+                      className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-4 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
                     >
                       <p className="text-base font-semibold text-ink">{opt.label}</p>
                       <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>

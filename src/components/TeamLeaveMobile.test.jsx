@@ -35,6 +35,25 @@ describe('TeamLeaveMobile', () => {
     expect(screen.queryByText('Di Evans')).toBeNull()
   })
 
+  it('puts the view switch after what narrows the list, and explains all three', () => {
+    render(<TeamLeaveMobile requests={requests} />)
+    // The md-and-up row is search, then Filter, then the switch. There is
+    // one row holding all of them, so DOM order is the row order.
+    const row = screen.getByPlaceholderText('Search name').closest('div.flex.items-center.gap-2')
+    const order = ['Search name', 'Filter', 'Week']
+    const found = [...row.querySelectorAll('input, button')]
+      .map(el => el.getAttribute('placeholder') || el.getAttribute('aria-label') || el.textContent.trim())
+      .filter(name => order.includes(name))
+    expect(found).toEqual(order)
+
+    // One (i) covering the set — a per-button `title` can't be tapped open.
+    fireEvent.click(screen.getByRole('button', { name: 'What these views show' }))
+    const hint = screen.getByText(/agenda/).closest('dl')
+    expect(within(hint).getByText('Week')).toBeInTheDocument()
+    expect(within(hint).getByText('Month')).toBeInTheDocument()
+    expect(within(hint).getByText('People')).toBeInTheDocument()
+  })
+
   it('Month view shows a per-day count and opens a day sheet', () => {
     render(<TeamLeaveMobile requests={requests} />)
     fireEvent.click(screen.getByRole('button', { name: 'Month' }))

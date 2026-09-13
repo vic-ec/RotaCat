@@ -4,6 +4,7 @@ import ViewToggle from './ViewToggle'
 import FilterPanel from './FilterPanel'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
+import DetailInfoButton from './DetailInfoButton'
 import Modal from './Modal'
 import TeamLeaveDateNavigator from './TeamLeaveDateNavigator'
 import TeamLeaveWeekView from './TeamLeaveWeekView'
@@ -20,6 +21,38 @@ const VIEW_OPTIONS = [
   { key: 'month', label: 'Month', icon: CalendarDays },
   { key: 'people', label: 'People', icon: Users },
 ]
+
+// What each of those three actually shows. Below `sm` the toggle is icons
+// alone, and even with the words back a one-word label can't say whether
+// "People" means a list of names or a list of leave — so the explainer sits
+// beside the switch rather than inside it.
+//
+// One (i) for the set, not one per button: the two ways to reveal a per-
+// button hint on a touch screen are the native `title` (which a tap never
+// fires — see DetailInfoButton's own note) and a third icon squeezed next to
+// each of three, on the row this change exists to unclutter. `title` still
+// carries the same line for a desktop hover, where it is free.
+const VIEW_HINTS = [
+  ['Week', 'The chosen week as an agenda — who is away today, then who starts later in the week.'],
+  ['Month', 'A month calendar with a headcount on each day. Tap a day for the names.'],
+  ['People', 'Grouped by doctor instead of by date — one person\u2019s leave, all of it, in one place.'],
+]
+
+const VIEW_HINT_TEXT = (
+  <dl className="space-y-2">
+    {VIEW_HINTS.map(([term, detail]) => (
+      <div key={term}>
+        <dt className="text-xs font-semibold uppercase tracking-wide text-ink">{term}</dt>
+        <dd className="mt-0.5">{detail}</dd>
+      </div>
+    ))}
+  </dl>
+)
+
+const VIEW_OPTIONS_WITH_TITLES = VIEW_OPTIONS.map(o => ({
+  ...o,
+  title: VIEW_HINTS.find(([term]) => term === o.label)?.[1],
+}))
 
 const STATUS_OPTIONS = [
   { value: 'approved', label: 'Approved' },
@@ -111,7 +144,6 @@ export default function TeamLeaveMobile({ requests }) {
           `lg` while the FAB stops at `md`, so the md–lg band keeps the
           inline pair rather than losing them entirely. */}
       <div className="flex items-center gap-2">
-        <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
         <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
           <div className="min-w-0 flex-1">
             <ClearableInput
@@ -126,6 +158,13 @@ export default function TeamLeaveMobile({ requests }) {
           </div>
           <FilterPanel groups={filterGroups} />
         </div>
+        {/* The switch sits after what narrows the list, not before it:
+            search and Filter change which leave is in the view, the toggle
+            changes how that same leave is drawn, so it reads as the last
+            word on the row. Below `md` search and Filter are in the FAB and
+            the pair simply starts the row on their own. */}
+        <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS_WITH_TITLES} />
+        <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
       </div>
 
       <FloatingActionMenu

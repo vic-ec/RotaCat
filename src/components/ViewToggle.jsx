@@ -9,7 +9,9 @@
 // desktop variant to keep in sync. `ariaLabel` is for the case where the
 // visible label is too terse to speak — the roster's S/M/L text-size switch
 // announces "Small text" rather than "S"; everything else just reuses its
-// own label. Extracted from InternRotationsPlanner.jsx's
+// own label. `title` is the optional desktop-hover explainer — free where a
+// pointer exists, and never the only way a hint is available, since a tap
+// never fires one (see DetailInfoButton). Extracted from InternRotationsPlanner.jsx's
 // Table/Timeline toggle so other pages (e.g. RosterDashboardPage's
 // List/Grid switch) can reuse the same shape instead of a second hand-
 // rolled copy.
@@ -24,6 +26,7 @@ export default function ViewToggle({ view, onChange, options }) {
             type="button"
             onClick={() => onChange(o.key)}
             aria-label={o.ariaLabel ?? o.label}
+            title={o.title}
             className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors ${
               view === o.key ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}

@@ -259,6 +259,8 @@ export default function LeaveListView() {
   const filtersActive = Boolean(filters.q) || filters.name.size > 0 || filters.category.size > 0 || filters.leaveType.size > 0 ||
     filters.month.size > 0 || filters.year.size > 0 || filters.status.size > 0 || filters.admin.size > 0
 
+  const viewToggle = <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
+
   return (
     <div>
       {/* Below lg, Team Leave becomes the mobile awareness/lookup experience;
@@ -269,11 +271,11 @@ export default function LeaveListView() {
       </div>
 
       <div className="hidden lg:block">
-      <div className="mb-3 flex justify-end">
-        <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
-      </div>
-
-      {view === 'matrix' && <LeaveMatrix requests={requests} />}
+      {/* The view switch used to sit on a line of its own above everything.
+          It now rides the row each view already has — the Toolbar in Table,
+          the year/legend row in Matrix — so it stays in the same place on
+          screen while costing no vertical space of its own. */}
+      {view === 'matrix' && <LeaveMatrix requests={requests} controls={viewToggle} />}
 
       {view === 'table' && (
       <>
@@ -291,6 +293,8 @@ export default function LeaveListView() {
         mobileMode="inline"
         active={filtersActive}
         onClearAll={clearAllFilters}
+        stretch
+        trailing={viewToggle}
       />
 
       {displayedRequests.length === 0 ? (
@@ -303,45 +307,71 @@ export default function LeaveListView() {
           )}
         </div>
       ) : (
-        <div className="card mt-4 overflow-x-auto">
-          <table className="w-full min-w-[1500px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Category</th>
-                <th className="px-3 py-2">Leave Type</th>
-                <th className="px-3 py-2">From</th>
-                <th className="px-3 py-2">To</th>
-                <th className="px-3 py-2">Total Calendar Days</th>
-                <th className="px-3 py-2">Total Leave Days</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Date Requested</th>
-                <th className="px-3 py-2">Date Approved</th>
-                <th className="px-3 py-2">Approved By</th>
+        /* Same frame as Hours Summary's own grid, and for the same reasons
+           — see RosterSummaryPage.jsx, which carries the full rationale.
+           In short: max-h + overflow-auto so this div is the real scroll
+           container the sticky header can stick against; `border-separate`
+           with zero spacing rather than `border-collapse`, because a
+           collapsed border is shared between neighbouring cells and owned
+           by the table, and the sticky Name column paints on its own layer
+           — its half of each shared line lands a device pixel off from the
+           rest of the grid. This table is eleven columns of dates that
+           mean nothing without the name they belong to, so it needed the
+           frozen first column at least as much as that one did. */
+        <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
+          <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-sm">
+            <thead className="sticky top-0 z-10">
+              {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
+                  can't reliably inherit its row's background while it is
+                  being repositioned, which shows as a seam through the
+                  header during a scroll. Name is additionally sticky
+                  left-0, and z-20 keeps that one corner cell above both the
+                  rest of the header and the sticky column beneath it. */}
+              <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-3 py-2">Name</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Category</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Leave Type</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">From</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">To</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Total Calendar Days</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Total Leave Days</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Status</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Date Requested</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Date Approved</th>
+                <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Approved By</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-line">
+            {/* Row lines are `slate-hairline` on the cells themselves, not a
+                border on the <tr> — a row-level border paints lighter than a
+                cell-level one at phone pixel ratios. The last row drops its
+                own so it doesn't double up against the container's frame. */}
+            <tbody className="[&>tr:last-child>td]:border-b-0">
               {displayedRequests.map(lr => (
-                <tr key={lr.id}>
-                  <td className="px-3 py-2 font-medium text-ink">{lr.profiles?.name} {lr.profiles?.surname}</td>
-                  <td className="px-3 py-2 text-ink-muted">{categoryLabel(lr)}</td>
-                  <td className="px-3 py-2 text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type] || lr.leave_type}</td>
-                  <td className="px-3 py-2 text-ink-muted">{formatDMY(lr.date_from)}</td>
-                  <td className="px-3 py-2 text-ink-muted">{formatDMY(lr.date_to)}</td>
-                  <td className="px-3 py-2 text-ink-muted">{totalCalendarDays(lr)}</td>
-                  <td className="px-3 py-2 text-ink-muted">{totalLeaveDays(lr)}</td>
-                  <td className="px-3 py-2">
+                <tr key={lr.id} className="hover:bg-canvas-sunken/50">
+                  {/* Sticky, so the name stays put while the eleven columns
+                      scroll past it — with its own explicit background for
+                      the same reason the header cells carry theirs. */}
+                  <td className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-3 py-2 font-medium text-ink hover:bg-canvas-sunken/50">
+                    {lr.profiles?.name} {lr.profiles?.surname}
+                  </td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{categoryLabel(lr)}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type] || lr.leave_type}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{formatDMY(lr.date_from)}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{formatDMY(lr.date_to)}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{totalCalendarDays(lr)}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{totalLeaveDays(lr)}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
                       {reviewStatusLabel(lr.status)}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="border-b border-slate-hairline px-3 py-2">
                     <DateTimePopoverButton iso={lr.created_at} Icon={CalendarClock} label="View date and time requested" />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="border-b border-slate-hairline px-3 py-2">
                     <DateTimePopoverButton iso={lr.reviewed_at} Icon={CalendarCheck} label="View date and time approved" />
                   </td>
-                  <td className="px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
                 </tr>
               ))}
             </tbody>

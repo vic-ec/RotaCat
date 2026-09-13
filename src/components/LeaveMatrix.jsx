@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import Modal from './Modal'
+import DateStepper from './DateStepper'
 import Tag from './Tag'
 import DoctorChip from './DoctorChip'
 import SectionLabel from './SectionLabel'
@@ -224,7 +225,7 @@ function DoctorDetail({ row, onSelectBlock, onClose }) {
 // bars. A sticky side panel answers "who's on leave now" by default and shows
 // a clicked block's full specifics. Read-only — approvals stay in the
 // approval queue. Mirrors InternRotationsMatrix.jsx's visual language.
-export default function LeaveMatrix({ requests }) {
+export default function LeaveMatrix({ requests, controls }) {
   const isDesktop = useIsDesktop()
   const currentYear = Number(todayStr().slice(0, 4))
   const [year, setYear] = useState(currentYear)
@@ -268,35 +269,28 @@ export default function LeaveMatrix({ requests }) {
       <div className="min-w-0 flex-1">
         {/* Year nav + legend */}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setYear(y => y - 1)}
-              aria-label="Previous year"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-[3.5rem] text-center text-sm font-semibold text-ink">{year}</span>
-            <button
-              type="button"
-              onClick={() => setYear(y => y + 1)}
-              aria-label="Next year"
-              className="flex h-[30px] w-[30px] items-center justify-center rounded border border-slate-line text-ink-light hover:bg-canvas-sunken"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-            {LEAVE_GROUP_OPTIONS.map(o => (
-              <span key={o.key} className="flex items-center gap-1.5">
-                <GroupSwatch groupKey={o.key} /> {o.label}
+          {/* The shared stepper, not a hand-rolled pair of square buttons
+              around a bare year — this is the same "which period am I
+              looking at" control the planners carry, so it gets their
+              enclosed shape and their jump-to-year sheet for free. */}
+          <DateStepper unit="year" year={year} onChange={setYear} />
+          {/* `controls` is the caller's own view switch (LeaveListView's
+              Matrix/Table toggle), sharing this row rather than getting a
+              line of its own above the grid — the same row it sits on in
+              the Table view, so it doesn't move when you switch. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+              {LEAVE_GROUP_OPTIONS.map(o => (
+                <span key={o.key} className="flex items-center gap-1.5">
+                  <GroupSwatch groupKey={o.key} /> {o.label}
+                </span>
+              ))}
+              <span className="flex items-center gap-1.5">
+                <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
+                {REVIEW_STATUS_LABELS.pending}
               </span>
-            ))}
-            <span className="flex items-center gap-1.5">
-              <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
-              {REVIEW_STATUS_LABELS.pending}
-            </span>
+            </div>
+            {controls}
           </div>
         </div>
 

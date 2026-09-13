@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import LeaveListView from './LeaveListView'
 
 // These assertions are about the query contract + which rows come back, so
@@ -112,6 +112,33 @@ describe('LeaveListView — role visibility matrix', () => {
     expect(await screen.findByText(/Doc historical-approved/)).toBeInTheDocument()
     expect(await screen.findByText(/Doc future-approved/)).toBeInTheDocument()
     expect(screen.getAllByText(/Doc/)).toHaveLength(2)
+  })
+
+  it('freezes the Name column and puts the view switch on the toolbar row', async () => {
+    // Eleven columns of dates mean nothing without the name they belong to,
+    // so Name stays put while the rest scrolls — the same treatment Hours
+    // Summary gives its own Doctor column.
+    mockData.rows = [row('a', { own: true })]
+    render(<LeaveListView />)
+    await switchToTable()
+
+    const header = await screen.findByRole('columnheader', { name: 'Name' })
+    expect(header.className).toContain('sticky')
+    expect(header.className).toContain('left-0')
+    const cell = (await screen.findByText(/Doc a/)).closest('td')
+    expect(cell.className).toContain('sticky')
+    expect(cell.className).toContain('left-0')
+
+    // …and the toggle rides the search/sort/filter row rather than a line
+    // of its own, so switching views doesn't move it. The Toolbar draws a
+    // desktop row and a mobile row and puts `trailing` on both, so there
+    // are two of it — each has to be on a row with the search box.
+    const toggles = screen.getAllByRole('button', { name: 'Matrix' })
+    expect(toggles).toHaveLength(2)
+    for (const toggle of toggles) {
+      const row = toggle.parentElement.parentElement
+      expect(within(row).getByPlaceholderText(/Search by surname/)).toBeInTheDocument()
+    }
   })
 
   it('locum: RLS returns nothing — renders the empty state (this route is also locum-blocked before mount)', async () => {

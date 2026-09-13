@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, CalendarDays, CalendarRange, EllipsisVertical, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -17,6 +17,7 @@ import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAss
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar from '../components/Toolbar'
 import ViewToggle from '../components/ViewToggle'
+import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
@@ -30,12 +31,13 @@ const ROSTER_LAYOUTS = [
   { key: 'lanes', label: 'Lanes', icon: Columns3 },
 ]
 
-// How much of the month is on screen. No icons: two plain words read
-// faster than a pair of calendar glyphs, and ViewToggle keeps a label
-// visible at every width when there's no icon to fall back to.
+// How much of the month is on screen. The words are what you read on a
+// desktop; the icons exist so ViewToggle can drop the labels below `sm`,
+// which is what keeps this header on one line on a phone. Same two glyphs
+// Team Leave's own Week/Month switch uses.
 const ROSTER_RANGES = [
-  { key: 'month', label: 'Month' },
-  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month', icon: CalendarDays },
+  { key: 'week', label: 'Week', icon: CalendarRange },
 ]
 
 const MONTH_NAMES = [
@@ -450,6 +452,12 @@ export default function RosterGridPage() {
     setPublishing(false)
   }
 
+  function goToHoursSummary() {
+    navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
+      state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
+    })
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center">
@@ -473,6 +481,43 @@ export default function RosterGridPage() {
 
   const totalLocums = entries.filter(e => e.is_locum).length
   const totalFlags = entries.filter(e => e.is_flagged).length
+
+  // The phone header's More actions sheet. Text size leads it — it is the
+  // one entry here that changes what you are looking at, and it is the one
+  // with no desktop equivalent on this breakpoint — then the two places
+  // this page links out to, then Undo Publish on its own behind a divider,
+  // since it is the only entry that changes the roster itself. The tick
+  // column is always present (invisible on the sizes you are not using) so
+  // the three labels stay aligned with each other.
+  const rosterMenuItems = [
+    ...ROSTER_TEXT_SIZES.map(size => ({
+      key: `text-size-${size.key}`,
+      icon: <Check className={`h-4 w-4 ${textSize === size.key ? 'text-accent' : 'invisible'}`} />,
+      label: size.ariaLabel,
+      onClick: () => setTextSize(size.key),
+    })),
+    'divider',
+    ...(isLocum ? [] : [{
+      key: 'hours-summary',
+      icon: <ClipboardClock className="h-4 w-4" />,
+      label: 'Hours Summary',
+      onClick: goToHoursSummary,
+    }]),
+    ...(isAdmin ? [{
+      key: 'review-log',
+      icon: <ScrollText className="h-4 w-4" />,
+      label: 'Review log',
+      onClick: () => setShowChangeLog(true),
+    }] : []),
+    ...(isAdmin && rosterMonth.status === 'published' ? ['divider', {
+      key: 'unpublish',
+      icon: <Undo className="h-4 w-4" />,
+      label: publishing ? 'Reverting…' : 'Undo Publish',
+      danger: true,
+      disabled: publishing,
+      onClick: handleUnpublish,
+    }] : []),
+  ]
 
   return (
     <div className="mx-auto max-w-full">
@@ -525,8 +570,11 @@ export default function RosterGridPage() {
               this one only changes how big it is. S is the size the grids
               were always drawn at, so an existing user who never touches
               this sees no change — M is the default because the grids are
-              the densest screens in the app and 12px is small for them. */}
-          <div className="flex items-center gap-1.5" role="group" aria-label="Roster text size">
+              the densest screens in the app and 12px is small for them.
+              Desktop only: on a phone it lives in the More actions sheet
+              below, since it is a preference you set once rather than
+              something you flick between while reading the roster. */}
+          <div className="hidden items-center gap-1.5 md:flex" role="group" aria-label="Roster text size">
             <Type className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
             <ViewToggle view={textSize} onChange={setTextSize} options={ROSTER_TEXT_SIZES} />
           </div>
@@ -539,15 +587,11 @@ export default function RosterGridPage() {
               back button straight to this page — see RosterSummaryPage.jsx. */}
           {!isLocum && (
             <button
-              onClick={() => navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
-                state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
-              })}
-              className="btn-secondary text-sm"
-              aria-label="Hours Summary"
-              title="Hours Summary"
+              onClick={goToHoursSummary}
+              className="hidden md:inline-flex btn-secondary text-sm"
             >
               <ClipboardClock className="h-4 w-4" />
-              <span className="hidden md:inline">Hours Summary</span>
+              Hours Summary
             </button>
           )}
 
@@ -555,12 +599,10 @@ export default function RosterGridPage() {
           {isAdmin && (
             <button
               onClick={() => setShowChangeLog(true)}
-              className="btn-secondary text-sm"
-              aria-label="Review log"
-              title="Review log"
+              className="hidden md:inline-flex btn-secondary text-sm"
             >
               <ScrollText className="h-4 w-4" />
-              <span className="hidden md:inline">Review log</span>
+              Review log
             </button>
           )}
 
@@ -575,14 +617,34 @@ export default function RosterGridPage() {
             <button
               onClick={handleUnpublish}
               disabled={publishing}
-              className="btn-danger-outline text-sm"
-              aria-label="Undo Publish"
-              title="Undo Publish"
+              className="hidden md:inline-flex btn-danger-outline text-sm"
             >
               <Undo className="h-4 w-4" />
-              <span className="hidden md:inline">{publishing ? 'Reverting…' : 'Undo Publish'}</span>
+              {publishing ? 'Reverting…' : 'Undo Publish'}
             </button>
           )}
+
+          {/* …and the same three, plus text size, as one kebab below md.
+              Six controls never fitted a phone header — they wrapped onto a
+              second and third row — and of the six these are the ones you
+              reach for once (or never), so they are what collapses. What
+              stays on the row is the two view switches and Publish. */}
+          <div className="md:hidden">
+            <PageActionsMenu
+              items={rosterMenuItems}
+              trigger={(onClick, open) => (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  aria-expanded={open}
+                  aria-label="More actions"
+                  className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0"
+                >
+                  <EllipsisVertical className="h-4 w-4" />
+                </button>
+              )}
+            />
+          </div>
 
           {/* Publish — always shows a label (unlike Hours Summary/Review
               log, which collapse to icon-only below md) since it's the one

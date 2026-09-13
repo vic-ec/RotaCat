@@ -199,15 +199,17 @@ export default function RosterSummaryPage() {
         </button>
       )}
 
-      {/* Month/year stepper, Refresh immediately to its right, then Today
-          (DateStepper's own built-in Today is turned off so Today can sit
-          after Refresh instead of before it). Search/sort/filter used to
-          share this row (or the one below it on mobile) via an inline
-          Toolbar; below md they now live behind the FAB (§15) instead — see
-          FloatingActionMenu below — so this row only ever holds the date
-          controls. No page title here — which tab is active (the
-          highlighted "Hours Summary" tab above) already says what this
-          is. */}
+      {/* One row: month/year stepper, Refresh immediately to its right,
+          then Today (DateStepper's own built-in Today is turned off so
+          Today can sit after Refresh instead of before it), then the
+          search/sort/filter Toolbar. The date controls and the Toolbar
+          used to be two stacked rows, which put a half-empty line above a
+          table that already has to fight for vertical space — they narrow
+          the same set of numbers, so they read better as one row. Below md
+          the Toolbar half drops out and lives behind the FAB (§15) instead
+          — see FloatingActionMenu below — leaving just the date controls.
+          No page title here — which tab is active (the highlighted "Hours
+          Summary" tab above) already says what this is. */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <DateStepper unit="month" year={year} month={month} onChange={setYearMonth} showToday={false} />
 
@@ -231,24 +233,27 @@ export default function RosterSummaryPage() {
             <TodayIcon className="h-4 w-4" />
           </button>
         )}
-      </div>
 
-      {/* Category and Contract type as independent multi-select facets
-          (replacing the old always-visible category chip row); name search
-          covers what would otherwise be a "name" facet here. Desktop keeps
-          this inline row; below md it's replaced by the FAB. */}
-      <div className="mt-2 hidden md:block">
-        <Toolbar
-          className=""
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Search by name…"
-          sortFacets={sortFacets}
-          filterGroups={filterGroups}
-          mobileMode="inline"
-          active={filtersActive}
-          onClearAll={clearAllFilters}
-        />
+        {/* Category and Contract type as independent multi-select facets
+            (replacing the old always-visible category chip row); name
+            search covers what would otherwise be a "name" facet here.
+            The search keeps its standard 320px (layout-spec §5) and Sort
+            keeps its word — the row has width to spare on the desktop this
+            block is for, and shrinking the controls to buy space nobody
+            needed would cost more than the second row did. */}
+        <div className="hidden min-w-0 flex-1 md:block">
+          <Toolbar
+            className=""
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search by name…"
+            sortFacets={sortFacets}
+            filterGroups={filterGroups}
+            mobileMode="inline"
+            active={filtersActive}
+            onClearAll={clearAllFilters}
+          />
+        </div>
       </div>
 
       {/* Mobile-only expandable FAB — collapses Search/Sort/Filter into one

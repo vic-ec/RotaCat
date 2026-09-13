@@ -66,6 +66,22 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(rows[2]).getAllByText('0')).toHaveLength(4)
   })
 
+  it('freezes the Doctor column, as Team Leave and Hours Summary do', async () => {
+    // Six columns of day counts say nothing without the name they belong
+    // to, and this table is wider than a phone screen.
+    render(<LeaveAuditReport />)
+
+    const header = await screen.findByRole('columnheader', { name: 'Doctor' })
+    expect(header.className).toContain('sticky')
+    expect(header.className).toContain('left-0')
+    const cell = (await screen.findByText('Adams, Bo')).closest('td')
+    expect(cell.className).toContain('sticky')
+    expect(cell.className).toContain('left-0')
+    // Its own background, not the row's — a sticky cell can't rely on
+    // inheriting one while it is being repositioned.
+    expect(cell.className).toContain('bg-canvas')
+  })
+
   it('shows Consultant (not "Other") as the category label for the Other column', async () => {
     render(<LeaveAuditReport />)
     const rows = await screen.findAllByRole('row')

@@ -218,29 +218,56 @@ export default function LeaveAuditReport() {
 
       {!loading && !error && dateFrom <= dateTo && (
         <>
-          <div className="mt-4 card overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-line text-left text-xs text-ink-muted">
-                  <th className="px-3 py-2 font-medium">Doctor</th>
-                  <th className="px-3 py-2 font-medium">Category</th>
-                  <th className="px-3 py-2 font-medium">Annual</th>
-                  <th className="px-3 py-2 font-medium">Special</th>
-                  <th className="px-3 py-2 font-medium">Sick</th>
-                  <th className="px-3 py-2 font-medium">Total days</th>
+          {/* Same frame as Team Leave's own table and Hours Summary's grid —
+              see RosterSummaryPage.jsx for the full rationale. In short:
+              max-h + overflow-auto so this div is the real scroll container
+              the sticky header can stick against, and `border-separate`
+              with zero spacing rather than `border-collapse`, since a
+              collapsed border is shared between neighbouring cells and
+              owned by the table — the sticky Doctor column paints on its
+              own layer, so its half of each shared line lands a device
+              pixel off from the rest of the grid. Six columns of day counts
+              are the same problem as eleven: the numbers say nothing
+              without the name they belong to, and on a phone this table is
+              wider than the screen. */}
+          <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
+            <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
+              <thead className="sticky top-0 z-10">
+                {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
+                    can't reliably inherit its row's background while it is
+                    being repositioned, which shows as a seam through the
+                    header during a scroll. Doctor is additionally sticky
+                    left-0, and z-20 keeps that corner cell above both the
+                    rest of the header and the sticky column beneath it. */}
+                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-3 py-2">Doctor</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Category</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Annual</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Special</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Sick</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Total days</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-line">
+              {/* Row lines are `slate-hairline` on the cells themselves, not a
+                  border on the <tr> — a row-level border paints lighter than a
+                  cell-level one at phone pixel ratios. The last row drops its
+                  own so it doesn't double up against the container's frame. */}
+              <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
                   <tr><td colSpan={6} className="px-3 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
                 ) : filteredRows.map(row => (
-                  <tr key={row.profileId}>
-                    <td className="px-3 py-2 text-ink">{row.surname}, {row.name}</td>
-                    <td className="px-3 py-2 text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</td>
-                    <td className="px-3 py-2"><BucketCell bucket={row.annual} /></td>
-                    <td className="px-3 py-2"><BucketCell bucket={row.special} /></td>
-                    <td className="px-3 py-2"><BucketCell bucket={row.sick} /></td>
-                    <td className="px-3 py-2 font-semibold text-ink">{row.totalApprovedDays}</td>
+                  <tr key={row.profileId} className="hover:bg-canvas-sunken/50">
+                    {/* Sticky, so the name stays put while the day counts
+                        scroll past it — with its own explicit background for
+                        the same reason the header cells carry theirs. */}
+                    <td className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-3 py-2 text-ink hover:bg-canvas-sunken/50">
+                      {row.surname}, {row.name}
+                    </td>
+                    <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</td>
+                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.annual} /></td>
+                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.special} /></td>
+                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.sick} /></td>
+                    <td className="border-b border-slate-hairline px-3 py-2 font-semibold text-ink">{row.totalApprovedDays}</td>
                   </tr>
                 ))}
               </tbody>

@@ -13,7 +13,11 @@ import { useRef } from 'react'
 // different widths until both have values (a real bug — "To" being
 // narrower than "From" caused them to collide on mobile). A shared fixed
 // width means a From/To pair always renders identically regardless of
-// which one has a value or how long its formatted date is.
+// which one has a value or how long its formatted date is. It is w-40
+// rather than w-36 because the clear button below takes 28px off the right:
+// at the old width the longest formatted date ("13 Sept 2026") truncated to
+// "13 Sept 2..." the moment it had an x to sit beside. Both fields grow,
+// not just the one holding a value — the pair has to stay identical.
 //
 // The native <input type="date"> is stacked invisibly over the whole
 // button so tapping anywhere on it opens the OS's own date picker on
@@ -69,7 +73,7 @@ export default function DateFieldButton({ label, value, onChange, min, max, requ
   return (
     <span
       onClick={openPicker}
-      className={`relative inline-flex h-[30px] w-36 flex-shrink-0 items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${value ? 'pr-7' : 'pr-2'} ${className}`}
+      className={`relative inline-flex h-[30px] w-40 flex-shrink-0 items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${value ? 'pr-7' : 'pr-2'} ${className}`}
     >
       <CalendarIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />
       <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : label}</span>

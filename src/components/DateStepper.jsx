@@ -14,6 +14,54 @@ function stepMonth(year, month, delta) {
   return [y, m]
 }
 
+// One enclosed control, not two square buttons flanking a bare label:
+// chevrons and label share a single border, so the stepper reads as one
+// thing to press rather than three unrelated bits of chrome. They stay
+// separate <button>s inside it — a button can't nest buttons, and prev/next/
+// jump are different actions — but nothing about the seams says so.
+//
+// Exported because the shape, not the month logic, is what other period
+// pickers need to match: Team Leave's week navigator steps by seven days and
+// has no jump sheet, so it can't be a `unit` on DateStepper, but it should
+// still look like every other period picker in the app. Without
+// `onLabelClick` the label is plain text rather than a button, since a
+// control that looks pressable and isn't is worse than one that doesn't.
+export function StepperShell({
+  label, onLabelClick, onPrev, onNext, prevLabel, nextLabel,
+  canGoPrev = true, canGoNext = true, centered = false,
+}) {
+  const labelClassName = `whitespace-nowrap px-2 font-display text-base font-semibold text-ink ${centered ? 'flex-1 text-center' : ''}`
+  return (
+    <div className={`inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={!canGoPrev}
+        className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-l-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label={prevLabel}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      {onLabelClick ? (
+        <button type="button" onClick={onLabelClick} className={`${labelClassName} transition-colors hover:text-accent`}>
+          {label}
+        </button>
+      ) : (
+        <span className={labelClassName}>{label}</span>
+      )}
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!canGoNext}
+        className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-r-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label={nextLabel}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
+
 // The app's one shared "browse by year" / "browse by month" control — prev/
 // next arrows, a label, and an optional Today reset. Previously hand-rolled
 // four times with drifting button sizes and copy-pasted rollover logic
@@ -75,39 +123,17 @@ export default function DateStepper({
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
-      {/* One enclosed control, not two square buttons flanking a bare
-          label: chevrons and label share a single border, so the stepper
-          reads as one thing to press rather than three unrelated bits of
-          chrome. They stay three separate <button>s inside it — a button
-          can't nest buttons, and prev/next/jump are three different
-          actions — but nothing about the seams says so. */}
-      <div className={`inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
-        <button
-          type="button"
-          onClick={() => go(-1)}
-          disabled={!canGoPrev}
-          className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-l-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label={unit === 'year' ? 'Previous year' : 'Previous month'}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setJumpOpen(true)}
-          className={`whitespace-nowrap px-2 font-display text-base font-semibold text-ink transition-colors hover:text-accent ${centered ? 'flex-1 text-center' : ''}`}
-        >
-          {label}
-        </button>
-        <button
-          type="button"
-          onClick={() => go(1)}
-          disabled={!canGoNext}
-          className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-r-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label={unit === 'year' ? 'Next year' : 'Next month'}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
+      <StepperShell
+        label={label}
+        onLabelClick={() => setJumpOpen(true)}
+        onPrev={() => go(-1)}
+        onNext={() => go(1)}
+        prevLabel={unit === 'year' ? 'Previous year' : 'Previous month'}
+        nextLabel={unit === 'year' ? 'Next year' : 'Next month'}
+        canGoPrev={canGoPrev}
+        canGoNext={canGoNext}
+        centered={centered}
+      />
       {showToday && (
         <button
           type="button"

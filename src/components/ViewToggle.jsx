@@ -6,7 +6,10 @@
 // it (same reasoning as ToolbarFacet's own responsive label) — icon stays
 // visible at every width, label comes back at `sm` and up. Both are always
 // in the DOM; only CSS decides which shows, so there's no separate mobile/
-// desktop variant to keep in sync. Extracted from InternRotationsPlanner.jsx's
+// desktop variant to keep in sync. `ariaLabel` is for the case where the
+// visible label is too terse to speak — the roster's S/M/L text-size switch
+// announces "Small text" rather than "S"; everything else just reuses its
+// own label. Extracted from InternRotationsPlanner.jsx's
 // Table/Timeline toggle so other pages (e.g. RosterDashboardPage's
 // List/Grid switch) can reuse the same shape instead of a second hand-
 // rolled copy.
@@ -20,7 +23,7 @@ export default function ViewToggle({ view, onChange, options }) {
             key={o.key}
             type="button"
             onClick={() => onChange(o.key)}
-            aria-label={o.label}
+            aria-label={o.ariaLabel ?? o.label}
             className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors ${
               view === o.key ? 'bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}

@@ -1,4 +1,5 @@
 import { bandForCode, SHIFT_STARTS, SHIFT_BAND } from '../lib/shiftBands'
+import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import PublicHolidayBadge from './PublicHolidayBadge'
@@ -28,10 +29,16 @@ const FILLS_PANEL_UPTO = 7
 // of surnames a third of the grid.
 const NAME_TO_DAY = 1.35
 
+// Row labels and the "Doctor" header are drawn a step below the table's base
+// size, as `text-[0.917em]` (11px when the base is the original 12). Only the
+// legend needs the number in JS — it sits outside the table and so has no base
+// size to take an em from.
+const NAME_EM = 11 / 12
+
 // The name column is sized off the longest name actually in the table
 // rather than a flat width, so "Van Schalkwyk" is not the one lane nobody
 // can read. One `ch` is ~7.7px at the table's own text-xs and the cells
-// are a step smaller again (text-[11px]), so counting characters
+// are a step smaller again (text-[0.917em]), so counting characters
 // overestimates — the safe direction. The floor keeps it wider than any
 // day column even when every surname is short (which is what makes it the
 // widest column, always); the ceiling stops one double-barrelled name
@@ -96,7 +103,7 @@ function buildDayColumns(days, padToWeek) {
 // already belongs to one person, so spending colour on identity would say
 // something the row label already says. See src/lib/shiftBands.js.
 export default function RosterLanesView({
-  days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false,
+  days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false, textSize = 'md',
 }) {
   // date -> profileId -> the shift code they hold that day. A doctor works
   // at most one shift a day (findSameDayConflict enforces it), so this is a
@@ -128,6 +135,8 @@ export default function RosterLanesView({
   const nameFor = profile => displayNames?.get(profile.id) ?? profile.surname ?? ''
   const nameCol = nameColumnWidth(Math.max(...lanes.map(p => nameFor(p).length)))
   const nameShare = nameColumnShare(columns.length)
+  const { base } = rosterTextSize(textSize)
+  const scale = rosterTextScale(textSize)
 
   // A consultant's entry is keyed CONSULTANT rather than by shift code, so
   // it never reaches byProfileDate — read it off the same map the day-rows
@@ -141,16 +150,21 @@ export default function RosterLanesView({
   let lastCategory = null
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-line">
+    <div
+      className="overflow-x-auto rounded-lg border border-slate-line"
+      style={{ fontSize: `${base}px` }}
+    >
       {/* table-fixed with an explicit colgroup, so the day columns split the
           spare width evenly instead of the name column taking it all — the
           min-width below is what makes a long month scroll rather than
           crushing 31 columns into a phone. */}
       <table
-        className="w-full table-fixed border-collapse text-xs"
+        className="w-full table-fixed border-collapse"
         style={{
-          minWidth: nameCol + columns.length * DAY_COL_MIN,
-          '--lanes-name-w': `${nameCol}px`,
+          // Column widths scale with the text, so a larger size widens the
+          // grid (and scrolls) rather than cramming the same boxes.
+          minWidth: Math.round((nameCol + columns.length * DAY_COL_MIN) * scale),
+          '--lanes-name-w': `${Math.round(nameCol * scale)}px`,
           ...(nameShare ? { '--lanes-name-w-md': nameShare } : null),
         }}
       >
@@ -166,7 +180,7 @@ export default function RosterLanesView({
           <tr>
             <th
               scope="col"
-              className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left text-[11px] font-semibold text-ink-muted"
+              className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left text-[0.917em] font-semibold text-ink-muted"
             >
               Doctor
             </th>
@@ -189,14 +203,14 @@ export default function RosterLanesView({
               const stamp = (
                 <>
                   <span className="block tabular-nums">{Number(d)}</span>
-                  <span className="block text-[9px] font-normal">{DAY_INITIALS[dayOfWeek(day.dateStr)]}</span>
+                  <span className="block text-[0.75em] font-normal">{DAY_INITIALS[dayOfWeek(day.dateStr)]}</span>
                 </>
               )
               return (
                 <th
                   key={key}
                   scope="col"
-                  className={`border-b border-slate-line px-0.5 py-1 text-center text-[10px] font-semibold ${
+                  className={`border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
                     off ? 'bg-accent-tint text-accent-dark' : 'bg-canvas-raised text-ink-muted'
                   }`}
                 >
@@ -223,7 +237,7 @@ export default function RosterLanesView({
                   <th
                     scope="colgroup"
                     colSpan={columns.length + 1}
-                    className="sticky left-0 border-b border-slate-line bg-accent-tint px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-accent-dark"
+                    className="sticky left-0 border-b border-slate-line bg-accent-tint px-2 py-1 text-left text-[0.834em] font-semibold uppercase tracking-wide text-accent-dark"
                   >
                     {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
                   </th>
@@ -239,7 +253,7 @@ export default function RosterLanesView({
                 <th
                   scope="row"
                   title={name}
-                  className="sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-1 text-left text-[11px] font-medium text-ink"
+                  className="sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-1 text-left text-[0.917em] font-medium text-ink"
                 >
                   {name}
                 </th>
@@ -256,7 +270,7 @@ export default function RosterLanesView({
                     return (
                       <td
                         key={key}
-                        className={`border-r border-slate-hairline text-center text-[10px] text-ink-muted ${
+                        className={`border-r border-slate-hairline text-center text-[0.834em] text-ink-muted ${
                           off ? 'bg-canvas-cool' : ''
                         }`}
                       >
@@ -274,7 +288,7 @@ export default function RosterLanesView({
                   return (
                     <td key={key} className="border-r border-slate-hairline p-0">
                       <span
-                        className={`block px-0.5 py-1 text-center text-[10px] font-semibold tabular-nums ${fill} ${text}`}
+                        className={`block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums ${fill} ${text}`}
                         title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}`}
                       >
                         {band ? label : 'C'}
@@ -295,9 +309,15 @@ export default function RosterLanesView({
 // Rendered under the table rather than behind a Legend trigger: six starts
 // is short enough to read in place, and the whole point of the view is that
 // the colours mean something.
-export function LanesLegend() {
+export function LanesLegend({ textSize = 'md' }) {
+  // Sits outside the table's own scroll box, so it needs the base size told
+  // to it rather than inherited — otherwise the legend keeps its original
+  // 11px while the grid it explains grows.
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-ink-muted">
+    <div
+      className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-ink-muted"
+      style={{ fontSize: `${Math.round(rosterTextSize(textSize).base * NAME_EM)}px` }}
+    >
       {SHIFT_STARTS.map(start => (
         <span key={start} className="flex items-center gap-1.5">
           <span className={`h-2.5 w-4 rounded-sm ${SHIFT_BAND[start].swatch}`} />

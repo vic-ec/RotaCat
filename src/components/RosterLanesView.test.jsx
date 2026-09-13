@@ -42,6 +42,12 @@ function renderLanes(props = {}) {
       shiftTypes={SHIFT_TYPES}
       displayNames={new Map()}
       entryMap={ENTRY_MAP}
+      // The column-width numbers these tests assert were written against the
+      // 12px drawing the grid has always used, which is now the 'sm' step of
+      // the text-size switch — pinning it here keeps them testing the sizing
+      // algorithm rather than the scale factor on top of it. The scale has a
+      // test of its own below.
+      textSize="sm"
       {...props}
     />
   )
@@ -294,6 +300,19 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     renderLanes({ days: month })
     expect(nameColShare()).toBe('')
     expect(nameColWidth()).toBe(128)
+  })
+
+  it('scales the column widths with the text size, so bigger type widens the grid', () => {
+    // The point of the switch is legibility, which a wider column gives and a
+    // bigger font in the same column does not — at a fixed width the names
+    // would just truncate sooner. Both the name column and the table's
+    // min-width take the same factor, so the grid keeps its proportions and
+    // scrolls inside its own box.
+    renderLanes({ days: SHORT_WEEK, padToWeek: true, textSize: 'lg' })
+    expect(nameColWidth()).toBe(171)              // 128 × 16/12
+    expect(screen.getByRole('table').style.minWidth).toBe('451px')  // 338 × 16/12
+    // …and the em-based cell text has a base to size itself against.
+    expect(screen.getByRole('table').parentElement.style.fontSize).toBe('16px')
   })
 
   it('stretches the category heading across the padded columns too', () => {

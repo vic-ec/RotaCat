@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3 } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -18,6 +18,7 @@ import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar from '../components/Toolbar'
 import ViewToggle from '../components/ViewToggle'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
+import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 
@@ -121,6 +122,12 @@ export default function RosterGridPage() {
   // change for every doctor on the roster, so it gets an explicit "are you
   // sure" rather than firing straight off the button click.
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  // Roster text size (S/M/L), per device. The grids are the densest thing in
+  // the app and 12px cell text does not suit every pair of eyes.
+  const [textSize, setTextSize] = useState(readRosterTextSize)
+  useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
+  const { base: rosterBase } = rosterTextSize(textSize)
+  const rosterScale = rosterTextScale(textSize)
 
   useEffect(() => {
     loadAll()
@@ -512,6 +519,18 @@ export default function RosterGridPage() {
           <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
           <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
 
+          {/* Text size. Same 30px switch as its neighbours but kept as its
+              own group behind a Type icon, because it answers a different
+              kind of question: the other two change what you're looking at,
+              this one only changes how big it is. S is the size the grids
+              were always drawn at, so an existing user who never touches
+              this sees no change — M is the default because the grids are
+              the densest screens in the app and 12px is small for them. */}
+          <div className="flex items-center gap-1.5" role="group" aria-label="Roster text size">
+            <Type className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
+            <ViewToggle view={textSize} onChange={setTextSize} options={ROSTER_TEXT_SIZES} />
+          </div>
+
           {/* Hours Summary — visible to every role that can view this page
               except locum (matches Roster Hours Summary's own visibility
               rule); pre-seeds the summary's month/year to this roster's own,
@@ -709,6 +728,7 @@ export default function RosterGridPage() {
       {layout === 'lanes' ? (
         <>
           <RosterLanesView
+            textSize={textSize}
             days={visibleDays}
             profiles={lanesProfiles}
             entries={entries}
@@ -717,23 +737,23 @@ export default function RosterGridPage() {
             entryMap={entryMap}
             padToWeek={viewMode === 'week'}
           />
-          <LanesLegend />
+          <LanesLegend textSize={textSize} />
         </>
       ) : (
       /* Grid — horizontally scrollable */
-      <div className="overflow-x-auto rounded-lg border border-slate-line">
-        <table className="w-full min-w-[580px] table-fixed border-collapse text-xs">
+      <div className="overflow-x-auto rounded-lg border border-slate-line" style={{ fontSize: `${rosterBase}px` }}>
+        <table className="w-full table-fixed border-collapse" style={{ minWidth: Math.round(580 * rosterScale) }}>
           {/* Every column 20px narrower than before: date 64px -> 44px;
               Consultant + up to 4 shift columns were auto-sharing ~127px
               each, now fixed at 107px each so the reduction is uniform
               instead of just redistributing the freed space. */}
           <colgroup>
-            <col className="w-11" />
-            <col className="w-[107px]" />
-            <col className="w-[107px]" />
-            <col className="w-[107px]" />
-            <col className="w-[107px]" />
-            <col className="w-[107px]" />
+            <col style={{ width: Math.round(44 * rosterScale) }} />
+            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round(107 * rosterScale) }} />
           </colgroup>
           <tbody>
             {visibleDays.map((day, dayIdx) => {
@@ -771,7 +791,7 @@ export default function RosterGridPage() {
                       const localDate = new Date(y, m - 1, d)
                       return (
                         <>
-                          <span className="block text-[10px] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
+                          <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
                           <span>{d}</span>
                           {day.phName && (
                             <span className="mt-0.5 block">
@@ -786,7 +806,7 @@ export default function RosterGridPage() {
                   {/* Consultant column */}
                   <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
-                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
+                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
                         Consultant
                       </div>
                     )}
@@ -820,7 +840,7 @@ export default function RosterGridPage() {
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[11px] font-semibold text-ink-muted ${headerBg}`}>
+                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
                             {label}
                           </div>
                         )}
@@ -842,7 +862,7 @@ export default function RosterGridPage() {
                           {isAdmin && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
-                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
                               title="Add doctor"
                             >
                               +
@@ -926,7 +946,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
     return (
       <div
         onClick={isAdmin ? onClick : undefined}
-        className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[10px] font-medium text-flagAmber ${
+        className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
         } ${dimmed ? 'opacity-30' : ''}`}
       >
@@ -945,7 +965,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
-      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${
+      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''}`}
       style={{ borderLeftColor: railColor }}
@@ -1008,22 +1028,22 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
       <div onClick={isAdmin ? () => setOpen(true) : undefined} className={isAdmin ? 'cursor-pointer' : ''}>
         {consultant ? (
           <div
-            className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[10px] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
+            className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
             style={{ borderLeftColor: railColor }}
             title={`${consultant.name} ${consultant.surname}`}
           >
             <span className="truncate">{displayNames?.get(consultant.id) ?? consultant.surname}</span>
           </div>
         ) : existing?.consultant_name ? (
-          <div className={`min-h-[20px] rounded px-1 py-0.5 text-[10px] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>
+          <div className={`min-h-[20px] rounded px-1 py-0.5 text-[0.834em] text-ink-muted ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}>
             {existing.consultant_name}
           </div>
         ) : isAdmin ? (
-          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[10px] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
+          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
             +
           </div>
         ) : (
-          <div className="min-h-[20px] px-1 py-0.5 text-[10px] text-ink-muted">—</div>
+          <div className="min-h-[20px] px-1 py-0.5 text-[0.834em] text-ink-muted">—</div>
         )}
       </div>
 

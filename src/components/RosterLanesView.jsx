@@ -205,8 +205,14 @@ export default function RosterLanesView({
   let lastCategory = null
 
   return (
+    /* max-h + overflow-auto, not just overflow-x-auto: the day header below
+       is sticky, and a sticky element needs a real scrolling ancestor to
+       stick against. With the page as the only scroller it would stick to
+       the viewport instead — under the phone's own app header, and over
+       whatever else is on screen. Capped and scrolling inside its own box is
+       what the app's other wide grids already do. */
     <div
-      className="overflow-x-auto rounded-lg border border-slate-line"
+      className="max-h-[70vh] overflow-auto rounded-lg border border-slate-line"
       style={{ fontSize: `${base}px` }}
     >
       {/* The off-screen copy the name column is sized from. Zero-sized and
@@ -222,8 +228,16 @@ export default function RosterLanesView({
           spare width evenly instead of the name column taking it all — the
           min-width below is what makes a long month scroll rather than
           crushing 31 columns into a phone. */}
+      {/* border-separate with zero spacing rather than border-collapse: a
+          collapsed border is shared between neighbouring cells and owned by
+          the table, and both the day header and the name column now paint on
+          their own compositing layers — their half of each shared line lands
+          a device pixel off the rest of the grid while scrolling. Every
+          border here is already declared on one side of each pair, so
+          separating them draws the same lines, once each. Same reasoning as
+          the Hours Summary grid. */}
       <table
-        className="w-full table-fixed border-collapse"
+        className="w-full table-fixed border-separate border-spacing-0"
         style={{
           // Column widths scale with the text, so a larger size widens the
           // grid (and scrolls) rather than cramming the same boxes.
@@ -242,9 +256,11 @@ export default function RosterLanesView({
         </caption>
         <thead>
           <tr>
+            {/* The corner: sticky in both directions, and above both the
+                header row it sits in and the name column it sits atop. */}
             <th
               scope="col"
-              className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left text-[0.917em] font-semibold text-ink-muted"
+              className="sticky left-0 top-0 z-30 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left text-[0.917em] font-semibold text-ink-muted"
             >
               Doctor
             </th>
@@ -274,7 +290,7 @@ export default function RosterLanesView({
                 <th
                   key={key}
                   scope="col"
-                  className={`border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
+                  className={`sticky top-0 z-20 border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
                     off ? 'bg-accent-tint text-accent-dark' : 'bg-canvas-raised text-ink-muted'
                   }`}
                 >
@@ -298,12 +314,21 @@ export default function RosterLanesView({
               lastCategory = profile.category
               rows.push(
                 <tr key={`grp-${profile.category ?? 'other'}`}>
+                  {/* The label is stuck to the left edge by an inner span,
+                      not by the cell: a `sticky` on a `th` that spans every
+                      column is ignored in Chromium, which left this band
+                      blank — its background scrolled with the table and the
+                      word went off the left of the screen the moment you
+                      scrolled sideways, exactly where you most need to know
+                      whose block of lanes you are looking at. */}
                   <th
                     scope="colgroup"
                     colSpan={columns.length + 1}
-                    className="sticky left-0 border-b border-slate-line bg-accent-tint px-2 py-1 text-left text-[0.834em] font-semibold uppercase tracking-wide text-accent-dark"
+                    className="border-b border-slate-line bg-accent-tint py-1 text-left"
                   >
-                    {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
+                    <span className="sticky left-0 inline-block px-2 text-[0.834em] font-semibold uppercase tracking-wide text-accent-dark">
+                      {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
+                    </span>
                   </th>
                 </tr>
               )

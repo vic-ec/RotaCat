@@ -276,7 +276,7 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     // Day columns are capped at 96px; the name column's floor sits above
     // that, which is what makes "widest" true rather than coincidental.
     renderLanes({ days: SHORT_WEEK, padToWeek: true })
-    expect(nameColWidth()).toBe(128)
+    expect(nameColWidth()).toBe(88)
   })
 
   it('grows every column to fill the panel, the name column with them', () => {
@@ -289,8 +289,8 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     expect(nameColShare()).toBe('16.17%')
     // …and the pixel width is still there for the phone, where the share
     // would be too few pixels to hold a surname.
-    expect(nameColWidth()).toBe(128)
-    expect(screen.getByRole('table').style.minWidth).toBe('338px')
+    expect(nameColWidth()).toBe(88)
+    expect(screen.getByRole('table').style.minWidth).toBe('298px')
   })
 
   it('leaves a month on pixels — 31 columns never leave the panel room to spare', () => {
@@ -299,7 +299,7 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     }))
     renderLanes({ days: month })
     expect(nameColShare()).toBe('')
-    expect(nameColWidth()).toBe(128)
+    expect(nameColWidth()).toBe(88)
   })
 
   it('scales the column widths with the text size, so bigger type widens the grid', () => {
@@ -309,10 +309,34 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     // min-width take the same factor, so the grid keeps its proportions and
     // scrolls inside its own box.
     renderLanes({ days: SHORT_WEEK, padToWeek: true, textSize: 'lg' })
-    expect(nameColWidth()).toBe(171)              // 128 × 16/12
-    expect(screen.getByRole('table').style.minWidth).toBe('451px')  // 338 × 16/12
+    expect(nameColWidth()).toBe(117)              // 88 × 16/12
+    expect(screen.getByRole('table').style.minWidth).toBe('397px')  // 117 + 7 × 30 × 16/12
     // …and the em-based cell text has a base to size itself against.
     expect(screen.getByRole('table').parentElement.style.fontSize).toBe('16px')
+  })
+
+  it('prefers the measured name width over the character estimate', () => {
+    // jsdom lays nothing out, so the probe reads 0 and every other test
+    // here exercises the estimate. Stub a real width onto it to prove the
+    // component sizes the column from what the browser actually drew: the
+    // estimate for "Van Schalkwyk-Botha" is 162px, a real measurement of
+    // 121px plus the column's own padding is 140.
+    const real = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      return this.tagName === 'SPAN' && this.textContent === 'Van Schalkwyk-Botha'
+        ? { width: 121, height: 14, top: 0, left: 0, right: 121, bottom: 14, x: 0, y: 0 }
+        : real.call(this)
+    }
+    try {
+      renderLanes({
+        days: SHORT_WEEK,
+        padToWeek: true,
+        displayNames: new Map([['d1', 'Van Schalkwyk-Botha']]),
+      })
+      expect(nameColWidth()).toBe(140)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = real
+    }
   })
 
   it('stretches the category heading across the padded columns too', () => {

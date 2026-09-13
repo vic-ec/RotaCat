@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { bandForCode, SHIFT_STARTS, SHIFT_BAND } from '../lib/shiftBands'
 import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
@@ -37,15 +38,30 @@ const NAME_EM = 11 / 12
 
 // The name column is sized off the longest name actually in the table
 // rather than a flat width, so "Van Schalkwyk" is not the one lane nobody
-// can read. One `ch` is ~7.7px at the table's own text-xs and the cells
-// are a step smaller again (text-[0.917em]), so counting characters
-// overestimates — the safe direction. The floor keeps it wider than any
-// day column even when every surname is short (which is what makes it the
-// widest column, always); the ceiling stops one double-barrelled name
-// taking the table over.
+// can read.
+//
+// The width that actually ships is *measured* — an off-screen copy of the
+// longest name, in the column's own font and size, read back with
+// getBoundingClientRect (see useNameColumnWidth). Counting characters can
+// only ever approximate a proportional face: at ~7.7px a character it ran
+// 50% wide for a lowercase surname, which is where the phone's over-wide
+// Doctor column came from. The estimate below stays as the first-paint
+// value and the fallback wherever there is nothing to measure against
+// (jsdom, a hidden tab), and it deliberately overestimates, since the
+// header truncates and a column that is too narrow loses the name
+// altogether. The ceiling stops one double-barrelled name taking the
+// table over.
 const NAME_CH_PX = 7.7
-const NAME_COL_MIN = 128
+// The floor only has to keep "Doctor" and a short surname off the truncation
+// point — it used to sit at 128, which was the real reason the column looked
+// so much wider than the names in it: at a larger text size the floor scaled
+// up with everything else and a 13-character surname never got near it.
+const NAME_COL_MIN = 88
 const NAME_COL_MAX = 200
+
+// Side padding (px-2 twice) plus the column's right border, plus a pixel of
+// slack so a sub-pixel measurement never clips the last glyph.
+const NAME_COL_CHROME = 19
 
 // Plain pixels, deliberately. A `max(<px>, <%>)` here would say all of
 // this in one value, but Chromium rejects a percentage inside a math
@@ -61,6 +77,32 @@ function nameColumnWidth(maxNameLength) {
 function nameColumnShare(dayColumnCount) {
   if (dayColumnCount > FILLS_PANEL_UPTO) return null
   return `${((NAME_TO_DAY / (dayColumnCount + NAME_TO_DAY)) * 100).toFixed(2)}%`
+}
+
+// Measure the longest name as the column will actually draw it, and return
+// the width to give the column — or null before the first measurement, and
+// wherever measuring is not possible, so the caller falls back to its
+// character estimate. Re-measures when the name or the text size changes;
+// the font itself can land late (Figtree is a webfont), so it waits on
+// document.fonts too rather than sizing the column to the fallback face.
+function useNameColumnWidth(probeRef, longestName, base, scale) {
+  const [measured, setMeasured] = useState(null)
+
+  useLayoutEffect(() => {
+    let live = true
+    function measure() {
+      const width = probeRef.current?.getBoundingClientRect().width ?? 0
+      if (!live || width <= 0) return
+      const min = NAME_COL_MIN * scale
+      const max = NAME_COL_MAX * scale
+      setMeasured(Math.round(Math.min(Math.max(width + NAME_COL_CHROME, min), max)))
+    }
+    measure()
+    document.fonts?.ready?.then(measure)
+    return () => { live = false }
+  }, [probeRef, longestName, base, scale])
+
+  return measured
 }
 
 function categoryRank(category) {
@@ -105,6 +147,19 @@ function buildDayColumns(days, padToWeek) {
 export default function RosterLanesView({
   days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false, textSize = 'md',
 }) {
+  const { base } = rosterTextSize(textSize)
+  const scale = rosterTextScale(textSize)
+  const nameFor = profile => displayNames?.get(profile.id) ?? profile.surname ?? ''
+  // Hooks run before the empty-table early return below, so they stay
+  // unconditional; the probe they read renders inside the table's own
+  // wrapper, where it inherits the base font size.
+  const nameProbeRef = useRef(null)
+  const longestName = profiles.reduce((longest, p) => {
+    const name = nameFor(p)
+    return name.length > longest.length ? name : longest
+  }, '')
+  const measuredNameCol = useNameColumnWidth(nameProbeRef, longestName, base, scale)
+
   // date -> profileId -> the shift code they hold that day. A doctor works
   // at most one shift a day (findSameDayConflict enforces it), so this is a
   // flat lookup rather than a list.
@@ -132,11 +187,11 @@ export default function RosterLanesView({
   }
 
   const columns = buildDayColumns(days, padToWeek)
-  const nameFor = profile => displayNames?.get(profile.id) ?? profile.surname ?? ''
-  const nameCol = nameColumnWidth(Math.max(...lanes.map(p => nameFor(p).length)))
   const nameShare = nameColumnShare(columns.length)
-  const { base } = rosterTextSize(textSize)
-  const scale = rosterTextScale(textSize)
+  // Measured where we can, estimated until then. Either way the number is
+  // already at the current text size — the estimate is drawn against the
+  // original 12px, so it (and it alone) takes the scale factor.
+  const nameColPx = measuredNameCol ?? Math.round(nameColumnWidth(longestName.length) * scale)
 
   // A consultant's entry is keyed CONSULTANT rather than by shift code, so
   // it never reaches byProfileDate — read it off the same map the day-rows
@@ -154,6 +209,15 @@ export default function RosterLanesView({
       className="overflow-x-auto rounded-lg border border-slate-line"
       style={{ fontSize: `${base}px` }}
     >
+      {/* The off-screen copy the name column is sized from. Zero-sized and
+          overflow-hidden so it can never widen the scroll box it sits in —
+          clipping hides the paint, the span inside still lays out at its
+          natural width, which is the whole point. Its classes have to match
+          the row header's exactly, or it measures the wrong thing. */}
+      <div aria-hidden="true" style={{ width: 0, height: 0, overflow: 'hidden' }}>
+        <span ref={nameProbeRef} className="whitespace-nowrap text-[0.917em] font-medium">{longestName}</span>
+      </div>
+
       {/* table-fixed with an explicit colgroup, so the day columns split the
           spare width evenly instead of the name column taking it all — the
           min-width below is what makes a long month scroll rather than
@@ -163,8 +227,8 @@ export default function RosterLanesView({
         style={{
           // Column widths scale with the text, so a larger size widens the
           // grid (and scrolls) rather than cramming the same boxes.
-          minWidth: Math.round((nameCol + columns.length * DAY_COL_MIN) * scale),
-          '--lanes-name-w': `${Math.round(nameCol * scale)}px`,
+          minWidth: nameColPx + Math.round(columns.length * DAY_COL_MIN * scale),
+          '--lanes-name-w': `${nameColPx}px`,
           ...(nameShare ? { '--lanes-name-w-md': nameShare } : null),
         }}
       >

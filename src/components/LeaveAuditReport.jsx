@@ -5,6 +5,8 @@ import { reviewStatusLabel } from '../lib/statusLabels'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows } from '../lib/leaveAudit'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { contrastTextColor } from '../lib/color'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
@@ -77,7 +79,7 @@ export default function LeaveAuditReport() {
     setLoading(true)
     setError('')
     const [profilesRes, requestsRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, category, is_active').eq('role', 'doctor').eq('is_approved', true),
+      supabase.from('profiles').select('id, name, surname, category, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
       supabase.from('leave_requests').select('*').lte('date_from', dateTo).gte('date_to', dateFrom),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -130,6 +132,13 @@ export default function LeaveAuditReport() {
     () => buildAuditRows(statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo),
     [statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo]
   )
+
+  // Surname only, with a first initial for whoever shares one — the compact
+  // form the roster grid and the planners already use, and what lets the
+  // frozen Doctor column be as narrow as the name in it. Built off every
+  // loaded doctor, not the filtered rows, so a name does not gain or lose
+  // its initial as you filter.
+  const displayNames = useMemo(() => buildDoctorDisplayNames(profiles), [profiles])
 
   const searchTerm = q.trim().toLowerCase()
   const filteredRows = rows.filter(r => {
@@ -236,7 +245,7 @@ export default function LeaveAuditReport() {
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
           <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-            <table className="w-full min-w-[720px] border-separate border-spacing-0 text-sm">
+            <table className="w-full min-w-[560px] border-separate border-spacing-0 text-xs">
               <thead className="sticky top-0 z-10">
                 {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
                     can't reliably inherit its row's background while it is
@@ -244,13 +253,16 @@ export default function LeaveAuditReport() {
                     header during a scroll. Doctor is additionally sticky
                     left-0, and z-20 keeps that corner cell above both the
                     rest of the header and the sticky column beneath it. */}
-                <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-3 py-2">Doctor</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Category</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Annual</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Special</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Sick</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Total days</th>
+                {/* No Category column: it moved under the name, where Hours
+                    Summary already keeps it. One less column on a table that
+                    has to scroll on a phone, and the category reads as a
+                    property of the doctor rather than a fourth number. */}
+                <tr className="text-left text-[10px] uppercase tracking-wide text-ink-muted">
+                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5">Doctor</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Annual</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Special</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Sick</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Total days</th>
                 </tr>
               </thead>
               {/* Row lines are `slate-hairline` on the cells themselves, not a
@@ -259,20 +271,31 @@ export default function LeaveAuditReport() {
                   own so it doesn't double up against the container's frame. */}
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
-                  <tr><td colSpan={6} className="px-3 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
                 ) : filteredRows.map(row => (
                   <tr key={row.profileId} className="hover:bg-canvas-sunken/50">
                     {/* Sticky, so the name stays put while the day counts
                         scroll past it — with its own explicit background for
-                        the same reason the header cells carry theirs. */}
-                    <td className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-3 py-2 text-ink hover:bg-canvas-sunken/50">
-                      {row.surname}, {row.name}
+                        the same reason the header cells carry theirs. The
+                        name pill is whitespace-nowrap and this table has no
+                        table-fixed, so the pill is what sets the column's
+                        width: a surname and a little padding, no more. */}
+                    <td
+                      title={`${row.name} ${row.surname}`}
+                      className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top hover:bg-canvas-sunken/50"
+                    >
+                      <span
+                        className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+                        style={{ backgroundColor: row.colorCode || '#4A90D9', color: row.colorCode ? contrastTextColor(row.colorCode) : undefined }}
+                      >
+                        {displayNames.get(row.profileId) ?? row.surname}
+                      </span>
+                      <p className="mt-0.5 text-[10px] text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</p>
                     </td>
-                    <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</td>
-                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.annual} /></td>
-                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.special} /></td>
-                    <td className="border-b border-slate-hairline px-3 py-2"><BucketCell bucket={row.sick} /></td>
-                    <td className="border-b border-slate-hairline px-3 py-2 font-semibold text-ink">{row.totalApprovedDays}</td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.annual} /></td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.special} /></td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.sick} /></td>
+                    <td className="border-b border-slate-hairline px-2 py-1.5 font-semibold text-ink">{row.totalApprovedDays}</td>
                   </tr>
                 ))}
               </tbody>

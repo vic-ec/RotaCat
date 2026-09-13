@@ -11,6 +11,7 @@ import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { shiftColumns, shiftTimeRange } from '../lib/shiftLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -139,6 +140,16 @@ export default function RosterSummaryPage() {
   }
   const now = new Date()
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
+
+  // Surname only, with a first initial added for whoever actually shares one
+  // — the same compact form the roster grid and both planners use. The pill
+  // used to spell out "Alexis Van Schalkwyk", which set the width of a
+  // frozen column that is on screen for the whole of a sideways scroll; the
+  // surname is what anyone reads anyway, and the full name is still a hover
+  // away on the cell's title.
+  const displayNames = buildDoctorDisplayNames(
+    rows.map(r => ({ id: r.profileId, name: r.name, surname: r.surname }))
+  )
 
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
   const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0
@@ -375,15 +386,19 @@ export default function RosterSummaryPage() {
                         repositioning. whitespace-nowrap on the name pill
                         keeps it on one line, which combined with this table's
                         auto layout (no table-fixed) is what actually shrinks
-                        the column to fit the longest name instead of an
-                        arbitrary fixed width. */}
-                    <td className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}>
+                        the column to fit its longest line instead of an
+                        arbitrary fixed width — so what goes in the pill is
+                        what sets the column's width. */}
+                    <td
+                      title={`${row.name} ${row.surname}`}
+                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}
+                    >
                       <div className="flex items-center gap-1.5">
                         <span
                           className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={{ backgroundColor: row.colorCode || '#4A90D9', color: textColor }}
                         >
-                          {row.name} {row.surname}
+                          {displayNames.get(row.profileId) ?? row.surname}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABELS[row.category] || row.category}</p>

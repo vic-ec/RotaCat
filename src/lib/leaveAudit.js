@@ -44,6 +44,7 @@ export function buildAuditRows(profiles, leaveRequests, rangeFrom, rangeTo) {
         name: profile.name,
         surname: profile.surname,
         category: profile.category,
+        colorCode: profile.color_code ?? null,
         annual,
         special,
         sick,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, CalendarDays, CalendarRange, EllipsisVertical } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -31,13 +31,15 @@ const ROSTER_LAYOUTS = [
   { key: 'lanes', label: 'Lanes', icon: Columns3 },
 ]
 
-// How much of the month is on screen. The words are what you read on a
-// desktop; the icons exist so ViewToggle can drop the labels below `sm`,
-// which is what keeps this header on one line on a phone. Same two glyphs
-// Team Leave's own Week/Month switch uses.
+// How much of the month is on screen. One letter each, not the words and
+// not a calendar glyph: two calendars differing only in how many rows they
+// draw are indistinguishable at 14px, and at that size M and W are the two
+// most different letters in the alphabet. `ariaLabel` carries the word for
+// a screen reader and `title` for a hover, so nothing is lost but width —
+// which is what keeps this header on one line on a phone.
 const ROSTER_RANGES = [
-  { key: 'month', label: 'Month', icon: CalendarDays },
-  { key: 'week', label: 'Week', icon: CalendarRange },
+  { key: 'month', label: 'M', ariaLabel: 'Month', title: 'Month' },
+  { key: 'week', label: 'W', ariaLabel: 'Week', title: 'Week' },
 ]
 
 const MONTH_NAMES = [

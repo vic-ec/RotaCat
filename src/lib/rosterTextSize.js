@@ -9,10 +9,13 @@
 // the text rather than widening the columns. Both grids already sit in an
 // `overflow-x-auto`, so a wider grid scrolls inside its own box instead of
 // pushing the page sideways.
+// `label` is the desktop switch's own one-letter button, `name` the word
+// for a menu row that already says what it is sizing, and `ariaLabel` what
+// a screen reader gets for the letter.
 export const ROSTER_TEXT_SIZES = [
-  { key: 'sm', label: 'S', ariaLabel: 'Small roster text', base: 12 },
-  { key: 'md', label: 'M', ariaLabel: 'Medium roster text', base: 14 },
-  { key: 'lg', label: 'L', ariaLabel: 'Large roster text', base: 16 },
+  { key: 'sm', label: 'S', name: 'Small', ariaLabel: 'Small roster text', base: 12 },
+  { key: 'md', label: 'M', name: 'Medium', ariaLabel: 'Medium roster text', base: 14 },
+  { key: 'lg', label: 'L', name: 'Large', ariaLabel: 'Large roster text', base: 16 },
 ]
 
 export const DEFAULT_ROSTER_TEXT_SIZE = 'md'

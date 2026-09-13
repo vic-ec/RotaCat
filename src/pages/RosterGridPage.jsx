@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, CalendarDays, CalendarRange, EllipsisVertical, Check } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, CalendarDays, CalendarRange, EllipsisVertical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -482,20 +482,24 @@ export default function RosterGridPage() {
   const totalLocums = entries.filter(e => e.is_locum).length
   const totalFlags = entries.filter(e => e.is_flagged).length
 
-  // The phone header's More actions sheet. Text size leads it — it is the
-  // one entry here that changes what you are looking at, and it is the one
-  // with no desktop equivalent on this breakpoint — then the two places
-  // this page links out to, then Undo Publish on its own behind a divider,
-  // since it is the only entry that changes the roster itself. The tick
-  // column is always present (invisible on the sizes you are not using) so
-  // the three labels stay aligned with each other.
+  // The phone header's More actions sheet. Font size leads it — it is the
+  // one entry that changes what you are looking at, and the one with no
+  // desktop equivalent at this breakpoint — then the two places this page
+  // links out to, then Undo Publish on its own behind a divider, since it
+  // is the only entry that changes the roster itself.
+  //
+  // One row that opens its three sizes, not three rows: spelling them out
+  // made the top half of the sheet a list of near-identical labels, none of
+  // which is an action, and it buried the two that are.
   const rosterMenuItems = [
-    ...ROSTER_TEXT_SIZES.map(size => ({
-      key: `text-size-${size.key}`,
-      icon: <Check className={`h-4 w-4 ${textSize === size.key ? 'text-accent' : 'invisible'}`} />,
-      label: size.ariaLabel,
-      onClick: () => setTextSize(size.key),
-    })),
+    {
+      key: 'text-size',
+      icon: <Type className="h-4 w-4" />,
+      label: 'Font size',
+      value: textSize,
+      options: ROSTER_TEXT_SIZES.map(size => ({ key: size.key, label: size.name })),
+      onSelect: setTextSize,
+    },
     'divider',
     ...(isLocum ? [] : [{
       key: 'hours-summary',

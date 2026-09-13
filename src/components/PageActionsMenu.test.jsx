@@ -37,6 +37,43 @@ describe('PageActionsMenu', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('opens a submenu item in place, ticks the current value, and picks from it', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    renderMenu([
+      { key: 'size', label: 'Font size', value: 'md', onSelect,
+        options: [{ key: 'sm', label: 'Small' }, { key: 'md', label: 'Medium' }, { key: 'lg', label: 'Large' }] },
+      { key: 'log', label: 'Review log', onClick: vi.fn() },
+    ])
+
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    // The parent list spends one row on it, showing where the setting stands.
+    const menu = screen.getByRole('dialog', { name: 'More actions' })
+    expect(within(menu).getByRole('button', { name: /Font size/ })).toHaveTextContent('Medium')
+    expect(within(menu).queryByRole('button', { name: 'Small' })).toBeNull()
+
+    // Opening it swaps this sheet's body rather than stacking a second one.
+    await user.click(within(menu).getByRole('button', { name: /Font size/ }))
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    const sub = screen.getByRole('dialog', { name: 'Font size' })
+    expect(within(sub).queryByRole('button', { name: 'Review log' })).toBeNull()
+
+    // Back returns to the parent list without choosing anything…
+    await user.click(within(sub).getByRole('button', { name: 'Back' }))
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument()
+
+    // …and picking a size reports it and closes.
+    await user.click(screen.getByRole('button', { name: /Font size/ }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Font size' })).getByRole('button', { name: 'Large' }))
+    expect(onSelect).toHaveBeenCalledWith('lg')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // Reopening lands on the parent list, not where it was left.
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    expect(screen.getByRole('dialog', { name: 'More actions' })).toBeInTheDocument()
+  })
+
   it('uses a custom title when given', async () => {
     const user = userEvent.setup()
     renderMenu([{ key: 'x', label: 'Do X', onClick: vi.fn() }], { title: 'Custom actions' })

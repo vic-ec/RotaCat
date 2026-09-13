@@ -115,6 +115,7 @@
   --color-band-4: 228 232 236;                /* #E4E8EC */
   --color-band-5: 222 227 233;                /* #DEE3E9 */
   --color-band-bar: 211 217 224;              /* #D3D9E0 */
+  --pill-pulse-peak: brightness(0.92);        /* a pale pill darkens */
 
   /* auth-ground — the full-bleed background behind the desktop login card.
      Deep teal reads as a frame; the dark theme's mint would not, so it uses
@@ -286,6 +287,7 @@
   --color-band-4: 30 44 41;                   /* #1E2C29 */
   --color-band-5: 34 51 48;                   /* #223330 */
   --color-band-bar: 43 70 63;                 /* #2B463F */
+  --pill-pulse-peak: brightness(1.45);        /* a dark pill brightens */
 
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
@@ -664,6 +666,13 @@
    levels and vanished on a real screen. The 30% window is why each pill's
    duration is held to 5.5-6.7s — that keeps every settle inside 1.65-2s
    regardless of its wait. */
+/* The peak of a pill's pulse, per theme. It cannot be one filter for both:
+   on light a pill sits ~10 levels BELOW white, so dimming it to 92% moves it
+   about 21 levels darker — a swing you can see. On dark the same pill sits
+   ~10 levels ABOVE a near-black ground, where 92% of 31 takes less than two
+   levels off it: the band was animating the whole time and not one pixel of
+   it changed. Dark brightens instead, and 1.45 is the factor that matches
+   light's own 21-24 level swing across the five tones. */
 @keyframes rosterPillPulse {
   0%,
   30%,
@@ -674,6 +683,6 @@
   12%,
   18% {
     opacity: 1;
-    filter: brightness(0.92);
+    filter: var(--pill-pulse-peak);
   }
 }

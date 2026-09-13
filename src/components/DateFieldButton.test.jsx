@@ -13,6 +13,24 @@ describe('DateFieldButton', () => {
     expect(screen.queryByText('From')).not.toBeInTheDocument()
   })
 
+  it('clears the date from the x, without also opening the picker', async () => {
+    const showPicker = vi.fn()
+    HTMLInputElement.prototype.showPicker = showPicker
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+
+    const { rerender } = render(<DateFieldButton label="From" value="" onChange={onChange} />)
+    // Nothing to clear until there is a date.
+    expect(screen.queryByRole('button', { name: 'Clear From' })).toBeNull()
+
+    rerender(<DateFieldButton label="From" value="2026-03-09" onChange={onChange} />)
+    await user.click(screen.getByRole('button', { name: 'Clear From' }))
+    expect(onChange).toHaveBeenCalledWith('')
+    // The whole field opens the picker on click, so the x has to stop the
+    // click reaching it — otherwise clearing also pops the OS date picker.
+    expect(showPicker).not.toHaveBeenCalled()
+  })
+
   // Chrome/Edge only open the native picker when the click lands on the
   // input's own calendar indicator — a ~20px target at the right edge that
   // `opacity-0` renders invisible. Without this call, clicking anywhere

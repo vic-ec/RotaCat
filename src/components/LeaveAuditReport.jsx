@@ -214,9 +214,14 @@ export default function LeaveAuditReport() {
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
-      {!loading && !error && dateFrom > dateTo && <p className="mt-6 text-sm text-flagRed">&ldquo;From&rdquo; must be on or before &ldquo;To&rdquo;.</p>}
+      {!loading && !error && (!dateFrom || !dateTo) && <p className="mt-6 text-sm text-ink-muted">Pick a From and a To date to run the report.</p>}
+      {!loading && !error && dateFrom && dateTo && dateFrom > dateTo && <p className="mt-6 text-sm text-flagRed">&ldquo;From&rdquo; must be on or before &ldquo;To&rdquo;.</p>}
 
-      {!loading && !error && dateFrom <= dateTo && (
+      {/* Both bounds, in order. The fetch already declines to run without
+          them (see load); this stops the table standing there showing the
+          last range's numbers under a date field that has since been
+          cleared. */}
+      {!loading && !error && dateFrom && dateTo && dateFrom <= dateTo && (
         <>
           {/* Same frame as Team Leave's own table and Hours Summary's grid —
               see RosterSummaryPage.jsx for the full rationale. In short:

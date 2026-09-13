@@ -54,7 +54,7 @@ export default function Modal({ title, onClose, children, footer, centered = fal
         aria-modal="true"
         aria-label={title}
         style={centered ? undefined : swipe.style}
-        className={`flex max-h-[85vh] w-full flex-col overflow-hidden bg-canvas-raised md:rounded-b-xl md:shadow-raised ${
+        className={`flex max-h-[85vh] w-full flex-col overflow-hidden border border-edge bg-canvas-raised md:rounded-b-xl md:shadow-raised ${
           centered ? 'rounded-xl shadow-raised' : 'rounded-t-xl rounded-b-none'
         } ${maxWidthClassName}`}
       >

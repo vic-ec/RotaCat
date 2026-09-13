@@ -130,6 +130,12 @@
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
 
 
+  /* Edge for a surface that floats above the page — modals, slide-overs.
+     Cards use `slate-line`; these need more, because on the dark theme a
+     drop shadow cannot separate anything: the shadow is black and so is the
+     page under it. The edge does that work instead. */
+  --color-edge: 198 214 209;                  /* #C6D6D1 */
+
   /* Modal scrim. Not `ink` at low alpha: `ink` inverts with the theme, so on
      the dark theme that veil turns light and washes the page out instead of
      dimming it. Colour and alpha both move per theme — a 20% black over an
@@ -257,6 +263,10 @@
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
+
+  /* 2.30:1 against the panel it outlines — enough to read as an edge without
+     becoming a bright outline in its own right. */
+  --color-edge: 69 105 96;                    /* #456960 */
 
   --scrim: rgba(0, 0, 0, 0.55);
   --scrim-strong: rgba(0, 0, 0, 0.68);

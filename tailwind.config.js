@@ -86,6 +86,12 @@ export default {
         'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
         'auth-hero': 'rgb(var(--color-auth-hero) / <alpha-value>)',
 
+        // Outline for a surface floating above the page (modal, slide-over).
+        // Stronger than `slate-line`, which is for cards sitting *in* the
+        // page — a floating surface has to separate from whatever is behind
+        // it, and on the dark theme its shadow cannot do that.
+        edge: 'rgb(var(--color-edge) / <alpha-value>)',
+
         // Single confident accent — teal-blue, not generic "medical blue"
         accent: {
           DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',  // #0F766E

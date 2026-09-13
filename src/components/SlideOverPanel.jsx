@@ -38,24 +38,32 @@ export default function SlideOverPanel({ fallbackPath = '/', children, footer })
   useDismissablePopover(true, close, panelRef)
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-canvas-raised shadow-[-3px_0_10px_0_rgba(15,23,42,0.18)] md:w-[35%] md:min-w-[320px]"
-    >
-      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
-        {typeof children === 'function' ? children(close) : children}
-      </div>
-      {footer !== null && (
-        <div className="flex-shrink-0 border-t border-slate-line px-5 py-3 md:px-6">
-          {footer ? footer(close) : (
-            <button type="button" onClick={close} className="btn-secondary">
-              Cancel
-            </button>
-          )}
+    <>
+      {/* This is aria-modal, but nothing dimmed the page behind it — so the
+          list underneath stayed at full brightness and competed with the
+          panel for attention. The scrim is a sibling rather than a wrapper so
+          the outside-click dismissal keeps working: a click on it is outside
+          `panelRef`. */}
+      <div className="fixed inset-0 z-40 scrim" aria-hidden="true" />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-edge bg-canvas-raised shadow-raised md:w-[35%] md:min-w-[320px]"
+      >
+        <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6">
+          {typeof children === 'function' ? children(close) : children}
         </div>
-      )}
-    </div>
+        {footer !== null && (
+          <div className="flex-shrink-0 border-t border-slate-line px-5 py-3 md:px-6">
+            {footer ? footer(close) : (
+              <button type="button" onClick={close} className="btn-secondary">
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   )
 }

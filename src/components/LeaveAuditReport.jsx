@@ -245,7 +245,12 @@ export default function LeaveAuditReport() {
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
           <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-            <table className="w-full min-w-[560px] border-separate border-spacing-0 text-xs">
+            {/* 360 is about what these five columns actually need, so the
+                min-width now only stops them squeezing on a narrow phone
+                rather than inventing 200px of slack for the table to hand
+                out. It was 560 — a leftover from when this table carried a
+                sixth column and larger type. */}
+            <table className="w-full min-w-[360px] border-separate border-spacing-0 text-xs">
               <thead className="sticky top-0 z-10">
                 {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
                     can't reliably inherit its row's background while it is
@@ -263,6 +268,15 @@ export default function LeaveAuditReport() {
                   <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Special</th>
                   <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Sick</th>
                   <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Total days</th>
+                  {/* Spacer. An auto-layout table stretched past its own
+                      content hands the slack out across its columns, and with
+                      only five of them the Doctor column took the biggest
+                      share: 103px of name became 160px on a phone and 352px
+                      on a desktop, where Hours Summary's stayed at 119 — its
+                      twenty columns leave far less of the slack for any one
+                      of them. A cell at width:100% takes all of it instead,
+                      so every real column here sits at its content width. */}
+                  <th className="w-full border-b border-slate-line bg-canvas-sunken" />
                 </tr>
               </thead>
               {/* Row lines are `slate-hairline` on the cells themselves, not a
@@ -271,7 +285,7 @@ export default function LeaveAuditReport() {
                   own so it doesn't double up against the container's frame. */}
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
-                  <tr><td colSpan={5} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
+                  <tr><td colSpan={6} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
                 ) : filteredRows.map(row => (
                   <tr key={row.profileId} className="hover:bg-canvas-sunken/50">
                     {/* Sticky, so the name stays put while the day counts
@@ -296,6 +310,7 @@ export default function LeaveAuditReport() {
                     <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.special} /></td>
                     <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.sick} /></td>
                     <td className="border-b border-slate-hairline px-2 py-1.5 font-semibold text-ink">{row.totalApprovedDays}</td>
+                    <td className="border-b border-slate-hairline" />
                   </tr>
                 ))}
               </tbody>

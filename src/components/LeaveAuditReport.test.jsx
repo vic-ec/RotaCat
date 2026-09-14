@@ -66,6 +66,28 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(rows[2]).getAllByText('0')).toHaveLength(4)
   })
 
+  it('keeps the Doctor column at the width of the name, not a share of the table', async () => {
+    // An auto-layout table stretched past its own content hands the slack
+    // out across its columns, and with only five of them the Doctor column
+    // took the biggest share — 103px of name rendered as 160px on a phone
+    // and 352px on a desktop. The spacer cell at the end of every row takes
+    // the slack instead. jsdom lays nothing out, so this guards the
+    // mechanism: a trailing cell carrying `w-full` and no content, on the
+    // header row and on every body row.
+    mockResponses['profiles:select'] = { data: PROFILES, error: null }
+    render(<LeaveAuditReport />)
+
+    const headerCells = within(await screen.findByRole('row', { name: /Doctor/ })).getAllByRole('columnheader')
+    const headerSpacer = headerCells[headerCells.length - 1]
+    expect(headerSpacer).toBeEmptyDOMElement()
+    expect(headerSpacer.className).toContain('w-full')
+
+    const bodyRow = (await screen.findByText('Adams')).closest('tr')
+    const bodyCells = [...bodyRow.children]
+    expect(bodyCells).toHaveLength(headerCells.length)
+    expect(bodyCells[bodyCells.length - 1]).toBeEmptyDOMElement()
+  })
+
   it('freezes the Doctor column, as Team Leave and Hours Summary do', async () => {
     // Six columns of day counts say nothing without the name they belong
     // to, and this table is wider than a phone screen.

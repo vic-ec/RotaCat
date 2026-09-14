@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { todayStr } from '../lib/dateRange'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
+import DateFieldButton from './DateFieldButton'
 
 // Completed tab of the Rotations page — Intern/Registrar/COSMO doctors
 // who are inactive with no start already scheduled (as opposed to the
@@ -90,15 +91,18 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
             </div>
             {isReactivating && (
               <div onClick={e => e.stopPropagation()} className="mt-2 flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5 text-xs text-ink-muted">
-                  Active from
-                  <input
-                    type="date"
+                {/* Label beside the field rather than around it — see
+                    UpcomingDoctorsList for why. */}
+                <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+                  <label htmlFor={`active-from-${doctor.id}`}>Active from</label>
+                  <DateFieldButton
+                    id={`active-from-${doctor.id}`}
+                    label="Active from"
+                    labelledExternally
                     value={draftDate}
-                    onChange={e => setDraftDate(e.target.value)}
-                    className="input-field py-1 text-xs"
+                    onChange={setDraftDate}
                   />
-                </label>
+                </div>
                 <button
                   type="button"
                   onClick={() => confirmReactivate(doctor.id)}

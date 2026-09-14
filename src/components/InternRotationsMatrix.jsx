@@ -4,6 +4,7 @@ import {
   TriangleAlert, X, Plus, ListFilter,
 } from 'lucide-react'
 import SelectMenu from './SelectMenu'
+import DateFieldButton from './DateFieldButton'
 import DoctorChip from './DoctorChip'
 import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
@@ -577,30 +578,47 @@ export default function InternRotationsMatrix({
                       <X className="h-4 w-4" />
                     </button>
                   </div>
+                  {/* Each label sits beside its field rather than wrapping
+                      it: this control carries a clear button of its own, and
+                      a <label> around two labelable children names neither.
+                      Commit-on-blur is unchanged — a date still saves when
+                      it is approved (blur) or Done editing is pressed, never
+                      on an intermediate keystroke. Clearing sets the draft
+                      the same way and waits for the same commit point; an
+                      empty To reads as "Ongoing", which a native date input
+                      could not say (it ignores `placeholder` entirely). */}
                   <div className="mt-2 space-y-1.5">
-                    <label className="flex items-center gap-2 text-xs text-ink-muted">
-                      <span className="w-8 flex-shrink-0">From</span>
-                      <input
-                        type="date"
-                        value={draftDateValue(rotation, 'startDate')}
-                        disabled={rowSaving}
-                        onChange={e => setDraftDateValue(rotation.id, 'startDate', e.target.value)}
-                        onBlur={() => commitBlockDraft(rotation)}
-                        className="input-field flex-1 py-1 text-xs"
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-xs text-ink-muted">
-                      <span className="w-8 flex-shrink-0">To</span>
-                      <input
-                        type="date"
-                        value={draftDateValue(rotation, 'endDate')}
-                        disabled={rowSaving}
-                        placeholder="Ongoing"
-                        onChange={e => setDraftDateValue(rotation.id, 'endDate', e.target.value)}
-                        onBlur={() => commitBlockDraft(rotation)}
-                        className="input-field flex-1 py-1 text-xs"
-                      />
-                    </label>
+                    <div className="flex items-center gap-2 text-xs text-ink-muted">
+                      <label htmlFor={`rotation-from-${rotation.id}`} className="w-8 flex-shrink-0">From</label>
+                      <div className="min-w-0 flex-1">
+                        <DateFieldButton
+                          id={`rotation-from-${rotation.id}`}
+                          label="Rotation starts"
+                          labelledExternally
+                          value={draftDateValue(rotation, 'startDate')}
+                          disabled={rowSaving}
+                          onChange={v => setDraftDateValue(rotation.id, 'startDate', v)}
+                          onBlur={() => commitBlockDraft(rotation)}
+                          fullWidth
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-ink-muted">
+                      <label htmlFor={`rotation-to-${rotation.id}`} className="w-8 flex-shrink-0">To</label>
+                      <div className="min-w-0 flex-1">
+                        <DateFieldButton
+                          id={`rotation-to-${rotation.id}`}
+                          label="Rotation ends"
+                          labelledExternally
+                          emptyLabel="Ongoing"
+                          value={draftDateValue(rotation, 'endDate')}
+                          disabled={rowSaving}
+                          onChange={v => setDraftDateValue(rotation.id, 'endDate', v)}
+                          onBlur={() => commitBlockDraft(rotation)}
+                          fullWidth
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )

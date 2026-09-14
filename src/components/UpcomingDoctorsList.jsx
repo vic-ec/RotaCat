@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DateFieldButton from './DateFieldButton'
 
 // Upcoming tab of the Rotations page — Intern/Registrar/COSMO doctors
 // with a future start already scheduled (profiles.scheduled_active_date;
@@ -85,15 +86,20 @@ export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDat
             </div>
             {isEditing && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1.5 text-xs text-ink-muted">
-                  Starts
-                  <input
-                    type="date"
+                {/* The label is a sibling of the field, not a wrapper: this
+                    control has a clear button inside it, and a <label>
+                    wrapping two labelable children names neither of them
+                    properly. `htmlFor` keeps the word clickable. */}
+                <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+                  <label htmlFor={`starts-${doctor.id}`}>Starts</label>
+                  <DateFieldButton
+                    id={`starts-${doctor.id}`}
+                    label="Starts"
+                    labelledExternally
                     value={draftDate}
-                    onChange={e => setDraftDate(e.target.value)}
-                    className="input-field py-1 text-xs"
+                    onChange={setDraftDate}
                   />
-                </label>
+                </div>
                 <button
                   type="button"
                   onClick={() => saveDate(doctor.id)}

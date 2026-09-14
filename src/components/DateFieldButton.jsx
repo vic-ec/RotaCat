@@ -12,6 +12,26 @@ import { useRef } from 'react'
 // a stacked form rather than one of a pair in a toolbar row — there it has
 // to line up with the selects and inputs above it, which are all `w-full`.
 //
+// `emptyLabel` is what an empty field reads as, where that is worth saying
+// out loud: a rotation with no end date is "Ongoing", not a blank "To".
+// `label` still names the field for a screen reader either way.
+//
+// `labelledExternally` is for the caller that renders its own visible
+// <label htmlFor={id}> beside the field (the rotations planner's rows, the
+// rotations matrix, Role & access). There the sibling label already names
+// the input, and an `aria-label` on top of it would win and silently
+// replace the visible wording — which is how the matrix's "From" ended up
+// announcing itself as "Rotation starts", a name a voice-control user
+// reading the screen has no way to guess. `label` is still required in
+// that case: it names the clear button ("Clear Rotation starts") and is
+// what an empty field renders as.
+//
+// `onBlur` fires when the native input loses focus, for a caller that
+// commits on blur rather than on every keystroke (the rotations matrix).
+// Note that the clear button does not force a blur of its own: clearing
+// sets the value and the caller's usual commit point — the next blur, or
+// whatever "done" button it has — still decides when that is saved.
+//
 // Fixed width (not content-sized) is otherwise the whole point: a "From"/"To" pair
 // built from two independently content-sized triggers renders at two
 // different widths until both have values (a real bug — "To" being
@@ -67,10 +87,14 @@ function formatDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function DateFieldButton({ label, value, onChange, min, max, required = false, id, fullWidth = false, className = '' }) {
+export default function DateFieldButton({
+  label, value, onChange, min, max, required = false, id, fullWidth = false,
+  disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '',
+}) {
   const inputRef = useRef(null)
 
   function openPicker() {
+    if (disabled) return
     try { inputRef.current?.showPicker() } catch { /* see the note above */ }
   }
 
@@ -79,10 +103,10 @@ export default function DateFieldButton({ label, value, onChange, min, max, requ
       onClick={openPicker}
       className={`relative inline-flex h-[30px] items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${
         fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
-      } ${value ? 'pr-7' : 'pr-2'} ${className}`}
+      } ${value ? 'pr-7' : 'pr-2'} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
       <CalendarIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />
-      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : label}</span>
+      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : (emptyLabel ?? label)}</span>
       <input
         ref={inputRef}
         id={id}
@@ -91,11 +115,13 @@ export default function DateFieldButton({ label, value, onChange, min, max, requ
         min={min}
         max={max}
         required={required}
+        disabled={disabled}
         onChange={e => onChange(e.target.value)}
-        aria-label={label}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        onBlur={onBlur}
+        aria-label={labelledExternally ? undefined : label}
+        className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
       />
-      {value && (
+      {value && !disabled && (
         <button
           type="button"
           onClick={e => { e.stopPropagation(); onChange('') }}

@@ -98,6 +98,7 @@ export default function RoleAndAccessSection({
                   <DateFieldButton
                     id="active-from-input"
                     label="Active from"
+                    labelledExternally
                     value={activeFrom || ''}
                     onChange={onActiveFromChange}
                     fullWidth
@@ -113,6 +114,7 @@ export default function RoleAndAccessSection({
                   <DateFieldButton
                     id="active-until-input"
                     label="Active until"
+                    labelledExternally
                     value={activeUntil || ''}
                     onChange={onActiveUntilChange}
                     min={activeFrom || undefined}

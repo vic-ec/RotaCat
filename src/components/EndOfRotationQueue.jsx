@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { groupRotationsByDoctorId, endOfRotationFlag } from '../lib/internRotations'
 import { rotationTypeKey, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
 import { addDays, todayStr, formatShortDateRange } from '../lib/dateRange'
+import DateFieldButton from './DateFieldButton'
 
 function typeLabel(key) {
   return ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === key)?.label || key
@@ -138,16 +139,19 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
               </div>
               {isScheduling && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-xs text-ink-muted">
-                    Inactive from
-                    <input
-                      type="date"
+                  {/* Label beside the field rather than around it — see
+                      UpcomingDoctorsList for why. */}
+                  <div className="flex items-center gap-1.5 text-xs text-ink-muted">
+                    <label htmlFor={`inactive-from-${doctor.id}`}>Inactive from</label>
+                    <DateFieldButton
+                      id={`inactive-from-${doctor.id}`}
+                      label="Inactive from"
+                      labelledExternally
                       value={draftDate}
                       min={todayStr()}
-                      onChange={e => setDraftDate(e.target.value)}
-                      className="input-field py-1 text-xs"
+                      onChange={setDraftDate}
                     />
-                  </label>
+                  </div>
                   <button
                     type="button"
                     onClick={() => confirmScheduling(doctor.id)}

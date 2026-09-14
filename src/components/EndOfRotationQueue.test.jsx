@@ -62,7 +62,7 @@ describe('EndOfRotationQueue', () => {
     const user = userEvent.setup()
     renderQueue({ onScheduleDeactivation })
     await user.click(screen.getByRole('button', { name: 'Schedule deactivation' }))
-    expect(screen.getByLabelText(/Inactive from/)).toHaveValue('2027-07-01')
+    expect(screen.getByLabelText('Inactive from')).toHaveValue('2027-07-01')
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(onScheduleDeactivation).toHaveBeenCalledWith('intern-1', '2027-07-01')
   })
@@ -74,7 +74,7 @@ describe('EndOfRotationQueue', () => {
     await user.click(screen.getByRole('button', { name: 'Schedule deactivation' }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onScheduleDeactivation).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText(/Inactive from/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Inactive from')).not.toBeInTheDocument()
   })
 
   it('excludes a doctor who already has a scheduled deactivation', () => {

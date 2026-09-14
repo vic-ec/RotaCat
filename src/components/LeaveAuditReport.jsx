@@ -245,12 +245,13 @@ export default function LeaveAuditReport() {
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
           <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-            {/* 360 is about what these five columns actually need, so the
+            {/* 330 is what these five columns actually measure, so the
                 min-width now only stops them squeezing on a narrow phone
                 rather than inventing 200px of slack for the table to hand
                 out. It was 560 — a leftover from when this table carried a
-                sixth column and larger type. */}
-            <table className="w-full min-w-[360px] border-separate border-spacing-0 text-xs">
+                sixth column and larger type — and at 560 the table scrolled
+                sideways on every phone; at 330 it fits one. */}
+            <table className="w-full min-w-[330px] border-separate border-spacing-0 text-xs">
               <thead className="sticky top-0 z-10">
                 {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
                     can't reliably inherit its row's background while it is
@@ -287,16 +288,22 @@ export default function LeaveAuditReport() {
                 {filteredRows.length === 0 ? (
                   <tr><td colSpan={6} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
                 ) : filteredRows.map(row => (
-                  <tr key={row.profileId} className="hover:bg-canvas-sunken/50">
+                  <tr key={row.profileId} className="hover:bg-canvas-cool">
                     {/* Sticky, so the name stays put while the day counts
                         scroll past it — with its own explicit background for
-                        the same reason the header cells carry theirs. The
+                        the same reason the header cells carry theirs, and an
+                        OPAQUE one in every state including hover. A frozen
+                        column covers whatever scrolls under it by painting
+                        over it, so a translucent hover turned this cell into
+                        a window: the Annual column showed through the names.
+                        On a touch screen the row you last touched keeps
+                        :hover, so it stayed that way after the finger left. The
                         name pill is whitespace-nowrap and this table has no
                         table-fixed, so the pill is what sets the column's
                         width: a surname and a little padding, no more. */}
                     <td
                       title={`${row.name} ${row.surname}`}
-                      className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top hover:bg-canvas-sunken/50"
+                      className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top hover:bg-canvas-cool"
                     >
                       <span
                         className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"

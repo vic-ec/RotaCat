@@ -128,6 +128,12 @@ describe('LeaveListView — role visibility matrix', () => {
     const cell = (await screen.findByText(/Doc a/)).closest('td')
     expect(cell.className).toContain('sticky')
     expect(cell.className).toContain('left-0')
+    // Opaque in every state: a frozen column hides what scrolls under it by
+    // painting over it, so a hover with an alpha modifier turns it into a
+    // window onto the columns behind.
+    for (const el of [cell, cell.closest('tr')]) {
+      expect(el.className).not.toMatch(/hover:bg-[\w-]+\/\d/)
+    }
 
     // …and the toggle rides the search/sort/filter row rather than a line
     // of its own, so switching views doesn't move it. The Toolbar draws a

@@ -102,6 +102,14 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     // Its own background, not the row's — a sticky cell can't rely on
     // inheriting one while it is being repositioned.
     expect(cell.className).toContain('bg-canvas')
+    // …and opaque in every state. A frozen column hides what scrolls under
+    // it by painting over it, so a hover with an alpha modifier turns it
+    // into a window — the Annual column showed through the names, and on a
+    // touch screen the row last touched keeps :hover after the finger has
+    // gone. Any `hover:bg-*/<alpha>` here is that bug.
+    for (const el of [cell, cell.closest('tr')]) {
+      expect(el.className).not.toMatch(/hover:bg-[\w-]+\/\d/)
+    }
   })
 
   it('shows Consultant (not "Other") as the category label for the Other column', async () => {

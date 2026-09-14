@@ -347,11 +347,11 @@ export default function LeaveListView() {
                 own so it doesn't double up against the container's frame. */}
             <tbody className="[&>tr:last-child>td]:border-b-0">
               {displayedRequests.map(lr => (
-                <tr key={lr.id} className="hover:bg-canvas-sunken/50">
+                <tr key={lr.id} className="hover:bg-canvas-cool">
                   {/* Sticky, so the name stays put while the eleven columns
                       scroll past it — with its own explicit background for
                       the same reason the header cells carry theirs. */}
-                  <td className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-3 py-2 font-medium text-ink hover:bg-canvas-sunken/50">
+                  <td className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-3 py-2 font-medium text-ink hover:bg-canvas-cool">
                     {lr.profiles?.name} {lr.profiles?.surname}
                   </td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{categoryLabel(lr)}</td>

@@ -376,7 +376,7 @@ export default function RosterSummaryPage() {
                 // competes with the header.
                 const isMe = row.profileId === profile?.id
                 return (
-                  <tr key={row.profileId} className={`hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool' : ''}`}>
+                  <tr key={row.profileId} className={`hover:bg-canvas-cool ${isMe ? 'bg-canvas-cool' : ''}`}>
                     {/* Sticky left-0 so Doctor stays visible during horizontal
                         scroll (see the matching th above) — needs its own
                         explicit background (matching the row's own, plain or
@@ -391,7 +391,7 @@ export default function RosterSummaryPage() {
                         what sets the column's width. */}
                     <td
                       title={`${row.name} ${row.surname}`}
-                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-sunken/50 ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}
+                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-cool ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}
                     >
                       <div className="flex items-center gap-1.5">
                         <span

@@ -54,18 +54,20 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
   })
 
-  it('lists every leave-eligible doctor sorted by surname, including one with zero leave in range', async () => {
+  it('lists every leave-eligible doctor, including one with zero leave in range', async () => {
     render(<LeaveAuditReport />)
 
     const rows = await screen.findAllByRole('row')
     // header + 3 doctor rows
     expect(rows).toHaveLength(4)
-    expect(within(rows[1]).getByText('Adams')).toBeInTheDocument()
-    expect(within(rows[2]).getByText('Consult')).toBeInTheDocument()
-    expect(within(rows[3]).getByText('Zephyr')).toBeInTheDocument()
+    // MO, then Registrar, then everything else — Hours Summary's own default
+    // sort, which this table now shares (see src/lib/doctorSort.js).
+    expect(within(rows[1]).getByText('Zephyr')).toBeInTheDocument() // MO
+    expect(within(rows[2]).getByText('Adams')).toBeInTheDocument() // Registrar
+    expect(within(rows[3]).getByText('Consult')).toBeInTheDocument() // Consultant
     // Consultant has no leave requests at all — still shown, with a zero in
     // every leave column plus the total.
-    expect(within(rows[2]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
+    expect(within(rows[3]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
   })
 
   it('sizes every leave column identically, via a fixed-layout colgroup', async () => {
@@ -134,8 +136,9 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
   it('shows Consultant (not "Other") as the category label for the Other column', async () => {
     render(<LeaveAuditReport />)
     const rows = await screen.findAllByRole('row')
-    expect(within(rows[2]).getByText('Consultant')).toBeInTheDocument()
-    expect(within(rows[2]).queryByText('Other')).not.toBeInTheDocument()
+    // Consultant sorts last under the default category-priority sort.
+    expect(within(rows[3]).getByText('Consultant')).toBeInTheDocument()
+    expect(within(rows[3]).queryByText('Other')).not.toBeInTheDocument()
   })
 
   it('filter options are not shown until the Filter button is opened', async () => {

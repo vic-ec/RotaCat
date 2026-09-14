@@ -11,7 +11,13 @@ import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import {
+  DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
+  CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
+} from '../lib/doctorSort'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { useSelectedRow } from '../lib/useSelectedRow'
 import { shiftColumns, shiftTimeRange } from '../lib/shiftLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -29,39 +35,6 @@ const WEEKEND_COLUMNS = shiftColumns(['WE_08', 'WE_13', 'WE_20'], shiftTimeRange
 // as the ordinary Weekday/Weekend sections above, just for PH days.
 const PH_WEEKDAY_COLUMNS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'], shiftTimeRange)
 const PH_WEEKEND_COLUMNS = shiftColumns(['PH_08', 'PH_13', 'PH_20'], shiftTimeRange)
-
-const CONTRACT_TYPE_ORDER = ['full', 'five_eighths', 'Junior_Doctor_Overtime']
-const CONTRACT_TYPE_LABEL = { full: 'Full-time', five_eighths: '⅝', Junior_Doctor_Overtime: 'OT' }
-
-// Sort's fixed category priority: MO, then Registrar, then every Intern-type
-// category (EC before OT within that group) — everything else (COSMO,
-// COSMOPsych, Locum) sorts after, in whatever order the rows already came
-// in (stable sort). Returns [primaryRank, secondaryRank]; 'desc' just
-// reverses the comparator's sign rather than needing its own rank table.
-function categorySortRank(category) {
-  if (category === 'MO') return [0, 0]
-  if (category === 'Registrar') return [1, 0]
-  if (category === 'EC_Intern' || category === 'EC_COSMO_Intern') return [2, 0]
-  if (category === 'OT_Intern' || category === 'OT_COSMO_Intern') return [2, 1]
-  if (category === 'Intern') return [2, 2]
-  return [3, 0]
-}
-function compareByCategoryPriority(a, b) {
-  const [ap, as] = categorySortRank(a.category)
-  const [bp, bs] = categorySortRank(b.category)
-  return ap !== bp ? ap - bp : as - bs
-}
-function compareByName(a, b) {
-  const an = `${a.surname} ${a.name}`.toLowerCase()
-  const bn = `${b.surname} ${b.name}`.toLowerCase()
-  return an < bn ? -1 : an > bn ? 1 : 0
-}
-const SORT_COMPARATORS = {
-  'category-asc': compareByCategoryPriority,
-  'category-desc': (a, b) => compareByCategoryPriority(b, a),
-  'name-asc': compareByName,
-  'name-desc': (a, b) => compareByName(b, a),
-}
 
 function hoursBand(row) {
   if (row.totalHours < row.minHours) return 'under'
@@ -109,8 +82,11 @@ export default function RosterSummaryPage() {
   const [selectedContractTypes, setSelectedContractTypes] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   // 'category-asc' (MO → Registrar → Intern) is the default/neutral order.
-  const [sortMode, setSortMode] = useState('category-asc')
+  const [sortMode, setSortMode] = useState(DEFAULT_DOCTOR_SORT)
   const [leaveOpen, setLeaveOpen] = useState(false)
+  // A clicked row stays lit while the twenty columns scroll past it — see
+  // useSelectedRow.
+  const { rowProps } = useSelectedRow()
 
   useEffect(() => { load() }, [year, month]) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; including it would refetch in a loop
 
@@ -156,13 +132,8 @@ export default function RosterSummaryPage() {
   const sortFacets = [{
     key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
     value: sortMode, onChange: setSortMode,
-    options: [
-      { value: 'category-asc', label: 'MO → Registrar → Intern' },
-      { value: 'category-desc', label: 'Intern → Registrar → MO' },
-      { value: 'name-asc', label: 'Name (A–Z)' },
-      { value: 'name-desc', label: 'Name (Z–A)' },
-    ],
-    isActive: sortMode !== 'category-asc',
+    options: DOCTOR_SORT_OPTIONS,
+    isActive: sortMode !== DEFAULT_DOCTOR_SORT,
   }]
   const filterGroups = [
     {
@@ -184,7 +155,7 @@ export default function RosterSummaryPage() {
       (selectedCategories.size === 0 || selectedCategories.has(r.category)) &&
       (selectedContractTypes.size === 0 || selectedContractTypes.has(r.contractType))
     )
-    .sort(SORT_COMPARATORS[sortMode])
+    .sort(DOCTOR_SORT_COMPARATORS[sortMode])
     // Own row always leads, whatever sort/filter is active — a second
     // stable pass on top of the sort above (Array#sort is stable, so this
     // only ever moves "me", never reorders anyone else relative to each
@@ -375,8 +346,15 @@ export default function RosterSummaryPage() {
                 // frees the fill to stay light enough that the row never
                 // competes with the header.
                 const isMe = row.profileId === profile?.id
+                const { isSelected, ...selection } = rowProps(row.profileId, {
+                  // "This one is you" is a permanent property of the row;
+                  // selection is something the admin just did. The selected
+                  // fill wins while it is on, and the accent bar down the
+                  // leading edge still says which row is theirs.
+                  restClassName: isMe ? 'bg-canvas-cool' : '',
+                })
                 return (
-                  <tr key={row.profileId} className={`hover:bg-canvas-cool ${isMe ? 'bg-canvas-cool' : ''}`}>
+                  <tr key={row.profileId} {...selection}>
                     {/* Sticky left-0 so Doctor stays visible during horizontal
                         scroll (see the matching th above) — needs its own
                         explicit background (matching the row's own, plain or
@@ -391,7 +369,9 @@ export default function RosterSummaryPage() {
                         what sets the column's width. */}
                     <td
                       title={`${row.name} ${row.surname}`}
-                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top hover:bg-canvas-cool ${isMe ? 'bg-canvas-cool shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'bg-canvas'}`}
+                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${
+                        isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'
+                      } ${isMe ? `shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)] ${isSelected ? '' : 'bg-canvas-cool'}` : (isSelected ? '' : 'bg-canvas')}`}
                     >
                       <div className="flex items-center gap-1.5">
                         <span
@@ -401,7 +381,12 @@ export default function RosterSummaryPage() {
                           {displayNames.get(row.profileId) ?? row.surname}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[10px] text-ink-muted">{CATEGORY_LABELS[row.category] || row.category}</p>
+                      {/* EC Intern / OT Intern, not a bare "Intern" — which
+                          is what the raw category says for both, and what
+                          All Leave already resolves. `contract_type` is what
+                          separates them (see columnForLeaveCategory), and it
+                          is already on the row. */}
+                      <p className="mt-0.5 text-[10px] text-ink-muted">{labelForLeaveCategory(row.category, row.contractType)}</p>
                     </td>
                     <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">{row.minHours}–{row.maxHours}</td>
                     <td className={`border-b border-slate-hairline px-2 py-1.5 text-center font-semibold ${

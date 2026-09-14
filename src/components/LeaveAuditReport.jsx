@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -6,10 +8,18 @@ import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows, AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { useSelectedRow } from '../lib/useSelectedRow'
+import {
+  DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
+  CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
+} from '../lib/doctorSort'
+import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { contrastTextColor } from '../lib/color'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
+import { QuickSelectButton } from './Toolbar'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
 
@@ -33,13 +43,64 @@ function yearStartStr() {
   return `${new Date().getFullYear()}-01-01`
 }
 
+// The column headers are abbreviated to fit fifteen even columns ("Family
+// resp.", "Mat / pat", "Conf."), so each one can say its full name. `title`
+// covers a desktop hover for free; the button and popover are for touch,
+// where a title never fires at all — the same reasoning as DetailInfoButton,
+// and the same anchored-popover mechanics as the timestamp cells below.
+function ColumnHeaderButton({ short, label }) {
+  const [open, setOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+  useDismissablePopover(open, () => setOpen(false), panelRef, [triggerRef])
+
+  function toggle() {
+    if (open) { setOpen(false); return }
+    setAnchorRect(triggerRef.current.getBoundingClientRect())
+    setOpen(true)
+  }
+
+  const width = 170
+  const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        title={label}
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className="w-full text-center uppercase tracking-wide transition-colors hover:text-ink"
+      >
+        {short}
+      </button>
+      {open && positionStyle && createPortal(
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-label={label}
+          style={{ ...positionStyle, width }}
+          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised px-3 py-2 text-sm font-medium normal-case tracking-normal text-ink shadow-raised"
+        >
+          {label}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // Approved days, with any pending requests as a "+N" beside them. It spells
 // out "pending" on the title rather than in the cell: fourteen columns of
 // numbers only fit if a column is the width of its figures, and "+1 pending"
 // is five times that.
 function BucketCell({ bucket }) {
   return (
-    <div className="whitespace-nowrap">
+    <div className="whitespace-nowrap text-center">
       <span className="font-semibold text-ink">{bucket.approved}</span>
       {bucket.pending > 0 && (
         <span className="ml-0.5 text-[10px] text-ink-muted" title={`${bucket.pending} pending`}>
@@ -66,6 +127,11 @@ export default function LeaveAuditReport() {
   // (see FilterPanel.jsx). Doctor is still effectively single-select in
   // practice: the drill-down below only activates when exactly one doctor
   // is selected, same as the old dedicated single-select control.
+  const [sortMode, setSortMode] = useState(DEFAULT_DOCTOR_SORT)
+  const [contractTypeFilter, setContractTypeFilter] = useState(new Set())
+  // The row the admin last clicked stays lit while they scroll — see
+  // useSelectedRow.
+  const { rowProps } = useSelectedRow()
   const [categoryFilter, setCategoryFilter] = useState(new Set())
   const [doctorFilter, setDoctorFilter] = useState(new Set())
   const [statusFilter, setStatusFilter] = useState(new Set())
@@ -87,7 +153,7 @@ export default function LeaveAuditReport() {
     setLoading(true)
     setError('')
     const [profilesRes, requestsRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, category, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
+      supabase.from('profiles').select('id, name, surname, category, contract_type, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
       supabase.from('leave_requests').select('*').lte('date_from', dateTo).gte('date_to', dateFrom),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -121,8 +187,11 @@ export default function LeaveAuditReport() {
   )
 
   const statusFilteredProfiles = useMemo(
-    () => profiles.filter(p => statusFilter.size === 0 || statusFilter.has(p.is_active ? 'active' : 'inactive')),
-    [profiles, statusFilter]
+    () => profiles.filter(p =>
+      (statusFilter.size === 0 || statusFilter.has(p.is_active ? 'active' : 'inactive')) &&
+      (contractTypeFilter.size === 0 || contractTypeFilter.has(p.contract_type))
+    ),
+    [profiles, statusFilter, contractTypeFilter]
   )
 
   const doctorOptions = useMemo(() => {
@@ -149,12 +218,16 @@ export default function LeaveAuditReport() {
   const displayNames = useMemo(() => buildDoctorDisplayNames(profiles), [profiles])
 
   const searchTerm = q.trim().toLowerCase()
-  const filteredRows = rows.filter(r => {
-    if (categoryFilter.size > 0 && !categoryFilter.has(columnByProfileId.get(r.profileId))) return false
-    if (doctorFilter.size > 0 && !doctorFilter.has(r.profileId)) return false
-    if (searchTerm && !`${r.surname} ${r.name}`.toLowerCase().includes(searchTerm)) return false
-    return true
-  })
+  const filteredRows = rows
+    .filter(r => {
+      if (categoryFilter.size > 0 && !categoryFilter.has(columnByProfileId.get(r.profileId))) return false
+      if (doctorFilter.size > 0 && !doctorFilter.has(r.profileId)) return false
+      if (searchTerm && !`${r.surname} ${r.name}`.toLowerCase().includes(searchTerm)) return false
+      return true
+    })
+    // buildAuditRows returns them by surname; this is the admin's own
+    // choice on top, from the same four options Hours Summary offers.
+    .sort(DOCTOR_SORT_COMPARATORS[sortMode])
 
   // Drill-down only makes sense for exactly one doctor — a multi-doctor
   // selection just narrows the table above, same as every other dimension.
@@ -174,17 +247,34 @@ export default function LeaveAuditReport() {
     setDoctorFilter(new Set())
     setStatusFilter(new Set())
     setLeaveTypeFilter(new Set())
+    setContractTypeFilter(new Set())
     setQ('')
   }
+
+  // Same shape and the same four options as Hours Summary's own Sort — see
+  // src/lib/doctorSort.js, which both tables read it from.
+  const sortFacet = {
+    key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
+    value: sortMode, onChange: setSortMode,
+    options: DOCTOR_SORT_OPTIONS,
+    isActive: sortMode !== DEFAULT_DOCTOR_SORT,
+  }
+  // The FAB's sheet keys its facets off `key`; rendered standalone on the
+  // desktop row there is nothing to key, and React warns about a `key`
+  // arriving through a spread.
+  const sortFacetProps = { ...sortFacet, key: undefined }
 
   const filterGroups = [
     { key: 'category', label: 'Category', options: CATEGORY_OPTIONS, selected: categoryFilter, onChange: handleCategoryChange },
     { key: 'doctor', label: 'Doctor', options: doctorOptions, selected: doctorFilter, onChange: setDoctorFilter, alwaysSearchable: true },
     { key: 'status', label: 'Status', options: STATUS_OPTIONS, selected: statusFilter, onChange: handleStatusChange },
+    // Contract type, as Hours Summary has it — the other axis an admin
+    // reading either of these tables narrows by.
+    { key: 'contractType', label: 'Contract type', options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })), selected: contractTypeFilter, onChange: setContractTypeFilter },
     { key: 'leaveType', label: 'Leave type', options: LEAVE_TYPE_OPTIONS, selected: leaveTypeFilter, onChange: setLeaveTypeFilter },
   ]
 
-  const activeFilterCount = categoryFilter.size + doctorFilter.size + statusFilter.size + leaveTypeFilter.size
+  const activeFilterCount = categoryFilter.size + doctorFilter.size + statusFilter.size + leaveTypeFilter.size + contractTypeFilter.size
 
   return (
     <div>
@@ -210,6 +300,7 @@ export default function LeaveAuditReport() {
               clearLabel="Clear search"
             />
           </div>
+          <QuickSelectButton {...sortFacetProps} />
           <FilterPanel groups={filterGroups} />
           {activeFilterCount > 0 && (
             <button type="button" onClick={clearFilters} className="text-sm font-medium text-accent hover:underline">
@@ -221,6 +312,7 @@ export default function LeaveAuditReport() {
 
       <FloatingActionMenu
         search={{ value: q, onChange: setQ, placeholder: 'Search by surname or first name…' }}
+        sort={{ facets: [sortFacet], active: sortMode !== DEFAULT_DOCTOR_SORT }}
         filter={{
           groups: filterGroups,
           active: activeFilterCount > 0 || Boolean(q),
@@ -262,14 +354,17 @@ export default function LeaveAuditReport() {
                 reached 555px on a wide desktop. Fixed layout honours the
                 colgroup exactly and hands the leftover to the one column
                 that has no width of its own, the spacer. */}
-            <table className="w-full min-w-[1110px] table-fixed border-separate border-spacing-0 text-xs">
+            <table className="w-full min-w-[1230px] table-fixed border-separate border-spacing-0 text-xs">
               {/* 112 is the name column measured at its longest (a 103px
                   pill) plus a little room; a surname past that truncates,
-                  with the full name on the cell's title. */}
+                  with the full name on the cell's title. 74 is what the
+                  longest header word ("WORKSHOP") needs at Hours Summary's
+                  own 10px, which is the size these headers are held at so
+                  the two tables read as one. */}
               <colgroup>
                 <col className="w-[112px]" />
-                {AUDIT_LEAVE_COLUMNS.map(column => <col key={column.key} className="w-[66px]" />)}
-                <col className="w-[66px]" />
+                {AUDIT_LEAVE_COLUMNS.map(column => <col key={column.key} className="w-[74px]" />)}
+                <col className="w-[74px]" />
                 <col />
               </colgroup>
               <thead className="sticky top-0 z-10">
@@ -285,17 +380,18 @@ export default function LeaveAuditReport() {
                     property of the doctor rather than a fourth number.
 
                     Every leave type gets its own column, all at the one
-                    width set by the colgroup above. The headers drop to 9px
-                    with tighter padding so the longest of them ("Workshop",
-                    "Statutory") still fits 66px rather than truncating. */}
-                <tr className="text-left text-[9px] uppercase tracking-wide text-ink-muted">
-                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-[10px]">Doctor</th>
+                    width set by the colgroup above, and every figure under
+                    them is centred — a column of right-hand digits reads as
+                    a column, where left-aligned ones read as fifteen
+                    unrelated lists. */}
+                <tr className="text-[10px] uppercase tracking-wide text-ink-muted">
+                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left">Doctor</th>
                   {AUDIT_LEAVE_COLUMNS.map(column => (
-                    <th key={column.key} title={column.label} className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 align-bottom">
-                      {column.short}
+                    <th key={column.key} className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 align-bottom font-medium">
+                      <ColumnHeaderButton short={column.short} label={column.label} />
                     </th>
                   ))}
-                  <th className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 align-bottom">Total days</th>
+                  <th className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 text-center align-bottom font-medium">Total days</th>
                   {/* Spacer. An auto-layout table stretched past its own
                       content hands the slack out across its columns, and with
                       only five of them the Doctor column took the biggest
@@ -314,8 +410,10 @@ export default function LeaveAuditReport() {
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
                   <tr><td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
-                ) : filteredRows.map(row => (
-                  <tr key={row.profileId} className="hover:bg-canvas-cool">
+                ) : filteredRows.map(row => {
+                  const { isSelected, ...selection } = rowProps(row.profileId)
+                  return (
+                  <tr key={row.profileId} {...selection}>
                     {/* Sticky, so the name stays put while the day counts
                         scroll past it — with its own explicit background for
                         the same reason the header cells carry theirs, and an
@@ -330,7 +428,9 @@ export default function LeaveAuditReport() {
                         width: a surname and a little padding, no more. */}
                     <td
                       title={`${row.name} ${row.surname}`}
-                      className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top hover:bg-canvas-cool"
+                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${
+                        isSelected ? 'bg-accent-tint' : 'bg-canvas hover:bg-canvas-cool'
+                      }`}
                     >
                       <span
                         className="inline-block max-w-full truncate whitespace-nowrap rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium"
@@ -345,10 +445,11 @@ export default function LeaveAuditReport() {
                         <BucketCell bucket={row.byColumn[column.key]} />
                       </td>
                     ))}
-                    <td className="border-b border-slate-hairline px-1 py-1.5 font-semibold text-ink">{row.totalApprovedDays}</td>
+                    <td className="border-b border-slate-hairline px-1 py-1.5 text-center font-semibold text-ink">{row.totalApprovedDays}</td>
                     <td className="border-b border-slate-hairline" />
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

@@ -8,7 +8,11 @@ import { useRef } from 'react'
 // icon-only CompactDateField pill) with one component everywhere a single
 // date needs picking.
 //
-// Fixed width (not content-sized) is the whole point: a "From"/"To" pair
+// `fullWidth` opts out of that fixed width for a field that is one item in
+// a stacked form rather than one of a pair in a toolbar row — there it has
+// to line up with the selects and inputs above it, which are all `w-full`.
+//
+// Fixed width (not content-sized) is otherwise the whole point: a "From"/"To" pair
 // built from two independently content-sized triggers renders at two
 // different widths until both have values (a real bug — "To" being
 // narrower than "From" caused them to collide on mobile). A shared fixed
@@ -63,7 +67,7 @@ function formatDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function DateFieldButton({ label, value, onChange, min, max, required = false, id, className = '' }) {
+export default function DateFieldButton({ label, value, onChange, min, max, required = false, id, fullWidth = false, className = '' }) {
   const inputRef = useRef(null)
 
   function openPicker() {
@@ -73,7 +77,9 @@ export default function DateFieldButton({ label, value, onChange, min, max, requ
   return (
     <span
       onClick={openPicker}
-      className={`relative inline-flex h-[30px] w-40 flex-shrink-0 items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${value ? 'pr-7' : 'pr-2'} ${className}`}
+      className={`relative inline-flex h-[30px] items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${
+        fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
+      } ${value ? 'pr-7' : 'pr-2'} ${className}`}
     >
       <CalendarIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />
       <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : label}</span>

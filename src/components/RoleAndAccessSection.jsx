@@ -1,6 +1,7 @@
 import SelectMenu from './SelectMenu'
 import SectionLabel from './SectionLabel'
 import DetailInfoButton from './DetailInfoButton'
+import DateFieldButton from './DateFieldButton'
 import { CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS } from '../lib/staffDefaults'
 
 // Role/category/hours assignment + the admin-permissions decision — the
@@ -77,6 +78,15 @@ export default function RoleAndAccessSection({
                 span there instead of a button, tapping it fell through to
                 the label's own default action (focusing/opening the date
                 input) rather than being consumed by the tap target. */}
+            {/* The app's shared date picker, not a bare <input type="date">.
+                These two were the last raw ones on a form, and it showed:
+                a native date input sizes itself by its own shadow-DOM
+                widget, so on a phone it ran wider and taller than the
+                selects above it and out past the card's own edge, with its
+                value centred where every other field's is left-aligned.
+                The shared control is a styled box with the native input
+                stacked invisibly over it, so it lines up with the rest of
+                the form and brings the clear (x) with it. */}
             <SectionLabel className="mb-3">Configure access period</SectionLabel>
             <div className={`grid grid-cols-1 gap-3 ${showActiveFrom && showActiveUntil ? 'sm:grid-cols-2' : ''}`}>
               {showActiveFrom && (
@@ -85,12 +95,12 @@ export default function RoleAndAccessSection({
                     <label className="label-text mb-0" htmlFor="active-from-input">Active from</label>
                     <DetailInfoButton label="About Active from" text="Leave blank to activate immediately on approval." />
                   </div>
-                  <input
+                  <DateFieldButton
                     id="active-from-input"
-                    type="date"
+                    label="Active from"
                     value={activeFrom || ''}
-                    onChange={e => onActiveFromChange(e.target.value)}
-                    className="input-field"
+                    onChange={onActiveFromChange}
+                    fullWidth
                   />
                 </div>
               )}
@@ -100,12 +110,13 @@ export default function RoleAndAccessSection({
                     <label className="label-text mb-0" htmlFor="active-until-input">Active until</label>
                     <DetailInfoButton label="About Active until" text="Schedules a future deactivation. Leave blank for permanent staff." />
                   </div>
-                  <input
+                  <DateFieldButton
                     id="active-until-input"
-                    type="date"
+                    label="Active until"
                     value={activeUntil || ''}
-                    onChange={e => onActiveUntilChange(e.target.value)}
-                    className="input-field"
+                    onChange={onActiveUntilChange}
+                    min={activeFrom || undefined}
+                    fullWidth
                   />
                 </div>
               )}

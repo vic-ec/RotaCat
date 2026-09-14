@@ -275,7 +275,10 @@ function RowActionIcon({ icon, href, title, onMissing }) {
 // visible pressed feedback, since three of these hand off to another app
 // entirely and a user should feel their tap land before that happens.
 function SheetActionButton({ icon, label, href, onClick, onMissing }) {
-  const className = 'flex h-12 flex-1 items-center justify-center rounded-lg border border-slate-line text-ink-light transition-all active:scale-95 active:border-accent/40 active:bg-canvas-sunken active:text-ink'
+  // A filled tray rather than four empty outlines: on the sheet's own
+  // `canvas-raised` an outline-only button is a rectangle of nothing, and
+  // these four are the only thing on the sheet you can actually do.
+  const className = 'flex h-12 flex-1 items-center justify-center rounded-lg border border-slate-line bg-canvas-sunken text-ink-light transition-all hover:border-accent/40 hover:bg-accent-tint hover:text-accent active:scale-95 active:border-accent/40 active:bg-accent-tint active:text-accent'
   if (href) {
     return (
       <a href={href} title={label} aria-label={label} onClick={e => { e.stopPropagation(); onClick?.() }} className={className}>
@@ -1786,10 +1789,19 @@ export default function StaffListPage() {
       })()}
 
       {/* ── Mobile row-tap detail sheet — profile summary, contact fields,
-           and one-tap Message/Call/Email/View Account actions. No dark
-           backdrop, matching every other popover/panel in the app —
-           closes on the first outside tap (muting whatever's under it) or
-           picking an action. ── */}
+           and one-tap Message/Call/Email/View Account actions. Closes on
+           the first outside tap (muting whatever's under it) or picking an
+           action.
+
+           It used to open with no backdrop, on the reasoning that no other
+           popover in the app had one. That stopped being true — Modal,
+           ActionSheet and SlideOverPanel all dim the page behind them — and
+           it was the whole reason this sheet had nothing separating it from
+           the staff list: both are `canvas-raised`, its border was the same
+           `slate-line` as the cards behind it, and its shadow was a
+           hardcoded light-theme black that a dark page swallows whole. The
+           scrim does most of the work; `edge` and a themed shadow do the
+           rest. ── */}
       {detailSheetPerson && (() => {
         const person = detailSheetPerson
         const secondaryLabel = person.role === 'doctor'
@@ -1807,12 +1819,14 @@ export default function StaffListPage() {
         const firstNameForMissing = person.name || person.surname || 'this person'
 
         return (
+          <>
+          <div className="fixed inset-0 z-40 scrim md:hidden" aria-hidden="true" />
           <div
             ref={detailSheetRef}
             role="dialog"
             aria-modal="true"
             style={detailSheetSwipe.style}
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-slate-line bg-canvas-raised px-5 pb-6 pt-3 shadow-[0_-3px_10px_0_rgba(15,23,42,0.18)] md:hidden"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-edge bg-canvas-raised px-5 pb-6 pt-3 shadow-raised md:hidden"
           >
             <div {...detailSheetSwipe.handleProps} className="touch-none">
               <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-line" />
@@ -1875,6 +1889,7 @@ export default function StaffListPage() {
               />
             </div>
           </div>
+          </>
         )
       })()}
 

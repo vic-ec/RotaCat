@@ -17,11 +17,17 @@ function req(overrides) {
 describe('leaveTypeGroupKey', () => {
   it('maps each type to its family, unknown types to the Weekend/Other catch-all', () => {
     expect(leaveTypeGroupKey('annual')).toBe('annual')
-    expect(leaveTypeGroupKey('single_day')).toBe('annual')
+    // Single day is not annual: it is not deducted from an annual balance,
+    // and colouring it as annual said something the numbers never agreed
+    // with.
+    expect(leaveTypeGroupKey('single_day')).toBe('family')
     expect(leaveTypeGroupKey('sick')).toBe('sick')
     expect(leaveTypeGroupKey('special_leave')).toBe('family')
     expect(leaveTypeGroupKey('conference')).toBe('study')
     expect(leaveTypeGroupKey('maternity')).toBe('parental')
+    expect(leaveTypeGroupKey('time_off_in_lieu')).toBe('lieu')
+    expect(leaveTypeGroupKey('statutory_public')).toBe('lieu')
+    expect(leaveTypeGroupKey('injury_on_duty')).toBe('lieu')
     expect(leaveTypeGroupKey('weekend_exception')).toBe('weekend')
     expect(leaveTypeGroupKey('something_new')).toBe('weekend')
   })

@@ -4,7 +4,7 @@ import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
-import { buildAuditRows } from '../lib/leaveAudit'
+import { buildAuditRows, AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { contrastTextColor } from '../lib/color'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
@@ -33,11 +33,19 @@ function yearStartStr() {
   return `${new Date().getFullYear()}-01-01`
 }
 
+// Approved days, with any pending requests as a "+N" beside them. It spells
+// out "pending" on the title rather than in the cell: fourteen columns of
+// numbers only fit if a column is the width of its figures, and "+1 pending"
+// is five times that.
 function BucketCell({ bucket }) {
   return (
-    <div>
+    <div className="whitespace-nowrap">
       <span className="font-semibold text-ink">{bucket.approved}</span>
-      {bucket.pending > 0 && <span className="ml-1 text-xs text-ink-muted">+{bucket.pending} pending</span>}
+      {bucket.pending > 0 && (
+        <span className="ml-0.5 text-[10px] text-ink-muted" title={`${bucket.pending} pending`}>
+          +{bucket.pending}
+        </span>
+      )}
     </div>
   )
 }
@@ -245,13 +253,25 @@ export default function LeaveAuditReport() {
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
           <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
-            {/* 330 is what these five columns actually measure, so the
-                min-width now only stops them squeezing on a narrow phone
-                rather than inventing 200px of slack for the table to hand
-                out. It was 560 — a leftover from when this table carried a
-                sixth column and larger type — and at 560 the table scrolled
-                sideways on every phone; at 330 it fits one. */}
-            <table className="w-full min-w-[330px] border-separate border-spacing-0 text-xs">
+            {/* table-fixed, unlike every other grid in this app, because
+                this is the one that has to hold fifteen columns at the SAME
+                width. Auto layout cannot: a specified width there is a floor
+                rather than a setting, so a column grows to whatever its own
+                header word needs (Workshop 70, IOD 27) and whatever slack
+                the table has lands on the widest column — the Doctor column
+                reached 555px on a wide desktop. Fixed layout honours the
+                colgroup exactly and hands the leftover to the one column
+                that has no width of its own, the spacer. */}
+            <table className="w-full min-w-[1110px] table-fixed border-separate border-spacing-0 text-xs">
+              {/* 112 is the name column measured at its longest (a 103px
+                  pill) plus a little room; a surname past that truncates,
+                  with the full name on the cell's title. */}
+              <colgroup>
+                <col className="w-[112px]" />
+                {AUDIT_LEAVE_COLUMNS.map(column => <col key={column.key} className="w-[66px]" />)}
+                <col className="w-[66px]" />
+                <col />
+              </colgroup>
               <thead className="sticky top-0 z-10">
                 {/* bg-canvas-sunken on every th, not on the tr: a sticky cell
                     can't reliably inherit its row's background while it is
@@ -262,13 +282,20 @@ export default function LeaveAuditReport() {
                 {/* No Category column: it moved under the name, where Hours
                     Summary already keeps it. One less column on a table that
                     has to scroll on a phone, and the category reads as a
-                    property of the doctor rather than a fourth number. */}
-                <tr className="text-left text-[10px] uppercase tracking-wide text-ink-muted">
-                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5">Doctor</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Annual</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Special</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Sick</th>
-                  <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1.5">Total days</th>
+                    property of the doctor rather than a fourth number.
+
+                    Every leave type gets its own column, all at the one
+                    width set by the colgroup above. The headers drop to 9px
+                    with tighter padding so the longest of them ("Workshop",
+                    "Statutory") still fits 66px rather than truncating. */}
+                <tr className="text-left text-[9px] uppercase tracking-wide text-ink-muted">
+                  <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-[10px]">Doctor</th>
+                  {AUDIT_LEAVE_COLUMNS.map(column => (
+                    <th key={column.key} title={column.label} className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 align-bottom">
+                      {column.short}
+                    </th>
+                  ))}
+                  <th className="border-b border-slate-line bg-canvas-sunken px-1 py-1.5 align-bottom">Total days</th>
                   {/* Spacer. An auto-layout table stretched past its own
                       content hands the slack out across its columns, and with
                       only five of them the Doctor column took the biggest
@@ -277,7 +304,7 @@ export default function LeaveAuditReport() {
                       twenty columns leave far less of the slack for any one
                       of them. A cell at width:100% takes all of it instead,
                       so every real column here sits at its content width. */}
-                  <th className="w-full border-b border-slate-line bg-canvas-sunken" />
+                  <th className="border-b border-slate-line bg-canvas-sunken" />
                 </tr>
               </thead>
               {/* Row lines are `slate-hairline` on the cells themselves, not a
@@ -286,7 +313,7 @@ export default function LeaveAuditReport() {
                   own so it doesn't double up against the container's frame. */}
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
-                  <tr><td colSpan={6} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
+                  <tr><td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
                 ) : filteredRows.map(row => (
                   <tr key={row.profileId} className="hover:bg-canvas-cool">
                     {/* Sticky, so the name stays put while the day counts
@@ -306,17 +333,19 @@ export default function LeaveAuditReport() {
                       className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top hover:bg-canvas-cool"
                     >
                       <span
-                        className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+                        className="inline-block max-w-full truncate whitespace-nowrap rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium"
                         style={{ backgroundColor: row.colorCode || '#4A90D9', color: row.colorCode ? contrastTextColor(row.colorCode) : undefined }}
                       >
                         {displayNames.get(row.profileId) ?? row.surname}
                       </span>
-                      <p className="mt-0.5 text-[10px] text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</p>
+                      <p className="mt-0.5 truncate text-[10px] text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</p>
                     </td>
-                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.annual} /></td>
-                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.special} /></td>
-                    <td className="border-b border-slate-hairline px-2 py-1.5"><BucketCell bucket={row.sick} /></td>
-                    <td className="border-b border-slate-hairline px-2 py-1.5 font-semibold text-ink">{row.totalApprovedDays}</td>
+                    {AUDIT_LEAVE_COLUMNS.map(column => (
+                      <td key={column.key} className="border-b border-slate-hairline px-1 py-1.5">
+                        <BucketCell bucket={row.byColumn[column.key]} />
+                      </td>
+                    ))}
+                    <td className="border-b border-slate-hairline px-1 py-1.5 font-semibold text-ink">{row.totalApprovedDays}</td>
                     <td className="border-b border-slate-hairline" />
                   </tr>
                 ))}

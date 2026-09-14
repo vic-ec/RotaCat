@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LeaveAuditReport from './LeaveAuditReport'
+import { AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
 
 const { mockResponses } = vi.hoisted(() => ({ mockResponses: {} }))
 vi.mock('../lib/supabase', () => ({
@@ -62,25 +63,43 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(within(rows[1]).getByText('Adams')).toBeInTheDocument()
     expect(within(rows[2]).getByText('Consult')).toBeInTheDocument()
     expect(within(rows[3]).getByText('Zephyr')).toBeInTheDocument()
-    // Consultant has no leave requests at all — still shown, with zeroes across annual/special/sick/total
-    expect(within(rows[2]).getAllByText('0')).toHaveLength(4)
+    // Consultant has no leave requests at all — still shown, with a zero in
+    // every leave column plus the total.
+    expect(within(rows[2]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
   })
 
-  it('keeps the Doctor column at the width of the name, not a share of the table', async () => {
-    // An auto-layout table stretched past its own content hands the slack
-    // out across its columns, and with only five of them the Doctor column
-    // took the biggest share — 103px of name rendered as 160px on a phone
-    // and 352px on a desktop. The spacer cell at the end of every row takes
-    // the slack instead. jsdom lays nothing out, so this guards the
-    // mechanism: a trailing cell carrying `w-full` and no content, on the
-    // header row and on every body row.
+  it('sizes every leave column identically, via a fixed-layout colgroup', async () => {
+    // Fifteen columns at the same width is the one thing auto layout cannot
+    // do — a specified width there is a floor, so each column grows to its
+    // own header word and the slack lands on the widest column. jsdom lays
+    // nothing out, so this guards the mechanism: table-fixed, one col per
+    // leave column at a shared width, and a last col with none so it takes
+    // the leftover.
+    mockResponses['profiles:select'] = { data: PROFILES, error: null }
+    render(<LeaveAuditReport />)
+    await screen.findByText('Adams')
+
+    const table = document.querySelector('table')
+    expect(table.className).toContain('table-fixed')
+    const cols = [...table.querySelectorAll('colgroup col')]
+    // Doctor + one per leave type + Total + spacer.
+    expect(cols).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 3)
+    const widths = new Set(cols.slice(1, -1).map(c => c.className))
+    expect(widths.size).toBe(1)
+    expect(cols[cols.length - 1].className).toBe('')
+  })
+
+  it('ends every row with the spacer cell that takes the table\'s slack', async () => {
+    // The last column carries no width of its own, so under table-fixed it
+    // takes whatever a wide desktop leaves over — which is what stops the
+    // slack landing on the Doctor column, as it did when it reached 352px.
+    // It has to be present on the header row and on every body row, or the
+    // rows fall out of step with the colgroup.
     mockResponses['profiles:select'] = { data: PROFILES, error: null }
     render(<LeaveAuditReport />)
 
     const headerCells = within(await screen.findByRole('row', { name: /Doctor/ })).getAllByRole('columnheader')
-    const headerSpacer = headerCells[headerCells.length - 1]
-    expect(headerSpacer).toBeEmptyDOMElement()
-    expect(headerSpacer.className).toContain('w-full')
+    expect(headerCells[headerCells.length - 1]).toBeEmptyDOMElement()
 
     const bodyRow = (await screen.findByText('Adams')).closest('tr')
     const bodyCells = [...bodyRow.children]
@@ -163,9 +182,10 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
 
     const filteredRows = screen.getAllByRole('row')
     const adaRow = filteredRows.find(r => within(r).queryByText('Zephyr'))
-    // Special bucket AND the total both read 2 now — only the study-leave days count
+    // The Study column AND the total both read 2 now — only the study-leave
+    // days count — and every other column is zeroed.
     expect(within(adaRow).getAllByText('2')).toHaveLength(2)
-    expect(within(adaRow).getAllByText('0')).toHaveLength(2) // annual + sick buckets
+    expect(within(adaRow).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length - 1)
   })
 
   it('shows a Clear filters link once a filter is active, and clears it', async () => {

@@ -7,7 +7,7 @@ import { LEAVE_TYPE_OPTIONS } from './leaveRequests'
 
 export const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
-// The 13 leave types collapse to 6 colour families — a legend short enough
+// The 16 leave types collapse to 7 colour families — a legend short enough
 // to scan (like the intern matrix's 5 rotation states) while the exact type
 // still shows on the block's tooltip and in the detail panel. Ordered as the
 // legend renders them.
@@ -17,15 +17,22 @@ export const LEAVE_GROUP_OPTIONS = [
   { key: 'family', label: 'Family / Special' },
   { key: 'study', label: 'Study / Training' },
   { key: 'parental', label: 'Parental' },
+  { key: 'lieu', label: 'Lieu / Statutory' },
   { key: 'weekend', label: 'Weekend / Other' },
 ]
 
+// Single day is deliberately NOT in the annual family. It used to be, which
+// made it read as annual leave everywhere the matrix draws a colour — but it
+// is not deducted from an annual balance (buildAuditRows has always counted
+// it separately, and annual_leave_days only exists on `annual` rows), so
+// colouring it as annual said something the numbers never agreed with.
 const LEAVE_TYPE_TO_GROUP = {
-  annual: 'annual', single_day: 'annual',
+  annual: 'annual',
   sick: 'sick',
-  family_responsibility: 'family', special_leave: 'family',
+  family_responsibility: 'family', special_leave: 'family', single_day: 'family',
   study: 'study', workshop: 'study', course: 'study', conference: 'study',
   prenatal: 'parental', maternity: 'parental', paternity: 'parental',
+  time_off_in_lieu: 'lieu', statutory_public: 'lieu', injury_on_duty: 'lieu',
   weekend_exception: 'weekend',
 }
 
@@ -39,6 +46,7 @@ export const LEAVE_GROUP_COLOR = {
   family: '#D97706', // amber
   study: '#7C3AED', // violet
   parental: '#DB2777', // pink
+  lieu: '#0891B2', // cyan
   weekend: '#64748B', // slate
 }
 

@@ -27,6 +27,9 @@ export const LEAVE_TYPE_OPTIONS = [
   { value: 'workshop', label: 'Workshop' },
   { value: 'course', label: 'Course / CPD' },
   { value: 'conference', label: 'Conference' },
+  { value: 'time_off_in_lieu', label: 'Time off in lieu' },
+  { value: 'statutory_public', label: 'Statutory / public holiday' },
+  { value: 'injury_on_duty', label: 'Injury on duty' },
   { value: 'single_day', label: 'Single day' },
   // Stored value stays `weekend_exception` (it's a Postgres enum member and
   // the name the weekend planner's flow is built around); only what staff
@@ -35,11 +38,17 @@ export const LEAVE_TYPE_OPTIONS = [
 ]
 
 // Every leave type but annual, sick, and weekend_exception, grouped into one
-// "special leave" bucket for the My leave tracker and the admin Audit
-// report — matches how the reference leave-type picklist groups everything
+// "special leave" bucket for the My leave tracker and the Special leave
+// planner — matches how the reference leave-type picklist groups everything
 // else together. weekend_exception is excluded: it's an exception to which
 // specific weekend you work, not a reduction in required hours, so unlike
 // genuine special leave it shouldn't count toward a "days off" tracker.
+//
+// Derived from LEAVE_TYPE_OPTIONS rather than listed, so a type added to the
+// picklist above is special leave from the moment it exists — which is how
+// time off in lieu, statutory/public and injury on duty reached the planner
+// and its filters without a second edit. The admin All Leave report no
+// longer uses this: it reports every type in its own column instead.
 // value -> full picklist label ("maternity" -> "Maternity leave"). Several
 // components built this same map inline; this is the one copy worth
 // importing.

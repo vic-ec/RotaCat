@@ -5,7 +5,6 @@ import { CircleCheck, ExternalLink, CalendarClock, Contrast } from 'lucide-react
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
-import { SYSTEM_THEME } from '../lib/themes'
 import { getCroppedImageBlob } from '../lib/cropImage'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import { LAST_PATH_KEY } from '../components/AppLayout'
@@ -446,7 +445,7 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
 export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
-  const { theme, choice: themeChoice, setTheme, themes, choices: themeChoices } = useTheme()
+  const { choice: themeChoice, setTheme, choices: themeChoices } = useTheme()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
@@ -2056,16 +2055,9 @@ export default function AccountSettingsPage() {
           <div className="flex flex-col gap-2">
             {themeChoices.map(t => {
               // Selected by CHOICE, not by applied theme — on "Match device"
-              // the resolved palette is also in this list, and keying off
-              // `theme` would light up two tiles at once. That tile says
-              // which palette it is currently resolving to instead, so the
-              // answer is visible without having to change the setting to
-              // find out.
+              // the resolved palette is also in this list, and keying off the
+              // applied theme would light up two tiles at once.
               const selected = themeChoice === t.id
-              const resolvedLabel = themes.find(p => p.id === theme)?.label
-              const hint = selected && t.id === SYSTEM_THEME && resolvedLabel
-                ? `${t.hint} — ${resolvedLabel} right now`
-                : t.hint
               return (
                 <button
                   key={t.id}
@@ -2083,10 +2075,7 @@ export default function AccountSettingsPage() {
                       <span key={c} className="h-6 w-4" style={{ backgroundColor: c }} />
                     ))}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-ink">{t.label}</span>
-                    <span className="block text-xs text-ink-muted">{hint}</span>
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{t.label}</span>
                   {selected && <CircleCheck className="h-4 w-4 flex-shrink-0 text-accent" aria-hidden="true" />}
                 </button>
               )

@@ -5,19 +5,22 @@
 // read the live custom properties.
 
 export const LIGHT_THEME = 'light'
+// The id is not the label: 'neutral-dark' is what is stored per device, what
+// `data-theme` carries and what :root[data-theme="neutral-dark"] in
+// src/styles/index.css selects on. The palette is called "Night vision" in
+// the picker (see THEMES below); renaming the id would silently reset the
+// preference of everyone already on it, for no gain.
 export const DARK_THEME = 'neutral-dark'
 
 export const THEMES = [
   {
     id: LIGHT_THEME,
     label: 'Daylight',
-    hint: 'The original white and teal',
     swatch: ['#FFFFFF', '#DCEEE7', '#0F766E']
   },
   {
     id: DARK_THEME,
-    label: 'Neutral dark',
-    hint: 'Dark greens and greys, easier on a night shift',
+    label: 'Night vision',
     swatch: ['#0F1613', '#1D2F2B', '#6EBDAE']
   }
 ]
@@ -54,12 +57,12 @@ export const DARK_SCHEME_QUERY = '(prefers-color-scheme: dark)'
 
 // What the picker lists. THEMES stays the catalogue of real palettes (the
 // swatches, the labels a resolved theme is named by); this is that plus the
-// deferral, whose swatch runs light-to-dark to say it is both.
+// deferral, whose swatch runs from Daylight's ground to Night vision's to
+// say it is both, rather than reading as a third palette of its own.
 export const THEME_CHOICES = [
   {
     id: SYSTEM_THEME,
     label: 'Match device',
-    hint: "Follows your device's light/dark setting",
     swatch: ['#FFFFFF', '#0F766E', '#0F1613']
   },
   ...THEMES

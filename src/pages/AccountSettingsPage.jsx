@@ -2051,7 +2051,7 @@ export default function AccountSettingsPage() {
                 offering it on /account/:id would let an admin "change" a
                 colleague's theme and silently restyle their own app instead. */}
             {isOwnAccount && (
-            <SectionRow icon={<Contrast className="h-5 w-5" />} title="Colour theme" subtitle="Applies to this device only">
+            <SectionRow icon={<Contrast className="h-5 w-5" />} title="Colour theme">
           <div className="flex flex-col gap-2">
             {themeChoices.map(t => {
               // Selected by CHOICE, not by applied theme — on "Match device"

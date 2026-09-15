@@ -50,6 +50,23 @@ describe('EndOfRotationQueue', () => {
     expect(screen.getByText(/ended 30 Jun/)).toBeInTheDocument()
   })
 
+  it('says "ends" for a block that has not run out yet, in the row and the heading', () => {
+    // The queue opens on the 1st of the month a block ends, so mid-July it
+    // holds blocks ending 31 Jul that are still very much running.
+    renderQueue({
+      doctors: [FLAGGED_INTERN],
+      rotations: [{ ...ROTATIONS[0], end_date: '2027-07-31' }],
+    })
+    expect(screen.getByText(/ends 31 Jul/)).toBeInTheDocument()
+    expect(screen.getByText(/1 rotation ending with nothing lined up next/)).toBeInTheDocument()
+  })
+
+  it('says "ended" once every block in the queue is over', () => {
+    renderQueue()
+    expect(screen.getByText(/ended 30 Jun/)).toBeInTheDocument()
+    expect(screen.getByText(/1 rotation ended with nothing lined up next/)).toBeInTheDocument()
+  })
+
   it('View in Matrix calls onViewInMatrix with the doctor id', async () => {
     const onViewInMatrix = vi.fn()
     renderQueue({ onViewInMatrix })

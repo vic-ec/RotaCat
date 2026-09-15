@@ -36,7 +36,7 @@ function writeSnoozedUntil(doctorId, endDate, until) {
 }
 
 // Persistent queue of Intern/Registrar doctors whose last planned
-// rotation block has ended with nothing lined up next — same "needs
+// rotation block has ended — or is about to — with nothing lined up next — same "needs
 // admin attention" visual weight as the Staff nav's Pending Approvals
 // badge (see the matching badge on the Rotations tab itself in
 // LeavePlannerPage.jsx), not a one-shot toast. Stays visible until
@@ -72,6 +72,14 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
 
   if (entries.length === 0) return null
 
+  // This queue deliberately opens on the 1st of the month a block ends
+  // (see endOfRotationFlag), so on any given day it holds a mix of blocks
+  // that have already run out and blocks that are about to — "ended" was
+  // being said about both. The heading follows the same rule as the rows:
+  // it only settles on the past tense once every block in it really is
+  // over.
+  const anyStillRunning = entries.some(({ lastRotation }) => lastRotation.end_date >= today)
+
   function startScheduling(entry) {
     setSchedulingId(entry.doctor.id)
     setDraftDate(addDays(entry.lastRotation.end_date, 1))
@@ -99,7 +107,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
     <div className="mb-4 rounded-lg border border-flagRed/30 bg-flagRed-bg p-3">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-flagRed">
         <TriangleAlert className="h-4 w-4 flex-shrink-0" />
-        {entries.length} rotation{entries.length === 1 ? '' : 's'} ended with nothing lined up next
+        {entries.length} rotation{entries.length === 1 ? '' : 's'} {anyStillRunning ? 'ending' : 'ended'} with nothing lined up next
       </p>
       <div className="mt-2 divide-y divide-flagRed/20">
         {entries.map(({ doctor, lastRotation }) => {
@@ -116,21 +124,43 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
                   >
                     {typeLabel(key)}
                   </span>
-                  <span className="text-xs text-ink-light">ended {formatShortDateRange(lastRotation.end_date, lastRotation.end_date)}</span>
+                  <span className="text-xs text-ink-light">
+                    {lastRotation.end_date < today ? 'ended' : 'ends'} {formatShortDateRange(lastRotation.end_date, lastRotation.end_date)}
+                  </span>
                 </div>
+                {/* One line of same-shaped text links, the treatment the
+                    dashboard's own inline actions use (DashboardPage's
+                    EmptyRow, LeaveDashboard's pending-requests line) —
+                    rather than the link / bordered button / muted link mix
+                    this row used to be, which gave three actions of equal
+                    weight three different shapes. Spaced rather than
+                    dot-separated: the three don't fit one line on a phone,
+                    and a separator between them either dangles at the end
+                    of the first line or orphans onto the second. Remind me
+                    later stays muted because it dismisses rather than
+                    resolves, the same split as Confirm/Cancel on the row
+                    below. */}
                 {!isScheduling && (
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => onViewInMatrix(doctor.id)} className="text-xs font-medium text-accent hover:underline">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onViewInMatrix(doctor.id)}
+                      className="py-0.5 font-medium text-accent hover:underline"
+                    >
                       View in Matrix
                     </button>
-                    <button type="button" onClick={() => startScheduling({ doctor, lastRotation })} className="btn-secondary px-2">
+                    <button
+                      type="button"
+                      onClick={() => startScheduling({ doctor, lastRotation })}
+                      className="py-0.5 font-medium text-accent hover:underline"
+                    >
                       Schedule deactivation
                     </button>
                     <button
                       type="button"
                       onClick={() => remindLater(doctor.id, lastRotation.end_date)}
                       title="Hide this warning until tomorrow"
-                      className="text-xs font-medium text-ink-muted hover:text-ink hover:underline"
+                      className="py-0.5 font-medium text-ink-muted hover:text-ink hover:underline"
                     >
                       Remind me later
                     </button>

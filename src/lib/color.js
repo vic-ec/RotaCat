@@ -99,3 +99,94 @@ export function contrastTextColor(hex) {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return luminance > 0.6 ? '#111827' : '#FFFFFF'
 }
+
+// ── Keeping an identity colour visible against the page ──────────────
+//
+// Every doctor carries a colour, and a handful of them sit almost exactly on
+// one of the two themes' grounds: #182C61 against the dark theme's raised
+// surface is 1.05:1, which is not a dark pill, it is no pill at all. The same
+// happens at the other end on Daylight — #55EFC4 on white is 1.45:1.
+//
+// The fix is an outline rather than a substitution: the fill stays the exact
+// colour the doctor chose (it is how they are recognised on a roster), and a
+// rim of the SAME hue, pushed away from the ground, draws the shape. Only the
+// colours that need it get one — an outline on every swatch would just be
+// noise.
+//
+// The reference ground is the lightest surface each theme puts a swatch on
+// (canvas-raised), which is the worst case in both directions: the dark
+// theme's problem colours are dark, the light theme's are light.
+const SWATCH_GROUND = {
+  light: '#FFFFFF',       // --color-canvas-raised, light
+  'neutral-dark': '#1D2F2B', // --color-canvas-raised, dark
+}
+
+// Below this, a swatch is not reliably distinguishable from the page.
+const EDGE_BELOW_RATIO = 2
+// What the outline itself has to reach — 3:1, WCAG's own bar for a graphical
+// object that carries meaning (SC 1.4.11).
+const EDGE_TARGET_RATIO = 3
+
+function channelLuminance(c) {
+  const v = c / 255
+  return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+}
+
+export function relativeLuminance(hex) {
+  const r = channelLuminance(parseInt(hex.slice(1, 3), 16))
+  const g = channelLuminance(parseInt(hex.slice(3, 5), 16))
+  const b = channelLuminance(parseInt(hex.slice(5, 7), 16))
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+// WCAG relative contrast, 1:1 (identical) to 21:1 (black on white).
+export function contrastRatio(a, b) {
+  const la = relativeLuminance(a)
+  const lb = relativeLuminance(b)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+// The outline a swatch of `hex` needs on `theme`, or null when the colour
+// already stands clear of the page on its own. Same hue and saturation,
+// lightness walked away from the ground in 4% steps until it clears
+// EDGE_TARGET_RATIO — so the rim always reads as the same colour, just
+// lighter (on the dark theme) or deeper (on Daylight).
+export function swatchEdgeColor(hex, theme) {
+  if (!hex || hex.length < 7) return null
+  const ground = SWATCH_GROUND[theme] ?? SWATCH_GROUND.light
+  if (contrastRatio(hex, ground) >= EDGE_BELOW_RATIO) return null
+
+  const { h, s, l } = hexToHsl(hex)
+  const lighten = relativeLuminance(ground) < 0.5
+  let candidate = hex
+  for (let step = 1; step <= 24; step++) {
+    const nextL = lighten ? Math.min(l + step * 4, 92) : Math.max(l - step * 4, 8)
+    candidate = hslToHex(h, s, nextL)
+    // Either it clears the bar, or lightness has run out and this is the
+    // furthest this hue goes — better a rim that falls short than none.
+    if (contrastRatio(candidate, ground) >= EDGE_TARGET_RATIO || nextL === 92 || nextL === 8) break
+  }
+  return candidate
+}
+
+// Inline style for a filled swatch (a dot, a name pill, an avatar) in a
+// doctor's own colour. The outline is an INSET box-shadow rather than a
+// border: it costs no layout, so a swatch that gains one doesn't shift the
+// row it sits in, and it can't be clipped by a scroll container the way an
+// outset ring can. `text: true` adds the readable ink/white for a pill with
+// a name in it.
+export function swatchFillStyle(hex, theme, { text = false } = {}) {
+  const style = { backgroundColor: hex }
+  if (text) style.color = contrastTextColor(hex)
+  const edge = swatchEdgeColor(hex, theme)
+  if (edge) style.boxShadow = `inset 0 0 0 1px ${edge}`
+  return style
+}
+
+// The same colour as a STROKE — a roster chip's colour rail, say, where
+// there is no fill to put a rim inside and the mark itself has to carry the
+// contrast. Returns the adjusted shade for a colour that needs it, and the
+// colour untouched for one that doesn't.
+export function swatchStrokeColor(hex, theme) {
+  return swatchEdgeColor(hex, theme) ?? hex
+}

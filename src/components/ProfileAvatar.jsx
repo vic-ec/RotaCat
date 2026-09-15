@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NEUTRAL_AVATAR_COLOR, mutedAvatarColor, placeholderAvatarColor } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
+import { useSwatch } from '../lib/useSwatch'
 
 // Small inline status indicator, meant to sit next to a name/surname (not on
 // the avatar itself) — a plain colored dot: green (active), red (inactive),
@@ -123,6 +124,7 @@ function computeInitials(profile) {
 // used only by the Account Settings "Appearance" picker, where the vivid,
 // un-muted colour/pattern needs to stay visible as the thing being edited.
 export default function ProfileAvatar({ profile, size = 40, className = '', showInitials = true, ring = false }) {
+  const swatch = useSwatch()
   const color = profile?.color_code || NEUTRAL_AVATAR_COLOR
   const initials = computeInitials(profile)
   const hasPhoto = Boolean(profile?.avatar_url)
@@ -142,7 +144,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
     return (
       <div
         className={`relative flex-shrink-0 rounded-full ${className}`}
-        style={{ width: size, height: size, padding: ringWidth, backgroundColor: color, ...patternStyle }}
+        style={{ width: size, height: size, padding: ringWidth, ...swatch.fill(color), ...patternStyle }}
       >
         <div
           className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-canvas-raised bg-canvas-raised font-medium"
@@ -168,7 +170,7 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
       style={{
         width: size,
         height: size,
-        backgroundColor: hasPhoto ? mutedAvatarColor(color) : placeholderAvatarColor(profile?.id),
+        ...swatch.fill(hasPhoto ? mutedAvatarColor(color) : placeholderAvatarColor(profile?.id)),
         fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
       }}
     >

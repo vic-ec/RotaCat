@@ -4,7 +4,6 @@ import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
-import { contrastTextColor } from '../lib/color'
 import DateStepper from '../components/DateStepper'
 import { TodayIcon } from '../components/PlannerIcons'
 import Toolbar from '../components/Toolbar'
@@ -18,6 +17,7 @@ import {
 } from '../lib/doctorSort'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
+import { useSwatch } from '../lib/useSwatch'
 import { shiftColumns, shiftTimeRange } from '../lib/shiftLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -44,6 +44,7 @@ function hoursBand(row) {
 
 export default function RosterSummaryPage() {
   const { profile } = useAuth()
+  const swatch = useSwatch()
   const [searchParams, setSearchParams] = useSearchParams()
   const year = Number(searchParams.get('year')) || new Date().getFullYear()
   const month = Number(searchParams.get('month')) || new Date().getMonth() + 1
@@ -337,7 +338,6 @@ export default function RosterSummaryPage() {
             <tbody className="[&>tr:last-child>td]:border-b-0">
               {filteredRows.map(row => {
                 const band = hoursBand(row)
-                const textColor = row.colorCode ? contrastTextColor(row.colorCode) : undefined
                 // The signed-in doctor's own row: a soft `canvas-cool`
                 // fill plus a teal accent bar down its leading edge. The
                 // fill alone used to be `canvas-sunken` — the header's exact
@@ -376,7 +376,7 @@ export default function RosterSummaryPage() {
                       <div className="flex items-center gap-1.5">
                         <span
                           className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
-                          style={{ backgroundColor: row.colorCode || '#4A90D9', color: textColor }}
+                          style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                         >
                           {displayNames.get(row.profileId) ?? row.surname}
                         </span>

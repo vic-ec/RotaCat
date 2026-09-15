@@ -4,6 +4,7 @@ import { todayStr } from '../lib/dateRange'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import DateFieldButton from './DateFieldButton'
+import { useSwatch } from '../lib/useSwatch'
 
 // Completed tab of the Rotations page — Intern/Registrar/COSMO doctors
 // who are inactive with no start already scheduled (as opposed to the
@@ -14,6 +15,7 @@ import DateFieldButton from './DateFieldButton'
 // a future date just schedules it the same way Upcoming's own dates do,
 // which moves this doctor over to that tab on the next load.
 export default function CompletedDoctorsList({ doctors, displayNames, onReactivate }) {
+  const swatch = useSwatch()
   const navigate = useNavigate()
   const [reactivatingId, setReactivatingId] = useState(null)
   const [draftDate, setDraftDate] = useState(todayStr())
@@ -68,7 +70,7 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
           <div key={doctor.id} onClick={() => setDetailPerson(doctor)} className="cursor-pointer py-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm">
-                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code }} />
+                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={swatch.fill(doctor.color_code)} />
                 <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
                 <span className="text-xs text-ink-muted capitalize">{doctor.category}</span>
                 {/* Same classes as the Staff list's own Inactive pill

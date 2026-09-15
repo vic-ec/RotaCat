@@ -18,7 +18,8 @@ import CapsLockNotice from '../components/CapsLockNotice'
 import DetailInfoButton from '../components/DetailInfoButton'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
-import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor, contrastTextColor } from '../lib/color'
+import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
+import { useSwatch } from '../lib/useSwatch'
 import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
@@ -478,6 +479,7 @@ export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
   const { choice: themeChoice, setTheme, choices: themeChoices } = useTheme()
+  const swatch = useSwatch()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
@@ -2015,8 +2017,7 @@ export default function AccountSettingsPage() {
             <span
               className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
               style={{
-                backgroundColor: appearancePreviewColor,
-                color: contrastTextColor(appearancePreviewColor),
+                ...swatch.fill(appearancePreviewColor, { text: true }),
                 ...(colorForm.patternType ? patternBackgroundStyle(colorForm.patternType, appearancePreviewColor, 8) : null),
               }}
             >
@@ -2043,7 +2044,7 @@ export default function AccountSettingsPage() {
                   className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
                     colorForm.colorCode === hex ? 'ring-ink' : 'ring-transparent'
                   }`}
-                  style={{ backgroundColor: hex }}
+                  style={swatch.fill(hex)}
                 />
               ))}
             </div>
@@ -2060,7 +2061,7 @@ export default function AccountSettingsPage() {
                 className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
                   !colorForm.patternType ? 'ring-ink' : 'ring-transparent'
                 }`}
-                style={{ backgroundColor: colorForm.colorCode }}
+                style={swatch.fill(colorForm.colorCode)}
               />
               {PATTERN_TYPES.map(({ key, label }) => (
                 <button
@@ -2072,7 +2073,7 @@ export default function AccountSettingsPage() {
                   className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
                     colorForm.patternType === key ? 'ring-ink' : 'ring-transparent'
                   }`}
-                  style={{ backgroundColor: colorForm.colorCode, ...patternBackgroundStyle(key, colorForm.colorCode, 10) }}
+                  style={{ ...swatch.fill(colorForm.colorCode), ...patternBackgroundStyle(key, colorForm.colorCode, 10) }}
                 />
               ))}
             </div>

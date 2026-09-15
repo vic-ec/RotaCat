@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
 import ClearableInput from './ClearableInput'
+import { useSwatch } from '../lib/useSwatch'
 
 // Doctor picker popover — search by name, pick to assign, optional "Remove
 // from this slot" footer. Extracted from RosterGridPage so the Phase 5
@@ -9,6 +10,7 @@ import ClearableInput from './ClearableInput'
 // whenever `profiles` might contain a same-surname collision, so the row
 // label disambiguates ("J. Nolan") instead of the bare surname.
 export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode }) {
+  const swatch = useSwatch()
   const filtered = profiles.filter(p =>
     `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   )
@@ -71,7 +73,7 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
             >
               <span
                 className="h-3 w-3 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: p.color_code }}
+                style={swatch.fill(p.color_code)}
               />
               <span className="font-medium text-ink">{displayNames?.get(p.id) ?? p.surname}</span>
               <span className="text-xs text-ink-muted capitalize">{p.category}</span>

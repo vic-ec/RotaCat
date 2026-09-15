@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import DateFieldButton from './DateFieldButton'
+import { useSwatch } from '../lib/useSwatch'
 
 // Upcoming tab of the Rotations page — Intern/Registrar/COSMO doctors
 // with a future start already scheduled (profiles.scheduled_active_date;
@@ -11,6 +12,7 @@ import DateFieldButton from './DateFieldButton'
 // date arrives — "Activate now" here just does that immediately instead
 // of waiting.
 export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDate, onActivateNow }) {
+  const swatch = useSwatch()
   const [editingId, setEditingId] = useState(null)
   const [draftDate, setDraftDate] = useState('')
   const [savingId, setSavingId] = useState(null)
@@ -63,7 +65,7 @@ export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDat
           <div key={doctor.id} className="py-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm">
-                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: doctor.color_code }} />
+                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={swatch.fill(doctor.color_code)} />
                 <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
                 <span className="text-xs text-ink-muted capitalize">{doctor.category}</span>
               </div>

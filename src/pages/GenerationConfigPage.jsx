@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generateRoster } from '../lib/schedulerApi'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
+import { useSwatch } from '../lib/useSwatch'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -35,6 +36,7 @@ const SCHEDULABLE_CATEGORIES = [
 
 export default function GenerationConfigPage() {
   const navigate = useNavigate()
+  const swatch = useSwatch()
   const { profile } = useAuth()
 
   const now = new Date()
@@ -364,7 +366,7 @@ export default function GenerationConfigPage() {
                         {/* Colour dot */}
                         <span
                           className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                          style={{ backgroundColor: doc.color_code || '#4A90D9' }}
+                          style={swatch.fill(doc.color_code || '#4A90D9')}
                         />
                         <span className={`text-sm ${isExcluded ? 'line-through text-ink-muted' : 'text-ink'}`}>
                           {doc.surname}{doc.name ? `, ${doc.name}` : ''}

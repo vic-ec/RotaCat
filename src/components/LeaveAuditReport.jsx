@@ -9,13 +9,13 @@ import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRota
 import { buildAuditRows, AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
+import { useSwatch } from '../lib/useSwatch'
 import {
   DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
   CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
 } from '../lib/doctorSort'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import { contrastTextColor } from '../lib/color'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
@@ -121,6 +121,7 @@ function BucketCell({ bucket }) {
 // multi-select grouped-facet pattern as the Staff list) rather than four
 // permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
+  const swatch = useSwatch()
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
   // Each a Set of selected values — empty means "All" for that dimension
@@ -434,7 +435,7 @@ export default function LeaveAuditReport() {
                     >
                       <span
                         className="inline-block max-w-full truncate whitespace-nowrap rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium"
-                        style={{ backgroundColor: row.colorCode || '#4A90D9', color: row.colorCode ? contrastTextColor(row.colorCode) : undefined }}
+                        style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                       >
                         {displayNames.get(row.profileId) ?? row.surname}
                       </span>

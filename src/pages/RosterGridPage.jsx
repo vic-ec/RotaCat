@@ -22,6 +22,7 @@ import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
+import { useSwatch } from '../lib/useSwatch'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -1010,6 +1011,8 @@ export default function RosterGridPage() {
 // this is, so a code in the cell would be the third statement of it and is
 // most of the width back.
 function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false }) {
+  // Before the early returns below — a hook can't sit behind one.
+  const swatch = useSwatch()
   if (entry.is_locum) {
     return (
       <div
@@ -1036,7 +1039,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''}`}
-      style={{ borderLeftColor: railColor }}
+      style={{ borderLeftColor: swatch.stroke(railColor) }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       <span className="truncate">
@@ -1056,6 +1059,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
 // the shift-cell "+" button) -- RLS already blocks the write for a
 // non-admin, but the cell shouldn't offer a dropdown that just fails.
 function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, displayNames, isAdmin, onRefresh }) {
+  const swatch = useSwatch()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -1097,7 +1101,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
         {consultant ? (
           <div
             className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
-            style={{ borderLeftColor: railColor }}
+            style={{ borderLeftColor: swatch.stroke(railColor) }}
             title={`${consultant.name} ${consultant.surname}`}
           >
             <span className="truncate">{displayNames?.get(consultant.id) ?? consultant.surname}</span>

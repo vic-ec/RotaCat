@@ -12,14 +12,24 @@
     <!-- Applies the saved colour theme before the first paint. Without this
          a dark-theme user gets one white frame while the bundle boots, which
          is the most visible thing the app does wrong on a night shift. Kept
-         inline and unbundled for that reason; the key and the theme ids are
-         mirrored from src/context/ThemeContext.jsx and must stay in step. -->
+         inline and unbundled for that reason; the key, the theme ids and the
+         resolution rule are mirrored from src/lib/themes.js (resolveTheme)
+         and must stay in step.
+
+         What is stored is the CHOICE, not the applied theme: 'light' or
+         'neutral-dark' pins a palette, and anything else — 'system', or
+         nothing at all on a first visit — defers to the device. -->
     <script>
       (function () {
         try {
-          var t = localStorage.getItem('rotacat.theme')
-          if (t === 'neutral-dark') {
-            document.documentElement.dataset.theme = t
+          var stored = localStorage.getItem('rotacat.theme')
+          var dark = stored === 'neutral-dark' || (
+            stored !== 'light' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches
+          )
+          if (dark) {
+            document.documentElement.dataset.theme = 'neutral-dark'
             var m = document.querySelector('meta[name="theme-color"]')
             if (m) m.setAttribute('content', '#0F1613')
           }

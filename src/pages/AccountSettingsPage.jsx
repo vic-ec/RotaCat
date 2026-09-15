@@ -263,15 +263,18 @@ function LogoutIcon(props) {
 // hit area (WCAG 2.5.8's AA minimum) rather than a full 44px target, so it
 // doesn't force these rows taller than the plain-text SectionRow rows below
 // them.
-function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon }) {
+function EditIconButton({ label, expanded, onClick, icon: Icon = ChevronDownIcon, className = '' }) {
   const isChevron = Icon === ChevronDownIcon
   return (
     <button
       type="button"
-      onClick={onClick}
+      // The whole row around this is clickable too (see ContactRow and the
+      // profile header): without stopping here, a tap on the icon would run
+      // the toggle twice and land back where it started.
+      onClick={e => { e.stopPropagation(); onClick(e) }}
       aria-label={label}
       aria-expanded={expanded}
-      className="flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className={`flex flex-shrink-0 items-center justify-center rounded p-1 text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${className}`}
     >
       <Icon className={`h-4 w-4 ${isChevron ? `transition-transform ${expanded ? '' : 'rotate-180'}` : ''}`} />
     </button>
@@ -289,8 +292,20 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
   // which resets the field and closes it while editing=true — an outside
   // click behaves exactly like tapping Cancel.
   useDismissablePopover(editing, onToggle, rowRef)
+  // The whole row opens the field, not just the pencil — the same target
+  // size the SectionRow accordions below give their own headers, with the
+  // matching background feedback. Only while closed: once open, the row is
+  // a form, and a click inside it must not toggle the field shut (an
+  // outside click already does, via useDismissablePopover above).
+  const rowOpensEditor = editable && !editing
   return (
-    <div ref={rowRef} className="px-5 py-3">
+    <div
+      ref={rowRef}
+      onClick={rowOpensEditor ? onToggle : undefined}
+      className={`px-5 py-3 transition-colors ${
+        rowOpensEditor ? 'cursor-pointer hover:bg-canvas-sunken active:bg-canvas-sunken' : ''
+      }`}
+    >
       {/* Centered when just displaying the value (icon and single-line text
           read as one unit); top-aligned only while editing, so the icon
           stays pinned to the input's line instead of drifting to the middle
@@ -321,7 +336,11 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
                   here — the icon's mt-[5px] above is derived from that same
                   4px padding-top too. */}
               {value && href ? (
-                <a href={href} className="flex items-center gap-1.5 truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline">
+                <a
+                  href={href}
+                  onClick={e => e.stopPropagation()}
+                  className="flex items-center gap-1.5 truncate rounded border border-transparent px-3 py-1 text-sm text-ink hover:underline"
+                >
                   <span className="truncate">{value}</span>
                   {value && verified && (
                     <CircleCheck title="Email verified" className="h-3.5 w-3.5 flex-shrink-0 text-success" />
@@ -339,7 +358,20 @@ function ContactRow({ icon, value, placeholder = 'Not set', editLabel, editing, 
             </>
           )}
         </div>
-        {editable && <EditIconButton label={editLabel} expanded={editing} onClick={onToggle} icon={PencilIcon} />}
+        {/* mt-[3px] while editing keeps the pencil exactly where it sits when
+            closed: its 24px box is centred in the 30px display line then, and
+            top-aligned once the row switches to items-start above — a 3px
+            drop, which read as the icon hopping on entering edit mode. Same
+            derivation as the leading icon's own mt-[5px]. */}
+        {editable && (
+          <EditIconButton
+            label={editLabel}
+            expanded={editing}
+            onClick={onToggle}
+            icon={PencilIcon}
+            className={editing ? 'mt-[3px]' : ''}
+          />
+        )}
       </div>
     </div>
   )
@@ -369,12 +401,12 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
         onClick={toggle}
         aria-expanded={open}
         className={`flex w-full items-center gap-3 px-5 py-3 text-left transition-colors ${
-          danger ? 'hover:bg-rose-light active:bg-rose' : 'hover:bg-canvas-sunken active:bg-canvas-sunken'
+          danger ? 'hover:bg-danger/15 active:bg-danger/15' : 'hover:bg-canvas-sunken active:bg-canvas-sunken'
         }`}
       >
-        <span className={`flex-shrink-0 ${danger ? 'text-flagRed' : 'text-ink-light'}`}>{icon}</span>
+        <span className={`flex-shrink-0 ${danger ? 'text-danger' : 'text-ink-light'}`}>{icon}</span>
         <span className="min-w-0 flex-1">
-          <span className={`block text-sm font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{title}</span>
+          <span className={`block text-sm font-medium ${danger ? 'text-danger' : 'text-ink'}`}>{title}</span>
           {subtitle && <span className="mt-0.5 block truncate text-xs text-ink-muted">{subtitle}</span>}
         </span>
         <span className="flex-shrink-0 rounded p-1 text-ink-muted">
@@ -464,6 +496,10 @@ export default function AccountSettingsPage() {
   const [profileJustSaved, setProfileJustSaved] = useState(false)
   const [profileMsg, setProfileMsg] = useState(null)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
+  // Whether the profile header's details panel exists at all — an admin can
+  // edit a colleague's, a doctor only their own. Everyone else gets a header
+  // that is a plain summary, with nothing to expand and so nothing to tap.
+  const canEditProfileDetails = isOwnAccount || isAdmin
   const profileHeaderRef = useRef(null)
   useDismissablePopover(profileDetailsOpen, () => setProfileDetailsOpen(false), profileHeaderRef)
 
@@ -1288,9 +1324,23 @@ export default function AccountSettingsPage() {
              No overflow-hidden here (unlike the row-group cards below): this card has no
              flush edge-to-edge children needing corner-clipping, and clipping it would cut
              off the avatar's photo-menu dropdown when the card is short. ── */}
-        <div className="card px-5 py-3" ref={profileHeaderRef}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="card" ref={profileHeaderRef}>
+          {/* The whole row expands the details, not just the chevron — the
+              SectionRow accordions below already work that way, and this one
+              looked inert by comparison. The padding moves off the card and
+              onto this row so the background feedback covers the full panel;
+              the corner rounding follows, since the card can't clip it
+              (no overflow-hidden, see above). */}
+          <div
+            onClick={canEditProfileDetails ? () => setProfileDetailsOpen(o => !o) : undefined}
+            className={`flex items-center justify-between gap-3 rounded-t-lg px-5 py-3 transition-colors ${
+              profileDetailsOpen || avatarError ? '' : 'rounded-b-lg'
+            } ${canEditProfileDetails ? 'cursor-pointer hover:bg-canvas-sunken active:bg-canvas-sunken' : ''}`}
+          >
+            {/* The avatar's own menu button, the status picker and the file
+                input all live in here — their clicks are their own, not the
+                row's. */}
+            <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
               <div className="relative flex-shrink-0">
                 {/* Scoped to just the avatar button + its own dropdown — not the
                     StatusPicker below, which needs to be a DOM sibling (not a
@@ -1346,35 +1396,35 @@ export default function AccountSettingsPage() {
                   className="hidden"
                 />
               </div>
-
-              <div className="min-w-0 flex-1">
-                {/* Not the page's H1 — PageHeader above already carries that
-                    ("Account"). This is the specific profile being viewed
-                    (which may not be the viewer's own, e.g. an admin
-                    reviewing a colleague's account), so it stays its own
-                    prominent line without claiming the page-title role. */}
-                <p className="font-display text-lg font-bold leading-tight text-ink">{profile.name} {profile.surname}</p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {roleCategoryLabel}
-                  {permissionLabel && (
-                    <>
-                      {' · '}
-                      <span className={`font-medium ${profile.is_super_admin ? 'text-flagBlue' : 'text-accent'}`}>
-                        {permissionLabel}
-                      </span>
-                    </>
-                  )}
-                  {/* Status as text, not colour alone — matches the same
-                      Active/On leave/Inactive wording used on the Staff list. */}
-                  {' · '}
-                  <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
-                    {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
-                  </span>
-                </p>
-              </div>
             </div>
 
-            {(isOwnAccount || isAdmin) && (
+            <div className="min-w-0 flex-1">
+              {/* Not the page's H1 — PageHeader above already carries that
+                  ("Account"). This is the specific profile being viewed
+                  (which may not be the viewer's own, e.g. an admin
+                  reviewing a colleague's account), so it stays its own
+                  prominent line without claiming the page-title role. */}
+              <p className="font-display text-lg font-bold leading-tight text-ink">{profile.name} {profile.surname}</p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {roleCategoryLabel}
+                {permissionLabel && (
+                  <>
+                    {' · '}
+                    <span className={`font-medium ${profile.is_super_admin ? 'text-flagBlue' : 'text-accent'}`}>
+                      {permissionLabel}
+                    </span>
+                  </>
+                )}
+                {/* Status as text, not colour alone — matches the same
+                    Active/On leave/Inactive wording used on the Staff list. */}
+                {' · '}
+                <span className={`font-medium ${!adminIsActive ? 'text-flagRed' : isOnLeave ? 'text-ink-muted' : 'text-success'}`}>
+                  {!adminIsActive ? 'Inactive' : isOnLeave ? 'On leave' : 'Active'}
+                </span>
+              </p>
+            </div>
+
+            {canEditProfileDetails && (
               <EditIconButton
                 label="Edit profile details"
                 expanded={profileDetailsOpen}
@@ -1382,10 +1432,10 @@ export default function AccountSettingsPage() {
               />
             )}
           </div>
-          {avatarError && <p className="mt-2 text-xs text-flagRed">{avatarError}</p>}
+          {avatarError && <p className="px-5 pb-3 text-xs text-flagRed">{avatarError}</p>}
 
-          {profileDetailsOpen && (isOwnAccount || isAdmin) && (
-            <div className="mt-4 border-t border-slate-line pt-4">
+          {profileDetailsOpen && canEditProfileDetails && (
+            <div className="border-t border-slate-line px-5 py-5">
               <form onSubmit={saveProfile} className="space-y-4">
                 <div>
                   <label className="label-text">First name</label>
@@ -2150,23 +2200,25 @@ export default function AccountSettingsPage() {
         {isOwnAccount && (
           <div>
             <SectionLabel>Danger Zone</SectionLabel>
-            <div className="card overflow-hidden border-flagRed/30">
+            {/* `danger`, not `flagRed`: flagRed is reserved for roster-state
+                semantics (see tailwind.config.js) and this is a destructive
+                action, the same distinction .btn-danger already makes. The
+                fill is the muted danger ground rather than .card's raised
+                surface — on the dark theme that surface is a green, which
+                read as a green panel behind a red outline. */}
+            <div className="card overflow-hidden border-danger/40 bg-danger-bg">
               <SectionRow icon={<TrashIcon className="h-5 w-5" />} title="Delete Account" danger>
                 {pendingDeletion ? (
                   <div className="rounded-lg border border-flagAmber/30 bg-flagAmber-bg p-3 text-xs text-flagAmber">
                     Your account deletion request is pending admin review.
                   </div>
                 ) : deleteConfirming ? (
-                  <div className="rounded-lg border border-flagRed/30 bg-flagRed-bg p-4">
-                    <p className="mb-3 text-sm text-flagRed">
+                  <div className="rounded-lg border border-danger/30 bg-danger/10 p-4">
+                    <p className="mb-3 text-sm text-danger">
                       This sends an account deletion request to an admin for review. Continue?
                     </p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={requestDeletion}
-                        disabled={deleteSaving}
-                        className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
-                      >
+                      <button onClick={requestDeletion} disabled={deleteSaving} className="btn-danger">
                         {deleteSaving ? 'Submitting…' : 'Yes, request deletion'}
                       </button>
                       <button onClick={() => setDeleteConfirming(false)} className="btn-secondary">
@@ -2175,10 +2227,7 @@ export default function AccountSettingsPage() {
                     </div>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setDeleteConfirming(true)}
-                    className="rounded border border-transparent bg-flagRed px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
-                  >
+                  <button onClick={() => setDeleteConfirming(true)} className="btn-danger">
                     Request account deletion
                   </button>
                 )}

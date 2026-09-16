@@ -163,6 +163,22 @@ export function formatWeekendRange(saturday) {
   return `Sat ${satDate.getDate()} ${satMonth} - Sun ${sunDate.getDate()} ${sunMonth} ${sunYear}`
 }
 
+// Same as formatWeekendRange but without the "Sat "/"Sun " weekday
+// prefixes — "26 - 27 Sept 2026" instead of "Sat 26 - Sun 27 Sept 2026" —
+// for tight spaces (e.g. a Weekend off requests row already carrying a
+// name and category alongside it) where the fuller phrasing crowds the row.
+export function formatWeekendRangeCompact(saturday) {
+  const sunday = addDays(saturday, 1)
+  const satDate = parseLocalDate(saturday)
+  const sunDate = parseLocalDate(sunday)
+  const sunMonth = sunDate.toLocaleDateString('en-GB', { month: 'short' })
+  const sunYear = sunDate.getFullYear()
+  const sameMonth = satDate.getMonth() === sunDate.getMonth() && satDate.getFullYear() === sunDate.getFullYear()
+  if (sameMonth) return `${satDate.getDate()} - ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+  const satMonth = satDate.toLocaleDateString('en-GB', { month: 'short' })
+  return `${satDate.getDate()} ${satMonth} - ${sunDate.getDate()} ${sunMonth} ${sunYear}`
+}
+
 // Coverage of one weekend's category groups: how many of the 4 rotation
 // groups (MO/Registrar/EC COSMO+Intern/OT COSMO+Intern) have at least one
 // person assigned, and which ones are still open. bySaturdayEntries is the

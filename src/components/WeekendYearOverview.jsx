@@ -85,7 +85,11 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
           (<lg): rail stacked first, full width. Desktop (lg+): grid + w-72
           sticky rail side by side. ── */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="weekend-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
+        {/* min-w-0: a flex item's default min-width is `auto` (its content's
+            own min-content size), not 0 — without this, the grid refused to
+            shrink below that on desktop and instead squeezed itself and the
+            sticky rail beside it into a horizontally-scrolling sliver. */}
+        <div data-testid="weekend-year-grid" className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
           {monthCards.map(m => (
             <WeekendMonthCard
               key={m.month}

@@ -229,15 +229,21 @@ function StatCell({ label, value, colorClass, bgClass }) {
 // glance without needing the year-wide totals a separate Select year
 // section used to spell out. Mirrors AppLayout.jsx's notification-count
 // badge styling for that corner marker.
+// overflow-hidden + truncate: a defensive clip — if the grid ever ends up
+// narrower than a card's content (fixed-size marker squares, an untruncated
+// label), the browser's default is to let that overflow bleed out past the
+// card's own box rather than contain it, which is what actually produced
+// the "overlapping month text" bug (see MyWeekendYearOverview's identical
+// card for the fuller explanation — this is the admin-facing twin).
 function WeekendMonthCard({ month, isSelected, onSelect }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
+      className={`card overflow-hidden p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
-      <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
+      <span className="block truncate font-display text-sm font-semibold text-ink">{month.label}</span>
       <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
         {month.markers.map(m => {
           const style = HEALTH_STYLE[m.health]

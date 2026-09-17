@@ -431,6 +431,13 @@ function WeekendLegendTrigger({ states }) {
 // mobile finder: on 'all' each block is the weekend's staffing health
 // rather than this doctor's own working/off state, so the two views never
 // disagree about what a colour means.
+// overflow-hidden + truncate: a defensive clip, not just cosmetic — if the
+// grid ever ends up narrower than a card's content (fixed-size marker
+// squares, an untruncated label), the browser's default is to let that
+// overflow bleed out past the card's own box rather than wrap/clip it,
+// which is what actually produced the "overlapping month text" bug — the
+// grid squeezing narrower than intended was the trigger, but this card
+// having nothing to contain the resulting overflow was what made it visible.
 function MyWeekendMonthCard({ month, isSelected, onSelect, scope }) {
   const all = scope === 'all'
   const markers = all ? month.staffingMarkers : month.markers
@@ -439,9 +446,9 @@ function MyWeekendMonthCard({ month, isSelected, onSelect, scope }) {
       type="button"
       onClick={onSelect}
       aria-pressed={isSelected}
-      className={`card p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
+      className={`card overflow-hidden p-3 text-left transition-colors ${isSelected ? 'border-accent ring-2 ring-accent' : 'hover:border-accent/40'}`}
     >
-      <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
+      <span className="block truncate font-display text-sm font-semibold text-ink">{month.label}</span>
       <div className="mt-2.5 flex flex-wrap gap-2 lg:gap-3">
         {markers.map(m => {
           const style = all ? HEALTH_STYLE[m.state] : STATE_STYLE[m.state]

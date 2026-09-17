@@ -10,7 +10,7 @@ import { addDays } from '../lib/dateRange'
 import DateStepper from './DateStepper'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
-import PlannerRequestPanel, { PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
+import PlannerRequestPanel from './PlannerRequestPanel'
 import LegendSheet from './LegendSheet'
 import SelectMenu from './SelectMenu'
 import { LegendIcon, TodayIcon } from './PlannerIcons'
@@ -290,7 +290,16 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           ))}
         </div>
 
-        <div className={`order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 ${PANEL_DESKTOP_WIDTH}`}>
+        {/* lg:w-80, not a bare w-80 alongside w-full — both are unscoped
+            `width` utilities on the same element otherwise, and which one
+            wins in the compiled stylesheet isn't determined by their order
+            in this className string, only by Tailwind's own internal
+            utility order. It was landing on w-full's 100% at every size,
+            which is what actually starved the grid beside it of any
+            width at all (flex-grow had nothing left to grow into) —
+            not a flex/grid sizing bug in the grid itself, which is why
+            min-w-0 and overflow-hidden there didn't fix this. */}
+        <div className="order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 lg:w-80">
         {renderRequestPanel('weekend-scope-desktop')}
         <div
           data-testid="my-weekend-year-inspector"

@@ -135,7 +135,9 @@ export default function SignInForm({
   // Set after the server rejects the pair; cleared the moment either field
   // changes, so the red outlines go as soon as the user starts fixing it.
   const [credentialsRejected, setCredentialsRejected] = useState(false)
-  const capsLock = useCapsLockWarning()
+  // Persistent: the notice stays until Caps Lock is off, whichever field
+  // (or none) has the cursor.
+  const capsLock = useCapsLockWarning({ persistent: true })
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
   const busy = submitting || verifying
@@ -297,16 +299,14 @@ export default function SignInForm({
           />
         </div>
 
-        {/* Caps Lock on the left of the gap, "Forgot password?" on the
-            right: the notice is zero-height, so the link row sits at the
-            same place whether or not Caps Lock is on. The link comes after
-            the field in the DOM so the tab order runs Email → Password →
-            Show → Forgot → Sign in. */}
-        <FieldMessageSlot>
+        {/* One row under the field: Caps Lock notice on the left, "Forgot
+            password?" on the right, both centred on the same line. The row
+            is always there, so the notice coming and going moves nothing.
+            The link comes after the field in the DOM so the tab order runs
+            Email → Password → Show → Forgot → Sign in. */}
+        <div className="mt-2 flex items-center justify-between gap-4">
           <CapsLockNotice show={capsLock.capsOn} className="text-sm" />
-        </FieldMessageSlot>
-        <div className="mt-2 flex justify-end">
-          <button type="button" onClick={onForgotPassword} className={`text-sm md:text-base ${LINK_CLASS}`}>
+          <button type="button" onClick={onForgotPassword} className={`ml-auto text-sm md:text-base ${LINK_CLASS}`}>
             Forgot password?
           </button>
         </div>

@@ -66,6 +66,27 @@ describe('LoginPage — desktop (lg and up)', () => {
     expect(document.getElementById('password')).toHaveAttribute('type', 'text')
   })
 
+  it('keeps the Caps Lock notice up across fields until Caps Lock is off', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const password = document.getElementById('password')
+    const email = document.getElementById('email')
+    const capsOn = (el) => el.dispatchEvent(new KeyboardEvent('keyup', { key: 'A', modifierCapsLock: true, bubbles: true }))
+    const capsOff = (el) => el.dispatchEvent(new KeyboardEvent('keyup', { key: 'A', modifierCapsLock: false, bubbles: true }))
+
+    password.focus()
+    capsOn(password)
+    expect(await screen.findByText('Caps Lock is on')).toBeInTheDocument()
+
+    // Moving to the email field does not dismiss it.
+    await user.click(email)
+    expect(screen.getByText('Caps Lock is on')).toBeInTheDocument()
+
+    // A key event anywhere with Caps Lock off does.
+    capsOff(email)
+    await waitFor(() => expect(screen.queryByText('Caps Lock is on')).toBeNull())
+  })
+
   it('describes an invalid email with its own error message', async () => {
     const user = userEvent.setup()
     renderPage()

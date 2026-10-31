@@ -532,7 +532,7 @@ export default function SignupPage() {
           </div>
           <p className="mt-2 text-center text-xs text-ink-light">
             Already have an account?{' '}
-            <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+            <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
               Sign in
             </Link>
           </p>
@@ -564,7 +564,7 @@ export default function SignupPage() {
                 </div>
                 <p className="mt-6 text-center text-base text-ink-light">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+                  <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
                     Sign in
                   </Link>
                 </p>

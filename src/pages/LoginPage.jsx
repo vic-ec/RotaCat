@@ -7,7 +7,7 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
-import SignInForm from '../components/SignInForm'
+import SignInForm, { CredentialErrorBanner } from '../components/SignInForm'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 // Links on this page are teal and underlined. Rose on white is 3.80:1 and
@@ -454,23 +454,35 @@ export default function LoginPage() {
       </div>
 
       {/* Tablet and desktop: one raised white shell on a light-mint page,
-          two flush white halves with a 1px seam between them. The inset
-          scales with the viewport (64px sides, 60px top and bottom at
-          1600px) and the shell fills what is left, so the halves stay 50/50
-          and the form sits centred in its own half. From `lg` the form is
-          inline; between `md` and `lg` the Welcome button + modal remain. */}
+          two flush white halves with a 1px seam between them. The side
+          inset scales with the viewport (64px at 1600px) and the shell is
+          as tall as its content, like the Create-account card: the brand
+          half's own padding sets the height, and the halves stay 50/50.
+          From `lg` the form is inline; between `md` and `lg` the Welcome
+          button + modal remain. */}
       <div
-        className="hidden min-h-dvh flex-col bg-auth-page px-[4vw] py-[3.75vw] md:flex"
+        className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex"
         {...inertWhen(modalOpen)}
       >
-        <div className="mx-auto flex w-full max-w-[1800px] flex-1 overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+        <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
           <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 pt-12 lg:px-[4.375rem] lg:pt-[5.75rem]">
-            <div className="flex flex-1 items-center justify-center">
-              {isDesktop ? (
+          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 lg:px-[4.375rem]">
+            {isDesktop ? (
+              /* Three rows: equal slack above and below the form keeps it
+                 vertically centred, and the top row is exactly the room
+                 between the half's top edge and the Welcome heading, so
+                 the banner centred in it has the same space above it as
+                 below. It is out of the form's flow, so nothing moves. */
+              <div className="grid flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] justify-items-center">
+                <div className="flex w-full max-w-[456px] items-center">
+                  <CredentialErrorBanner error={error} />
+                </div>
                 <SignInForm variant="inline" {...formProps} />
-              ) : (
+                <div aria-hidden="true" />
+              </div>
+            ) : (
+            <div className="flex flex-1 items-center justify-center pt-12">
                 <div className="mx-auto w-full max-w-sm text-center">
                   <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
                   <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
@@ -507,8 +519,8 @@ export default function LoginPage() {
                     </p>
                   </div>
                 </div>
-              )}
             </div>
+            )}
 
             {/* Copyright pinned to the half's own bottom edge (via the
                 flex-1 centering wrapper above absorbing the leftover space)

@@ -81,7 +81,7 @@ describe('LoginPage — desktop (lg and up)', () => {
     const user = userEvent.setup()
     signIn.mockResolvedValue({ error: { message: 'Invalid login credentials' } })
     renderPage()
-    const alert = inlineForm().querySelector('[role="alert"]')
+    const alert = document.querySelector('[role="alert"]')
     expect(alert).toBeEmptyDOMElement()
     expect(alert).toHaveAttribute('aria-live', 'assertive')
 

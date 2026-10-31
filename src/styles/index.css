@@ -153,10 +153,9 @@
   --color-auth-grid-bar-2: 224 232 229;       /* #E0E8E5 — secondary bar */
   /* One shadow on the shell, none on the halves: a soft teal-tinted drop
      for lift off the mint page, a tight grey contact shadow, and a 1px
-     white highlight along the top edge. The seam shadow is the brand half's
-     right edge only, so the divider reads as a fold rather than a line. */
+     white highlight along the top edge. The seam itself is a bare 1px line
+     with no shadow of its own. */
   --shadow-auth-shell: 0 28px 56px -26px rgba(15, 118, 110, 0.45), 0 2px 6px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  --shadow-auth-seam: inset -10px 0 14px -14px rgba(15, 23, 42, 0.14);
 
 
   /* The Create-account page's three role cards. Their own tokens because the
@@ -334,7 +333,6 @@
   --color-auth-grid-bar: 43 70 63;            /* #2B463F */
   --color-auth-grid-bar-2: 34 51 48;          /* #223330 */
   --shadow-auth-shell: 0 28px 56px -26px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --shadow-auth-seam: inset -10px 0 14px -14px rgba(0, 0, 0, 0.5);
 
 
   /* 1.30:1 above accent-panel, matching what white gets over mint on light;

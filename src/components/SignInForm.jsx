@@ -78,6 +78,29 @@ function Spinner() {
 
 const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 
+// The credential-error banner. Always mounted, so a screen reader's live
+// region exists before it has anything to say; `empty:hidden` keeps the
+// empty region from painting. Where it sits is the mount's business: the
+// modal pins it above its own panel, and the inline login half centres it
+// in the space above the Welcome heading (see LoginPage). Either way it
+// occupies no layout space the fields depend on, so they never move.
+export function CredentialErrorBanner({ error }) {
+  return (
+    <div
+      role="alert"
+      aria-live="assertive"
+      className="flex w-full items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg px-4 py-3 text-sm text-flagRed empty:hidden"
+    >
+      {error && (
+        <>
+          <AlertIcon />
+          <span>{error}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function SignInForm({
   variant = 'inline',
   onSubmit,
@@ -140,27 +163,17 @@ export default function SignInForm({
     <form
       onSubmit={handleSubmit}
       aria-busy={submitting}
-      className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? 'relative' : 'mt-4'}`}
+      className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? '' : 'mt-4'}`}
     >
-      {/* Credential-error banner. Always mounted, so a screen reader's live
-          region exists before it has anything to say; `empty:hidden` keeps
-          the empty region from painting. Positioned above the heading (or
-          the modal title) with its bottom edge pinned, so it occupies no
-          layout space and the fields below never move. */}
-      <div className={`pointer-events-none absolute bottom-full left-0 right-0 ${inline ? 'mb-[30px]' : 'mb-3'}`}>
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="pointer-events-auto flex items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg px-4 py-3 text-sm text-flagRed empty:hidden"
-        >
-          {error && (
-            <>
-              <AlertIcon />
-              <span>{error}</span>
-            </>
-          )}
+      {/* In the modal the banner is pinned above the panel (the panel is
+          `relative`), so it lands above the modal title without pushing the
+          fields down. The inline mount renders it from LoginPage instead,
+          centred in the room above the Welcome heading. */}
+      {!inline && (
+        <div className="absolute bottom-full left-0 right-0 mb-3">
+          <CredentialErrorBanner error={error} />
         </div>
-      </div>
+      )}
 
       {inline && (
         <div className="mb-1">
@@ -308,7 +321,7 @@ export default function SignInForm({
       </div>
 
       {inline && (
-        <p className="mt-2 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
+        <p className="mt-2 text-center text-base text-ink-light">
           New here?{' '}
           <Link to="/signup" className={LINK_CLASS}>
             Create an account

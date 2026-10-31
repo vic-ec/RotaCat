@@ -337,9 +337,8 @@ export default {
         // src/styles/index.css.
         card: 'var(--shadow-card)',
         raised: 'var(--shadow-raised)',
-        // The login shell's single shadow and the fold along its seam.
-        'auth-shell': 'var(--shadow-auth-shell)',
-        'auth-seam': 'var(--shadow-auth-seam)'
+        // The login shell's single shadow.
+        'auth-shell': 'var(--shadow-auth-shell)'
       }
     }
   },

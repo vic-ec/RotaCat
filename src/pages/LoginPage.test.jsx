@@ -98,6 +98,11 @@ describe('LoginPage — desktop (lg and up)', () => {
     // Editing either field withdraws the red outlines.
     await user.type(document.getElementById('password'), 'x')
     expect(document.getElementById('email')).toHaveAttribute('aria-invalid', 'false')
+
+    // Dismiss empties the banner and hands focus back to the password.
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(alert).toBeEmptyDOMElement()
+    expect(document.activeElement).toBe(document.getElementById('password'))
   })
 
   it('marks the form busy and keeps the submit button in the tab order while signing in', async () => {

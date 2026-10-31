@@ -7,7 +7,7 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
-import SignInForm, { CredentialErrorBanner } from '../components/SignInForm'
+import SignInForm from '../components/SignInForm'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 // Links on this page are teal and underlined. Rose on white is 3.80:1 and
@@ -403,6 +403,7 @@ export default function LoginPage() {
     submitting,
     verifying,
     onForgotPassword: openForgotPasswordModal,
+    onDismissError: () => setError(null),
     captcha: TURNSTILE_ENABLED
       ? <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
       : null,
@@ -469,17 +470,8 @@ export default function LoginPage() {
 
           <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 lg:px-[4.375rem]">
             {isDesktop ? (
-              /* Three rows: equal slack above and below the form keeps it
-                 vertically centred, and the top row is exactly the room
-                 between the half's top edge and the Welcome heading, so
-                 the banner centred in it has the same space above it as
-                 below. It is out of the form's flow, so nothing moves. */
-              <div className="grid flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] justify-items-center">
-                <div className="flex w-full max-w-[456px] items-center">
-                  <CredentialErrorBanner error={error} />
-                </div>
+              <div className="flex flex-1 items-center justify-center">
                 <SignInForm variant="inline" {...formProps} />
-                <div aria-hidden="true" />
               </div>
             ) : (
             <div className="flex flex-1 items-center justify-center pt-12">

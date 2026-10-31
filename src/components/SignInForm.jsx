@@ -78,23 +78,36 @@ function Spinner() {
 
 const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 
-// The credential-error banner. Always mounted, so a screen reader's live
-// region exists before it has anything to say; `empty:hidden` keeps the
-// empty region from painting. Where it sits is the mount's business: the
-// modal pins it above its own panel, and the inline login half centres it
-// in the space above the Welcome heading (see LoginPage). Either way it
-// occupies no layout space the fields depend on, so they never move.
-export function CredentialErrorBanner({ error }) {
+// The credential-error banner, with its own Dismiss. It sits in a slot of
+// fixed height (BANNER_SLOT) between the heading and the Email field, so
+// it is always right above the fields it is about, it can never collide
+// with the top of the panel on a short window, and showing or hiding it
+// moves nothing. Always mounted, so a screen reader's live region exists
+// before it has anything to say; `empty:hidden` keeps the empty region
+// from painting while the slot holds the space.
+const BANNER_SLOT = 'h-[42px]'
+
+function CredentialErrorBanner({ error, onDismiss }) {
   return (
     <div
       role="alert"
       aria-live="assertive"
-      className="flex w-full items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg px-4 py-3 text-sm text-flagRed empty:hidden"
+      className="flex h-full w-full items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg py-1.5 pl-4 pr-1.5 text-sm text-flagRed empty:hidden"
     >
       {error && (
         <>
           <AlertIcon />
-          <span>{error}</span>
+          <span className="min-w-0 flex-1 truncate" title={error}>{error}</span>
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-flagRed transition-colors hover:bg-flagRed/10"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </>
       )}
     </div>
@@ -109,6 +122,7 @@ export default function SignInForm({
   verifying = false,
   captcha = null,
   onForgotPassword,
+  onDismissError,
   autoFocus = false,
 }) {
   const inline = variant === 'inline'
@@ -159,26 +173,32 @@ export default function SignInForm({
 
   const emailDescribedBy = emailInvalid ? 'email-error' : undefined
 
+  // Dismissing the banner also withdraws the red outlines and puts the
+  // cursor back in the password field, since the Dismiss button it was on
+  // is about to disappear.
+  function handleDismissError() {
+    onDismissError?.()
+    setCredentialsRejected(false)
+    passwordRef.current?.focus()
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
       aria-busy={submitting}
-      className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? '' : 'mt-4'}`}
+      className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? '' : 'mt-3'}`}
     >
-      {/* In the modal the banner is pinned above the panel (the panel is
-          `relative`), so it lands above the modal title without pushing the
-          fields down. The inline mount renders it from LoginPage instead,
-          centred in the room above the Welcome heading. */}
-      {!inline && (
-        <div className="absolute bottom-full left-0 right-0 mb-3">
-          <CredentialErrorBanner error={error} />
-        </div>
-      )}
-
-      {inline && (
-        <div className="mb-1">
+      {inline ? (
+        <div>
           <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
           <p className="mt-3 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
+          <div className={`mt-3 ${BANNER_SLOT}`}>
+            <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
+          </div>
+        </div>
+      ) : (
+        <div className={BANNER_SLOT}>
+          <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
         </div>
       )}
 

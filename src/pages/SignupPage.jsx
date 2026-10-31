@@ -541,28 +541,35 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Desktop: split-screen card, unchanged */}
-      <div className="hidden min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10 md:flex">
-        <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-          <AuthHero />
+      {/* Desktop: the same shell as the login page — one raised white card
+          on the light-mint page, two flush white halves and a 1px seam —
+          with a 456px column in the right half, so the two pages share one
+          width, height and type scale. */}
+      <div className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex">
+        <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+          <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 lg:px-[4.375rem]">
             <div className="flex flex-1 items-center justify-center">
-              <div className="mx-auto w-full max-w-sm">
-                <p className="text-center text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
-                <div className="mt-8 space-y-3">
+              <div className="w-full max-w-[456px]">
+                <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Create your account</h2>
+                <p className="mt-3 text-[18.9px] text-ink-light lg:text-[23.1px]">Choose the account that fits your role</p>
+                {/* Cards share the login fields' width, 14px radius and
+                    accent/70 outline; the label is set like the Sign in
+                    button's text and the description like the body copy. */}
+                <div className="mt-8 space-y-[22px]">
                   {ROLE_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-4 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
+                      className="w-full rounded-[14px] border-2 border-accent/70 bg-auth-choice px-4 py-4 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
                     >
-                      <p className="text-base font-semibold text-ink">{opt.label}</p>
-                      <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>
+                      <p className="text-lg font-semibold text-ink">{opt.label}</p>
+                      <p className="mt-0.5 text-base text-ink-light">{opt.description}</p>
                     </button>
                   ))}
                 </div>
-                <p className="mt-6 text-center text-base text-ink-light">
+                <p className="mt-8 text-center text-base text-ink-light">
                   Already have an account?{' '}
                   <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
                     Sign in
@@ -573,7 +580,7 @@ export default function SignupPage() {
 
             {/* Copyright pinned to the panel's own bottom edge, matching
                 the Login page's desktop panel. */}
-            <AuthFooter onLight compact />
+            <AuthFooter onLight topGap="mt-6" />
           </div>
         </div>
       </div>

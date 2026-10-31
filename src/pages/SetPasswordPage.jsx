@@ -140,7 +140,6 @@ function SetPasswordForm({ profile, onDone }) {
             onChange={(e) => setCurrent(e.target.value)}
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
-            onBlur={capsLock.onBlur}
             placeholder="From your welcome email"
             className={fieldClass}
           />
@@ -170,7 +169,6 @@ function SetPasswordForm({ profile, onDone }) {
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
-            onBlur={capsLock.onBlur}
             placeholder="Enter new password"
             className={fieldClass}
           />
@@ -200,7 +198,6 @@ function SetPasswordForm({ profile, onDone }) {
             onChange={(e) => setConfirm(e.target.value)}
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
-            onBlur={capsLock.onBlur}
             placeholder="Re-enter new password"
             className={fieldClass}
           />

@@ -135,9 +135,7 @@ export default function SignInForm({
   // Set after the server rejects the pair; cleared the moment either field
   // changes, so the red outlines go as soon as the user starts fixing it.
   const [credentialsRejected, setCredentialsRejected] = useState(false)
-  // Persistent: the notice stays until Caps Lock is off, whichever field
-  // (or none) has the cursor.
-  const capsLock = useCapsLockWarning({ persistent: true })
+  const capsLock = useCapsLockWarning()
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
   const busy = submitting || verifying
@@ -286,7 +284,6 @@ export default function SignInForm({
             onChange={(e) => { setPassword(e.target.value); setCredentialsRejected(false) }}
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
-            onBlur={capsLock.onBlur}
             aria-invalid={credentialsRejected}
             placeholder="••••••••"
             className={fieldClass(credentialsRejected, 'pr-12')}

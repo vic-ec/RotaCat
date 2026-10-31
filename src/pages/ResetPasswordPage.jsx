@@ -133,7 +133,6 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={capsLock.onKeyDown}
                     onKeyUp={capsLock.onKeyUp}
-                    onBlur={capsLock.onBlur}
                     placeholder="Enter new password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
                       text-base text-ink placeholder:text-ink-muted
@@ -160,7 +159,6 @@ export default function ResetPasswordPage() {
                     onChange={(e) => setConfirm(e.target.value)}
                     onKeyDown={capsLock.onKeyDown}
                     onKeyUp={capsLock.onKeyUp}
-                    onBlur={capsLock.onBlur}
                     placeholder="Re-enter new password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
                       text-base text-ink placeholder:text-ink-muted

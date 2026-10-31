@@ -78,31 +78,28 @@ function Spinner() {
 
 const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 
-// The credential-error banner, with its own Dismiss. It sits in a slot of
-// fixed height (BANNER_SLOT) between the heading and the Email field, so
-// it is always right above the fields it is about, it can never collide
-// with the top of the panel on a short window, and showing or hiding it
-// moves nothing. Always mounted, so a screen reader's live region exists
-// before it has anything to say; `empty:hidden` keeps the empty region
-// from painting while the slot holds the space.
-const BANNER_SLOT = 'h-[42px]'
-
-function CredentialErrorBanner({ error, onDismiss }) {
+// The credential-error message: plain red text with an icon and a small
+// Dismiss, no box. It shares the fixed-height message slot under the Sign
+// in button with the Turnstile status line, so showing or hiding it moves
+// nothing. Always mounted, so a screen reader's live region exists before
+// it has anything to say; `empty:hidden` keeps the empty region from
+// painting while the slot holds the space.
+function CredentialErrorMessage({ error, onDismiss }) {
   return (
-    <div
+    <p
       role="alert"
       aria-live="assertive"
-      className="flex h-full w-full items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg py-1.5 pl-4 pr-1.5 text-sm text-flagRed empty:hidden"
+      className="flex items-center justify-center gap-2 text-sm text-flagRed empty:hidden"
     >
       {error && (
         <>
           <AlertIcon />
-          <span className="min-w-0 flex-1 truncate" title={error}>{error}</span>
+          <span>{error}</span>
           <button
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-flagRed transition-colors hover:bg-flagRed/10"
+            className="-my-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-flagRed transition-colors hover:bg-flagRed/10"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -110,7 +107,7 @@ function CredentialErrorBanner({ error, onDismiss }) {
           </button>
         </>
       )}
-    </div>
+    </p>
   )
 }
 
@@ -188,12 +185,14 @@ export default function SignInForm({
       aria-busy={submitting}
       className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? '' : 'mt-3'}`}
     >
-      {/* The page title lives outside the form (LoginPage centres it in the
-          room above; the modal has its own), so the form opens with the
-          banner slot in both mounts. */}
-      <div className={BANNER_SLOT}>
-        <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
-      </div>
+      {/* One column, one 22px gap between every element, centred as a
+          whole in the half by LoginPage. The title is the first element
+          inline; the modal has its own. The negative side margins let the
+          36px title use the half's padding, so it holds one line down to
+          about a 1300px window instead of breaking at the 456px column. */}
+      {inline && (
+        <h2 className="-mx-12 text-center text-3xl font-semibold text-ink lg:text-4xl">Sign in to manage your shifts</h2>
+      )}
 
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
@@ -329,15 +328,20 @@ export default function SignInForm({
           <span>{submitting ? 'Signing in…' : 'Sign in'}</span>
         </button>
 
-        <FieldMessageSlot>
-          <p id="verify-status" role="status" className="text-center text-sm text-ink-light">
-            {verifying && !submitting ? 'Checking your connection is secure…' : ''}
-          </p>
-        </FieldMessageSlot>
+      </div>
+
+      {/* Message slot under the button: the credential error, or while a
+          Turnstile token is pending, the status line. Fixed height, so
+          neither coming or going moves the link below. */}
+      <div className="flex min-h-[28px] flex-col items-center justify-center">
+        <CredentialErrorMessage error={error} onDismiss={handleDismissError} />
+        <p id="verify-status" role="status" className="text-center text-sm text-ink-light empty:hidden">
+          {verifying && !submitting && !error ? 'Checking your connection is secure…' : ''}
+        </p>
       </div>
 
       {inline && (
-        <p className="mt-3 text-center text-base text-ink-light">
+        <p className="text-center text-base text-ink-light">
           New here?{' '}
           <Link to="/signup" className={LINK_CLASS}>
             Create an account

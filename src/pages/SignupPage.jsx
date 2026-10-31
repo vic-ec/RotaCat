@@ -545,7 +545,9 @@ export default function SignupPage() {
           with a 456px column in the right half, so the two pages share one
           width, height and type scale. */}
       <div className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex">
-        <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+        {/* min-h matches the login shell's, so the two cards are always the
+            same height — see LoginPage. */}
+        <div className="mx-auto flex min-h-[720px] w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
           <AuthHero seam="shell" />
 
           {/* py-16 with the footer pinned inside the bottom band, so the

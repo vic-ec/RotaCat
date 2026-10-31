@@ -465,28 +465,20 @@ export default function LoginPage() {
         className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex"
         {...inertWhen(modalOpen)}
       >
-        <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+        {/* min-h is shared with the Create-account shell so the two cards
+            are the same height on any window: on a tall one the brand half
+            sets the height, on a short one this floor does, and either way
+            both pages get the same answer. */}
+        <div className="mx-auto flex min-h-[720px] w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
           <AuthHero seam="shell" />
 
-          {/* py-16 (64px) on the half, with the footer pinned inside that
-              bottom band, so the content is centred on the whole half, not
-              on the space above the footer. 64px is also exactly the empty
-              banner slot (42px) plus the form gap (22px) under the title,
-              so the title has the same room above it as below. */}
+          {/* py-16 on the half, with the footer pinned inside that bottom
+              band, so the content is centred on the whole half, not on the
+              space above the footer. */}
           <div className="relative flex flex-1 flex-col bg-auth-panel px-10 py-16 lg:px-[4.375rem]">
             {isDesktop ? (
-              /* Three rows: equal slack above and below the form keeps it
-                 centred, and the title is centred in the top row. The rows
-                 grow only if a short window leaves the title no room. */
-              <div className="grid flex-1 grid-rows-[1fr_auto_1fr] justify-items-center">
-                <div className="flex w-full max-w-[456px] items-center justify-center">
-                  {/* text-3xl rather than the 4xl the old "Welcome" used:
-                      at 36px this line is wider than the 456px column and
-                      breaks in two. */}
-                  <h2 className="whitespace-nowrap text-center text-3xl font-semibold text-ink">Sign in to manage your shifts</h2>
-                </div>
+              <div className="flex flex-1 items-center justify-center">
                 <SignInForm variant="inline" {...formProps} />
-                <div aria-hidden="true" />
               </div>
             ) : (
             <div className="flex flex-1 items-center justify-center">

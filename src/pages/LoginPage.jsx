@@ -3,228 +3,41 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { isValidEmail } from '../lib/validateEmail'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import AuthHero from '../components/AuthHero'
 import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
-import CapsLockNotice from '../components/CapsLockNotice'
-import PasswordRevealToggle from '../components/PasswordRevealToggle'
-import { useCapsLockWarning } from '../lib/useCapsLockWarning'
+import SignInForm from '../components/SignInForm'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
-// Email + password sign-in form — shared by the desktop inline panel and
-// the mobile sign-in modal so the two surfaces can't drift apart.
-// `autoFocus` is only set true from the modal context, so the desktop
-// inline panel doesn't grab focus away from the page on load.
-function SignInForm({ autoFocus = false, onForgotPassword }) {
-  const { signIn } = useAuth()
-  const navigate = useNavigate()
-  const emailRef = useRef(null)
-  const [email, setEmail] = useState('')
-  const [emailTouched, setEmailTouched] = useState(false)
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState('')
-  const turnstileRef = useRef(null)
-  const capsLock = useCapsLockWarning()
+// Links on this page are teal and underlined. Rose on white is 3.80:1 and
+// misses AA; teal is 5.47:1. Rose stays a brand accent (the collar), not a
+// text colour.
+const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 
-  const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
+// `inert` keeps a subtree out of the tab order and away from assistive
+// tech. React 18 only forwards it as a string attribute (a boolean is
+// dropped with a warning), hence the spread of `{ inert: '' }` rather than
+// `inert={true}`; React 19 would take the boolean.
+const inertWhen = (condition) => (condition ? { inert: '' } : {})
 
-  // The modal that hosts this form on mobile stays mounted (just hidden)
-  // so password managers can discover the fields on page load, which
-  // means the native `autofocus` attribute — a one-time, mount-triggered
-  // effect — won't fire again on repeat opens. Focus imperatively instead,
-  // keyed off the `autoFocus` prop actually flipping to true. Also reset
-  // the reveal-password toggle here — since the form never unmounts, it'd
-  // otherwise stay revealed from a previous open (e.g. after closing the
-  // modal by clicking outside it) rather than defaulting back to hidden.
-  useEffect(() => {
-    if (autoFocus) {
-      emailRef.current?.focus()
-      setShowPassword(false)
-    }
-  }, [autoFocus])
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-
-    if (TURNSTILE_ENABLED && !captchaToken) {
-      setError('Please complete the verification check.')
-      return
-    }
-
-    setSubmitting(true)
-
-    const { error } = await signIn(email, password, captchaToken)
-
-    setSubmitting(false)
-    // A Turnstile token is single-use — reset for a fresh one regardless
-    // of outcome, otherwise a retry after a failed sign-in would submit
-    // the same already-consumed token.
-    turnstileRef.current?.reset()
-    setCaptchaToken('')
-
-    if (error) {
-      if (error.message === 'Invalid login credentials') {
-        setError('Incorrect email or password.')
-      } else {
-        setError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
-      }
-      return
-    }
-    navigate('/')
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
-      <div>
-        <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
-          Email
-        </label>
-
-        <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="5" width="18" height="14" rx="2" />
-              <path d="M3 7l9 6 9-6" />
-            </svg>
-          </span>
-
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            inputMode="email"
-            ref={emailRef}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => setEmailTouched(true)}
-            aria-invalid={emailInvalid}
-            placeholder="you@example.com"
-            className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
-              text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:bg-field
-              focus:outline focus:outline-2 focus:outline-offset-2
-              md:py-3 md:text-lg
-              ${emailInvalid
-                ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
-          />
-        </div>
-        {emailInvalid && (
-          <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <label htmlFor="password" className="block text-sm font-semibold text-ink md:text-base">
-            Password
-          </label>
-
-          <button
-            type="button"
-            onClick={onForgotPassword}
-            className="text-sm font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
-          >
-            Forgot password?
-          </button>
-        </div>
-
-        <div className="relative">
-          <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="5" y="11" width="14" height="10" rx="2" />
-              <path d="M8 11V8a4 4 0 118 0v3" />
-            </svg>
-          </span>
-
-          <input
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={capsLock.onKeyDown}
-            onKeyUp={capsLock.onKeyUp}
-            onBlur={capsLock.onBlur}
-            placeholder="••••••••"
-            className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-12 pr-12
-              text-base text-ink placeholder:text-ink-muted
-              transition-colors focus:border-accent focus:bg-field
-              focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
-              md:py-3 md:text-lg"
-          />
-
-          <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} />
-        </div>
-        <CapsLockNotice show={capsLock.capsOn} />
-      </div>
-
-      {TURNSTILE_ENABLED && (
-        <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
-      )}
-
-      {error && (
-        <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
-          {error}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-        className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-          transition-colors hover:bg-accent-dark active:bg-accent-dark
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-          disabled:opacity-60
-          md:py-3.5 md:text-lg"
-      >
-        {submitting ? 'Signing in…' : 'Sign in'}
-      </button>
-    </form>
-  )
-}
-
-// Full-screen backdrop + card carrying the sign-in form — shared by the
-// mobile and desktop "Welcome" landings, both of which trigger it from a
-// "Sign in" choice button. Stays mounted rather than being conditionally
-// rendered, so the email/password fields exist in the DOM from page load
-// — some password managers only scan for fillable fields once at load and
-// never notice ones added later by a modal opening. Hidden via
-// opacity/pointer-events instead of `display:none` (`hidden`): a
-// display:none subtree reads as absent to a number of autofill engines —
-// `offsetParent` is null, same as if the fields didn't exist — which
-// defeated the whole point of keeping it mounted for at least one
-// password manager reported not picking up the fields anymore.
-// opacity-0 keeps it laid out and "visible" enough to be discovered,
-// while pointer-events-none stops the invisible backdrop from eating
-// clicks meant for the page underneath.
-function SignInModal({ isOpen, onClose, triggerRef, onForgotPassword }) {
+// Full-screen backdrop + card carrying the sign-in form below `lg` — the
+// mobile sheet and the tablet-width card both open it from their "Sign in"
+// button; from `lg` up the form is inline and this is not rendered at all.
+// Stays mounted (not conditionally rendered) while it is in play, so the
+// email/password fields exist in the DOM from page load — some password
+// managers only scan for fillable fields once at load and never notice
+// ones added later by a modal opening. Hidden via opacity/pointer-events
+// instead of `display:none` (`hidden`): a display:none subtree reads as
+// absent to a number of autofill engines — `offsetParent` is null, same
+// as if the fields didn't exist — which defeated the whole point of
+// keeping it mounted for at least one password manager reported not
+// picking up the fields anymore. opacity-0 keeps it laid out and
+// "visible" enough to be discovered, while pointer-events-none stops the
+// invisible backdrop from eating clicks meant for the page underneath.
+// `inert` while closed is what keeps those invisible fields out of the
+// tab order and away from a screen reader's virtual cursor.
+function SignInModal({ isOpen, onClose, triggerRef, formProps }) {
   useEffect(() => {
     if (!isOpen) return
     function handleKeyDown(e) {
@@ -248,14 +61,20 @@ function SignInModal({ isOpen, onClose, triggerRef, onForgotPassword }) {
         isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
       }`}
       onClick={onClose}
-      aria-hidden={!isOpen}
+      {...inertWhen(!isOpen)}
     >
+      {/* `relative` is the anchor for the form's credential banner, which
+          sits above this panel (and so above the title) without pushing
+          the fields down. */}
       <div
-        className="w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="signin-title"
+        className="relative w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <p className="text-lg font-semibold text-ink">Sign in to your account</p>
+          <h2 id="signin-title" className="text-lg font-semibold text-ink">Sign in to your account</h2>
           <button
             type="button"
             onClick={onClose}
@@ -267,7 +86,7 @@ function SignInModal({ isOpen, onClose, triggerRef, onForgotPassword }) {
             </svg>
           </button>
         </div>
-        <SignInForm autoFocus={isOpen} onForgotPassword={onForgotPassword} />
+        <SignInForm variant="modal" autoFocus={isOpen} {...formProps} />
       </div>
     </div>
   )
@@ -356,9 +175,12 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
         isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
       }`}
       onClick={onClose}
-      aria-hidden={!isOpen}
+      {...inertWhen(!isOpen)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="forgot-title"
         className="w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
         onClick={(e) => e.stopPropagation()}
       >
@@ -369,7 +191,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display text-xl font-bold text-ink">Check your email</h2>
+            <h2 id="forgot-title" className="font-display text-xl font-bold text-ink">Check your email</h2>
             <p className="mt-2 text-sm text-ink-muted">
               If an account exists for {email}, we&apos;ve sent a link to reset your password.
               It&apos;ll expire after a while, so use it soon.
@@ -385,7 +207,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
         ) : (
           <>
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-lg font-semibold text-ink">Reset your password</p>
+              <h2 id="forgot-title" className="text-lg font-semibold text-ink">Reset your password</h2>
               <button
                 type="button"
                 onClick={onClose}
@@ -425,18 +247,19 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
                     onChange={(e) => setEmail(e.target.value)}
                     onBlur={() => setEmailTouched(true)}
                     aria-invalid={emailInvalid}
-                    placeholder="you@example.com"
+                    aria-describedby={emailInvalid ? 'forgot-email-error' : undefined}
+                    placeholder="Your email"
                     className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
                       text-base text-ink placeholder:text-ink-muted
                       transition-colors focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2
+                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent
                       ${emailInvalid
-                        ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                        : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
+                        ? 'border-flagRed'
+                        : 'border-accent/70 focus:border-accent'}`}
                   />
                 </div>
                 {emailInvalid && (
-                  <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+                  <p id="forgot-email-error" className="mt-1 text-sm text-flagRed">Enter a valid email address.</p>
                 )}
               </div>
 
@@ -445,7 +268,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
               )}
 
               {error && (
-                <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                <div role="alert" className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
                   {error}
                 </div>
               )}
@@ -455,7 +278,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
                 className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
+                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
                   disabled:opacity-60"
               >
                 {submitting ? 'Sending…' : 'Send reset link'}
@@ -464,7 +287,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
 
             <p className="mt-3 text-center text-xs text-ink-light">
               Remembered it after all?{' '}
-              <button type="button" onClick={onBackToSignIn} className="font-medium text-rose hover:text-rose-dark hover:underline">
+              <button type="button" onClick={onBackToSignIn} className={LINK_CLASS}>
                 Sign in
               </button>
             </p>
@@ -476,11 +299,29 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
 }
 
 export default function LoginPage() {
+  const { signIn } = useAuth()
+  const navigate = useNavigate()
+  // Matches the `lg:` breakpoint. From here up the sign-in form is inline
+  // in the shell's right half; below it the Welcome button opens the
+  // modal. The two are swapped in the DOM, not just in CSS, so exactly one
+  // form — one `#email`, one `#password` — exists at any width.
+  const isDesktop = useIsDesktop(1024)
+
   const [showSignInModal, setShowSignInModal] = useState(false)
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
   const signInTriggerRef = useRef(null)
   const forgotTriggerRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
+
+  // Sign-in state the page owns and hands to whichever SignInForm is
+  // mounted: the credential-error text, the in-flight flag, and the
+  // Turnstile token (with the widget's reset handle, since a token is
+  // single-use and has to be refreshed after every attempt).
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
+  const turnstileRef = useRef(null)
+  const verifying = TURNSTILE_ENABLED && !captchaToken
 
   // Deep link from ResetPasswordPage's "Request a new link" (an expired
   // recovery link lands there) — auto-opens this modal instead of landing
@@ -499,6 +340,43 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on mount
   }, [])
 
+  // The sign-in modal has no counterpart from `lg` up (the form is inline),
+  // so a window widened past the breakpoint with it open must not leave a
+  // phantom "open" flag that would re-show it the moment the window shrinks.
+  useEffect(() => {
+    if (isDesktop) setShowSignInModal(false)
+  }, [isDesktop])
+
+  async function handleSignIn(email, password) {
+    setError(null)
+
+    if (verifying) {
+      setError('Please complete the verification check.')
+      return { ok: false, invalidCredentials: false }
+    }
+
+    setSubmitting(true)
+    const { error: signInError } = await signIn(email, password, captchaToken)
+    setSubmitting(false)
+    // A Turnstile token is single-use — reset for a fresh one regardless
+    // of outcome, otherwise a retry after a failed sign-in would submit
+    // the same already-consumed token.
+    turnstileRef.current?.reset()
+    setCaptchaToken('')
+
+    if (signInError) {
+      const invalidCredentials = signInError.message === 'Invalid login credentials'
+      if (invalidCredentials) {
+        setError('Incorrect email or password.')
+      } else {
+        setError(signInError.message && signInError.message !== '{}' ? signInError.message : 'Something went wrong. Please try again.')
+      }
+      return { ok: false, invalidCredentials }
+    }
+    navigate('/')
+    return { ok: true, invalidCredentials: false }
+  }
+
   function openSignInModal(e) {
     signInTriggerRef.current = e.currentTarget
     setShowSignInModal(true)
@@ -512,26 +390,45 @@ export default function LoginPage() {
 
   function backToSignInFromForgot() {
     setShowForgotPasswordModal(false)
-    setShowSignInModal(true)
+    // From `lg` up the form is already on the page; there is no modal to
+    // return to, so this just closes the sheet and hands focus back.
+    if (!isDesktop) setShowSignInModal(true)
+  }
+
+  const modalOpen = showSignInModal || showForgotPasswordModal
+
+  const formProps = {
+    onSubmit: handleSignIn,
+    error,
+    submitting,
+    verifying,
+    onForgotPassword: openForgotPasswordModal,
+    captcha: TURNSTILE_ENABLED
+      ? <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+      : null,
   }
 
   return (
     <>
-      {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="flex h-dvh flex-col bg-auth-hero md:hidden">
+      {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background
+          frame. `min-h-` rather than `h-` on both the column and the sheet so
+          200% text has room to grow and the page scrolls instead of clipping.
+          The whole landing goes `inert` while a modal is open, so Tab and a
+          screen reader's cursor stay inside the dialog. */}
+      <div className="flex min-h-dvh flex-col bg-auth-hero md:hidden" {...inertWhen(modalOpen)}>
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
-          <p className="text-center text-2xl font-semibold text-ink">Welcome</p>
+        <div className="relative -mt-[28px] flex min-h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
+          <h2 className="text-center text-2xl font-semibold text-ink">Welcome</h2>
           <p className="mt-2 text-center text-[14.7px] text-ink-light">Sign in to manage your shifts</p>
 
           <div className="mt-6">
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full rounded-lg bg-accent py-6 text-[18.9 px] font-bold text-on-fill
+              className="w-full rounded-lg bg-accent py-6 text-lg font-bold text-on-fill
                 transition-colors hover:bg-accent-dark active:bg-accent-dark
-                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
+                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               Sign in
             </button>
@@ -539,83 +436,97 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openForgotPasswordModal}
-              className="mt-3 block w-full text-center text-xs font-medium text-accent transition-colors hover:text-accent-dark hover:underline"
+              className={`mt-3 block w-full text-center text-xs ${LINK_CLASS}`}
             >
               Forgot password?
             </button>
 
             <p className="mt-5 text-center text-[14.7px] text-ink-light">
               New here?{' '}
-              <Link to="/signup" className="font-medium text-rose hover:text-rose-dark hover:underline">
+              <Link to="/signup" className={LINK_CLASS}>
                 Create an account
               </Link>
             </p>
           </div>
 
-          <AuthFooter onLight topGap="mt-4" compact />
+          <AuthFooter onLight topGap="mt-4" />
         </div>
       </div>
 
-      {/* Desktop: split-screen card, same Welcome landing as mobile */}
-      <div className="hidden min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10 md:flex">
-        <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-          <AuthHero />
+      {/* Tablet and desktop: one raised white shell on a light-mint page,
+          two flush white halves with a 1px seam between them. The inset
+          scales with the viewport (64px sides, 60px top and bottom at
+          1600px) and the shell fills what is left, so the halves stay 50/50
+          and the form sits centred in its own half. From `lg` the form is
+          inline; between `md` and `lg` the Welcome button + modal remain. */}
+      <div
+        className="hidden min-h-dvh flex-col bg-auth-page px-[4vw] py-[3.75vw] md:flex"
+        {...inertWhen(modalOpen)}
+      >
+        <div className="mx-auto flex w-full max-w-[1800px] flex-1 overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+          <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 pt-12 lg:px-[4.375rem] lg:pt-[5.75rem]">
             <div className="flex flex-1 items-center justify-center">
-              <div className="mx-auto w-full max-w-sm text-center">
-                <p className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</p>
-                <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
+              {isDesktop ? (
+                <SignInForm variant="inline" {...formProps} />
+              ) : (
+                <div className="mx-auto w-full max-w-sm text-center">
+                  <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
+                  <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
 
-                <div className="mt-5">
-                  {/* border-2 border-transparent + py-[25px] matches this
-                      button's total height exactly to the Signup page's
-                      role cards (border-2 + p-4 + two lines of text =
-                      82px) — same border+padding-match approach used for
-                      the Account page's ghost-box inputs. */}
-                  <button
-                    type="button"
-                    onClick={openSignInModal}
-                    className="w-full rounded-lg border-2 border-transparent bg-accent py-[25px] text-lg font-bold text-on-fill
-                      transition-colors hover:bg-accent-dark active:bg-accent-dark
-                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose"
-                  >
-                    Sign in
-                  </button>
+                  <div className="mt-5">
+                    {/* border-2 border-transparent + py-[25px] matches this
+                        button's total height exactly to the Signup page's
+                        role cards (border-2 + p-4 + two lines of text =
+                        82px) — same border+padding-match approach used for
+                        the Account page's ghost-box inputs. */}
+                    <button
+                      type="button"
+                      onClick={openSignInModal}
+                      className="w-full rounded-[14px] border-2 border-transparent bg-accent py-[25px] text-lg font-bold text-on-fill
+                        transition-colors hover:bg-accent-dark active:bg-accent-dark
+                        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      Sign in
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={openForgotPasswordModal}
-                    className="mt-4 block w-full text-center text-base font-medium text-accent transition-colors hover:text-accent-dark hover:underline"
-                  >
-                    Forgot password?
-                  </button>
+                    <button
+                      type="button"
+                      onClick={openForgotPasswordModal}
+                      className={`mt-4 block w-full text-center text-base ${LINK_CLASS}`}
+                    >
+                      Forgot password?
+                    </button>
 
-                  <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
-                    New here?{' '}
-                    <Link to="/signup" className="font-medium text-rose hover:text-rose-dark hover:underline">
-                      Create an account
-                    </Link>
-                  </p>
+                    <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
+                      New here?{' '}
+                      <Link to="/signup" className={LINK_CLASS}>
+                        Create an account
+                      </Link>
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Copyright pinned to the panel's own bottom edge (via the
+            {/* Copyright pinned to the half's own bottom edge (via the
                 flex-1 centering wrapper above absorbing the leftover space)
-                rather than floating below the whole card on the outer teal
-                background — reads as part of this panel, not an afterthought. */}
-            <AuthFooter onLight compact />
+                rather than floating below the shell on the mint page —
+                reads as part of this half, not an afterthought. */}
+            <AuthFooter onLight topGap="mt-6" />
           </div>
         </div>
       </div>
 
-      <SignInModal
-        isOpen={showSignInModal}
-        onClose={() => setShowSignInModal(false)}
-        triggerRef={signInTriggerRef}
-        onForgotPassword={openForgotPasswordModal}
-      />
+      {!isDesktop && (
+        <SignInModal
+          isOpen={showSignInModal}
+          onClose={() => setShowSignInModal(false)}
+          triggerRef={signInTriggerRef}
+          formProps={formProps}
+        />
+      )}
       <ForgotPasswordModal
         isOpen={showForgotPasswordModal}
         onClose={() => setShowForgotPasswordModal(false)}

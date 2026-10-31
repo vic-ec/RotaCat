@@ -9,7 +9,8 @@
 //
 // `variant` covers the two real sizes rather than a pile of class props:
 //   - 'auth'  — the large onboarding fields (Login, Sign-up, Reset, Set
-//     password): a 20px icon inset 16px from the right, inside a field
+//     password): a 20px icon centred in a 40x40 hit area (WCAG 2.5.8),
+//     inset 6px from the right so the icon lands ~16px in, inside a field
 //     with `pr-12`.
 //   - 'field' — the compact `.input-field` used in the authenticated app
 //     (via ClearableInput): a 16px icon inset 8px, sharing `pr-14` with
@@ -23,7 +24,7 @@
 // genuinely useful when a typo is suspected.
 const VARIANTS = {
   auth: {
-    button: 'absolute inset-y-0 right-4 flex items-center text-ink-muted transition-colors hover:text-ink',
+    button: 'absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted transition-colors hover:text-ink',
     icon: 'h-5 w-5',
     unfocusable: false,
   },
@@ -34,7 +35,10 @@ const VARIANTS = {
   },
 }
 
-export default function PasswordRevealToggle({ revealed, onToggle, variant = 'auth', className = '' }) {
+// `controls` is the id of the password input the toggle acts on, so a
+// screen reader can tie "Show password" to the field it reveals; `aria-
+// pressed` announces the current state as well as the action.
+export default function PasswordRevealToggle({ revealed, onToggle, variant = 'auth', className = '', controls }) {
   const style = VARIANTS[variant] || VARIANTS.auth
   return (
     <button
@@ -43,6 +47,8 @@ export default function PasswordRevealToggle({ revealed, onToggle, variant = 'au
       onMouseDown={style.unfocusable ? (e => e.preventDefault()) : undefined}
       tabIndex={style.unfocusable ? -1 : undefined}
       aria-label={revealed ? 'Hide password' : 'Show password'}
+      aria-pressed={revealed}
+      aria-controls={controls}
       className={`${style.button} ${className}`}
     >
       {revealed ? <EyeOffIcon className={style.icon} /> : <EyeIcon className={style.icon} />}

@@ -46,6 +46,11 @@
   /* flagAmber */
   --color-flagAmber: 183 121 31;              /* #B7791F */
   --color-flagAmber-bg: 251 241 225;          /* #FBF1E1 */
+  /* Amber *text* on a white or light surface. The amber above is a fill /
+     badge colour (3.4:1 on white) — a sentence set in it, such as the
+     Caps Lock notice under a password field, falls short of AA. This is
+     the same hue taken down to 5.9:1 on white, for text only. */
+  --color-flagAmber-text: 146 96 15;          /* #92600F */
   /* flagBlue */
   --color-flagBlue: 52 87 166;                /* #3457A6 */
   --color-flagBlue-bg: 234 238 248;           /* #EAEEF8 */
@@ -129,6 +134,29 @@
      that the hero and the sheet read as one surface. Dark drops it to the
      page's own near-black so the mascot has a ground to sit on. */
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
+
+  /* The redesigned /login (docs/design/login-redesign/SPEC.md): one raised
+     white shell with two flush halves on a light-mint page. These are the
+     login page's own tokens rather than a repurposed `canvas`/`auth-ground`
+     because those also paint the rest of the app and the other auth pages
+     (Create account, Set password), which keep their current look. */
+  --color-auth-page: 220 235 230;             /* #DCEBE6 — light-mint page behind the shell */
+  --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
+  --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
+  --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
+  /* Decorative roster cells and bars, as the spec defines them. Declared so
+     the palette is complete; DecorativeRosterGrid still paints from the
+     `band` tokens above, because the grid itself is out of scope for the
+     redesign (SPEC.md, "Do not change"). */
+  --color-auth-grid-cell: 241 245 244;        /* #F1F5F4 */
+  --color-auth-grid-bar: 203 217 213;         /* #CBD9D5 — primary bar */
+  --color-auth-grid-bar-2: 224 232 229;       /* #E0E8E5 — secondary bar */
+  /* One shadow on the shell, none on the halves: a soft teal-tinted drop
+     for lift off the mint page, a tight grey contact shadow, and a 1px
+     white highlight along the top edge. The seam shadow is the brand half's
+     right edge only, so the divider reads as a fold rather than a line. */
+  --shadow-auth-shell: 0 28px 56px -26px rgba(15, 118, 110, 0.45), 0 2px 6px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --shadow-auth-seam: inset -10px 0 14px -14px rgba(15, 23, 42, 0.14);
 
 
   /* The Create-account page's three role cards. Their own tokens because the
@@ -222,6 +250,9 @@
   /* flagAmber */
   --color-flagAmber: 224 177 92;                /* #E0B15C */
   --color-flagAmber-bg: 35 26 13;               /* #231A0D */
+  /* The dark theme's amber is already a text colour (9.1:1 on the panel),
+     so the text token resolves to the same value here. */
+  --color-flagAmber-text: 224 177 92;           /* #E0B15C */
   /* flagBlue */
   --color-flagBlue: 130 154 219;                /* #829ADB */
   --color-flagBlue-bg: 19 28 50;                /* #131C32 */
@@ -291,6 +322,19 @@
 
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
+
+  /* Login shell on the dark theme: the page is the near-black ground, the
+     shell is the raised panel, and the seam and hairline borrow the edge
+     and line tones so they read against the panel instead of glowing. */
+  --color-auth-page: 10 16 14;                /* #0A100E */
+  --color-auth-panel: 29 47 43;               /* #1D2F2B — same as canvas-raised */
+  --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
+  --color-auth-shell-border: 43 70 63;        /* #2B463F */
+  --color-auth-grid-cell: 27 39 36;           /* #1B2724 */
+  --color-auth-grid-bar: 43 70 63;            /* #2B463F */
+  --color-auth-grid-bar-2: 34 51 48;          /* #223330 */
+  --shadow-auth-shell: 0 28px 56px -26px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-auth-seam: inset -10px 0 14px -14px rgba(0, 0, 0, 0.5);
 
 
   /* 1.30:1 above accent-panel, matching what white gets over mint on light;

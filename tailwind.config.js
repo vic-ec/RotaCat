@@ -86,6 +86,17 @@ export default {
         'auth-ground': 'rgb(var(--color-auth-ground) / <alpha-value>)',
         'auth-hero': 'rgb(var(--color-auth-hero) / <alpha-value>)',
 
+        // The redesigned /login's own surfaces — see index.css for why these
+        // are not `canvas`/`auth-ground`, which the rest of the app and the
+        // other auth pages still paint with.
+        'auth-page': 'rgb(var(--color-auth-page) / <alpha-value>)',
+        'auth-panel': 'rgb(var(--color-auth-panel) / <alpha-value>)',
+        'auth-seam': 'rgb(var(--color-auth-seam) / <alpha-value>)',
+        'auth-shell-border': 'rgb(var(--color-auth-shell-border) / <alpha-value>)',
+        'auth-grid-cell': 'rgb(var(--color-auth-grid-cell) / <alpha-value>)',
+        'auth-grid-bar': 'rgb(var(--color-auth-grid-bar) / <alpha-value>)',
+        'auth-grid-bar-2': 'rgb(var(--color-auth-grid-bar-2) / <alpha-value>)',
+
         // The Create-account page's three role cards — see index.css for why
         // they cannot just be `canvas` on both themes.
         'auth-choice': 'rgb(var(--color-auth-choice) / <alpha-value>)',
@@ -151,7 +162,11 @@ export default {
         },
         flagAmber: {
           DEFAULT: 'rgb(var(--color-flagAmber) / <alpha-value>)',  // #B7791F
-          bg: 'rgb(var(--color-flagAmber-bg) / <alpha-value>)'  // #FBF1E1
+          bg: 'rgb(var(--color-flagAmber-bg) / <alpha-value>)',  // #FBF1E1
+          // Amber as running text on a light surface (Caps Lock notice):
+          // the DEFAULT is a fill/badge tone at 3.4:1 on white; this one
+          // clears AA at 5.9:1.
+          text: 'rgb(var(--color-flagAmber-text) / <alpha-value>)'  // #92600F
         },
         flagBlue: {
           DEFAULT: 'rgb(var(--color-flagBlue) / <alpha-value>)',  // #3457A6
@@ -321,7 +336,10 @@ export default {
         // leans on a border instead. Values live beside the colour tokens in
         // src/styles/index.css.
         card: 'var(--shadow-card)',
-        raised: 'var(--shadow-raised)'
+        raised: 'var(--shadow-raised)',
+        // The login shell's single shadow and the fold along its seam.
+        'auth-shell': 'var(--shadow-auth-shell)',
+        'auth-seam': 'var(--shadow-auth-seam)'
       }
     }
   },

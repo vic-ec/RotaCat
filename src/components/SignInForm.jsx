@@ -188,26 +188,25 @@ export default function SignInForm({
       aria-busy={submitting}
       className={`flex w-full max-w-[456px] flex-col gap-[22px] ${inline ? '' : 'mt-3'}`}
     >
-      {inline ? (
-        <div>
-          <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
-          <p className="mt-3 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
-          <div className={`mt-3 ${BANNER_SLOT}`}>
-            <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
-          </div>
-        </div>
-      ) : (
-        <div className={BANNER_SLOT}>
-          <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
-        </div>
-      )}
+      {/* The page title lives outside the form (LoginPage centres it in the
+          room above; the modal has its own), so the form opens with the
+          banner slot in both mounts. */}
+      <div className={BANNER_SLOT}>
+        <CredentialErrorBanner error={error} onDismiss={handleDismissError} />
+      </div>
 
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
           Email
         </label>
 
-        <div className="relative">
+        {/* The wrapper carries the input's own font-size. Chromium (and
+            so Edge) draws an autofill *preview* — the saved credentials
+            shown before the user touches the field — with
+            `font-size: inherit !important`, i.e. the wrapper's size, not
+            the input's. With the two equal the preview and the committed
+            value are the same size, instead of jumping on first click. */}
+        <div className="relative text-base md:text-lg">
           <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -257,7 +256,7 @@ export default function SignInForm({
           Password
         </label>
 
-        <div className="relative">
+        <div className="relative text-base md:text-lg">
           <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -341,7 +340,7 @@ export default function SignInForm({
       </div>
 
       {inline && (
-        <p className="mt-2 text-center text-base text-ink-light">
+        <p className="mt-3 text-center text-base text-ink-light">
           New here?{' '}
           <Link to="/signup" className={LINK_CLASS}>
             Create an account

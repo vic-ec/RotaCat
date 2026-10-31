@@ -468,13 +468,28 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
           <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 lg:px-[4.375rem]">
+          {/* py-16 (64px) on the half, with the footer pinned inside that
+              bottom band, so the content is centred on the whole half, not
+              on the space above the footer. 64px is also exactly the empty
+              banner slot (42px) plus the form gap (22px) under the title,
+              so the title has the same room above it as below. */}
+          <div className="relative flex flex-1 flex-col bg-auth-panel px-10 py-16 lg:px-[4.375rem]">
             {isDesktop ? (
-              <div className="flex flex-1 items-center justify-center">
+              /* Three rows: equal slack above and below the form keeps it
+                 centred, and the title is centred in the top row. The rows
+                 grow only if a short window leaves the title no room. */
+              <div className="grid flex-1 grid-rows-[1fr_auto_1fr] justify-items-center">
+                <div className="flex w-full max-w-[456px] items-center justify-center">
+                  {/* text-3xl rather than the 4xl the old "Welcome" used:
+                      at 36px this line is wider than the 456px column and
+                      breaks in two. */}
+                  <h2 className="whitespace-nowrap text-center text-3xl font-semibold text-ink">Sign in to manage your shifts</h2>
+                </div>
                 <SignInForm variant="inline" {...formProps} />
+                <div aria-hidden="true" />
               </div>
             ) : (
-            <div className="flex flex-1 items-center justify-center pt-12">
+            <div className="flex flex-1 items-center justify-center">
                 <div className="mx-auto w-full max-w-sm text-center">
                   <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
                   <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
@@ -514,11 +529,11 @@ export default function LoginPage() {
             </div>
             )}
 
-            {/* Copyright pinned to the half's own bottom edge (via the
-                flex-1 centering wrapper above absorbing the leftover space)
-                rather than floating below the shell on the mint page —
-                reads as part of this half, not an afterthought. */}
-            <AuthFooter onLight topGap="mt-6" />
+            {/* Copyright pinned to the half's own bottom edge, inside the
+                padding band, so it takes no part in centring the content. */}
+            <div className="absolute inset-x-0 bottom-6">
+              <AuthFooter onLight topGap="mt-0" />
+            </div>
           </div>
         </div>
       </div>

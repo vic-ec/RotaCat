@@ -549,9 +549,11 @@ export default function SignupPage() {
         <div className="mx-auto flex w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
           <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-auth-panel px-10 pb-8 lg:px-[4.375rem]">
+          {/* py-16 with the footer pinned inside the bottom band, so the
+              content centres on the whole half — same as the login page. */}
+          <div className="relative flex flex-1 flex-col bg-auth-panel px-10 py-16 lg:px-[4.375rem]">
             <div className="flex flex-1 items-center justify-center">
-              <div className="w-full max-w-[456px]">
+              <div className="w-full max-w-[456px] text-center">
                 <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Create your account</h2>
                 <p className="mt-3 text-[18.9px] text-ink-light lg:text-[23.1px]">Choose the account that fits your role</p>
                 {/* Cards share the login fields' width, 14px radius and
@@ -580,7 +582,9 @@ export default function SignupPage() {
 
             {/* Copyright pinned to the panel's own bottom edge, matching
                 the Login page's desktop panel. */}
-            <AuthFooter onLight topGap="mt-6" />
+            <div className="absolute inset-x-0 bottom-6">
+              <AuthFooter onLight topGap="mt-0" />
+            </div>
           </div>
         </div>
       </div>

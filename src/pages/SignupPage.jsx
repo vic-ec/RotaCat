@@ -512,13 +512,10 @@ export default function SignupPage() {
   return (
     <>
       {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="auth-page flex min-h-dvh flex-col p-4 md:hidden">
-        {/* One white card on the deep page, matching the login page's phone
-            layout: hero on top, sheet below, a 1px seam between. */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell">
+      <div className="flex h-dvh flex-col bg-auth-hero md:hidden">
         <MobileAuthHero />
 
-        <div className="relative flex min-h-[44dvh] flex-none flex-col justify-center border-t border-auth-seam bg-auth-panel px-8 py-4 shadow-auth-seam-top">
+        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
           <p className="text-center text-2xl font-semibold text-ink">Create your account</p>
           <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (
@@ -540,7 +537,6 @@ export default function SignupPage() {
           </p>
 
           <AuthFooter onLight topGap="mt-4" compact />
-        </div>
         </div>
       </div>
 

@@ -322,11 +322,13 @@
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
 
-  /* Login shell on the dark theme: the page is the near-black ground, the
-     shell is the raised panel, and the seam and hairline borrow the edge
-     and line tones so they read against the panel instead of glowing. */
+  /* Login shell on the dark theme: page and both halves share the
+     near-black ground (as on light, where all three are mint/white/white
+     and the halves match); the shell's border and shadow mark it off from
+     the page, and the seam borrows the line tone so it reads without
+     glowing. */
   --color-auth-page: 10 16 14;                /* #0A100E */
-  --color-auth-panel: 29 47 43;               /* #1D2F2B — same as canvas-raised */
+  --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
   --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
   --color-auth-shell-border: 43 70 63;        /* #2B463F */
   --color-auth-grid-cell: 27 39 36;           /* #1B2724 */

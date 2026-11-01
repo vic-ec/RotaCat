@@ -301,11 +301,12 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
 export default function LoginPage() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
-  // Matches the `lg:` breakpoint. From here up the sign-in form is inline
-  // in the shell's right half; below it the Welcome button opens the
-  // modal. The two are swapped in the DOM, not just in CSS, so exactly one
-  // form — one `#email`, one `#password` — exists at any width.
-  const isDesktop = useIsDesktop(1024)
+  // Matches the `md:` breakpoint, where the split shell replaces the phone
+  // layout. From here up the sign-in form is inline in the shell's right
+  // half; below it the phone sheet's Welcome button opens the modal. The
+  // two are swapped in the DOM, not just in CSS, so exactly one form — one
+  // `#email`, one `#password` — exists at any width.
+  const isDesktop = useIsDesktop(768)
 
   const [showSignInModal, setShowSignInModal] = useState(false)
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
@@ -454,13 +455,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Tablet and desktop: one raised white shell on a light-mint page,
+      {/* Tablet and desktop (md up): one raised white shell on a mint page,
           two flush white halves with a 1px seam between them. The side
           inset scales with the viewport (64px at 1600px) and the shell is
           as tall as its content, like the Create-account card: the brand
           half's own padding sets the height, and the halves stay 50/50.
-          From `lg` the form is inline; between `md` and `lg` the Welcome
-          button + modal remain. */}
+          The sign-in form is inline at every width this layout shows. */}
       <div
         className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex"
         {...inertWhen(modalOpen)}
@@ -476,49 +476,15 @@ export default function LoginPage() {
               band, so the content is centred on the whole half, not on the
               space above the footer. */}
           <div className="relative flex flex-1 flex-col bg-auth-panel px-10 py-16 lg:px-[4.375rem]">
-            {isDesktop ? (
+            {/* The split shell and the phone layout swap at the same `md`
+                breakpoint the hook watches, so the inline form is the only
+                thing this half ever holds — a phone-sized window gets the
+                sheet above instead. The guard only covers the instant a
+                resize crosses the line before the hook has caught up. */}
+            {isDesktop && (
               <div className="flex flex-1 items-center justify-center">
                 <SignInForm variant="inline" {...formProps} />
               </div>
-            ) : (
-            <div className="flex flex-1 items-center justify-center">
-                <div className="mx-auto w-full max-w-sm text-center">
-                  <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Welcome</h2>
-                  <p className="mt-5 text-[18.9px] text-ink-light lg:text-[23.1px]">Sign in to manage your shifts</p>
-
-                  <div className="mt-5">
-                    {/* border-2 border-transparent + py-[25px] matches this
-                        button's total height exactly to the Signup page's
-                        role cards (border-2 + p-4 + two lines of text =
-                        82px) — same border+padding-match approach used for
-                        the Account page's ghost-box inputs. */}
-                    <button
-                      type="button"
-                      onClick={openSignInModal}
-                      className="w-full rounded-[14px] border-2 border-transparent bg-accent py-[25px] text-lg font-bold text-on-fill
-                        transition-colors hover:bg-accent-dark active:bg-accent-dark
-                        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                    >
-                      Sign in
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={openForgotPasswordModal}
-                      className={`mt-4 block w-full text-center text-base ${LINK_CLASS}`}
-                    >
-                      Forgot password?
-                    </button>
-
-                    <p className="mt-6 text-center text-[18.9px] text-ink-light lg:text-[23.1px]">
-                      New here?{' '}
-                      <Link to="/signup" className={LINK_CLASS}>
-                        Create an account
-                      </Link>
-                    </p>
-                  </div>
-                </div>
-            </div>
             )}
 
             {/* Copyright pinned to the half's own bottom edge, inside the

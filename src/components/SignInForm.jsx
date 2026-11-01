@@ -78,28 +78,29 @@ function Spinner() {
 
 const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
 
-// The credential-error message: plain red text with an icon and a small
-// Dismiss, no box. It shares the fixed-height message slot under the Sign
-// in button with the Turnstile status line, so showing or hiding it moves
-// nothing. Always mounted, so a screen reader's live region exists before
-// it has anything to say; `empty:hidden` keeps the empty region from
-// painting while the slot holds the space.
+// The credential-error banner: icon, text and a small Dismiss in a red
+// box. It is absolutely centred over the fixed-height message slot under
+// the Sign in button (shared with the Turnstile status line), so it can be
+// a little taller than the slot without moving the link below — it just
+// borrows a few pixels of the gaps either side. Always mounted, so a
+// screen reader's live region exists before it has anything to say;
+// `empty:hidden` keeps the empty region from painting.
 function CredentialErrorMessage({ error, onDismiss }) {
   return (
     <p
       role="alert"
       aria-live="assertive"
-      className="flex items-center justify-center gap-2 text-sm text-flagRed empty:hidden"
+      className="absolute left-0 right-0 top-1/2 flex -translate-y-1/2 items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg py-1.5 pl-4 pr-1.5 text-sm text-flagRed empty:hidden"
     >
       {error && (
         <>
           <AlertIcon />
-          <span>{error}</span>
+          <span className="min-w-0 flex-1 truncate" title={error}>{error}</span>
           <button
             type="button"
             onClick={onDismiss}
             aria-label="Dismiss"
-            className="-my-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-flagRed transition-colors hover:bg-flagRed/10"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-flagRed transition-colors hover:bg-flagRed/10"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -333,7 +334,7 @@ export default function SignInForm({
       {/* Message slot under the button: the credential error, or while a
           Turnstile token is pending, the status line. Fixed height, so
           neither coming or going moves the link below. */}
-      <div className="flex min-h-[28px] flex-col items-center justify-center">
+      <div className="relative flex min-h-[28px] flex-col items-center justify-center">
         <CredentialErrorMessage error={error} onDismiss={handleDismissError} />
         <p id="verify-status" role="status" className="text-center text-sm text-ink-light empty:hidden">
           {verifying && !submitting && !error ? 'Checking your connection is secure…' : ''}

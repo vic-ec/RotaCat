@@ -560,9 +560,9 @@ export default function SignupPage() {
                 {/* Cards share the login fields' width, 14px radius and
                     accent/70 outline; the label is set like the Sign in
                     button's text and the description like the body copy.
-                    The fill is the page's own mint (accent-panel, Mint 2)
-                    and hover/press step one shade deeper (accent-night), so
-                    a card darkens under the pointer rather than lifting.
+                    The fill is a lighter mint than the page (auth-card,
+                    Mint 1) and hover/press go to accent-night, so a card
+                    darkens under the pointer rather than lifting.
                     Both tokens have dark-theme values, where the same
                     "deepen on hover" rule holds. */}
                 <div className="mt-8 space-y-[22px]">
@@ -570,7 +570,7 @@ export default function SignupPage() {
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="w-full rounded-[14px] border-2 border-accent/70 bg-accent-panel px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
+                      className="w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
                     >
                       <p className="text-lg font-semibold text-ink">{opt.label}</p>
                       <p className="mt-0.5 text-base text-ink-light">{opt.description}</p>

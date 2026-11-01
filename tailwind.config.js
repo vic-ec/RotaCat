@@ -91,6 +91,7 @@ export default {
         // other auth pages still paint with.
         'auth-page': 'rgb(var(--color-auth-page) / <alpha-value>)',
         'auth-panel': 'rgb(var(--color-auth-panel) / <alpha-value>)',
+        'auth-card': 'rgb(var(--color-auth-card) / <alpha-value>)',
         'auth-seam': 'rgb(var(--color-auth-seam) / <alpha-value>)',
         'auth-shell-border': 'rgb(var(--color-auth-shell-border) / <alpha-value>)',
         'auth-grid-cell': 'rgb(var(--color-auth-grid-cell) / <alpha-value>)',

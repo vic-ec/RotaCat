@@ -141,6 +141,9 @@
      because those also paint the rest of the app and the other auth pages
      (Create account, Set password), which keep their current look. */
   --color-auth-page: 199 232 224;             /* #C7E8E0 — mint page behind the shell (palette "Mint 2", same as accent-panel) */
+  /* The Create-account role cards on the desktop shell: a lighter mint
+     than the page (palette "Mint 1"); hover and press use accent-night. */
+  --color-auth-card: 224 245 236;             /* #E0F5EC */
   --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
   --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
   --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
@@ -328,6 +331,7 @@
      the page, and the seam borrows the line tone so it reads without
      glowing. */
   --color-auth-page: 10 16 14;                /* #0A100E */
+  --color-auth-card: 31 51 46;                /* #1F332E — same as accent-panel; hover deepens to accent-night */
   --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
   --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
   --color-auth-shell-border: 43 70 63;        /* #2B463F */

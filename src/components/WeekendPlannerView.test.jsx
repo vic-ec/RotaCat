@@ -1398,8 +1398,10 @@ describe('WeekendPlannerView', () => {
       // so surname collisions stay disambiguated.
       expect(panel.getByText('Botha')).toBeInTheDocument()
       // Name, category and the weekend — no "Weekend exception" per row, since
-      // the panel heading already says that of every row under it.
-      expect(panel.getByText(/^Registrar · Sat /)).toBeInTheDocument()
+      // the panel heading already says that of every row under it. Compact
+      // date format here (no "Sat "/"Sun " prefixes) — this row already
+      // carries a name and category before it.
+      expect(panel.getByText(/^Registrar · \d/)).toBeInTheDocument()
       expect(panel.queryByText(/Weekend exception ·/)).not.toBeInTheDocument()
       expect(panel.getByText('Pending review')).toBeInTheDocument()
       // September's exception belongs to September's panel, not August's.

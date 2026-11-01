@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { todayStr, addDays, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
-  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange,
+  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange, formatWeekendRangeCompact,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
   nextSaturdayToRequestOff, WEEKEND_RULE_BULLETS,
@@ -579,13 +579,16 @@ function MonthExceptionsPanel({ exceptions, displayNames }) {
                 {/* No leave type: every row in a panel headed "Weekend
                     exceptions" is a weekend exception, so naming it per row
                     was the same word four times down the column.
-                    formatWeekendRange, not the stored date_to — an exception
-                    always covers exactly one Sat+Sun pair, so the Sunday is
-                    derivable, and this is the wording the rest of the file
-                    uses for a weekend. */}
+                    formatWeekendRangeCompact (no "Sat "/"Sun " prefixes,
+                    unlike everywhere else a weekend range is shown) — this
+                    row already carries a name and category before it, and
+                    the fuller phrasing crowded the panel. Derived from
+                    date_from, not the stored date_to — an exception always
+                    covers exactly one Sat+Sun pair, so the Sunday is
+                    derivable. */}
                 <span className="truncate text-xs text-ink-muted">
                   {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
-                  {' · '}{formatWeekendRange(req.date_from)}
+                  {' · '}{formatWeekendRangeCompact(req.date_from)}
                 </span>
               </span>
               <span className={`flex-shrink-0 text-xs font-medium ${isPending ? 'text-flagAmber' : 'text-success'}`}>
@@ -1956,9 +1959,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                 {groupEntries.length === 0 ? (
                                   <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
                                 ) : (
+                                  // One name per line rather than paired/joined —
+                                  // a group with 3-4 doctors used to wrap
+                                  // "A, B" / "C" oddly across the column;
+                                  // text-xs keeps the taller cell from
+                                  // making every row noticeably deeper.
                                   <div className="space-y-0.5">
-                                    {chunkInPairs(groupEntries).map((row, i) => (
-                                      <div key={i} className="text-ink">{row.map(e => displayNames.get(e.profile_id) ?? '(unknown)').join(', ')}</div>
+                                    {groupEntries.map(e => (
+                                      <div key={e.id} className="text-xs text-ink">{displayNames.get(e.profile_id) ?? '(unknown)'}</div>
                                     ))}
                                   </div>
                                 )}

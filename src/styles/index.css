@@ -140,7 +140,7 @@
      login page's own tokens rather than a repurposed `canvas`/`auth-ground`
      because those also paint the rest of the app and the other auth pages
      (Create account, Set password), which keep their current look. */
-  --color-auth-page: 199 232 224;             /* #C7E8E0 — mint page behind the shell (palette "Mint 2", same as accent-panel) */
+  --color-auth-page: 97 154 169;              /* #619AA9 — petrol page behind the shell (deeper palette "Petrol 3") */
   /* The Create-account role cards on the desktop shell: a lighter mint
      than the page (palette "Mint 1"); hover and press use accent-night. */
   --color-auth-card: 224 245 236;             /* #E0F5EC */

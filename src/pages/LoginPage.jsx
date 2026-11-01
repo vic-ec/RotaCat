@@ -199,7 +199,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
             <button
               type="button"
               onClick={onBackToSignIn}
-              className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
+              className="btn-bevel-outline mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
             >
               Back to sign in
             </button>
@@ -276,7 +276,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
               <button
                 type="submit"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
                   disabled:opacity-60"
@@ -433,7 +433,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full rounded-lg bg-accent py-6 text-lg font-bold text-on-fill
+              className="w-full btn-bevel rounded-lg bg-accent py-6 text-lg font-bold text-on-fill
                 transition-colors hover:bg-accent-dark active:bg-accent-dark
                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >

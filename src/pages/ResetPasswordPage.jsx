@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
           </p>
           <button
             onClick={() => navigate('/')}
-            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
+            className="btn-bevel-outline mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
           >
             Continue
           </button>
@@ -97,7 +97,7 @@ export default function ResetPasswordPage() {
           </p>
           <Link
             to="/login?forgot=1"
-            className="mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
+            className="btn-bevel-outline mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
           >
             Request a new link
           </Link>
@@ -180,7 +180,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="mt-2 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60

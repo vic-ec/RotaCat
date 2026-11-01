@@ -246,7 +246,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 disabled={verifying || otp.length !== 6}
-                className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="mt-4 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -491,7 +491,7 @@ function RoleModal({ role, onClose }) {
                 type="submit"
                 form="role-details-form"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -525,7 +525,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
+                className="btn-bevel-outline w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -574,7 +574,7 @@ export default function SignupPage() {
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
+                      className="btn-bevel-outline w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
                     >
                       <p className="text-lg font-semibold text-ink">{opt.label}</p>
                       <p className="mt-0.5 text-base text-ink-light">{opt.description}</p>

@@ -215,7 +215,7 @@ function SetPasswordForm({ profile, onDone }) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+        className="mt-2 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
           transition-colors hover:bg-accent-dark active:bg-accent-dark
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
           disabled:opacity-60

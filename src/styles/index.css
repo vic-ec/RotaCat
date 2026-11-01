@@ -575,13 +575,69 @@
     }
   }
 
+  /* The app-wide button bevel (docs/design/login-redesign/SPEC.md, "Button
+     system"). An inset edge — 1px light along the top, 2px dark along the
+     bottom — and no drop shadow, so a button reads as a physical key. A
+     press inverts it; a disabled or aria-disabled button goes flat. Sizes,
+     radii and colours are the button's own; this is only the surface.
+
+     Three flavours: `.btn-bevel` for a filled surface (also applied to
+     .btn-primary and .btn-success below), `.btn-bevel-danger` for a red one
+     (.btn-danger), and `.btn-bevel-outline` for a white, outlined surface
+     (.btn-secondary, .btn-danger-outline, and the outlined choices on the
+     auth pages). Icon-only buttons take none of these: the bevel is for a
+     button with a filled or outlined face. Where a button carried a drop
+     shadow for another reason, the bevel replaces it. */
+  .btn-bevel,
+  .btn-primary,
+  .btn-success,
+  .toolbar-pill-active {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+  }
+  .btn-bevel-danger,
+  .btn-danger {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+  }
+  .btn-bevel-outline,
+  .btn-secondary,
+  .btn-danger-outline {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(15, 118, 110, 0.14);
+  }
+  .btn-bevel:active,
+  .btn-primary:active,
+  .btn-success:active,
+  .toolbar-pill-active:active,
+  .btn-bevel-danger:active,
+  .btn-danger:active {
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .btn-bevel-outline:active,
+  .btn-secondary:active,
+  .btn-danger-outline:active {
+    box-shadow: inset 0 2px 0 rgba(15, 118, 110, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+  }
+  .btn-bevel:disabled,
+  .btn-bevel[aria-disabled="true"],
+  .btn-bevel-danger:disabled,
+  .btn-bevel-danger[aria-disabled="true"],
+  .btn-bevel-outline:disabled,
+  .btn-bevel-outline[aria-disabled="true"],
+  .btn-primary:disabled,
+  .btn-primary[aria-disabled="true"],
+  .btn-success:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn-danger-outline:disabled {
+    box-shadow: none;
+  }
+
   /* Buttons and text inputs share a 30px target height app-wide: text-sm's
      20px line-height + 8px vertical padding + a 2px border (real on
      .btn-secondary/.input-field, transparent on .btn-primary so it lines up
      with the bordered ones) = 30px. */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-accent px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-colors
+           text-sm font-medium text-on-fill transition-colors
            hover:bg-accent-dark active:bg-accent-dark
            disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -598,7 +654,7 @@
      as its own affirmative action rather than just "the default button". */
   .btn-success {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-opacity
+           text-sm font-medium text-on-fill transition-opacity
            hover:opacity-85 active:opacity-85
            disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -607,7 +663,7 @@
      `flagRed` (reserved for roster-state semantics, see tailwind.config.js). */
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-danger px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-colors
+           text-sm font-medium text-on-fill transition-colors
            hover:bg-danger-dark active:bg-danger-dark
            disabled:cursor-not-allowed disabled:opacity-50;
   }

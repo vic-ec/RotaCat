@@ -512,10 +512,13 @@ export default function SignupPage() {
   return (
     <>
       {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="flex h-dvh flex-col bg-auth-hero md:hidden">
+      <div className="auth-page flex min-h-dvh flex-col p-4 md:hidden">
+        {/* One white card on the deep page, matching the login page's phone
+            layout: hero on top, sheet below, a 1px seam between. */}
+        <div className="flex flex-1 flex-col overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
+        <div className="relative flex min-h-[44dvh] flex-none flex-col justify-center border-t border-auth-seam bg-auth-panel px-8 py-4 shadow-auth-seam-top">
           <p className="text-center text-2xl font-semibold text-ink">Create your account</p>
           <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (
@@ -538,13 +541,14 @@ export default function SignupPage() {
 
           <AuthFooter onLight topGap="mt-4" compact />
         </div>
+        </div>
       </div>
 
       {/* Desktop: the same shell as the login page — one raised white card
-          on the light-mint page, two flush white halves and a 1px seam —
+          on the deep page, two flush white halves and a 1px seam —
           with a 456px column in the right half, so the two pages share one
           width, height and type scale. */}
-      <div className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex">
+      <div className="auth-page hidden min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw] md:flex">
         {/* min-h matches the login shell's, so the two cards are always the
             same height — see LoginPage. */}
         <div className="mx-auto flex min-h-[720px] w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">

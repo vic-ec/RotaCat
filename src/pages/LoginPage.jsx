@@ -417,10 +417,15 @@ export default function LoginPage() {
           200% text has room to grow and the page scrolls instead of clipping.
           The whole landing goes `inert` while a modal is open, so Tab and a
           screen reader's cursor stay inside the dialog. */}
-      <div className="flex min-h-dvh flex-col bg-auth-hero md:hidden" {...inertWhen(modalOpen)}>
+      <div className="auth-page flex min-h-dvh flex-col p-4 md:hidden" {...inertWhen(modalOpen)}>
+        {/* One white card on the deep page, like the desktop shell stood on
+            end: the hero on top, the sheet below, a 1px seam between them.
+            The hero keeps its white ground so the wordmark's dark ink never
+            sits on the deep page. */}
+        <div className="flex flex-1 flex-col overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
+        <div className="relative flex min-h-[44dvh] flex-none flex-col justify-center border-t border-auth-seam bg-auth-panel px-8 py-4 shadow-auth-seam-top">
           <h2 className="text-center text-2xl font-semibold text-ink">Welcome</h2>
           <p className="mt-2 text-center text-[14.7px] text-ink-light">Sign in to manage your shifts</p>
 
@@ -453,16 +458,17 @@ export default function LoginPage() {
 
           <AuthFooter onLight topGap="mt-4" />
         </div>
+        </div>
       </div>
 
-      {/* Tablet and desktop (md up): one raised white shell on a mint page,
+      {/* Tablet and desktop (md up): one raised white shell on a deep page,
           two flush white halves with a 1px seam between them. The side
           inset scales with the viewport (64px at 1600px) and the shell is
           as tall as its content, like the Create-account card: the brand
           half's own padding sets the height, and the halves stay 50/50.
           The sign-in form is inline at every width this layout shows. */}
       <div
-        className="hidden min-h-dvh flex-col items-center justify-center bg-auth-page px-[4vw] py-[3.75vw] md:flex"
+        className="auth-page hidden min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw] md:flex"
         {...inertWhen(modalOpen)}
       >
         {/* min-h is shared with the Create-account shell so the two cards

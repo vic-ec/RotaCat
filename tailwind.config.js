@@ -339,7 +339,8 @@ export default {
         card: 'var(--shadow-card)',
         raised: 'var(--shadow-raised)',
         // The login shell's single shadow.
-        'auth-shell': 'var(--shadow-auth-shell)'
+        'auth-shell': 'var(--shadow-auth-shell)',
+        'auth-seam-top': 'var(--shadow-auth-seam-top)'
       }
     }
   },

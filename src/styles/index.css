@@ -140,7 +140,7 @@
      login page's own tokens rather than a repurposed `canvas`/`auth-ground`
      because those also paint the rest of the app and the other auth pages
      (Create account, Set password), which keep their current look. */
-  --color-auth-page: 183 224 214;             /* #B7E0D6 — mint page behind the shell, two steps down the ramp (DCEBE6 → C7E8E0 → B7E0D6) for a richer green-teal */
+  --color-auth-page: 200 234 231;             /* #C8EAE7 — blue-green page behind the shell (palette "Blue-green 2") */
   --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
   --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
   --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */

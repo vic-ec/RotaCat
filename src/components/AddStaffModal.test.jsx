@@ -69,6 +69,7 @@ describe('AddStaffModal', () => {
     await pickFromSelect(user, /EC — full hours/, /OT — Junior Doctor Overtime/)
     await pickFromSelect(user, /Not yet assigned…/, 'LRCHC')
     setDate('Active from', '2026-09-01')
+    setDate('Active until', '2027-08-31')
 
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
     setDate('From', '2026-09-01')
@@ -98,6 +99,7 @@ describe('AddStaffModal', () => {
     await fillIdentity(user)
     await pickFromSelect(user, /Select…/, 'Intern')
     setDate('Active from', '2026-09-01')
+    setDate('Active until', '2027-08-31')
 
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
@@ -133,6 +135,7 @@ describe('AddStaffModal', () => {
     await fillIdentity(user)
     await pickFromSelect(user, /Select…/, 'Intern')
     setDate('Active from', '2026-09-01')
+    setDate('Active until', '2027-08-31')
 
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
@@ -148,7 +151,10 @@ describe('AddStaffModal', () => {
     expect(createStaffAccount).not.toHaveBeenCalled()
   })
 
-  it('offers rotations only for the categories the planner tracks', async () => {
+  // A registrar rotates through the EC for their whole activity period, so
+  // the server writes that one EC block from the dates — the form never
+  // asks for blocks. Only an intern's year is planned block by block.
+  it('offers rotation blocks for interns only', async () => {
     const user = userEvent.setup()
     render(<AddStaffModal onClose={vi.fn()} onCreated={vi.fn()} />)
 
@@ -156,10 +162,27 @@ describe('AddStaffModal', () => {
     expect(screen.queryByRole('button', { name: 'Add rotation' })).not.toBeInTheDocument()
 
     await pickFromSelect(user, /Medical Officer/, 'Registrar')
-    expect(screen.getByRole('button', { name: 'Add rotation' })).toBeInTheDocument()
-    // Registrar rotations are EC-only, so no Hours picker appears to seed
-    // an OT block from.
+    expect(screen.queryByRole('button', { name: 'Add rotation' })).not.toBeInTheDocument()
+    expect(screen.getByText(/added to the Rotations planner for this period automatically/)).toBeInTheDocument()
+    // Registrar rotations are EC-only, so no Hours picker appears either.
     expect(screen.queryByText('Hours')).not.toBeInTheDocument()
+
+    await pickFromSelect(user, /Registrar/, 'Intern')
+    expect(screen.getByRole('button', { name: 'Add rotation' })).toBeInTheDocument()
+  })
+
+  it('requires an end date for a fixed-term placement', async () => {
+    const user = userEvent.setup()
+    render(<AddStaffModal onClose={vi.fn()} onCreated={vi.fn()} />)
+
+    await fillIdentity(user)
+    await pickFromSelect(user, /Select…/, 'Registrar')
+    setDate('Active from', '2026-09-01')
+
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByText('Select the date this placement ends.')).toBeInTheDocument()
+    expect(createStaffAccount).not.toHaveBeenCalled()
   })
 
   // Every locum profile in the live data carries a null category, and
@@ -179,13 +202,16 @@ describe('AddStaffModal', () => {
     expect(screen.queryByText('Category')).not.toBeInTheDocument()
   })
 
-  it('submits a locum with no category at all', async () => {
+  // A locum or clerk has no fixed-term placement: no activity period is
+  // asked for, and the server starts the account today.
+  it('submits a locum with no category and no activity period', async () => {
     const user = userEvent.setup()
     render(<AddStaffModal onClose={vi.fn()} onCreated={vi.fn()} />)
 
     await fillIdentity(user)
     await pickFromSelect(user, /Doctor/, 'Locum')
-    setDate('Active from', '2026-09-01')
+    expect(screen.queryByLabelText('Active from')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Active until')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Create account' }))
 
@@ -193,6 +219,8 @@ describe('AddStaffModal', () => {
     const payload = createStaffAccount.mock.calls[0][0]
     expect(payload.role).toBe('locum')
     expect(payload.category).toBeNull()
+    expect(payload.activeFrom).toBeNull()
+    expect(payload.activeUntil).toBeNull()
   })
 
   it('empties every field when Clear form is used', async () => {
@@ -202,6 +230,7 @@ describe('AddStaffModal', () => {
     await fillIdentity(user)
     await pickFromSelect(user, /Select…/, 'Intern')
     setDate('Active from', '2026-09-01')
+    setDate('Active until', '2027-08-31')
     await user.click(screen.getByRole('button', { name: 'Add rotation' }))
 
     await user.click(screen.getByRole('button', { name: 'Clear form' }))

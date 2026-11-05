@@ -1601,7 +1601,6 @@ export default function AccountSettingsPage() {
                     onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))}
                     onKeyDown={pwCapsLock.onKeyDown}
                     onKeyUp={pwCapsLock.onKeyUp}
-                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="current-password"
                     clearLabel="Clear current password"
@@ -1615,7 +1614,6 @@ export default function AccountSettingsPage() {
                     onChange={e => setPwForm(f => ({ ...f, password: e.target.value }))}
                     onKeyDown={pwCapsLock.onKeyDown}
                     onKeyUp={pwCapsLock.onKeyUp}
-                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="new-password"
                     clearLabel="Clear new password"
@@ -1629,7 +1627,6 @@ export default function AccountSettingsPage() {
                     onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))}
                     onKeyDown={pwCapsLock.onKeyDown}
                     onKeyUp={pwCapsLock.onKeyUp}
-                    onBlur={pwCapsLock.onBlur}
                     className="input-field"
                     autoComplete="new-password"
                     clearLabel="Clear confirm password"

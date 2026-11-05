@@ -14,11 +14,26 @@ import { useAuthMascot } from '../lib/useAuthMascot'
 // pulse), and an opaque mascot would hide it. `isolate` on the panel gives
 // the band a stacking context to sit behind the cat in, and `overflow-hidden`
 // keeps it from spilling past the panel's edge into the sign-in side.
-export default function AuthHero() {
+//
+// `seam` picks the right-hand edge. The default is the faint teal rule the
+// Create-account and Set-password cards draw against their mint half. The
+// login shell's two halves are both white, so it asks for 'shell': a plain
+// 1px `auth-seam` line.
+//
+// The 5px upward nudge that centres the branding optically sits on an inner
+// wrapper, not on the panel. On the panel it dragged the seam and the
+// panel's own ground up with it, which left a 5px strip of the card showing
+// along the bottom edge: a gap in the divider on the light theme and a thin
+// lighter line on the dark one.
+export default function AuthHero({ seam = 'default' }) {
   const rotacatMascot = useAuthMascot()
+  const seamClass = seam === 'shell'
+    ? 'md:border-r md:border-auth-seam'
+    : 'md:border-r md:border-accent/25'
 
   return (
-    <div className="relative isolate flex -translate-y-[5px] flex-col items-center justify-center overflow-hidden bg-auth-hero px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:border-r md:border-accent/25 md:px-10 lg:px-[4.375rem] md:py-[5.75rem]">
+    <div className={`relative isolate flex flex-col items-center justify-center overflow-hidden bg-auth-hero px-6 pt-3 pb-3 sm:px-10 md:w-1/2 md:px-10 lg:px-[4.375rem] md:py-[5.75rem] ${seamClass}`}>
+     <div className="flex -translate-y-[5px] flex-col items-center">
       <h1 className="font-serif text-6xl font-semibold leading-none text-ink md:text-[82.5px]">
         <RotaCat />
       </h1>
@@ -51,6 +66,7 @@ export default function AuthHero() {
           draggable="false"
         />
       </div>
+     </div>
     </div>
   )
 }

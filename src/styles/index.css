@@ -46,6 +46,11 @@
   /* flagAmber */
   --color-flagAmber: 183 121 31;              /* #B7791F */
   --color-flagAmber-bg: 251 241 225;          /* #FBF1E1 */
+  /* Amber *text* on a white or light surface. The amber above is a fill /
+     badge colour (3.4:1 on white) — a sentence set in it, such as the
+     Caps Lock notice under a password field, falls short of AA. This is
+     the same hue taken down to 5.9:1 on white, for text only. */
+  --color-flagAmber-text: 146 96 15;          /* #92600F */
   /* flagBlue */
   --color-flagBlue: 52 87 166;                /* #3457A6 */
   --color-flagBlue-bg: 234 238 248;           /* #EAEEF8 */
@@ -129,6 +134,43 @@
      that the hero and the sheet read as one surface. Dark drops it to the
      page's own near-black so the mascot has a ground to sit on. */
   --color-auth-hero: 255 255 255;             /* #FFFFFF — same as canvas-raised */
+
+  /* The redesigned /login (docs/design/login-redesign/SPEC.md): one raised
+     white shell with two flush halves on a light-mint page. These are the
+     login page's own tokens rather than a repurposed `canvas`/`auth-ground`
+     because those also paint the rest of the app and the other auth pages
+     (Create account, Set password), which keep their current look. */
+  --color-auth-page: 31 103 99;               /* #1F6763 — deep blue-green page behind the card ("Blue-green 6", spec 1 Nov) */
+  /* The brushed-metal sheen laid over the page colour (see .auth-page).
+     Layer 1 darkens the top-left and bottom-right corners and runs the
+     highlight band bottom-left to top-right; layer 2 is a 1px horizontal
+     grain. Static — no motion. If a ward monitor bands in the margins,
+     drop layer 2 and keep the rest. */
+  --bg-auth-sheen:
+    linear-gradient(135deg,
+      rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.18) 22%,
+      rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.07) 56%,
+      rgba(0, 0, 0, 0.18) 78%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(0deg,
+      rgba(255, 255, 255, 0.05) 0 1px, rgba(0, 0, 0, 0.02) 1px 2px, transparent 2px 3px);
+  /* The Create-account role cards on the desktop shell: a lighter mint
+     than the page (palette "Mint 1"); hover and press use accent-night. */
+  --color-auth-card: 224 245 236;             /* #E0F5EC */
+  --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
+  --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
+  --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
+  /* Decorative roster cells and bars, as the spec defines them. Declared so
+     the palette is complete; DecorativeRosterGrid still paints from the
+     `band` tokens above, because the grid itself is out of scope for the
+     redesign (SPEC.md, "Do not change"). */
+  --color-auth-grid-cell: 241 245 244;        /* #F1F5F4 */
+  --color-auth-grid-bar: 203 217 213;         /* #CBD9D5 — primary bar */
+  --color-auth-grid-bar-2: 224 232 229;       /* #E0E8E5 — secondary bar */
+  /* One shadow on the shell, none on the halves: a soft teal-tinted drop
+     for lift off the mint page, a tight grey contact shadow, and a 1px
+     white highlight along the top edge. The seam itself is a bare 1px line
+     with no shadow of its own. */
+  --shadow-auth-shell: 0 30px 60px -26px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.95);
 
 
   /* The Create-account page's three role cards. Their own tokens because the
@@ -222,6 +264,9 @@
   /* flagAmber */
   --color-flagAmber: 224 177 92;                /* #E0B15C */
   --color-flagAmber-bg: 35 26 13;               /* #231A0D */
+  /* The dark theme's amber is already a text colour (9.1:1 on the panel),
+     so the text token resolves to the same value here. */
+  --color-flagAmber-text: 224 177 92;           /* #E0B15C */
   /* flagBlue */
   --color-flagBlue: 130 154 219;                /* #829ADB */
   --color-flagBlue-bg: 19 28 50;                /* #131C32 */
@@ -291,6 +336,22 @@
 
   --color-auth-ground: 10 16 14;              /* #0A100E */
   --color-auth-hero: 10 16 14;                  /* #0A100E — the page's own ground */
+
+  /* Login shell on the dark theme: page and both halves share the
+     near-black ground (as on light, where all three are mint/white/white
+     and the halves match); the shell's border and shadow mark it off from
+     the page, and the seam borrows the line tone so it reads without
+     glowing. */
+  --color-auth-page: 10 16 14;                /* #0A100E */
+  --bg-auth-sheen: none;                      /* flat: grain on near-black only adds noise */
+  --color-auth-card: 31 51 46;                /* #1F332E — same as accent-panel; hover deepens to accent-night */
+  --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
+  --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
+  --color-auth-shell-border: 43 70 63;        /* #2B463F */
+  --color-auth-grid-cell: 27 39 36;           /* #1B2724 */
+  --color-auth-grid-bar: 43 70 63;            /* #2B463F */
+  --color-auth-grid-bar-2: 34 51 48;          /* #223330 */
+  --shadow-auth-shell: 0 28px 56px -26px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
 
   /* 1.30:1 above accent-panel, matching what white gets over mint on light;
@@ -421,6 +482,12 @@
 }
 
 @layer components {
+  /* The auth pages' ground: the page colour with the brushed sheen laid
+     over it (both tokens; the dark theme sets the sheen to none). */
+  .auth-page {
+    background: var(--bg-auth-sheen), rgb(var(--color-auth-page));
+  }
+
   /* The three scrim weights the app uses, so a modal never hardcodes an
      `ink` alpha that inverts with the theme. */
   .scrim { background-color: var(--scrim); }
@@ -504,13 +571,69 @@
     }
   }
 
+  /* The app-wide button bevel (docs/design/login-redesign/SPEC.md, "Button
+     system"). An inset edge — 1px light along the top, 2px dark along the
+     bottom — and no drop shadow, so a button reads as a physical key. A
+     press inverts it; a disabled or aria-disabled button goes flat. Sizes,
+     radii and colours are the button's own; this is only the surface.
+
+     Three flavours: `.btn-bevel` for a filled surface (also applied to
+     .btn-primary and .btn-success below), `.btn-bevel-danger` for a red one
+     (.btn-danger), and `.btn-bevel-outline` for a white, outlined surface
+     (.btn-secondary, .btn-danger-outline, and the outlined choices on the
+     auth pages). Icon-only buttons take none of these: the bevel is for a
+     button with a filled or outlined face. Where a button carried a drop
+     shadow for another reason, the bevel replaces it. */
+  .btn-bevel,
+  .btn-primary,
+  .btn-success,
+  .toolbar-pill-active {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+  }
+  .btn-bevel-danger,
+  .btn-danger {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+  }
+  .btn-bevel-outline,
+  .btn-secondary,
+  .btn-danger-outline {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(15, 118, 110, 0.14);
+  }
+  .btn-bevel:active,
+  .btn-primary:active,
+  .btn-success:active,
+  .toolbar-pill-active:active,
+  .btn-bevel-danger:active,
+  .btn-danger:active {
+    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .btn-bevel-outline:active,
+  .btn-secondary:active,
+  .btn-danger-outline:active {
+    box-shadow: inset 0 2px 0 rgba(15, 118, 110, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+  }
+  .btn-bevel:disabled,
+  .btn-bevel[aria-disabled="true"],
+  .btn-bevel-danger:disabled,
+  .btn-bevel-danger[aria-disabled="true"],
+  .btn-bevel-outline:disabled,
+  .btn-bevel-outline[aria-disabled="true"],
+  .btn-primary:disabled,
+  .btn-primary[aria-disabled="true"],
+  .btn-success:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn-danger-outline:disabled {
+    box-shadow: none;
+  }
+
   /* Buttons and text inputs share a 30px target height app-wide: text-sm's
      20px line-height + 8px vertical padding + a 2px border (real on
      .btn-secondary/.input-field, transparent on .btn-primary so it lines up
      with the bordered ones) = 30px. */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-accent px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-colors
+           text-sm font-medium text-on-fill transition-colors
            hover:bg-accent-dark active:bg-accent-dark
            disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -527,7 +650,7 @@
      as its own affirmative action rather than just "the default button". */
   .btn-success {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-opacity
+           text-sm font-medium text-on-fill transition-opacity
            hover:opacity-85 active:opacity-85
            disabled:cursor-not-allowed disabled:opacity-50;
   }
@@ -536,7 +659,7 @@
      `flagRed` (reserved for roster-state semantics, see tailwind.config.js). */
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-danger px-4 py-1
-           text-sm font-medium text-on-fill shadow-sm transition-colors
+           text-sm font-medium text-on-fill transition-colors
            hover:bg-danger-dark active:bg-danger-dark
            disabled:cursor-not-allowed disabled:opacity-50;
   }

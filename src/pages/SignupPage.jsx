@@ -53,6 +53,14 @@ const CATEGORY_OPTIONS = [
 // header and Register button stay fixed; only the field list between
 // them scrolls, so the primary action is always reachable without
 // hunting for it at the bottom of a tall form.
+// Fixed-term placements: the roster cannot plan around these doctors
+// without knowing when they start and finish, so the dates are required.
+const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
+
+const PERIOD_FIELD_CLASS = `w-full rounded-lg border-2 border-accent/50 bg-field px-3 py-2
+  text-base text-ink transition-colors focus:border-accent focus:bg-field
+  focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25`
+
 function RoleModal({ role, onClose }) {
   const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
   const navigate = useNavigate()
@@ -66,6 +74,13 @@ function RoleModal({ role, onClose }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [locumAgency, setLocumAgency] = useState('')
+  // A doctor's activity period — the dates they are eligible for shifts.
+  // Required for the fixed-term categories (Intern, Registrar), optional
+  // for the permanent ones; never asked of a locum or clerk.
+  const [activeFrom, setActiveFrom] = useState('')
+  const [activeUntil, setActiveUntil] = useState('')
+  const asksPeriod = role === 'doctor'
+  const periodRequired = asksPeriod && PERIOD_REQUIRED_CATEGORIES.has(category)
   // Honeypot — invisible to a real visitor (off-screen, unreachable by tab,
   // hidden from assistive tech) but a plain-fill bot that populates every
   // <input> it finds will still write to it. A non-empty value on submit
@@ -131,6 +146,14 @@ function RoleModal({ role, onClose }) {
       setError('Please select your staff category.')
       return
     }
+    if (periodRequired && (!activeFrom || !activeUntil)) {
+      setError('Please enter the start and end dates of your placement.')
+      return
+    }
+    if (activeFrom && activeUntil && activeUntil < activeFrom) {
+      setError('Your end date must be on or after your start date.')
+      return
+    }
     const pwProblem = passwordProblem(password)
     if (pwProblem) {
       setError(pwProblem)
@@ -142,7 +165,10 @@ function RoleModal({ role, onClose }) {
     }
 
     setSubmitting(true)
-    const { error } = await signUp(email, password, name, surname, role, category || null, phone, captchaToken)
+    const { error } = await signUp(
+      email, password, name, surname, role, category || null, phone, captchaToken,
+      asksPeriod ? { activeFrom, activeUntil } : {},
+    )
     setSubmitting(false)
 
     // A Turnstile token is single-use — reset the widget for a fresh one
@@ -246,7 +272,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 disabled={verifying || otp.length !== 6}
-                className="mt-4 w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="mt-4 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -380,6 +406,48 @@ function RoleModal({ role, onClose }) {
                 </div>
               )}
 
+              {/* Activity period — doctors only. What the roster uses to
+                  decide when this person can be given shifts, so it is
+                  asked for here rather than left for an admin to guess. */}
+              {asksPeriod && (
+                <fieldset>
+                  <legend className="mb-1.5 block text-sm font-semibold text-ink">
+                    Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
+                  </legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="active-from" className="mb-1 block text-xs font-medium text-ink-light">From</label>
+                      <input
+                        id="active-from"
+                        name="active-from"
+                        type="date"
+                        required={periodRequired}
+                        value={activeFrom}
+                        onChange={(e) => setActiveFrom(e.target.value)}
+                        className={PERIOD_FIELD_CLASS}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="active-until" className="mb-1 block text-xs font-medium text-ink-light">Until</label>
+                      <input
+                        id="active-until"
+                        name="active-until"
+                        type="date"
+                        required={periodRequired}
+                        min={activeFrom || undefined}
+                        value={activeUntil}
+                        onChange={(e) => setActiveUntil(e.target.value)}
+                        className={PERIOD_FIELD_CLASS}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs text-ink-light">
+                    Important for rostering: you will only be eligible for shifts within this period.
+                    {periodRequired ? ' Enter the dates of your placement.' : ' Leave blank if your post is permanent.'}
+                  </p>
+                </fieldset>
+              )}
+
               {/* Locum agency — optional, placed after name/surname */}
               {role === 'locum' && (
                 <div>
@@ -461,7 +529,6 @@ function RoleModal({ role, onClose }) {
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={capsLock.onKeyDown}
                     onKeyUp={capsLock.onKeyUp}
-                    onBlur={capsLock.onBlur}
                     placeholder="Enter password"
                     className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-12 pr-12
                       text-base text-ink placeholder:text-ink-muted
@@ -492,7 +559,7 @@ function RoleModal({ role, onClose }) {
                 type="submit"
                 form="role-details-form"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
+                className="w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
                   transition-colors hover:bg-accent-dark active:bg-accent-dark
                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
                   disabled:opacity-60"
@@ -523,7 +590,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
+                className="btn-bevel-outline w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -532,7 +599,7 @@ export default function SignupPage() {
           </div>
           <p className="mt-2 text-center text-xs text-ink-light">
             Already have an account?{' '}
-            <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+            <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
               Sign in
             </Link>
           </p>
@@ -541,30 +608,46 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Desktop: split-screen card, unchanged */}
-      <div className="hidden min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10 md:flex">
-        <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-          <AuthHero />
+      {/* Desktop: the same shell as the login page — one raised white card
+          on the deep page, two flush white halves and a 1px seam —
+          with a 456px column in the right half, so the two pages share one
+          width, height and type scale. */}
+      <div className="auth-page hidden min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw] md:flex">
+        {/* min-h matches the login shell's, so the two cards are always the
+            same height — see LoginPage. */}
+        <div className="mx-auto flex min-h-[720px] w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">
+          <AuthHero seam="shell" />
 
-          <div className="flex flex-1 flex-col bg-accent-panel px-[4.375rem] py-[5.75rem]">
+          {/* py-16 with the footer pinned inside the bottom band, so the
+              content centres on the whole half — same as the login page. */}
+          <div className="relative flex flex-1 flex-col bg-auth-panel px-10 py-16 lg:px-[4.375rem]">
             <div className="flex flex-1 items-center justify-center">
-              <div className="mx-auto w-full max-w-sm">
-                <p className="text-center text-2xl font-semibold text-ink lg:text-3xl">Create your account</p>
-                <div className="mt-8 space-y-3">
+              <div className="w-full max-w-[456px] text-center">
+                <h2 className="text-3xl font-semibold text-ink lg:text-4xl">Create your account</h2>
+                <p className="mt-3 text-[18.9px] text-ink-light lg:text-[23.1px]">Choose the account that fits your role</p>
+                {/* Cards share the login fields' width, 14px radius and
+                    accent/70 outline; the label is set like the Sign in
+                    button's text and the description like the body copy.
+                    The fill is a lighter mint than the page (auth-card,
+                    Mint 1) and hover/press go to accent-night, so a card
+                    darkens under the pointer rather than lifting.
+                    Both tokens have dark-theme values, where the same
+                    "deepen on hover" rule holds. */}
+                <div className="mt-8 space-y-[22px]">
                   {ROLE_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-4 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
+                      className="btn-bevel-outline w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
                     >
-                      <p className="text-base font-semibold text-ink">{opt.label}</p>
-                      <p className="mt-0.5 text-sm text-ink-light">{opt.description}</p>
+                      <p className="text-lg font-semibold text-ink">{opt.label}</p>
+                      <p className="mt-0.5 text-base text-ink-light">{opt.description}</p>
                     </button>
                   ))}
                 </div>
-                <p className="mt-6 text-center text-base text-ink-light">
+                <p className="mt-8 text-center text-base text-ink-light">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-rose hover:text-rose-dark hover:underline">
+                  <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
                     Sign in
                   </Link>
                 </p>
@@ -573,7 +656,9 @@ export default function SignupPage() {
 
             {/* Copyright pinned to the panel's own bottom edge, matching
                 the Login page's desktop panel. */}
-            <AuthFooter onLight compact />
+            <div className="absolute inset-x-0 bottom-6">
+              <AuthFooter onLight topGap="mt-0" />
+            </div>
           </div>
         </div>
       </div>

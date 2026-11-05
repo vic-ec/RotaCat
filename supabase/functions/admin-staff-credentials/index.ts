@@ -171,17 +171,28 @@ async function handleCreate(
   if (role === 'doctor' && !category) throw new ValidationError('Category is required for a doctor account.')
   if (category && !STAFF_CATEGORIES.includes(category)) throw new ValidationError('Unrecognised category.')
 
-  const activeFrom = optionalDate(payload.activeFrom, 'Active from')
-  const activeUntil = optionalDate(payload.activeUntil, 'Active until')
-  if (!activeFrom) throw new ValidationError('Active from is required.')
+  // The activity period. A doctor's is set by the admin; a locum or clerk
+  // has no fixed-term placement, so their form does not ask and they start
+  // today. A start date that is today or already past means the account is
+  // active from the moment it is created — the nightly status job only
+  // handles starts that are still in the future (it used to handle every
+  // start, which left anyone created after that night's run inactive until
+  // the next one, even with a start date weeks in the past).
+  const today = new Date().toISOString().slice(0, 10)
+  const activeFrom = (role === 'doctor' ? optionalDate(payload.activeFrom, 'Active from') : null) ?? today
+  const activeUntil = role === 'doctor' ? optionalDate(payload.activeUntil, 'Active until') : null
   if (activeUntil && activeUntil < activeFrom) throw new ValidationError('Active until must be on or after Active from.')
+  const startsNow = activeFrom <= today
 
-  // Rotations are optional even for the categories that support them — an
-  // admin may not know the incoming intern's placements yet. When they do,
-  // the whole year can be planned up front as a run of blocks rather than
-  // just an opening one, which is what the Rotations planner would
-  // otherwise be opened to do straight after creating the account.
-  const rotations = parseRotations(payload.rotations ?? payload.rotation, category, subtype)
+  // Rotations are optional for interns — an admin may not know the
+  // incoming intern's placements yet. When they do, the whole year can be
+  // planned up front as a run of blocks rather than just an opening one.
+  // A registrar's placement is the activity period itself: they rotate
+  // through the EC for the whole of it, so one EC block covering the
+  // period is written for them without the form asking.
+  const rotations = category === 'Registrar'
+    ? [{ rotationType: 'EC', subtype: null, startDate: activeFrom, endDate: activeUntil }]
+    : parseRotations(payload.rotations ?? payload.rotation, category, subtype)
 
   const password = generatePassword()
   // Belt and braces: the generator guarantees this by construction, but a
@@ -236,11 +247,11 @@ async function handleCreate(
       is_approved: true,
       approved_by: actorId,
       approved_at: new Date().toISOString(),
-      // Activation is date-driven, not immediate: the existing
-      // apply-scheduled-status-changes cron flips is_active once
-      // scheduled_active_date arrives.
-      is_active: false,
-      scheduled_active_date: activeFrom,
+      // Active straight away when the start date has arrived; otherwise
+      // the existing apply-scheduled-status-changes cron flips is_active
+      // once scheduled_active_date comes round.
+      is_active: startsNow,
+      scheduled_active_date: startsNow ? null : activeFrom,
       scheduled_inactive_date: activeUntil,
       must_change_password: true,
       email_verified: true,

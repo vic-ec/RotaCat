@@ -53,6 +53,14 @@ const CATEGORY_OPTIONS = [
 // header and Register button stay fixed; only the field list between
 // them scrolls, so the primary action is always reachable without
 // hunting for it at the bottom of a tall form.
+// Fixed-term placements: the roster cannot plan around these doctors
+// without knowing when they start and finish, so the dates are required.
+const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
+
+const PERIOD_FIELD_CLASS = `w-full rounded-lg border-2 border-accent/50 bg-field px-3 py-2
+  text-base text-ink transition-colors focus:border-accent focus:bg-field
+  focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25`
+
 function RoleModal({ role, onClose }) {
   const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
   const navigate = useNavigate()
@@ -66,6 +74,13 @@ function RoleModal({ role, onClose }) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [locumAgency, setLocumAgency] = useState('')
+  // A doctor's activity period — the dates they are eligible for shifts.
+  // Required for the fixed-term categories (Intern, Registrar), optional
+  // for the permanent ones; never asked of a locum or clerk.
+  const [activeFrom, setActiveFrom] = useState('')
+  const [activeUntil, setActiveUntil] = useState('')
+  const asksPeriod = role === 'doctor'
+  const periodRequired = asksPeriod && PERIOD_REQUIRED_CATEGORIES.has(category)
   // Honeypot — invisible to a real visitor (off-screen, unreachable by tab,
   // hidden from assistive tech) but a plain-fill bot that populates every
   // <input> it finds will still write to it. A non-empty value on submit
@@ -131,6 +146,14 @@ function RoleModal({ role, onClose }) {
       setError('Please select your staff category.')
       return
     }
+    if (periodRequired && (!activeFrom || !activeUntil)) {
+      setError('Please enter the start and end dates of your placement.')
+      return
+    }
+    if (activeFrom && activeUntil && activeUntil < activeFrom) {
+      setError('Your end date must be on or after your start date.')
+      return
+    }
     const pwProblem = passwordProblem(password)
     if (pwProblem) {
       setError(pwProblem)
@@ -142,7 +165,10 @@ function RoleModal({ role, onClose }) {
     }
 
     setSubmitting(true)
-    const { error } = await signUp(email, password, name, surname, role, category || null, phone, captchaToken)
+    const { error } = await signUp(
+      email, password, name, surname, role, category || null, phone, captchaToken,
+      asksPeriod ? { activeFrom, activeUntil } : {},
+    )
     setSubmitting(false)
 
     // A Turnstile token is single-use — reset the widget for a fresh one
@@ -378,6 +404,48 @@ function RoleModal({ role, onClose }) {
                     ))}
                   </select>
                 </div>
+              )}
+
+              {/* Activity period — doctors only. What the roster uses to
+                  decide when this person can be given shifts, so it is
+                  asked for here rather than left for an admin to guess. */}
+              {asksPeriod && (
+                <fieldset>
+                  <legend className="mb-1.5 block text-sm font-semibold text-ink">
+                    Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
+                  </legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="active-from" className="mb-1 block text-xs font-medium text-ink-light">From</label>
+                      <input
+                        id="active-from"
+                        name="active-from"
+                        type="date"
+                        required={periodRequired}
+                        value={activeFrom}
+                        onChange={(e) => setActiveFrom(e.target.value)}
+                        className={PERIOD_FIELD_CLASS}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="active-until" className="mb-1 block text-xs font-medium text-ink-light">Until</label>
+                      <input
+                        id="active-until"
+                        name="active-until"
+                        type="date"
+                        required={periodRequired}
+                        min={activeFrom || undefined}
+                        value={activeUntil}
+                        onChange={(e) => setActiveUntil(e.target.value)}
+                        className={PERIOD_FIELD_CLASS}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-xs text-ink-light">
+                    Important for rostering: you will only be eligible for shifts within this period.
+                    {periodRequired ? ' Enter the dates of your placement.' : ' Leave blank if your post is permanent.'}
+                  </p>
+                </fieldset>
               )}
 
               {/* Locum agency — optional, placed after name/surname */}

@@ -7,6 +7,7 @@ import {
   categoryNeedsContractChoice,
 } from './staffDefaults'
 import { formatPhoneDisplay, formatPhoneProgressive } from './phone'
+import { createInternRotation } from './internRotations'
 import { looksLikeFakeName, looksLikeFakePhone } from './spamHeuristics'
 
 // Rotation-tracked categories only — a scheduled start/end date is meant
@@ -92,6 +93,11 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     setContractType(data.contract_type || 'full')
     setSubtype(data.psych_subcategory || null)
     setHasAdmin(data.is_admin === true)
+    // The activity period the person gave at sign-up (handle_new_user
+    // copies it from their metadata) is the starting point; the admin can
+    // still change it here before approving.
+    setActiveFrom(data.scheduled_active_date || '')
+    setActiveUntil(SCHEDULABLE_CATEGORIES.has(data.category) ? (data.scheduled_inactive_date || '') : '')
     setLoading(false)
   }
 
@@ -185,6 +191,25 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
         { profile_id: id, year: new Date().getFullYear(), days_allotted: leaveDays },
         { onConflict: 'profile_id,year' }
       )
+    }
+
+    // A registrar rotates through the EC for the whole of their activity
+    // period, so approving one adds them to the Rotations planner for that
+    // period without a separate step — same as admin-created registrar
+    // accounts. Only when they have no block yet, so re-approving never
+    // doubles up.
+    if (finalCategory === 'Registrar') {
+      const { data: existing } = await supabase.from('intern_rotations').select('id').eq('doctor_id', id).limit(1)
+      if (!existing?.length) {
+        try {
+          await createInternRotation({
+            doctorId: id, rotationType: 'EC', subtype: null,
+            startDate: (showActiveFrom && activeFrom) || today, endDate: scheduledInactiveDate, createdBy: user.id,
+          })
+        } catch (rotationError) {
+          alert('The account was approved, but their rotation could not be added: ' + rotationError.message + '. Add it in the Rotations planner.')
+        }
+      }
     }
 
     onDone?.()

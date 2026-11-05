@@ -372,7 +372,13 @@ export default function StaffListPage() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-  const [tab, setTab] = useState('accounts') // 'accounts' | 'pending'
+  // 'active' is the landing tab: the people who matter day to day — on
+  // the roster now, on leave, or newly created/approved and not yet signed
+  // in or still on a temporary password. 'accounts' is the whole book,
+  // inactive and finished accounts included. The two share the toolbar
+  // and list below; only the predicate differs (see isListTab/tabAccounts).
+  const [tab, setTab] = useState('active') // 'active' | 'accounts' | 'pending' | 'requests'
+  const isListTab = tab === 'active' || tab === 'accounts'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
@@ -597,14 +603,6 @@ export default function StaffListPage() {
     await setDoctorActiveStatus(profileId, !currentlyActive)
     await loadAll()
     setTogglingId(null)
-  }
-
-  // Cancels a deactivation scheduled from the Intern Rotations Planner's
-  // end-of-rotation queue — the doctor stays active, no other field
-  // changes (the daily cron job is what would otherwise act on this date).
-  async function clearScheduledInactive(profileId) {
-    await supabase.from('profiles').update({ scheduled_inactive_date: null }).eq('id', profileId)
-    await loadAll()
   }
 
   // Status toggle is consequential (excludes/re-includes someone from all
@@ -912,7 +910,15 @@ export default function StaffListPage() {
     }] : []),
   ]
 
-  const filteredAccounts = activeAccounts.filter(person => {
+  // Active Staff: anyone currently active (on leave included), plus the
+  // accounts that are approved and about to join — a scheduled future start,
+  // or a new account that has not replaced its temporary password yet.
+  // Deactivated and finished accounts are only on All Staff.
+  const tabAccounts = tab === 'active'
+    ? activeAccounts.filter(p => p.is_active || p.scheduled_active_date || p.must_change_password)
+    : activeAccounts
+
+  const filteredAccounts = tabAccounts.filter(person => {
     const q = accountFilters.q.trim().toLowerCase()
     if (q) {
       const fullName = `${person.surname || ''} ${person.name || ''}`.toLowerCase()
@@ -981,7 +987,6 @@ export default function StaffListPage() {
           sticky container on purpose — inside it, the title would both
           stay pinned while scrolling and change that container's height,
           which the mobile group-label offsets below are measured against. */}
-      {!isAdmin && <h1 className="font-display text-xl font-bold text-ink md:text-2xl">Staff</h1>}
       {/* Sticky header — tab row (admin-only: All Staff / Pending Approvals /
           User Requests, via the shared PageTabs template) plus the Search/
           Sort/Filter toolbar (every viewer, only while on the accounts tab).
@@ -1004,20 +1009,23 @@ export default function StaffListPage() {
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
       <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
-        {isAdmin && (
-          <PageTabs
-            tabs={[
-              { key: 'accounts', label: 'All Staff' },
+        {/* Every viewer gets Active Staff / All Staff; the two admin queues
+            follow for admins only. */}
+        <PageTabs
+          tabs={[
+            { key: 'active', label: 'Active Staff' },
+            { key: 'accounts', label: 'All Staff' },
+            ...(isAdmin ? [
               { key: 'pending', label: 'Pending Approvals', badge: pending.length, badgeColor: 'red' },
               { key: 'requests', label: 'User Requests', badge: accountRequests.length },
-            ]}
-            active={tab}
-            onChange={setTab}
-            ariaLabel="Staff"
-          />
-        )}
+            ] : []),
+          ]}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="Staff"
+        />
 
-        {tab === 'accounts' && (() => {
+        {isListTab && (() => {
           const sortFacets = [{
             key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: sortFacetValue, onChange: handleSortFacetChange,
@@ -1033,7 +1041,7 @@ export default function StaffListPage() {
                   `top-[…]` classes further down. */}
               <div className="hidden md:block">
                 <Toolbar
-                  className={isAdmin ? 'mt-2' : ''}
+                  className="mt-2"
                   searchValue={accountFilters.q}
                   onSearchChange={onSearchChange}
                   searchPlaceholder="Surname or first name…"
@@ -1168,7 +1176,7 @@ export default function StaffListPage() {
       )}
 
       {/* ── Tab: approved accounts with active/inactive toggle ── */}
-      {!loading && tab === 'accounts' && (
+      {!loading && isListTab && (
         <div>
           {activeAccounts.length === 0 ? (
             <div className="card p-10 text-center">
@@ -1452,20 +1460,30 @@ export default function StaffListPage() {
                                 <span className={`whitespace-nowrap text-[11px] font-medium ${
                                   !person.is_active ? 'text-flagRed' : leaveProfileIds.has(person.id) ? 'text-ink-muted' : 'text-success'
                                 }`}>
-                                  {!person.is_active ? 'Inactive' : leaveProfileIds.has(person.id) ? 'On leave' : 'Active'}
+                                  {/* The activity period, for anyone whose
+                                      account has one: "Active until" for a
+                                      running placement, "Starts" for one
+                                      scheduled to begin. Category-agnostic —
+                                      interns, registrars and anyone else an
+                                      admin has given dates. */}
+                                  {!person.is_active
+                                    ? (person.scheduled_active_date
+                                        ? <>Starts {formatShortDateRange(person.scheduled_active_date, person.scheduled_active_date)}</>
+                                        : 'Inactive')
+                                    : leaveProfileIds.has(person.id) ? 'On leave' : 'Active'}
                                   {person.is_active && person.scheduled_inactive_date && (
                                     <> until {formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}</>
                                   )}
                                 </span>
-                                {isAdmin && person.is_active && person.scheduled_inactive_date && (
+                                {isAdmin && (person.scheduled_inactive_date || person.scheduled_active_date) && (
                                   <button
                                     type="button"
-                                    onClick={e => { e.stopPropagation(); clearScheduledInactive(person.id) }}
-                                    title="Cancel scheduled deactivation"
-                                    aria-label="Cancel scheduled deactivation"
-                                    className="text-[11px] text-ink-muted hover:text-ink hover:underline"
+                                    onClick={e => { e.stopPropagation(); navigate(`/account/${person.id}`, { state: { backgroundLocation: location } }) }}
+                                    title="Edit this account"
+                                    aria-label={`Edit ${person.name} ${person.surname}`}
+                                    className="text-[11px] font-medium text-accent hover:text-accent-dark hover:underline"
                                   >
-                                    Cancel
+                                    Edit
                                   </button>
                                 )}
                                 {isAdmin && person.must_change_password && <TempPasswordIndicator />}
@@ -1811,7 +1829,7 @@ export default function StaffListPage() {
         const targetEmail = emailById[person.id]
         const onLeave = leaveProfileIds.has(person.id)
         const statusLabel = !person.is_active
-          ? 'Inactive'
+          ? (person.scheduled_active_date ? `Starts ${formatShortDateRange(person.scheduled_active_date, person.scheduled_active_date)}` : 'Inactive')
           : onLeave ? 'On leave'
           : person.scheduled_inactive_date ? `Active until ${formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}`
           : 'Active'

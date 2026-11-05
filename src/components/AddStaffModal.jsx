@@ -100,7 +100,13 @@ export default function AddStaffModal({ onClose, onCreated }) {
 
   const showsCategory = roleNeedsCategoryAtCreation(role)
   const needsContractChoice = showsCategory && categoryNeedsContractChoice(category)
-  const showsRotation = showsCategory && ROTATION_PLANNED_CATEGORIES.has(category)
+  // Only a doctor has an activity period to set: a locum or clerk starts
+  // the day the account is made and has no fixed-term end.
+  const showsPeriod = role === 'doctor'
+  // Only an intern's year is planned as a run of blocks. A registrar
+  // rotates through the EC for their whole activity period, so the server
+  // writes that single EC block from the dates above — nothing to add here.
+  const showsRotation = showsCategory && category === 'Intern'
   const rotationTypeOptions = rotationTypeOptionsForCategory(category)
     .map(o => ({ value: o.key, label: o.label }))
 
@@ -121,7 +127,7 @@ export default function AddStaffModal({ onClose, onCreated }) {
       patch.subtype = null
     }
     set(patch)
-    if (!ROTATION_PLANNED_CATEGORIES.has(next)) setBlocks([])
+    if (next !== 'Intern') setBlocks([])
     else setBlocks(bs => bs.map(b => (
       // A Registrar can't hold an OT block — re-seed any that no longer
       // applies rather than leaving a value the planner would reject.
@@ -167,7 +173,8 @@ export default function AddStaffModal({ onClose, onCreated }) {
     if (!isValidEmail(email.trim())) return 'Enter a valid email address.'
     if (showsCategory && !category) return 'Select a category.'
     if (needsContractChoice && !contractType) return 'Select EC or OT hours.'
-    if (!activeFrom) return 'Select the date this person becomes active.'
+    if (showsPeriod && !activeFrom) return 'Select the date this person becomes active.'
+    if (showsPeriod && ROTATION_PLANNED_CATEGORIES.has(category) && !activeUntil) return 'Select the date this placement ends.'
     if (activeUntil && activeUntil < activeFrom) return 'Active until must be on or after Active from.'
 
     for (const [i, b] of blocks.entries()) {
@@ -207,8 +214,8 @@ export default function AddStaffModal({ onClose, onCreated }) {
       category: showsCategory ? (category || null) : null,
       contractType,
       subtype: contractType === 'Junior_Doctor_Overtime' ? subtype : null,
-      activeFrom,
-      activeUntil: activeUntil || null,
+      activeFrom: showsPeriod ? activeFrom : null,
+      activeUntil: showsPeriod ? (activeUntil || null) : null,
       rotations: showsRotation
         ? blocks
           .filter(b => b.startDate)
@@ -399,16 +406,26 @@ export default function AddStaffModal({ onClose, onCreated }) {
           </div>
         )}
 
-        <Field label="Active from" hint="Set a contract or rotation start date for new staff.">
-          <DateFieldButton label="Active from" value={activeFrom} onChange={v => set({ activeFrom: v })} required />
-        </Field>
+        {showsPeriod && (
+          <>
+            <Field label="Active from" hint="The date this doctor becomes eligible for shifts. Today or earlier activates the account immediately.">
+              <DateFieldButton label="Active from" value={activeFrom} onChange={v => set({ activeFrom: v })} required />
+            </Field>
 
-        <Field
-          label="Active until"
-          hint="Set a rotation end date for interns and registrars with fixed-term placements."
-        >
-          <DateFieldButton label="Active until" value={activeUntil} onChange={v => set({ activeUntil: v })} min={activeFrom || undefined} />
-        </Field>
+            <Field
+              label="Active until"
+              hint={
+                category === 'Registrar'
+                  ? 'The end of the placement. Registrars are added to the Rotations planner for this period automatically.'
+                  : category === 'Intern'
+                    ? 'The end of the placement; the account is deactivated after this date.'
+                    : 'Optional — leave blank for permanent staff.'
+              }
+            >
+              <DateFieldButton label="Active until" value={activeUntil} onChange={v => set({ activeUntil: v })} min={activeFrom || undefined} />
+            </Field>
+          </>
+        )}
 
         {showsRotation && (
           <div className="rounded border border-slate-line bg-canvas-sunken px-3 py-3">

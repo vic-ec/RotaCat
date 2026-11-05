@@ -47,23 +47,27 @@ function SetPasswordForm({ profile, onDone }) {
   const toggleReveal = (field) => setRevealed(r => ({ ...r, [field]: !r[field] }))
   const capsLock = useCapsLockWarning()
 
+  // Live checks, derived from the fields rather than stored: the policy
+  // message appears once the new password has been typed and goes away by
+  // itself the moment the criteria are met, and the mismatch message
+  // tracks the confirm field keystroke by keystroke instead of waiting for
+  // a submit. `submitted` surfaces them on an untouched field too, so a
+  // premature submit still points at what is missing.
+  const [submitted, setSubmitted] = useState(false)
+  const policyProblem = password ? passwordProblem(password) : (submitted ? passwordProblem(password) : '')
+  const mismatch = (confirm || submitted) && password !== confirm
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    setSubmitted(true)
 
     if (!current) {
       setError('Enter the temporary password from your welcome email.')
       return
     }
-    const problem = passwordProblem(password)
-    if (problem) {
-      setError(problem)
-      return
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match.')
-      return
-    }
+    // The inline messages under the fields already say what is wrong.
+    if (passwordProblem(password) || password !== confirm) return
     if (password === current) {
       setError('Choose a password different from the temporary one.')
       return
@@ -170,10 +174,15 @@ function SetPasswordForm({ profile, onDone }) {
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
             placeholder="Enter new password"
+            aria-invalid={Boolean(policyProblem)}
+            aria-describedby={policyProblem ? 'password-problem' : undefined}
             className={fieldClass}
           />
-          <PasswordRevealToggle revealed={revealed.password} onToggle={() => toggleReveal('password')} />
+          <PasswordRevealToggle revealed={revealed.password} onToggle={() => toggleReveal('password')} controls="password" />
         </div>
+        {policyProblem && (
+          <p id="password-problem" className="mt-1.5 text-sm text-flagRed">{policyProblem}</p>
+        )}
       </div>
 
       <div>
@@ -199,10 +208,15 @@ function SetPasswordForm({ profile, onDone }) {
             onKeyDown={capsLock.onKeyDown}
             onKeyUp={capsLock.onKeyUp}
             placeholder="Re-enter new password"
+            aria-invalid={Boolean(mismatch)}
+            aria-describedby={mismatch ? 'confirm-problem' : undefined}
             className={fieldClass}
           />
-          <PasswordRevealToggle revealed={revealed.confirm} onToggle={() => toggleReveal('confirm')} />
+          <PasswordRevealToggle revealed={revealed.confirm} onToggle={() => toggleReveal('confirm')} controls="confirm" />
         </div>
+        {mismatch && (
+          <p id="confirm-problem" className="mt-1.5 text-sm text-flagRed">Passwords do not match.</p>
+        )}
         <CapsLockNotice show={capsLock.capsOn} />
       </div>
 
@@ -273,7 +287,7 @@ export default function SetPasswordPage() {
         <MobileAuthHero />
 
         <div className="relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pb-5 pt-6">
-          <p className="text-center text-2xl font-semibold text-ink">{heading}</p>
+          <h2 className="text-center text-2xl font-semibold text-ink">{heading}</h2>
           <p className="mt-2 text-center text-[14.7px] text-ink-light">{intro}</p>
           {form}
           {signOutLink}
@@ -291,8 +305,8 @@ export default function SetPasswordPage() {
 
         <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
           <div className="mx-auto w-full max-w-sm">
-            <p className="text-base font-semibold text-ink md:text-2xl lg:text-3xl">{heading}</p>
-            <p className="mt-2 text-sm text-ink-muted">{intro}</p>
+            <h2 className="text-center text-base font-semibold text-ink md:text-2xl lg:text-3xl">{heading}</h2>
+            <p className="mt-2 text-center text-sm text-ink-muted">{intro}</p>
             {form}
             {signOutLink}
           </div>

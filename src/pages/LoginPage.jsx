@@ -14,6 +14,9 @@ import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidge
 // misses AA; teal is 5.47:1. Rose stays a brand accent (the collar), not a
 // text colour.
 const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark'
+// The same link on the phone sheet, which sits on the deep ground: mint
+// rather than teal, so it reads against it.
+const SHEET_LINK_CLASS = 'font-medium text-auth-sheet-link underline decoration-auth-sheet-link/45 underline-offset-4 transition-colors hover:text-auth-sheet-ink hover:decoration-auth-sheet-ink'
 
 // `inert` keeps a subtree out of the tab order and away from assistive
 // tech. React 18 only forwards it as a string attribute (a boolean is
@@ -420,17 +423,22 @@ export default function LoginPage() {
       <div className="flex min-h-dvh flex-col bg-auth-hero md:hidden" {...inertWhen(modalOpen)}>
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex min-h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
-          <h2 className="text-center text-2xl font-semibold text-ink">Welcome</h2>
-          <p className="mt-2 text-center text-[14.7px] text-ink-light">Sign in to manage your shifts</p>
+        {/* The sheet is the one phone surface with no wordmark on it, so it
+            carries the deep brushed ground (spec rev. 7 Nov) with its
+            rounded top intact; the hero above stays white. Everything on it
+            is set in the sheet's own light inks, and Sign in is the
+            mint-on-sheen key. */}
+        <div className="auth-page relative -mt-[28px] flex min-h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] px-8 py-4">
+          <h2 className="text-center text-2xl font-semibold text-auth-sheet-ink">Welcome</h2>
+          <p className="mt-2 text-center text-[14.7px] text-auth-sheet-ink-light">Sign in to manage your shifts</p>
 
           <div className="mt-6">
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full btn-bevel rounded-lg bg-accent py-6 text-lg font-bold text-on-fill
-                transition-colors hover:bg-accent-dark active:bg-accent-dark
-                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="w-full btn-bevel-mint rounded-lg bg-auth-mint-btn py-6 text-lg font-bold text-auth-mint-btn-ink
+                transition-colors
+                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-auth-sheet-ink"
             >
               Sign in
             </button>
@@ -438,20 +446,20 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openForgotPasswordModal}
-              className={`mt-3 block w-full text-center text-xs ${LINK_CLASS}`}
+              className={`mt-3 block w-full text-center text-xs ${SHEET_LINK_CLASS}`}
             >
               Forgot password?
             </button>
 
-            <p className="mt-5 text-center text-[14.7px] text-ink-light">
+            <p className="mt-5 text-center text-[14.7px] text-auth-sheet-ink-light">
               New here?{' '}
-              <Link to="/signup" className={LINK_CLASS}>
+              <Link to="/signup" className={SHEET_LINK_CLASS}>
                 Create an account
               </Link>
             </p>
           </div>
 
-          <AuthFooter onLight topGap="mt-4" />
+          <AuthFooter onSheen topGap="mt-4" />
         </div>
       </div>
 

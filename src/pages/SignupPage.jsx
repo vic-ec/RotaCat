@@ -583,8 +583,10 @@ export default function SignupPage() {
       <div className="flex h-dvh flex-col bg-auth-hero md:hidden">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 py-4">
-          <p className="text-center text-2xl font-semibold text-ink">Create your account</p>
+        {/* Same sheen sheet as the login page's phone landing; the white
+            role cards sit on it as they did on the mint. */}
+        <div className="auth-page relative -mt-[28px] flex h-[44dvh] flex-none flex-col justify-center rounded-t-[28px] px-8 py-4">
+          <h2 className="text-center text-2xl font-semibold text-auth-sheet-ink">Create your account</h2>
           <div className="mt-3 space-y-1">
             {ROLE_OPTIONS.map(opt => (
               <button
@@ -597,14 +599,14 @@ export default function SignupPage() {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-center text-xs text-ink-light">
+          <p className="mt-2 text-center text-xs text-auth-sheet-ink-light">
             Already have an account?{' '}
-            <Link to="/login" className="font-medium text-accent underline decoration-accent/45 underline-offset-4 transition-colors hover:text-accent-dark hover:decoration-accent-dark">
+            <Link to="/login" className="font-medium text-auth-sheet-link underline decoration-auth-sheet-link/45 underline-offset-4 transition-colors hover:text-auth-sheet-ink hover:decoration-auth-sheet-ink">
               Sign in
             </Link>
           </p>
 
-          <AuthFooter onLight topGap="mt-4" compact />
+          <AuthFooter onSheen topGap="mt-4" compact />
         </div>
       </div>
 

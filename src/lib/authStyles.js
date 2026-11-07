@@ -31,9 +31,9 @@ export const AUTH_LINK = 'font-medium text-accent underline decoration-accent/45
 // A link that must stay quiet (e.g. "Back to sign in" under a form).
 export const AUTH_LINK_MUTED = 'font-medium text-ink-light underline decoration-ink-light/40 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink'
 
-// The filled primary action, bevelled; `large` matches the inline login
-// form's 66px Sign in.
-export function authButtonClass({ large = false, extra = '' } = {}) {
+// The filled primary action, bevelled, at the login form's 66px (the one
+// height every auth form shares); `large: false` is the compact size.
+export function authButtonClass({ large = true, extra = '' } = {}) {
   return [
     'btn-bevel w-full rounded-[14px] bg-accent font-semibold text-on-fill transition-colors',
     'hover:bg-accent-dark active:bg-accent-dark',
@@ -46,12 +46,12 @@ export function authButtonClass({ large = false, extra = '' } = {}) {
 
 // The outlined secondary action (Continue, Back to sign in, Request a new
 // link): white face, accent/70 border, outlined bevel.
-export const AUTH_BUTTON_OUTLINE = 'btn-bevel-outline inline-flex items-center justify-center rounded-[14px] border-2 border-accent/70 bg-auth-panel px-5 py-2.5 text-sm font-semibold text-accent transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+export const AUTH_BUTTON_OUTLINE = 'btn-bevel-outline inline-flex items-center justify-center rounded-[14px] border-2 border-accent/70 bg-auth-modal px-5 py-2.5 text-sm font-semibold text-accent transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 // A floating panel (modal, standalone card): the login card's own corners,
 // hairline and shadow. The header strip sits on white with the seam line
 // under it, matching the card's divider.
-export const AUTH_PANEL = 'rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell'
+export const AUTH_PANEL = 'rounded-[24px] border border-auth-shell-border bg-auth-modal shadow-auth-shell'
 export const AUTH_PANEL_HEADER = 'flex shrink-0 items-center justify-between border-b border-auth-seam px-5 py-4'
 export const AUTH_PANEL_TITLE = 'text-lg font-semibold text-ink'
 export const AUTH_CLOSE_BUTTON = '-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'

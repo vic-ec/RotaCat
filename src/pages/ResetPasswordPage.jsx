@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-page flex min-h-dvh flex-col items-center justify-center px-4 py-3 md:px-[4vw] md:py-[3.75vw]">
       {/* The login card: white halves, 1px seam, on the brushed page. */}
-      <div className={`mx-auto flex w-full max-w-[1800px] flex-col overflow-hidden md:min-h-[720px] md:flex-row ${AUTH_PANEL}`}>
+      <div className={`mx-auto flex w-full max-w-[1800px] flex-col overflow-hidden md:min-h-[720px] md:flex-row ${AUTH_PANEL} bg-auth-panel`}>
         <AuthHero seam="shell" />
 
         <div className="relative flex flex-1 flex-col justify-center px-6 py-8 md:px-10 md:py-16 lg:px-[4.375rem]">

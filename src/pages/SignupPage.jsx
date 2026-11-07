@@ -401,7 +401,7 @@ function RoleModal({ role, onClose }) {
                   <legend className={AUTH_LABEL}>
                     Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
                   </legend>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div>
                       <label htmlFor="active-from" className={AUTH_SUBLABEL}>From</label>
                       <input
@@ -565,7 +565,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="btn-bevel-outline w-full rounded-xl border-2 border-accent/50 bg-auth-choice p-2.5 text-center transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover"
+                className="btn-bevel-outline w-full rounded-[14px] border-2 border-accent/70 bg-auth-card p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>

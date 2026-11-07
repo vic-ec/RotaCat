@@ -167,6 +167,7 @@
      than the page (palette "Mint 1"); hover and press use accent-night. */
   --color-auth-card: 224 245 236;             /* #E0F5EC */
   --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
+  --color-auth-modal: 255 255 255;            /* #FFFFFF — floating auth panels (modals, standalone cards) */
   --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
   --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
   /* Decorative roster cells and bars, as the spec defines them. Declared so
@@ -352,14 +353,14 @@
      and the halves match); the shell's border and shadow mark it off from
      the page, and the seam borrows the line tone so it reads without
      glowing. */
-  --color-auth-page: 10 16 14;                /* #0A100E */
-  --bg-auth-sheen: none;                      /* flat: grain on near-black only adds noise */
+  --color-auth-page: 20 52 48;                /* #143430 — deep teal, one step up from the near-black card halves so the page (and the phone sheet) separates from the white-on-light hero's dark counterpart */
+  --color-auth-modal: 27 59 53;               /* #1B3B35 — the spec's night-mode modal */
   --color-auth-sheet-ink: 243 246 245;        /* #F3F6F5 */
   --color-auth-sheet-ink-light: 207 224 220;  /* #CFE0DC */
   --color-auth-sheet-link: 143 211 197;       /* #8FD3C5 */
   --color-auth-mint-btn: 111 189 175;         /* #6FBDAF */
   --color-auth-mint-btn-ink: 10 16 14;        /* #0A100E */
-  --color-auth-card: 31 51 46;                /* #1F332E — same as accent-panel; hover deepens to accent-night */
+  --color-auth-card: 18 29 26;                /* #121D1A — role cards, a step below the panel; hover lifts to accent-night */
   --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
   --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
   --color-auth-shell-border: 43 70 63;        /* #2B463F */

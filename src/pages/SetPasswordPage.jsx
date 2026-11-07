@@ -305,7 +305,7 @@ export default function SetPasswordPage() {
   // Desktop: the login card — white halves, 1px seam — on the brushed page.
   return (
     <div className="auth-page flex min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw]">
-      <div className={`mx-auto flex w-full max-w-[1800px] min-h-[720px] overflow-hidden md:flex-row ${AUTH_PANEL}`}>
+      <div className={`mx-auto flex w-full max-w-[1800px] min-h-[720px] overflow-hidden md:flex-row ${AUTH_PANEL} bg-auth-panel`}>
         <AuthHero seam="shell" />
 
         <div className="relative flex flex-1 flex-col justify-center px-10 py-16 lg:px-[4.375rem]">

@@ -87,11 +87,34 @@ function formatDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// `variant="auth"` is the unauthenticated screens' field (see
+// src/lib/authStyles.js): taller, 14px corners, the accent/70 outline and
+// 16px text, so a date on the Create-account form sits level with the
+// text fields beside it. Everything else — the picker, the clear (x), the
+// label-as-placeholder — is the same control.
+const VARIANTS = {
+  default: {
+    box: 'h-[30px] gap-1.5 rounded border border-slate-line pl-2 text-sm',
+    pad: { withValue: 'pr-7', empty: 'pr-2' },
+    icon: 'h-4 w-4',
+    clear: 'right-2 h-4 w-4',
+    clearIcon: 'h-2.5 w-2.5',
+  },
+  auth: {
+    box: 'gap-3 rounded-[14px] border-2 border-accent/70 py-2.5 pl-4 text-base focus-within:border-accent focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent',
+    pad: { withValue: 'pr-10', empty: 'pr-4' },
+    icon: 'h-5 w-5',
+    clear: 'right-3 h-5 w-5',
+    clearIcon: 'h-3 w-3',
+  },
+}
+
 export default function DateFieldButton({
   label, value, onChange, min, max, required = false, id, fullWidth = false,
-  disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '',
+  disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '', variant = 'default',
 }) {
   const inputRef = useRef(null)
+  const v = VARIANTS[variant] || VARIANTS.default
 
   function openPicker() {
     if (disabled) return
@@ -101,11 +124,11 @@ export default function DateFieldButton({
   return (
     <span
       onClick={openPicker}
-      className={`relative inline-flex h-[30px] items-center gap-1.5 rounded border border-slate-line bg-field pl-2 text-sm ${
+      className={`relative inline-flex items-center bg-field ${v.box} ${
         fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
-      } ${value ? 'pr-7' : 'pr-2'} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
+      } ${value ? v.pad.withValue : v.pad.empty} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
-      <CalendarIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />
+      <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted`} />
       <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : (emptyLabel ?? label)}</span>
       <input
         ref={inputRef}
@@ -127,9 +150,9 @@ export default function DateFieldButton({
           onClick={e => { e.stopPropagation(); onChange('') }}
           aria-label={`Clear ${label}`}
           tabIndex={-1}
-          className="absolute right-2 top-1/2 z-10 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-canvas hover:bg-ink-muted/70"
+          className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full bg-ink-muted/50 text-canvas hover:bg-ink-muted/70 ${v.clear}`}
         >
-          <ClearIcon className="h-2.5 w-2.5" />
+          <ClearIcon className={v.clearIcon} />
         </button>
       )}
     </span>

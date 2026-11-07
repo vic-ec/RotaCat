@@ -13,8 +13,9 @@ import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
+import DateFieldButton from '../components/DateFieldButton'
 import {
-  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_SUBLABEL, AUTH_LINK, AUTH_LINK_MUTED,
+  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_LINK, AUTH_LINK_MUTED,
   AUTH_PANEL, AUTH_PANEL_HEADER, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR, AUTH_FIELD_ERROR, AUTH_HINT,
 } from '../lib/authStyles'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
@@ -61,7 +62,6 @@ const CATEGORY_OPTIONS = [
 // without knowing when they start and finish, so the dates are required.
 const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
 
-const PERIOD_FIELD_CLASS = authFieldClass({ extra: 'px-3' })
 
 function RoleModal({ role, onClose }) {
   const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
@@ -401,32 +401,13 @@ function RoleModal({ role, onClose }) {
                   <legend className={AUTH_LABEL}>
                     Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
                   </legend>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label htmlFor="active-from" className={AUTH_SUBLABEL}>From</label>
-                      <input
-                        id="active-from"
-                        name="active-from"
-                        type="date"
-                        required={periodRequired}
-                        value={activeFrom}
-                        onChange={(e) => setActiveFrom(e.target.value)}
-                        className={PERIOD_FIELD_CLASS}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="active-until" className={AUTH_SUBLABEL}>Until</label>
-                      <input
-                        id="active-until"
-                        name="active-until"
-                        type="date"
-                        required={periodRequired}
-                        min={activeFrom || undefined}
-                        value={activeUntil}
-                        onChange={(e) => setActiveUntil(e.target.value)}
-                        className={PERIOD_FIELD_CLASS}
-                      />
-                    </div>
+                  {/* The app's shared date field — calendar icon, the label
+                      as placeholder, a clear (x) once picked, tap opens the
+                      picker — in its auth size, two equal columns ending
+                      flush with the fields above. */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <DateFieldButton id="active-from" label="From" variant="auth" fullWidth required={periodRequired} value={activeFrom} onChange={setActiveFrom} />
+                    <DateFieldButton id="active-until" label="To" variant="auth" fullWidth required={periodRequired} min={activeFrom || undefined} value={activeUntil} onChange={setActiveUntil} />
                   </div>
                   <p className={AUTH_HINT}>
                     Important for rostering: you will only be eligible for shifts within this period.

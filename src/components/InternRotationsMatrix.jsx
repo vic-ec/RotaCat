@@ -913,7 +913,7 @@ export default function InternRotationsMatrix({
         type="button"
         onClick={openAddDoctor}
         aria-label="Add doctor"
-        className="btn-bevel fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill md:flex"
+        className="btn-bevel-fab fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill md:flex"
       >
         <Plus className="h-6 w-6" />
       </button>

@@ -266,11 +266,17 @@ export default function SetPasswordPage() {
   // Ends the session rather than getting past the requirement — rose, the
   // app's own colour for the secondary link on an auth screen ("Create an
   // account", "Back to sign in").
-  const signOutLink = (
+  // Teal and underlined like every other auth-screen link (rose is a brand
+  // accent, not a UI colour); on the phone sheet it takes the sheet's mint.
+  const signOutLink = (onSheen) => (
     <button
       type="button"
       onClick={signOut}
-      className="mt-4 block w-full text-center text-[14.7px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
+      className={`mt-4 block w-full text-center text-[14.7px] font-medium underline underline-offset-4 transition-colors ${
+        onSheen
+          ? 'text-auth-sheet-link decoration-auth-sheet-link/45 hover:text-auth-sheet-ink hover:decoration-auth-sheet-ink'
+          : 'text-accent decoration-accent/45 hover:text-accent-dark hover:decoration-accent-dark'
+      }`}
     >
       Sign out instead
     </button>
@@ -278,20 +284,26 @@ export default function SetPasswordPage() {
 
   const form = <SetPasswordForm profile={profile} onDone={handleDone} />
 
-  // Mobile: full-bleed hero above a rounded bottom sheet, no outer teal
-  // frame — the same shape as LoginPage's mobile landing, which is where
-  // the emailed login link lands people first.
+  // Mobile: full-bleed white hero above a rounded bottom sheet on the deep
+  // brushed ground — the same shape as LoginPage's phone landing, which is
+  // where the emailed login link lands people first. The heading, intro
+  // and sign-out link take the sheet's own light inks; the form itself
+  // sits in a white panel on the sheet (as Create-account's role cards
+  // do), so its labels, field messages and Caps Lock notice keep the
+  // colours they have everywhere else.
   if (!isDesktop) {
     return (
       <div className="flex min-h-dvh flex-col bg-auth-hero">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pb-5 pt-6">
-          <h2 className="text-center text-2xl font-semibold text-ink">{heading}</h2>
-          <p className="mt-2 text-center text-[14.7px] text-ink-light">{intro}</p>
-          {form}
-          {signOutLink}
-          <AuthFooter onLight topGap="mt-4" compact />
+        <div className="auth-page relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] px-5 pb-5 pt-6">
+          <h2 className="text-center text-2xl font-semibold text-auth-sheet-ink">{heading}</h2>
+          <p className="mt-2 text-center text-[14.7px] text-auth-sheet-ink-light">{intro}</p>
+          <div className="mt-4 rounded-[14px] border border-auth-shell-border bg-auth-panel px-4 pb-4 pt-1">
+            {form}
+          </div>
+          {signOutLink(true)}
+          <AuthFooter onSheen topGap="mt-4" compact />
         </div>
       </div>
     )
@@ -308,7 +320,7 @@ export default function SetPasswordPage() {
             <h2 className="text-center text-base font-semibold text-ink md:text-2xl lg:text-3xl">{heading}</h2>
             <p className="mt-2 text-center text-sm text-ink-muted">{intro}</p>
             {form}
-            {signOutLink}
+            {signOutLink(false)}
           </div>
         </div>
       </div>

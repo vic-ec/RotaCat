@@ -565,7 +565,7 @@ export default function SignupPage() {
               <button
                 key={opt.value}
                 onClick={() => setSelectedRole(opt.value)}
-                className="btn-bevel-outline w-full rounded-[14px] border-2 border-accent/70 bg-auth-card p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
+                className="btn-bevel-outline btn-face-card w-full rounded-[14px] border-2 border-accent/70 bg-auth-card p-2.5 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
               >
                 <p className="text-sm font-semibold text-ink">{opt.label}</p>
                 <p className="mt-0.5 text-xs text-ink-light">{opt.description}</p>
@@ -613,7 +613,7 @@ export default function SignupPage() {
                     <button
                       key={opt.value}
                       onClick={() => setSelectedRole(opt.value)}
-                      className="btn-bevel-outline w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
+                      className="btn-bevel-outline btn-face-card w-full rounded-[14px] border-2 border-accent/70 bg-auth-card px-4 py-4 text-center transition-colors hover:border-accent hover:bg-accent-night active:border-accent active:bg-accent-night"
                     >
                       <p className="text-lg font-semibold text-ink">{opt.label}</p>
                       <p className="mt-0.5 text-base text-ink-light">{opt.description}</p>

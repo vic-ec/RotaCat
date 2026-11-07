@@ -639,6 +639,12 @@
   .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
   .btn-bevel-outline, .btn-secondary, .btn-danger-outline { --btn-bg: rgb(var(--color-canvas-raised)); }
   .btn-bevel-outline:hover { --btn-bg: rgb(var(--color-auth-choice-hover)); }
+  /* An outlined face that is not white — the Create-account role cards on
+     Mint 1 — derives its edges from that fill: the top lightens to white,
+     the bottom to a deeper mint, and the press swaps them. Without this
+     the edges came from white and vanished on the mint. */
+  .btn-bevel-outline.btn-face-card { --btn-bg: rgb(var(--color-auth-card)); }
+  .btn-bevel-outline.btn-face-card:hover { --btn-bg: rgb(var(--color-accent-night)); }
   .btn-secondary:hover { --btn-bg: rgb(var(--color-canvas-sunken)); }
   .btn-danger-outline:hover { --btn-bg: rgb(var(--color-danger-bg)); }
 

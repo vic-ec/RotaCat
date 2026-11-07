@@ -13,6 +13,10 @@ import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
+import {
+  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_SUBLABEL, AUTH_LINK, AUTH_LINK_MUTED,
+  AUTH_PANEL, AUTH_PANEL_HEADER, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR, AUTH_FIELD_ERROR, AUTH_HINT,
+} from '../lib/authStyles'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 
@@ -57,9 +61,7 @@ const CATEGORY_OPTIONS = [
 // without knowing when they start and finish, so the dates are required.
 const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
 
-const PERIOD_FIELD_CLASS = `w-full rounded-lg border-2 border-accent/50 bg-field px-3 py-2
-  text-base text-ink transition-colors focus:border-accent focus:bg-field
-  focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25`
+const PERIOD_FIELD_CLASS = authFieldClass({ extra: 'px-3' })
 
 function RoleModal({ role, onClose }) {
   const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
@@ -212,16 +214,19 @@ function RoleModal({ role, onClose }) {
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden rounded-xl border border-edge bg-canvas-raised shadow-raised"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="role-modal-title"
+        className={`flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden ${AUTH_PANEL}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b-2 border-accent/30 bg-accent-tint px-5 py-4">
-          <p className="text-lg font-semibold text-ink">{label}</p>
+        <div className={AUTH_PANEL_HEADER}>
+          <h2 id="role-modal-title" className={AUTH_PANEL_TITLE}>{label}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-accent-light hover:text-ink active:bg-accent-light active:text-ink"
+            className={AUTH_CLOSE_BUTTON}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -243,7 +248,7 @@ function RoleModal({ role, onClose }) {
             </p>
 
             <form onSubmit={handleVerifyOtp} className="mt-4 text-left">
-              <label htmlFor="otp" className="mb-1.5 block text-sm font-semibold text-ink">
+              <label htmlFor="otp" className={AUTH_LABEL}>
                 Confirmation code
               </label>
               <input
@@ -257,14 +262,11 @@ function RoleModal({ role, onClose }) {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 placeholder="123456"
-                className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                  text-center text-lg tracking-[0.3em] text-ink placeholder:tracking-normal placeholder:text-ink-muted
-                  transition-colors focus:border-accent focus:bg-field
-                  focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                className={authFieldClass({ extra: 'text-center text-lg tracking-[0.3em] placeholder:tracking-normal' })}
               />
 
               {otpError && (
-                <div className="mt-2 rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                <div role="alert" className={`mt-2 ${AUTH_ERROR}`}>
                   {otpError}
                 </div>
               )}
@@ -272,10 +274,7 @@ function RoleModal({ role, onClose }) {
               <button
                 type="submit"
                 disabled={verifying || otp.length !== 6}
-                className="mt-4 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-                  transition-colors hover:bg-accent-dark active:bg-accent-dark
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                className={authButtonClass({ extra: 'mt-4' })}
               >
                 {verifying ? 'Confirming…' : 'Confirm email'}
               </button>
@@ -285,14 +284,14 @@ function RoleModal({ role, onClose }) {
               type="button"
               onClick={handleResendOtp}
               disabled={resending}
-              className="mt-3 text-sm font-medium text-rose transition-colors hover:text-rose-dark hover:underline disabled:opacity-60"
+              className={`mt-3 text-sm ${AUTH_LINK} disabled:opacity-60`}
             >
               {resending ? 'Resending…' : resent ? 'Code resent — check your email' : "Didn't get a code? Resend"}
             </button>
 
             <Link
               to="/login"
-              className="mt-6 block text-sm font-medium text-ink-muted transition-colors hover:text-ink"
+              className={`mt-6 block text-sm ${AUTH_LINK_MUTED}`}
             >
               Back to sign in
             </Link>
@@ -302,7 +301,7 @@ function RoleModal({ role, onClose }) {
             <form
               id="role-details-form"
               onSubmit={handleSubmit}
-              className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-4"
+              className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4"
             >
               {/* Honeypot — off-screen and unreachable by keyboard/AT, so a
                   human visitor never notices or fills it in; a plain-fill
@@ -323,7 +322,7 @@ function RoleModal({ role, onClose }) {
               </div>
 
               <div>
-                <label htmlFor="name" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="name" className={AUTH_LABEL}>
                   First name
                 </label>
                 <input
@@ -335,15 +334,12 @@ function RoleModal({ role, onClose }) {
                   autoComplete="given-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-field
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                  className={authFieldClass()}
                 />
               </div>
 
               <div>
-                <label htmlFor="surname" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="surname" className={AUTH_LABEL}>
                   Surname
                 </label>
                 <input
@@ -354,15 +350,12 @@ function RoleModal({ role, onClose }) {
                   autoComplete="family-name"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-field
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                  className={authFieldClass()}
                 />
               </div>
 
               <div>
-                <label htmlFor="phone" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="phone" className={AUTH_LABEL}>
                   Mobile
                 </label>
                 <input
@@ -374,17 +367,14 @@ function RoleModal({ role, onClose }) {
                   inputMode="numeric"
                   value={formatPhoneProgressive(phone)}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                    text-base text-ink placeholder:text-ink-muted
-                    transition-colors focus:border-accent focus:bg-field
-                    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                  className={authFieldClass()}
                 />
               </div>
 
               {/* Category selector — doctors only, placed after name/surname */}
               {role === 'doctor' && (
                 <div>
-                  <label htmlFor="category" className="mb-1.5 block text-sm font-semibold text-ink">
+                  <label htmlFor="category" className={AUTH_LABEL}>
                     Staff category
                   </label>
                   <select
@@ -393,10 +383,7 @@ function RoleModal({ role, onClose }) {
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                      text-base text-ink transition-colors
-                      focus:border-accent focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                    className={authFieldClass()}
                   >
                     <option value="">Select category…</option>
                     {CATEGORY_OPTIONS.map(opt => (
@@ -411,12 +398,12 @@ function RoleModal({ role, onClose }) {
                   asked for here rather than left for an admin to guess. */}
               {asksPeriod && (
                 <fieldset>
-                  <legend className="mb-1.5 block text-sm font-semibold text-ink">
+                  <legend className={AUTH_LABEL}>
                     Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
                   </legend>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label htmlFor="active-from" className="mb-1 block text-xs font-medium text-ink-light">From</label>
+                      <label htmlFor="active-from" className={AUTH_SUBLABEL}>From</label>
                       <input
                         id="active-from"
                         name="active-from"
@@ -428,7 +415,7 @@ function RoleModal({ role, onClose }) {
                       />
                     </div>
                     <div>
-                      <label htmlFor="active-until" className="mb-1 block text-xs font-medium text-ink-light">Until</label>
+                      <label htmlFor="active-until" className={AUTH_SUBLABEL}>Until</label>
                       <input
                         id="active-until"
                         name="active-until"
@@ -441,7 +428,7 @@ function RoleModal({ role, onClose }) {
                       />
                     </div>
                   </div>
-                  <p className="mt-1.5 text-xs text-ink-light">
+                  <p className={AUTH_HINT}>
                     Important for rostering: you will only be eligible for shifts within this period.
                     {periodRequired ? ' Enter the dates of your placement.' : ' Leave blank if your post is permanent.'}
                   </p>
@@ -451,7 +438,7 @@ function RoleModal({ role, onClose }) {
               {/* Locum agency — optional, placed after name/surname */}
               {role === 'locum' && (
                 <div>
-                  <label htmlFor="agency" className="mb-1.5 block text-sm font-semibold text-ink">
+                  <label htmlFor="agency" className={AUTH_LABEL}>
                     Agency <span className="font-normal text-ink-muted">(optional)</span>
                   </label>
                   <input
@@ -462,16 +449,13 @@ function RoleModal({ role, onClose }) {
                     value={locumAgency}
                     onChange={(e) => setLocumAgency(e.target.value)}
                     placeholder="Agency name"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-field px-4 py-2
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                    className={authFieldClass()}
                   />
                 </div>
               )}
 
               <div>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="email" className={AUTH_LABEL}>
                   Email
                 </label>
                 <div className="relative">
@@ -492,23 +476,18 @@ function RoleModal({ role, onClose }) {
                     onChange={(e) => setEmail(e.target.value)}
                     onBlur={() => setEmailTouched(true)}
                     aria-invalid={emailInvalid}
-                    placeholder="you@example.com"
-                    className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2
-                      ${emailInvalid
-                        ? 'border-flagRed/60 focus:border-flagRed focus:outline-flagRed/25'
-                        : 'border-accent/50 focus:border-accent focus:outline-accent/25'}`}
+                    placeholder="Your email"
+                    aria-describedby={emailInvalid ? 'signup-email-error' : undefined}
+                    className={authFieldClass({ icon: true, invalid: emailInvalid })}
                   />
                 </div>
                 {emailInvalid && (
-                  <p className="mt-1 text-xs text-flagRed">Enter a valid email address.</p>
+                  <p id="signup-email-error" className={AUTH_FIELD_ERROR}>Enter a valid email address.</p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <label htmlFor="password" className={`${AUTH_LABEL} flex items-center gap-1.5`}>
                   Password
                   <PasswordRequirementsInfo />
                 </label>
@@ -530,14 +509,11 @@ function RoleModal({ role, onClose }) {
                     onKeyDown={capsLock.onKeyDown}
                     onKeyUp={capsLock.onKeyUp}
                     placeholder="Enter password"
-                    className="w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-12 pr-12
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:border-accent focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25"
+                    className={authFieldClass({ icon: true, trailing: true })}
                   />
-                  <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} />
+                  <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} controls="password" />
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">{PASSWORD_HINT_SHORT}</p>
+                <p className={AUTH_HINT}>{PASSWORD_HINT_SHORT}</p>
                 <CapsLockNotice show={capsLock.capsOn} />
               </div>
 
@@ -548,21 +524,18 @@ function RoleModal({ role, onClose }) {
               )}
 
               {error && (
-                <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                <div role="alert" className={AUTH_ERROR}>
                   {error}
                 </div>
               )}
             </form>
 
-            <div className="shrink-0 border-t border-slate-line px-5 py-4">
+            <div className="shrink-0 border-t border-auth-seam px-5 py-4">
               <button
                 type="submit"
                 form="role-details-form"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-                  transition-colors hover:bg-accent-dark active:bg-accent-dark
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-                  disabled:opacity-60"
+                className={authButtonClass()}
               >
                 {submitting ? 'Registering…' : 'Register'}
               </button>

@@ -9,6 +9,10 @@ import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import SignInForm from '../components/SignInForm'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
+import {
+  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_BUTTON_OUTLINE,
+  AUTH_PANEL, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR, AUTH_FIELD_ERROR,
+} from '../lib/authStyles'
 
 // Links on this page are teal and underlined. Rose on white is 3.80:1 and
 // misses AA; teal is 5.47:1. Rose stays a brand accent (the collar), not a
@@ -73,16 +77,16 @@ function SignInModal({ isOpen, onClose, triggerRef, formProps }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="signin-title"
-        className="relative w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
+        className={`relative w-full max-w-sm p-5 ${AUTH_PANEL}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-1 flex items-center justify-between">
-          <h2 id="signin-title" className="text-lg font-semibold text-ink">Sign in to your account</h2>
+          <h2 id="signin-title" className={AUTH_PANEL_TITLE}>Sign in to your account</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+            className={AUTH_CLOSE_BUTTON}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -184,7 +188,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="forgot-title"
-        className="w-full max-w-sm rounded-xl border border-edge bg-canvas-raised p-5 shadow-raised"
+        className={`w-full max-w-sm p-5 ${AUTH_PANEL}`}
         onClick={(e) => e.stopPropagation()}
       >
         {submitted ? (
@@ -202,7 +206,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
             <button
               type="button"
               onClick={onBackToSignIn}
-              className="btn-bevel-outline mt-6 inline-block rounded-lg border border-accent bg-accent-tint px-4 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
+              className={`${AUTH_BUTTON_OUTLINE} mt-6`}
             >
               Back to sign in
             </button>
@@ -210,12 +214,12 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
         ) : (
           <>
             <div className="mb-1 flex items-center justify-between">
-              <h2 id="forgot-title" className="text-lg font-semibold text-ink">Reset your password</h2>
+              <h2 id="forgot-title" className={AUTH_PANEL_TITLE}>Reset your password</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="-mr-2 flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+                className={AUTH_CLOSE_BUTTON}
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -228,7 +232,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
 
             <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
               <div>
-                <label htmlFor="forgot-email" className="mb-1.5 block text-sm font-semibold text-ink">
+                <label htmlFor="forgot-email" className={AUTH_LABEL}>
                   Email
                 </label>
                 <div className="relative">
@@ -252,17 +256,11 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
                     aria-invalid={emailInvalid}
                     aria-describedby={emailInvalid ? 'forgot-email-error' : undefined}
                     placeholder="Your email"
-                    className={`w-full rounded-lg border-2 bg-field py-2 pl-12 pr-4
-                      text-base text-ink placeholder:text-ink-muted
-                      transition-colors focus:bg-field
-                      focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent
-                      ${emailInvalid
-                        ? 'border-flagRed'
-                        : 'border-accent/70 focus:border-accent'}`}
+                    className={authFieldClass({ icon: true, invalid: emailInvalid })}
                   />
                 </div>
                 {emailInvalid && (
-                  <p id="forgot-email-error" className="mt-1 text-sm text-flagRed">Enter a valid email address.</p>
+                  <p id="forgot-email-error" className={AUTH_FIELD_ERROR}>Enter a valid email address.</p>
                 )}
               </div>
 
@@ -271,7 +269,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
               )}
 
               {error && (
-                <div role="alert" className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+                <div role="alert" className={AUTH_ERROR}>
                   {error}
                 </div>
               )}
@@ -279,10 +277,7 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
               <button
                 type="submit"
                 disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className="w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-                  transition-colors hover:bg-accent-dark active:bg-accent-dark
-                  focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-                  disabled:opacity-60"
+                className={authButtonClass()}
               >
                 {submitting ? 'Sending…' : 'Send reset link'}
               </button>

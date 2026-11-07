@@ -11,6 +11,7 @@ import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { authFieldClass, authButtonClass, AUTH_LABEL_LG, AUTH_PANEL, AUTH_ERROR, AUTH_FIELD_ERROR } from '../lib/authStyles'
 
 // Mandatory first-sign-in password change for anyone still using a password
 // an admin generated for them (profiles.must_change_password).
@@ -120,16 +121,12 @@ function SetPasswordForm({ profile, onDone }) {
   }
 
   // pr-12 leaves room for the reveal toggle sitting inside the field.
-  const fieldClass = `w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
-    text-base text-ink placeholder:text-ink-muted
-    transition-colors focus:border-accent focus:bg-field
-    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
-    md:py-3 md:text-lg`
+  const fieldClass = authFieldClass({ trailing: true, large: true })
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 md:mt-8 md:gap-[22px]">
       <div>
-        <label htmlFor="current-password" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
+        <label htmlFor="current-password" className={AUTH_LABEL_LG}>
           Temporary password
         </label>
         <div className="relative">
@@ -147,7 +144,7 @@ function SetPasswordForm({ profile, onDone }) {
             placeholder="From your welcome email"
             className={fieldClass}
           />
-          <PasswordRevealToggle revealed={revealed.current} onToggle={() => toggleReveal('current')} />
+          <PasswordRevealToggle revealed={revealed.current} onToggle={() => toggleReveal('current')} controls="current-password" />
         </div>
       </div>
 
@@ -157,7 +154,7 @@ function SetPasswordForm({ profile, onDone }) {
             accessible name, so a screen reader would read the whole
             requirements sentence out as the field's name. */}
         <div className="mb-1.5 flex items-center gap-1.5">
-          <label htmlFor="password" className="block text-sm font-semibold text-ink md:text-base">
+          <label htmlFor="password" className={`${AUTH_LABEL_LG} mb-0`}>
             New password
           </label>
           <PasswordRequirementsInfo />
@@ -181,7 +178,7 @@ function SetPasswordForm({ profile, onDone }) {
           <PasswordRevealToggle revealed={revealed.password} onToggle={() => toggleReveal('password')} controls="password" />
         </div>
         {policyProblem && (
-          <p id="password-problem" className="mt-1.5 text-sm text-flagRed">{policyProblem}</p>
+          <p id="password-problem" className={AUTH_FIELD_ERROR}>{policyProblem}</p>
         )}
       </div>
 
@@ -191,7 +188,7 @@ function SetPasswordForm({ profile, onDone }) {
             accessible name, so a screen reader would read the whole
             requirements sentence out as the field's name. */}
         <div className="mb-1.5 flex items-center gap-1.5">
-          <label htmlFor="confirm" className="block text-sm font-semibold text-ink md:text-base">
+          <label htmlFor="confirm" className={`${AUTH_LABEL_LG} mb-0`}>
             Confirm password
           </label>
           <PasswordRequirementsInfo />
@@ -215,13 +212,13 @@ function SetPasswordForm({ profile, onDone }) {
           <PasswordRevealToggle revealed={revealed.confirm} onToggle={() => toggleReveal('confirm')} controls="confirm" />
         </div>
         {mismatch && (
-          <p id="confirm-problem" className="mt-1.5 text-sm text-flagRed">Passwords do not match.</p>
+          <p id="confirm-problem" className={AUTH_FIELD_ERROR}>Passwords do not match.</p>
         )}
         <CapsLockNotice show={capsLock.capsOn} />
       </div>
 
       {error && (
-        <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+        <div role="alert" className={AUTH_ERROR}>
           {error}
         </div>
       )}
@@ -229,11 +226,7 @@ function SetPasswordForm({ profile, onDone }) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-          transition-colors hover:bg-accent-dark active:bg-accent-dark
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-          disabled:opacity-60
-          md:py-3.5 md:text-lg"
+        className={authButtonClass({ large: true, extra: 'mt-2' })}
       >
         {submitting ? 'Saving…' : 'Save password and continue'}
       </button>
@@ -309,23 +302,24 @@ export default function SetPasswordPage() {
     )
   }
 
-  // Desktop: split-screen card, matching Login and Sign-up.
+  // Desktop: the login card — white halves, 1px seam — on the brushed page.
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10">
-      <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero />
+    <div className="auth-page flex min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw]">
+      <div className={`mx-auto flex w-full max-w-[1800px] min-h-[720px] overflow-hidden md:flex-row ${AUTH_PANEL}`}>
+        <AuthHero seam="shell" />
 
-        <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
-          <div className="mx-auto w-full max-w-sm">
-            <h2 className="text-center text-base font-semibold text-ink md:text-2xl lg:text-3xl">{heading}</h2>
-            <p className="mt-2 text-center text-sm text-ink-muted">{intro}</p>
+        <div className="relative flex flex-1 flex-col justify-center px-10 py-16 lg:px-[4.375rem]">
+          <div className="mx-auto w-full max-w-[456px]">
+            <h2 className="text-center text-3xl font-semibold text-ink">{heading}</h2>
+            <p className="mt-2 text-center text-base text-ink-light">{intro}</p>
             {form}
             {signOutLink(false)}
           </div>
+          <div className="absolute inset-x-0 bottom-6">
+            <AuthFooter onLight topGap="mt-0" />
+          </div>
         </div>
       </div>
-
-      <AuthFooter />
     </div>
   )
 }

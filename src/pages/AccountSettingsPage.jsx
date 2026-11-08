@@ -1603,6 +1603,7 @@ export default function AccountSettingsPage() {
                     onKeyUp={pwCapsLock.onKeyUp}
                     className="input-field"
                     autoComplete="current-password"
+                    placeholder="Enter current password"
                     clearLabel="Clear current password"
                   />
                 </div>
@@ -1616,6 +1617,7 @@ export default function AccountSettingsPage() {
                     onKeyUp={pwCapsLock.onKeyUp}
                     className="input-field"
                     autoComplete="new-password"
+                    placeholder="Enter new password"
                     clearLabel="Clear new password"
                   />
                 </div>
@@ -1629,6 +1631,7 @@ export default function AccountSettingsPage() {
                     onKeyUp={pwCapsLock.onKeyUp}
                     className="input-field"
                     autoComplete="new-password"
+                    placeholder="Re-enter password"
                     clearLabel="Clear confirm password"
                   />
                   <CapsLockNotice show={pwCapsLock.capsOn} />

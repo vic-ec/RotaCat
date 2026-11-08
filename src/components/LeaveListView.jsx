@@ -6,6 +6,7 @@ import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { LEAVE_TYPE_LABELS, formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays } from '../lib/leaveMatrix'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
+import { useFillToViewport } from '../lib/useFillToViewport'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import Toolbar from './Toolbar'
 import ViewToggle from './ViewToggle'
@@ -146,6 +147,9 @@ function DateTimePopoverButton({ iso, Icon, label }) {
 // column headers (see filterGroups below) rather than an unrelated set of
 // dimensions.
 export default function LeaveListView() {
+  // The table runs to the bottom of the window with many rows, and to its
+  // last row with few — see the hook.
+  const [tableRef, tableFill] = useFillToViewport()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -318,7 +322,7 @@ export default function LeaveListView() {
            rest of the grid. This table is eleven columns of dates that
            mean nothing without the name they belong to, so it needed the
            frozen first column at least as much as that one did. */
-        <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
+        <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
           <table className="w-full min-w-[1500px] border-separate border-spacing-0 text-sm">
             <thead className="sticky top-0 z-10">
               {/* bg-canvas-sunken on every th, not on the tr: a sticky cell

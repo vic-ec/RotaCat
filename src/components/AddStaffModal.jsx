@@ -407,9 +407,13 @@ export default function AddStaffModal({ onClose, onCreated }) {
         )}
 
         {showsPeriod && (
-          <>
+          /* Side by side from `sm` up as two equal columns ending flush
+             with the fields above (same grid the name pair uses); stacked
+             on a phone. Both fields fill their column rather than sitting
+             at the picker's fixed width. */
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Active from" hint="The date this doctor becomes eligible for shifts. Today or earlier activates the account immediately.">
-              <DateFieldButton label="Active from" value={activeFrom} onChange={v => set({ activeFrom: v })} required />
+              <DateFieldButton label="Active from" fullWidth value={activeFrom} onChange={v => set({ activeFrom: v })} required />
             </Field>
 
             <Field
@@ -422,9 +426,9 @@ export default function AddStaffModal({ onClose, onCreated }) {
                     : 'Optional — leave blank for permanent staff.'
               }
             >
-              <DateFieldButton label="Active until" value={activeUntil} onChange={v => set({ activeUntil: v })} min={activeFrom || undefined} />
+              <DateFieldButton label="Active until" fullWidth value={activeUntil} onChange={v => set({ activeUntil: v })} min={activeFrom || undefined} />
             </Field>
-          </>
+          </div>
         )}
 
         {showsRotation && (

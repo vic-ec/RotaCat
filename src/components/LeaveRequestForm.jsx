@@ -208,9 +208,11 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           <p className="mt-1 text-xs text-ink-muted">{WEEKEND_EXCEPTION_HINT}</p>
         </div>
       ) : (
-        <div className="flex gap-3">
-          <DateFieldButton id="leave-date-from" label="From" required value={dateFrom} onChange={setDateFrom} />
-          <DateFieldButton id="leave-date-to" label="To" required min={dateFrom || undefined} value={dateTo} onChange={setDateTo} />
+        // Two equal columns that end flush with the fields above, rather
+        // than two fixed-width buttons stopping short of the right edge.
+        <div className="grid grid-cols-2 gap-3">
+          <DateFieldButton id="leave-date-from" label="From" required fullWidth value={dateFrom} onChange={setDateFrom} />
+          <DateFieldButton id="leave-date-to" label="To" required fullWidth min={dateFrom || undefined} value={dateTo} onChange={setDateTo} />
         </div>
       )}
 

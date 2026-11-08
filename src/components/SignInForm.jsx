@@ -334,7 +334,9 @@ export default function SignInForm({
       {/* Message slot under the button: the credential error, or while a
           Turnstile token is pending, the status line. Fixed height, so
           neither coming or going moves the link below. */}
-      <div className="relative flex min-h-[28px] flex-col items-center justify-center">
+      <div className={`relative flex flex-col items-center justify-center ${
+        inline || error || (verifying && !submitting) ? 'min-h-[28px]' : '-mt-[22px] h-0'
+      }`}>
         <CredentialErrorMessage error={error} onDismiss={handleDismissError} />
         <p id="verify-status" role="status" className="text-center text-sm text-ink-light empty:hidden">
           {verifying && !submitting && !error ? 'Checking your connection is secure…' : ''}

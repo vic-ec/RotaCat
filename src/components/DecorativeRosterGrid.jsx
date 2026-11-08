@@ -146,7 +146,7 @@ export default function DecorativeRosterGrid() {
           {COLUMNS.map((time) => (
             <div
               key={time}
-              className="flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/45 lg:text-[10px]"
+              className="flex-1 text-center text-[9px] font-medium tracking-wide text-ink-muted/60 lg:text-[10px]"
             >
               {time}
             </div>

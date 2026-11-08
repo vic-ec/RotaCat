@@ -91,7 +91,15 @@ export default {
         // other auth pages still paint with.
         'auth-page': 'rgb(var(--color-auth-page) / <alpha-value>)',
         'auth-panel': 'rgb(var(--color-auth-panel) / <alpha-value>)',
+        'auth-modal': 'rgb(var(--color-auth-modal) / <alpha-value>)',
         'auth-card': 'rgb(var(--color-auth-card) / <alpha-value>)',
+        // What sits directly on the sheen: the phone sheet's text, link and
+        // its mint-on-sheen Sign in button.
+        'auth-sheet-ink': 'rgb(var(--color-auth-sheet-ink) / <alpha-value>)',
+        'auth-sheet-ink-light': 'rgb(var(--color-auth-sheet-ink-light) / <alpha-value>)',
+        'auth-sheet-link': 'rgb(var(--color-auth-sheet-link) / <alpha-value>)',
+        'auth-mint-btn': 'rgb(var(--color-auth-mint-btn) / <alpha-value>)',
+        'auth-mint-btn-ink': 'rgb(var(--color-auth-mint-btn-ink) / <alpha-value>)',
         'auth-seam': 'rgb(var(--color-auth-seam) / <alpha-value>)',
         'auth-shell-border': 'rgb(var(--color-auth-shell-border) / <alpha-value>)',
         'auth-grid-cell': 'rgb(var(--color-auth-grid-cell) / <alpha-value>)',

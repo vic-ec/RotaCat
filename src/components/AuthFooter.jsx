@@ -10,9 +10,13 @@
 // should read as quieter than nearby helper text (e.g. "Already have an
 // account?"). The login page leaves it off: 12px is the floor the
 // redesign sets for this line.
-export default function AuthFooter({ onLight = false, topGap = 'mt-3', compact = false }) {
+// `onSheen` is for the phone sheet, which sits directly on the auth pages'
+// deep brushed ground: the sheet's own muted ink, which stays light in both
+// themes (on-fill inverts to near-black on the dark theme and would vanish).
+export default function AuthFooter({ onLight = false, onSheen = false, topGap = 'mt-3', compact = false }) {
+  const tone = onSheen ? 'text-auth-sheet-ink-light' : onLight ? 'text-ink-light' : 'text-on-fill/70'
   return (
-    <p className={`${topGap} text-center ${compact ? 'text-[10px]' : 'text-xs'} ${onLight ? 'text-ink-light' : 'text-on-fill/70'}`}>
+    <p className={`${topGap} text-center ${compact ? 'text-[10px]' : 'text-xs'} ${tone}`}>
       © {new Date().getFullYear()} vic-ec. All rights reserved.
     </p>
   )

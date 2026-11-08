@@ -142,21 +142,32 @@
      (Create account, Set password), which keep their current look. */
   --color-auth-page: 31 103 99;               /* #1F6763 — deep blue-green page behind the card ("Blue-green 6", spec 1 Nov) */
   /* The brushed-metal sheen laid over the page colour (see .auth-page).
-     Layer 1 darkens the top-left and bottom-right corners and runs the
-     highlight band bottom-left to top-right; layer 2 is a 1px horizontal
-     grain. Static — no motion. If a ward monitor bands in the margins,
-     drop layer 2 and keep the rest. */
+     Layer 1 darkens the top-left and bottom-right corners (22–24%) and runs
+     a faint highlight band (6%) bottom-left to top-right; layer 2 is a 1px
+     horizontal grain at 2.5%, below where scan lines show at 100% zoom.
+     Restrained on purpose (spec rev. 7 Nov): a deep satin teal, not a lit
+     surface. Static — no motion. If a ward monitor still bands in the
+     margins, drop layer 2 and keep the rest. */
   --bg-auth-sheen:
     linear-gradient(135deg,
-      rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.18) 22%,
-      rgba(255, 255, 255, 0.16) 48%, rgba(255, 255, 255, 0.07) 56%,
-      rgba(0, 0, 0, 0.18) 78%, rgba(0, 0, 0, 0.45) 100%),
+      rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 24%,
+      rgba(255, 255, 255, 0.06) 48%, rgba(255, 255, 255, 0.03) 56%,
+      rgba(0, 0, 0, 0.08) 76%, rgba(0, 0, 0, 0.24) 100%),
     repeating-linear-gradient(0deg,
-      rgba(255, 255, 255, 0.05) 0 1px, rgba(0, 0, 0, 0.02) 1px 2px, transparent 2px 3px);
+      rgba(255, 255, 255, 0.025) 0 1px, rgba(0, 0, 0, 0.01) 1px 2px, transparent 2px 3px);
+  /* Text and the one button that sit directly on the sheen (the phone
+     sheet): near-white heading, mint-white body, mint link, and a mint
+     fill with dark ink for the Sign in key. */
+  --color-auth-sheet-ink: 243 246 245;        /* #F3F6F5 */
+  --color-auth-sheet-ink-light: 207 224 220;  /* #CFE0DC */
+  --color-auth-sheet-link: 143 211 197;       /* #8FD3C5 */
+  --color-auth-mint-btn: 111 189 175;         /* #6FBDAF */
+  --color-auth-mint-btn-ink: 10 16 14;        /* #0A100E */
   /* The Create-account role cards on the desktop shell: a lighter mint
      than the page (palette "Mint 1"); hover and press use accent-night. */
   --color-auth-card: 224 245 236;             /* #E0F5EC */
   --color-auth-panel: 255 255 255;            /* #FFFFFF — both halves of the shell */
+  --color-auth-modal: 255 255 255;            /* #FFFFFF — floating auth panels (modals, standalone cards) */
   --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
   --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
   /* Decorative roster cells and bars, as the spec defines them. Declared so
@@ -342,9 +353,14 @@
      and the halves match); the shell's border and shadow mark it off from
      the page, and the seam borrows the line tone so it reads without
      glowing. */
-  --color-auth-page: 10 16 14;                /* #0A100E */
-  --bg-auth-sheen: none;                      /* flat: grain on near-black only adds noise */
-  --color-auth-card: 31 51 46;                /* #1F332E — same as accent-panel; hover deepens to accent-night */
+  --color-auth-page: 20 52 48;                /* #143430 — deep teal, one step up from the near-black card halves so the page (and the phone sheet) separates from the white-on-light hero's dark counterpart */
+  --color-auth-modal: 27 59 53;               /* #1B3B35 — the spec's night-mode modal */
+  --color-auth-sheet-ink: 243 246 245;        /* #F3F6F5 */
+  --color-auth-sheet-ink-light: 207 224 220;  /* #CFE0DC */
+  --color-auth-sheet-link: 143 211 197;       /* #8FD3C5 */
+  --color-auth-mint-btn: 111 189 175;         /* #6FBDAF */
+  --color-auth-mint-btn-ink: 10 16 14;        /* #0A100E */
+  --color-auth-card: 18 29 26;                /* #121D1A — role cards, a step below the panel; hover lifts to accent-night */
   --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
   --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
   --color-auth-shell-border: 43 70 63;        /* #2B463F */
@@ -426,6 +442,18 @@
     transition: background-color 5000s ease-in-out 0s;
   }
 
+  /* Chromium draws autofilled text — and the autofill *preview* shown
+     before the page is first clicked — with the browser's own control font
+     (13px system sans), ignoring the input's font rules, so saved
+     credentials appeared small and jumped to size on the first click.
+     ::first-line is the one hook Chromium honours for that text; `inherit`
+     on a pseudo-element resolves from the input itself, so this simply
+     re-applies the field's own face and size. */
+  input::first-line {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
   /* Chromium-based Edge injects its own "reveal password" eye icon inside
      every password field, which stacks with our own custom show/hide
      button (Login/Signup forms) on top of it. Hide the native one so only
@@ -493,6 +521,15 @@
   .scrim { background-color: var(--scrim); }
   .scrim-strong { background-color: var(--scrim-strong); }
   .scrim-heavy { background-color: var(--scrim-heavy); }
+
+  /* The auth modals (AuthModal): header, body and footer each reserve the
+     scrollbar's width so their right edges line up whether or not the body
+     scrolls, and the body's scrollbar is the thin one. */
+  .auth-modal-gutter { scrollbar-gutter: stable; scrollbar-width: thin; }
+  .auth-modal-scroll { scrollbar-color: rgb(var(--color-ink-muted) / 0.45) transparent; }
+  .auth-modal-scroll::-webkit-scrollbar { width: 8px; }
+  .auth-modal-scroll::-webkit-scrollbar-thumb { border-radius: 9999px; background-color: rgb(var(--color-ink-muted) / 0.45); }
+  .auth-modal-scroll::-webkit-scrollbar-track { background: transparent; }
 
   /* One decorative roster pill in the desktop auth hero's background band
      (DecorativeRosterGrid) softly brightening, as if RotaCat were quietly
@@ -572,58 +609,144 @@
   }
 
   /* The app-wide button bevel (docs/design/login-redesign/SPEC.md, "Button
-     system"). An inset edge — 1px light along the top, 2px dark along the
-     bottom — and no drop shadow, so a button reads as a physical key. A
-     press inverts it; a disabled or aria-disabled button goes flat. Sizes,
-     radii and colours are the button's own; this is only the surface.
+     system", v2 of 7 Nov). A 1px light edge along the top and a 2px dark
+     edge along the bottom, both DERIVED FROM THE BUTTON'S OWN FILL rather
+     than fixed white/black overlays, so a red button shows red edges and a
+     mint one mint edges — never a white or teal lip. No drop shadow (the
+     two floating action buttons excepted). A press swaps the edges; a
+     disabled or aria-disabled button goes flat. Sizes, radii and colours
+     are the button's own; this is only the surface.
 
-     Three flavours: `.btn-bevel` for a filled surface (also applied to
-     .btn-primary and .btn-success below), `.btn-bevel-danger` for a red one
-     (.btn-danger), and `.btn-bevel-outline` for a white, outlined surface
-     (.btn-secondary, .btn-danger-outline, and the outlined choices on the
-     auth pages). Icon-only buttons take none of these: the bevel is for a
-     button with a filled or outlined face. Where a button carried a drop
-     shadow for another reason, the bevel replaces it. */
+     `--btn-bg` is the fill; the edges are the fill lightened by `--btn-up`
+     and darkened by `--btn-dn` in HSL lightness points (15 / 18 for a filled
+     face, 9 / 12 for an outlined one; unitless, since `l` is a plain number). Relative colour syntax
+     (`hsl(from …)`) does the derivation — Chrome 119+, Safari 16.4+,
+     Firefox 128+; a browser without it falls back to the fixed-overlay
+     bevel below, which is the first build's look.
+
+     Flavours: `.btn-bevel` (teal fill), `.btn-bevel-success`,
+     `.btn-bevel-danger`, `.btn-bevel-mint` (the phone sheet's Sign in),
+     `.btn-bevel-outline` (white face, keeps its border), `.btn-bevel-fab`
+     (teal fill plus the one permitted lift shadow). The shared .btn-*
+     classes carry the matching flavour without any markup change. Icon-
+     only buttons take none of these. */
   .btn-bevel,
+  .btn-bevel-success,
+  .btn-bevel-danger,
+  .btn-bevel-mint,
+  .btn-bevel-fab,
   .btn-primary,
   .btn-success,
+  .btn-danger,
   .toolbar-pill-active {
+    --btn-up: 15;
+    --btn-dn: 18;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
-  }
-  .btn-bevel-danger,
-  .btn-danger {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
   }
   .btn-bevel-outline,
   .btn-secondary,
   .btn-danger-outline {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(15, 118, 110, 0.14);
+    --btn-up: 9;
+    --btn-dn: 12;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(15, 23, 42, 0.12);
   }
-  .btn-bevel:active,
-  .btn-primary:active,
-  .btn-success:active,
-  .toolbar-pill-active:active,
-  .btn-bevel-danger:active,
-  .btn-danger:active {
-    box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+  /* Each flavour's fill. Hover re-points the fill to the shade the hover
+     background already uses, so the edges re-derive with it. */
+  .btn-bevel, .btn-bevel-fab, .btn-primary, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
+  .btn-bevel:hover, .btn-bevel-fab:hover, .btn-primary:hover { --btn-bg: rgb(var(--color-accent-dark)); }
+  .btn-bevel-success, .btn-success { --btn-bg: rgb(var(--color-success)); }
+  .btn-bevel-danger, .btn-danger { --btn-bg: rgb(var(--color-danger)); }
+  .btn-bevel-danger:hover, .btn-danger:hover { --btn-bg: rgb(var(--color-danger-dark)); }
+  .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
+  .btn-bevel-outline, .btn-secondary, .btn-danger-outline { --btn-bg: rgb(var(--color-canvas-raised)); }
+  .btn-bevel-outline:hover { --btn-bg: rgb(var(--color-auth-choice-hover)); }
+  /* An outlined face that is not white — the Create-account role cards on
+     Mint 1 — derives its edges from that fill: the top lightens to white,
+     the bottom to a deeper mint, and the press swaps them. Without this
+     the edges came from white and vanished on the mint. */
+  .btn-bevel-outline.btn-face-card { --btn-bg: rgb(var(--color-auth-card)); }
+  .btn-bevel-outline.btn-face-card:hover { --btn-bg: rgb(var(--color-accent-night)); }
+  .btn-secondary:hover { --btn-bg: rgb(var(--color-canvas-sunken)); }
+  .btn-danger-outline:hover { --btn-bg: rgb(var(--color-danger-bg)); }
+
+  @supports (color: hsl(from red h s l)) {
+    .btn-bevel,
+    .btn-bevel-success,
+    .btn-bevel-danger,
+    .btn-bevel-mint,
+    .btn-bevel-outline,
+    .btn-primary,
+    .btn-success,
+    .btn-danger,
+    .btn-secondary,
+    .btn-danger-outline,
+    .toolbar-pill-active {
+      box-shadow:
+        inset 0 1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up))),
+        inset 0 -2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn)));
+    }
+    /* The floating action buttons are the only buttons with an outer
+       shadow: the same bevel plus a teal lift. */
+    .btn-bevel-fab {
+      box-shadow:
+        inset 0 1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up))),
+        inset 0 -2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn))),
+        0 12px 24px -12px rgba(15, 118, 110, 0.6);
+    }
+    .btn-bevel:active,
+    .btn-bevel-success:active,
+    .btn-bevel-danger:active,
+    .btn-bevel-mint:active,
+    .btn-bevel-outline:active,
+    .btn-bevel-fab:active,
+    .btn-primary:active,
+    .btn-success:active,
+    .btn-danger:active,
+    .btn-secondary:active,
+    .btn-danger-outline:active,
+    .toolbar-pill-active:active {
+      box-shadow:
+        inset 0 2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn))),
+        inset 0 -1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up)));
+    }
   }
-  .btn-bevel-outline:active,
-  .btn-secondary:active,
-  .btn-danger-outline:active {
-    box-shadow: inset 0 2px 0 rgba(15, 118, 110, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+  @supports not (color: hsl(from red h s l)) {
+    .btn-bevel-fab {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 12px 24px -12px rgba(15, 118, 110, 0.6);
+    }
+    .btn-bevel:active,
+    .btn-bevel-success:active,
+    .btn-bevel-danger:active,
+    .btn-bevel-mint:active,
+    .btn-bevel-fab:active,
+    .btn-primary:active,
+    .btn-success:active,
+    .btn-danger:active,
+    .toolbar-pill-active:active {
+      box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
+    }
+    .btn-bevel-outline:active,
+    .btn-secondary:active,
+    .btn-danger-outline:active {
+      box-shadow: inset 0 2px 0 rgba(15, 23, 42, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+    }
   }
   .btn-bevel:disabled,
   .btn-bevel[aria-disabled="true"],
+  .btn-bevel-success:disabled,
   .btn-bevel-danger:disabled,
   .btn-bevel-danger[aria-disabled="true"],
+  .btn-bevel-mint:disabled,
   .btn-bevel-outline:disabled,
   .btn-bevel-outline[aria-disabled="true"],
+  .btn-bevel-fab:disabled,
   .btn-primary:disabled,
   .btn-primary[aria-disabled="true"],
   .btn-success:disabled,
   .btn-secondary:disabled,
   .btn-danger:disabled,
   .btn-danger-outline:disabled {
+    opacity: 0.6;
     box-shadow: none;
   }
 
@@ -635,14 +758,14 @@
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-accent px-4 py-1
            text-sm font-medium text-on-fill transition-colors
            hover:bg-accent-dark active:bg-accent-dark
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded border border-slate-line
            bg-canvas-raised px-4 py-1 text-sm font-medium text-ink transition-colors
            hover:bg-canvas-sunken active:bg-canvas-sunken
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   /* For approve-type confirmations specifically (e.g. an "Approve" button)
@@ -652,7 +775,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
            text-sm font-medium text-on-fill transition-opacity
            hover:opacity-85 active:opacity-85
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   /* Solid destructive action — uses the dedicated `danger` token, never
@@ -661,7 +784,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-danger px-4 py-1
            text-sm font-medium text-on-fill transition-colors
            hover:bg-danger-dark active:bg-danger-dark
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   /* Same box model as .btn-secondary (border + white bg + tinted hover), red
@@ -673,7 +796,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded border border-danger
            bg-canvas-raised px-4 py-1 text-sm font-medium text-danger transition-colors
            hover:bg-danger-bg active:bg-danger-bg
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   /* A disabled destructive button should stop looking destructive.
@@ -705,7 +828,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded border border-transparent
            bg-transparent px-4 py-1 text-sm font-medium text-ink-light transition-colors
            hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .card {
@@ -729,7 +852,7 @@
   .toolbar-pill {
     @apply flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border
            border-accent/25 px-3 text-sm font-medium transition-colors
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
   .toolbar-pill-active {
     @apply bg-accent text-on-fill;
@@ -770,7 +893,7 @@
   .icon-btn {
     @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
            border-accent/25 transition-colors
-           disabled:cursor-not-allowed disabled:opacity-50;
+           disabled:cursor-not-allowed disabled:opacity-60;
   }
   .icon-btn-idle {
     @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink

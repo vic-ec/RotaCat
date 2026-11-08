@@ -11,6 +11,7 @@ import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { authFieldClass, authButtonClass, AUTH_LABEL_LG, AUTH_PANEL, AUTH_ERROR, AUTH_FIELD_ERROR } from '../lib/authStyles'
 
 // Mandatory first-sign-in password change for anyone still using a password
 // an admin generated for them (profiles.must_change_password).
@@ -120,16 +121,12 @@ function SetPasswordForm({ profile, onDone }) {
   }
 
   // pr-12 leaves room for the reveal toggle sitting inside the field.
-  const fieldClass = `w-full rounded-lg border-2 border-accent/50 bg-field py-2 pl-4 pr-12
-    text-base text-ink placeholder:text-ink-muted
-    transition-colors focus:border-accent focus:bg-field
-    focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent/25
-    md:py-3 md:text-lg`
+  const fieldClass = authFieldClass({ trailing: true, large: true })
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2 md:mt-8 md:gap-5">
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 md:mt-8 md:gap-[22px]">
       <div>
-        <label htmlFor="current-password" className="mb-1.5 block text-sm font-semibold text-ink md:text-base">
+        <label htmlFor="current-password" className={AUTH_LABEL_LG}>
           Temporary password
         </label>
         <div className="relative">
@@ -147,7 +144,7 @@ function SetPasswordForm({ profile, onDone }) {
             placeholder="From your welcome email"
             className={fieldClass}
           />
-          <PasswordRevealToggle revealed={revealed.current} onToggle={() => toggleReveal('current')} />
+          <PasswordRevealToggle revealed={revealed.current} onToggle={() => toggleReveal('current')} controls="current-password" />
         </div>
       </div>
 
@@ -157,7 +154,7 @@ function SetPasswordForm({ profile, onDone }) {
             accessible name, so a screen reader would read the whole
             requirements sentence out as the field's name. */}
         <div className="mb-1.5 flex items-center gap-1.5">
-          <label htmlFor="password" className="block text-sm font-semibold text-ink md:text-base">
+          <label htmlFor="password" className={`${AUTH_LABEL_LG} mb-0`}>
             New password
           </label>
           <PasswordRequirementsInfo />
@@ -181,7 +178,7 @@ function SetPasswordForm({ profile, onDone }) {
           <PasswordRevealToggle revealed={revealed.password} onToggle={() => toggleReveal('password')} controls="password" />
         </div>
         {policyProblem && (
-          <p id="password-problem" className="mt-1.5 text-sm text-flagRed">{policyProblem}</p>
+          <p id="password-problem" className={AUTH_FIELD_ERROR}>{policyProblem}</p>
         )}
       </div>
 
@@ -191,7 +188,7 @@ function SetPasswordForm({ profile, onDone }) {
             accessible name, so a screen reader would read the whole
             requirements sentence out as the field's name. */}
         <div className="mb-1.5 flex items-center gap-1.5">
-          <label htmlFor="confirm" className="block text-sm font-semibold text-ink md:text-base">
+          <label htmlFor="confirm" className={`${AUTH_LABEL_LG} mb-0`}>
             Confirm password
           </label>
           <PasswordRequirementsInfo />
@@ -215,13 +212,13 @@ function SetPasswordForm({ profile, onDone }) {
           <PasswordRevealToggle revealed={revealed.confirm} onToggle={() => toggleReveal('confirm')} controls="confirm" />
         </div>
         {mismatch && (
-          <p id="confirm-problem" className="mt-1.5 text-sm text-flagRed">Passwords do not match.</p>
+          <p id="confirm-problem" className={AUTH_FIELD_ERROR}>Passwords do not match.</p>
         )}
         <CapsLockNotice show={capsLock.capsOn} />
       </div>
 
       {error && (
-        <div className="rounded-lg bg-flagRed-bg px-4 py-3 text-sm text-flagRed">
+        <div role="alert" className={AUTH_ERROR}>
           {error}
         </div>
       )}
@@ -229,11 +226,7 @@ function SetPasswordForm({ profile, onDone }) {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 w-full btn-bevel rounded-lg bg-accent py-3 text-base font-semibold text-on-fill
-          transition-colors hover:bg-accent-dark active:bg-accent-dark
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose
-          disabled:opacity-60
-          md:py-3.5 md:text-lg"
+        className={authButtonClass({ large: true, extra: 'mt-2' })}
       >
         {submitting ? 'Saving…' : 'Save password and continue'}
       </button>
@@ -266,11 +259,17 @@ export default function SetPasswordPage() {
   // Ends the session rather than getting past the requirement — rose, the
   // app's own colour for the secondary link on an auth screen ("Create an
   // account", "Back to sign in").
-  const signOutLink = (
+  // Teal and underlined like every other auth-screen link (rose is a brand
+  // accent, not a UI colour); on the phone sheet it takes the sheet's mint.
+  const signOutLink = (onSheen) => (
     <button
       type="button"
       onClick={signOut}
-      className="mt-4 block w-full text-center text-[14.7px] font-medium text-rose transition-colors hover:text-rose-dark hover:underline"
+      className={`mt-4 block w-full text-center text-[14.7px] font-medium underline underline-offset-4 transition-colors ${
+        onSheen
+          ? 'text-auth-sheet-link decoration-auth-sheet-link/45 hover:text-auth-sheet-ink hover:decoration-auth-sheet-ink'
+          : 'text-accent decoration-accent/45 hover:text-accent-dark hover:decoration-accent-dark'
+      }`}
     >
       Sign out instead
     </button>
@@ -278,42 +277,49 @@ export default function SetPasswordPage() {
 
   const form = <SetPasswordForm profile={profile} onDone={handleDone} />
 
-  // Mobile: full-bleed hero above a rounded bottom sheet, no outer teal
-  // frame — the same shape as LoginPage's mobile landing, which is where
-  // the emailed login link lands people first.
+  // Mobile: full-bleed white hero above a rounded bottom sheet on the deep
+  // brushed ground — the same shape as LoginPage's phone landing, which is
+  // where the emailed login link lands people first. The heading, intro
+  // and sign-out link take the sheet's own light inks; the form itself
+  // sits in a white panel on the sheet (as Create-account's role cards
+  // do), so its labels, field messages and Caps Lock notice keep the
+  // colours they have everywhere else.
   if (!isDesktop) {
     return (
       <div className="flex min-h-dvh flex-col bg-auth-hero">
         <MobileAuthHero />
 
-        <div className="relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] bg-accent-panel px-8 pb-5 pt-6">
-          <h2 className="text-center text-2xl font-semibold text-ink">{heading}</h2>
-          <p className="mt-2 text-center text-[14.7px] text-ink-light">{intro}</p>
-          {form}
-          {signOutLink}
-          <AuthFooter onLight topGap="mt-4" compact />
+        <div className="auth-page relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] px-5 pb-5 pt-6">
+          <h2 className="text-center text-2xl font-semibold text-auth-sheet-ink">{heading}</h2>
+          <p className="mt-2 text-center text-[14.7px] text-auth-sheet-ink-light">{intro}</p>
+          <div className="mt-4 rounded-[14px] border border-auth-shell-border bg-auth-panel px-4 pb-4 pt-1">
+            {form}
+          </div>
+          {signOutLink(true)}
+          <AuthFooter onSheen topGap="mt-4" compact />
         </div>
       </div>
     )
   }
 
-  // Desktop: split-screen card, matching Login and Sign-up.
+  // Desktop: the login card — white halves, 1px seam — on the brushed page.
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-auth-ground px-4 py-10">
-      <div className="flex w-full max-w-[80rem] overflow-hidden rounded-xl border border-accent/50 bg-canvas-raised shadow-raised md:flex-row">
-        <AuthHero />
+    <div className="auth-page flex min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw]">
+      <div className={`mx-auto flex w-full max-w-[1800px] min-h-[720px] overflow-hidden md:flex-row ${AUTH_PANEL} bg-auth-panel`}>
+        <AuthHero seam="shell" />
 
-        <div className="flex flex-1 flex-col justify-center bg-accent-panel px-[4.375rem] py-[5.75rem]">
-          <div className="mx-auto w-full max-w-sm">
-            <h2 className="text-center text-base font-semibold text-ink md:text-2xl lg:text-3xl">{heading}</h2>
-            <p className="mt-2 text-center text-sm text-ink-muted">{intro}</p>
+        <div className="relative flex flex-1 flex-col justify-center px-10 py-16 lg:px-[4.375rem]">
+          <div className="mx-auto w-full max-w-[456px]">
+            <h2 className="text-center text-3xl font-semibold text-ink">{heading}</h2>
+            <p className="mt-2 text-center text-base text-ink-light">{intro}</p>
             {form}
-            {signOutLink}
+            {signOutLink(false)}
+          </div>
+          <div className="absolute inset-x-0 bottom-6">
+            <AuthFooter onLight topGap="mt-0" />
           </div>
         </div>
       </div>
-
-      <AuthFooter />
     </div>
   )
 }

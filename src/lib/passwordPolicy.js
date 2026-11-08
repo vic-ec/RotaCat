@@ -21,8 +21,10 @@ export const PASSWORD_RULE = new RegExp(
 export const PASSWORD_HINT =
   `At least ${PASSWORD_MIN_LENGTH} characters, with an uppercase letter, a lowercase letter, a number, and a symbol.`
 
-// Short form for inline helper text next to the field.
-export const PASSWORD_HINT_SHORT = `At least ${PASSWORD_MIN_LENGTH} characters`
+// Short form for inline helper text next to the field — the whole rule, so
+// nobody finds out about the letter/number/symbol parts only on submit.
+export const PASSWORD_HINT_SHORT =
+  `At least ${PASSWORD_MIN_LENGTH} characters; include upper & lowercase letters; number(s); symbol(s)`
 
 // Returns a user-facing problem string, or null if the password is acceptable.
 // Length is reported separately from the character-class rule so "too short"

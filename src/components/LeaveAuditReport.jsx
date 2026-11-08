@@ -288,8 +288,12 @@ export default function LeaveAuditReport() {
           keeps Weekend's month nav out of its FAB. Search and Filter are
           the narrowing controls, so below `md` they move into the FAB. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <DateFieldButton label="From" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-        <DateFieldButton label="To" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+        {/* Equal halves of the row on a phone (the only controls there),
+            a fixed pair beside Search/Filter from md up. */}
+        <div className="flex w-full gap-2 md:w-80">
+          <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+          <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+        </div>
         <div className="hidden items-center gap-2 md:flex">
           <div className="w-64">
             <ClearableInput

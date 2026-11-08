@@ -19,27 +19,37 @@ export const TURNSTILE_ENABLED = Boolean(SITE_KEY)
 // (rather than crashing the form) if it's unset. `ref` exposes the
 // underlying widget's `reset()`, used to get a fresh token after a
 // failed submit — a Turnstile token is single-use.
-const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire }, ref) {
+//
+// `appearance`, `size` and the two interactivity callbacks are optional
+// and default to the widget's existing behaviour (always shown, flexible
+// width), so the sign-in form is untouched by them. The auth modals pass
+// appearance "interaction-only" through TurnstileSlot, which shows the
+// widget only if Cloudflare actually needs the visitor to do something.
+const TurnstileWidget = forwardRef(function TurnstileWidget({
+  onVerify, onExpire, appearance, size = 'flexible', onBeforeInteractive, onAfterInteractive,
+}, ref) {
   const { theme } = useTheme()
   if (!SITE_KEY) return null
   const widgetTheme = theme === DARK_THEME ? 'dark' : 'light'
   return (
     <Turnstile
-      // Cloudflare reads the theme when it renders the widget into its
+      // Cloudflare reads theme and size when it renders the widget into its
       // iframe, so a changed option does not repaint an existing one. The
       // key remounts it instead — the cost is a fresh token, which is no
       // loss: a token is single-use and nobody switches theme mid-submit.
-      key={widgetTheme}
+      key={`${widgetTheme}-${size}`}
       ref={ref}
       siteKey={SITE_KEY}
       onSuccess={onVerify}
       onExpire={onExpire}
+      onBeforeInteractive={onBeforeInteractive}
+      onAfterInteractive={onAfterInteractive}
       // Follows the app's own theme rather than Turnstile's "auto", which
       // keys off the OS and so showed a dark box on the light forms (and
       // would show a white one on the dark theme for anyone whose device
       // says light). "flexible" stretches it to the width of the inputs
       // around it instead of sitting as a fixed 300px block.
-      options={{ theme: widgetTheme, size: 'flexible' }}
+      options={{ theme: widgetTheme, size, ...(appearance ? { appearance } : {}) }}
     />
   )
 })

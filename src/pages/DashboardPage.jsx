@@ -4,10 +4,10 @@ import { ArrowLeftRight, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-import { todayStr, addDays, formatShortDateRange } from '../lib/dateRange'
+import { todayStr, addDays, formatShortDateRange, parseLocalDate, formatWeekdayDateShort } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
-import { upcomingRequests } from '../lib/leaveDashboard'
-import { shortLeaveTypeLabel } from '../lib/leaveRequests'
+import { upcomingRequests, annualDaysUsedInYear } from '../lib/leaveDashboard'
+import { shortLeaveTypeLabel, ANNUAL_LEAVE_ALLOWANCE } from '../lib/leaveRequests'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
 import LeaveCard from '../components/LeaveCard'
@@ -20,6 +20,10 @@ const MY_LEAVE_PATH = '/leave?tab=my-leave'
 const TEAM_LEAVE_PATH = '/leave?tab=team'
 const LEAVE_REQUESTS_PATH = '/leave?tab=requests'
 const HOURS_SUMMARY_PATH = '/roster?view=summary'
+const SWAPS_PATH = '/swaps'
+
+// The upcoming-shifts card shows at most this many rows of the week ahead.
+const MAX_UPCOMING_ROWS = 5
 
 // How far ahead "upcoming team leave" looks, for the admin view.
 const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
@@ -29,7 +33,7 @@ const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // most of the time shouldn't cost the most screen space.
 function EmptyRow({ children, to, linkLabel }) {
   return (
-    <p className="flex flex-wrap items-center gap-x-1.5 rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">
+    <p className="card flex flex-wrap items-center gap-x-1.5 px-4 py-3 text-sm text-ink-muted">
       <span>{children}</span>
       {to && (
         <>
@@ -51,6 +55,63 @@ function SectionHeading({ children, to, linkLabel }) {
         </Link>
       )}
     </div>
+  )
+}
+
+function hourOnly(time) {
+  return time ? time.slice(0, 2) : ''
+}
+
+// Which chip a shift's time takes (docs/app-theme/SPEC.md, Dashboard):
+// night from is_night_shift — never inferred from the code or the hour —
+// evening for a shift starting in the afternoon, mint for the rest.
+function timeChipClass(shiftType) {
+  if (shiftType?.is_night_shift === true) return 'chip-night'
+  const start = Number(hourOnly(shiftType?.start_time))
+  if (start >= 13) return 'chip-evening'
+  return 'chip-mint'
+}
+
+// One row of the upcoming-shifts card: a 64px date cell (today's on the
+// sheen), the shift and who else is on it, and the time chip.
+function UpcomingShiftRow({ entry, coworkers, holidayName }) {
+  const date = parseLocalDate(entry.date)
+  const isToday = entry.date === todayStr()
+  const st = entry.shift_type
+  const line2 = [
+    holidayName,
+    coworkers.length > 0 ? `with ${coworkers.join(', ')}` : null,
+  ].filter(Boolean).join(' · ')
+  return (
+    <li className="flex items-stretch">
+      <div
+        className={`flex w-16 flex-shrink-0 flex-col items-center justify-center border-r py-2 text-center ${
+          isToday ? 'sheen border-sheen' : 'border-slate-line'
+        }`}
+        style={isToday ? { borderColor: 'transparent' } : undefined}
+      >
+        <span className={`text-[11px] font-semibold uppercase tracking-wide ${isToday ? 'text-on-sheen-2' : 'text-ink-muted'}`}>
+          {date.toLocaleDateString('en-GB', { weekday: 'short' })}
+        </span>
+        <span className={`text-[22px] font-semibold leading-tight ${isToday ? 'text-on-sheen' : 'text-ink'}`}>{date.getDate()}</span>
+        <span className={`text-[11px] font-semibold uppercase tracking-wide ${isToday ? 'text-on-sheen-2' : 'text-ink-muted'}`}>
+          {date.toLocaleDateString('en-GB', { month: 'short' })}
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-ink">
+            {st?.label || 'Shift'} · {hourOnly(st?.start_time)}h
+          </p>
+          {line2 && <p className="truncate text-[13px] text-ink-light">{line2}</p>}
+        </div>
+        {st?.start_time && st?.end_time && (
+          <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${timeChipClass(st)}`}>
+            {hourOnly(st.start_time)}–{hourOnly(st.end_time)}
+          </span>
+        )}
+      </div>
+    </li>
   )
 }
 
@@ -77,6 +138,8 @@ export default function DashboardPage() {
   const { profile, isAdmin, isClerk, isLocum } = useAuth()
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
+  const [coworkersByKey, setCoworkersByKey] = useState({})
+  const [annualDaysUsed, setAnnualDaysUsed] = useState(0)
   const [phByDate, setPhByDate] = useState({})
   const [incomingSwaps, setIncomingSwaps] = useState([])
   const [swapError, setSwapError] = useState('')
@@ -115,7 +178,41 @@ export default function DashboardPage() {
       .gte('date', todayStr())
       .lte('date', addDays(todayStr(), 6))
       .order('date', { ascending: true })
-    return data || []
+    return (data || []).filter(e => !e.profile_id || e.profile_id === profile.id)
+  }
+
+  // Everyone else on the published roster in the same window, keyed by
+  // date + shift code, so a row can say who else is on that slot. Same RLS
+  // as above: only published entries ever come back.
+  async function loadCoworkersThisWeek() {
+    const { data } = await supabase
+      .from('roster_entries')
+      .select('date, profile_id, shift_type:shift_types(code), profile:profiles!roster_entries_profile_id_fkey(surname)')
+      .gte('date', todayStr())
+      .lte('date', addDays(todayStr(), 6))
+      .not('profile_id', 'is', null)
+    const map = {}
+    for (const row of data || []) {
+      if (!row.profile_id || row.profile_id === profile.id || !row.profile?.surname) continue
+      const key = `${row.date}|${row.shift_type?.code}`
+      ;(map[key] ||= []).push(row.profile.surname)
+    }
+    return map
+  }
+
+  // Approved annual leave this calendar year, for the leave card's
+  // "N of 22 days used" — the same figure the My leave tracker shows.
+  async function loadAnnualDaysUsed() {
+    const year = new Date().getFullYear()
+    const { data } = await supabase
+      .from('leave_requests')
+      .select('date_from, date_to, annual_leave_days, leave_type, status')
+      .eq('profile_id', profile.id)
+      .eq('status', 'approved')
+      .eq('leave_type', 'annual')
+      .gte('date_to', `${year}-01-01`)
+      .lte('date_from', `${year}-12-31`)
+    return annualDaysUsedInYear((data || []).filter(r => r.leave_type === 'annual' && r.status === 'approved'), year)
   }
 
   // PH/PH_weekday shift rows get a calendar-icon button showing the actual
@@ -173,7 +270,7 @@ export default function DashboardPage() {
   async function loadDoctorWidgets() {
     setLoading(true)
     const today = todayStr()
-    const [leaveRes, shifts, ph, swaps] = await Promise.all([
+    const [leaveRes, shifts, coworkers, ph, swaps, annualUsed] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('*')
@@ -182,13 +279,17 @@ export default function DashboardPage() {
         .order('date_from', { ascending: true })
         .limit(10),
       loadOwnUpcomingShifts(),
+      loadCoworkersThisWeek(),
       loadPublicHolidaysThisWeek(),
       loadIncomingSwaps(),
+      loadAnnualDaysUsed(),
     ])
     setMyLeave(upcomingRequests(leaveRes.data || [], today))
     setMyShifts(shifts)
+    setCoworkersByKey(coworkers)
     setPhByDate(ph)
     setIncomingSwaps(swaps)
+    setAnnualDaysUsed(annualUsed)
     setLoading(false)
   }
 
@@ -197,12 +298,14 @@ export default function DashboardPage() {
   // shifts on the published roster (plus swaps, which locums can do too).
   async function loadLocumWidgets() {
     setLoading(true)
-    const [shifts, ph, swaps] = await Promise.all([
+    const [shifts, coworkers, ph, swaps] = await Promise.all([
       loadOwnUpcomingShifts(),
+      loadCoworkersThisWeek(),
       loadPublicHolidaysThisWeek(),
       loadIncomingSwaps(),
     ])
     setMyShifts(shifts)
+    setCoworkersByKey(coworkers)
     setPhByDate(ph)
     setIncomingSwaps(swaps)
     setLoading(false)
@@ -327,39 +430,53 @@ export default function DashboardPage() {
             {myShifts.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">No shifts in the next 7 days</p>
             ) : (
-              <div className="card flex flex-wrap gap-3 p-4">
-                {myShifts.map(e => {
+              <ul className="card divide-y divide-slate-line overflow-hidden">
+                {myShifts.slice(0, MAX_UPCOMING_ROWS).map(e => {
                   const isPH = e.shift_type?.day_type === 'PH' || e.shift_type?.day_type === 'PH_weekday'
                   return (
-                    <DateCard
+                    <UpcomingShiftRow
                       key={`${e.date}-${e.shift_type?.code}`}
-                      date={e.date}
-                      startTime={e.shift_type?.start_time}
-                      endTime={e.shift_type?.end_time}
-                      night={e.shift_type?.is_night_shift === true}
-                      publicHoliday={isPH && (phByDate[e.date] || true)}
+                      entry={e}
+                      coworkers={coworkersByKey[`${e.date}|${e.shift_type?.code}`] || []}
+                      holidayName={isPH ? (phByDate[e.date] || 'Public holiday') : null}
                     />
                   )
                 })}
-              </div>
+              </ul>
             )}
           </section>
 
-          {/* 2. Leave — one card per record, not one card holding a list */}
+          {/* 2. Leave — the balance card (annual days used this year and
+              the next booked date), then one card per upcoming record. */}
           {!isLocum && (
             <section>
-              {myLeave.length === 0 ? (
-                <EmptyRow to={MY_LEAVE_PATH} linkLabel="View all leave">No leave booked</EmptyRow>
-              ) : (
-                <>
-                  <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Upcoming leave</SectionHeading>
-                  <div className="space-y-3">
-                    {myLeave.map(lr => <LeaveCard key={lr.id} request={lr} />)}
-                  </div>
-                </>
+              <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Leave</SectionHeading>
+              <div className="card p-4">
+                <p className="text-xs font-medium text-ink-muted">Annual leave balance</p>
+                <p className="mt-1">
+                  <span className="font-display text-3xl font-bold text-ink">{annualDaysUsed}</span>
+                  <span className="ml-1.5 text-sm text-ink-muted">of {ANNUAL_LEAVE_ALLOWANCE} days used</span>
+                </p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {myLeave.length > 0
+                    ? `Next: ${formatWeekdayDateShort(myLeave[0].date_from)}`
+                    : 'Next: none booked'}
+                </p>
+              </div>
+              {myLeave.length > 0 && (
+                <div className="mt-3 space-y-3">
+                  <h3 className="text-sm font-semibold text-ink">Upcoming leave</h3>
+                  {myLeave.map(lr => <LeaveCard key={lr.id} request={lr} />)}
+                </div>
               )}
             </section>
           )}
+
+          {/* Quick actions — the two things a doctor comes here to start. */}
+          <div className="grid grid-cols-2 gap-3">
+            {!isLocum && <Link to={MY_LEAVE_PATH} className="btn-primary py-2.5">Request leave</Link>}
+            <Link to={SWAPS_PATH} className={`btn-secondary py-2.5 ${isLocum ? 'col-span-2' : ''}`}>Request swap</Link>
+          </div>
 
           {/* 3. Shift swaps — only when one is actually waiting on an answer */}
           {incomingSwaps.length > 0 && (

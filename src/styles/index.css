@@ -510,6 +510,15 @@
   .scrim-strong { background-color: var(--scrim-strong); }
   .scrim-heavy { background-color: var(--scrim-heavy); }
 
+  /* The auth modals (AuthModal): header, body and footer each reserve the
+     scrollbar's width so their right edges line up whether or not the body
+     scrolls, and the body's scrollbar is the thin one. */
+  .auth-modal-gutter { scrollbar-gutter: stable; scrollbar-width: thin; }
+  .auth-modal-scroll { scrollbar-color: rgb(var(--color-ink-muted) / 0.45) transparent; }
+  .auth-modal-scroll::-webkit-scrollbar { width: 8px; }
+  .auth-modal-scroll::-webkit-scrollbar-thumb { border-radius: 9999px; background-color: rgb(var(--color-ink-muted) / 0.45); }
+  .auth-modal-scroll::-webkit-scrollbar-track { background: transparent; }
+
   /* One decorative roster pill in the desktop auth hero's background band
      (DecorativeRosterGrid) softly brightening, as if RotaCat were quietly
      working through the rota. Opacity and a faint cool-grey luminance lift

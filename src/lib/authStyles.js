@@ -10,16 +10,37 @@
 // eye; `invalid` turns the border solid red. `large` is the full-page
 // size (the inline login form's), which steps up from `md`; modals keep
 // the base size since they are narrow at every width.
-export function authFieldClass({ icon = false, trailing = false, invalid = false, large = false, extra = '' } = {}) {
+export function authFieldClass({ icon = false, trailing = false, invalid = false, large = false, modal = false, extra = '' } = {}) {
   return [
     'w-full rounded-[14px] border-2 bg-field text-base text-ink placeholder:text-ink-muted',
     'transition-colors focus:bg-field focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-accent',
     icon ? 'pl-12' : 'pl-4',
     trailing ? 'pr-12' : 'pr-4',
-    large ? 'py-2 md:py-3 md:text-lg' : 'py-2.5',
+    // `modal` is the auth modals' fixed 44px control (AUTH_MODAL.field) —
+    // one height for text inputs, selects and the date picker alike.
+    modal ? AUTH_MODAL.field : large ? 'py-2 md:py-3 md:text-lg' : 'py-2.5',
     invalid ? 'border-flagRed' : 'border-accent/70 focus:border-accent',
     extra,
   ].join(' ')
+}
+
+// The auth modals' shared scale (AuthModal + AuthField): the four dialogs —
+// the three registration forms and Reset your password — are built from
+// these and nothing else, so a change here moves all four together.
+//   field 44px · button 48px · radius 14px · label→field 6px ·
+//   group→group 16px · field→helper 4px · panel padding 24px (16px <640px)
+export const AUTH_MODAL = {
+  field: 'h-11 py-0',
+  label: 'mb-1.5 block text-sm font-semibold text-ink',
+  hint: 'mt-1 text-xs text-ink-light',
+  fieldError: 'mt-1 text-sm text-flagRed',
+  groupGap: 'gap-4',
+  padX: 'px-4 sm:px-6',
+  padY: 'py-4',
+  // Two widths: `small` for a single-purpose dialog (Reset your password),
+  // `medium` for the registration forms, which lay their fields out in two
+  // columns from 640px.
+  sizes: { small: 'max-w-[420px]', medium: 'max-w-[560px]' },
 }
 
 export const AUTH_LABEL = 'mb-1.5 block text-sm font-semibold text-ink'

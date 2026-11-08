@@ -87,11 +87,13 @@ function formatDate(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// `variant="auth"` is the unauthenticated screens' field (see
-// src/lib/authStyles.js): taller, 14px corners, the accent/70 outline and
-// 16px text, so a date on the Create-account form sits level with the
-// text fields beside it. Everything else — the picker, the clear (x), the
-// label-as-placeholder — is the same control.
+// `variant="auth"` is the auth modals' field (AUTH_MODAL in
+// src/lib/authStyles.js): the same 44px, 14px corners, accent/70 outline and
+// 16px text as the text fields beside it on the Create-account form.
+// Everything else — the picker, the clear (x), the label-as-placeholder —
+// is the same control. `invalid` turns the outline red, and
+// `ariaDescribedBy` ties the native input to an error or helper line, both
+// so the date pair can take part in the form's inline validation.
 const VARIANTS = {
   default: {
     box: 'h-[30px] gap-1.5 rounded border border-slate-line pl-2 text-sm',
@@ -101,7 +103,8 @@ const VARIANTS = {
     clearIcon: 'h-2.5 w-2.5',
   },
   auth: {
-    box: 'gap-3 rounded-[14px] border-2 border-accent/70 py-2.5 pl-4 text-base focus-within:border-accent focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent',
+    box: 'h-11 gap-3 rounded-[14px] border-2 border-accent/70 pl-4 text-base focus-within:border-accent focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent',
+    invalid: 'border-flagRed focus-within:border-flagRed',
     pad: { withValue: 'pr-10', empty: 'pr-4' },
     icon: 'h-5 w-5',
     clear: 'right-3 h-5 w-5',
@@ -112,9 +115,13 @@ const VARIANTS = {
 export default function DateFieldButton({
   label, value, onChange, min, max, required = false, id, fullWidth = false,
   disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '', variant = 'default',
+  invalid = false, ariaDescribedBy,
 }) {
   const inputRef = useRef(null)
   const v = VARIANTS[variant] || VARIANTS.default
+  // The red outline overrides the variant's own border colour; it is only
+  // defined for the variants that take part in inline validation.
+  const box = invalid && v.invalid ? `${v.box.replace(/border-accent\/70/, '')} ${v.invalid}` : v.box
 
   function openPicker() {
     if (disabled) return
@@ -124,7 +131,7 @@ export default function DateFieldButton({
   return (
     <span
       onClick={openPicker}
-      className={`relative inline-flex items-center bg-field ${v.box} ${
+      className={`relative inline-flex items-center bg-field ${box} ${
         fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
       } ${value ? v.pad.withValue : v.pad.empty} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
@@ -142,6 +149,8 @@ export default function DateFieldButton({
         onChange={e => onChange(e.target.value)}
         onBlur={onBlur}
         aria-label={labelledExternally ? undefined : label}
+        aria-invalid={invalid || undefined}
+        aria-describedby={ariaDescribedBy}
         className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
       />
       {value && !disabled && (

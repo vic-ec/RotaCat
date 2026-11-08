@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { PASSWORD_HINT_SHORT, passwordProblem } from '../lib/passwordPolicy'
@@ -14,11 +14,14 @@ import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { formatPhoneProgressive } from '../lib/phone'
 import DateFieldButton from '../components/DateFieldButton'
-import {
-  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_LINK, AUTH_LINK_MUTED,
-  AUTH_PANEL, AUTH_PANEL_HEADER, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR, AUTH_FIELD_ERROR, AUTH_HINT,
-} from '../lib/authStyles'
-import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
+import AuthModal from '../components/AuthModal'
+import AuthField from '../components/AuthField'
+import TurnstileSlot from '../components/TurnstileSlot'
+import { authButtonClass, AUTH_LINK, AUTH_LINK_MUTED, AUTH_ERROR, AUTH_MODAL } from '../lib/authStyles'
+import { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
+
+// See LoginPage: React 18 forwards `inert` only as a string attribute.
+const inertWhen = (condition) => (condition ? { inert: '' } : {})
 
 
 // Which role the registrant is selecting
@@ -54,10 +57,15 @@ const CATEGORY_OPTIONS = [
 
 
 // Popup shown when a role card is picked — replaces the old full-page
-// "step 2" so the base Create-account panel never changes height. The
-// header and Register button stay fixed; only the field list between
-// them scrolls, so the primary action is always reachable without
-// hunting for it at the bottom of a tall form.
+// "step 2" so the base Create-account panel never changes height. Built on
+// the shared AuthModal shell (fixed header and Register footer, only the
+// field list between them scrolls) and AuthField, the same two pieces as
+// the Reset-password dialog, so the four auth dialogs share one look.
+const MODAL_TITLES = {
+  doctor: 'Create full-time doctor account',
+  locum: 'Create locum doctor account',
+  clerk: 'Create clerk account',
+}
 // Fixed-term placements: the roster cannot plan around these doctors
 // without knowing when they start and finish, so the dates are required.
 const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
@@ -102,34 +110,6 @@ function RoleModal({ role, onClose }) {
   const [resent, setResent] = useState(false)
   const capsLock = useCapsLockWarning()
 
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
-
-  // Return focus to whatever triggered the modal (the role card button)
-  // once it closes, since that element is still the logical place for
-  // keyboard/screen-reader focus to land.
-  useEffect(() => {
-    const trigger = document.activeElement
-    return () => trigger?.focus?.()
-  }, [])
-
-  // Focus the first field imperatively, after mount, instead of the native
-  // `autofocus` attribute — `autofocus` fires synchronously as the browser
-  // is still laying out this freshly-mounted modal, which on mobile Safari
-  // raced the focus-triggered zoom against that layout pass and showed up
-  // as a select-then-immediately-deselect zoom flicker. Focusing from an
-  // effect (after mount/paint) gives the zoom a settled layout to animate
-  // into, same fix already used for the sign-in modal.
-  useEffect(() => {
-    nameRef.current?.focus()
-  }, [])
-
-  const label = ROLE_OPTIONS.find(r => r.value === role)?.label
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
 
   async function handleSubmit(e) {
@@ -208,323 +188,273 @@ function RoleModal({ role, onClose }) {
     if (!error) setResent(true)
   }
 
+  const title = MODAL_TITLES[role]
+  const dateOrderInvalid = Boolean(activeFrom && activeUntil && activeUntil < activeFrom)
+  const periodDescribedBy = `${dateOrderInvalid ? 'activity-period-error ' : ''}activity-period-hint`
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center scrim-heavy p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="role-modal-title"
-        className={`flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden ${AUTH_PANEL}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={AUTH_PANEL_HEADER}>
-          <h2 id="role-modal-title" className={AUTH_PANEL_TITLE}>{label}</h2>
+    <AuthModal
+      size="medium"
+      title={submitted ? 'Check your email' : title}
+      titleId="role-modal-title"
+      onClose={onClose}
+      initialFocusRef={nameRef}
+      footer={submitted ? null : (
+        <>
           <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={AUTH_CLOSE_BUTTON}
+            type="submit"
+            form="role-details-form"
+            disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
+            className={authButtonClass({ large: false })}
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            {submitting ? 'Registering…' : 'Register'}
           </button>
-        </div>
+          <p className="mt-3 text-center text-sm text-ink-light">
+            Already have an account?{' '}
+            <Link to="/login" className={AUTH_LINK}>Sign in</Link>
+          </p>
+        </>
+      )}
+    >
+      {submitted ? (
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
+            <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-sm text-ink-muted">
+            We sent a 6-digit code to <span className="font-medium text-ink">{email}</span>.
+            Enter it below to confirm your address.
+          </p>
 
-        {submitted ? (
-          <div className="px-5 pb-6 pt-1 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
-              <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="font-display text-xl font-bold text-ink">Check your email</h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              We sent a 6-digit code to <span className="font-medium text-ink">{email}</span>.
-              Enter it below to confirm your address.
-            </p>
+          <form onSubmit={handleVerifyOtp} className="mt-4 text-left">
+            <AuthField
+              id="otp"
+              label="Confirmation code"
+              name="otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              required
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="123456"
+              controlClassName="text-center text-lg tracking-[0.3em] placeholder:tracking-normal"
+            />
 
-            <form onSubmit={handleVerifyOtp} className="mt-4 text-left">
-              <label htmlFor="otp" className={AUTH_LABEL}>
-                Confirmation code
-              </label>
-              <input
-                id="otp"
-                name="otp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className={authFieldClass({ extra: 'text-center text-lg tracking-[0.3em] placeholder:tracking-normal' })}
-              />
-
-              {otpError && (
-                <div role="alert" className={`mt-2 ${AUTH_ERROR}`}>
-                  {otpError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={verifying || otp.length !== 6}
-                className={authButtonClass({ extra: 'mt-4' })}
-              >
-                {verifying ? 'Confirming…' : 'Confirm email'}
-              </button>
-            </form>
+            {otpError && (
+              <div role="alert" className={`mt-4 ${AUTH_ERROR}`}>
+                {otpError}
+              </div>
+            )}
 
             <button
-              type="button"
-              onClick={handleResendOtp}
-              disabled={resending}
-              className={`mt-3 text-sm ${AUTH_LINK} disabled:opacity-60`}
+              type="submit"
+              disabled={verifying || otp.length !== 6}
+              className={authButtonClass({ large: false, extra: 'mt-4' })}
             >
-              {resending ? 'Resending…' : resent ? 'Code resent — check your email' : "Didn't get a code? Resend"}
+              {verifying ? 'Confirming…' : 'Confirm email'}
             </button>
+          </form>
 
-            <Link
-              to="/login"
-              className={`mt-6 block text-sm ${AUTH_LINK_MUTED}`}
-            >
-              Back to sign in
-            </Link>
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={resending}
+            className={`mt-3 text-sm ${AUTH_LINK} disabled:opacity-60`}
+          >
+            {resending ? 'Resending…' : resent ? 'Code resent — check your email' : "Didn't get a code? Resend"}
+          </button>
+
+          <Link
+            to="/login"
+            className={`mt-6 block text-sm ${AUTH_LINK_MUTED}`}
+          >
+            Back to sign in
+          </Link>
+        </div>
+      ) : (
+        <form id="role-details-form" onSubmit={handleSubmit}>
+          {/* Honeypot — off-screen and unreachable by keyboard/AT, so a
+              human visitor never notices or fills it in; a plain-fill
+              bot that populates every field it finds still will. See
+              the honeypot state comment above for what happens if it's
+              non-empty on submit. */}
+          <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
+            <label htmlFor="website">Website</label>
+            <input
+              id="website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
           </div>
-        ) : (
-          <>
-            <form
-              id="role-details-form"
-              onSubmit={handleSubmit}
-              className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4"
-            >
-              {/* Honeypot — off-screen and unreachable by keyboard/AT, so a
-                  human visitor never notices or fills it in; a plain-fill
-                  bot that populates every field it finds still will. See
-                  the honeypot state comment above for what happens if it's
-                  non-empty on submit. */}
-              <div className="absolute left-[-9999px] top-auto h-0 w-0 overflow-hidden" aria-hidden="true">
-                <label htmlFor="website">Website</label>
-                <input
-                  id="website"
-                  name="website"
-                  type="text"
-                  tabIndex={-1}
-                  autoComplete="off"
-                  value={honeypot}
-                  onChange={(e) => setHoneypot(e.target.value)}
-                />
-              </div>
 
-              <div>
-                <label htmlFor="name" className={AUTH_LABEL}>
-                  First name
-                </label>
-                <input
-                  ref={nameRef}
-                  id="name"
-                  name="given-name"
-                  type="text"
-                  required
-                  autoComplete="given-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={authFieldClass()}
-                />
-              </div>
+          {/* One column on a phone; two from 640px — First | Surname,
+              Email | Mobile, then the full-width groups. */}
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${AUTH_MODAL.groupGap}`}>
+            <AuthField
+              ref={nameRef}
+              id="name"
+              label="First name"
+              name="given-name"
+              type="text"
+              required
+              autoComplete="given-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
 
-              <div>
-                <label htmlFor="surname" className={AUTH_LABEL}>
-                  Surname
-                </label>
-                <input
-                  id="surname"
-                  name="family-name"
-                  type="text"
-                  required
-                  autoComplete="family-name"
-                  value={surname}
-                  onChange={(e) => setSurname(e.target.value)}
-                  className={authFieldClass()}
-                />
-              </div>
+            <AuthField
+              id="surname"
+              label="Surname"
+              name="family-name"
+              type="text"
+              required
+              autoComplete="family-name"
+              value={surname}
+              onChange={(e) => setSurname(e.target.value)}
+            />
 
-              <div>
-                <label htmlFor="phone" className={AUTH_LABEL}>
-                  Mobile
-                </label>
-                <input
-                  id="phone"
-                  name="tel"
-                  type="tel"
-                  required
-                  autoComplete="tel"
-                  inputMode="numeric"
-                  value={formatPhoneProgressive(phone)}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  className={authFieldClass()}
-                />
-              </div>
+            <AuthField
+              id="email"
+              label="Email"
+              icon="mail"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmailTouched(true)}
+              placeholder="Your email"
+              error={emailInvalid ? 'Enter a valid email address.' : undefined}
+            />
 
-              {/* Category selector — doctors only, placed after name/surname */}
-              {role === 'doctor' && (
-                <div>
-                  <label htmlFor="category" className={AUTH_LABEL}>
-                    Staff category
-                  </label>
-                  <select
-                    id="category"
-                    name="category"
-                    required
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className={authFieldClass()}
-                  >
-                    <option value="">Select category…</option>
-                    {CATEGORY_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+            <AuthField
+              id="phone"
+              label="Mobile"
+              name="tel"
+              type="tel"
+              required
+              autoComplete="tel"
+              inputMode="tel"
+              value={formatPhoneProgressive(phone)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+            />
 
-              {/* Activity period — doctors only. What the roster uses to
-                  decide when this person can be given shifts, so it is
-                  asked for here rather than left for an admin to guess. */}
-              {asksPeriod && (
-                <fieldset>
-                  <legend className={AUTH_LABEL}>
-                    Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
-                  </legend>
-                  {/* The app's shared date field — calendar icon, the label
-                      as placeholder, a clear (x) once picked, tap opens the
-                      picker — in its auth size, two equal columns ending
-                      flush with the fields above. */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <DateFieldButton id="active-from" label="From" variant="auth" fullWidth required={periodRequired} value={activeFrom} onChange={setActiveFrom} />
-                    <DateFieldButton id="active-until" label="To" variant="auth" fullWidth required={periodRequired} min={activeFrom || undefined} value={activeUntil} onChange={setActiveUntil} />
-                  </div>
-                  <p className={AUTH_HINT}>
-                    Important for rostering: you will only be eligible for shifts within this period.
-                    {periodRequired ? ' Enter the dates of your placement.' : ' Leave blank if your post is permanent.'}
-                  </p>
-                </fieldset>
-              )}
-
-              {/* Locum agency — optional, placed after name/surname */}
-              {role === 'locum' && (
-                <div>
-                  <label htmlFor="agency" className={AUTH_LABEL}>
-                    Agency <span className="font-normal text-ink-muted">(optional)</span>
-                  </label>
-                  <input
-                    id="agency"
-                    name="organization"
-                    type="text"
-                    autoComplete="organization"
-                    value={locumAgency}
-                    onChange={(e) => setLocumAgency(e.target.value)}
-                    placeholder="Agency name"
-                    className={authFieldClass()}
-                  />
-                </div>
-              )}
-
-              <div>
-                <label htmlFor="email" className={AUTH_LABEL}>
-                  Email
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M3 7l9 6 9-6" />
-                    </svg>
-                  </span>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onBlur={() => setEmailTouched(true)}
-                    aria-invalid={emailInvalid}
-                    placeholder="Your email"
-                    aria-describedby={emailInvalid ? 'signup-email-error' : undefined}
-                    className={authFieldClass({ icon: true, invalid: emailInvalid })}
-                  />
-                </div>
-                {emailInvalid && (
-                  <p id="signup-email-error" className={AUTH_FIELD_ERROR}>Enter a valid email address.</p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="password" className={`${AUTH_LABEL} flex items-center gap-1.5`}>
-                  Password
-                  <PasswordRequirementsInfo />
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="5" y="11" width="14" height="10" rx="2" />
-                      <path d="M8 11V8a4 4 0 118 0v3" />
-                    </svg>
-                  </span>
-                  <input
-                    id="password"
-                    name="new-password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={capsLock.onKeyDown}
-                    onKeyUp={capsLock.onKeyUp}
-                    placeholder="Enter password"
-                    className={authFieldClass({ icon: true, trailing: true })}
-                  />
-                  <PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} controls="password" />
-                </div>
-                <p className={AUTH_HINT}>{PASSWORD_HINT_SHORT}</p>
-                <CapsLockNotice show={capsLock.capsOn} />
-              </div>
-
-              {TURNSTILE_ENABLED && (
-                <div className="mt-1">
-                  <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
-                </div>
-              )}
-
-              {error && (
-                <div role="alert" className={AUTH_ERROR}>
-                  {error}
-                </div>
-              )}
-            </form>
-
-            <div className="shrink-0 border-t border-auth-seam px-5 py-4">
-              <button
-                type="submit"
-                form="role-details-form"
-                disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className={authButtonClass()}
+            {/* Category selector — doctors only */}
+            {role === 'doctor' && (
+              <AuthField
+                as="select"
+                id="category"
+                label="Staff category"
+                span="full"
+                name="category"
+                required
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
               >
-                {submitting ? 'Registering…' : 'Register'}
-              </button>
+                <option value="">Select category…</option>
+                {CATEGORY_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </AuthField>
+            )}
+
+            {/* Activity period — doctors only. What the roster uses to
+                decide when this person can be given shifts, so it is
+                asked for here rather than left for an admin to guess.
+                The app's shared date field in its auth size, two equal
+                columns; an end date before the start is flagged inline
+                as soon as both are picked. */}
+            {asksPeriod && (
+              <fieldset className="sm:col-span-2">
+                <legend className={AUTH_MODAL.label}>
+                  Activity period{periodRequired ? '' : <span className="font-normal text-ink-muted"> (optional)</span>}
+                </legend>
+                {/* Side by side from 360px; a 320px phone stacks them,
+                    where two columns truncate "Start date" to "Sta…". */}
+                <div className={`grid grid-cols-1 min-[360px]:grid-cols-2 ${AUTH_MODAL.groupGap}`}>
+                  <DateFieldButton
+                    id="active-from" label="Start date" variant="auth" fullWidth
+                    required={periodRequired} value={activeFrom} onChange={setActiveFrom}
+                    ariaDescribedBy="activity-period-hint"
+                  />
+                  <DateFieldButton
+                    id="active-until" label="End date" variant="auth" fullWidth
+                    required={periodRequired} min={activeFrom || undefined} value={activeUntil} onChange={setActiveUntil}
+                    invalid={dateOrderInvalid} ariaDescribedBy={periodDescribedBy}
+                  />
+                </div>
+                {dateOrderInvalid && (
+                  <p id="activity-period-error" className={AUTH_MODAL.fieldError}>
+                    End date must be on or after the start date.
+                  </p>
+                )}
+                <p id="activity-period-hint" className={AUTH_MODAL.hint}>
+                  {periodRequired
+                    ? 'Required for this post. You’ll only be rostered within these dates.'
+                    : 'Only needed for fixed-term posts. You’ll only be rostered within these dates. Leave blank if permanent.'}
+                </p>
+              </fieldset>
+            )}
+
+            {/* Locum agency — optional */}
+            {role === 'locum' && (
+              <AuthField
+                id="agency"
+                label="Agency"
+                optional
+                span="full"
+                name="organization"
+                type="text"
+                autoComplete="organization"
+                value={locumAgency}
+                onChange={(e) => setLocumAgency(e.target.value)}
+                placeholder="Agency name"
+              />
+            )}
+
+            <AuthField
+              id="password"
+              label="Password"
+              labelExtra={<PasswordRequirementsInfo />}
+              icon="lock"
+              span="full"
+              name="new-password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={capsLock.onKeyDown}
+              onKeyUp={capsLock.onKeyUp}
+              placeholder="Enter password"
+              hint={PASSWORD_HINT_SHORT}
+              trailing={<PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} controls="password" />}
+              after={<CapsLockNotice show={capsLock.capsOn} />}
+            />
+          </div>
+
+          {/* Last in the form; holds no space unless Cloudflare needs the
+              visitor to do something. */}
+          <TurnstileSlot ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+
+          {error && (
+            <div role="alert" className={`mt-4 ${AUTH_ERROR}`}>
+              {error}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </form>
+      )}
+    </AuthModal>
   )
 }
 
@@ -534,7 +464,7 @@ export default function SignupPage() {
   return (
     <>
       {/* Mobile: full-bleed hero + rounded bottom sheet, no outer background frame */}
-      <div className="flex h-dvh flex-col bg-auth-hero md:hidden">
+      <div className="flex h-dvh flex-col bg-auth-hero md:hidden" {...inertWhen(Boolean(selectedRole))}>
         <MobileAuthHero />
 
         {/* Same sheen sheet as the login page's phone landing; the white
@@ -568,7 +498,7 @@ export default function SignupPage() {
           on the deep page, two flush white halves and a 1px seam —
           with a 456px column in the right half, so the two pages share one
           width, height and type scale. */}
-      <div className="auth-page hidden min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw] md:flex">
+      <div className="auth-page hidden min-h-dvh flex-col items-center justify-center px-[4vw] py-[3.75vw] md:flex" {...inertWhen(Boolean(selectedRole))}>
         {/* min-h matches the login shell's, so the two cards are always the
             same height — see LoginPage. */}
         <div className="mx-auto flex min-h-[720px] w-full max-w-[1800px] overflow-hidden rounded-[24px] border border-auth-shell-border bg-auth-panel shadow-auth-shell md:flex-row">

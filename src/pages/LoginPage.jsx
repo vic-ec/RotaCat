@@ -9,9 +9,11 @@ import MobileAuthHero from '../components/MobileAuthHero'
 import AuthFooter from '../components/AuthFooter'
 import SignInForm from '../components/SignInForm'
 import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
+import TurnstileSlot from '../components/TurnstileSlot'
+import AuthModal from '../components/AuthModal'
+import AuthField from '../components/AuthField'
 import {
-  authFieldClass, authButtonClass, AUTH_LABEL, AUTH_BUTTON_OUTLINE,
-  AUTH_PANEL, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR, AUTH_FIELD_ERROR,
+  authButtonClass, AUTH_BUTTON_OUTLINE, AUTH_PANEL, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR,
 } from '../lib/authStyles'
 
 // Links on this page are teal and underlined. Rose on white is 3.80:1 and
@@ -99,14 +101,13 @@ function SignInModal({ isOpen, onClose, triggerRef, formProps }) {
   )
 }
 
-// Same chrome/mechanics as SignInModal (fixed backdrop, Escape-to-close,
-// click-outside-to-close, focus returned to whatever opened it) — kept as
-// its own component rather than folded into SignInModal since the two are
-// mutually exclusive (only one open at a time) and swapping content
-// in-place would need its own submitted/not-submitted branch anyway.
-// Stays mounted always (isOpen just toggles visibility) for the same
-// reason SignInModal does, so the fade-free open/close stays instant and
-// consistent between the two.
+// Reset your password, on the shared AuthModal shell (the same one the
+// three Create-account forms use) in its small size. Kept as its own
+// component rather than folded into SignInModal since the two are mutually
+// exclusive (only one open at a time) and swapping content in-place would
+// need its own submitted/not-submitted branch anyway. Stays mounted always
+// (isOpen just toggles visibility) for the same reason SignInModal does, so
+// the fade-free open/close stays instant and consistent between the two.
 function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
@@ -118,23 +119,6 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
   const emailRef = useRef(null)
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
-
-  useEffect(() => {
-    if (!isOpen) return
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, onClose])
-
-  useEffect(() => {
-    if (!isOpen) triggerRef.current?.focus?.()
-  }, [isOpen, triggerRef])
-
-  useEffect(() => {
-    if (isOpen) emailRef.current?.focus()
-  }, [isOpen])
 
   // Closing (X, backdrop, Escape, or "Back to sign in") resets the form —
   // otherwise reopening after a successful request would keep showing
@@ -177,122 +161,86 @@ function ForgotPasswordModal({ isOpen, onClose, onBackToSignIn, triggerRef }) {
   }
 
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center scrim-heavy p-4 backdrop-blur-sm ${
-        isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-      }`}
-      onClick={onClose}
-      {...inertWhen(!isOpen)}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="forgot-title"
-        className={`w-full max-w-sm p-5 ${AUTH_PANEL}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {submitted ? (
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
-              <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 id="forgot-title" className="font-display text-xl font-bold text-ink">Check your email</h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              If an account exists for {email}, we&apos;ve sent a link to reset your password.
-              It&apos;ll expire after a while, so use it soon.
-            </p>
-            <button
-              type="button"
-              onClick={onBackToSignIn}
-              className={`${AUTH_BUTTON_OUTLINE} mt-6`}
-            >
-              Back to sign in
+    <AuthModal
+      open={isOpen}
+      size="small"
+      title={submitted ? 'Check your email' : 'Reset your password'}
+      titleId="forgot-title"
+      onClose={onClose}
+      initialFocusRef={emailRef}
+      returnFocusRef={triggerRef}
+      footer={submitted ? null : (
+        <>
+          <button
+            type="submit"
+            form="forgot-password-form"
+            disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
+            className={authButtonClass({ large: false })}
+          >
+            {submitting ? 'Sending…' : 'Send reset link'}
+          </button>
+          <p className="mt-3 text-center text-sm text-ink-light">
+            Remembered it after all?{' '}
+            <button type="button" onClick={onBackToSignIn} className={LINK_CLASS}>
+              Sign in
             </button>
+          </p>
+        </>
+      )}
+    >
+      {submitted ? (
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
+            <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        ) : (
-          <>
-            <div className="mb-1 flex items-center justify-between">
-              <h2 id="forgot-title" className={AUTH_PANEL_TITLE}>Reset your password</h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className={AUTH_CLOSE_BUTTON}
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <p className="text-sm text-ink-muted">
+            If an account exists for {email}, we&apos;ve sent a link to reset your password.
+            It&apos;ll expire after a while, so use it soon.
+          </p>
+          <button
+            type="button"
+            onClick={onBackToSignIn}
+            className={`${AUTH_BUTTON_OUTLINE} mt-6`}
+          >
+            Back to sign in
+          </button>
+        </div>
+      ) : (
+        <form id="forgot-password-form" onSubmit={handleSubmit}>
+          <p className="text-sm text-ink-muted">
+            Enter your account email and we&apos;ll send a password-reset link.
+          </p>
+
+          <AuthField
+            ref={emailRef}
+            id="forgot-email"
+            label="Email"
+            icon="mail"
+            className="mt-4"
+            name="email"
+            type="email"
+            required
+            autoComplete="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setEmailTouched(true)}
+            placeholder="Your email"
+            error={emailInvalid ? 'Enter a valid email address.' : undefined}
+          />
+
+          <TurnstileSlot ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
+
+          {error && (
+            <div role="alert" className={`mt-4 ${AUTH_ERROR}`}>
+              {error}
             </div>
-            <p className="text-sm text-ink-muted">
-              Enter your account email and we&apos;ll send a password-reset link.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-              <div>
-                <label htmlFor="forgot-email" className={AUTH_LABEL}>
-                  Email
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-ink-muted">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="5" width="18" height="14" rx="2" />
-                      <path d="M3 7l9 6 9-6" />
-                    </svg>
-                  </span>
-                  <input
-                    id="forgot-email"
-                    name="email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    inputMode="email"
-                    ref={emailRef}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onBlur={() => setEmailTouched(true)}
-                    aria-invalid={emailInvalid}
-                    aria-describedby={emailInvalid ? 'forgot-email-error' : undefined}
-                    placeholder="Your email"
-                    className={authFieldClass({ icon: true, invalid: emailInvalid })}
-                  />
-                </div>
-                {emailInvalid && (
-                  <p id="forgot-email-error" className={AUTH_FIELD_ERROR}>Enter a valid email address.</p>
-                )}
-              </div>
-
-              {TURNSTILE_ENABLED && (
-                <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
-              )}
-
-              {error && (
-                <div role="alert" className={AUTH_ERROR}>
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting || (TURNSTILE_ENABLED && !captchaToken)}
-                className={authButtonClass()}
-              >
-                {submitting ? 'Sending…' : 'Send reset link'}
-              </button>
-            </form>
-
-            <p className="mt-3 text-center text-xs text-ink-light">
-              Remembered it after all?{' '}
-              <button type="button" onClick={onBackToSignIn} className={LINK_CLASS}>
-                Sign in
-              </button>
-            </p>
-          </>
-        )}
-      </div>
-    </div>
+          )}
+        </form>
+      )}
+    </AuthModal>
   )
 }
 

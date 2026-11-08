@@ -72,7 +72,8 @@ describe('MyRequestHistory', () => {
     render(<MyRequestHistory />)
 
     const sections = await screen.findAllByRole('region')
-    expect(sections.map(s => s.querySelector('h2').textContent)).toEqual(['Pending review', 'Approved'])
+    // The divider carries the count after the title ("Pending review · 1").
+    expect(sections.map(s => s.querySelector('h2').textContent.trim())).toEqual(['Pending review · 1', 'Approved · 1'])
     expect(sections[0].textContent).toMatch(/24–28 August 2026/)
     expect(sections[1].textContent).toMatch(/10–16 August 2026/)
   })
@@ -83,7 +84,8 @@ describe('MyRequestHistory', () => {
 
     const pending = (await screen.findByText('Pending review')).closest('section')
     expect(pending.textContent).toMatch('No requests pending review')
-    expect(pending.querySelector('.card')).toBeNull()
+    // One muted row, not a panel of rows.
+    expect(pending.querySelector('.divide-y')).toBeNull()
   })
 
   it('shows an empty state for both sections with no requests at all', async () => {

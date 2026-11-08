@@ -18,7 +18,7 @@
   --color-ink-light: 75 85 99;                /* #4B5563 */
   --color-ink-muted: 107 114 128;             /* #6B7280 */
   /* canvas */
-  --color-canvas: 254 255 254;                /* #FEFFFE */
+  --color-canvas: 243 245 246;                /* #F3F5F6 — the app canvas (SPEC app-theme); was #FEFFFE */
   --color-canvas-raised: 255 255 255;         /* #FFFFFF */
   --color-canvas-sunken: 220 238 231;         /* #DCEEE7 */
   --color-canvas-cool: 241 248 245;           /* #F1F8F5 */
@@ -170,6 +170,37 @@
   --color-auth-modal: 255 255 255;            /* #FFFFFF — floating auth panels (modals, standalone cards) */
   --color-auth-seam: 221 228 226;             /* #DDE4E2 — 1px divider between the halves */
   --color-auth-shell-border: 227 231 235;     /* #E3E7EB — hairline round the shell */
+
+  /* ── App theme (docs/app-theme/SPEC.md) ──────────────────────────────
+     Four surface roles. Chrome (tab bar, Dashboard header) and Divider
+     (group headers) take the login page's restrained sheen on `sheen`;
+     Content (cards, lists, grids, forms) is white on the app canvas with a
+     14px radius and this hairline; Action is the bevel. The sheen itself is
+     `--bg-sheen`, the same values as the login page's, static. */
+  --color-canvas-app: 243 245 246;            /* #F3F5F6 — page background behind cards (= canvas) */
+  --color-card: 255 255 255;                  /* #FFFFFF — content surfaces (= canvas-raised) */
+  --card-border: #E3E7EB;                     /* card hairline; dark is a translucent mint, hence a colour, not channels */
+  --color-sheen: 31 103 99;                   /* #1F6763 — base under the sheen */
+  --bg-sheen: var(--bg-auth-sheen);
+  --color-on-sheen: 243 246 245;              /* #F3F6F5 — primary text on sheen */
+  --color-on-sheen-2: 207 224 220;            /* #CFE0DC — secondary text, chevrons, counts on sheen */
+  --color-on-sheen-accent: 143 211 197;       /* #8FD3C5 — wordmark "Cat", links on sheen */
+  --color-mint: 111 189 175;                  /* #6FBDAF — active tab, status dot "active", buttons on sheen */
+  --color-mint-ink: 10 16 14;                 /* #0A100E — ink on a mint fill */
+  /* Chips — two-part (fill / ink) tokens as colours so the dark theme can
+     use a translucent fill. */
+  --chip-mint-bg: #E6F2EF;       --chip-mint-ink: #0F766E;    /* available / approved / day shift */
+  --chip-night-bg: #1F6763;      --chip-night-ink: #FFFFFF;   /* night-shift time chip */
+  --chip-amber-bg: #FDF3D8;      --chip-amber-ink: #92600F;   /* pending / limited capacity */
+  --chip-evening-bg: #E8F1EF;    --chip-evening-ink: #4B5563; /* evening-shift time chip */
+  --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* Roster grid header row: pale, with weekend columns a step greener. */
+  --color-grid-head: 247 249 250;             /* #F7F9FA */
+  --color-grid-head-weekend: 237 244 242;     /* #EDF4F2 */
+  /* The reviewer's Approve (filled) and Decline (outlined) pair. */
+  --color-approve: 79 158 111;                /* #4F9E6F */
+  --color-approve-dark: 68 140 97;            /* #448C61 */
+  --color-decline: 209 67 67;                 /* #D14343 */
   /* Decorative roster cells and bars, as the spec defines them. Declared so
      the palette is complete; DecorativeRosterGrid still paints from the
      `band` tokens above, because the grid itself is out of scope for the
@@ -233,7 +264,7 @@
      that sits on the pale ones (capLimited) must not follow `ink`. */
   --color-on-heat: 17 24 39;                  /* #111827 */
 
-  --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 6px -1px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 8px 18px -14px rgba(15, 23, 42, 0.25);   /* content card (SPEC app-theme) */
   --shadow-raised: 0 4px 16px -2px rgba(15, 23, 42, 0.16);
 }
 
@@ -247,8 +278,8 @@
   --color-ink-light: 160 179 172;               /* #A0B3AC */
   --color-ink-muted: 126 150 144;               /* #7E9690 */
   /* canvas */
-  --color-canvas: 15 22 19;                     /* #0F1613 */
-  --color-canvas-raised: 29 47 43;              /* #1D2F2B */
+  --color-canvas: 10 16 14;                     /* #0A100E — app canvas (SPEC app-theme dark) */
+  --color-canvas-raised: 27 59 53;              /* #1B3B35 — cards (SPEC app-theme dark) */
   --color-canvas-sunken: 23 33 30;              /* #17211E */
   --color-canvas-cool: 26 35 34;                /* #1A2322 */
   /* slate */
@@ -364,6 +395,35 @@
   --color-auth-panel: 10 16 14;               /* #0A100E — same as auth-hero, so both halves are one surface as on light; the shell border and shadow mark it off from the page */
   --color-auth-seam: 43 70 63;                /* #2B463F — same as slate-line */
   --color-auth-shell-border: 43 70 63;        /* #2B463F */
+
+  /* App theme, dark: content darkens to the card colour; the sheen base
+     shifts to that same tint with its highlight band at 4%, not 6%. */
+  --color-canvas-app: 10 16 14;               /* #0A100E */
+  --color-card: 27 59 53;                     /* #1B3B35 */
+  --card-border: rgba(111, 189, 175, 0.22);
+  --color-sheen: 27 59 53;                    /* #1B3B35 */
+  --bg-sheen:
+    linear-gradient(135deg,
+      rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.08) 24%,
+      rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.02) 56%,
+      rgba(0, 0, 0, 0.08) 76%, rgba(0, 0, 0, 0.24) 100%),
+    repeating-linear-gradient(0deg,
+      rgba(255, 255, 255, 0.025) 0 1px, rgba(0, 0, 0, 0.01) 1px 2px, transparent 2px 3px);
+  --color-on-sheen: 243 246 245;
+  --color-on-sheen-2: 207 224 220;
+  --color-on-sheen-accent: 143 211 197;
+  --color-mint: 111 189 175;
+  --color-mint-ink: 10 16 14;
+  --chip-mint-bg: rgba(111, 189, 175, 0.18);  --chip-mint-ink: #8FD3C5;
+  --chip-night-bg: #6FBDAF;                   --chip-night-ink: #0A100E;
+  --chip-amber-bg: #231A0D;                   --chip-amber-ink: #E0B15C;
+  --chip-evening-bg: rgba(243, 246, 245, 0.10); --chip-evening-ink: #CFE0DC;
+  --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --color-grid-head: 23 33 30;                /* #17211E */
+  --color-grid-head-weekend: 27 42 39;        /* #1B2A27 */
+  --color-approve: 107 175 128;               /* #6BAF80 */
+  --color-approve-dark: 134 193 152;          /* #86C198 */
+  --color-decline: 217 140 127;               /* #D98C7F */
   --color-auth-grid-cell: 27 39 36;           /* #1B2724 */
   --color-auth-grid-bar: 43 70 63;            /* #2B463F */
   --color-auth-grid-bar-2: 34 51 48;          /* #223330 */
@@ -442,17 +502,15 @@
     transition: background-color 5000s ease-in-out 0s;
   }
 
-  /* Chromium draws autofilled text — and the autofill *preview* shown
-     before the page is first clicked — with the browser's own control font
-     (13px system sans), ignoring the input's font rules, so saved
-     credentials appeared small and jumped to size on the first click.
-     ::first-line is the one hook Chromium honours for that text; `inherit`
-     on a pseudo-element resolves from the input itself, so this simply
-     re-applies the field's own face and size. */
-  input::first-line {
-    font-family: inherit;
-    font-size: inherit;
-  }
+  /* Chromium shows an autofill *preview* — saved credentials drawn into the
+     fields before the page is first clicked — in its own 13px system font,
+     on purpose: html.css sets `font: -webkit-small-control !important` on the
+     internal ::-internal-input-suggested pseudo-element (feature
+     AutofillPreviewIgnoreAuthorFont, crbug.com/517710554) so a page cannot
+     read the previewed text back through @font-face lookups. It is a
+     user-agent !important rule on an internal pseudo-element, so no author
+     CSS reaches it; the committed value, after the first click, takes the
+     field's real font. */
 
   /* Chromium-based Edge injects its own "reveal password" eye icon inside
      every password field, which stacks with our own custom show/hide
@@ -515,6 +573,29 @@
   .auth-page {
     background: var(--bg-auth-sheen), rgb(var(--color-auth-page));
   }
+
+  /* App theme surfaces (docs/app-theme/SPEC.md). `.sheen` is the Chrome
+     role — the tab bar and the Dashboard header; `.sheen-divider` the
+     Divider role — a full-width group header that frames content without
+     being content: caps, .06em tracking, 8px/12px padding, 10px corners,
+     counts and chevrons in `on-sheen-2`. Nothing that holds a number
+     someone reads takes either. */
+  .sheen {
+    background: var(--bg-sheen), rgb(var(--color-sheen));
+    color: rgb(var(--color-on-sheen));
+  }
+  .sheen-divider {
+    @apply flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em];
+    background: var(--bg-sheen), rgb(var(--color-sheen));
+    color: rgb(var(--color-on-sheen));
+  }
+  .sheen-divider .divider-meta { color: rgb(var(--color-on-sheen-2)); }
+
+  /* Chips: fill + ink pairs, themed. */
+  .chip-mint    { background-color: var(--chip-mint-bg);    color: var(--chip-mint-ink); }
+  .chip-night   { background-color: var(--chip-night-bg);   color: var(--chip-night-ink); }
+  .chip-amber   { background-color: var(--chip-amber-bg);   color: var(--chip-amber-ink); }
+  .chip-evening { background-color: var(--chip-evening-bg); color: var(--chip-evening-ink); }
 
   /* The three scrim weights the app uses, so a modal never hardcodes an
      `ink` alpha that inverts with the theme. */
@@ -654,7 +735,9 @@
      background already uses, so the edges re-derive with it. */
   .btn-bevel, .btn-bevel-fab, .btn-primary, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
   .btn-bevel:hover, .btn-bevel-fab:hover, .btn-primary:hover { --btn-bg: rgb(var(--color-accent-dark)); }
-  .btn-bevel-success, .btn-success { --btn-bg: rgb(var(--color-success)); }
+  .btn-bevel-success { --btn-bg: rgb(var(--color-success)); }
+  .btn-success { --btn-bg: rgb(var(--color-approve)); }
+  .btn-success:hover { --btn-bg: rgb(var(--color-approve-dark)); }
   .btn-bevel-danger, .btn-danger { --btn-bg: rgb(var(--color-danger)); }
   .btn-bevel-danger:hover, .btn-danger:hover { --btn-bg: rgb(var(--color-danger-dark)); }
   .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
@@ -771,10 +854,12 @@
   /* For approve-type confirmations specifically (e.g. an "Approve" button)
      — distinct from .btn-primary's brand teal, so approving something reads
      as its own affirmative action rather than just "the default button". */
+  /* Approve: the reviewer's green (SPEC app-theme), not the roster-state
+     `success` — its bevel derives from this fill. */
   .btn-success {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
-           text-sm font-medium text-on-fill transition-opacity
-           hover:opacity-85 active:opacity-85
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-approve px-4 py-1
+           text-sm font-medium text-on-fill transition-colors
+           hover:bg-approve-dark active:bg-approve-dark
            disabled:cursor-not-allowed disabled:opacity-60;
   }
 
@@ -793,8 +878,8 @@
      .btn-danger so two actions with asymmetric consequences don't compete
      equally for attention. */
   .btn-danger-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-danger
-           bg-canvas-raised px-4 py-1 text-sm font-medium text-danger transition-colors
+    @apply inline-flex items-center justify-center gap-2 rounded border border-decline
+           bg-canvas-raised px-4 py-1 text-sm font-medium text-decline transition-colors
            hover:bg-danger-bg active:bg-danger-bg
            disabled:cursor-not-allowed disabled:opacity-60;
   }
@@ -831,8 +916,12 @@
            disabled:cursor-not-allowed disabled:opacity-60;
   }
 
+  /* The Content role (SPEC app-theme): white on the app canvas, 14px
+     corners, the card hairline (`--card-border`, a colour so the dark theme
+     can make it translucent mint) and one soft shadow. */
   .card {
-    @apply rounded-lg border border-slate-line bg-canvas-raised shadow-card;
+    @apply rounded-[14px] border bg-card shadow-card;
+    border-color: var(--card-border);
   }
 
   .input-field {
@@ -858,7 +947,7 @@
     @apply bg-accent text-on-fill;
   }
   .toolbar-pill-idle {
-    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
+    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink;
   }
 
   /* The `hover:active:` duplicates below (and in .icon-btn-idle) are
@@ -896,7 +985,7 @@
            disabled:cursor-not-allowed disabled:opacity-60;
   }
   .icon-btn-idle {
-    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink
+    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink
            active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
   }
   .icon-btn-active {

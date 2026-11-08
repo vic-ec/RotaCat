@@ -1,11 +1,13 @@
 const GITHUB_RULES_URL = 'https://github.com/vic-ec/RotaCat/blob/main/EC_LEAVE_PLANNER_RULES.md'
 const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1-6KyFaVamlzcf2CjZdrrZEDa9OUFOOQ_bPsTV7i_GqI/edit'
 
+// Each section title is a sheen divider (SPEC app-theme) with the body
+// text in a white card below it. Text unchanged.
 function Section({ title, children }) {
   return (
-    <div className="card p-5">
-      <h2 className="font-display text-base font-semibold text-ink">{title}</h2>
-      <div className="mt-2 space-y-2 text-sm text-ink-light">{children}</div>
+    <div>
+      <h2 className="sheen-divider">{title}</h2>
+      <div className="card mt-2 space-y-2 p-5 text-sm text-ink-light">{children}</div>
     </div>
   )
 }

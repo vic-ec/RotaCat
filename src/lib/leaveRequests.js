@@ -80,6 +80,11 @@ export const SPECIAL_LEAVE_TYPES = LEAVE_TYPE_OPTIONS
 // this hasn't run against real submissions yet, so it stays a flag/
 // advisory only (see fetchSpecialLeavePressure) until it's proven out and
 // deliberately hardened into an enforced, admin-configurable value.
+// The annual leave allowance, in days per calendar year — what the Dashboard
+// leave card counts "used" against. The Rules page and the Special planner
+// quote the same figure in prose.
+export const ANNUAL_LEAVE_ALLOWANCE = 22
+
 export const SPECIAL_LEAVE_SOFT_CAP = 3
 
 // weekend_exception must cover exactly one Saturday+Sunday pair.

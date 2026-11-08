@@ -108,6 +108,28 @@ export default {
 
         // The Create-account page's three role cards — see index.css for why
         // they cannot just be `canvas` on both themes.
+        // App theme (docs/app-theme/SPEC.md): the four surface roles' tokens.
+        'canvas-app': 'rgb(var(--color-canvas-app) / <alpha-value>)',
+        'grid-head': {
+          DEFAULT: 'rgb(var(--color-grid-head) / <alpha-value>)',
+          weekend: 'rgb(var(--color-grid-head-weekend) / <alpha-value>)',
+        },
+        approve: {
+          DEFAULT: 'rgb(var(--color-approve) / <alpha-value>)',
+          dark: 'rgb(var(--color-approve-dark) / <alpha-value>)',
+        },
+        decline: 'rgb(var(--color-decline) / <alpha-value>)',
+        card: 'rgb(var(--color-card) / <alpha-value>)',
+        sheen: 'rgb(var(--color-sheen) / <alpha-value>)',
+        'on-sheen': {
+          DEFAULT: 'rgb(var(--color-on-sheen) / <alpha-value>)',
+          2: 'rgb(var(--color-on-sheen-2) / <alpha-value>)',
+          accent: 'rgb(var(--color-on-sheen-accent) / <alpha-value>)',
+        },
+        mint: {
+          DEFAULT: 'rgb(var(--color-mint) / <alpha-value>)',
+          ink: 'rgb(var(--color-mint-ink) / <alpha-value>)',
+        },
         'auth-choice': 'rgb(var(--color-auth-choice) / <alpha-value>)',
         'auth-choice-hover': 'rgb(var(--color-auth-choice-hover) / <alpha-value>)',
 
@@ -346,6 +368,7 @@ export default {
         // src/styles/index.css.
         card: 'var(--shadow-card)',
         raised: 'var(--shadow-raised)',
+        tabbar: 'var(--shadow-tabbar)',
         // The login shell's single shadow.
         'auth-shell': 'var(--shadow-auth-shell)'
       }

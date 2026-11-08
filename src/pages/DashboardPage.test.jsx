@@ -113,13 +113,37 @@ describe('DashboardPage', () => {
     expect(within(empty).queryByRole('link')).toBeNull()
   })
 
-  it('doctor: collapses empty leave to one inline row, not an empty card', async () => {
+  it('doctor: with nothing booked the leave card shows the balance and "Next: none booked"', async () => {
     mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
 
     renderDashboard()
 
-    expect(await screen.findByText('No leave booked')).toBeInTheDocument()
+    expect(await screen.findByText('Next: none booked')).toBeInTheDocument()
+    expect(screen.getByText('Annual leave balance')).toBeInTheDocument()
+    expect(screen.getByText('of 22 days used')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
+    expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
+    expect(screen.getByRole('link', { name: 'Request swap' })).toHaveAttribute('href', '/swaps')
+  })
+
+  it('doctor: lists the week ahead as rows — date cell, shift and hour, co-workers, time chip', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    const today = todayStr()
+    mockResponses['roster_entries:select'] = {
+      data: [
+        { date: today, profile_id: 'doctor-1', shift_type: { code: 'WD_08', label: 'Day shift', start_time: '08:00:00', end_time: '18:00:00', day_type: 'weekday', is_night_shift: false } },
+        { date: today, profile_id: 'doctor-2', shift_type: { code: 'WD_08' }, profile: { surname: 'Landes' } },
+        { date: addDays(today, 1), profile_id: 'doctor-1', shift_type: { code: 'WD_22', label: 'Night shift', start_time: '22:00:00', end_time: '08:00:00', day_type: 'weekday', is_night_shift: true } },
+      ],
+      error: null,
+    }
+
+    renderDashboard()
+
+    expect(await screen.findByText('Day shift · 08h')).toBeInTheDocument()
+    expect(screen.getByText('with Landes')).toBeInTheDocument()
+    expect(screen.getByText('08–18')).toHaveClass('chip-mint')
+    expect(screen.getByText('22–08')).toHaveClass('chip-night')
   })
 
   it('doctor: omits the swap section entirely when nothing is waiting on them', async () => {
@@ -127,7 +151,7 @@ describe('DashboardPage', () => {
 
     renderDashboard()
 
-    await screen.findByText('No leave booked')
+    await screen.findByText('Next: none booked')
     expect(screen.queryByText('Swap requests for you')).not.toBeInTheDocument()
     expect(screen.queryByText(/No pending swap requests/)).not.toBeInTheDocument()
   })
@@ -240,9 +264,10 @@ describe('DashboardPage', () => {
 
     renderDashboard()
 
-    expect(await screen.findByText('08:00 - 18:00')).toBeInTheDocument()
-    expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
-    expect(screen.queryByText('No leave booked')).not.toBeInTheDocument()
+    expect(await screen.findByText('Day shift · 08h')).toBeInTheDocument()
+    expect(screen.getByText('08–18')).toBeInTheDocument()
+    expect(screen.queryByText('Annual leave balance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Request leave')).not.toBeInTheDocument()
     expect(eqCalls).toContainEqual(['roster_entries', 'profile_id', 'locum-1'])
   })
 

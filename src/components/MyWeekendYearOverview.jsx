@@ -229,7 +229,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
         {currentMonthCard && (
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Current month</p>
+            <p className="sheen-divider">Current month</p>
             <div className="mt-2 space-y-2">
               <MyWeekendMonthTile month={currentMonthCard} scope={scope} onOpen={() => onOpenMonth(currentMonthCard.month)} />
             </div>
@@ -238,7 +238,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
         {comingMonthCards.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Coming months</p>
+            <p className="sheen-divider">Coming months</p>
             <div className="mt-2 space-y-2">
               {comingMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} scope={scope} onOpen={() => onOpenMonth(m.month)} />)}
             </div>
@@ -247,7 +247,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
         {previousMonthCards.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Previous months</p>
+            <p className="sheen-divider">Previous months</p>
             <div className="mt-2 space-y-2">
               {previousMonthCards.map(m => <MyWeekendMonthTile key={m.month} month={m} scope={scope} onOpen={() => onOpenMonth(m.month)} />)}
             </div>

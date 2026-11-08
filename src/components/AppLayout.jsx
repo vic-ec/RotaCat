@@ -264,9 +264,12 @@ export default function AppLayout() {
             within the normal scroll flow instead, which tracks the visual
             viewport correctly through that. */}
         {isDashboard && (
-          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-accent/50 bg-canvas-raised px-4 py-2 md:hidden">
+          <header className="sheen sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2 md:hidden">
+            {/* Chrome role (docs/app-theme/SPEC.md): sheen, wordmark left,
+                avatar with its status dot right, no page title. Same
+                height as before. */}
+            <span className="font-serif text-xl font-semibold text-on-sheen"><RotaCat onSheen /></span>
             <MobileAvatar profile={profile} size={32} onLeave={myOnLeave} />
-            <span className="font-serif text-xl font-semibold text-ink"><RotaCat /></span>
           </header>
         )}
 
@@ -286,7 +289,10 @@ export default function AppLayout() {
           the home indicator instead of behind it. Resolves to 0 on a device
           without one, so nothing changes elsewhere. Matches what
           MobileFiltersSheet, ActionSheet and the FAB already do. */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-accent/50 bg-canvas-raised pb-[env(safe-area-inset-bottom)] md:hidden">
+      {/* Chrome role (docs/app-theme/SPEC.md): sheen with a rounded top
+          edge and its lift shadow; labels on-sheen-2, the active label
+          white and its icon on a mint bevelled square. Icons unchanged. */}
+      <nav className="sheen fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -294,15 +300,15 @@ export default function AppLayout() {
             end={item.end ?? false}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-1 py-1.5 text-[11px] transition-colors ${
-                isActive ? 'font-semibold text-accent' : 'font-medium text-ink-muted'
+                isActive ? 'font-semibold text-on-sheen' : 'font-medium text-on-sheen-2'
               }`
             }
           >
             {({ isActive }) => (
               <>
                 <span
-                  className={`relative inline-flex h-7 w-9 items-center justify-center rounded-full transition-colors ${
-                    isActive ? 'bg-accent-light' : ''
+                  className={`relative inline-flex h-7 w-9 items-center justify-center rounded-lg transition-colors ${
+                    isActive ? 'btn-bevel-mint bg-mint text-mint-ink' : ''
                   }`}
                 >
                   <item.icon className="h-5 w-5" />

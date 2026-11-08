@@ -32,7 +32,7 @@ export function StepperShell({
 }) {
   const labelClassName = `whitespace-nowrap px-2 font-display text-base font-semibold text-ink ${centered ? 'flex-1 text-center' : ''}`
   return (
-    <div className={`inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
+    <div className={`btn-bevel-outline inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
       <button
         type="button"
         onClick={onPrev}

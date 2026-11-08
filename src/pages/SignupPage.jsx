@@ -62,9 +62,9 @@ const CATEGORY_OPTIONS = [
 // field list between them scrolls) and AuthField, the same two pieces as
 // the Reset-password dialog, so the four auth dialogs share one look.
 const MODAL_TITLES = {
-  doctor: 'Create full-time doctor account',
-  locum: 'Create locum doctor account',
-  clerk: 'Create clerk account',
+  doctor: 'Create a full-time doctor account',
+  locum: 'Create a locum doctor account',
+  clerk: 'Create a clerk account',
 }
 // Fixed-term placements: the roster cannot plan around these doctors
 // without knowing when they start and finish, so the dates are required.
@@ -82,7 +82,9 @@ function RoleModal({ role, onClose }) {
   const [email, setEmail] = useState('')
   const [emailTouched, setEmailTouched] = useState(false)
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [locumAgency, setLocumAgency] = useState('')
   // A doctor's activity period — the dates they are eligible for shifts.
   // Required for the fixed-term categories (Intern, Registrar), optional
@@ -111,6 +113,11 @@ function RoleModal({ role, onClose }) {
   const capsLock = useCapsLockWarning()
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
+  // Tracks the confirm field keystroke by keystroke, as the set-password
+  // page does: a mismatch is flagged as soon as something is typed there,
+  // and a match is confirmed so nobody has to squint at two rows of dots.
+  const mismatch = confirm.length > 0 && password !== confirm
+  const matches = confirm.length > 0 && password === confirm
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -139,6 +146,10 @@ function RoleModal({ role, onClose }) {
     const pwProblem = passwordProblem(password)
     if (pwProblem) {
       setError(pwProblem)
+      return
+    }
+    if (password !== confirm) {
+      setError('Passwords do not match.')
       return
     }
     if (TURNSTILE_ENABLED && !captchaToken) {
@@ -325,6 +336,7 @@ function RoleModal({ role, onClose }) {
               id="email"
               label="Email"
               icon="mail"
+              span="full"
               name="email"
               type="email"
               required
@@ -337,9 +349,13 @@ function RoleModal({ role, onClose }) {
               error={emailInvalid ? 'Enter a valid email address.' : undefined}
             />
 
+            {/* Mobile shares its row with the role's own field (staff
+                category / agency); a clerk has neither, so it runs full. */}
             <AuthField
               id="phone"
               label="Mobile"
+              icon="phone"
+              span={role === 'clerk' ? 'full' : undefined}
               name="tel"
               type="tel"
               required
@@ -355,7 +371,6 @@ function RoleModal({ role, onClose }) {
                 as="select"
                 id="category"
                 label="Staff category"
-                span="full"
                 name="category"
                 required
                 value={category}
@@ -412,7 +427,6 @@ function RoleModal({ role, onClose }) {
                 id="agency"
                 label="Agency"
                 optional
-                span="full"
                 name="organization"
                 type="text"
                 autoComplete="organization"
@@ -439,6 +453,25 @@ function RoleModal({ role, onClose }) {
               placeholder="Enter password"
               hint={PASSWORD_HINT_SHORT}
               trailing={<PasswordRevealToggle revealed={showPassword} onToggle={() => setShowPassword((prev) => !prev)} controls="password" />}
+            />
+
+            <AuthField
+              id="confirm"
+              label="Confirm password"
+              icon="lock"
+              span="full"
+              name="confirm-password"
+              type={showConfirm ? 'text' : 'password'}
+              required
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={capsLock.onKeyDown}
+              onKeyUp={capsLock.onKeyUp}
+              placeholder="Re-enter password"
+              error={mismatch ? 'Passwords do not match.' : undefined}
+              hint={matches ? 'Passwords match.' : undefined}
+              trailing={<PasswordRevealToggle revealed={showConfirm} onToggle={() => setShowConfirm((prev) => !prev)} controls="confirm" />}
               after={<CapsLockNotice show={capsLock.capsOn} />}
             />
           </div>

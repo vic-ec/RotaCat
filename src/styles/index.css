@@ -442,6 +442,18 @@
     transition: background-color 5000s ease-in-out 0s;
   }
 
+  /* Chromium draws autofilled text — and the autofill *preview* shown
+     before the page is first clicked — with the browser's own control font
+     (13px system sans), ignoring the input's font rules, so saved
+     credentials appeared small and jumped to size on the first click.
+     ::first-line is the one hook Chromium honours for that text; `inherit`
+     on a pseudo-element resolves from the input itself, so this simply
+     re-applies the field's own face and size. */
+  input::first-line {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
   /* Chromium-based Edge injects its own "reveal password" eye icon inside
      every password field, which stacks with our own custom show/hide
      button (Login/Signup forms) on top of it. Hide the native one so only

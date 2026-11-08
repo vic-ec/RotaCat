@@ -9,7 +9,7 @@ import { authFieldClass, AUTH_MODAL } from '../lib/authStyles'
 // the label weight, gaps and error treatment cannot drift between them.
 //
 // `as`: 'input' (default) or 'select' (pass <option>s as children).
-// `icon`: 'mail' | 'lock' — a leading glyph inside the control.
+// `icon`: 'mail' | 'lock' | 'phone' — a leading glyph inside the control.
 // `trailing`: a node overlaid at the control's right edge (the password
 // reveal toggle); the control pads for it.
 // `labelExtra`: a node set beside the label text (the password info icon).
@@ -29,12 +29,30 @@ const ICONS = {
       <path d="M3 7l9 6 9-6" />
     </svg>
   ),
+  phone: (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="2" width="10" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  ),
   lock: (
     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="10" rx="2" />
       <path d="M8 11V8a4 4 0 118 0v3" />
     </svg>
   ),
+}
+
+// A select hides the browser's own arrow and draws this one, at the same
+// 16px inset as the password field's eye, so the two line up.
+function ChevronIcon() {
+  return (
+    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-ink-muted">
+      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 9l6 6 6-6" />
+      </svg>
+    </span>
+  )
 }
 
 const AuthField = forwardRef(function AuthField({
@@ -46,6 +64,7 @@ const AuthField = forwardRef(function AuthField({
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
   const invalid = Boolean(error)
   const Control = as
+  const isSelect = as === 'select'
 
   return (
     <div className={`${span === 'full' ? 'sm:col-span-2' : ''} ${className}`}>
@@ -66,12 +85,15 @@ const AuthField = forwardRef(function AuthField({
             id={id}
             aria-invalid={invalid || undefined}
             aria-describedby={describedBy}
-            className={authFieldClass({ icon: Boolean(icon), trailing: Boolean(trailing), invalid, modal: true, extra: controlClassName })}
+            className={authFieldClass({
+              icon: Boolean(icon), trailing: Boolean(trailing) || isSelect, invalid, modal: true,
+              extra: `${isSelect ? 'appearance-none' : ''} ${controlClassName}`,
+            })}
             {...controlProps}
           >
             {children}
           </Control>
-          {trailing}
+          {isSelect ? <ChevronIcon /> : trailing}
         </div>
       )}
       {hint && <p id={hintId} className={AUTH_MODAL.hint}>{hint}</p>}

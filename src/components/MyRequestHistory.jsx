@@ -7,9 +7,11 @@ import { formatTimestampDate } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+// Approved and Pending take the theme chips (SPEC app-theme); Rejected keeps
+// the roster-state red.
 const STATUS_BADGE = {
-  pending: 'bg-flagAmber-bg text-flagAmber',
-  approved: 'bg-success-bg text-success',
+  pending: 'chip-amber',
+  approved: 'chip-mint',
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 
@@ -74,9 +76,12 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
 function RequestSection({ title, requests, emptyLabel }) {
   return (
     <section aria-label={title}>
-      <h2 className="mb-3 text-sm font-semibold text-ink">{title}</h2>
+      {/* Divider role (SPEC app-theme): a sheen bar with the count. */}
+      <h2 className="sheen-divider mb-3">
+        <span>{title} <span className="divider-meta ml-1 font-normal">· {requests.length}</span></span>
+      </h2>
       {requests.length === 0 ? (
-        <p className="rounded-lg border border-slate-line bg-canvas-raised px-4 py-3 text-sm text-ink-muted">{emptyLabel}</p>
+        <p className="card px-4 py-3 text-sm text-ink-muted">{emptyLabel}</p>
       ) : (
         <div className="card divide-y divide-slate-line overflow-hidden">
           {requests.map(lr => <RequestRow key={lr.id} request={lr} />)}

@@ -116,7 +116,7 @@ export default function SpecialPlannerOverview({
 
           {currentMonthCard && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Current month</p>
+              <p className="sheen-divider">Current month</p>
               <div className="mt-2 space-y-2">
                 <SpecialMonthTile month={currentMonthCard} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(currentMonthCard.month)} />
               </div>
@@ -125,7 +125,7 @@ export default function SpecialPlannerOverview({
 
           {comingMonthCards.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Coming months</p>
+              <p className="sheen-divider">Coming months</p>
               <div className="mt-2 space-y-2">
                 {comingMonthCards.map(m => (
                   <SpecialMonthTile key={m.month} month={m} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(m.month)} />
@@ -136,7 +136,7 @@ export default function SpecialPlannerOverview({
 
           {previousMonthCards.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Previous months</p>
+              <p className="sheen-divider">Previous months</p>
               <div className="mt-2 space-y-2">
                 {previousMonthCards.map(m => (
                   <SpecialMonthTile key={m.month} month={m} categoryKey={categoryKey} onOpen={() => onOpenWorkspace(m.month)} />

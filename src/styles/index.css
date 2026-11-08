@@ -194,6 +194,13 @@
   --chip-amber-bg: #FDF3D8;      --chip-amber-ink: #92600F;   /* pending / limited capacity */
   --chip-evening-bg: #E8F1EF;    --chip-evening-ink: #4B5563; /* evening-shift time chip */
   --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  /* Roster grid header row: pale, with weekend columns a step greener. */
+  --color-grid-head: 247 249 250;             /* #F7F9FA */
+  --color-grid-head-weekend: 237 244 242;     /* #EDF4F2 */
+  /* The reviewer's Approve (filled) and Decline (outlined) pair. */
+  --color-approve: 79 158 111;                /* #4F9E6F */
+  --color-approve-dark: 68 140 97;            /* #448C61 */
+  --color-decline: 209 67 67;                 /* #D14343 */
   /* Decorative roster cells and bars, as the spec defines them. Declared so
      the palette is complete; DecorativeRosterGrid still paints from the
      `band` tokens above, because the grid itself is out of scope for the
@@ -412,6 +419,11 @@
   --chip-amber-bg: #231A0D;                   --chip-amber-ink: #E0B15C;
   --chip-evening-bg: rgba(243, 246, 245, 0.10); --chip-evening-ink: #CFE0DC;
   --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --color-grid-head: 23 33 30;                /* #17211E */
+  --color-grid-head-weekend: 27 42 39;        /* #1B2A27 */
+  --color-approve: 107 175 128;               /* #6BAF80 */
+  --color-approve-dark: 134 193 152;          /* #86C198 */
+  --color-decline: 217 140 127;               /* #D98C7F */
   --color-auth-grid-cell: 27 39 36;           /* #1B2724 */
   --color-auth-grid-bar: 43 70 63;            /* #2B463F */
   --color-auth-grid-bar-2: 34 51 48;          /* #223330 */
@@ -723,7 +735,9 @@
      background already uses, so the edges re-derive with it. */
   .btn-bevel, .btn-bevel-fab, .btn-primary, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
   .btn-bevel:hover, .btn-bevel-fab:hover, .btn-primary:hover { --btn-bg: rgb(var(--color-accent-dark)); }
-  .btn-bevel-success, .btn-success { --btn-bg: rgb(var(--color-success)); }
+  .btn-bevel-success { --btn-bg: rgb(var(--color-success)); }
+  .btn-success { --btn-bg: rgb(var(--color-approve)); }
+  .btn-success:hover { --btn-bg: rgb(var(--color-approve-dark)); }
   .btn-bevel-danger, .btn-danger { --btn-bg: rgb(var(--color-danger)); }
   .btn-bevel-danger:hover, .btn-danger:hover { --btn-bg: rgb(var(--color-danger-dark)); }
   .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
@@ -840,10 +854,12 @@
   /* For approve-type confirmations specifically (e.g. an "Approve" button)
      — distinct from .btn-primary's brand teal, so approving something reads
      as its own affirmative action rather than just "the default button". */
+  /* Approve: the reviewer's green (SPEC app-theme), not the roster-state
+     `success` — its bevel derives from this fill. */
   .btn-success {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-success px-4 py-1
-           text-sm font-medium text-on-fill transition-opacity
-           hover:opacity-85 active:opacity-85
+    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-approve px-4 py-1
+           text-sm font-medium text-on-fill transition-colors
+           hover:bg-approve-dark active:bg-approve-dark
            disabled:cursor-not-allowed disabled:opacity-60;
   }
 
@@ -862,8 +878,8 @@
      .btn-danger so two actions with asymmetric consequences don't compete
      equally for attention. */
   .btn-danger-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-danger
-           bg-canvas-raised px-4 py-1 text-sm font-medium text-danger transition-colors
+    @apply inline-flex items-center justify-center gap-2 rounded border border-decline
+           bg-canvas-raised px-4 py-1 text-sm font-medium text-decline transition-colors
            hover:bg-danger-bg active:bg-danger-bg
            disabled:cursor-not-allowed disabled:opacity-60;
   }
@@ -931,7 +947,7 @@
     @apply bg-accent text-on-fill;
   }
   .toolbar-pill-idle {
-    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink;
+    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink;
   }
 
   /* The `hover:active:` duplicates below (and in .icon-btn-idle) are
@@ -969,7 +985,7 @@
            disabled:cursor-not-allowed disabled:opacity-60;
   }
   .icon-btn-idle {
-    @apply bg-canvas text-ink-light hover:bg-canvas-sunken hover:text-ink
+    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink
            active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
   }
   .icon-btn-active {

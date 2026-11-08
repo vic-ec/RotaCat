@@ -167,7 +167,7 @@ export default function AnnualPlannerOverview({
 
           <div className="mt-3">
             <label className="label-text">Showing capacity for</label>
-            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} triggerClassName="btn-bevel-outline" />
           </div>
 
           {/* Current month leads — the one question a doctor lands on this
@@ -177,7 +177,7 @@ export default function AnnualPlannerOverview({
               needs a tap to reveal it. */}
           {currentMonthCard && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Current month</p>
+              <p className="sheen-divider">Current month</p>
               <div className="mt-2 space-y-2">
                 <CategoryMonthTile month={currentMonthCard} onOpen={() => onOpenWorkspace(currentMonthCard.month)} />
               </div>
@@ -186,7 +186,7 @@ export default function AnnualPlannerOverview({
 
           {comingMonthCards.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Coming months</p>
+              <p className="sheen-divider">Coming months</p>
               <div className="mt-2 space-y-2">
                 {comingMonthCards.map(m => (
                   <CategoryMonthTile key={m.month} month={m} onOpen={() => onOpenWorkspace(m.month)} />
@@ -197,7 +197,7 @@ export default function AnnualPlannerOverview({
 
           {previousMonthCards.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Previous months</p>
+              <p className="sheen-divider">Previous months</p>
               <div className="mt-2 space-y-2">
                 {previousMonthCards.map(m => (
                   <CategoryMonthTile key={m.month} month={m} onOpen={() => onOpenWorkspace(m.month)} />

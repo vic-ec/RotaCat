@@ -19,8 +19,8 @@ const MONTH_NAMES = [
 ]
 
 const STATUS_BADGE = {
-  pending: 'bg-flagAmber-bg text-flagAmber',
-  approved: 'bg-success-bg text-success',
+  pending: 'chip-amber',
+  approved: 'chip-mint',
   rejected: 'bg-flagRed-bg text-flagRed',
 }
 

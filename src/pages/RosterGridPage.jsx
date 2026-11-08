@@ -841,7 +841,7 @@ export default function RosterGridPage() {
               // grid; a weekend/PH row's own body sits two steps lighter
               // (canvas.cool, not canvas.sunken) so the header reads as a
               // header rather than merging into the tinted rows under it.
-              const headerBg = isWeekend ? 'bg-accent-panel' : 'bg-canvas-sunken'
+              const headerBg = isWeekend ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head'
 
               return (
                 <tr

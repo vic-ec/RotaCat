@@ -291,7 +291,7 @@ export default function RosterLanesView({
                   key={key}
                   scope="col"
                   className={`sticky top-0 z-20 border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
-                    off ? 'bg-accent-tint text-accent-dark' : 'bg-canvas-raised text-ink-muted'
+                    off ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head text-ink-muted'
                   }`}
                 >
                   {day.phName
@@ -324,11 +324,16 @@ export default function RosterLanesView({
                   <th
                     scope="colgroup"
                     colSpan={columns.length + 1}
-                    className="border-b border-slate-line bg-accent-tint py-1 text-left"
+                    className="border-b border-slate-line bg-canvas-raised p-1 text-left"
                   >
-                    <span className="sticky left-0 inline-block px-2 text-[0.834em] font-semibold uppercase tracking-wide text-accent-dark">
-                      {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
-                    </span>
+                    {/* Divider role (SPEC app-theme): a sheen bar across the
+                        full grid width; the label itself still sticks to the
+                        left edge while the grid is scrolled sideways. */}
+                    <div className="sheen-divider block py-1.5">
+                      <span className="sticky left-0 inline-block px-1">
+                        {labelForLeaveCategory(profile.category) || profile.category || 'Other'}
+                      </span>
+                    </div>
                   </th>
                 </tr>
               )

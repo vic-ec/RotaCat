@@ -10,7 +10,8 @@ import { useSwatch } from '../lib/useSwatch'
 // roster-state flag or as another shade of the green "active" dot).
 // Inactive takes priority over on-leave since it's the more permanent state.
 export function StatusBadge({ active, onLeave, size = 16, className = '' }) {
-  const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-statusAway' : 'bg-success'
+  // Active is the theme's mint (SPEC app-theme), not the roster-state green.
+  const colorClass = !active ? 'bg-flagRed' : onLeave ? 'bg-statusAway' : 'bg-mint'
   const label = !active ? 'Inactive' : onLeave ? 'On leave' : 'Active'
   return (
     <span

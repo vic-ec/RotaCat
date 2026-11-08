@@ -1212,13 +1212,13 @@ export default function StaffListPage() {
                       // renders inside it) the way a fixed px offset here
                       // already has twice before.
                       style={{ top: stickyHeaderHeight }}
-                      className="sticky z-[5] mb-2 flex w-full items-center justify-between rounded bg-canvas-sunken px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line active:bg-slate-line"
+                      className="sheen-divider sticky z-[5] mb-2 transition-[filter] hover:brightness-110 active:brightness-110"
                     >
                       {/* "X active · Y inactive" instead of "X total · Y
                           active" — surfaces the exception (anyone inactive)
                           immediately instead of burying it in a total. */}
-                      <span>{group.label} <span className="ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
-                      <ChevronDownIcon className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                      <span>{group.label} <span className="divider-meta ml-2 normal-case font-normal">{activeCount} active · {inactiveCount} inactive</span></span>
+                      <ChevronDownIcon className={`divider-meta h-3.5 w-3.5 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                     </button>
                     )
                   })()}
@@ -1266,7 +1266,7 @@ export default function StaffListPage() {
                               <span className="line-clamp-2">{secondaryLabel}</span>
                               {contractTag && (
                                 <span
-                                  className="flex-shrink-0 rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                  className="chip-mint flex-shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold"
                                   title={CONTRACT_TAG_TITLE[person.contract_type]}
                                 >
                                   {contractTag}
@@ -1337,12 +1337,12 @@ export default function StaffListPage() {
                         return (
                         <tr
                           onClick={() => toggleGroupCollapsed(group.key)}
-                          className="cursor-pointer bg-canvas-sunken transition-colors hover:bg-slate-line active:bg-slate-line"
+                          className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
                         >
-                          <td colSpan={staffTableCols} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                            <div className="flex items-center justify-between">
-                              <span>{group.label} <span className="ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
-                              <ChevronDownIcon className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                          <td colSpan={staffTableCols} className="p-1">
+                            <div className="sheen-divider">
+                              <span>{group.label} <span className="divider-meta ml-2 normal-case font-normal">{group.items.length} total • {activeCount} active</span></span>
+                              <ChevronDownIcon className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                             </div>
                           </td>
                         </tr>
@@ -1384,7 +1384,7 @@ export default function StaffListPage() {
                                     <span>{secondaryLabel}</span>
                                     {contractTag && (
                                       <span
-                                        className="rounded bg-canvas-sunken px-1 py-0.5 text-[10px] font-semibold text-ink-muted"
+                                        className="chip-mint rounded px-1 py-0.5 text-[10px] font-semibold"
                                         title={CONTRACT_TAG_TITLE[person.contract_type]}
                                       >
                                         {contractTag}

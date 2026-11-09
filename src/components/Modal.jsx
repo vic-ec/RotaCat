@@ -67,7 +67,7 @@ export default function Modal({ title, onClose, children, footer, centered = fal
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center text-ink-muted hover:text-ink md:h-8 md:w-8"
+            className="btn-close h-11 w-11 text-ink-muted md:h-8 md:w-8"
           >
             <CloseIcon className="h-5 w-5 md:h-4 md:w-4" />
           </button>

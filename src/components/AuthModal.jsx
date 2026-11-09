@@ -22,9 +22,7 @@ import { AUTH_MODAL, AUTH_PANEL, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON } from '../
 // opening is remembered instead.
 //
 // Width is calc(100vw - 32px) on a phone (the backdrop's 16px padding), and
-// the panel is centred there at every size. From 640px the `small` dialog
-// is anchored a tenth of the way down instead, where a short card reads
-// better than one floating in the middle of a tall screen.
+// the panel is centred in the window at every size and width.
 //
 // Header, body and footer all carry `scrollbar-gutter: stable` (the body as
 // the scroller, the other two as overflow:hidden boxes), so the body's
@@ -103,15 +101,11 @@ export default function AuthModal({
     if (open) initialFocusRef?.current?.focus?.()
   }, [open, initialFocusRef])
 
-  const small = size === 'small'
-
   return (
     <div
-      className={[
-        'fixed inset-0 z-50 flex items-center justify-center scrim-heavy p-4 backdrop-blur-sm',
-        small ? 'sm:items-start sm:pt-[max(10vh,32px)]' : '',
-        open ? 'opacity-100' : 'pointer-events-none opacity-0',
-      ].join(' ')}
+      className={`fixed inset-0 z-50 flex items-center justify-center scrim-heavy p-4 backdrop-blur-sm ${
+        open ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
       // Only a press that both started and ended on the backdrop closes —
       // a drag that starts inside the panel (selecting text) and ends
       // outside it would otherwise register as a backdrop click.

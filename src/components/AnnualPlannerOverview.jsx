@@ -167,7 +167,7 @@ export default function AnnualPlannerOverview({
 
           <div className="mt-3">
             <label className="label-text">Showing capacity for</label>
-            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} triggerClassName="btn-bevel-outline" />
+            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
           </div>
 
           {/* Current month leads — the one question a doctor lands on this
@@ -347,7 +347,7 @@ function AnnualLegendTrigger({ ruleHintIntro, ruleHintBullets }) {
   return (
     <LegendSheet
       trigger={onClick => (
-        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
           <LegendIcon className="h-4 w-4" />
         </button>
       )}

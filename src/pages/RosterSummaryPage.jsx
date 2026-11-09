@@ -18,6 +18,7 @@ import {
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
 import { useSwatch } from '../lib/useSwatch'
+import { useFillToViewport } from '../lib/useFillToViewport'
 import { shiftColumns, shiftTimeRange } from '../lib/shiftLabels'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
@@ -43,6 +44,9 @@ function hoursBand(row) {
 }
 
 export default function RosterSummaryPage() {
+  // The table runs to the bottom of the window with many rows, and to its
+  // last row with few — see the hook.
+  const [tableRef, tableFill] = useFillToViewport()
   const { profile } = useAuth()
   const swatch = useSwatch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -212,7 +216,7 @@ export default function RosterSummaryPage() {
         </button>
 
         {!isCurrentMonth && (
-          <button type="button" onClick={goToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0">
+          <button type="button" onClick={goToday} aria-label="Today" title="Today" className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0">
             <TodayIcon className="h-4 w-4" />
           </button>
         )}
@@ -273,7 +277,7 @@ export default function RosterSummaryPage() {
           unconstrained height) never provides one; the page would just
           scroll past it instead. */}
       {!loading && !error && (
-        <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
+        <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
           {/* `border-separate` + zero spacing, not `border-collapse`: with
               collapsed borders a cell's edge is *shared* with its
               neighbour and owned by the table, and the sticky Doctor

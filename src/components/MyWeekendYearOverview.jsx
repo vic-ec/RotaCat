@@ -204,7 +204,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   // in the same place (DateStepper's own Today makes the same call), and
   // pressing it on today is a harmless no-op.
   const todayButton = (
-    <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
+    <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-utility h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
   )
 
   return (
@@ -417,7 +417,7 @@ function WeekendLegendTrigger({ states }) {
     <LegendSheet
       ruleBullets={WEEKEND_RULE_BULLETS}
       trigger={onClick => (
-        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
           <LegendIcon className="h-4 w-4" />
         </button>
       )}

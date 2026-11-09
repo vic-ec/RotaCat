@@ -317,6 +317,7 @@ function RoleModal({ role, onClose }) {
               type="text"
               required
               autoComplete="given-name"
+              placeholder="First name"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -328,6 +329,7 @@ function RoleModal({ role, onClose }) {
               type="text"
               required
               autoComplete="family-name"
+              placeholder="Surname"
               value={surname}
               onChange={(e) => setSurname(e.target.value)}
             />
@@ -361,6 +363,7 @@ function RoleModal({ role, onClose }) {
               required
               autoComplete="tel"
               inputMode="tel"
+              placeholder="Mobile number"
               value={formatPhoneProgressive(phone)}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
             />
@@ -398,12 +401,12 @@ function RoleModal({ role, onClose }) {
                     where two columns truncate "Start date" to "Sta…". */}
                 <div className={`grid grid-cols-1 min-[360px]:grid-cols-2 ${AUTH_MODAL.groupGap}`}>
                   <DateFieldButton
-                    id="active-from" label="Start date" variant="auth" fullWidth
+                    id="active-from" label="From" variant="auth" fullWidth
                     required={periodRequired} value={activeFrom} onChange={setActiveFrom}
                     ariaDescribedBy="activity-period-hint"
                   />
                   <DateFieldButton
-                    id="active-until" label="End date" variant="auth" fullWidth
+                    id="active-until" label="To" variant="auth" fullWidth
                     required={periodRequired} min={activeFrom || undefined} value={activeUntil} onChange={setActiveUntil}
                     invalid={dateOrderInvalid} ariaDescribedBy={periodDescribedBy}
                   />

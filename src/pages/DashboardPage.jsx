@@ -494,10 +494,10 @@ export default function DashboardPage() {
                       <SwapShift label="Your shift" entry={sw.target_entry} />
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <button type="button" className="btn-primary text-sm" onClick={() => respondToSwap(sw.id, 'accepted')}>
+                      <button type="button" className="btn-success text-sm" onClick={() => respondToSwap(sw.id, 'accepted')}>
                         Accept
                       </button>
-                      <button type="button" className="btn-secondary text-sm" onClick={() => respondToSwap(sw.id, 'rejected')}>
+                      <button type="button" className="btn-danger-outline text-sm" onClick={() => respondToSwap(sw.id, 'rejected')}>
                         Decline
                       </button>
                     </div>

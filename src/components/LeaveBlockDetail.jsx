@@ -41,7 +41,7 @@ export default function LeaveBlockDetail({ request, onClose, showClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+            className="btn-close h-6 w-6 text-ink-muted"
           >
             <X className="h-3.5 w-3.5" />
           </button>

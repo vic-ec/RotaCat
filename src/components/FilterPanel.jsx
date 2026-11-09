@@ -233,7 +233,7 @@ export default function FilterPanel({ groups, className = '' }) {
               type="button"
               onClick={close}
               aria-label="Close"
-              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+              className="btn-close h-6 w-6 text-ink-muted"
             >
               <CloseIcon className="h-4 w-4" />
             </button>

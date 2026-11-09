@@ -291,7 +291,10 @@ export default function AppLayout() {
           MobileFiltersSheet, ActionSheet and the FAB already do. */}
       {/* Chrome role (docs/app-theme/SPEC.md): sheen with a rounded top
           edge and its lift shadow; labels on-sheen-2, the active label
-          white and its icon on a mint bevelled square. Icons unchanged. */}
+          white and its icon on a flat translucent mint tint — a selected
+          tab is a state, not a button, so it takes no bevel (a deliberate
+          departure from the spec's "mint filled square with the bevel").
+          Icons unchanged. */}
       <nav className="sheen fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
         {navItems.map((item) => (
           <NavLink
@@ -308,7 +311,7 @@ export default function AppLayout() {
               <>
                 <span
                   className={`relative inline-flex h-7 w-9 items-center justify-center rounded-lg transition-colors ${
-                    isActive ? 'btn-bevel-mint bg-mint text-mint-ink' : ''
+                    isActive ? 'bg-on-sheen-accent/20 text-on-sheen-accent' : ''
                   }`}
                 >
                   <item.icon className="h-5 w-5" />

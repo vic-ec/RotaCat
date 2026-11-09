@@ -28,7 +28,7 @@ export default function TeamLeaveDateNavigator({ view, weekAnchor, onWeekChange,
         prevLabel="Previous week"
         nextLabel="Next week"
       />
-      <button type="button" onClick={() => onWeekChange(todayStr())} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0"><TodayIcon className="h-4 w-4" /></button>
+      <button type="button" onClick={() => onWeekChange(todayStr())} aria-label="Today" title="Today" className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"><TodayIcon className="h-4 w-4" /></button>
     </div>
   )
 }

@@ -190,7 +190,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
                   >
                     {saving ? 'Saving…' : 'Confirm'}
                   </button>
-                  <button type="button" onClick={() => setSchedulingId(null)} disabled={saving} className="text-xs text-ink-muted hover:text-ink">
+                  <button type="button" onClick={() => setSchedulingId(null)} disabled={saving} className="btn-ghost text-xs">
                     Cancel
                   </button>
                 </div>

@@ -379,9 +379,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openSignInModal}
-              className="w-full btn-bevel-mint rounded-lg bg-auth-mint-btn py-6 text-lg font-bold text-auth-mint-btn-ink
-                transition-colors
-                focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-auth-sheet-ink"
+              className="btn-surface-mint w-full rounded-xl py-[23px] text-lg font-bold"
             >
               Sign in
             </button>

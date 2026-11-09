@@ -397,7 +397,7 @@ export default function RosterDashboardPage() {
                 setSelected={setDraftSel}
                 navigate={navigate}
                 metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
-                actions={[{ label: 'Move to Bin', onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
+                actions={[{ label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
                 view={rosterView}
               />
@@ -463,7 +463,7 @@ export default function RosterDashboardPage() {
               metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
               actions={[
                 { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
-                { label: 'Delete permanently', onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
+                { label: 'Delete permanently', destructive: true, onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
               ]}
               emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
               view={rosterView}
@@ -637,7 +637,9 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               <button
                 key={action.label}
                 onClick={() => action.onClick([...selected])}
-                className="btn-secondary px-3"
+                // A bulk action that bins or deletes is destructive and takes
+                // the outlined red; Archive / Unarchive stay generic.
+                className={`${action.destructive ? 'btn-danger-outline' : 'btn-secondary'} px-3`}
               >
                 {action.label} ({selected.size})
               </button>

@@ -194,6 +194,43 @@
   --chip-amber-bg: #FDF3D8;      --chip-amber-ink: #92600F;   /* pending / limited capacity */
   --chip-evening-bg: #E8F1EF;    --chip-evening-ink: #4B5563; /* evening-shift time chip */
   --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+
+  /* ── Action buttons: "calm, precise, softly tactile" ─────────────────
+     The generic primary (deep teal) and secondary (quiet white) recipes
+     every ordinary action button shares (.btn-primary / .btn-secondary
+     and the auth forms' large sizes). Colours, not channels, so the
+     shadows and borders can carry their own alpha. Semantic buttons
+     (approve, decline, danger) and utility controls keep their own look. */
+  --btn-primary-bg: #147D75;
+  --btn-primary-border: #0F6761;
+  --btn-primary-hover: #106E68;
+  --btn-primary-pressed: #0B5C57;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-disabled-bg: #9DBDB9;
+  --btn-primary-disabled-border: #93B3AF;
+  --btn-primary-disabled-text: #F3F6F5;
+  --shadow-btn-primary: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 2px 4px rgba(8, 46, 43, 0.20);
+  --shadow-btn-primary-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 1px rgba(8, 46, 43, 0.14);
+  --btn-secondary-bg: #FFFFFF;
+  --btn-secondary-border: #D8E2E1;
+  --btn-secondary-text: #273244;
+  --btn-secondary-hover: #F0F7F5;
+  --btn-secondary-hover-border: #91C6BB;
+  --btn-secondary-pressed: #E6F1EE;
+  --btn-secondary-disabled-bg: #F3F5F6;
+  --btn-secondary-disabled-border: #E3E7EB;
+  --btn-secondary-disabled-text: #9AA6A4;
+  --shadow-btn-secondary: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(26, 48, 55, 0.06);
+  --shadow-btn-secondary-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 rgba(26, 48, 55, 0);
+  /* The phone sheet's Sign in: the same recipe on the mint the sheet uses. */
+  --btn-mint-bg: #6FBDAF;
+  --btn-mint-border: #5EA99B;
+  --btn-mint-hover: #63B0A2;
+  --btn-mint-pressed: #579F92;
+  --btn-mint-text: #0A100E;
+  --shadow-btn-mint: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(8, 46, 43, 0.28);
+  /* Keyboard focus ring for the action buttons: mint-teal, outside the box. */
+  --focus-ring: #3FA896;
   /* Roster grid header row: pale, with weekend columns a step greener. */
   --color-grid-head: 247 249 250;             /* #F7F9FA */
   --color-grid-head-weekend: 237 244 242;     /* #EDF4F2 */
@@ -419,6 +456,37 @@
   --chip-amber-bg: #231A0D;                   --chip-amber-ink: #E0B15C;
   --chip-evening-bg: rgba(243, 246, 245, 0.10); --chip-evening-ink: #CFE0DC;
   --shadow-tabbar: 0 -14px 30px -18px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+
+  /* Action buttons, dark: a deep teal primary with a white label and a
+     charcoal-teal secondary with pale slate text; no black ledges, no neon. */
+  --btn-primary-bg: #1C716A;
+  --btn-primary-border: #15605A;
+  --btn-primary-hover: #237A72;
+  --btn-primary-pressed: #154F4A;
+  --btn-primary-text: #FFFFFF;
+  --btn-primary-disabled-bg: #2A4542;
+  --btn-primary-disabled-border: #2F4D49;
+  --btn-primary-disabled-text: #8FA6A2;
+  --shadow-btn-primary: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(4, 24, 22, 0.45);
+  --shadow-btn-primary-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 1px rgba(4, 24, 22, 0.35);
+  --btn-secondary-bg: #1E3733;
+  --btn-secondary-border: #35524D;
+  --btn-secondary-text: #D6E2DF;
+  --btn-secondary-hover: #24413C;
+  --btn-secondary-hover-border: #5A897F;
+  --btn-secondary-pressed: #1A302C;
+  --btn-secondary-disabled-bg: #182A27;
+  --btn-secondary-disabled-border: #243B37;
+  --btn-secondary-disabled-text: #6E8682;
+  --shadow-btn-secondary: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-btn-secondary-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 0 0 rgba(0, 0, 0, 0);
+  --btn-mint-bg: #6FBDAF;
+  --btn-mint-border: #5EA99B;
+  --btn-mint-hover: #63B0A2;
+  --btn-mint-pressed: #579F92;
+  --btn-mint-text: #0A100E;
+  --shadow-btn-mint: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --focus-ring: #8FD3C5;
   --color-grid-head: 23 33 30;                /* #17211E */
   --color-grid-head-weekend: 27 42 39;        /* #1B2A27 */
   --color-approve: 107 175 128;               /* #6BAF80 */
@@ -705,18 +773,20 @@
      Firefox 128+; a browser without it falls back to the fixed-overlay
      bevel below, which is the first build's look.
 
-     Flavours: `.btn-bevel` (teal fill), `.btn-bevel-success`,
-     `.btn-bevel-danger`, `.btn-bevel-mint` (the phone sheet's Sign in),
-     `.btn-bevel-outline` (white face, keeps its border), `.btn-bevel-fab`
-     (teal fill plus the one permitted lift shadow). The shared .btn-*
-     classes carry the matching flavour without any markup change. Icon-
-     only buttons take none of these. */
+     Since the action-button redesign (below), this bevel is for the
+     SEMANTIC and UTILITY controls only: approve (.btn-success), decline
+     and danger (.btn-danger, .btn-danger-outline), the FABs
+     (.btn-bevel-fab), the active segment of a segmented control
+     (.btn-bevel, .toolbar-pill-active), the active tab-bar icon
+     (.btn-bevel-mint), and the outlined utility faces (.btn-bevel-outline:
+     toolbar pills, the date stepper, the capacity selector, the sign-up
+     role cards). Generic primary and secondary buttons no longer take it —
+     see .btn-surface-primary / .btn-surface-secondary. */
   .btn-bevel,
   .btn-bevel-success,
   .btn-bevel-danger,
   .btn-bevel-mint,
   .btn-bevel-fab,
-  .btn-primary,
   .btn-success,
   .btn-danger,
   .toolbar-pill-active {
@@ -725,7 +795,6 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
   }
   .btn-bevel-outline,
-  .btn-secondary,
   .btn-danger-outline {
     --btn-up: 9;
     --btn-dn: 12;
@@ -733,15 +802,15 @@
   }
   /* Each flavour's fill. Hover re-points the fill to the shade the hover
      background already uses, so the edges re-derive with it. */
-  .btn-bevel, .btn-bevel-fab, .btn-primary, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
-  .btn-bevel:hover, .btn-bevel-fab:hover, .btn-primary:hover { --btn-bg: rgb(var(--color-accent-dark)); }
+  .btn-bevel, .btn-bevel-fab, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
+  .btn-bevel:hover, .btn-bevel-fab:hover { --btn-bg: rgb(var(--color-accent-dark)); }
   .btn-bevel-success { --btn-bg: rgb(var(--color-success)); }
   .btn-success { --btn-bg: rgb(var(--color-approve)); }
   .btn-success:hover { --btn-bg: rgb(var(--color-approve-dark)); }
   .btn-bevel-danger, .btn-danger { --btn-bg: rgb(var(--color-danger)); }
   .btn-bevel-danger:hover, .btn-danger:hover { --btn-bg: rgb(var(--color-danger-dark)); }
   .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
-  .btn-bevel-outline, .btn-secondary, .btn-danger-outline { --btn-bg: rgb(var(--color-canvas-raised)); }
+  .btn-bevel-outline, .btn-danger-outline { --btn-bg: rgb(var(--color-canvas-raised)); }
   .btn-bevel-outline:hover { --btn-bg: rgb(var(--color-auth-choice-hover)); }
   /* An outlined face that is not white — the Create-account role cards on
      Mint 1 — derives its edges from that fill: the top lightens to white,
@@ -749,7 +818,6 @@
      the edges came from white and vanished on the mint. */
   .btn-bevel-outline.btn-face-card { --btn-bg: rgb(var(--color-auth-card)); }
   .btn-bevel-outline.btn-face-card:hover { --btn-bg: rgb(var(--color-accent-night)); }
-  .btn-secondary:hover { --btn-bg: rgb(var(--color-canvas-sunken)); }
   .btn-danger-outline:hover { --btn-bg: rgb(var(--color-danger-bg)); }
 
   @supports (color: hsl(from red h s l)) {
@@ -758,10 +826,8 @@
     .btn-bevel-danger,
     .btn-bevel-mint,
     .btn-bevel-outline,
-    .btn-primary,
     .btn-success,
     .btn-danger,
-    .btn-secondary,
     .btn-danger-outline,
     .toolbar-pill-active {
       box-shadow:
@@ -782,10 +848,8 @@
     .btn-bevel-mint:active,
     .btn-bevel-outline:active,
     .btn-bevel-fab:active,
-    .btn-primary:active,
     .btn-success:active,
     .btn-danger:active,
-    .btn-secondary:active,
     .btn-danger-outline:active,
     .toolbar-pill-active:active {
       box-shadow:
@@ -802,14 +866,12 @@
     .btn-bevel-danger:active,
     .btn-bevel-mint:active,
     .btn-bevel-fab:active,
-    .btn-primary:active,
     .btn-success:active,
     .btn-danger:active,
     .toolbar-pill-active:active {
       box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
     }
     .btn-bevel-outline:active,
-    .btn-secondary:active,
     .btn-danger-outline:active {
       box-shadow: inset 0 2px 0 rgba(15, 23, 42, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
     }
@@ -823,29 +885,139 @@
   .btn-bevel-outline:disabled,
   .btn-bevel-outline[aria-disabled="true"],
   .btn-bevel-fab:disabled,
-  .btn-primary:disabled,
-  .btn-primary[aria-disabled="true"],
   .btn-success:disabled,
-  .btn-secondary:disabled,
   .btn-danger:disabled,
   .btn-danger-outline:disabled {
     opacity: 0.6;
     box-shadow: none;
   }
 
+  /* ── Generic action buttons: one primary recipe, one secondary ────────
+     "Calm, precise, softly tactile." The surface classes carry colour,
+     border, elevation and every interaction state; the size classes
+     (.btn-primary/.btn-secondary at the app's 30px scale, authButtonClass
+     at the auth forms' 66px) add only geometry and type.
+
+     Primary: deep teal, 1px darker-teal border, a faint upper inset
+     highlight and one shallow teal-tinted shadow — no dark lower ledge,
+     no gloss, no gradient. Hover deepens the fill only; nothing moves. A
+     press drops the shadow and sinks 1px (the global reduced-motion rule
+     removes the transition). Keyboard focus is an external mint-teal ring,
+     distinct from hover and press. Disabled is a low-saturation fill with
+     reduced-contrast text and no elevation, not a faded live button.
+
+     Secondary: white, soft cool-grey hairline, slate text, a whisper of
+     inner highlight and a 1px contact shadow — quiet and useful, not a
+     raised key. Hover tints the face and warms the border to mint.
+
+     Mint: the phone sheet's Sign in, the same recipe on the sheet's mint. */
+  .btn-surface-primary,
+  .btn-surface-secondary,
+  .btn-surface-mint,
+  .btn-primary,
+  .btn-secondary {
+    border-width: 1px;
+    border-style: solid;
+    border-radius: 10px;
+    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  }
+  .btn-surface-primary, .btn-primary {
+    background-color: var(--btn-primary-bg);
+    border-color: var(--btn-primary-border);
+    color: var(--btn-primary-text);
+    box-shadow: var(--shadow-btn-primary);
+  }
+  .btn-surface-primary:hover, .btn-primary:hover { background-color: var(--btn-primary-hover); }
+  .btn-surface-primary:active, .btn-primary:active {
+    background-color: var(--btn-primary-pressed);
+    box-shadow: var(--shadow-btn-primary-pressed);
+    transform: translateY(1px);
+  }
+  .btn-surface-secondary, .btn-secondary {
+    background-color: var(--btn-secondary-bg);
+    border-color: var(--btn-secondary-border);
+    color: var(--btn-secondary-text);
+    box-shadow: var(--shadow-btn-secondary);
+  }
+  .btn-surface-secondary:hover, .btn-secondary:hover {
+    background-color: var(--btn-secondary-hover);
+    border-color: var(--btn-secondary-hover-border);
+  }
+  .btn-surface-secondary:active, .btn-secondary:active {
+    background-color: var(--btn-secondary-pressed);
+    box-shadow: var(--shadow-btn-secondary-pressed);
+    transform: translateY(1px);
+  }
+  .btn-surface-mint {
+    background-color: var(--btn-mint-bg);
+    border-color: var(--btn-mint-border);
+    color: var(--btn-mint-text);
+    box-shadow: var(--shadow-btn-mint);
+  }
+  .btn-surface-mint:hover { background-color: var(--btn-mint-hover); }
+  .btn-surface-mint:active {
+    background-color: var(--btn-mint-pressed);
+    box-shadow: var(--shadow-btn-primary-pressed);
+    transform: translateY(1px);
+  }
+  .btn-surface-primary:focus-visible,
+  .btn-surface-secondary:focus-visible,
+  .btn-surface-mint:focus-visible,
+  .btn-primary:focus-visible,
+  .btn-secondary:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 10px;
+  }
+  .btn-surface-primary:disabled, .btn-surface-primary[aria-disabled="true"],
+  .btn-primary:disabled, .btn-primary[aria-disabled="true"] {
+    background-color: var(--btn-primary-disabled-bg);
+    border-color: var(--btn-primary-disabled-border);
+    color: var(--btn-primary-disabled-text);
+  }
+  .btn-surface-secondary:disabled, .btn-surface-secondary[aria-disabled="true"],
+  .btn-secondary:disabled, .btn-secondary[aria-disabled="true"] {
+    background-color: var(--btn-secondary-disabled-bg);
+    border-color: var(--btn-secondary-disabled-border);
+    color: var(--btn-secondary-disabled-text);
+  }
+  .btn-surface-mint:disabled, .btn-surface-mint[aria-disabled="true"] {
+    background-color: var(--btn-primary-disabled-bg);
+    border-color: var(--btn-primary-disabled-border);
+    color: var(--btn-primary-disabled-text);
+  }
+  .btn-surface-primary:disabled, .btn-surface-primary[aria-disabled="true"],
+  .btn-surface-secondary:disabled, .btn-surface-secondary[aria-disabled="true"],
+  .btn-surface-mint:disabled, .btn-surface-mint[aria-disabled="true"],
+  .btn-primary:disabled, .btn-primary[aria-disabled="true"],
+  .btn-secondary:disabled, .btn-secondary[aria-disabled="true"] {
+    box-shadow: none;
+    transform: none;
+    opacity: 1;
+  }
+  .btn-surface-primary:disabled, .btn-surface-secondary:disabled, .btn-surface-mint:disabled,
+  .btn-primary:disabled, .btn-secondary:disabled { cursor: not-allowed; }
+  .btn-surface-primary[aria-disabled="true"], .btn-surface-secondary[aria-disabled="true"], .btn-surface-mint[aria-disabled="true"],
+  .btn-primary[aria-disabled="true"], .btn-secondary[aria-disabled="true"] { cursor: default; }
+
   /* Buttons and text inputs share a 30px target height app-wide: text-sm's
-     20px line-height + 8px vertical padding + a 2px border (real on
-     .btn-secondary/.input-field, transparent on .btn-primary so it lines up
-     with the bordered ones) = 30px. */
+     20px line-height + 8px vertical padding + the 1px border on each side
+     = 30px. Colour, border and elevation come from the recipe above. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-accent px-4 py-1
-           text-sm font-medium text-on-fill transition-colors
-           hover:bg-accent-dark active:bg-accent-dark
-           disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1 text-sm font-medium;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-slate-line
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1 text-sm font-medium;
+  }
+
+  /* Icon-only utility squares (Today, Legend, week prev/next, the year
+     picker's arrows, the grid's More-actions kebab) used to borrow
+     .btn-secondary. They are utility controls, not actions, so they keep
+     the look they had — slate hairline, raised canvas, the outlined bevel —
+     under their own name instead of inheriting the action recipe. */
+  .btn-utility {
+    @apply btn-bevel-outline inline-flex items-center justify-center gap-2 rounded border border-slate-line
            bg-canvas-raised px-4 py-1 text-sm font-medium text-ink transition-colors
            hover:bg-canvas-sunken active:bg-canvas-sunken
            disabled:cursor-not-allowed disabled:opacity-60;

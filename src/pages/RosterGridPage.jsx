@@ -645,7 +645,7 @@ export default function RosterGridPage() {
                   onClick={onClick}
                   aria-expanded={open}
                   aria-label="More actions"
-                  className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0"
+                  className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
                 >
                   <EllipsisVertical className="h-4 w-4" />
                 </button>
@@ -755,7 +755,7 @@ export default function RosterGridPage() {
           <button
             onClick={() => setCurrentWeek(w => Math.max(0, w - 1))}
             disabled={currentWeek === 0}
-            className="btn-secondary px-2 py-1 text-sm disabled:opacity-40"
+            className="btn-utility px-2 py-1 text-sm disabled:opacity-40"
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </button>
@@ -765,7 +765,7 @@ export default function RosterGridPage() {
           <button
             onClick={() => setCurrentWeek(w => Math.min(weeks.length - 1, w + 1))}
             disabled={currentWeek === weeks.length - 1}
-            className="btn-secondary px-2 py-1 text-sm disabled:opacity-40"
+            className="btn-utility px-2 py-1 text-sm disabled:opacity-40"
           >
             <ChevronRightIcon className="h-4 w-4" />
           </button>

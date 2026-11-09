@@ -216,7 +216,7 @@ export default function RosterSummaryPage() {
         </button>
 
         {!isCurrentMonth && (
-          <button type="button" onClick={goToday} aria-label="Today" title="Today" className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0">
+          <button type="button" onClick={goToday} aria-label="Today" title="Today" className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0">
             <TodayIcon className="h-4 w-4" />
           </button>
         )}

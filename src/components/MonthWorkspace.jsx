@@ -138,7 +138,7 @@ export default function MonthWorkspace({
         <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
           <LegendSheet
             trigger={onClick => (
-              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0">
+              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
                 <LegendIcon className="h-4 w-4" />
               </button>
             )}
@@ -672,11 +672,11 @@ function DayReviewModal({
                         <button
                           onClick={() => (warned || capacityWarned) && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
                           disabled={isActioning || warningsById[request.id] === undefined}
-                          className="btn-primary"
+                          className="btn-success"
                         >
                           {isActioning ? 'Approving…' : (warned || capacityWarned) ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'}
                         </button>
-                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-secondary">
+                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-danger-outline">
                           Reject
                         </button>
                       </div>

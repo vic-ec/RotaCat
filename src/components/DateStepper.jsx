@@ -140,7 +140,7 @@ export default function DateStepper({
           onClick={goToday}
           aria-label="Today"
           title="Today"
-          className="btn-secondary h-[30px] w-[30px] flex-shrink-0 p-0"
+          className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
         >
           <TodayIcon className="h-4 w-4" />
         </button>
@@ -231,7 +231,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
         <button
           type="button"
           onClick={() => showYears ? setYearRangeStart(r => r - YEARS_PER_PAGE) : setJumpYear(y => y - 1)}
-          className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
+          className="btn-utility h-[30px] w-[30px] p-0 text-sm"
           aria-label={showYears ? 'Previous years' : 'Previous year'}
         ><ChevronLeft className="h-4 w-4" /></button>
         <button
@@ -244,7 +244,7 @@ function MonthJumpSheet({ year, month, onPick, onClose }) {
         <button
           type="button"
           onClick={() => showYears ? setYearRangeStart(r => r + YEARS_PER_PAGE) : setJumpYear(y => y + 1)}
-          className="btn-secondary h-[30px] w-[30px] p-0 text-sm"
+          className="btn-utility h-[30px] w-[30px] p-0 text-sm"
           aria-label={showYears ? 'Next years' : 'Next year'}
         ><ChevronRight className="h-4 w-4" /></button>
       </div>
@@ -280,9 +280,9 @@ function YearJumpSheet({ year, onPick, onClose }) {
   return (
     <ActionSheet title="Jump to year" onClose={onClose}>
       <div className="flex items-center justify-center gap-2 py-3">
-        <button type="button" onClick={() => setRangeStart(r => r - YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Previous years"><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setRangeStart(r => r - YEARS_PER_PAGE)} className="btn-utility h-[30px] w-[30px] p-0 text-sm" aria-label="Previous years"><ChevronLeft className="h-4 w-4" /></button>
         <span className="font-display text-base font-semibold text-ink">{rangeStart}–{rangeStart + YEARS_PER_PAGE - 1}</span>
-        <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-secondary h-[30px] w-[30px] p-0 text-sm" aria-label="Next years"><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setRangeStart(r => r + YEARS_PER_PAGE)} className="btn-utility h-[30px] w-[30px] p-0 text-sm" aria-label="Next years"><ChevronRight className="h-4 w-4" /></button>
       </div>
       <YearGridButtons rangeStart={rangeStart} currentYear={year} onPick={onPick} />
     </ActionSheet>

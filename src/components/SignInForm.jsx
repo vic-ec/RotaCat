@@ -320,10 +320,7 @@ export default function SignInForm({
           type="submit"
           aria-disabled={busy || undefined}
           aria-describedby="verify-status"
-          className="btn-bevel flex w-full items-center justify-center gap-3 rounded-[14px] bg-accent py-[19px] text-lg font-semibold text-on-fill
-            transition-colors hover:bg-accent-dark active:bg-accent-dark
-            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-            aria-disabled:cursor-default aria-disabled:opacity-60 aria-disabled:hover:bg-accent"
+          className="btn-surface-primary flex w-full items-center justify-center gap-3 rounded-xl py-[18px] text-lg font-semibold"
         >
           {submitting && <Spinner />}
           <span>{submitting ? 'Signing in…' : 'Sign in'}</span>

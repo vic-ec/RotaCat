@@ -231,7 +231,7 @@ describe('MonthWorkspace', () => {
 
     // Today/Legend stay standalone squares outside it, same height.
     for (const button of [todayButton, legendButton]) {
-      expect(button).toHaveClass('btn-secondary', 'h-[30px]', 'w-[30px]')
+      expect(button).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
       expect(stepper).not.toContainElement(button)
     }
     expect(legendButton.className).not.toContain('bg-accent-tint')

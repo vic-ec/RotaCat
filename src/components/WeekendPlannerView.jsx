@@ -539,7 +539,7 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
             type="button"
             onClick={onConfirm}
             disabled={saving || entryCount === 0}
-            className="btn-primary text-sm"
+            className="btn-danger text-sm"
           >
             {saving ? 'Clearing…' : 'Clear'}
           </button>

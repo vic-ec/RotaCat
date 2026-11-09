@@ -834,7 +834,7 @@ export default function InternRotationsMatrix({
                 <LegendSheet
                   title="Legend"
                   trigger={onClick => (
-                    <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-secondary h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
+                    <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
                   )}
                 >
                   {legendSwatches}

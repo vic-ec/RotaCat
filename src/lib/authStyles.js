@@ -52,22 +52,22 @@ export const AUTH_LINK = 'font-medium text-accent underline decoration-accent/45
 // A link that must stay quiet (e.g. "Back to sign in" under a form).
 export const AUTH_LINK_MUTED = 'font-medium text-ink-light underline decoration-ink-light/40 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink'
 
-// The filled primary action, bevelled, at the login form's 66px (the one
-// height every auth form shares); `large: false` is the compact size.
+// The filled primary action at the login form's 66px (the one height every
+// auth form shares); `large: false` is the modals' 48px.
 export function authButtonClass({ large = true, extra = '' } = {}) {
   return [
-    'btn-bevel w-full rounded-[14px] bg-accent font-semibold text-on-fill transition-colors',
-    'hover:bg-accent-dark active:bg-accent-dark',
-    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-    'disabled:opacity-60 aria-disabled:opacity-60',
-    large ? 'py-[19px] text-lg' : 'py-3 text-base',
+    // Colour, border, elevation and every state come from the shared
+    // primary recipe (index.css); this adds the auth forms' size and type.
+    // py allows for the recipe's 1px border: 18+18+28+2 = 66px, 11+11+24+2 = 48px.
+    'btn-surface-primary w-full rounded-xl font-semibold',
+    large ? 'py-[18px] text-lg' : 'py-[11px] text-base',
     extra,
   ].join(' ')
 }
 
-// The outlined secondary action (Continue, Back to sign in, Request a new
-// link): white face, accent/70 border, outlined bevel.
-export const AUTH_BUTTON_OUTLINE = 'btn-bevel-outline inline-flex items-center justify-center rounded-[14px] border-2 border-accent/70 bg-auth-modal px-5 py-2.5 text-sm font-semibold text-accent transition-colors hover:border-accent hover:bg-auth-choice-hover active:border-accent active:bg-auth-choice-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+// The secondary action (Continue, Back to sign in, Request a new link): the
+// shared quiet-white secondary recipe, at the auth forms' type size.
+export const AUTH_BUTTON_OUTLINE = 'btn-surface-secondary inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold'
 
 // A floating panel (modal, standalone card): the login card's own corners,
 // hairline and shadow. The header strip sits on white with the seam line

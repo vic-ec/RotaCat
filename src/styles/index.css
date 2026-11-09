@@ -966,6 +966,9 @@
   /* Segmented control: a quiet secondary track; the chosen segment takes
      the primary fill with the inset highlight only, no outer shadow. */
   .seg-track { padding: 2px; gap: 2px; display: inline-flex; align-items: stretch; }
+  /* 8px: the track's 10px corner minus its 2px inset, so the chosen
+     segment sits flush inside the rounded square rather than as a pill.
+     The project's `rounded-lg` is 12px, so segments use `rounded` (8px). */
   .seg-on { --b-border: transparent; --b-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13); --b-shadow-pressed: none; border-radius: 8px; }
 
   /* ── Geometry ─────────────────────────────────────────────────────── */

@@ -167,10 +167,13 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
           ) : batches.length === 0 ? (
             <p className="mt-1 text-sm text-ink-muted">No recent actions to restore.</p>
           ) : (
-            <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+            // Scrolls both ways: the edit summary is never clipped behind
+            // the Restore button on a phone — the row runs to its full
+            // width and the list pans sideways, like the table below.
+            <ul className="mt-2 max-h-40 space-y-1.5 overflow-auto">
               {batches.slice(0, RECENT_BATCH_DISPLAY_LIMIT).map(batch => (
-                <li key={batch.batchId} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 flex-1 truncate text-ink">
+                <li key={batch.batchId} className="flex min-w-max items-center justify-between gap-3 text-sm">
+                  <span className="whitespace-nowrap text-ink">
                     {summarizeWeekendPlannerBatch(batch)}
                     <span className="ml-1.5 text-xs text-ink-muted">
                       — {batchNameById.get(batch.changedBy) || 'Unknown'}, {formatRelativeTime(batch.changedAt)}

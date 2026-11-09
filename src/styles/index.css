@@ -331,7 +331,7 @@
   --color-ink-muted: 126 150 144;               /* #7E9690 */
   /* canvas */
   --color-canvas: 10 16 14;                     /* #0A100E — app canvas (SPEC app-theme dark) */
-  --color-canvas-raised: 27 59 53;              /* #1B3B35 — cards (SPEC app-theme dark) */
+  --color-canvas-raised: 21 48 43;              /* #15302B — cards and modals, two steps below the spec's #1B3B35 so controls on them stand out */
   --color-canvas-sunken: 23 33 30;              /* #17211E */
   --color-canvas-cool: 26 35 34;                /* #1A2322 */
   /* slate */
@@ -451,7 +451,7 @@
   /* App theme, dark: content darkens to the card colour; the sheen base
      shifts to that same tint with its highlight band at 4%, not 6%. */
   --color-canvas-app: 10 16 14;               /* #0A100E */
-  --color-card: 27 59 53;                     /* #1B3B35 */
+  --color-card: 21 48 43;                     /* #15302B — same as canvas-raised */
   --card-border: rgba(111, 189, 175, 0.22);
   --color-sheen: 27 59 53;                    /* #1B3B35 */
   --bg-sheen:
@@ -484,12 +484,12 @@
   --btn-primary-disabled-text: #8FA6A2;
   --shadow-btn-primary: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(4, 24, 22, 0.45);
   --shadow-btn-primary-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 1px rgba(4, 24, 22, 0.35);
-  --btn-secondary-bg: #1E3733;
-  --btn-secondary-border: #35524D;
+  --btn-secondary-bg: #24413C;
+  --btn-secondary-border: #3E5F58;
   --btn-secondary-text: #D6E2DF;
-  --btn-secondary-hover: #24413C;
+  --btn-secondary-hover: #2B4B45;
   --btn-secondary-hover-border: #5A897F;
-  --btn-secondary-pressed: #2E4F49;          /* lighter than hover: darker barely shows on a dark surface */
+  --btn-secondary-pressed: #365A53;          /* lighter than hover: darker barely shows on a dark surface */
   --btn-secondary-disabled-bg: #182A27;
   --btn-secondary-disabled-border: #243B37;
   --btn-secondary-disabled-text: #6E8682;
@@ -505,7 +505,7 @@
   --shadow-btn-approve: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(4, 24, 14, 0.45);
   --btn-danger-bg: #B9524F;   --btn-danger-border: #A24542;   --btn-danger-hover: #C25B58;   --btn-danger-pressed: #772F2C;
   --shadow-btn-danger: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(30, 6, 6, 0.45);
-  --btn-decline-bg: #1E3733;  --btn-decline-border: #6B4A48;  --btn-decline-text: #E39B95;
+  --btn-decline-bg: #24413C;  --btn-decline-border: #6B4A48;  --btn-decline-text: #E39B95;
   --btn-decline-hover: #2A3836; --btn-decline-hover-border: #D98C7F; --btn-decline-pressed: #3A3836;
   --btn-warning-bg: #D9A24A;  --btn-warning-border: #C28F3D;  --btn-warning-hover: #CF9841;  --btn-warning-pressed: #A2722A;  --btn-warning-text: #1A1408;
   --shadow-btn-warning: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 4px rgba(0, 0, 0, 0.40);

@@ -17,7 +17,7 @@
 // rolled copy.
 export default function ViewToggle({ view, onChange, options }) {
   return (
-    <div className="flex h-[30px] flex-shrink-0 overflow-hidden rounded border border-slate-line bg-canvas-raised">
+    <div className="seg-track h-[30px] flex-shrink-0">
       {options.map(o => {
         const Icon = o.icon
         return (
@@ -27,8 +27,8 @@ export default function ViewToggle({ view, onChange, options }) {
             onClick={() => onChange(o.key)}
             aria-label={o.ariaLabel ?? o.label}
             title={o.title}
-            className={`flex items-center gap-1.5 px-3 text-xs font-medium transition-colors ${
-              view === o.key ? 'btn-bevel bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
+            className={`flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors ${
+              view === o.key ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}
           >
             {Icon && <Icon className="h-3.5 w-3.5 flex-shrink-0" />}

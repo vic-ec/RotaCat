@@ -160,7 +160,7 @@ export function ToolbarFacet({ icon, label, value, onChange, options, isActive, 
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+              className="btn-close h-6 w-6 text-ink-muted"
             >
               <CloseIcon className="h-4 w-4" />
             </button>
@@ -279,7 +279,7 @@ function ToolbarGroupInline({ label, options, selected, onChange, alwaysSearchab
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+              className="btn-close h-6 w-6 text-ink-muted"
             >
               <CloseIcon className="h-4 w-4" />
             </button>
@@ -528,8 +528,8 @@ export default function Toolbar({
               type="button"
               onClick={() => setMobileSheetOpen(true)}
               aria-label={mobileSheetTitle}
-              className={`flex h-[30px] flex-shrink-0 items-center justify-center gap-1.5 rounded border border-accent/25 text-sm font-medium transition-colors ${compact ? 'w-[30px]' : ''} ${
-                active ? 'bg-accent text-on-fill' : 'bg-canvas text-ink-light'
+              className={`toolbar-pill flex-shrink-0 ${compact ? 'w-[30px] px-0' : ''} ${
+                active ? 'toolbar-pill-active' : 'toolbar-pill-idle'
               }`}
             >
               <FiltersIcon className="h-4 w-4" />

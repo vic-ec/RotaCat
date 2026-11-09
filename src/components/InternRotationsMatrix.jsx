@@ -499,7 +499,7 @@ export default function InternRotationsMatrix({
               type="button"
               onClick={() => onSelectDoctor(null)}
               aria-label="Close"
-              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+              className="btn-close h-6 w-6 text-ink-muted"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -913,7 +913,7 @@ export default function InternRotationsMatrix({
         type="button"
         onClick={openAddDoctor}
         aria-label="Add doctor"
-        className="btn-bevel-fab fixed bottom-20 right-4 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill md:flex"
+        className="btn-fab fixed bottom-20 right-4 z-40 hidden h-14 w-14 md:flex"
       >
         <Plus className="h-6 w-6" />
       </button>

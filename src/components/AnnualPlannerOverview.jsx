@@ -167,7 +167,7 @@ export default function AnnualPlannerOverview({
 
           <div className="mt-3">
             <label className="label-text">Showing capacity for</label>
-            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} triggerClassName="btn-bevel-outline" />
+            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
           </div>
 
           {/* Current month leads — the one question a doctor lands on this

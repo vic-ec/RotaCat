@@ -32,12 +32,12 @@ export function StepperShell({
 }) {
   const labelClassName = `whitespace-nowrap px-2 font-display text-base font-semibold text-ink ${centered ? 'flex-1 text-center' : ''}`
   return (
-    <div className={`btn-bevel-outline inline-flex items-center rounded-lg border border-slate-line bg-canvas-raised ${centered ? 'w-full' : ''}`}>
+    <div className={`btn-utility inline-flex items-center overflow-hidden p-0 ${centered ? 'w-full' : ''}`}>
       <button
         type="button"
         onClick={onPrev}
         disabled={!canGoPrev}
-        className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-l-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn-ghost h-[28px] w-[28px] flex-shrink-0 rounded-md p-0 disabled:opacity-40"
         aria-label={prevLabel}
       >
         <ChevronLeft className="h-4 w-4" />
@@ -53,7 +53,7 @@ export function StepperShell({
         type="button"
         onClick={onNext}
         disabled={!canGoNext}
-        className="flex h-[30px] w-[28px] flex-shrink-0 items-center justify-center rounded-r-lg text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn-ghost h-[28px] w-[28px] flex-shrink-0 rounded-md p-0 disabled:opacity-40"
         aria-label={nextLabel}
       >
         <ChevronRight className="h-4 w-4" />

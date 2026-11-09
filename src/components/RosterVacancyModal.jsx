@@ -141,7 +141,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
           </button>
         </div>
 
-        <button onClick={onClose} disabled={saving} className="mt-3 w-full text-xs text-ink-muted hover:text-ink">
+        <button onClick={onClose} disabled={saving} className="btn-ghost mt-3 w-full text-xs">
           Cancel
         </button>
       </div>

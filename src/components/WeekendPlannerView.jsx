@@ -468,18 +468,18 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
 
-        <div className="mt-4 flex w-fit gap-1 rounded-lg border border-slate-line bg-canvas-raised p-0.5">
+        <div className="seg-track mt-4 w-fit">
           <button
             type="button"
             onClick={() => setMode('fill-empty')}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'fill-empty' ? 'btn-bevel bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken'}`}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'fill-empty' ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken'}`}
           >
             Fill empty groups only
           </button>
           <button
             type="button"
             onClick={() => setMode('overwrite')}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'overwrite' ? 'btn-bevel bg-accent text-on-fill' : 'text-ink-light hover:bg-canvas-sunken'}`}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${mode === 'overwrite' ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken'}`}
           >
             Overwrite instead
           </button>

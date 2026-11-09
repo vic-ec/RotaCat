@@ -41,7 +41,7 @@ export default function RequestReviewDrawer({ title, statusTag, meta, onClose, c
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink md:h-8 md:w-8"
+          className="btn-close h-11 w-11 text-ink-muted md:h-8 md:w-8"
         >
           <X className="h-5 w-5 md:h-4 md:w-4" />
         </button>

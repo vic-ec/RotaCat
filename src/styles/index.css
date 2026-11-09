@@ -229,6 +229,21 @@
   --btn-mint-pressed: #579F92;
   --btn-mint-text: #0A100E;
   --shadow-btn-mint: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(8, 46, 43, 0.28);
+  /* Semantic and utility families — the same construction in their own
+     hue (the Button templates mockup, 9 Nov). */
+  --btn-approve-bg: #4F9E6F;  --btn-approve-border: #448C61;  --btn-approve-hover: #468F63;  --btn-approve-pressed: #3C7D56;
+  --shadow-btn-approve: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 2px 4px rgba(20, 60, 40, 0.20);
+  --btn-danger-bg: #C94040;   --btn-danger-border: #B23636;   --btn-danger-hover: #B83A3A;   --btn-danger-pressed: #A33030;
+  --shadow-btn-danger: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 2px 4px rgba(90, 20, 20, 0.20);
+  --btn-decline-bg: #FFFFFF;  --btn-decline-border: #E3B5B3;  --btn-decline-text: #B23636;
+  --btn-decline-hover: #FBF1F0; --btn-decline-hover-border: #D14343; --btn-decline-pressed: #F6E3E1;
+  --btn-warning-bg: #D08C1F;  --btn-warning-border: #B7791F;  --btn-warning-hover: #C2821C;  --btn-warning-pressed: #AD7418;  --btn-warning-text: #1F2937;
+  --shadow-btn-warning: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 4px rgba(90, 60, 10, 0.20);
+  /* A set filter / open menu: a teal tint, not a solid block. */
+  --btn-tint-bg: #E6F2EF;     --btn-tint-border: #91C6BB;     --btn-tint-text: #0F6761;      --btn-tint-pressed: #D9EBE6;
+  /* The floating action button: the one long shadow in the system. */
+  --shadow-btn-fab: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 8px 20px -8px rgba(8, 46, 43, 0.45);
+  --shadow-btn-fab-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 3px 8px -4px rgba(8, 46, 43, 0.35);
   /* Keyboard focus ring for the action buttons: mint-teal, outside the box. */
   --focus-ring: #3FA896;
   /* Roster grid header row: pale, with weekend columns a step greener. */
@@ -462,7 +477,7 @@
   --btn-primary-bg: #1C716A;
   --btn-primary-border: #15605A;
   --btn-primary-hover: #237A72;
-  --btn-primary-pressed: #154F4A;
+  --btn-primary-pressed: #0F3F3B;
   --btn-primary-text: #FFFFFF;
   --btn-primary-disabled-bg: #2A4542;
   --btn-primary-disabled-border: #2F4D49;
@@ -474,7 +489,7 @@
   --btn-secondary-text: #D6E2DF;
   --btn-secondary-hover: #24413C;
   --btn-secondary-hover-border: #5A897F;
-  --btn-secondary-pressed: #1A302C;
+  --btn-secondary-pressed: #2E4F49;          /* lighter than hover: darker barely shows on a dark surface */
   --btn-secondary-disabled-bg: #182A27;
   --btn-secondary-disabled-border: #243B37;
   --btn-secondary-disabled-text: #6E8682;
@@ -486,6 +501,17 @@
   --btn-mint-pressed: #579F92;
   --btn-mint-text: #0A100E;
   --shadow-btn-mint: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --btn-approve-bg: #3F8A62;  --btn-approve-border: #357A55;  --btn-approve-hover: #46936A;  --btn-approve-pressed: #245239;
+  --shadow-btn-approve: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(4, 24, 14, 0.45);
+  --btn-danger-bg: #B9524F;   --btn-danger-border: #A24542;   --btn-danger-hover: #C25B58;   --btn-danger-pressed: #772F2C;
+  --shadow-btn-danger: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 4px rgba(30, 6, 6, 0.45);
+  --btn-decline-bg: #1E3733;  --btn-decline-border: #6B4A48;  --btn-decline-text: #E39B95;
+  --btn-decline-hover: #2A3836; --btn-decline-hover-border: #D98C7F; --btn-decline-pressed: #3A3836;
+  --btn-warning-bg: #D9A24A;  --btn-warning-border: #C28F3D;  --btn-warning-hover: #CF9841;  --btn-warning-pressed: #A2722A;  --btn-warning-text: #1A1408;
+  --shadow-btn-warning: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 4px rgba(0, 0, 0, 0.40);
+  --btn-tint-bg: rgba(111, 189, 175, 0.18); --btn-tint-border: #5A897F; --btn-tint-text: #8FD3C5; --btn-tint-pressed: rgba(111, 189, 175, 0.34);
+  --shadow-btn-fab: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 8px 20px -8px rgba(0, 0, 0, 0.60);
+  --shadow-btn-fab-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 3px 8px -4px rgba(0, 0, 0, 0.50);
   --focus-ring: #8FD3C5;
   --color-grid-head: 23 33 30;                /* #17211E */
   --color-grid-head-weekend: 27 42 39;        /* #1B2A27 */
@@ -757,336 +783,206 @@
     }
   }
 
-  /* The app-wide button bevel (docs/design/login-redesign/SPEC.md, "Button
-     system", v2 of 7 Nov). A 1px light edge along the top and a 2px dark
-     edge along the bottom, both DERIVED FROM THE BUTTON'S OWN FILL rather
-     than fixed white/black overlays, so a red button shows red edges and a
-     mint one mint edges — never a white or teal lip. No drop shadow (the
-     two floating action buttons excepted). A press swaps the edges; a
-     disabled or aria-disabled button goes flat. Sizes, radii and colours
-     are the button's own; this is only the surface.
-
-     `--btn-bg` is the fill; the edges are the fill lightened by `--btn-up`
-     and darkened by `--btn-dn` in HSL lightness points (15 / 18 for a filled
-     face, 9 / 12 for an outlined one; unitless, since `l` is a plain number). Relative colour syntax
-     (`hsl(from …)`) does the derivation — Chrome 119+, Safari 16.4+,
-     Firefox 128+; a browser without it falls back to the fixed-overlay
-     bevel below, which is the first build's look.
-
-     Since the action-button redesign (below), this bevel is for the
-     SEMANTIC and UTILITY controls only: approve (.btn-success), decline
-     and danger (.btn-danger, .btn-danger-outline), the FABs
-     (.btn-bevel-fab), the active segment of a segmented control
-     (.btn-bevel, .toolbar-pill-active), the active tab-bar icon
-     (.btn-bevel-mint), and the outlined utility faces (.btn-bevel-outline:
-     toolbar pills, the date stepper, the capacity selector, the sign-up
-     role cards). Generic primary and secondary buttons no longer take it —
-     see .btn-surface-primary / .btn-surface-secondary. */
-  .btn-bevel,
-  .btn-bevel-success,
-  .btn-bevel-danger,
-  .btn-bevel-mint,
-  .btn-bevel-fab,
-  .btn-success,
-  .btn-danger,
-  .toolbar-pill-active {
-    --btn-up: 15;
-    --btn-dn: 18;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22);
-  }
-  .btn-bevel-outline,
-  .btn-danger-outline {
+  /* ── Legacy derived bevel ───────────────────────────────────────────
+     Kept only for the sign-up role cards (.btn-bevel-outline.btn-face-card),
+     which are navigation choices, not action buttons, and keep their own
+     look. Everything else moved to the action engine below. */
+  .btn-bevel-outline {
     --btn-up: 9;
     --btn-dn: 12;
+    --btn-bg: rgb(var(--color-canvas-raised));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(15, 23, 42, 0.12);
   }
-  /* Each flavour's fill. Hover re-points the fill to the shade the hover
-     background already uses, so the edges re-derive with it. */
-  .btn-bevel, .btn-bevel-fab, .toolbar-pill-active { --btn-bg: rgb(var(--color-accent)); }
-  .btn-bevel:hover, .btn-bevel-fab:hover { --btn-bg: rgb(var(--color-accent-dark)); }
-  .btn-bevel-success { --btn-bg: rgb(var(--color-success)); }
-  .btn-success { --btn-bg: rgb(var(--color-approve)); }
-  .btn-success:hover { --btn-bg: rgb(var(--color-approve-dark)); }
-  .btn-bevel-danger, .btn-danger { --btn-bg: rgb(var(--color-danger)); }
-  .btn-bevel-danger:hover, .btn-danger:hover { --btn-bg: rgb(var(--color-danger-dark)); }
-  .btn-bevel-mint { --btn-bg: rgb(var(--color-auth-mint-btn)); }
-  .btn-bevel-outline, .btn-danger-outline { --btn-bg: rgb(var(--color-canvas-raised)); }
   .btn-bevel-outline:hover { --btn-bg: rgb(var(--color-auth-choice-hover)); }
-  /* An outlined face that is not white — the Create-account role cards on
-     Mint 1 — derives its edges from that fill: the top lightens to white,
-     the bottom to a deeper mint, and the press swaps them. Without this
-     the edges came from white and vanished on the mint. */
   .btn-bevel-outline.btn-face-card { --btn-bg: rgb(var(--color-auth-card)); }
   .btn-bevel-outline.btn-face-card:hover { --btn-bg: rgb(var(--color-accent-night)); }
-  .btn-danger-outline:hover { --btn-bg: rgb(var(--color-danger-bg)); }
-
   @supports (color: hsl(from red h s l)) {
-    .btn-bevel,
-    .btn-bevel-success,
-    .btn-bevel-danger,
-    .btn-bevel-mint,
-    .btn-bevel-outline,
-    .btn-success,
-    .btn-danger,
-    .btn-danger-outline,
-    .toolbar-pill-active {
+    .btn-bevel-outline {
       box-shadow:
         inset 0 1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up))),
         inset 0 -2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn)));
     }
-    /* The floating action buttons are the only buttons with an outer
-       shadow: the same bevel plus a teal lift. */
-    .btn-bevel-fab {
-      box-shadow:
-        inset 0 1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up))),
-        inset 0 -2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn))),
-        0 12px 24px -12px rgba(15, 118, 110, 0.6);
-    }
-    .btn-bevel:active,
-    .btn-bevel-success:active,
-    .btn-bevel-danger:active,
-    .btn-bevel-mint:active,
-    .btn-bevel-outline:active,
-    .btn-bevel-fab:active,
-    .btn-success:active,
-    .btn-danger:active,
-    .btn-danger-outline:active,
-    .toolbar-pill-active:active {
+    .btn-bevel-outline:active {
       box-shadow:
         inset 0 2px 0 hsl(from var(--btn-bg) h s calc(l - var(--btn-dn))),
         inset 0 -1px 0 hsl(from var(--btn-bg) h s calc(l + var(--btn-up)));
     }
   }
-  @supports not (color: hsl(from red h s l)) {
-    .btn-bevel-fab {
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 12px 24px -12px rgba(15, 118, 110, 0.6);
-    }
-    .btn-bevel:active,
-    .btn-bevel-success:active,
-    .btn-bevel-danger:active,
-    .btn-bevel-mint:active,
-    .btn-bevel-fab:active,
-    .btn-success:active,
-    .btn-danger:active,
-    .toolbar-pill-active:active {
-      box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.22), inset 0 -1px 0 rgba(255, 255, 255, 0.18);
-    }
-    .btn-bevel-outline:active,
-    .btn-danger-outline:active {
-      box-shadow: inset 0 2px 0 rgba(15, 23, 42, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.9);
-    }
-  }
-  .btn-bevel:disabled,
-  .btn-bevel[aria-disabled="true"],
-  .btn-bevel-success:disabled,
-  .btn-bevel-danger:disabled,
-  .btn-bevel-danger[aria-disabled="true"],
-  .btn-bevel-mint:disabled,
   .btn-bevel-outline:disabled,
-  .btn-bevel-outline[aria-disabled="true"],
-  .btn-bevel-fab:disabled,
-  .btn-success:disabled,
-  .btn-danger:disabled,
-  .btn-danger-outline:disabled {
+  .btn-bevel-outline[aria-disabled="true"] {
     opacity: 0.6;
     box-shadow: none;
   }
 
-  /* ── Generic action buttons: one primary recipe, one secondary ────────
-     "Calm, precise, softly tactile." The surface classes carry colour,
-     border, elevation and every interaction state; the size classes
-     (.btn-primary/.btn-secondary at the app's 30px scale, authButtonClass
-     at the auth forms' 66px) add only geometry and type.
+  /* ── Action buttons: one engine, a family per role ──────────────────
+     "Calm, precise, softly tactile." Every button below is built the same
+     way: a 1px border one step darker than the fill, a faint upper inset
+     highlight, one shallow shadow tinted from the fill, 10px corners. Hover
+     deepens (or, for the pale faces, tints) the fill and nothing moves. A
+     press deepens again, drops the shadow and sinks 1px — on the dark theme
+     the pale faces lighten on press instead, since darker barely shows
+     there. Keyboard focus is an external mint-teal ring, distinct from hover
+     and press. Disabled is a low-saturation fill with reduced-contrast text
+     and no elevation, never a faded live button. The global reduced-motion
+     rule flattens the transition.
 
-     Primary: deep teal, 1px darker-teal border, a faint upper inset
-     highlight and one shallow teal-tinted shadow — no dark lower ledge,
-     no gloss, no gradient. Hover deepens the fill only; nothing moves. A
-     press drops the shadow and sinks 1px (the global reduced-motion rule
-     removes the transition). Keyboard focus is an external mint-teal ring,
-     distinct from hover and press. Disabled is a low-saturation fill with
-     reduced-contrast text and no elevation, not a faded live button.
-
-     Secondary: white, soft cool-grey hairline, slate text, a whisper of
-     inner highlight and a 1px contact shadow — quiet and useful, not a
-     raised key. Hover tints the face and warms the border to mint.
-
-     Mint: the phone sheet's Sign in, the same recipe on the sheet's mint. */
-  .btn-surface-primary,
-  .btn-surface-secondary,
+     The engine reads a family's `--b-*` variables; each family class sets
+     them and nothing else. Geometry (height, padding, type) is a separate
+     class per use, further down. */
+  .btn-primary, .btn-surface-primary,
+  .btn-secondary, .btn-surface-secondary,
   .btn-surface-mint,
-  .btn-primary,
-  .btn-secondary {
-    border-width: 1px;
-    border-style: solid;
+  .btn-success, .btn-danger, .btn-danger-outline, .btn-warning,
+  .btn-utility, .btn-ghost, .btn-close, .btn-fab,
+  .toolbar-pill, .toolbar-clear-btn, .icon-btn,
+  .seg-track, .seg-on {
+    background-color: var(--b-bg);
+    border: 1px solid var(--b-border);
+    color: var(--b-text);
+    box-shadow: var(--b-shadow);
     border-radius: 10px;
-    transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
   }
-  .btn-surface-primary, .btn-primary {
-    background-color: var(--btn-primary-bg);
-    border-color: var(--btn-primary-border);
-    color: var(--btn-primary-text);
-    box-shadow: var(--shadow-btn-primary);
+  .btn-primary:hover:not(:disabled):not([aria-disabled="true"]), .btn-surface-primary:hover:not(:disabled):not([aria-disabled="true"]),
+  .btn-secondary:hover:not(:disabled):not([aria-disabled="true"]), .btn-surface-secondary:hover:not(:disabled):not([aria-disabled="true"]),
+  .btn-surface-mint:hover:not(:disabled):not([aria-disabled="true"]),
+  .btn-success:hover:not(:disabled), .btn-danger:hover:not(:disabled), .btn-danger-outline:hover:not(:disabled), .btn-warning:hover:not(:disabled),
+  .btn-utility:hover:not(:disabled), .btn-ghost:hover:not(:disabled), .btn-close:hover:not(:disabled), .btn-fab:hover:not(:disabled),
+  .toolbar-pill:hover:not(:disabled), .toolbar-clear-btn:hover:not(:disabled), .icon-btn:hover:not(:disabled),
+  .seg-on:hover:not(:disabled) {
+    background-color: var(--b-hover);
+    border-color: var(--b-hover-border, var(--b-border));
+    color: var(--b-hover-text, var(--b-text));
   }
-  .btn-surface-primary:hover, .btn-primary:hover { background-color: var(--btn-primary-hover); }
-  .btn-surface-primary:active, .btn-primary:active {
-    background-color: var(--btn-primary-pressed);
-    box-shadow: var(--shadow-btn-primary-pressed);
+  .btn-primary:active:not(:disabled):not([aria-disabled="true"]), .btn-surface-primary:active:not(:disabled):not([aria-disabled="true"]),
+  .btn-secondary:active:not(:disabled):not([aria-disabled="true"]), .btn-surface-secondary:active:not(:disabled):not([aria-disabled="true"]),
+  .btn-surface-mint:active:not(:disabled):not([aria-disabled="true"]),
+  .btn-success:active:not(:disabled), .btn-danger:active:not(:disabled), .btn-danger-outline:active:not(:disabled), .btn-warning:active:not(:disabled),
+  .btn-utility:active:not(:disabled), .btn-ghost:active:not(:disabled), .btn-close:active:not(:disabled), .btn-fab:active:not(:disabled),
+  .toolbar-pill:active:not(:disabled), .toolbar-clear-btn:active:not(:disabled), .icon-btn:active:not(:disabled),
+  .seg-on:active:not(:disabled) {
+    background-color: var(--b-pressed);
+    border-color: var(--b-pressed-border, var(--b-hover-border, var(--b-border)));
+    color: var(--b-hover-text, var(--b-text));
+    box-shadow: var(--b-shadow-pressed, none);
     transform: translateY(1px);
   }
-  .btn-surface-secondary, .btn-secondary {
-    background-color: var(--btn-secondary-bg);
-    border-color: var(--btn-secondary-border);
-    color: var(--btn-secondary-text);
-    box-shadow: var(--shadow-btn-secondary);
-  }
-  .btn-surface-secondary:hover, .btn-secondary:hover {
-    background-color: var(--btn-secondary-hover);
-    border-color: var(--btn-secondary-hover-border);
-  }
-  .btn-surface-secondary:active, .btn-secondary:active {
-    background-color: var(--btn-secondary-pressed);
-    box-shadow: var(--shadow-btn-secondary-pressed);
-    transform: translateY(1px);
-  }
-  .btn-surface-mint {
-    background-color: var(--btn-mint-bg);
-    border-color: var(--btn-mint-border);
-    color: var(--btn-mint-text);
-    box-shadow: var(--shadow-btn-mint);
-  }
-  .btn-surface-mint:hover { background-color: var(--btn-mint-hover); }
-  .btn-surface-mint:active {
-    background-color: var(--btn-mint-pressed);
-    box-shadow: var(--shadow-btn-primary-pressed);
-    transform: translateY(1px);
-  }
-  .btn-surface-primary:focus-visible,
-  .btn-surface-secondary:focus-visible,
+  .btn-primary:focus-visible, .btn-surface-primary:focus-visible,
+  .btn-secondary:focus-visible, .btn-surface-secondary:focus-visible,
   .btn-surface-mint:focus-visible,
-  .btn-primary:focus-visible,
-  .btn-secondary:focus-visible {
+  .btn-success:focus-visible, .btn-danger:focus-visible, .btn-danger-outline:focus-visible, .btn-warning:focus-visible,
+  .btn-utility:focus-visible, .btn-ghost:focus-visible, .btn-close:focus-visible, .btn-fab:focus-visible,
+  .toolbar-pill:focus-visible, .toolbar-clear-btn:focus-visible, .icon-btn:focus-visible,
+  .seg-on:focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
-    border-radius: 10px;
   }
-  .btn-surface-primary:disabled, .btn-surface-primary[aria-disabled="true"],
-  .btn-primary:disabled, .btn-primary[aria-disabled="true"] {
-    background-color: var(--btn-primary-disabled-bg);
-    border-color: var(--btn-primary-disabled-border);
-    color: var(--btn-primary-disabled-text);
-  }
-  .btn-surface-secondary:disabled, .btn-surface-secondary[aria-disabled="true"],
-  .btn-secondary:disabled, .btn-secondary[aria-disabled="true"] {
-    background-color: var(--btn-secondary-disabled-bg);
-    border-color: var(--btn-secondary-disabled-border);
-    color: var(--btn-secondary-disabled-text);
-  }
-  .btn-surface-mint:disabled, .btn-surface-mint[aria-disabled="true"] {
-    background-color: var(--btn-primary-disabled-bg);
-    border-color: var(--btn-primary-disabled-border);
-    color: var(--btn-primary-disabled-text);
-  }
-  .btn-surface-primary:disabled, .btn-surface-primary[aria-disabled="true"],
-  .btn-surface-secondary:disabled, .btn-surface-secondary[aria-disabled="true"],
+  .btn-primary:disabled, .btn-primary[aria-disabled="true"], .btn-surface-primary:disabled, .btn-surface-primary[aria-disabled="true"],
+  .btn-secondary:disabled, .btn-secondary[aria-disabled="true"], .btn-surface-secondary:disabled, .btn-surface-secondary[aria-disabled="true"],
   .btn-surface-mint:disabled, .btn-surface-mint[aria-disabled="true"],
-  .btn-primary:disabled, .btn-primary[aria-disabled="true"],
-  .btn-secondary:disabled, .btn-secondary[aria-disabled="true"] {
+  .btn-success:disabled, .btn-danger:disabled, .btn-danger-outline:disabled, .btn-warning:disabled,
+  .btn-utility:disabled, .btn-ghost:disabled, .btn-close:disabled, .btn-fab:disabled,
+  .toolbar-pill:disabled, .toolbar-clear-btn:disabled, .icon-btn:disabled,
+  .seg-on:disabled {
+    background-color: var(--b-dis-bg);
+    border-color: var(--b-dis-border);
+    color: var(--b-dis-text);
     box-shadow: none;
     transform: none;
     opacity: 1;
+    cursor: not-allowed;
   }
-  .btn-surface-primary:disabled, .btn-surface-secondary:disabled, .btn-surface-mint:disabled,
-  .btn-primary:disabled, .btn-secondary:disabled { cursor: not-allowed; }
-  .btn-surface-primary[aria-disabled="true"], .btn-surface-secondary[aria-disabled="true"], .btn-surface-mint[aria-disabled="true"],
-  .btn-primary[aria-disabled="true"], .btn-secondary[aria-disabled="true"] { cursor: default; }
+  .btn-primary[aria-disabled="true"], .btn-surface-primary[aria-disabled="true"],
+  .btn-secondary[aria-disabled="true"], .btn-surface-secondary[aria-disabled="true"],
+  .btn-surface-mint[aria-disabled="true"] { cursor: default; }
 
+  /* Families. Filled faces share the primary disabled look; pale faces the
+     secondary one. */
+  .btn-primary, .btn-surface-primary, .btn-fab, .seg-on {
+    --b-bg: var(--btn-primary-bg); --b-border: var(--btn-primary-border); --b-text: var(--btn-primary-text);
+    --b-hover: var(--btn-primary-hover); --b-pressed: var(--btn-primary-pressed);
+    --b-shadow: var(--shadow-btn-primary); --b-shadow-pressed: var(--shadow-btn-primary-pressed);
+    --b-dis-bg: var(--btn-primary-disabled-bg); --b-dis-border: var(--btn-primary-disabled-border); --b-dis-text: var(--btn-primary-disabled-text);
+  }
+  .btn-secondary, .btn-surface-secondary, .btn-utility, .toolbar-pill, .toolbar-clear-btn, .icon-btn, .seg-track {
+    --b-bg: var(--btn-secondary-bg); --b-border: var(--btn-secondary-border); --b-text: var(--btn-secondary-text);
+    --b-hover: var(--btn-secondary-hover); --b-hover-border: var(--btn-secondary-hover-border); --b-pressed: var(--btn-secondary-pressed);
+    --b-shadow: var(--shadow-btn-secondary); --b-shadow-pressed: var(--shadow-btn-secondary-pressed);
+    --b-dis-bg: var(--btn-secondary-disabled-bg); --b-dis-border: var(--btn-secondary-disabled-border); --b-dis-text: var(--btn-secondary-disabled-text);
+  }
+  .btn-surface-mint {
+    --b-bg: var(--btn-mint-bg); --b-border: var(--btn-mint-border); --b-text: var(--btn-mint-text);
+    --b-hover: var(--btn-mint-hover); --b-pressed: var(--btn-mint-pressed);
+    --b-shadow: var(--shadow-btn-mint); --b-shadow-pressed: var(--shadow-btn-primary-pressed);
+    --b-dis-bg: var(--btn-primary-disabled-bg); --b-dis-border: var(--btn-primary-disabled-border); --b-dis-text: var(--btn-primary-disabled-text);
+  }
+  /* Approve: the reviewer's green — never the roster-state `success`. */
+  .btn-success {
+    --b-bg: var(--btn-approve-bg); --b-border: var(--btn-approve-border); --b-text: #FFFFFF;
+    --b-hover: var(--btn-approve-hover); --b-pressed: var(--btn-approve-pressed);
+    --b-shadow: var(--shadow-btn-approve); --b-shadow-pressed: var(--shadow-btn-primary-pressed);
+    --b-dis-bg: var(--btn-primary-disabled-bg); --b-dis-border: var(--btn-primary-disabled-border); --b-dis-text: var(--btn-primary-disabled-text);
+  }
+  /* Destructive, filled: the final, irreversible step only. */
+  .btn-danger {
+    --b-bg: var(--btn-danger-bg); --b-border: var(--btn-danger-border); --b-text: #FFFFFF;
+    --b-hover: var(--btn-danger-hover); --b-pressed: var(--btn-danger-pressed);
+    --b-shadow: var(--shadow-btn-danger); --b-shadow-pressed: var(--shadow-btn-primary-pressed);
+    --b-dis-bg: var(--btn-primary-disabled-bg); --b-dis-border: var(--btn-primary-disabled-border); --b-dis-text: var(--btn-primary-disabled-text);
+  }
+  /* Destructive, outlined: the first step (Decline…, Reject, Move to Bin),
+     quieter than the filled confirmation beside it. The border only turns
+     full red on hover and press. */
+  .btn-danger-outline {
+    --b-bg: var(--btn-decline-bg); --b-border: var(--btn-decline-border); --b-text: var(--btn-decline-text);
+    --b-hover: var(--btn-decline-hover); --b-hover-border: var(--btn-decline-hover-border); --b-pressed: var(--btn-decline-pressed);
+    --b-shadow: var(--shadow-btn-secondary); --b-shadow-pressed: none;
+    --b-dis-bg: var(--btn-secondary-disabled-bg); --b-dis-border: var(--btn-secondary-disabled-border); --b-dis-text: var(--btn-secondary-disabled-text);
+  }
+  /* Warning: amber with dark ink — white fails contrast on this amber. */
+  .btn-warning {
+    --b-bg: var(--btn-warning-bg); --b-border: var(--btn-warning-border); --b-text: var(--btn-warning-text);
+    --b-hover: var(--btn-warning-hover); --b-pressed: var(--btn-warning-pressed);
+    --b-shadow: var(--shadow-btn-warning); --b-shadow-pressed: var(--shadow-btn-primary-pressed);
+    --b-dis-bg: var(--btn-primary-disabled-bg); --b-dis-border: var(--btn-primary-disabled-border); --b-dis-text: var(--btn-primary-disabled-text);
+  }
+  /* Text button and the dialog close: transparent at rest, the secondary
+     tints on hover and press, no border, no shadow. */
+  .btn-ghost, .btn-close {
+    --b-bg: transparent; --b-border: transparent; --b-text: var(--btn-secondary-text);
+    --b-hover: var(--btn-secondary-hover); --b-hover-border: transparent; --b-pressed: var(--btn-secondary-pressed);
+    --b-shadow: none; --b-shadow-pressed: none;
+    --b-dis-bg: transparent; --b-dis-border: transparent; --b-dis-text: var(--btn-secondary-disabled-text);
+  }
+  /* A set filter or open menu: a teal tint, not a solid block. */
+  .toolbar-pill-active, .icon-btn-active {
+    --b-bg: var(--btn-tint-bg); --b-border: var(--btn-tint-border); --b-text: var(--btn-tint-text);
+    --b-hover: var(--btn-tint-pressed); --b-hover-border: var(--btn-tint-border); --b-pressed: var(--btn-tint-pressed);
+    --b-shadow: none; --b-shadow-pressed: none;
+  }
+  /* The floating action button: round, with the system's one long shadow,
+     which shortens rather than disappears on press. */
+  .btn-fab { --b-shadow: var(--shadow-btn-fab); --b-shadow-pressed: var(--shadow-btn-fab-pressed); border-radius: 9999px; }
+  /* Segmented control: a quiet secondary track; the chosen segment takes
+     the primary fill with the inset highlight only, no outer shadow. */
+  .seg-track { padding: 2px; gap: 2px; display: inline-flex; align-items: stretch; }
+  .seg-on { --b-border: transparent; --b-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13); --b-shadow-pressed: none; border-radius: 8px; }
+
+  /* ── Geometry ─────────────────────────────────────────────────────── */
   /* Buttons and text inputs share a 30px target height app-wide: text-sm's
      20px line-height + 8px vertical padding + the 1px border on each side
-     = 30px. Colour, border and elevation come from the recipe above. */
-  .btn-primary {
+     = 30px. */
+  .btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-danger-outline, .btn-warning, .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-4 py-1 text-sm font-medium;
   }
-
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-1 text-sm font-medium;
-  }
-
-  /* Icon-only utility squares (Today, Legend, week prev/next, the year
-     picker's arrows, the grid's More-actions kebab) used to borrow
-     .btn-secondary. They are utility controls, not actions, so they keep
-     the look they had — slate hairline, raised canvas, the outlined bevel —
-     under their own name instead of inheriting the action recipe. */
+  /* Icon-only utility squares (Today, Legend, week and year arrows, the
+     grid's More actions): the secondary face at 30 × 30, 8px corners. */
   .btn-utility {
-    @apply btn-bevel-outline inline-flex items-center justify-center gap-2 rounded border border-slate-line
-           bg-canvas-raised px-4 py-1 text-sm font-medium text-ink transition-colors
-           hover:bg-canvas-sunken active:bg-canvas-sunken
-           disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1 text-sm font-medium;
+    border-radius: 8px;
   }
-
-  /* For approve-type confirmations specifically (e.g. an "Approve" button)
-     — distinct from .btn-primary's brand teal, so approving something reads
-     as its own affirmative action rather than just "the default button". */
-  /* Approve: the reviewer's green (SPEC app-theme), not the roster-state
-     `success` — its bevel derives from this fill. */
-  .btn-success {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-approve px-4 py-1
-           text-sm font-medium text-on-fill transition-colors
-           hover:bg-approve-dark active:bg-approve-dark
-           disabled:cursor-not-allowed disabled:opacity-60;
-  }
-
-  /* Solid destructive action — uses the dedicated `danger` token, never
-     `flagRed` (reserved for roster-state semantics, see tailwind.config.js). */
-  .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent bg-danger px-4 py-1
-           text-sm font-medium text-on-fill transition-colors
-           hover:bg-danger-dark active:bg-danger-dark
-           disabled:cursor-not-allowed disabled:opacity-60;
-  }
-
-  /* Same box model as .btn-secondary (border + white bg + tinted hover), red
-     instead of slate — for a negative action paired next to a solid positive
-     one (e.g. "Reject" next to "Approve"), deliberately quieter than
-     .btn-danger so two actions with asymmetric consequences don't compete
-     equally for attention. */
-  .btn-danger-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-decline
-           bg-canvas-raised px-4 py-1 text-sm font-medium text-decline transition-colors
-           hover:bg-danger-bg active:bg-danger-bg
-           disabled:cursor-not-allowed disabled:opacity-60;
-  }
-
-  /* A disabled destructive button should stop looking destructive.
-     `opacity-50` leaves the red in place and just mixes it with whatever is
-     behind: on the dark theme #E87272 composites down to #82504E, which
-     reads as a muddier red rather than as an unavailable control — and next
-     to an enabled "Decline…" in the real red, as a second, different red.
-
-     Going fully neutral says "not yet" without shouting "danger", and it
-     lands on the same grey in both themes because every value here is a
-     token. Specificity does the work: `.btn-danger:disabled` is a class plus
-     a pseudo-class, so it beats the `disabled:opacity-50` the @apply above
-     generates at the same weight, on source order.
-
-     Deliberately limited to the destructive pair. A disabled Approve still
-     fades, which is the right emphasis for an action that is merely not
-     ready yet rather than one being actively withheld. */
-  .btn-danger:disabled,
-  .btn-danger-outline:disabled {
-    @apply bg-canvas-sunken text-ink-muted opacity-100 shadow-none;
-    border-color: rgb(var(--color-slate-line));
-  }
-
-  /* Transparent background, minimal (fully transparent) border — for
-     low-emphasis actions that shouldn't compete visually with a page's real
-     primary/secondary buttons. Border stays in the box model (transparent,
-     same as .btn-primary) purely to keep the shared 30px height formula. */
-  .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded border border-transparent
-           bg-transparent px-4 py-1 text-sm font-medium text-ink-light transition-colors
-           hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink
-           disabled:cursor-not-allowed disabled:opacity-60;
-  }
+  .btn-close { @apply flex flex-shrink-0 items-center justify-center; border-radius: 9999px; }
+  .btn-fab { @apply flex items-center justify-center; }
 
   /* The Content role (SPEC app-theme): white on the app canvas, 14px
      corners, the card hairline (`--card-border`, a colour so the dark theme
@@ -1111,16 +1007,12 @@
      buttons above, but a lighter/bordered-only rest state suited to sitting
      in a row of several of these at once rather than a single CTA. */
   .toolbar-pill {
-    @apply flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap rounded border
-           border-accent/25 px-3 text-sm font-medium transition-colors
-           disabled:cursor-not-allowed disabled:opacity-60;
+    @apply flex h-[30px] items-center justify-center gap-1.5 whitespace-nowrap px-3 text-sm font-medium;
+    border-radius: 8px;
   }
-  .toolbar-pill-active {
-    @apply bg-accent text-on-fill;
-  }
-  .toolbar-pill-idle {
-    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink;
-  }
+  /* `-active` (a set filter, an open menu) and `-idle` are state markers;
+     the colours come from the action engine above. */
+  .toolbar-pill-idle { color: var(--b-text); }
 
   /* The `hover:active:` duplicates below (and in .icon-btn-idle) are
      load-bearing, not redundant. `:hover` and `:active` are both single
@@ -1139,10 +1031,8 @@
 
   /* The small square "clear all filters" (×) button next to a Toolbar row. */
   .toolbar-clear-btn {
-    @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
-           border-accent/25 bg-canvas text-ink-light transition-colors
-           hover:bg-canvas-sunken hover:text-ink
-           active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
+    @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center;
+    border-radius: 8px;
   }
 
   /* Small square icon-only trigger — same bordered/idle/active family as
@@ -1152,17 +1042,10 @@
      is for a persistent state (a menu that's currently open), distinct
      from the hover/active pseudo-classes baked into the base class. */
   .icon-btn {
-    @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded border
-           border-accent/25 transition-colors
-           disabled:cursor-not-allowed disabled:opacity-60;
+    @apply flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center;
+    border-radius: 8px;
   }
-  .icon-btn-idle {
-    @apply btn-bevel-outline bg-canvas-raised text-ink-light hover:bg-canvas-sunken hover:text-ink
-           active:bg-accent active:text-on-fill hover:active:bg-accent hover:active:text-on-fill;
-  }
-  .icon-btn-active {
-    @apply bg-accent text-on-fill;
-  }
+  .icon-btn-idle { color: var(--b-text); }
 }
 
 /* Sits outside @layer components: keyframes aren't layered rules, and Tailwind

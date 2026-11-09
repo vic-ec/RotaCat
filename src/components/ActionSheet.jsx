@@ -35,7 +35,7 @@ export function ActionSheet({ title, onBack, onClose, children }) {
                 type="button"
                 onClick={onBack}
                 aria-label="Back"
-                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                className="btn-close h-6 w-6 text-ink-muted"
               >
                 <BackIcon className="h-4 w-4" />
               </button>
@@ -45,7 +45,7 @@ export function ActionSheet({ title, onBack, onClose, children }) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+              className="btn-close h-6 w-6 text-ink-muted"
             >
               <CloseIcon className="h-4 w-4" />
             </button>

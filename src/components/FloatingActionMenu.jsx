@@ -221,7 +221,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
             onClick={() => setOpen(o => !o)}
             aria-label={open ? 'Close quick actions' : 'Quick actions'}
             aria-expanded={open}
-            className="btn-bevel-fab flex h-14 w-14 items-center justify-center rounded-full bg-accent text-on-fill"
+            className="btn-fab h-14 w-14"
           >
             {/* ⊕ → ✕ over the same 100ms as the first button's reveal, so
                 the trigger and the stack start moving together — and snaps

@@ -1812,7 +1812,7 @@ export default function AccountSettingsPage() {
                       <button
                         onClick={transferSuperAdmin}
                         disabled={transferSaving}
-                        className="rounded border border-transparent bg-flagAmber px-3 py-1 text-sm font-medium text-on-fill transition-opacity hover:opacity-90 active:opacity-90"
+                        className="btn-warning px-3"
                       >
                         {transferSaving ? 'Transferring…' : 'Confirm transfer'}
                       </button>

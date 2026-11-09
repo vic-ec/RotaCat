@@ -75,7 +75,7 @@ export const AUTH_BUTTON_OUTLINE = 'btn-surface-secondary inline-flex items-cent
 export const AUTH_PANEL = 'rounded-[24px] border border-auth-shell-border bg-auth-modal shadow-auth-shell'
 export const AUTH_PANEL_HEADER = 'flex shrink-0 items-center justify-between border-b border-auth-seam px-5 py-4'
 export const AUTH_PANEL_TITLE = 'text-lg font-semibold text-ink'
-export const AUTH_CLOSE_BUTTON = '-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
+export const AUTH_CLOSE_BUTTON = 'btn-close -mr-2 h-9 w-9'
 
 // Messages.
 export const AUTH_ERROR = 'flex items-center gap-2 rounded-lg border border-flagRed/30 bg-flagRed-bg px-4 py-3 text-sm text-flagRed'

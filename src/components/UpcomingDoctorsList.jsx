@@ -110,7 +110,7 @@ export default function UpcomingDoctorsList({ doctors, displayNames, onUpdateDat
                 >
                   {rowSaving ? 'Saving…' : 'Save'}
                 </button>
-                <button type="button" onClick={() => setEditingId(null)} disabled={rowSaving} className="text-xs text-ink-muted hover:text-ink">
+                <button type="button" onClick={() => setEditingId(null)} disabled={rowSaving} className="btn-ghost text-xs">
                   Cancel
                 </button>
               </div>

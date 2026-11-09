@@ -221,12 +221,14 @@ describe('MonthWorkspace', () => {
     // Chevrons and label share one bordered container rather than carrying
     // a border each — three actions, one control to look at.
     const stepper = prevMonth.parentElement
-    expect(stepper).toHaveClass('border', 'rounded-lg')
+    // The container carries the secondary face (btn-utility); the chevrons
+    // inside it are borderless text buttons.
+    expect(stepper).toHaveClass('btn-utility')
     expect(stepper).toContainElement(nextMonth)
     expect(stepper).toContainElement(screen.getByRole('button', { name: 'September 2026' }))
     for (const chevron of [prevMonth, nextMonth]) {
       expect(chevron.className).not.toContain('btn-secondary')
-      expect(chevron).toHaveClass('h-[30px]')
+      expect(chevron).toHaveClass('btn-ghost', 'h-[28px]')
     }
 
     // Today/Legend stay standalone squares outside it, same height.

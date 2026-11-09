@@ -113,7 +113,7 @@ export default function CompletedDoctorsList({ doctors, displayNames, onReactiva
                 >
                   {rowSaving ? 'Saving…' : draftDate <= todayStr() ? 'Activate now' : 'Schedule'}
                 </button>
-                <button type="button" onClick={() => setReactivatingId(null)} disabled={rowSaving} className="text-xs text-ink-muted hover:text-ink">
+                <button type="button" onClick={() => setReactivatingId(null)} disabled={rowSaving} className="btn-ghost text-xs">
                   Cancel
                 </button>
               </div>

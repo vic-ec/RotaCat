@@ -220,10 +220,18 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <div className="space-y-1">
-            <p>
-              Approving this pulls the doctor out of the strict day/night alternation pattern for future weekends —
-              it doesn&rsquo;t automatically create a make-up shift elsewhere, so admin will need to compensate manually.
-            </p>
+            {isAdmin ? (
+              <p>
+                Approving this takes the doctor out of the alternating weekend pattern. The weekend is not made up
+                automatically; schedule it elsewhere or ask for annual leave instead.
+              </p>
+            ) : (
+              <ul className="list-disc space-y-0.5 pl-4">
+                <li>You will be taken out of the alternating weekend pattern.</li>
+                <li>The weekend is made up elsewhere, at the admin&rsquo;s discretion.</li>
+                <li>If you don&rsquo;t want to make it up, submit annual leave instead.</li>
+              </ul>
+            )}
             {weekendPreview && (
               <p>This weekend is currently {weekendPreview.filledGroups} of {weekendPreview.totalGroups} groups planned.</p>
             )}

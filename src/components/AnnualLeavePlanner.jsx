@@ -253,6 +253,7 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
           <AnnualPlannerOverview
             year={year}
             onYearChange={setYear}
+            onRequestSubmitted={load}
             approvedByDate={approvedByDate}
             pendingByDate={pendingByDate}
             approvedRows={approvedRows}

@@ -185,6 +185,7 @@ export default function SpecialLeavePlanner() {
           <SpecialPlannerOverview
             year={year}
             onYearChange={setYear}
+            onRequestSubmitted={load}
             leaveByDate={leaveByDate}
             displayNames={displayNames}
             publicHolidaysByDate={publicHolidaysByDate}

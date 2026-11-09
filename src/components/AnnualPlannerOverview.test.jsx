@@ -111,7 +111,7 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     const { container } = renderOverview({ myCategory: 'MO' })
     const mobile = within(mobileBlock(container))
 
-    await user.click(mobile.getByRole('button', { name: 'MO' }))
+    await user.click(mobile.getByRole('button', { name: 'Showing capacity for' }))
     // SelectMenu's option list renders through a portal onto document.body,
     // outside the scoped mobile block — query it globally instead.
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))

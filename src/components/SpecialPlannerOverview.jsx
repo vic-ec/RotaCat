@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import Modal from './Modal'
+import PlannerRequestPanel from './PlannerRequestPanel'
+import LeaveRequestForm from './LeaveRequestForm'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -33,9 +36,10 @@ import { LegendIcon } from './PlannerIcons'
 export default function SpecialPlannerOverview({
   year, onYearChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate = new Map(),
   rotationsByDoctorId = new Map(), myCategory, myContractType,
-  onOpenWorkspace, ruleIntro, ruleBullets,
+  onOpenWorkspace, ruleIntro, ruleBullets, onRequestSubmitted,
 }) {
   const { isAdmin } = useAuth()
+  const [requestOpen, setRequestOpen] = useState(false)
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -109,10 +113,22 @@ export default function SpecialPlannerOverview({
               has one shared 3-doctor guideline rather than a cap per
               category, so this narrows who you're looking at — it can't
               narrow the capacity, which is the same number for everyone. */}
-          <div className="mt-3">
-            <label className="label-text">Showing</label>
-            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
-          </div>
+          <PlannerRequestPanel
+            className="mt-3"
+            eyebrow={`Special leave planner · ${year}`}
+            actionLabel="Request special leave"
+            onAction={() => setRequestOpen(true)}
+          >
+            <label htmlFor="special-scope-mobile" className="mt-1.5 block text-[11px] font-semibold text-ink-muted">Showing</label>
+            <div className="mt-1">
+              <SelectMenu id="special-scope-mobile" value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+            </div>
+          </PlannerRequestPanel>
+          {requestOpen && (
+            <Modal title="Request special leave" onClose={() => setRequestOpen(false)} centered>
+              <LeaveRequestForm initialLeaveType="special_leave" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+            </Modal>
+          )}
 
           {currentMonthCard && (
             <div className="mt-4">

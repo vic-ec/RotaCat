@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react'
+import Modal from './Modal'
+import PlannerRequestPanel from './PlannerRequestPanel'
+import LeaveRequestForm from './LeaveRequestForm'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -43,9 +46,10 @@ const UTILIZATION_TILE_STATES = [LEAVE_CAPACITY_STATES[0], LEAVE_CAPACITY_STATES
 export default function AnnualPlannerOverview({
   year, onYearChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, displayNames = new Map(), maxByColumnKey, myProfileId, myCategory, myContractType, onOpenWorkspace,
-  ruleHintIntro, ruleHintBullets,
+  ruleHintIntro, ruleHintBullets, onRequestSubmitted,
 }) {
   const { isAdmin } = useAuth()
+  const [requestOpen, setRequestOpen] = useState(false)
   const today = todayStr()
   const currentMonth = Number(today.slice(5, 7))
   const todayYear = Number(today.slice(0, 4))
@@ -165,10 +169,26 @@ export default function AnnualPlannerOverview({
             </DateStepper>
           </div>
 
-          <div className="mt-3">
-            <label className="label-text">Showing capacity for</label>
-            <SelectMenu value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
-          </div>
+          {/* The same request panel the Weekend planner leads with: the
+              eyebrow names the planner and year, the picker sets whose
+              capacity the months below report, and the request action sits
+              under it. */}
+          <PlannerRequestPanel
+            className="mt-3"
+            eyebrow={`Annual leave planner · ${year}`}
+            actionLabel="Request annual leave"
+            onAction={() => setRequestOpen(true)}
+          >
+            <label htmlFor="annual-capacity-mobile" className="mt-1.5 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
+            <div className="mt-1">
+              <SelectMenu id="annual-capacity-mobile" value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+            </div>
+          </PlannerRequestPanel>
+          {requestOpen && (
+            <Modal title="Request annual leave" onClose={() => setRequestOpen(false)} centered>
+              <LeaveRequestForm initialLeaveType="annual" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+            </Modal>
+          )}
 
           {/* Current month leads — the one question a doctor lands on this
               page to answer is "can I take leave soon," so it renders first,

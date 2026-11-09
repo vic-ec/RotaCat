@@ -27,7 +27,7 @@ export default function ViewToggle({ view, onChange, options }) {
             onClick={() => onChange(o.key)}
             aria-label={o.ariaLabel ?? o.label}
             title={o.title}
-            className={`flex items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 rounded px-3 text-xs font-medium transition-colors ${
               view === o.key ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}
           >

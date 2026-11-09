@@ -169,7 +169,7 @@ describe('SpecialPlannerOverview', () => {
       expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
 
       // The picker's trigger is named by its current value (SelectMenu).
-      await user.click(tiles().getByRole('button', { name: 'MO' }))
+      await user.click(tiles().getByRole('button', { name: 'Showing' }))
       await user.click(await screen.findByRole('option', { name: 'Registrar' }))
       expect(august().getByText('2 on leave')).toBeInTheDocument()
       expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()

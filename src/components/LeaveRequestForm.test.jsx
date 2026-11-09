@@ -151,7 +151,7 @@ describe('LeaveRequestForm', () => {
     await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
     await user.type(screen.getByLabelText('Saturday'), '2026-08-01')
 
-    expect(await screen.findByText(/pulls the doctor out of the strict day\/night alternation pattern/)).toBeInTheDocument()
+    expect(await screen.findByText(/taken out of the alternating weekend pattern/)).toBeInTheDocument()
     expect(fetchWeekendExceptionPreview).toHaveBeenCalledWith({ saturday: '2026-08-01' })
     expect(screen.queryByText(/groups planned/)).not.toBeInTheDocument()
   })
@@ -176,7 +176,7 @@ describe('LeaveRequestForm', () => {
     await user.click(screen.getByText('Annual leave'))
     await user.click(await screen.findByRole('option', { name: 'Weekend off' }))
 
-    expect(screen.queryByText(/pulls the doctor out of the strict day\/night alternation pattern/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/taken out of the alternating weekend pattern/)).not.toBeInTheDocument()
     expect(fetchWeekendExceptionPreview).not.toHaveBeenCalled()
   })
 })

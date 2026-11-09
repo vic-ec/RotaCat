@@ -949,6 +949,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }
   const [searchQuery, setSearchQuery] = useState('') // desktop-only: filter grid rows by assigned surname
   const [requestOpen, setRequestOpen] = useState(false) // the panel's "Request weekend off" form
+  // The mobile "Next weekend" card can be dismissed for the visit; it comes
+  // back on the next load, since the next weekend is still the next weekend.
+  const [nextWeekendDismissed, setNextWeekendDismissed] = useState(false)
   const [selectedSaturday, setSelectedSaturday] = useState(null) // desktop-only: which row the inspector shows
   const [detailSaturday, setDetailSaturday] = useState(null) // mobile-only: which card's read-only quick-glance sheet is open
   const [exceptionsSaturday, setExceptionsSaturday] = useState(null) // which weekend's exception-requests sheet is open
@@ -1678,6 +1681,55 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               )}
               {renderToolbar('mb-4')}
             </div>
+            {/* Month navigation (Overview, stepper, Legend) leads the mobile
+                view, above the request panel and the Next weekend card, so
+                the month in hand is the first thing on screen. */}
+            {/* Part 4's sticky mobile toolbar, pinned flush to the top of
+                the viewport while scrolling — the Planners sub-nav
+                (LeavePlannerPage.jsx) has its own separate sticky/
+                hide-on-scroll behaviour shared across every planner tab
+                (deliberately not touched here, since that's shared
+                cross-tab chrome this rebuild doesn't own); this row simply
+                sticks at top-0 in its own right rather than reserving space
+                for wherever that sub-nav happens to be.
+                Month nav + actions on their own row; the coverage-count
+                Legend trigger is information, not an action, so it gets
+                its own caption line below instead of competing with icon
+                buttons for space in the same row. `transform-gpu`: this row
+                is sticky AND contains DateStepper's Today button (its own
+                opacity transition, fading in/out as browsing moves away
+                from/back to the current month) — on iOS Safari and some
+                Android WebViews, scrolling a sticky element mid-transition
+                can leave a stale paint behind (ghosted/doubled text and
+                chevrons until the next reflow). Forcing this row onto its
+                own GPU compositor layer is the standard fix. */}
+            <div className="sticky top-0 z-10 -mx-4 mt-3 transform-gpu bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {renderMonthNav()}
+                {/* Below `md` this kebab lives in the Toolbar FAB instead;
+                    it stays here for the md–lg band, which the FAB doesn't
+                    cover (see the toolbar row above). */}
+                {isAdmin && (
+                  <div className="hidden md:block">
+                    <PageActionsMenu
+                      items={weekendMenuItems}
+                      trigger={(onClick, open) => (
+                        <button
+                          type="button"
+                          onClick={onClick}
+                          aria-label="More actions"
+                          aria-expanded={open}
+                          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
+                        >
+                          <EllipsisVertical className="h-4 w-4" />
+                        </button>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+              <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
+            </div>
             {/* Phones reach search and filter through the FAB below, so this
                 panel is purely the request action there; the tablet band
                 above keeps its own picker. */}
@@ -1709,7 +1761,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 month panels) — this stays the literal next weekend only,
                 informational, fill following coverage health
                 (weekendHealthScheme, matching the year overview's legend). */}
-            <div className={`card mt-6 p-4 ${nextWeekendScheme.bg}`}>
+            {!nextWeekendDismissed && (
+            <div className={`card relative mt-4 p-4 pr-12 ${nextWeekendScheme.bg}`}>
+              <button
+                type="button"
+                onClick={() => setNextWeekendDismissed(true)}
+                aria-label="Dismiss next weekend"
+                className="btn-close absolute right-2 top-2 h-8 w-8 text-ink-muted"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend</p>
               <p className={`mt-0.5 text-base font-semibold ${nextWeekendScheme.text}`}>{formatWeekendRange(nextWeekend)}</p>
               <p className="mt-1 text-sm text-ink-light">
@@ -1720,53 +1781,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               </p>
               {nextWeekendMine && <p className="mt-1 text-sm font-medium text-accent">You&rsquo;re on rotation this weekend.</p>}
             </div>
+            )}
 
-            {/* Part 4's sticky mobile toolbar, pinned flush to the top of
-                the viewport while scrolling — the Planners sub-nav
-                (LeavePlannerPage.jsx) has its own separate sticky/
-                hide-on-scroll behaviour shared across every planner tab
-                (deliberately not touched here, since that's shared
-                cross-tab chrome this rebuild doesn't own); this row simply
-                sticks at top-0 in its own right rather than reserving space
-                for wherever that sub-nav happens to be.
-                Month nav + actions on their own row; the coverage-count
-                Legend trigger is information, not an action, so it gets
-                its own caption line below instead of competing with icon
-                buttons for space in the same row. `transform-gpu`: this row
-                is sticky AND contains DateStepper's Today button (its own
-                opacity transition, fading in/out as browsing moves away
-                from/back to the current month) — on iOS Safari and some
-                Android WebViews, scrolling a sticky element mid-transition
-                can leave a stale paint behind (ghosted/doubled text and
-                chevrons until the next reflow). Forcing this row onto its
-                own GPU compositor layer is the standard fix. */}
-            <div className="sticky top-0 z-10 -mx-4 mt-4 transform-gpu bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {renderMonthNav()}
-                {/* Below `md` this kebab lives in the Toolbar FAB instead;
-                    it stays here for the md–lg band, which the FAB doesn't
-                    cover (see the toolbar row above). */}
-                {isAdmin && (
-                  <div className="hidden md:block">
-                    <PageActionsMenu
-                      items={weekendMenuItems}
-                      trigger={(onClick, open) => (
-                        <button
-                          type="button"
-                          onClick={onClick}
-                          aria-label="More actions"
-                          aria-expanded={open}
-                          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
-                        >
-                          <EllipsisVertical className="h-4 w-4" />
-                        </button>
-                      )}
-                    />
-                  </div>
-                )}
-              </div>
-              <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
-            </div>
 
             <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
 

@@ -83,18 +83,45 @@ describe('SpecialMonthWorkspace', () => {
   })
 
   // The Special tab had no request path short of finding a tappable day.
-  it('offers a request panel on both viewports, reporting the month against the guideline', async () => {
+  it('offers one request panel in a sticky rail beside the grid, reporting the month against the guideline', async () => {
     const user = userEvent.setup()
     renderWorkspace()
     // Nothing in the fixture reaches 3 doctors on one day.
-    expect(screen.getAllByText(/days are at the 3-doctor guideline/)).toHaveLength(2)
-    expect(screen.getAllByText('Special leave · August')).toHaveLength(2)
+    expect(screen.getByText(/days are at the 3-doctor guideline/)).toBeInTheDocument()
+    const panel = screen.getByText('Special leave planner · August 2026').closest('div.rounded-xl')
+    expect(panel.parentElement).toHaveClass('order-first', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+    // Stepper first, then Showing, then the reading and the action.
+    const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+    expect(stepper).toHaveClass('btn-utility', 'w-full')
+    expect(stepper.compareDocumentPosition(screen.getByLabelText('Showing')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
 
     // Straight into the request form for a sensible date, no day-hunting.
-    await user.click(screen.getAllByRole('button', { name: 'Request special leave' })[0])
+    await user.click(screen.getByRole('button', { name: 'Request special leave' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+  })
+
+  it('the Showing picker narrows which names the grid lists, never the day\'s colour or the day panel', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWorkspace()
+    // Opens on everyone: both of the 10th's names in the desktop cell.
+    expect(within(desktopDay(container, 10)).getByText('Ellis')).toBeInTheDocument()
+    expect(within(desktopDay(container, 10)).getByText('Vance')).toBeInTheDocument()
+
+    await user.click(screen.getByLabelText('Showing'))
+    await user.click(await screen.findByRole('option', { name: 'MO' }))
+    expect(within(desktopDay(container, 10)).getByText('Ellis')).toBeInTheDocument()
+    expect(within(desktopDay(container, 10)).queryByText('Vance')).not.toBeInTheDocument()
+    // Still two of three slots: the fill is the true shared count.
+    expect(badgeFill(desktopDay(container, 10))).toBe('rgb(var(--color-capNear))')
+
+    // The day panel lists the whole pool its "N of 3" counts.
+    await user.click(desktopDay(container, 10))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('2 of 3 slots taken')).toBeInTheDocument()
+    expect(within(dialog).getByText('Vance')).toBeInTheDocument()
   })
 
   it('hides the panel action from a viewer who cannot submit leave', () => {

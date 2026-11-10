@@ -28,7 +28,7 @@ import Toolbar from './Toolbar'
 import SelectMenu from './SelectMenu'
 import Modal from './Modal'
 import LeaveRequestForm from './LeaveRequestForm'
-import PlannerRequestPanel from './PlannerRequestPanel'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
 
@@ -1545,17 +1545,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     )
   }
 
-  function renderMonthNav(extra) {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1">{renderBackLink()}</span>
-        <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth}>
-          {extra}
-        </DateStepper>
-      </div>
-    )
-  }
-
   const defaultFilter = isAdmin || isClerk ? 'all' : 'mine'
   // A function, not a single element — mobile keeps this as its own
   // standalone row (default `mb-4` spacing), while desktop instead embeds
@@ -1581,23 +1570,25 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     )
   }
 
-  // "Showing" plus the one action this page never offered, in the same
-  // panel shape the other two planners use — the year view moved its own
-  // picker into this panel too, so the control sits beside the request it
-  // frames rather than loose in a toolbar. Weekends report no capacity, so
-  // there's no reading between the two.
+  // The month stepper, "Showing", and the one action this page never
+  // offered, in the same panel shape the other two planners use — the year
+  // view moved its own stepper and picker into this panel too, so the
+  // controls sit beside the request they frame rather than loose in a
+  // toolbar. Weekends report no capacity, so there's no reading. Always
+  // rendered: even a viewer with one scope and no request to make needs
+  // the stepper, which lives nowhere else on this page now.
   function renderRequestPanel(id, className) {
-    if (filters.length < 2 && !canSubmitLeave) return null
     return (
       <PlannerRequestPanel
         className={className}
         eyebrow={`Weekend planner · ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`}
+        stepper={<DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} showToday={false} centered />}
         actionLabel="Request weekend off"
         onAction={() => setRequestOpen(true)}
       >
         {filters.length > 1 && (
           <>
-            <label htmlFor={id} className="mt-1.5 block text-[11px] font-semibold text-ink-muted">Showing</label>
+            <label htmlFor={id} className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
             <div className="mt-1">
               <SelectMenu
                 id={id}
@@ -1609,25 +1600,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           </>
         )}
       </PlannerRequestPanel>
-    )
-  }
-
-  // Kept for the compact tablet row, where a full panel would crowd out the
-  // search field it shares a block with.
-  function renderScopePicker(id) {
-    if (filters.length < 2) return null
-    return (
-      <div className="flex items-center gap-2">
-        <label htmlFor={id} className="whitespace-nowrap text-sm text-ink-muted">Showing</label>
-        <div className="w-44">
-          <SelectMenu
-            id={id}
-            value={filter}
-            onChange={setFilter}
-            options={filters.map(f => ({ value: f.key, label: f.label }))}
-          />
-        </div>
-      </div>
     )
   }
 
@@ -1671,80 +1643,33 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             </div>
           )}
 
-          {/* ── Mobile: month-at-a-time card list (unchanged from the earlier mobile-first redesign) ── */}
+          {/* ── Mobile: month-at-a-time card list ── */}
           <div className="lg:hidden" data-testid="weekend-mobile">
-            {/* Search/Filter moved into the Toolbar FAB below phones
-                (§15) — but this "mobile" block runs all the way to `lg`
-                while FloatingActionMenu stops at `md`, so the md–lg band
-                (tablets, most landscape phones) keeps the inline row it
-                already had rather than losing search/filter entirely. */}
-            <div className="mt-4 hidden md:block">
-              {filters.length > 1 && (
-                <div className="mb-3">{renderScopePicker('weekend-scope-tablet')}</div>
-              )}
-              {renderToolbar('mb-4')}
+            {/* Two layouts only — this one all the way up to `lg`, and the
+                desktop table beyond it. There used to be a third for the
+                md–lg band (an inline Showing + search row and a kebab),
+                left over from before the FAB existed; the FAB now covers
+                the whole block (hideFrom="lg"), so that row is gone.
+                The way back and the coverage-count Legend lead; the Legend
+                trigger is information, not an action, so it gets its own
+                caption line rather than competing with the link for the
+                row. */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              {renderBackLink()}
+              <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
-            {/* Month navigation (Overview, stepper, Legend) leads the mobile
-                view, above the request panel and the Next weekend card, so
-                the month in hand is the first thing on screen. */}
-            {/* Part 4's sticky mobile toolbar, pinned flush to the top of
-                the viewport while scrolling — the Planners sub-nav
-                (LeavePlannerPage.jsx) has its own separate sticky/
-                hide-on-scroll behaviour shared across every planner tab
-                (deliberately not touched here, since that's shared
-                cross-tab chrome this rebuild doesn't own); this row simply
-                sticks at top-0 in its own right rather than reserving space
-                for wherever that sub-nav happens to be.
-                Month nav + actions on their own row; the coverage-count
-                Legend trigger is information, not an action, so it gets
-                its own caption line below instead of competing with icon
-                buttons for space in the same row. `transform-gpu`: this row
-                is sticky AND contains DateStepper's Today button (its own
-                opacity transition, fading in/out as browsing moves away
-                from/back to the current month) — on iOS Safari and some
-                Android WebViews, scrolling a sticky element mid-transition
-                can leave a stale paint behind (ghosted/doubled text and
-                chevrons until the next reflow). Forcing this row onto its
-                own GPU compositor layer is the standard fix. */}
-            <div className="sticky top-0 z-10 -mx-4 mt-3 transform-gpu bg-canvas px-4 py-2 sm:mx-0 sm:rounded-lg sm:border sm:border-slate-line sm:bg-canvas-raised">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {renderMonthNav()}
-                {/* Below `md` this kebab lives in the Toolbar FAB instead;
-                    it stays here for the md–lg band, which the FAB doesn't
-                    cover (see the toolbar row above). */}
-                {isAdmin && (
-                  <div className="hidden md:block">
-                    <PageActionsMenu
-                      items={weekendMenuItems}
-                      trigger={(onClick, open) => (
-                        <button
-                          type="button"
-                          onClick={onClick}
-                          aria-label="More actions"
-                          aria-expanded={open}
-                          className={`icon-btn ${open ? 'icon-btn-active' : 'icon-btn-idle'}`}
-                        >
-                          <EllipsisVertical className="h-4 w-4" />
-                        </button>
-                      )}
-                    />
-                  </div>
-                )}
-              </div>
-              <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="mt-1.5 flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
-            </div>
-            {/* Phones reach search and filter through the FAB below, so this
-                panel is purely the request action there; the tablet band
-                above keeps its own picker. */}
-            <div className="mt-4 md:hidden">{renderRequestPanel('weekend-scope-mobile')}</div>
+            {/* Above the weekends, as on the overview: the month stepper,
+                Showing, and the request action, in one panel. Search and
+                the admin actions are in the FAB. */}
+            <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
             {/* Fixed-positioned, so where it sits in this block is
-                immaterial — kept next to the toolbar row it replaces. The
-                Legend trigger deliberately stays out of it (see the sticky
-                row below: information, not an action), so `legend` is
-                unused here. Search/Filter render for everyone, matching
-                who the inline row served; only More is admin-gated, same
-                as the kebab it replaces. */}
+                immaterial. The Legend trigger deliberately stays out of it
+                (see the row above: information, not an action), so
+                `legend` is unused here. Search/Filter render for everyone;
+                only More is admin-gated. hideFrom="lg": this whole block
+                runs to `lg`, so the FAB has to as well. */}
             <FloatingActionMenu
+              hideFrom="lg"
               search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
               filter={{
                 facets: [{
@@ -1880,50 +1805,35 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {/* ── Desktop: weekend-first summary table + inspector (see file-level comment for rationale) ── */}
           <div className="hidden lg:block" data-testid="weekend-desktop">
-            {/* One toolbar row, not two accidental ones: nav cluster (Overview,
-                month stepper, Today, More Actions, Legend) on the left,
-                search+filter on the right — previously the search/filter row
-                sat entirely above this one, unconnected, with nothing tying
-                the two together and the search field free to stretch across
-                nearly the full table width for lack of any sibling to share
-                the row with. `justify-between` only does anything useful
-                once there are genuinely two flex children here, which is why
-                this merge (not just a shared wrapper) is what actually fixes
-                it. */}
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-line pb-3">
-              {/* Left to right: back out of the month, then the two controls
-                  that narrow what the table shows (search, then scope), then
-                  the admin extras. */}
-              <div className="flex flex-wrap items-center gap-3">
-                {renderBackLink()}
-                <div className="min-w-0">{renderToolbar('')}</div>
-                {isAdmin && (
-                  <div className="flex items-center gap-3">
-                    <PageActionsMenu
-                      items={weekendMenuItems}
-                      trigger={(onClick, open) => (
-                        <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
-                          <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
-                        </button>
-                      )}
-                    />
-                    <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
-                  </div>
-                )}
-              </div>
-              {/* Right-aligned over the Selected weekend panel, but at the
-                  stepper's own natural width rather than stretched to the
-                  panel's — every planner's stepper is then the same size,
-                  which matters more than the two edges lining up. */}
-              <div className="flex-shrink-0">
-                <DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} />
-              </div>
+            {/* One toolbar row: back out of the month, then the search that
+                narrows the table, then the admin extras. The month stepper
+                and the scope picker both live in the rail panel beside the
+                table, as on the overview — not loose up here. */}
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-slate-line pb-3">
+              {renderBackLink()}
+              <div className="min-w-0">{renderToolbar('')}</div>
+              {isAdmin && (
+                <div className="flex items-center gap-3">
+                  <PageActionsMenu
+                    items={weekendMenuItems}
+                    trigger={(onClick, open) => (
+                      <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
+                        <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
+                      </button>
+                    )}
+                  />
+                  <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
+                </div>
+              )}
             </div>
 
             <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
 
+            {/* Table and a sticky rail (request panel on top, Selected
+                weekend inspector under it) — the same grid-plus-rail split
+                every other planner page uses. */}
             <div className="mt-4 flex items-start gap-4">
-              <div className="max-h-[60vh] flex-1 overflow-auto rounded-lg border border-slate-line">
+              <div className="max-h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-slate-line">
                 <table className="w-full min-w-[720px] border-collapse text-sm">
                   <thead>
                     <tr className="text-left text-xs text-ink-muted">
@@ -2016,7 +1926,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 </table>
               </div>
 
-              <div className="w-80 flex-shrink-0">
+              <div className={PANEL_RAIL}>
               {renderRequestPanel('weekend-scope-desktop', 'mb-3')}
               <div className="rounded-lg border border-slate-line p-4">
                 {inspectorSaturday ? (

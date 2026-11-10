@@ -131,28 +131,23 @@ describe('MyWeekendYearOverview', () => {
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
   })
 
-  it('Today calls onYearChange with the current year, once actually browsing a different one', async () => {
-    // The page's own Today (DateStepper's built-in one is suppressed) —
-    // seed a non-current year so it's there to click at all.
-    const user = userEvent.setup()
-    const onYearChange = vi.fn()
-    renderOverview({ year: YEAR - 1, onYearChange })
-
-    await user.click(dashboard().getByRole('button', { name: 'Today' }))
-    expect(onYearChange).toHaveBeenCalledWith(YEAR)
-  })
-
-  // Today stays put rather than appearing only once you've browsed away —
-  // same call DateStepper's own Today makes.
-  it('Today resets a selected month within the current year, and stays in place', async () => {
-    const user = userEvent.setup()
+  // The year stepper is the request panel's first control, above Showing,
+  // on both viewports — no toolbar stepper and no Today beside it (the
+  // stepper's jump sheet covers getting back to the current year).
+  it('the year stepper leads the request panel on both viewports, with no Today button anywhere', () => {
     renderOverview()
-    expect(dashboard().getByRole('button', { name: 'Today' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'January' }))
-    await user.click(dashboard().getByRole('button', { name: 'Today' }))
-    expect(dashboard().getByRole('button', { name: 'Today' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'August' })).toHaveAttribute('aria-pressed', 'true')
+    for (const [view, id] of [[dashboard(), 'weekend-scope-desktop'], [finder(), 'weekend-scope-mobile']]) {
+      const scope = document.getElementById(id)
+      const panel = scope.closest('div.rounded-xl')
+      const stepper = within(panel).getByRole('button', { name: String(YEAR) }).parentElement
+      expect(stepper).toHaveClass('btn-utility', 'w-full')
+      expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // The toolbar is the title and Legend only.
+      expect(view.getByRole('heading', { name: 'Weekend Planner' }).parentElement).not.toContainElement(stepper)
+      expect(view.getAllByRole('button', { name: 'Previous year' })).toHaveLength(1)
+    }
   })
 
   it('Selected month panel has chevrons and a jump-to-month sheet', async () => {

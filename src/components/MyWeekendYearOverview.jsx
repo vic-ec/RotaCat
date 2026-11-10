@@ -10,10 +10,10 @@ import { addDays } from '../lib/dateRange'
 import DateStepper from './DateStepper'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
-import PlannerRequestPanel from './PlannerRequestPanel'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import LegendSheet from './LegendSheet'
 import SelectMenu from './SelectMenu'
-import { LegendIcon, TodayIcon } from './PlannerIcons'
+import { LegendIcon } from './PlannerIcons'
 
 // A genuinely different read of the same weekend_planner_entries +
 // weekend_exception leave_requests data WeekendYearOverview.jsx uses — this
@@ -144,15 +144,6 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
     ? monthCards.filter(m => m.month < currentMonth)
     : year < todayYear ? monthCards : []
 
-  // The page's own Today, not DateStepper's own built-in one (suppressed
-  // below via showToday={false}) — resets both the browsed year AND the
-  // selected month back to today's real ones, since DateStepper's version
-  // only ever knows about the year prop it's bound to.
-  function goToToday() {
-    if (year !== todayYear) onYearChange(todayYear)
-    setSelectedMonth(currentMonth)
-  }
-
   // Selected-month chevrons/jump-sheet: DateStepper itself handles the
   // Dec/Jan year rollover, calling back with whichever year the stepped-to
   // month landed in — only forward that to onYearChange when it's actually
@@ -177,9 +168,10 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
     profileId: myProfileId,
     today,
   })
-  // No capacity reading — weekends have none to report. The panel exists to
-  // hold the scope picker (its only home now) and the one action this page
-  // never offered.
+  // No capacity reading — weekends have none to report. The panel holds
+  // the year stepper (the page's only year control — no toolbar stepper
+  // and no Today beside it; the stepper's own jump sheet covers getting
+  // back), the scope picker, and the one action this page never offered.
   // `id` differs per viewport: jsdom (and a real browser at a breakpoint
   // boundary) has both copies in the document, and two controls can't share
   // one id or the label points at whichever came first.
@@ -187,10 +179,11 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
     return (
       <PlannerRequestPanel
         eyebrow={`Weekend planner · ${year}`}
+        stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
         actionLabel="Request weekend off"
         onAction={() => setRequestOpen(true)}
       >
-        <label className="mt-1.5 block text-[11px] font-semibold text-ink-muted" htmlFor={id}>Showing</label>
+        <label className="mt-2 block text-[11px] font-semibold text-ink-muted" htmlFor={id}>Showing</label>
         <div className="mt-1">
           <SelectMenu id={id} value={scope} onChange={setScope} options={SCOPE_OPTIONS} />
         </div>
@@ -199,13 +192,6 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   }
 
   const legend = <WeekendLegendTrigger states={Object.values(scope === 'all' ? HEALTH_STYLE : STATE_STYLE)} />
-  // Always there, not only while browsing away from today: a control that
-  // comes and goes is harder to reach for than one that is simply always
-  // in the same place (DateStepper's own Today makes the same call), and
-  // pressing it on today is a harmless no-op.
-  const todayButton = (
-    <button type="button" onClick={goToToday} aria-label="Today" title="Today" className="btn-utility h-[30px] w-[30px] p-0"><TodayIcon className="h-4 w-4" /></button>
-  )
 
   return (
     <div>
@@ -217,13 +203,9 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       <div data-testid="my-weekend-month-finder" className="lg:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
-            {todayButton}
-            {legend}
-          </div>
+          {legend}
         </div>
-        {/* Above the months, not beside the year: it changes what every
+        {/* Above the months, not beside the title: it changes what every
             tile below means, so it reads as the heading for the list. */}
         <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
 
@@ -256,18 +238,13 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
       </div>
 
       <div data-testid="my-weekend-dashboard" className="hidden lg:block">
-      {/* ── Toolbar: year selector, then this page's own Today, then Legend,
-          all in one cluster on the right. ── */}
+      {/* ── Toolbar: just the title and Legend. The year stepper and the
+          Showing picker both live in the rail panel below, beside the
+          action they frame — one control each, not one per viewport plus
+          one in the toolbar. ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">Weekend Planner</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Showing now lives in the rail panel below, beside the action it
-              frames — one control, not one per viewport plus one in the
-              toolbar. */}
-          <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
-          {todayButton}
-          {legend}
-        </div>
+        {legend}
       </div>
 
       {/* ── Main workspace: 3x4 month grid + sticky inspector ── */}
@@ -290,16 +267,9 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
           ))}
         </div>
 
-        {/* lg:w-80, not a bare w-80 alongside w-full — both are unscoped
-            `width` utilities on the same element otherwise, and which one
-            wins in the compiled stylesheet isn't determined by their order
-            in this className string, only by Tailwind's own internal
-            utility order. It was landing on w-full's 100% at every size,
-            which is what actually starved the grid beside it of any
-            width at all (flex-grow had nothing left to grow into) —
-            not a flex/grid sizing bug in the grid itself, which is why
-            min-w-0 and overflow-hidden there didn't fix this. */}
-        <div className="order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 lg:w-80">
+        {/* See PANEL_RAIL for why the width is lg:w-80 and not a bare
+            w-80 — a bare one lost to w-full and starved the grid. */}
+        <div className={PANEL_RAIL}>
         {renderRequestPanel('weekend-scope-desktop')}
         <div
           data-testid="my-weekend-year-inspector"

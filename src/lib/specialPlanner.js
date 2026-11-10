@@ -10,7 +10,8 @@
 // guideline is what colours the day cells here — deliberately reusing
 // Annual's own capacityStateForCount, which clamps at 3, so the same
 // count reads as the same colour on both planners.
-import { datesInMonth, capacityStateForCount } from './leaveYearGrid'
+import { datesInMonth, capacityStateForCount, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from './leaveYearGrid'
+import { resolveLeaveCapacityColumn } from './internRotations'
 import { dayOfWeek } from './dateRange'
 import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP } from './leaveRequests'
 
@@ -95,4 +96,42 @@ export function specialMonthEntries(year, month, byDate) {
   }
   return [...seen.values()].sort((a, b) =>
     a.dateFrom.localeCompare(b.dateFrom) || (a.surname || '').localeCompare(b.surname || ''))
+}
+
+// ── The Showing picker both Special views share ──────────────────────────
+// Same category vocabulary as the Annual planner's own picker, so the two
+// tabs name the groups identically — even though here it filters who's
+// counted or listed rather than which cap applies.
+export const SPECIAL_CATEGORY_FILTER_OPTIONS = [
+  ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),
+  { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
+  { value: 'all', label: 'All categories' },
+]
+
+// Open on the viewer's own group, so the first thing they see is their own
+// people rather than a blend they'd have to filter mentally. Anyone whose
+// category doesn't map to a group (or who has none) gets everything.
+export function defaultSpecialCategoryKey(myCategory, myContractType) {
+  if (!myCategory) return 'all'
+  const column = columnKeyFor({ category: myCategory, contractType: myContractType })
+  return SPECIAL_CATEGORY_FILTER_OPTIONS.some(o => o.value === column) ? column : 'all'
+}
+
+function columnKeyFor({ category, contractType, profileId, date, rotationsByDoctorId }) {
+  return resolveLeaveCapacityColumn({ category, contractType, profileId, date, rotationsByDoctorId })
+}
+
+// An Intern's group depends on the rotation they're actually on at the time
+// (EC vs OT), which is why this resolves per entry against its own start
+// date rather than bucketing the doctor once — same resolution the Annual
+// planner's capacity counting uses.
+export function matchesSpecialCategory(entry, categoryKey, rotationsByDoctorId) {
+  if (categoryKey === 'all') return true
+  return columnKeyFor({
+    category: entry.category,
+    contractType: entry.contractType,
+    profileId: entry.profileId,
+    date: entry.dateFrom,
+    rotationsByDoctorId,
+  }) === categoryKey
 }

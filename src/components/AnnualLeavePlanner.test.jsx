@@ -18,8 +18,9 @@ vi.mock('../context/AuthContext', () => ({
 // text ("… pressure days · 1 pending"):
 //  - p1 (Anderson, MO) approved 11–15 Aug (5 days) — no MO pressure since
 //    the default MO cap is 2 and there's only one MO doctor off.
-//  - p2 (Botha, Registrar) approved 12–13 Aug (2 days) — the default
-//    Registrar cap is 1, so both those days are immediately "at cap".
+//  - p2 (Botha, Registrar) and p4 (Dlamini, Registrar) approved 12–13 Aug
+//    (2 days) — the default Registrar cap is 2, so both those days are "at
+//    cap" (and the shared full-time pool of 2 is full too).
 //  - p3 (Cosmo, EC COSMO/Intern via the 'COSMO' category) has one pending
 //    request on 20 Aug — pending counts toward the cap too (the real
 //    concurrency rule checks pending+approved together, see
@@ -39,6 +40,10 @@ const LEAVE_REQUESTS = [
   {
     id: 'req-3', profile_id: 'p3', date_from: '2026-08-20', date_to: '2026-08-20', leave_type: 'annual',
     status: 'pending', annual_leave_days: 1, profiles: { name: 'Carol', surname: 'Cosmo', category: 'COSMO' },
+  },
+  {
+    id: 'req-4', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-13', leave_type: 'annual',
+    status: 'approved', annual_leave_days: 2, profiles: { name: 'Dan', surname: 'Dlamini', category: 'Registrar' },
   },
 ]
 
@@ -97,7 +102,7 @@ describe('AnnualLeavePlanner', () => {
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
     mockResponses['leave_requests:select'] = { data: LEAVE_REQUESTS, error: null }
     mockResponses['public_holidays:select'] = { data: [], error: null }
-    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 1, EC_Intern 2, OT_Intern 1, EC full-time 2
+    mockResponses['constraints:select'] = { data: [], error: null } // falls back to defaults: MO 2, Registrar 2, EC_Intern 2, OT_Intern 1, EC full-time 2
     mockResponses['profiles:select'] = { data: null, count: 20, error: null }
     mockAuth = { profile: { id: 'p1' }, isAdmin: true }
   })
@@ -131,9 +136,10 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByText('Selected month')).toBeInTheDocument()
     expect(screen.getByText('August 2026')).toBeInTheDocument()
     expect(screen.getByText('Leave during 12–13 Aug')).toBeInTheDocument() // the Registrar at-cap range
-    expect(screen.getByText('2 approved · 0 pending')).toBeInTheDocument()
+    expect(screen.getByText('3 approved · 0 pending')).toBeInTheDocument()
     expect(screen.getByText('Anderson')).toBeInTheDocument() // also on leave those days
     expect(screen.getByText('Botha')).toBeInTheDocument()
+    expect(screen.getByText('Dlamini')).toBeInTheDocument()
   })
 
   it('shows a combined "X of 3 slots taken" capacity breakdown in "Leave Slot Utilization", not a per-category one', async () => {
@@ -145,10 +151,10 @@ describe('AnnualLeavePlanner', () => {
     // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
     // EC COSMO/Intern request alone — also 1 of 3. Four days total.
     expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
-    // 12-13 Aug: Anderson (MO) + Botha (Registrar) together — 2 of 3.
-    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
-    // Nothing ever reaches 3 of 3 in this fixture.
-    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
+    // Nothing is ever exactly 2 of 3 in this fixture.
+    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
+    // 12-13 Aug: Anderson (MO) + Botha and Dlamini (Registrars) — 3 of 3.
+    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
   })
 
   it('tapping a name in the date-range list reveals their full leave dates', async () => {
@@ -167,8 +173,8 @@ describe('AnnualLeavePlanner', () => {
   it('shows a right-aligned Approved/Pending status pill for each name in the "Leave during" list', async () => {
     renderPage()
     await grid()
-    // Anderson + Botha, both approved on 12-13 Aug.
-    expect(screen.getAllByText('Approved')).toHaveLength(2)
+    // Anderson, Botha and Dlamini, all approved on 12-13 Aug.
+    expect(screen.getAllByText('Approved')).toHaveLength(3)
   })
 
   it("shows a public holiday's name on hover in the year grid", async () => {
@@ -204,7 +210,7 @@ describe('AnnualLeavePlanner', () => {
     // request an admin still needs to see and act on.
     mockResponses['leave_requests:select'] = {
       data: [...LEAVE_REQUESTS, {
-        id: 'req-4', profile_id: 'p4', date_from: '2026-09-05', date_to: '2026-09-07', leave_type: 'annual',
+        id: 'req-5', profile_id: 'p5', date_from: '2026-09-05', date_to: '2026-09-07', leave_type: 'annual',
         status: 'pending', annual_leave_days: 3, profiles: { name: 'Dana', surname: 'Farrow', category: 'MO' },
       }],
       error: null,

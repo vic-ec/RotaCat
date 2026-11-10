@@ -14,9 +14,13 @@ const MONTH_LABELS = [
 // EC Intern are the "full-time EC doctor" columns for the purposes of
 // the combined cap below: each has its own per-column cap AND, combined
 // across those three, may never exceed LEAVE_FULL_TIME_DEFAULT_MAX at once
-// (see findFullTimeAggregateBreach below). OT Intern is a separate
-// pool with its own independent cap, additive on top of that combined cap
-// rather than part of it. Consultant/Locum never appear (not part of the
+// (the annual_leave_capacity RPC checks both — see migration
+// 20261110120000 for the rules, kept in sync with this file). OT Intern is
+// a separate pool with its own independent cap, additive on top of that
+// combined cap rather than part of it, and never available to the other
+// categories. The defaultMax values are the fallbacks when a `constraints`
+// row is missing — the live values are MO 2, Registrar 2, EC Intern 2,
+// OT Intern 1, full-time combined 2. Consultant/Locum never appear (not part of the
 // leave-eligible doctor roster); Consultant alone falls into an uncapped
 // "Other" column so their leave isn't hidden off the grid.
 // COSMO/COSMOPsych/EC_COSMO_Intern/OT_COSMO_Intern were retired from the
@@ -27,7 +31,7 @@ const MONTH_LABELS = [
 // doesn't just go unused, it makes that query error.
 export const LEAVE_CAPACITY_COLUMNS = [
   { key: 'MO', label: 'MO', categories: ['MO'], constraintKey: 'leave_max_concurrent_mo', defaultMax: 2 },
-  { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 1 },
+  { key: 'Registrar', label: 'Registrar', categories: ['Registrar'], constraintKey: 'leave_max_concurrent_registrar', defaultMax: 2 },
   { key: 'EC_Intern', label: 'EC Intern', categories: ['EC_Intern', 'Intern'], constraintKey: 'leave_max_concurrent_ec_intern', defaultMax: 2 },
   { key: 'OT_Intern', label: 'OT Intern', categories: ['OT_Intern'], constraintKey: 'leave_max_concurrent_ot_intern', defaultMax: 1 },
 ]
@@ -160,12 +164,12 @@ export function capacityStateForCount(count) {
 }
 
 // The "no more than 2 full-time EC doctors on leave at once" rule spans MO,
-// Registrar, and EC COSMO/Intern combined — e.g. 2 MO, 1 MO + 1 Registrar,
-// 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC
-// COSMO/Intern — never 2 Registrar (already capped at 1 above). OT
-// COSMO/Intern is a separate stream with its own cap (1) and isn't part of
-// this aggregate — it's additive on top, giving an overall ceiling of 3
-// doctors (any category) on leave at once (see totalLeaveCeiling below).
+// Registrar, and EC COSMO/Intern combined — e.g. 2 MO, 2 Registrar, 1 MO +
+// 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern,
+// or 2 EC COSMO/Intern. OT COSMO/Intern is a separate stream with its own
+// cap (1) and isn't part of this aggregate — it's additive on top, giving
+// an overall ceiling of 3 doctors (any category) on leave at once (see
+// totalLeaveCeiling below).
 export const LEAVE_FULL_TIME_GROUP_KEYS = ['MO', 'Registrar', 'EC_Intern']
 export const LEAVE_FULL_TIME_CONSTRAINT_KEY = 'leave_max_concurrent_fulltime'
 export const LEAVE_FULL_TIME_DEFAULT_MAX = 2
@@ -269,8 +273,9 @@ export function buildLeaveByDate(leaveRequests, { yearFrom, yearTo }) {
 }
 
 // Map<date, Map<columnKey, count>> — how many distinct profiles occupy each
-// capacity column on each date. Used both to render "x/max" on the grid and
-// to check the capacity rule at submission time. `columnKeyOf(entry)`
+// capacity column on each date, for the planner grids' own display. (The
+// capacity rule itself is checked server-side by the annual_leave_capacity
+// RPC, which counts the same way.) `columnKeyOf(entry)`
 // resolves the already-final column key for one entry (profile_id +
 // date_from/category are typically what it needs) — callers that don't
 // need rotation-awareness pass `e => columnForLeaveCategory(e.category)`
@@ -293,34 +298,6 @@ export function countByColumnPerDate(leaveByDate, columnKeyOf) {
     counts.set(date, perColumn)
   }
   return counts
-}
-
-// Would adding one more doctor to `columnKey` on any date in [dateFrom,
-// dateTo] push that day's count over `maxConcurrent`? existingCountsByDate
-// is countByColumnPerDate's output over the *other* leave already on record
-// (the request being validated must not itself be included in it).
-export function findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate }) {
-  const breachDates = []
-  for (const date of datesInRange(dateFrom, dateTo)) {
-    const current = existingCountsByDate.get(date)?.get(columnKey) || 0
-    if (current + 1 > maxConcurrent) breachDates.push(date)
-  }
-  return { hasBreach: breachDates.length > 0, breachDates }
-}
-
-// Would adding one more doctor (from any of LEAVE_FULL_TIME_GROUP_KEYS) push
-// a day's combined full-time-doctor count over maxTotal? Checked in addition
-// to (not instead of) each column's own findLeaveCapacityBreach — e.g. 1 MO
-// + 1 Registrar already satisfies each individual cap but would still
-// breach a maxTotal of 2 if a 3rd of any of those columns were added.
-export function findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existingCountsByDate }) {
-  const breachDates = []
-  for (const date of datesInRange(dateFrom, dateTo)) {
-    const perColumn = existingCountsByDate.get(date)
-    const total = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (perColumn?.get(key) || 0), 0)
-    if (total + 1 > maxTotal) breachDates.push(date)
-  }
-  return { hasBreach: breachDates.length > 0, breachDates }
 }
 
 // The overall "how many doctors, any category, could be on leave the same

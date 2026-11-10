@@ -4,11 +4,10 @@ import { supabase } from './supabase'
 import { addDays, datesInRange, rangesOverlap, dayOfWeek, parseLocalDate, formatShortDateRange } from './dateRange'
 import { overlapsPlannedWeekend, groupEntriesByWeekend, weekendCoverageSummary, weekendHealthState } from './weekendPlanner'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_CONSTRAINT_KEY, LEAVE_FULL_TIME_DEFAULT_MAX,
-  LEAVE_CAPACITY_STATES, buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_POOL_LABEL, LEAVE_CAPACITY_STATES, buildLeaveByDate,
 } from './leaveYearGrid'
 import { slotsForColumnOnDate } from './monthWorkspace'
-import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from './internRotations'
+import { resolveLeaveCapacityColumn } from './internRotations'
 
 // Mirrors the official leave-type picklist (screenshot from the employer's
 // leave system) plus a few RotaCat-specific extras that don't come from
@@ -277,76 +276,63 @@ export function findDoubleBookingConflicts({ dateFrom, dateTo, existingLeaveRequ
   }
 }
 
-// Tier-1 (block at submission): the Annual Leave planner caps how many
-// doctors from the same capacity column (MO / Registrar / EC COSMO+Intern /
-// OT COSMO+Intern) can be on leave at once, and — combined across MO,
-// Registrar, and EC COSMO/Intern only — a shared cap of 2 "full-time EC
-// doctors" at once (e.g. 1 MO + 1 Registrar is fine, but 1 MO + 1 Registrar
-// + 1 EC COSMO/Intern is not, even though each individual column is still
-// within its own limit). OT COSMO/Intern is a separate pool, capped
-// independently and not part of this aggregate.
-// Checked against every other pending or approved annual-leave request
-// (rejected/withdrawn never count, same as the double-booking check above).
-// No-op for any other leave type, or for a category with no capacity column
-// (Other).
-async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
-  const [profileRes, constraintsRes, overlappingRes] = await Promise.all([
-    supabase.from('profiles').select('category, contract_type').eq('id', profileId).single(),
-    supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
-    supabase.from('leave_requests')
-      .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category, contract_type)')
-      .eq('leave_type', 'annual')
-      .in('status', ['pending', 'approved'])
-      .neq('profile_id', profileId)
-      .lte('date_from', dateTo)
-      .gte('date_to', dateFrom),
-  ])
+// ── Annual leave capacity ─────────────────────────────────────────────────
+// Counted server-side by the annual_leave_capacity RPC (see migration
+// 20261110120000). It used to be counted here in the browser, off whatever
+// leave_requests rows the submitter could SELECT — and the leave_select RLS
+// policy hides every other doctor's PENDING request from a non-admin, so
+// pending leave was never counted and two overlapping requests both passed.
+// The RPC runs as SECURITY DEFINER and returns counts only (never names), so
+// the submission check, the request form's live preview and the approval-
+// time re-check all read one function and can never disagree.
+//
+// A breach no longer blocks. The doctor is told no slot is free and can
+// still submit for an emergency; the row is inserted with over_capacity =
+// true and capacity_breach set, and an admin must approve it as overbooked.
 
-  const overlappingRows = overlappingRes.data || []
-
-  // An Intern's capacity pool is date-driven (see internRotations.js) --
-  // resolve every doctor's own rotation blocks (the submitter's, plus
-  // every OTHER doctor whose overlapping request needs correctly bucketing
-  // by ITS OWN date_from, not the submitter's dates) before doing any
-  // bucketing below. A rotation-fetch hiccup must never block submission
-  // of an otherwise-valid request, so this degrades to an empty map (same
-  // as "no rotation assigned yet") rather than throwing.
-  let rotationsByDoctorId = new Map()
-  try {
-    const doctorIds = [profileId, ...overlappingRows.map(r => r.profile_id)]
-    rotationsByDoctorId = groupRotationsByDoctorId(await fetchInternRotationsForDoctorIds(doctorIds))
-  } catch {
-    // fall through with an empty map -- resolveLeaveCapacityColumn already
-    // degrades gracefully to static category bucketing for every doctor
+// The RPC's jsonb, reshaped for the JS: dayCounts in countByColumnPerDate's
+// Map<date, Map<columnKey, count>> shape and limits as maxByColumnKey /
+// maxFullTime, so the pure helpers (slotsForColumnOnDate,
+// findWorstAnnualCapacitySlot) read it exactly as they read a client-side
+// count. breach/breachDates are the server's own verdict for the doctor's
+// real column; dayCounts lets the form preview ANOTHER column from the same
+// read ("Checking capacity for").
+export function normaliseAnnualCapacity(result) {
+  if (!result) return null
+  const limits = result.limits || {}
+  const maxByColumnKey = Object.fromEntries(
+    LEAVE_CAPACITY_COLUMNS.map(col => [col.key, limits[col.key] ?? col.defaultMax])
+  )
+  const dayCounts = new Map(
+    (result.day_counts || []).map(d => [d.date, new Map(LEAVE_CAPACITY_COLUMNS.map(col => [col.key, Number(d[col.key] || 0)]))])
+  )
+  return {
+    columnKey: result.column_key ?? null,
+    columnMax: result.column_max ?? null,
+    maxByColumnKey,
+    maxFullTime: limits.fulltime ?? result.fulltime_max,
+    pooled: Boolean(result.pooled),
+    worst: result.worst ? {
+      date: result.worst.date, columnTaken: Number(result.worst.column_taken), fulltimeTaken: Number(result.worst.fulltime_taken),
+    } : null,
+    breach: result.breach || 'none',
+    breachDates: result.breach_dates || [],
+    dayCounts,
   }
+}
 
-  const columnKey = resolveLeaveCapacityColumn({ category: profileRes.data?.category, contractType: profileRes.data?.contract_type, profileId, date: dateFrom, rotationsByDoctorId })
-  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
-  if (!columnDef) return // this doctor's category has no capacity cap (Other column)
-
-  const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
-  const maxConcurrent = maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax
-
-  const byDate = buildLeaveByDate(overlappingRows, {
-    yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
+// The one call every capacity reading goes through. Throws on an RPC error
+// (a submission must not be recorded as within capacity when the check
+// never ran); the never-throw wrapper for display is fetchAnnualCapacityPreview.
+export async function fetchAnnualCapacity({ profileId, dateFrom, dateTo, excludeRequestId = null }) {
+  const { data, error } = await supabase.rpc('annual_leave_capacity', {
+    p_profile_id: profileId,
+    p_date_from: dateFrom,
+    p_date_to: dateTo,
+    p_exclude_request_id: excludeRequestId,
   })
-  const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-    category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
-  }))
-
-  const { hasBreach, breachDates } = findLeaveCapacityBreach({ dateFrom, dateTo, columnKey, maxConcurrent, existingCountsByDate: countsByDate })
-  if (hasBreach) {
-    const plural = maxConcurrent === 1 ? 'doctor is' : 'doctors are'
-    throw new Error(`Only ${maxConcurrent} ${columnDef.label} ${plural} allowed on leave at once, and that's already reached on ${breachDates[0]}. Adjust the dates and try again.`)
-  }
-
-  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
-    const maxTotal = maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX
-    const { hasBreach: fullTimeBreach, breachDates: fullTimeDates } = findFullTimeAggregateBreach({ dateFrom, dateTo, maxTotal, existingCountsByDate: countsByDate })
-    if (fullTimeBreach) {
-      throw new Error(`No more than ${maxTotal} full-time EC doctors (MO/Registrar/EC COSMO/Intern combined) may be on leave at once, and that's already reached on ${fullTimeDates[0]}. Adjust the dates and try again.`)
-    }
-  }
+  if (error) throw new Error(`Could not check leave capacity: ${error.message}`)
+  return normaliseAnnualCapacity(data)
 }
 
 // Pure per-date scan behind fetchAnnualCapacityPreview below — the single
@@ -354,8 +340,7 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
 // shared full-time pool for MO/Registrar/EC Intern, or the column's own
 // count otherwise — see slotsForColumnOnDate in monthWorkspace.js, reused
 // rather than reimplemented here). Ties go to the earliest date, matching
-// findLeaveCapacityBreach/findFullTimeAggregateBreach's own
-// earliest-first convention. Returns null only for an empty range (never
+// the RPC's own `worst`. Returns null only for an empty range (never
 // happens in practice — callers already validate dateFrom <= dateTo).
 // `pooled` tells LeaveCapacityBanner whether `taken`/`max` are this column's
 // own count, or the shared full-time pool's (see LEAVE_FULL_TIME_POOL_LABEL)
@@ -364,75 +349,76 @@ async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
 export function findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap }) {
   let worst = null
   for (const date of datesInRange(dateFrom, dateTo)) {
-    const { taken, max } = slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
+    const { taken, max, pooled } = slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap)
     if (!worst || (max - taken) < (worst.max - worst.taken)) {
-      worst = { date, taken, max }
+      worst = { date, taken, max, pooled }
     }
   }
-  return worst ? { ...worst, atCapacity: worst.taken >= worst.max, pooled: LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey) } : null
+  return worst ? { ...worst, atCapacity: worst.taken >= worst.max } : null
+}
+
+// The reading a screen shows for one capacity result: the worst date in the
+// range for `columnKey` (the doctor's own column unless overridden), plus
+// the server's breach verdict. `overCapacity` is the RPC's own `breach` for
+// the doctor's real column — the same field submission records — and the
+// plain at-capacity read for a previewed other column, which the server
+// has no verdict for. `limitLabel`/`limitMax` name the limit a breach hit,
+// for the approval card and the day panel.
+export function capacityReadingFor(capacity, { dateFrom, dateTo, columnKeyOverride } = {}) {
+  if (!capacity) return null
+  const columnKey = columnKeyOverride || capacity.columnKey
+  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
+  if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to read
+  const worst = findWorstAnnualCapacitySlot({
+    dateFrom, dateTo, columnKey, maxByColumnKey: capacity.maxByColumnKey, maxFullTime: capacity.maxFullTime,
+    countByColumnPerDateMap: capacity.dayCounts,
+  })
+  if (!worst) return null
+  const isOwnColumn = !columnKeyOverride || columnKeyOverride === capacity.columnKey
+  const breach = isOwnColumn ? capacity.breach : (worst.atCapacity ? (worst.pooled ? 'fulltime' : 'column') : 'none')
+  const breachDates = isOwnColumn ? capacity.breachDates : (worst.atCapacity ? [worst.date] : [])
+  return {
+    ...worst,
+    columnKey,
+    columnLabel: columnDef.label,
+    breach,
+    breachDates,
+    breachDate: breachDates[0] ?? null,
+    overCapacity: breach !== 'none',
+    limitLabel: breach === 'fulltime' ? `shared pool (${LEAVE_FULL_TIME_POOL_LABEL})` : `${columnDef.label} limit`,
+    limitMax: breach === 'fulltime' ? capacity.maxFullTime : capacity.maxByColumnKey[columnKey],
+  }
+}
+
+// Submission-time check. Returns the reading rather than throwing on a
+// breach — the row is still inserted, flagged (see submitLeaveRequest).
+// Only an RPC failure throws. A doctor whose category has no capacity
+// column (Consultant) gets a clean, unflagged result.
+export async function checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo }) {
+  const capacity = await fetchAnnualCapacity({ profileId, dateFrom, dateTo })
+  const reading = capacityReadingFor(capacity, { dateFrom, dateTo })
+  if (!reading) return { overCapacity: false, capacityBreach: null, reading: null }
+  return {
+    overCapacity: reading.overCapacity,
+    capacityBreach: reading.overCapacity ? reading.breach : null,
+    reading,
+  }
 }
 
 // Read-only, non-blocking counterpart to checkAnnualLeaveCapacity above —
-// same query shape (constraints + overlapping annual leave_requests for
-// the date range), but scoped to a not-yet-submitted request's own picked
-// range instead of a submit-time guard, and never throws. Used to drive
-// LeaveRequestForm's live capacity preview via LeaveCapacityBanner, the
-// same component MonthWorkspace's DayReviewModal renders. Unlike
-// checkAnnualLeaveCapacity, `category`/`profileId` are passed directly (the
-// caller already has the signed-in profile in hand) rather than looked up
-// fresh, and the overlapping-requests query doesn't exclude anyone — this
-// is a preview of room for a new request, not a conflict check against the
-// requester's own other rows. `profileId` doubles as the resolution key
-// for the requester's own rotation (an Intern's pool is date-driven — see
-// internRotations.js) and is excluded from `rotationsByDoctorId`'s "other
-// doctor" fetch when already covered by its own lookup. `columnKeyOverride`
-// lets a caller preview a DIFFERENT column's room entirely, bypassing the
-// category/contractType/rotation resolution below — used by
-// LeaveRequestForm's "Checking capacity for" picker so a doctor (an Intern
-// especially, whose real pool is date-driven) can look ahead at a category
-// other than the one they'd actually resolve to today. This never changes
-// what a submitted request is actually checked/counted against — that still
-// always resolves fresh from the real profile at submission time.
-export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, category, contractType, profileId, columnKeyOverride }) {
+// the SAME RPC and the same reading, so what the form previews is what
+// submission records; it just never throws (a fetch hiccup shows no banner
+// rather than breaking the form). `columnKeyOverride` previews a DIFFERENT
+// column's room from the same day counts — LeaveRequestForm's "Checking
+// capacity for" picker, so a doctor (an Intern especially, whose real pool
+// is date-driven) can look ahead at a category other than the one they'd
+// actually resolve to. It never changes what a submitted request is checked
+// against. `excludeRequestId` is for the approval-time re-check of a
+// request already on record.
+export async function fetchAnnualCapacityPreview({ dateFrom, dateTo, profileId, columnKeyOverride, excludeRequestId = null }) {
   try {
-    const [constraintsRes, overlappingRes] = await Promise.all([
-      supabase.from('constraints').select('key, value').in('key', [...LEAVE_CAPACITY_COLUMNS.map(c => c.constraintKey), LEAVE_FULL_TIME_CONSTRAINT_KEY]),
-      supabase.from('leave_requests')
-        .select('profile_id, date_from, date_to, profiles!leave_requests_profile_id_fkey(category, contract_type)')
-        .eq('leave_type', 'annual')
-        .in('status', ['pending', 'approved'])
-        .lte('date_from', dateTo)
-        .gte('date_to', dateFrom),
-    ])
-
-    const overlappingRows = overlappingRes.data || []
-
-    let rotationsByDoctorId = new Map()
-    try {
-      const doctorIds = [profileId, ...overlappingRows.map(r => r.profile_id)]
-      rotationsByDoctorId = groupRotationsByDoctorId(await fetchInternRotationsForDoctorIds(doctorIds))
-    } catch {
-      // informational preview only -- a rotation-fetch hiccup just falls
-      // back to static category bucketing below, same as checkAnnualLeaveCapacity
-    }
-
-    const columnKey = columnKeyOverride || resolveLeaveCapacityColumn({ category, contractType, profileId, date: dateFrom, rotationsByDoctorId })
-    const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
-    if (!columnDef) return null // this category has no capacity cap (Other column) — nothing to preview
-
-    const maxByConstraintKey = Object.fromEntries((constraintsRes.data || []).map(c => [c.key, Number(c.value)]))
-    const maxByColumnKey = { [columnKey]: maxByConstraintKey[columnDef.constraintKey] ?? columnDef.defaultMax }
-    const maxFullTime = maxByConstraintKey[LEAVE_FULL_TIME_CONSTRAINT_KEY] ?? LEAVE_FULL_TIME_DEFAULT_MAX
-
-    const byDate = buildLeaveByDate(overlappingRows, {
-      yearFrom: Number(dateFrom.slice(0, 4)), yearTo: Number(dateTo.slice(0, 4)),
-    })
-    const countByColumnPerDateMap = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-      category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
-    }))
-
-    const worst = findWorstAnnualCapacitySlot({ dateFrom, dateTo, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap })
-    return worst ? { ...worst, columnLabel: columnDef.label } : null
+    const capacity = await fetchAnnualCapacity({ profileId, dateFrom, dateTo, excludeRequestId })
+    return capacityReadingFor(capacity, { dateFrom, dateTo, columnKeyOverride })
   } catch {
     return null // informative only — never let a fetch hiccup disrupt the form
   }
@@ -620,8 +606,15 @@ export async function submitLeaveRequest({
     }
   }
 
+  // Capacity: flagged, not blocked. An over-capacity request needs a
+  // motivation — it is an emergency the admin has to weigh — and is
+  // recorded as such for the approval queue (over_capacity/capacity_breach).
+  let capacity = { overCapacity: false, capacityBreach: null, reading: null }
   if (leaveType === 'annual') {
-    await checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo })
+    capacity = await checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo })
+    if (capacity.overCapacity && !(notes || '').trim()) {
+      throw new Error(`No slot is free on ${formatShortDateRange(capacity.reading.breachDate, capacity.reading.breachDate)}. Add a motivation to submit this as an emergency for admin approval.`)
+    }
   }
 
   // A weekend's Sunday can fall on dateFrom without its Saturday doing so,
@@ -659,6 +652,9 @@ export async function submitLeaveRequest({
     notes: notes || null,
     includes_public_holiday: includesPublicHoliday,
     overlaps_rostered_weekend: overlapsWeekend,
+    over_capacity: capacity.overCapacity,
+    capacity_breach: capacity.capacityBreach,
   })
   if (error) throw new Error(error.message)
+  return { overCapacity: capacity.overCapacity }
 }

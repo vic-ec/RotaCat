@@ -33,23 +33,27 @@ vi.mock('../lib/leaveApprovals', async () => {
   return { ...actual, getApprovalWarnings: (...args) => getApprovalWarnings(...args) }
 })
 
-// fetchAnnualCapacityPreview/fetchAffectedLeaveForRequest are both thin
-// Supabase-querying wrappers (unit-tested on their pure halves in
-// leaveRequests.test.js — capacityAssessmentState, naturalLeavePeriodLabel)
-// — mocked directly here, same pattern LeaveRequestForm.test.jsx already
-// uses for fetchAnnualCapacityPreview, rather than threading fixture rows
-// through the generic supabase mock below and hoping its non-filtering
-// eq/neq/gte/lte stand-ins happen to produce the right shape.
-const fetchAnnualCapacityPreview = vi.fn()
+// fetchAffectedLeaveForRequest is a thin Supabase-querying wrapper
+// (unit-tested on its pure half in leaveRequests.test.js) — mocked directly
+// here rather than threading fixture rows through the generic supabase mock
+// below and hoping its non-filtering eq/neq/gte/lte stand-ins happen to
+// produce the right shape. The capacity gauge needs no mock of its own: it
+// reads getApprovalWarnings' `capacity` (the annual_leave_capacity RPC's
+// reading, with this request excluded — `taken` is the OTHER doctors on
+// the worst day, and the gauge adds this request as the +1).
 const fetchAffectedLeaveForRequest = vi.fn()
 vi.mock('../lib/leaveRequests', async () => {
   const actual = await vi.importActual('../lib/leaveRequests')
   return {
     ...actual,
-    fetchAnnualCapacityPreview: (...args) => fetchAnnualCapacityPreview(...args),
     fetchAffectedLeaveForRequest: (...args) => fetchAffectedLeaveForRequest(...args),
   }
 })
+
+const NO_WARNINGS = { supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null, capacityWarning: null, capacity: null, capacityError: null }
+function capacityOf(reading) {
+  return { ...NO_WARNINGS, capacity: reading }
+}
 
 const createNotification = vi.fn().mockResolvedValue({ error: null })
 vi.mock('../lib/notifications', () => ({
@@ -116,7 +120,6 @@ async function openPanel(user, name = 'Jane Doe') {
 describe('LeaveApprovalQueue', () => {
   beforeEach(() => {
     getApprovalWarnings.mockReset()
-    fetchAnnualCapacityPreview.mockReset().mockResolvedValue(null)
     fetchAffectedLeaveForRequest.mockReset().mockResolvedValue([])
     createNotification.mockClear()
     fromCalls.length = 0
@@ -247,8 +250,8 @@ describe('LeaveApprovalQueue', () => {
 
   describe('Capacity assessment', () => {
     it('shows "Capacity available" with at most half the pool taken', async () => {
-      fetchAnnualCapacityPreview.mockResolvedValue({ taken: 1, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false })
-      getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+      // Nobody else on the worst day: this request is the 1 of 2.
+      getApprovalWarnings.mockResolvedValue(capacityOf({ taken: 0, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false, overCapacity: false }))
       const user = userEvent.setup()
       renderQueue()
 
@@ -259,8 +262,7 @@ describe('LeaveApprovalQueue', () => {
     })
 
     it('shows "Limited capacity" once more than half the pool is taken', async () => {
-      fetchAnnualCapacityPreview.mockResolvedValue({ taken: 2, max: 3, pooled: false, columnLabel: 'OT Intern', atCapacity: false })
-      getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+      getApprovalWarnings.mockResolvedValue(capacityOf({ taken: 1, max: 3, pooled: false, columnLabel: 'OT Intern', atCapacity: false, overCapacity: false }))
       const user = userEvent.setup()
       renderQueue()
 
@@ -270,8 +272,8 @@ describe('LeaveApprovalQueue', () => {
     })
 
     it('shows "At capacity" once every slot is taken, and folds it into the approve confirmation gate', async () => {
-      fetchAnnualCapacityPreview.mockResolvedValue({ taken: 2, max: 2, pooled: true, columnLabel: 'MO', atCapacity: true })
-      getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+      // One other doctor on the worst day: with this request the pool is exactly full, not over.
+      getApprovalWarnings.mockResolvedValue(capacityOf({ taken: 1, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false, overCapacity: false }))
       const user = userEvent.setup()
       renderQueue()
 
@@ -288,14 +290,56 @@ describe('LeaveApprovalQueue', () => {
     })
 
     it('shows a neutral message, not a colored card, when no capacity column applies', async () => {
-      fetchAnnualCapacityPreview.mockResolvedValue(null)
-      getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+      getApprovalWarnings.mockResolvedValue(NO_WARNINGS)
       const user = userEvent.setup()
       renderQueue()
 
       const dialog = await openPanel(user)
       expect(await within(dialog).findByText('No leave-slot limit applies to this category/leave type.')).toBeInTheDocument()
       expect(within(dialog).queryByText('Capacity available')).not.toBeInTheDocument()
+    })
+
+    // Bug 2: approval never checked capacity. The live re-check (the
+    // annual_leave_capacity RPC with this request excluded) now feeds the
+    // card, names the limit and the first breach date, and asks for an
+    // explicit overbooked approval — which stays possible.
+    it('shows an over-capacity warning naming the limit and first breach date, and requires "Approve as overbooked"', async () => {
+      getApprovalWarnings.mockResolvedValue({
+        ...NO_WARNINGS,
+        capacity: { taken: 2, max: 2, pooled: true, columnLabel: 'MO', atCapacity: true, overCapacity: true, breach: 'fulltime', breachDate: '2026-08-12' },
+        capacityWarning: { breach: 'fulltime', columnLabel: 'MO', limitLabel: 'shared pool (MO, Registrar, EC Intern)', limitMax: 2, firstBreachDate: '2026-08-12' },
+      })
+      const user = userEvent.setup()
+      renderQueue()
+
+      const dialog = await openPanel(user)
+      expect(await within(dialog).findByText('Over capacity')).toBeInTheDocument()
+      expect(within(dialog).getByText(/Approving exceeds the shared pool \(MO, Registrar, EC Intern\) \(2\) from 2026-08-12\. Approve as overbooked to proceed\./)).toBeInTheDocument()
+
+      await user.click(await within(dialog).findByRole('button', { name: 'Approve as overbooked' }))
+      await user.click(await within(dialog).findByRole('button', { name: 'Confirm overbooked approval' }))
+      await waitFor(() => expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'leave_approved' })))
+    })
+
+    it('says so, rather than implying room, when the capacity check itself failed', async () => {
+      getApprovalWarnings.mockResolvedValue({ ...NO_WARNINGS, capacityError: 'Could not check leave capacity: function annual_leave_capacity does not exist' })
+      const user = userEvent.setup()
+      renderQueue()
+
+      const dialog = await openPanel(user)
+      expect(await within(dialog).findByText(/Capacity could not be checked: Could not check leave capacity/)).toBeInTheDocument()
+      expect(within(dialog).queryByText('Capacity available')).not.toBeInTheDocument()
+    })
+
+    it('tags a request the doctor submitted as overbooked, on the row and in the drawer', async () => {
+      getApprovalWarnings.mockResolvedValue(NO_WARNINGS)
+      mockResponses['leave_requests:select'] = { data: [{ ...PENDING_REQUEST, over_capacity: true, capacity_breach: 'column' }], error: null }
+      const user = userEvent.setup()
+      renderQueue()
+
+      expect(await screen.findByText('Overbooked')).toBeInTheDocument()
+      const dialog = await openPanel(user)
+      expect(within(dialog).getByText('Overbooked')).toBeInTheDocument()
     })
 
     it('shows Tier-2 warnings as a red "Requires review" block, not amber', async () => {
@@ -364,9 +408,8 @@ describe('LeaveApprovalQueue', () => {
     })
 
     it('shows a positive empty state when nobody else is away', async () => {
-      fetchAnnualCapacityPreview.mockResolvedValue({ taken: 0, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false })
       fetchAffectedLeaveForRequest.mockResolvedValue([])
-      getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+      getApprovalWarnings.mockResolvedValue(capacityOf({ taken: 0, max: 2, pooled: true, columnLabel: 'MO', atCapacity: false, overCapacity: false }))
       const user = userEvent.setup()
       renderQueue()
 

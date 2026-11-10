@@ -6,7 +6,7 @@ import {
 } from './annualPlannerOverview'
 import { LEAVE_CAPACITY_STATES } from './leaveYearGrid'
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 1, OT_Intern: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 2, EC_Intern: 1, OT_Intern: 1 }
 
 describe('pressureDatesInYear', () => {
   it('flags a date where any column is at its cap', () => {
@@ -20,7 +20,7 @@ describe('pressureDatesInYear', () => {
   })
 
   it('flags a date where a column is over its cap (a legacy/edge-case breach)', () => {
-    const counts = new Map([['2026-08-08', new Map([['Registrar', 2]])]]) // cap is 1
+    const counts = new Map([['2026-08-08', new Map([['Registrar', 3]])]]) // cap is 2
     expect(pressureDatesInYear(counts, MAX_BY_COLUMN).has('2026-08-08')).toBe(true)
   })
 
@@ -237,11 +237,11 @@ describe('categoryDayCapacityState', () => {
 })
 
 describe('monthCapacityMarkers', () => {
-  const maxByColumnKey = { MO: 2, Registrar: 1, EC_Intern: 2, OT_Intern: 1 }
+  const maxByColumnKey = { MO: 2, Registrar: 2, EC_Intern: 2, OT_Intern: 1 }
 
   it('reads each day against just the given column\'s own cap', () => {
     const countByColumnPerDate = new Map([
-      ['2026-08-10', new Map([['MO', 2], ['Registrar', 1]])],
+      ['2026-08-10', new Map([['MO', 2], ['Registrar', 2]])],
     ])
     const markers = monthCapacityMarkers(2026, 8, 'MO', { countByColumnPerDate, maxByColumnKey })
     const day10 = markers.find(d => d.date === '2026-08-10')
@@ -249,7 +249,7 @@ describe('monthCapacityMarkers', () => {
 
     const registrarMarkers = monthCapacityMarkers(2026, 8, 'Registrar', { countByColumnPerDate, maxByColumnKey })
     const registrarDay10 = registrarMarkers.find(d => d.date === '2026-08-10')
-    expect(registrarDay10.capacityState).toBe(LEAVE_CAPACITY_STATES[3]) // Registrar at its own cap of 1
+    expect(registrarDay10.capacityState).toBe(LEAVE_CAPACITY_STATES[3]) // Registrar at its own cap of 2
   })
 
   it('falls back to the blended combined-headcount reading for "all"', () => {

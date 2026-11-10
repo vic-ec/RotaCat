@@ -14,7 +14,7 @@ import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
 import { SelectAllRow, ApprovalAction } from './ListRow'
 import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacityPreview, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
 import { datesInRange } from '../lib/dateRange'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
@@ -31,7 +31,7 @@ const CATEGORY_LABELS = {
 }
 
 function hasWarnings(w) {
-  return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
+  return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning) || Boolean(w.capacityWarning))
 }
 
 // One row of the pending-requests list — checkbox, avatar, name, category
@@ -67,6 +67,9 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-medium text-ink">{fullName}</p>
           {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
+          {/* Submitted knowing no slot was free — an emergency the admin
+              has to weigh, not a routine request. */}
+          {request.over_capacity && <Tag variant="status" tone="danger">Overbooked</Tag>}
         </div>
         <p className="mt-0.5 truncate text-xs text-ink-muted">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</p>
       </div>
@@ -93,7 +96,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
 // (LeaveRequestDecisionFooter, sticky).
 function LeaveRequestDetailPanel({
   request, fullName, categoryLabel, leaveTypeLabel, submittedDate, submittedTime, publicHolidayFrom, publicHolidayTo, totalDays, annualLeaveDays,
-  warnings, warned, warningsLoading, capacityPreview, capacityLoading, affectedEntries, affectedLoading,
+  warnings, warned, warningsLoading, capacityPreview, capacityLoading, capacityError, affectedEntries, affectedLoading,
   onClose, onOpenCalendar,
   rejecting, rejectNotes, onRejectNotesChange, onRejectStart, onRejectCancel, onRejectConfirm,
   approveLabel, onApprove, isActioning,
@@ -105,7 +108,12 @@ function LeaveRequestDetailPanel({
   return (
     <RequestReviewDrawer
       title={`${leaveTypeLabel} request`}
-      statusTag={<Tag variant="status" tone="warning">{REVIEW_STATUS_LABELS.pending}</Tag>}
+      statusTag={(
+        <>
+          <Tag variant="status" tone="warning">{REVIEW_STATUS_LABELS.pending}</Tag>
+          {request.over_capacity && <Tag variant="status" tone="danger" className="ml-2">Overbooked</Tag>}
+        </>
+      )}
       meta={`Submitted ${submittedDate} · ${submittedTime}`}
       onClose={onClose}
       footer={
@@ -136,6 +144,7 @@ function LeaveRequestDetailPanel({
         <CapacityAssessment
           capacityPreview={capacityPreview}
           capacityLoading={capacityLoading}
+          capacityError={capacityError}
           warnings={warnings}
           warned={warned}
           warningsLoading={warningsLoading}
@@ -199,31 +208,13 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
   // The request whose review drawer is currently open, if any.
   const [expandedId, setExpandedId] = useState(null)
-  // Per-request annual-leave capacity preview, fetched lazily the first
-  // time its drawer opens (undefined = not fetched yet, null = fetched but
-  // no capacity column applies to this category/leave type).
-  const [capacityByRequestId, setCapacityByRequestId] = useState({})
-  // Per-request "who else is already away" list, fetched lazily alongside
-  // the capacity preview (undefined = not fetched yet).
+  // Per-request "who else is already away" list, fetched lazily the first
+  // time its drawer opens (undefined = not fetched yet). The capacity gauge
+  // needs no fetch of its own: it reads the same live capacity re-check
+  // getApprovalWarnings already ran for every row (warnings.capacity).
   const [affectedByRequestId, setAffectedByRequestId] = useState({})
 
   useEffect(() => { loadQueue() }, [])
-
-  useEffect(() => {
-    if (!expandedId) return
-    const request = requests.find(r => r.id === expandedId)
-    if (!request || request.leave_type !== 'annual' || capacityByRequestId[expandedId] !== undefined) return
-    let cancelled = false
-    fetchAnnualCapacityPreview({
-      dateFrom: request.date_from,
-      dateTo: request.date_to,
-      category: request.profiles?.category,
-      contractType: request.profiles?.contract_type,
-      profileId: request.profile_id,
-    }).then(preview => { if (!cancelled) setCapacityByRequestId(prev => ({ ...prev, [expandedId]: preview })) })
-    return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- requests/capacityByRequestId read via closure; re-running once they change would refetch in a loop
-  }, [expandedId])
 
   useEffect(() => {
     if (!expandedId) return
@@ -375,17 +366,27 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
   const expandedWarnings = expandedRequest ? warningsById[expandedRequest.id] : undefined
   const expandedWarningsLoading = Boolean(expandedRequest) && expandedWarnings === undefined
   const expandedWarned = hasWarnings(expandedWarnings)
-  const expandedCapacityPreview = expandedRequest ? capacityByRequestId[expandedRequest.id] : undefined
-  const expandedCapacityLoading = Boolean(expandedRequest) && expandedRequest.leave_type === 'annual' && expandedCapacityPreview === undefined
+  // The gauge counts this request in: the reading's `taken` is the other
+  // doctors on the worst day, and this request is the +1 (see SlotGauge).
+  const expandedCapacityReading = expandedWarnings?.capacity ?? null
+  const expandedCapacityPreview = expandedCapacityReading
+    ? { ...expandedCapacityReading, taken: expandedCapacityReading.taken + 1, atCapacity: expandedCapacityReading.taken + 1 >= expandedCapacityReading.max }
+    : null
+  const expandedCapacityLoading = Boolean(expandedRequest) && expandedRequest.leave_type === 'annual' && expandedWarningsLoading
+  const expandedCapacityError = expandedWarnings?.capacityError ?? null
   const expandedAffectedEntries = expandedRequest ? affectedByRequestId[expandedRequest.id] : undefined
   const expandedAffectedLoading = Boolean(expandedRequest) && expandedAffectedEntries === undefined
   // A full capacity gauge is as much a reason to pause as a Tier-2 warning
   // — folded into the same "needs a second click" gate so approving into
-  // an at-capacity pool isn't a single accidental tap, even though the
-  // preview itself stays purely advisory (never blocks the mutation).
+  // an at-capacity pool isn't a single accidental tap. A genuine breach
+  // (the live re-check says the pool would be OVER its limit) asks for the
+  // explicit "Approve as overbooked" instead; approval stays possible.
+  const expandedOverbooked = Boolean(expandedWarnings?.capacityWarning)
   const expandedNeedsConfirm = expandedWarned || Boolean(expandedCapacityPreview?.atCapacity)
   const expandedConfirming = Boolean(expandedRequest) && confirmingApproveId === expandedRequest.id
-  const expandedApproveLabel = expandedNeedsConfirm ? (expandedConfirming ? 'Confirm approval' : 'Approve anyway') : 'Approve request'
+  const expandedApproveLabel = expandedOverbooked
+    ? (expandedConfirming ? 'Confirm overbooked approval' : 'Approve as overbooked')
+    : expandedNeedsConfirm ? (expandedConfirming ? 'Confirm approval' : 'Approve anyway') : 'Approve request'
   const expandedIsActioning = Boolean(expandedRequest) && actioningId === expandedRequest.id
   const expandedRejecting = Boolean(expandedRequest) && rejectingId === expandedRequest.id
 
@@ -515,6 +516,7 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
             warningsLoading={expandedWarningsLoading}
             capacityPreview={expandedCapacityPreview}
             capacityLoading={expandedCapacityLoading}
+            capacityError={expandedCapacityError}
             affectedEntries={expandedAffectedEntries}
             affectedLoading={expandedAffectedLoading}
             onClose={closePanel}

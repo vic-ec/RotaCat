@@ -3,7 +3,7 @@ import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
-import { datesInRange } from '../lib/dateRange'
+import { datesInRange, formatShortDateRange } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
@@ -74,15 +74,15 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     && !myRotations.some(r => r.start_date <= dateFrom && dateFrom <= r.end_date)
 
   // The category this request would actually be checked against today, for
-  // this exact date range — same resolution fetchAnnualCapacityPreview/
-  // checkAnnualLeaveCapacity use server-side. Drives both the default
-  // selection and the visibility of the "Checking capacity for" picker
-  // below (a category with no capacity column at all, e.g. Consultant, has
-  // nothing to preview). `columnOverride` lets the picker preview a
-  // DIFFERENT column's room without changing what actually gets submitted —
-  // useful for an Intern (or anyone) looking ahead into a month they expect
-  // to be on a different rotation for, before that rotation is confirmed on
-  // record.
+  // this exact date range — the same resolution the annual_leave_capacity
+  // RPC applies server-side (see migration 20261110120000's rules table).
+  // Drives both the default selection and the visibility of the "Checking
+  // capacity for" picker below (a category with no capacity column at all,
+  // e.g. Consultant, has nothing to preview). `columnOverride` lets the
+  // picker preview a DIFFERENT column's room without changing what actually
+  // gets submitted — useful for an Intern (or anyone) looking ahead into a
+  // month they expect to be on a different rotation for, before that
+  // rotation is confirmed on record.
   const resolvedColumnKey = isAnnual && hasValidRange
     ? resolveLeaveCapacityColumn({
       category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: dateFrom,
@@ -101,19 +101,26 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   // typed, prefilled via initialDateFrom/To, or derived from the weekend-
   // exception Saturday picker — this still fires exactly once each way).
   // Neither fetch can throw (see fetchAnnualCapacityPreview/
-  // fetchSpecialLeavePressure), so this is purely informative — it can
-  // never block or interfere with submission.
+  // fetchSpecialLeavePressure), so this is purely informative — it never
+  // blocks submission. It IS the same server-side read submission makes,
+  // though, so what it says about room is what submission will record.
   useEffect(() => {
     if (!isAnnual || !hasValidRange) { setAnnualPreview(null); setAnnualPreviewLoading(false); return }
     let cancelled = false
     setAnnualPreviewLoading(true)
     fetchAnnualCapacityPreview({
-      dateFrom, dateTo, category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, columnKeyOverride: columnOverride || undefined,
+      dateFrom, dateTo, profileId: profile?.id, columnKeyOverride: columnOverride || undefined,
     }).then(result => {
       if (!cancelled) { setAnnualPreview(result); setAnnualPreviewLoading(false) }
     })
     return () => { cancelled = true }
-  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.category, profile?.contract_type, profile?.id, columnOverride])
+  }, [isAnnual, hasValidRange, dateFrom, dateTo, profile?.id, columnOverride])
+
+  // No slot free for the doctor's REAL column on some day of the range (a
+  // previewed other column doesn't count — submission checks the real one).
+  // The request can still go in, as an emergency: a motivation becomes
+  // required and the row is flagged for the admin to approve as overbooked.
+  const overCapacity = isAnnual && hasValidRange && !isColumnOverridden && Boolean(annualPreview?.overCapacity)
 
   useEffect(() => {
     if (!isSpecial || !hasValidRange) { setSpecialPressure(null); return }
@@ -157,7 +164,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     setMsg(null)
     setSubmitting(true)
     try {
-      await submitLeaveRequest({
+      const result = await submitLeaveRequest({
         profileId: profile.id,
         isAdmin,
         leaveType,
@@ -168,10 +175,11 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         isActive: profile.is_active,
         scheduledActiveDate: profile.scheduled_active_date,
       })
+      const flagged = result?.overCapacity ? ' Flagged as overbooked for the admin to decide.' : ''
       setMsg({
         type: 'success',
         text: isAnnual
-          ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.`
+          ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.${flagged}`
           : 'Leave request submitted — pending admin approval.',
       })
       setDateFrom('')
@@ -260,11 +268,19 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         annualPreviewLoading ? (
           <p className="text-xs text-ink-muted">Checking availability…</p>
         ) : annualPreview && (
-          <LeaveCapacityBanner
-            mySlots={{ taken: annualPreview.taken, max: annualPreview.max }}
-            columnLabel={annualPreview.columnLabel}
-            pooled={annualPreview.pooled}
-          />
+          <div>
+            <LeaveCapacityBanner
+              mySlots={{ taken: annualPreview.taken, max: annualPreview.max }}
+              columnLabel={annualPreview.columnLabel}
+              pooled={annualPreview.pooled}
+            />
+            {overCapacity && (
+              <p className="-mt-1 text-xs text-ink-light" data-testid="over-capacity-note">
+                No slot is free on {formatShortDateRange(annualPreview.breachDate ?? annualPreview.date, annualPreview.breachDate ?? annualPreview.date)}.
+                You can still submit for an emergency; an admin must approve it as overbooked leave.
+              </p>
+            )}
+          </div>
         )
       )}
 
@@ -321,7 +337,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
 
       <div>
         <label htmlFor="leave-notes" className="label-text">
-          Motivations — see{' '}
+          Motivations{overCapacity ? ' (required for an overbooked request)' : ''} — see{' '}
           {/* Opens in a new tab rather than navigating: this form is often
               half-filled by the time someone goes looking for the rule, and
               leaving the page would lose what they typed. A plain anchor
@@ -337,8 +353,9 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           value={notes}
           onChange={e => setNotes(e.target.value)}
           rows={3}
+          required={overCapacity}
           className="input-field w-full"
-          placeholder="Explain your reasoning for the admin reviewing this request…"
+          placeholder={overCapacity ? 'Required — explain the emergency for the admin reviewing this overbooked request…' : 'Explain your reasoning for the admin reviewing this request…'}
         />
       </div>
 
@@ -349,7 +366,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
       )}
 
       <button type="submit" disabled={submitting} className="btn-primary">
-        {submitting ? 'Submitting…' : 'Submit request'}
+        {submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request'}
       </button>
     </form>
   )

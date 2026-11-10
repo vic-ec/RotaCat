@@ -1,5 +1,5 @@
 // Tier-2 approval-time warnings for the leave approval queue — these FLAG
-// for the admin to consciously acknowledge, they never block. Three checks:
+// for the admin to consciously acknowledge, they never block. Four checks:
 //  1. supervision floor: removing this doctor from an already-rostered
 //     shift would drop MO/Registrar coverage below constraints.min_supervision_per_shift
 //  2. annual leave balance: approving would take annual_leave_balances
@@ -10,11 +10,17 @@
 //     This is a proxy, not a causal claim — approving/rejecting this leave
 //     doesn't itself change already-rostered hours; it's surfaced here
 //     because this is when the admin is looking at this doctor's month.
+//  4. annual leave capacity: a LIVE re-check of this request against every
+//     other doctor's pending+approved annual leave (the annual_leave_capacity
+//     RPC, with this request excluded) — independent of the over_capacity
+//     flag stored at submission, since leave can be approved or withdrawn
+//     between then and now. A breach asks for an explicit "Approve as
+//     overbooked"; approval stays possible.
 import { supabase } from './supabase'
 import { datesInRange, monthBounds } from './dateRange'
 import { annualDaysUsedInYear } from './leaveDashboard'
 import { createNotification } from './notifications'
-import { LEAVE_TYPE_OPTIONS } from './leaveRequests'
+import { LEAVE_TYPE_OPTIONS, fetchAnnualCapacity, capacityReadingFor } from './leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 
@@ -90,10 +96,30 @@ function distinctYearMonths(dateFrom, dateTo) {
   return [...seen.values()]
 }
 
-// Fetches everything needed and runs all three checks for one leave_requests
-// row. Returns { supervisionBreaches, balanceWarnings, hourCeilingWarning }.
+// Pure: the capacity warning for one reading (capacityReadingFor's output
+// for the request's own column, with the request itself excluded from the
+// counts), or null when there is still room. Names the limit hit and the
+// first breach date — what the Capacity Assessment card shows.
+export function capacityWarningFor(reading) {
+  if (!reading?.overCapacity) return null
+  return {
+    breach: reading.breach,
+    columnLabel: reading.columnLabel,
+    limitLabel: reading.limitLabel,
+    limitMax: reading.limitMax,
+    firstBreachDate: reading.breachDate ?? reading.date,
+  }
+}
+
+// Fetches everything needed and runs all four checks for one leave_requests
+// row. Returns { supervisionBreaches, balanceWarnings, hourCeilingWarning,
+// capacityWarning, capacity, capacityError } — `capacity` is the full
+// reading (worst date, taken/max for the gauge) even when nothing breaches;
+// `capacityError` is set, and the warning left null, only when the RPC
+// itself failed, so the card can say the check did not run rather than
+// imply the request is within capacity.
 export async function getApprovalWarnings(leaveRequest) {
-  const { profile_id: profileId, date_from: dateFrom, date_to: dateTo, leave_type: leaveType, annual_leave_days: annualLeaveDays } = leaveRequest
+  const { id: requestId, profile_id: profileId, date_from: dateFrom, date_to: dateTo, leave_type: leaveType, annual_leave_days: annualLeaveDays } = leaveRequest
 
   const [profileRes, constraintRes] = await Promise.all([
     supabase.from('profiles').select('category, contract_type, max_hours').eq('id', profileId).single(),
@@ -180,5 +206,19 @@ export async function getApprovalWarnings(leaveRequest) {
     }
   }
 
-  return { supervisionBreaches, balanceWarnings, hourCeilingWarning }
+  // ── 4. Annual leave capacity (live re-check) ──
+  let capacity = null
+  let capacityWarning = null
+  let capacityError = null
+  if (leaveType === 'annual') {
+    try {
+      const result = await fetchAnnualCapacity({ profileId, dateFrom, dateTo, excludeRequestId: requestId ?? null })
+      capacity = capacityReadingFor(result, { dateFrom, dateTo })
+      capacityWarning = capacityWarningFor(capacity)
+    } catch (err) {
+      capacityError = err.message
+    }
+  }
+
+  return { supervisionBreaches, balanceWarnings, hourCeilingWarning, capacityWarning, capacity, capacityError }
 }

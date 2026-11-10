@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   columnForLeaveCategory, labelForLeaveCategory, monthsForYear, quartersForYear, datesInMonth, weeksForMonth,
-  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach,
+  buildLeaveByDate, countByColumnPerDate, LEAVE_CAPACITY_COLUMNS,
   totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling, LEAVE_CAPACITY_STATES,
 } from './leaveYearGrid'
 
@@ -157,75 +157,14 @@ describe('countByColumnPerDate', () => {
   })
 })
 
-describe('findLeaveCapacityBreach', () => {
-  it('flags a date where adding one more would exceed the cap', () => {
-    const existingCountsByDate = new Map([
-      ['2026-08-10', new Map([['MO', 2]])],
-      ['2026-08-11', new Map([['MO', 1]])],
-    ])
-    const result = findLeaveCapacityBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-11', columnKey: 'MO', maxConcurrent: 2, existingCountsByDate,
+// The breach checks themselves (per-column cap, then the shared full-time
+// pool) now run server-side in the annual_leave_capacity RPC — see
+// migration 20261110120000 and leaveRequests.test.js for the JS side.
+describe('LEAVE_CAPACITY_COLUMNS defaults', () => {
+  it('fall back to the live limits — MO 2, Registrar 2, EC Intern 2, OT Intern 1', () => {
+    expect(Object.fromEntries(LEAVE_CAPACITY_COLUMNS.map(c => [c.key, c.defaultMax]))).toEqual({
+      MO: 2, Registrar: 2, EC_Intern: 2, OT_Intern: 1,
     })
-    expect(result.hasBreach).toBe(true)
-    expect(result.breachDates).toEqual(['2026-08-10'])
-  })
-
-  it('does not flag when under the cap for every date', () => {
-    const existingCountsByDate = new Map([['2026-08-10', new Map([['MO', 1]])]])
-    const result = findLeaveCapacityBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'MO', maxConcurrent: 2, existingCountsByDate,
-    })
-    expect(result.hasBreach).toBe(false)
-  })
-
-  it('treats a date with no existing entries as zero', () => {
-    const result = findLeaveCapacityBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', columnKey: 'OT_Intern', maxConcurrent: 1, existingCountsByDate: new Map(),
-    })
-    expect(result.hasBreach).toBe(false)
-  })
-})
-
-describe('findFullTimeAggregateBreach', () => {
-  const counts = (mo, registrar, ecCosmo) => new Map([
-    ['2026-08-10', new Map([['MO', mo], ['Registrar', registrar], ['EC_Intern', ecCosmo]])],
-  ])
-
-  it('breaches once 1 MO + 1 Registrar (the 2-total cap) is already reached', () => {
-    const existingCountsByDate = counts(1, 1, 0)
-    const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
-    })
-    expect(result.hasBreach).toBe(true)
-  })
-
-  it('allows 2 MO (individual cap satisfied, aggregate at exactly 2)', () => {
-    const existingCountsByDate = counts(2, 0, 0)
-    const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
-    })
-    expect(result.hasBreach).toBe(true) // adding a 3rd full-time doctor of any kind breaches
-  })
-
-  it('does not breach when under the aggregate cap', () => {
-    const existingCountsByDate = counts(1, 0, 0)
-    const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 2, existingCountsByDate,
-    })
-    expect(result.hasBreach).toBe(false)
-  })
-
-  it('ignores OT COSMO/Intern — not part of the full-time aggregate', () => {
-    const existingCountsByDate = new Map([
-      ['2026-08-10', new Map([['MO', 1], ['Registrar', 1], ['OT_Intern', 1]])],
-    ])
-    const result = findFullTimeAggregateBreach({
-      dateFrom: '2026-08-10', dateTo: '2026-08-10', maxTotal: 3, existingCountsByDate,
-    })
-    // If OT_Intern counted, the full-time total would already be 3 and a 4th
-    // would breach a maxTotal of 3; excluded, it's only 2 (MO+Registrar), so
-    // a 3rd full-time doctor still fits exactly at the cap.
-    expect(result.hasBreach).toBe(false)
   })
 })
 

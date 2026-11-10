@@ -11,31 +11,43 @@ const ASSESSMENT_HEADING = {
 
 // The annual-leave slot gauge — one of 3 named, distinctly-colored states
 // (never color alone: the heading text always spells out the state too).
-// `preview` is a fetchAnnualCapacityPreview() result: { taken, max, pooled,
-// columnLabel }.
+// `preview` is the capacity reading for this request on its worst date:
+// { taken, max, pooled, columnLabel }, where `taken` counts this request
+// (others on that day + 1 — see LeaveApprovalQueue, which adds the 1).
 // The request under review always occupies exactly one slot in its own
 // capacity column (headcount-based — one doctor = one slot, regardless of
 // how many days it spans), so the numerator on the "reserved" line is
-// always the literal 1, not preview.taken (which is the pool-wide count,
-// this request included). Leading with that fact — rather than an
-// unexplained "X of Y taken" — is what tells a reviewer the slot they're
-// looking at IS this request, not some other doctor's; "Who is already
-// away" below is what accounts for anyone else.
-function SlotGauge({ preview }) {
-  const state = capacityAssessmentState(preview)
-  const remaining = preview.max - preview.taken
+// always the literal 1, not preview.taken (the pool-wide count, this
+// request included). Leading with that fact — rather than an unexplained
+// "X of Y taken" — is what tells a reviewer the slot they're looking at IS
+// this request, not some other doctor's; "Who is already away" below is
+// what accounts for anyone else.
+// `warning` (capacityWarningFor's output) means the pool is OVER its limit
+// with this request in it — approving needs the explicit "Approve as
+// overbooked" — so the card names the limit and the first day it breaks.
+function SlotGauge({ preview, warning }) {
+  const state = warning ? capacityAssessmentState({ taken: 1, max: 1 }) : capacityAssessmentState(preview)
+  const remaining = Math.max(0, preview.max - preview.taken)
   const slotWord = preview.max === 1 ? 'slot' : 'slots'
   const poolNote = preview.pooled ? `in the shared pool: ${LEAVE_FULL_TIME_POOL_LABEL}` : `for ${preview.columnLabel}`
 
   return (
     <div className={`rounded-lg p-3 ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
-      <p className={`text-sm font-bold ${state.text}`}>{ASSESSMENT_HEADING[state.key]}</p>
+      <p className={`text-sm font-bold ${state.text}`}>{warning ? 'Over capacity' : ASSESSMENT_HEADING[state.key]}</p>
       <p className="mt-0.5 text-xs text-ink-light">
         1 of {preview.max} leave {slotWord} is reserved for this request.
       </p>
       <p className="mt-0.5 text-xs text-ink-muted">
         {remaining} of {preview.max} {slotWord} left {poolNote}.
       </p>
+      {warning && (
+        <p className={`mt-1.5 flex items-start gap-1.5 text-xs font-medium ${state.text}`}>
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <span>
+            Approving exceeds the {warning.limitLabel} ({warning.limitMax}) from {warning.firstBreachDate}. Approve as overbooked to proceed.
+          </span>
+        </p>
+      )}
     </div>
   )
 }
@@ -82,7 +94,7 @@ function RequiresReview({ warnings }) {
 // "available" tint with nothing to actually assess would misread as a
 // status claim about a category this request doesn't even draw from.
 export default function CapacityAssessment({
-  capacityPreview, capacityLoading, warnings, warned, warningsLoading, onViewCalendar,
+  capacityPreview, capacityLoading, capacityError, warnings, warned, warningsLoading, onViewCalendar,
 }) {
   return (
     <div>
@@ -108,8 +120,13 @@ export default function CapacityAssessment({
       <div className="mt-2 space-y-2">
         {capacityLoading ? (
           <p className="text-xs text-ink-muted">Checking capacity…</p>
+        ) : capacityError ? (
+          <p className="flex items-start gap-1.5 text-xs text-flagAmber">
+            <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>Capacity could not be checked: {capacityError}</span>
+          </p>
         ) : capacityPreview ? (
-          <SlotGauge preview={capacityPreview} />
+          <SlotGauge preview={capacityPreview} warning={warnings?.capacityWarning} />
         ) : (
           <p className="text-xs text-ink-muted">No leave-slot limit applies to this category/leave type.</p>
         )}

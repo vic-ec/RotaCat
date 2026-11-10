@@ -141,15 +141,43 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.getByRole('button', { name: 'Legend' })).toBeInTheDocument()
   })
 
-  it('there is no standalone year selector anywhere in the admin/desktop dashboard', () => {
+  it('the year selector is the request panel\'s own stepper at the top of the rail, not a standalone toolbar control', () => {
     mockAuth = { isAdmin: true, isClerk: false }
     renderOverview({ myCategory: 'MO' })
-    // Rendered as admin so only the one (shared) toolbar/inspector is in
-    // the DOM — the non-admin mobile block would otherwise carry its own
-    // "Previous year"/"Next year" labels.
+    // Rendered as admin so only the one (shared) dashboard is in the DOM —
+    // the non-admin mobile block would otherwise carry its own copy.
     expect(screen.queryByText('Select year')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Previous year' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Next year' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    const prev = screen.getByRole('button', { name: 'Previous year' })
+    const panel = prev.closest('div.rounded-xl')
+    expect(within(panel).getByText('Annual leave planner · 2026')).toBeInTheDocument()
+    expect(prev.parentElement).toHaveClass('btn-utility', 'w-full')
+    // An admin's panel is the year alone: the category picker narrows a
+    // doctor's own capacity read, which the departmental cards don't have.
+    expect(screen.queryByLabelText('Showing capacity for')).not.toBeInTheDocument()
+    // The rail holds the panel, then the Selected month inspector, and is
+    // sticky at 320px on a desktop.
+    const rail = panel.parentElement
+    expect(rail).toHaveClass('order-first', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+    expect(rail).not.toHaveClass('w-80')
+    expect(rail).toContainElement(screen.getByTestId('annual-inspector'))
+    expect(panel.compareDocumentPosition(screen.getByTestId('annual-inspector')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    mockAuth = { isAdmin: false, isClerk: false }
+  })
+
+  it('a doctor\'s desktop dashboard carries the same panel as the finder — year, Showing capacity for, and the request action', async () => {
+    mockAuth = { isAdmin: false, isClerk: false, canSubmitLeave: true }
+    const user = userEvent.setup()
+    renderOverview({ myCategory: 'MO' })
+    const scope = document.getElementById('annual-capacity-desktop')
+    expect(scope).toBeInTheDocument()
+    const panel = scope.closest('div.rounded-xl')
+    expect(within(panel).getByRole('button', { name: 'Previous year' })).toBeInTheDocument()
+    expect(within(panel).getByRole('button', { name: 'Request annual leave' })).toBeInTheDocument()
+    // One id per viewport, both labelled.
+    expect(screen.getAllByLabelText('Showing capacity for')).toHaveLength(2)
+    await user.click(within(panel).getByRole('button', { name: 'Request annual leave' }))
+    expect(await screen.findByRole('dialog', { name: 'Request annual leave' })).toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 

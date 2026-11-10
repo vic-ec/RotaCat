@@ -4,14 +4,15 @@ import { weeksForMonth, monthsForYear, COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, L
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { shortLeaveTypeLabel, SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
 import { todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
-import { specialCountsByDate, specialMonthMarkers } from '../lib/specialPlanner'
+import { specialCountsByDate, specialMonthMarkers, SPECIAL_CATEGORY_FILTER_OPTIONS, matchesSpecialCategory } from '../lib/specialPlanner'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import { useAuth } from '../context/AuthContext'
 import CategoryBadge from './CategoryBadge'
 import DateStepper from './DateStepper'
 import Modal from './Modal'
-import PlannerRequestPanel, { PanelReading, PANEL_DESKTOP_WRAPPER, PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
+import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
 import LeaveRequestForm from './LeaveRequestForm'
+import SelectMenu from './SelectMenu'
 import { SpecialLegendTrigger } from './SpecialPlannerOverview'
 
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -45,6 +46,16 @@ export default function SpecialMonthWorkspace({
   // "Request special leave" action, which is the same journey as tapping a
   // day and pressing "Request leave for this day", one step shorter.
   const [openFormOnOpen, setOpenFormOnOpen] = useState(false)
+  // The request panel's Showing picker: which group's names the day cells
+  // show. Same vocabulary and filter as the overview's own picker, and
+  // like it, it narrows WHO is listed, never what the colours mean — the
+  // cell fill stays on the true shared count against the 3-doctor
+  // guideline. Opens on everyone (the overview opens on the viewer's own
+  // group, but a calendar is a who-is-off-when read, and a day coloured
+  // red with no names in it would read as a bug), and the day panel a tap
+  // opens is always unfiltered, since its "N of 3 slots taken" is the
+  // whole pool and listing fewer people than that count would contradict it.
+  const [categoryKey, setCategoryKey] = useState('all')
 
   const today = todayStr()
   const weeks = weeksForMonth(year, month)
@@ -79,9 +90,16 @@ export default function SpecialMonthWorkspace({
       })
       .filter(row => visibleKeys.has(row.columnKey))
   }
+  // The grid's own read of a day: rowsForDate narrowed to the Showing
+  // picker's group (see categoryKey above).
+  function shownRowsForDate(date) {
+    return rowsForDate(date).filter(row => matchesSpecialCategory(row, categoryKey, rotationsByDoctorId))
+  }
 
   return (
     <div>
+      {/* Just the way back and the Legend up here: the month stepper lives
+          in the request panel beside the grid, as on the overview. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -90,36 +108,14 @@ export default function SpecialMonthWorkspace({
         >
           <ChevronLeft className="h-4 w-4" /> Overview
         </button>
-        <div className="flex items-center gap-2">
-          <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
-          <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
-        </div>
+        <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
       </div>
 
-      {/* Where this month stands, and the way to ask — the Special tab had
-          no request path at all short of finding a tappable day cell. The
-          reading is the month's pressure days rather than Annual's
-          days-with-room: special leave's only capacity number is the
-          shared 3-doctor guideline, and the short list (the days already
-          at it) is the one worth naming. */}
-      <div className={`${PANEL_DESKTOP_WRAPPER} mt-3`}>
-        <SpecialRequestPanel
-          className={PANEL_DESKTOP_WIDTH}
-          monthLabel={monthLabel}
-          guidelineDays={monthGuidelineDays}
-          totalDays={monthMarkers.length}
-          onRequestLeave={openRequestLeave}
-        />
-      </div>
-      <div className="mt-3 lg:hidden">
-        <SpecialRequestPanel
-          monthLabel={monthLabel}
-          guidelineDays={monthGuidelineDays}
-          totalDays={monthMarkers.length}
-          onRequestLeave={openRequestLeave}
-        />
-      </div>
-
+      {/* The same grid-plus-rail split as the overview: on a desktop the
+          request panel sticks in a 320px rail beside the calendar; on a
+          phone it comes first, above the grid, full width. */}
+      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="w-full min-w-0 lg:flex-1">
       {/* Desktop: full weekday names and named cells with surnames read
           straight off the grid. Mobile: a compact dot grid, tapped for the
           same day panel — mirrors MonthWorkspace's own two grids, including
@@ -127,7 +123,7 @@ export default function SpecialMonthWorkspace({
           (green available → red at capacity), so the month reads as a heat
           map at a glance rather than needing a corner dot to be found and
           decoded one day at a time. */}
-      <div className="mt-4 hidden overflow-hidden rounded-lg border border-slate-line lg:block">
+      <div className="hidden overflow-hidden rounded-lg border border-slate-line lg:block">
         <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
           {WEEKDAY_NAMES.map(d => (
             <div key={d} className="px-2 py-1.5 text-center text-xs font-semibold text-ink-muted">{d}</div>
@@ -137,7 +133,7 @@ export default function SpecialMonthWorkspace({
           {weeks.flat().map((date, i) => {
             if (!date) return <div key={`blank-${i}`} className="min-h-[86px] border-b border-r border-slate-line bg-canvas-sunken/40" />
             const marker = markersByDate.get(date)
-            const rows = rowsForDate(date)
+            const rows = shownRowsForDate(date)
             return (
               <button
                 key={date}
@@ -190,7 +186,7 @@ export default function SpecialMonthWorkspace({
         </div>
       </div>
 
-      <div data-testid="special-mobile-grid" className="mt-4 lg:hidden">
+      <div data-testid="special-mobile-grid" className="lg:hidden">
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
         </div>
@@ -203,7 +199,7 @@ export default function SpecialMonthWorkspace({
             // a doctor can see at a glance whether it's their own group
             // taking the slots. Capped at three with a +N tail; the cells
             // are one-seventh of a phone screen wide.
-            const badges = [...new Set(rowsForDate(date).map(r => r.columnKey))]
+            const badges = [...new Set(shownRowsForDate(date).map(r => r.columnKey))]
             return (
               <button
                 key={date}
@@ -237,6 +233,28 @@ export default function SpecialMonthWorkspace({
           })}
         </div>
       </div>
+      </div>
+
+      {/* Where this month stands, and the way to ask — the Special tab had
+          no request path at all short of finding a tappable day cell. The
+          reading is the month's pressure days rather than Annual's
+          days-with-room: special leave's only capacity number is the
+          shared 3-doctor guideline, and the short list (the days already
+          at it) is the one worth naming. */}
+      <div className={PANEL_RAIL}>
+        <SpecialRequestPanel
+          year={year}
+          month={month}
+          onMonthChange={onMonthChange}
+          monthLabel={monthLabel}
+          categoryKey={categoryKey}
+          onCategoryChange={setCategoryKey}
+          guidelineDays={monthGuidelineDays}
+          totalDays={monthMarkers.length}
+          onRequestLeave={openRequestLeave}
+        />
+      </div>
+      </div>
 
       {selectedDate && (
         <DayPanel
@@ -255,18 +273,23 @@ export default function SpecialMonthWorkspace({
   )
 }
 
-// The Special tab's own fill of the shared planner panel: no per-category
-// reading to give (the guideline is one shared number for everyone), so it
-// reports how much of the month is already at it.
-function SpecialRequestPanel({ monthLabel, guidelineDays, totalDays, onRequestLeave, className }) {
+// The Special tab's own fill of the shared planner panel: the month
+// stepper, the Showing picker (who the grid lists), and — since there is
+// no per-category reading to give, the guideline being one shared number
+// for everyone — how much of the month is already at it.
+function SpecialRequestPanel({ year, month, onMonthChange, monthLabel, categoryKey, onCategoryChange, guidelineDays, totalDays, onRequestLeave }) {
   const atGuideline = guidelineDays > 0
   return (
     <PlannerRequestPanel
-      className={className}
-      eyebrow={`Special leave · ${monthLabel}`}
+      eyebrow={`Special leave planner · ${monthLabel} ${year}`}
+      stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
       actionLabel="Request special leave"
       onAction={onRequestLeave}
     >
+      <label htmlFor="special-scope-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
+      <div className="mt-1">
+        <SelectMenu id="special-scope-month" value={categoryKey} onChange={onCategoryChange} options={SPECIAL_CATEGORY_FILTER_OPTIONS} />
+      </div>
       <PanelReading
         value={guidelineDays}
         valueClassName={atGuideline ? 'text-capNear-ink' : 'text-capAvailable-ink'}

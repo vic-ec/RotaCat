@@ -211,12 +211,12 @@ describe('MonthWorkspace', () => {
     expect(within(cell12).getByText('12')).toHaveClass('font-bold')
   })
 
-  it('toolbar: the stepper is one enclosed control, with Today/Legend as 30x30 squares beside it', () => {
+  it('the stepper is one enclosed control at the top of the request panel, with no Today; Legend stays a 30x30 square in the header', () => {
     renderWorkspace({ month: 9 })
     const prevMonth = screen.getByRole('button', { name: 'Previous month' })
     const nextMonth = screen.getByRole('button', { name: 'Next month' })
-    const todayButton = screen.getByRole('button', { name: 'Today' })
     const legendButton = screen.getByRole('button', { name: 'Legend' })
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
 
     // Chevrons and label share one bordered container rather than carrying
     // a border each — three actions, one control to look at.
@@ -231,15 +231,19 @@ describe('MonthWorkspace', () => {
       expect(chevron).toHaveClass('btn-ghost', 'h-[28px]')
     }
 
-    // Today/Legend stay standalone squares outside it, same height.
-    for (const button of [todayButton, legendButton]) {
-      expect(button).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
-      expect(stepper).not.toContainElement(button)
-    }
+    // Stretched to the panel's width (centered), inside the request panel,
+    // above its Showing picker.
+    expect(stepper).toHaveClass('w-full')
+    const panel = stepper.closest('div.rounded-xl')
+    expect(panel).not.toBeNull()
+    expect(within(panel).getByText('Annual leave planner · September 2026')).toBeInTheDocument()
+
+    // Legend stays a standalone square in the header row, outside the panel.
+    expect(legendButton).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
+    expect(panel).not.toContainElement(legendButton)
     expect(legendButton.className).not.toContain('bg-accent-tint')
     expect(legendButton).toHaveTextContent('')
     expect(legendButton.querySelector('svg')).toBeInTheDocument()
-    expect(todayButton.querySelector('svg')).toBeInTheDocument()
   })
 
   it('mobile day cells: the badge grid is top-anchored under the date number at a fixed position, not centred within the cell', () => {
@@ -549,24 +553,46 @@ describe('MonthWorkspace', () => {
     const user = userEvent.setup()
     renderWorkspace()
 
-    // One panel per viewport (jsdom renders both the phone card and the
-    // desktop one) — both read the same numbers.
-    expect((await screen.findAllByText('For Medical Officer · August'))).toHaveLength(2)
-    expect(screen.getAllByText(/of 31 days have room for your category/)).toHaveLength(2)
+    // One panel for both viewports (it reflows from a rail to a stack
+    // above the grid), opening on the viewer's own category.
+    expect(await screen.findByText('Annual leave planner · August 2026')).toBeInTheDocument()
+    expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Showing capacity for')).toHaveTextContent('MO')
 
-    await user.click(screen.getAllByRole('button', { name: 'Request annual leave' })[0])
+    await user.click(screen.getByRole('button', { name: 'Request annual leave' }))
     expect(screen.getByText(/LeaveRequestFormStub: 2026-08-06 to 2026-08-06/)).toBeInTheDocument()
   })
 
-  // The desktop grid had no request path at all until this panel — the
-  // phone card was lg:hidden and this page has no rail to hang one in.
-  it('"Your leave" card: renders on desktop too, as a 320px card over the grid', () => {
+  it('"Your leave" card: the Showing picker previews another category, with a note that submitting still counts against the real one', async () => {
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
-    const { container } = renderWorkspace()
-    const desktopSlot = container.querySelector('.lg\\:flex.justify-end, .justify-end.lg\\:flex')
-    expect(desktopSlot).not.toBeNull()
-    expect(within(desktopSlot).getByText('For Medical Officer · August')).toBeInTheDocument()
-    expect(desktopSlot.querySelector('.w-80')).not.toBeNull()
+    const user = userEvent.setup()
+    renderWorkspace()
+
+    await user.click(screen.getByLabelText('Showing capacity for'))
+    await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+    expect(screen.getByText(/of 31 days have room for that category/)).toBeInTheDocument()
+    expect(screen.getByText(/Previewing Registrar — your own category is MO/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }))
+    expect(screen.getByText(/of 31 days have room for your category/)).toBeInTheDocument()
+    expect(screen.queryByText(/Previewing/)).not.toBeInTheDocument()
+  })
+
+  // The desktop grid had no request path at all until this panel; it now
+  // leads a sticky 320px rail beside the grid, the same split the overview
+  // uses, and comes first in the stack on a phone.
+  it('"Your leave" card: sits in a sticky w-80 rail beside the grid on desktop, first in the stack below', () => {
+    mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+    renderWorkspace()
+    const panel = screen.getByText('Annual leave planner · August 2026').closest('div.rounded-xl')
+    const rail = panel.parentElement
+    expect(rail).toHaveClass('order-first', 'w-full', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+    expect(rail).not.toHaveClass('w-80')
+    // The grid column precedes the rail in the DOM (left of it on desktop)
+    // and can shrink below its content's width rather than push the rail.
+    const gridColumn = rail.previousElementSibling
+    expect(gridColumn).toHaveClass('min-w-0', 'lg:flex-1')
+    expect(gridColumn.querySelector('.lg\\:hidden .grid-cols-7')).not.toBeNull()
   })
 
   it('"Your leave" card: no action for a viewer who cannot submit leave', () => {
@@ -576,10 +602,13 @@ describe('MonthWorkspace', () => {
     expect(screen.queryByRole('button', { name: 'Request annual leave' })).not.toBeInTheDocument()
   })
 
-  it('"Your leave" card: renders nothing for a category with no capacity column (e.g. Consultant)', () => {
+  it('"Your leave" card: no capacity picker or reading for a category with no capacity column (e.g. Consultant), but the stepper stays', () => {
     mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'Consultant' } }
     renderWorkspace()
     expect(screen.queryByText(/days have room for your category/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Showing capacity for')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request annual leave' })).toBeInTheDocument()
   })
 
   it('back button: matches the plain text-link style used elsewhere (e.g. Account), not a bordered/backgrounded chip', () => {

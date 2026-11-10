@@ -21,12 +21,12 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // rather than inventing a second "more menu" visual language just for this
 // trigger.
 //
-// Desktop (`md:` and up) renders nothing here — every page keeps its
-// existing desktop Toolbar row + inline Legend/More trigger buttons
-// untouched; only mobile chrome changes. A page whose "mobile" block runs
-// wider than `md` (e.g. WeekendPlannerView's is `lg:hidden`) therefore has
-// to keep its inline toolbar row alive for the md–lg band — see those
-// pages' own `hidden md:block` wrappers.
+// Desktop (`md:` and up, by default) renders nothing here — every page
+// keeps its existing desktop Toolbar row + inline Legend/More trigger
+// buttons untouched; only mobile chrome changes. A page whose "mobile"
+// block runs wider than `md` (WeekendPlannerView's is `lg:hidden`) passes
+// `hideFrom="lg"` so this menu covers that whole block, rather than
+// keeping a third, in-between toolbar alive for the md–lg band.
 //
 // Props:
 // - search: `{ value, onChange, placeholder }` — always required.
@@ -58,13 +58,18 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //   rendering two FABs in the same corner; it sits nearest the ⊕ as the
 //   shortest reach, and is the one stack item that isn't a way of looking
 //   at the list.
+// - hideFrom: 'md' (default) | 'lg' — the breakpoint this menu stops
+//   rendering at; match it to the page's own mobile block.
 // - hidden — pass `true` while a page renders its own element fixed to the
 //   same bottom edge, so the two floating elements never overlap; this menu
 //   renders nothing while hidden. (No page needs it today — the bulk
 //   approve/reject actions that used to sit down here moved into the list's
 //   own `SelectAllRow` header — but it stays as the escape hatch for the
 //   next one that does.)
-export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, hidden = false }) {
+// Spelled out in full so Tailwind's scanner sees both class names.
+const HIDE_FROM = { md: 'md:hidden', lg: 'lg:hidden' }
+
+export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, hideFrom = 'md', hidden = false }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheet, setSheet] = useState(null) // 'sort' | 'filter' | null
@@ -101,7 +106,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
 
   return (
     <div
-      className="fixed z-30 md:hidden"
+      className={`fixed z-30 ${HIDE_FROM[hideFrom] ?? HIDE_FROM.md}`}
       style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))', right: 'max(1rem, env(safe-area-inset-right))' }}
     >
       {searchOpen ? (

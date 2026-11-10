@@ -138,11 +138,11 @@ function list(view) {
 // every other duplicated-per-viewport control; the popped-open option list
 // is a portal straight onto document.body regardless, so that half still
 // queries `screen` directly.
-// Scope moved out of the Toolbar's Filter pill into a "Showing" SelectMenu
-// beside the month nav. Both viewport copies render in jsdom, so target the
-// one in the block under test by its own id; the option list portals to
-// document.body either way.
-async function pickFilter(view, user, label, id = 'weekend-scope-tablet') {
+// Scope moved out of the Toolbar's Filter pill into the "Showing"
+// SelectMenu in each viewport's request panel. Both viewport copies render
+// in jsdom, so target the one in the block under test by its own id; the
+// option list portals to document.body either way.
+async function pickFilter(view, user, label, id = 'weekend-scope-mobile') {
   await user.click(document.getElementById(id))
   await user.click(await screen.findByRole('option', { name: label }))
 }
@@ -192,30 +192,39 @@ describe('WeekendPlannerView', () => {
       expect(card).toHaveClass('bg-flagAmber-bg')
     })
 
-    it('mobile: search and Filter share one non-wrapping row, and Filter renders icon-only', async () => {
-      renderView()
+    it('mobile: no inline search/Filter row — scope and the month stepper live in the request panel above the list', async () => {
+      renderView({ onBackToYear: vi.fn() })
       const view = await mobile()
       await view.findByText('August 2026')
 
-      // The Filter pill is gone — scope is the "Showing" select above the
-      // search, and the toolbar row is search alone.
+      // No Filter pill and no inline Showing row for an in-between tablet
+      // band: the FAB covers search and filter all the way to lg.
       expect(view.queryByRole('button', { name: 'Filters' })).not.toBeInTheDocument()
       expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
+      expect(document.getElementById('weekend-scope-tablet')).toBeNull()
+      expect(view.queryByPlaceholderText('Search name…')).not.toBeInTheDocument()
 
-      // The tablet band keeps its own picker; phones get the same control
-      // inside the request panel instead, so both labels exist in jsdom.
-      const scope = document.getElementById('weekend-scope-tablet')
-      expect(scope).toBeInTheDocument()
-      expect(view.getAllByLabelText('Showing')).toContain(scope)
+      // One panel: month stepper on top, Showing under it, the action last.
+      const scope = document.getElementById('weekend-scope-mobile')
+      expect(view.getByLabelText('Showing')).toBe(scope)
+      const panel = scope.closest('div.rounded-xl')
+      const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+      expect(stepper).toHaveClass('btn-utility', 'w-full')
+      expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+      // The panel precedes the list, and the back link precedes the panel.
+      expect(panel.compareDocumentPosition(view.getByTestId('weekend-mobile-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(view.getByRole('button', { name: 'Overview' }).compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
-    it('mobile: Review log lives inside the More actions kebab, and still opens the review log', async () => {
+    it('mobile: Review log lives inside the FAB\'s More actions sheet, and still opens the review log', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
 
+      await user.click(view.getByRole('button', { name: 'Quick actions' }))
       await user.click(view.getByRole('button', { name: 'More actions' }))
       const menu = await screen.findByRole('dialog', { name: 'More actions' })
       await user.click(within(menu).getByRole('button', { name: 'Review log' }))
@@ -236,6 +245,7 @@ describe('WeekendPlannerView', () => {
       expect(within(sheet).getByText('Fully planned')).toBeInTheDocument()
       await user.click(within(sheet).getByLabelText('Close'))
 
+      await user.click(view.getByRole('button', { name: 'Quick actions' }))
       await user.click(view.getByRole('button', { name: 'More actions' }))
       const menu = await screen.findByRole('dialog', { name: 'More actions' })
       expect(within(menu).queryByText(/No more than one person per slot/)).not.toBeInTheDocument()
@@ -247,7 +257,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(document.getElementById('weekend-scope-tablet'))
+      await user.click(document.getElementById('weekend-scope-mobile'))
       const options = screen.getAllByRole('option')
       expect(options.map(o => o.textContent)).toEqual(['My weekends', 'All weekends'])
       await user.keyboard('{Escape}')
@@ -382,7 +392,7 @@ describe('WeekendPlannerView', () => {
       const view = await mobile()
       await view.findByText('August 2026')
 
-      await user.click(document.getElementById('weekend-scope-tablet'))
+      await user.click(document.getElementById('weekend-scope-mobile'))
       const options = screen.getAllByRole('option')
       expect(options.map(o => o.textContent)).toEqual(['All weekends', 'My weekends', 'Needs planning'])
     })
@@ -392,7 +402,7 @@ describe('WeekendPlannerView', () => {
       renderView()
       const view = await mobile()
       await view.findByText('August 2026')
-      expect(document.getElementById('weekend-scope-tablet')).toHaveTextContent('All weekends')
+      expect(document.getElementById('weekend-scope-mobile')).toHaveTextContent('All weekends')
     })
 
     it('non-admin: "Needs planning" filter does not exist', async () => {
@@ -963,24 +973,35 @@ describe('WeekendPlannerView', () => {
       expect(within(menu).getByRole('button', { name: 'Review log' })).toBeInTheDocument()
     })
 
-    it('desktop: the toolbar row is search alone — scope moved into the request panel in the rail', async () => {
-      renderView()
+    it('desktop: the toolbar row is search alone — the stepper and scope moved into the request panel in the sticky rail', async () => {
+      renderView({ onBackToYear: vi.fn() })
       const view = await desktop()
       await view.findByText('August 2026')
 
       expect(view.queryByRole('button', { name: 'Filter' })).not.toBeInTheDocument()
 
-      // Search still shares the toolbar row with the back link and stepper.
-      const row = view.getByRole('button', { name: 'August 2026' }).closest('div.justify-between')
-      expect(row.querySelector('div.md\\:flex input[placeholder="Search name…"]')).not.toBeNull()
+      // Search shares the toolbar row with the back link, and nothing else
+      // for a non-admin. (Toolbar renders a mobile and a desktop input;
+      // the row holds both.)
+      const searchInput = view.getAllByPlaceholderText('Search name…')[0]
+      const row = searchInput.closest('div.border-b')
+      expect(row.contains(view.getByRole('button', { name: 'Overview' }))).toBe(true)
+      expect(row.contains(view.getByRole('button', { name: 'August 2026' }))).toBe(false)
 
-      // Scope sits beside the action it frames, above the Selected weekend
-      // panel — not loose in the toolbar.
+      // The stepper, then scope, then the action, in one panel at the top
+      // of the rail beside the table — not loose in the toolbar. The rail
+      // is sticky and 320px on a desktop.
       const scope = document.getElementById('weekend-scope-desktop')
       expect(scope).toBeInTheDocument()
       expect(row.contains(scope)).toBe(false)
       const panel = scope.closest('div.rounded-xl')
+      const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+      expect(stepper).toHaveClass('btn-utility', 'w-full')
+      expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
       expect(within(panel).getByRole('button', { name: 'Request weekend off' })).toBeInTheDocument()
+      expect(panel.parentElement).toHaveClass('lg:sticky', 'lg:top-4', 'lg:w-80')
+      expect(panel.parentElement).not.toHaveClass('w-80')
     })
 
     it('desktop: search+filter share one row with the month nav/More Actions/Legend cluster, and the search field is width-capped rather than stretching full width', async () => {
@@ -991,21 +1012,20 @@ describe('WeekendPlannerView', () => {
 
       // Regression: search+filter used to render as their own row above the
       // nav row, with nothing tying them together — the search field, alone
-      // in its row, stretched across nearly the full table width. Now
-      // they're one flex row (justify-between), so the month-nav button and
-      // the search input should share the same immediate row ancestor.
+      // in its row, stretched across nearly the full table width. Now the
+      // back link, search and More Actions share one flex row (the month
+      // stepper itself lives in the rail panel, see the test above).
       // The Filter trigger's own `.md\\:flex` row (the desktop, not mobile,
       // half of Toolbar) is where the desktop-facing search input lives —
       // scoped this way since the placeholder text alone would otherwise
       // also match Toolbar's own internal mobile-half input.
-      const monthButton = view.getByRole('button', { name: 'August 2026' })
-      const searchInput = monthButton.closest('div.justify-between').querySelector('div.md\\:flex input[placeholder="Search name…"]')
+      const searchInput = view.getAllByPlaceholderText('Search name…').find(el => el.closest('div.md\\:flex'))
       const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
 
-      const row = monthButton.closest('div.justify-between')
+      const row = searchInput.closest('div.border-b')
       expect(row).not.toBeNull()
-      expect(row.contains(searchInput)).toBe(true)
       expect(row.contains(moreActionsButton)).toBe(true)
+      expect(row.contains(view.getByRole('button', { name: 'August 2026' }))).toBe(false)
 
       // Toolbar's standard 320px, not the old capped-and-shrinkable
       // `compact` width — it is the inspector's own width, and the row's

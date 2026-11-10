@@ -94,7 +94,10 @@ describe('LeavePlannerPage', () => {
     // planners' All view, so Team Leave is redundant and hidden for them.
     expect(screen.queryByRole('button', { name: 'Team Leave' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Planners' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Requests' })).toBeInTheDocument()
+    // "My Requests" for a doctor — it is only ever their own list; the
+    // admin's approval queue keeps the plain "Requests".
+    expect(screen.getByRole('button', { name: 'My Requests' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Requests' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Rules' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Planners' }))
@@ -102,7 +105,7 @@ describe('LeavePlannerPage', () => {
 
     // Requests is a top-level tab now — reachable directly, no need to
     // enter Planners first.
-    await userEvent.click(screen.getByRole('button', { name: 'Requests' }))
+    await userEvent.click(screen.getByRole('button', { name: 'My Requests' }))
     expect(screen.getByText('MyRequestHistoryStub')).toBeInTheDocument()
   })
 
@@ -167,7 +170,7 @@ describe('LeavePlannerPage', () => {
     mockResponses['leave_requests:select'] = { count: 4, error: null }
     renderPage()
 
-    const requestsTab = screen.getByRole('button', { name: 'Requests' })
+    const requestsTab = screen.getByRole('button', { name: 'My Requests' })
     expect(within(requestsTab).queryByText('4')).not.toBeInTheDocument()
   })
 

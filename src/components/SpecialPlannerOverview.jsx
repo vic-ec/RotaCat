@@ -1,19 +1,17 @@
 import { useState } from 'react'
 import Modal from './Modal'
-import PlannerRequestPanel from './PlannerRequestPanel'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import LeaveRequestForm from './LeaveRequestForm'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
-import {
-  monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN,
-} from '../lib/leaveYearGrid'
-import { resolveLeaveCapacityColumn } from '../lib/internRotations'
+import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { SPECIAL_LEAVE_SOFT_CAP, shortLeaveTypeLabel } from '../lib/leaveRequests'
 import { formatShortDateRange, todayStr } from '../lib/dateRange'
 import {
   specialCountsByDate, specialMonthMarkers, leadingBlanksForMonth, specialMonthStats, specialMonthEntries,
+  SPECIAL_CATEGORY_FILTER_OPTIONS as CATEGORY_FILTER_OPTIONS, defaultSpecialCategoryKey as defaultCategoryKey, matchesSpecialCategory as matchesCategory,
 } from '../lib/specialPlanner'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import DateStepper from './DateStepper'
@@ -56,12 +54,13 @@ export default function SpecialPlannerOverview({
   const selected = monthCards[selectedMonth - 1]
   const selectedEntries = specialMonthEntries(year, selectedMonth, leaveByDate)
 
-  // Non-admin mobile month tiles. The day bars and the state chip stay on
-  // the TRUE shared count — special leave's guideline is 3 doctors of any
-  // category (SPECIAL_LEAVE_SOFT_CAP), so unlike Annual there is no
-  // per-category capacity to filter and colouring a filtered subset would
-  // read as "my category has room" when the shared pool is already full.
-  // The picker filters WHO each tile counts, not what the colours mean.
+  // The month tiles and cards, read through the Showing picker. The day
+  // bars and the state chip stay on the TRUE shared count — special
+  // leave's guideline is 3 doctors of any category (SPECIAL_LEAVE_SOFT_CAP),
+  // so unlike Annual there is no per-category capacity to filter and
+  // colouring a filtered subset would read as "my category has room" when
+  // the shared pool is already full. The picker filters WHO each tile or
+  // card counts (people, pending), not what the colours mean.
   const filteredMonthCards = monthCards.map(m => {
     const entries = specialMonthEntries(year, m.month, leaveByDate)
       .filter(e => matchesCategory(e, categoryKey, rotationsByDoctorId))
@@ -69,7 +68,11 @@ export default function SpecialPlannerOverview({
       (worst, d) => LEAVE_CAPACITY_STATES.indexOf(d.capacityState) > LEAVE_CAPACITY_STATES.indexOf(worst) ? d.capacityState : worst,
       LEAVE_CAPACITY_STATES[0]
     )
-    return { ...m, worstState, people: new Set(entries.map(e => e.profileId)).size }
+    return {
+      ...m, worstState,
+      people: new Set(entries.map(e => e.profileId)).size,
+      pending: entries.filter(e => e.status === 'pending').length,
+    }
   })
   // Only the browsed year's own relationship to today matters — a past year
   // has no current/coming month, a future year no current/previous. Same
@@ -90,6 +93,31 @@ export default function SpecialPlannerOverview({
     setSelectedMonth(m)
   }
 
+  // The same request panel the Annual and Weekend planners lead with, on
+  // every viewport: the eyebrow names the planner and year, the year
+  // stepper under it is the page's only year control, then the picker and
+  // the request action. "Showing", not Annual's "Showing capacity for":
+  // special leave has one shared 3-doctor guideline rather than a cap per
+  // category, so this narrows who you're looking at — it can't narrow the
+  // capacity, which is the same number for everyone. `id` differs per
+  // viewport: both copies are in the document at once in jsdom and at a
+  // breakpoint boundary, and two controls can't share one id.
+  function renderRequestPanel(id) {
+    return (
+      <PlannerRequestPanel
+        eyebrow={`Special leave planner · ${year}`}
+        stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
+        actionLabel="Request special leave"
+        onAction={() => setRequestOpen(true)}
+      >
+        <label htmlFor={id} className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
+        <div className="mt-1">
+          <SelectMenu id={id} value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+        </div>
+      </PlannerRequestPanel>
+    )
+  }
+
   return (
     <div>
       {/* ── Non-admin mobile: the same month-finder shape the Annual tab
@@ -103,32 +131,12 @@ export default function SpecialPlannerOverview({
         <div data-testid="special-month-finder" className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold text-ink">Special Leave Planner</h2>
-            <div className="flex items-center gap-2">
-              <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} />
-              <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
-            </div>
+            <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
           </div>
 
-          {/* "Showing", not Annual's "Showing capacity for": special leave
-              has one shared 3-doctor guideline rather than a cap per
-              category, so this narrows who you're looking at — it can't
-              narrow the capacity, which is the same number for everyone. */}
-          <PlannerRequestPanel
-            className="mt-3"
-            eyebrow={`Special leave planner · ${year}`}
-            actionLabel="Request special leave"
-            onAction={() => setRequestOpen(true)}
-          >
-            <label htmlFor="special-scope-mobile" className="mt-1.5 block text-[11px] font-semibold text-ink-muted">Showing</label>
-            <div className="mt-1">
-              <SelectMenu id="special-scope-mobile" value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
-            </div>
-          </PlannerRequestPanel>
-          {requestOpen && (
-            <Modal title="Request special leave" onClose={() => setRequestOpen(false)} centered>
-              <LeaveRequestForm initialLeaveType="special_leave" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
-            </Modal>
-          )}
+          {/* Above the months, not beside the title: it changes what every
+              tile below counts, so it reads as the heading for the list. */}
+          <div className="mt-3">{renderRequestPanel('special-scope-mobile')}</div>
 
           {currentMonthCard && (
             <div className="mt-4">
@@ -169,13 +177,15 @@ export default function SpecialPlannerOverview({
         <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
       </div>
 
-      {/* Mobile (<lg): stacked, inspector first so the selected month's
-          detail is readable without scrolling past the whole grid.
-          Desktop (lg+): grid and sticky rail side by side. Same split
+      {/* Mobile (<lg, admins only — doctors get the finder above): stacked,
+          rail first so the request panel and the selected month's detail
+          are readable without scrolling past the whole grid. Desktop
+          (lg+): grid and sticky rail side by side — request panel on top,
+          Selected month inspector under it. Same split
           AnnualPlannerOverview uses. */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="special-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
-          {monthCards.map(m => (
+        <div data-testid="special-year-grid" className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
+          {filteredMonthCards.map(m => (
             <MonthCard
               key={m.month}
               month={m}
@@ -188,9 +198,11 @@ export default function SpecialPlannerOverview({
           ))}
         </div>
 
+        <div className={PANEL_RAIL}>
+        {renderRequestPanel('special-scope-desktop')}
         <div
           data-testid="special-inspector"
-          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
+          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
           <div className="mt-1">
@@ -254,47 +266,17 @@ export default function SpecialPlannerOverview({
             </Link>
           </div>
         </div>
+        </div>
       </div>
       </div>
+
+      {requestOpen && (
+        <Modal title="Request special leave" onClose={() => setRequestOpen(false)} centered>
+          <LeaveRequestForm initialLeaveType="special_leave" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+        </Modal>
+      )}
     </div>
   )
-}
-
-// Same category vocabulary as the Annual planner's own picker, so the two
-// tabs name the groups identically — even though here it filters who's
-// counted rather than which cap applies.
-const CATEGORY_FILTER_OPTIONS = [
-  ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),
-  { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
-  { value: 'all', label: 'All categories' },
-]
-
-// Open on the viewer's own group, so the first thing they see is their own
-// people rather than a blend they'd have to filter mentally. Anyone whose
-// category doesn't map to a group (or who has none) gets everything.
-function defaultCategoryKey(myCategory, myContractType) {
-  if (!myCategory) return 'all'
-  const column = columnKeyFor({ category: myCategory, contractType: myContractType })
-  return CATEGORY_FILTER_OPTIONS.some(o => o.value === column) ? column : 'all'
-}
-
-function columnKeyFor({ category, contractType, profileId, date, rotationsByDoctorId }) {
-  return resolveLeaveCapacityColumn({ category, contractType, profileId, date, rotationsByDoctorId })
-}
-
-// An Intern's group depends on the rotation they're actually on at the time
-// (EC vs OT), which is why this resolves per entry against its own start
-// date rather than bucketing the doctor once — same resolution the Annual
-// planner's capacity counting uses.
-function matchesCategory(entry, categoryKey, rotationsByDoctorId) {
-  if (categoryKey === 'all') return true
-  return columnKeyFor({
-    category: entry.category,
-    contractType: entry.contractType,
-    profileId: entry.profileId,
-    date: entry.dateFrom,
-    rotationsByDoctorId,
-  }) === categoryKey
 }
 
 // One month as a single row: name, a chip for the worst shared-capacity day
@@ -402,12 +384,15 @@ function InspectorStat({ icon: Icon, label, value }) {
 
 // One month at a glance: label, a one-line summary, and a Monday-start
 // mini-calendar coloured by how many doctors are on special leave each
-// day. Same card shape as AnnualPlannerOverview's MonthCard.
+// day. Same card shape as AnnualPlannerOverview's MonthCard. The summary
+// counts whoever the Showing picker has narrowed to (month.people /
+// month.pending, from filteredMonthCards); the cells stay on the true
+// shared count, as the mobile tiles' bars do.
 function MonthCard({ month, isSelected, onSelect }) {
   const cells = [...Array(leadingBlanksForMonth(month.markers)).fill(null), ...month.markers]
-  const summary = month.stats.people === 0
+  const summary = month.people === 0
     ? 'Nobody on leave'
-    : `${month.stats.people} ${month.stats.people === 1 ? 'person' : 'people'} · ${month.stats.pending} pending`
+    : `${month.people} ${month.people === 1 ? 'person' : 'people'} · ${month.pending} pending`
 
   return (
     <button

@@ -134,17 +134,19 @@ export default function LeavePlannerPage() {
   // redundant for them as well and stays hidden; admins keep it, unaffected.
   const showTeamLeaveTab = isAdmin || (!canSubmitLeave && !isClerk)
   // Requests: admins get the approval queue, doctors get their own full
-  // history. Neither applies to a clerk, so the tab (and its content) just
-  // doesn't exist for them — not rendered as an empty/disabled option. Now
-  // a top-level tab (was previously nested inside Planners) so it's
-  // reachable in one tap instead of two, and so its own pending-count
-  // badge is visible without opening Planners first.
+  // history — and the tab says so ("My Requests"), since for a doctor it is
+  // only ever their own list, and "Requests" alongside "My leave" read as
+  // though it might be everyone's. Neither applies to a clerk, so the tab
+  // (and its content) just doesn't exist for them — not rendered as an
+  // empty/disabled option. Now a top-level tab (was previously nested
+  // inside Planners) so it's reachable in one tap instead of two, and so
+  // its own pending-count badge is visible without opening Planners first.
   const showRequestsTab = isAdmin || canSubmitLeave
   const tabs = [
     ...(canSubmitLeave ? [{ key: 'my-leave', label: 'My leave' }] : []),
     ...(showTeamLeaveTab ? [{ key: 'team', label: 'Team Leave' }] : []),
     { key: 'planners', label: 'Planners' },
-    ...(showRequestsTab ? [{ key: 'requests', label: 'Requests', badge: pendingRequestsBadge, badgeColor: 'red' }] : []),
+    ...(showRequestsTab ? [{ key: 'requests', label: isAdmin ? 'Requests' : 'My Requests', badge: pendingRequestsBadge, badgeColor: 'red' }] : []),
     { key: 'rules', label: 'Rules' },
   ]
 

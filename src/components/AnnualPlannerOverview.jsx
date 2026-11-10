@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import Modal from './Modal'
-import PlannerRequestPanel from './PlannerRequestPanel'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import LeaveRequestForm from './LeaveRequestForm'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
@@ -151,6 +151,36 @@ export default function AnnualPlannerOverview({
     pending: rangeEntries.filter(e => e.status === 'pending').length,
   }
 
+  // The same request panel the Weekend planner leads with, on every
+  // viewport: the eyebrow names the planner and year, the year stepper
+  // under it is the page's only year control, the picker sets whose
+  // capacity the months report, and the request action sits under that.
+  // The picker is a doctor's control only — the admin dashboard's cards
+  // read departmental pressure, which no category narrows (see the mobile
+  // finder's comment below), so an admin's panel is just the year.
+  // `id` differs per viewport: jsdom (and a real browser at a breakpoint
+  // boundary) has both copies in the document, and two controls can't
+  // share one id or the label points at whichever came first.
+  function renderRequestPanel(id) {
+    return (
+      <PlannerRequestPanel
+        eyebrow={`Annual leave planner · ${year}`}
+        stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
+        actionLabel="Request annual leave"
+        onAction={() => setRequestOpen(true)}
+      >
+        {!isAdmin && (
+          <>
+            <label htmlFor={id} className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
+            <div className="mt-1">
+              <SelectMenu id={id} value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
+            </div>
+          </>
+        )}
+      </PlannerRequestPanel>
+    )
+  }
+
   return (
     <div>
       {/* ── Non-admin mobile: a category-first month finder, replacing the
@@ -164,31 +194,12 @@ export default function AnnualPlannerOverview({
         <div className="lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-semibold text-ink">Annual Leave Planner</h2>
-            <DateStepper unit="year" year={year} onChange={onYearChange} showToday={false}>
-              <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
-            </DateStepper>
+            <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
           </div>
 
-          {/* The same request panel the Weekend planner leads with: the
-              eyebrow names the planner and year, the picker sets whose
-              capacity the months below report, and the request action sits
-              under it. */}
-          <PlannerRequestPanel
-            className="mt-3"
-            eyebrow={`Annual leave planner · ${year}`}
-            actionLabel="Request annual leave"
-            onAction={() => setRequestOpen(true)}
-          >
-            <label htmlFor="annual-capacity-mobile" className="mt-1.5 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
-            <div className="mt-1">
-              <SelectMenu id="annual-capacity-mobile" value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
-            </div>
-          </PlannerRequestPanel>
-          {requestOpen && (
-            <Modal title="Request annual leave" onClose={() => setRequestOpen(false)} centered>
-              <LeaveRequestForm initialLeaveType="annual" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
-            </Modal>
-          )}
+          {/* Above the months, not beside the title: it changes what every
+              tile below means, so it reads as the heading for the list. */}
+          <div className="mt-3">{renderRequestPanel('annual-capacity-mobile')}</div>
 
           {/* Current month leads — the one question a doctor lands on this
               page to answer is "can I take leave soon," so it renders first,
@@ -235,13 +246,15 @@ export default function AnnualPlannerOverview({
         <AnnualLegendTrigger ruleHintIntro={ruleHintIntro} ruleHintBullets={ruleHintBullets} />
       </div>
 
-      {/* ── Main workspace: 3x4 month grid + sticky inspector ── */}
-      {/* Mobile (<lg): stacked, full width, inspector shown first so the
-          currently-selected month's detail is visible without scrolling
-          past the whole grid. Desktop (lg+): unchanged side-by-side layout
-          with the sticky w-80 inspector. */}
+      {/* ── Main workspace: 3x4 month grid + sticky rail ── */}
+      {/* Mobile (<lg, admins only — doctors get the finder above): stacked,
+          full width, rail shown first so the request panel and the
+          currently-selected month's detail are visible without scrolling
+          past the whole grid. Desktop (lg+): side by side, the rail sticky
+          at w-80 — request panel on top, Selected month inspector under
+          it, both the same width so they share an edge. */}
       <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div data-testid="annual-year-grid" className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
+        <div data-testid="annual-year-grid" className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 lg:flex-1 lg:grid-cols-3">
           {monthCards.map(m => (
             <MonthCard
               key={m.month}
@@ -257,14 +270,16 @@ export default function AnnualPlannerOverview({
           ))}
         </div>
 
+        <div className={PANEL_RAIL}>
+        {renderRequestPanel('annual-capacity-desktop')}
         <div
           data-testid="annual-inspector"
-          className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-4 lg:order-none lg:sticky lg:top-4 lg:w-80"
+          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
         >
-          {/* No standalone year selector: the Selected month jump sheet
-              already has a year stepper (and its own 12-year grid, one tap
-              on the year label away — see DateStepper's MonthJumpSheet)
-              that fully covers year navigation. */}
+          {/* The year lives in the request panel above; the Selected month
+              jump sheet has its own year stepper too (and a 12-year grid,
+              one tap on the year label away — see DateStepper's
+              MonthJumpSheet). */}
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
           <div className="mt-1">
             <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
@@ -352,8 +367,15 @@ export default function AnnualPlannerOverview({
             </Link>
           </div>
         </div>
+        </div>
       </div>
       </div>
+
+      {requestOpen && (
+        <Modal title="Request annual leave" onClose={() => setRequestOpen(false)} centered>
+          <LeaveRequestForm initialLeaveType="annual" onSubmitted={() => { setRequestOpen(false); onRequestSubmitted?.() }} />
+        </Modal>
+      )}
     </div>
   )
 }

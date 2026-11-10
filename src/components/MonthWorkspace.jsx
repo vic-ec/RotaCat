@@ -4,7 +4,7 @@ import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, COLUMN_FULL_LABEL, LEAVE_CAPACITY_STATES,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
   weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
   splitForOverflow,
 } from '../lib/leaveYearGrid'
@@ -16,7 +16,7 @@ import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { annualDaysSummary } from '../lib/leaveRequests'
 import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
-import PlannerRequestPanel, { PanelReading, PANEL_DESKTOP_WRAPPER, PANEL_DESKTOP_WIDTH } from './PlannerRequestPanel'
+import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
 import DateStepper from './DateStepper'
 import { LegendIcon } from './PlannerIcons'
 import LegendSheet from './LegendSheet'
@@ -127,6 +127,8 @@ export default function MonthWorkspace({
 
   return (
     <div>
+      {/* Just the way back and the Legend up here: the month stepper lives
+          in the request panel beside the grid, as on the overview. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -135,69 +137,55 @@ export default function MonthWorkspace({
         >
           <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
         </button>
-        <DateStepper unit="month" year={year} month={month} onChange={onMonthChange}>
-          <LegendSheet
-            trigger={onClick => (
-              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
-                <LegendIcon className="h-4 w-4" />
-              </button>
-            )}
-            ruleIntro={ruleHintIntro}
-            ruleBullets={ruleHintBullets}
-          >
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
-              {legendColumns.map(col => (
-                <span key={col.key} className="flex items-center gap-1.5">
-                  <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
-                  {col.label}
-                </span>
-              ))}
-              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
-            </div>
-            {/* Two variants, gated by viewport rather than role directly —
-                this mirrors which day-cell grid (DayCell vs MobileDayCell)
-                each breakpoint actually shows below, so the legend always
-                matches the fill colours the viewer can currently see: the
-                desktop grid stays generic for everyone, so its legend does
-                too, while the mobile grid personalises for a non-admin
-                viewer with a category, so its legend follows suit. */}
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
-              {mobileLegendStates.map(state => (
-                <span key={state.key} className="flex items-center gap-1.5">
-                  <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
-                </span>
-              ))}
-            </div>
-            <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
-              {LEAVE_CAPACITY_STATES.map(state => (
-                <span key={state.key} className="flex items-center gap-1.5">
-                  <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
-                </span>
-              ))}
-            </div>
-          </LegendSheet>
-        </DateStepper>
+        <LegendSheet
+          trigger={onClick => (
+            <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
+              <LegendIcon className="h-4 w-4" />
+            </button>
+          )}
+          ruleIntro={ruleHintIntro}
+          ruleBullets={ruleHintBullets}
+        >
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
+            {legendColumns.map(col => (
+              <span key={col.key} className="flex items-center gap-1.5">
+                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
+                {col.label}
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+          </div>
+          {/* Two variants, gated by viewport rather than role directly —
+              this mirrors which day-cell grid (DayCell vs MobileDayCell)
+              each breakpoint actually shows below, so the legend always
+              matches the fill colours the viewer can currently see: the
+              desktop grid stays generic for everyone, so its legend does
+              too, while the mobile grid personalises for a non-admin
+              viewer with a category, so its legend follows suit. */}
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
+            {mobileLegendStates.map(state => (
+              <span key={state.key} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
+              </span>
+            ))}
+          </div>
+          <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
+            {LEAVE_CAPACITY_STATES.map(state => (
+              <span key={state.key} className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
+              </span>
+            ))}
+          </div>
+        </LegendSheet>
       </div>
 
-      {/* Desktop: the same capacity panel the phone has had all along,
-          as a 320px card right-aligned over the grid — this page has no
-          right-hand rail to hang it in, and until now a desktop viewer had
-          no way to request leave from the planner at all. */}
-      <div className={`${PANEL_DESKTOP_WRAPPER} mt-3`}>
-        <YourLeaveCard
-          className={PANEL_DESKTOP_WIDTH}
-          profile={profile}
-          year={year}
-          month={month}
-          monthLabel={monthLabel}
-          maxByColumnKey={maxByColumnKey}
-          maxFullTime={maxFullTime}
-          countByColumnPerDate={countByColumnPerDate}
-          rotationsByDoctorId={rotationsByDoctorId}
-          onRequestLeave={openRequestLeave}
-        />
-      </div>
-
+      {/* The same grid-plus-rail split as the overview: on a desktop the
+          request panel (month stepper, capacity picker, reading, action)
+          sticks in a 320px rail beside the calendar; on a phone it comes
+          first, above the grid, full width. One panel, not one per
+          viewport, so a picked category survives a viewport change. */}
+      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="w-full min-w-0 lg:flex-1">
       {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
           Mobile (<lg): a compact glance grid (day number + category dots
           only, same treatment as the Special Leave planner's mobile
@@ -228,18 +216,7 @@ export default function MonthWorkspace({
         </div>
       </div>
 
-      <div className="mt-3 lg:hidden">
-        <YourLeaveCard
-          profile={profile}
-          year={year}
-          month={month}
-          monthLabel={monthLabel}
-          maxByColumnKey={maxByColumnKey}
-          maxFullTime={maxFullTime}
-          countByColumnPerDate={countByColumnPerDate}
-          rotationsByDoctorId={rotationsByDoctorId}
-          onRequestLeave={openRequestLeave}
-        />
+      <div className="lg:hidden">
         <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
           {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
         </div>
@@ -269,6 +246,23 @@ export default function MonthWorkspace({
           ))}
         </div>
       </div>
+      </div>
+
+      <div className={PANEL_RAIL}>
+        <YourLeaveCard
+          profile={profile}
+          year={year}
+          month={month}
+          onMonthChange={onMonthChange}
+          monthLabel={monthLabel}
+          maxByColumnKey={maxByColumnKey}
+          maxFullTime={maxFullTime}
+          countByColumnPerDate={countByColumnPerDate}
+          rotationsByDoctorId={rotationsByDoctorId}
+          onRequestLeave={openRequestLeave}
+        />
+      </div>
+      </div>
 
       {selectedDate && (
         <DayReviewModal
@@ -292,79 +286,73 @@ export default function MonthWorkspace({
   )
 }
 
-// Mobile-only personalised summary, replacing the old flat admin-style stat
-// strip: leads with the one question a doctor actually opens this page to
-// answer ("can I take leave, and when's easiest?") by showing how many days
-// this month still have room in *their own* category, not a generic
-// headcount. Renders nothing for a viewer whose category has no capacity
-// column (Consultant, Locum, or no signed-in profile) — there's nothing to
-// personalise for them.
+// The month view's request panel: the month stepper, then — for a viewer
+// whose category has a capacity column — "Showing capacity for" and the
+// one question a doctor actually opens this page to answer ("can I take
+// leave, and when's easiest?"): how many days this month still have room
+// in that category, not a generic headcount. A viewer with no column
+// (Consultant, Locum, admin, or no signed-in profile) gets the stepper
+// alone — there's nothing to personalise for them.
 //
-// "Check other" lets the viewer preview a DIFFERENT column's room for this
-// same month — useful for an Intern browsing ahead into a month they expect
-// to be on a different EC/OT rotation for, without waiting for their
-// intern_rotations row to be updated first. Purely a display override: it
-// doesn't change which pool a submitted request actually lands in (that's
-// always resolved fresh off the real profile/rotation at submission time —
-// see resolveLeaveCapacityColumn) — a note below makes that explicit
-// whenever an override is active, and it resets on every month change so a
-// stale "previewing OT" state can't silently follow the viewer around.
-function YourLeaveCard({ profile, year, month, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave, className = 'mb-3' }) {
+// The picker opens on the viewer's own column and lets them preview a
+// DIFFERENT column's room for this same month — useful for an Intern
+// browsing ahead into a month they expect to be on a different EC/OT
+// rotation for, without waiting for their intern_rotations row to be
+// updated first. Purely a display override: it doesn't change which pool a
+// submitted request actually lands in (that's always resolved fresh off the
+// real profile/rotation at submission time — see resolveLeaveCapacityColumn)
+// — a note below makes that explicit whenever an override is active, and it
+// resets on every month change so a stale "previewing OT" state can't
+// silently follow the viewer around.
+function YourLeaveCard({ profile, year, month, onMonthChange, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave }) {
   const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
   const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [overrideColumnKey, setOverrideColumnKey] = useState(null)
-  useEffect(() => { setOverrideColumnKey(null); setPickerOpen(false) }, [year, month])
-
-  if (!myColumnDef) return null
+  useEffect(() => { setOverrideColumnKey(null) }, [year, month])
 
   const columnKey = overrideColumnKey ?? myColumnKey
   const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey) ?? myColumnDef
-  const isOverridden = overrideColumnKey && overrideColumnKey !== myColumnKey
+  const isOverridden = Boolean(overrideColumnKey) && overrideColumnKey !== myColumnKey
 
-  const stat = daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
-  const state = categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
-  if (!stat || !state) return null
+  const stat = myColumnDef ? daysWithRoomForCategory(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate) : null
+  const state = myColumnDef ? categoryPressureState(year, month, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDate) : null
 
   return (
     <PlannerRequestPanel
-      className={className}
-      eyebrow={`For ${COLUMN_FULL_LABEL[columnKey] ?? columnDef.label} · ${monthLabel}`}
-      aside={(
-        <button
-          type="button"
-          onClick={() => setPickerOpen(o => !o)}
-          className="flex-shrink-0 text-[10px] font-semibold text-accent-dark underline decoration-dotted"
-        >
-          {isOverridden ? 'Change' : 'Check other'}
-        </button>
-      )}
+      eyebrow={`Annual leave planner · ${monthLabel} ${year}`}
+      stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
       // Says which leave, now that the same page can also lead to a special
       // leave request: "Request leave" alone doesn't say which kind.
       actionLabel="Request annual leave"
       onAction={onRequestLeave}
     >
-      {pickerOpen && (
-        <div className="mt-1.5">
-          <SelectMenu
-            value={columnKey}
-            onChange={v => { setOverrideColumnKey(v === myColumnKey ? null : v); setPickerOpen(false) }}
-            options={LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label }))}
-          />
-        </div>
+      {myColumnDef && (
+        <>
+          <label htmlFor="annual-capacity-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
+          <div className="mt-1">
+            <SelectMenu
+              id="annual-capacity-month"
+              value={columnKey}
+              onChange={v => setOverrideColumnKey(v === myColumnKey ? null : v)}
+              options={LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label }))}
+            />
+          </div>
+          {isOverridden && (
+            <p className="mt-1 text-[10px] text-ink-muted">
+              Previewing {columnDef.label} — your own category is {myColumnDef.label}. Submitting still counts against your real category.{' '}
+              <button type="button" onClick={() => setOverrideColumnKey(null)} className="underline">Reset</button>
+            </p>
+          )}
+          {stat && state && (
+            <PanelReading
+              value={stat.withRoom}
+              valueClassName={state.text}
+              unit={`of ${stat.total} days have room for ${isOverridden ? 'that' : 'your'} category`}
+            />
+          )}
+        </>
       )}
-      {isOverridden && (
-        <p className="mt-1 text-[10px] text-ink-muted">
-          Previewing {columnDef.label} — your own category is {myColumnDef.label}. Submitting still counts against your real category.{' '}
-          <button type="button" onClick={() => setOverrideColumnKey(null)} className="underline">Reset</button>
-        </p>
-      )}
-      <PanelReading
-        value={stat.withRoom}
-        valueClassName={state.text}
-        unit={`of ${stat.total} days have room for ${isOverridden ? 'that' : 'your'} category`}
-      />
     </PlannerRequestPanel>
   )
 }

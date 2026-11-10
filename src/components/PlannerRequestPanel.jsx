@@ -5,16 +5,24 @@ import { useAuth } from '../context/AuthContext'
 // leave request from any planner page, and only on a phone. Same four slots
 // everywhere, and a planner fills the ones it has something to say in:
 //
-//   eyebrow   who and when this reading is about ("For Medical Officer · September")
+//   eyebrow   which planner and when ("Annual leave planner · 2026")
 //   aside     one optional secondary control on the eyebrow's own line
-//   children  the reading itself (see PanelReading) or a control, or nothing
-//             at all where the planner has no capacity concept (Weekends)
+//   stepper   the period being browsed — a DateStepper (year or month,
+//             `centered`, no Today), directly under the eyebrow, so the one
+//             control that changes what every card or cell below means is
+//             the first thing in the panel
+//   children  the "Showing" picker and/or the reading itself (see
+//             PanelReading), or nothing where a planner has neither
 //   action    a full-width primary button
 //
 // The action is gated on canSubmitLeave here rather than at each call site,
 // so an admin or clerk reads the same panel without a button they'd be
 // refused at submission. Everything else renders for everyone.
-export default function PlannerRequestPanel({ eyebrow, aside, children, actionLabel, onAction, className = '' }) {
+//
+// Placement is the same on every planner page, overview and month view
+// alike: on a desktop (lg+) it leads the sticky right-hand rail beside the
+// grid (see PANEL_RAIL); below that it sits above the grid, full width.
+export default function PlannerRequestPanel({ eyebrow, aside, stepper, children, actionLabel, onAction, className = '' }) {
   const { canSubmitLeave } = useAuth()
 
   return (
@@ -23,6 +31,7 @@ export default function PlannerRequestPanel({ eyebrow, aside, children, actionLa
         <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">{eyebrow}</p>
         {aside}
       </div>
+      {stepper && <div className="mt-2">{stepper}</div>}
       {children}
       {canSubmitLeave && actionLabel && (
         <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center">
@@ -44,8 +53,15 @@ export function PanelReading({ value, unit, valueClassName = 'text-ink' }) {
   )
 }
 
-// The desktop placement every planner uses: a 320px card, right-aligned,
-// directly above whatever the page's own right-hand rail or grid is — the
-// same width as the Selected month/weekend rails, so the two share an edge.
-export const PANEL_DESKTOP_WRAPPER = 'mb-3 hidden justify-end lg:flex'
-export const PANEL_DESKTOP_WIDTH = 'w-80'
+// The rail every planner page hangs this panel in, beside its grid: on a
+// desktop (lg+) a 320px column that sticks to the top of the viewport
+// while the grid scrolls; below that it comes first in the stack, full
+// width, so the panel sits above the grid on a phone. A flex child of a
+// `flex flex-col gap-4 lg:flex-row lg:items-start` row whose grid is
+// `min-w-0 lg:flex-1`.
+//
+// lg:w-80, never a bare w-80 beside w-full: both are unscoped `width`
+// utilities on one element, and which wins is Tailwind's stylesheet order,
+// not this string's — it was landing on w-full at every size and starving
+// the grid beside it of any width at all.
+export const PANEL_RAIL = 'order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 lg:w-80'

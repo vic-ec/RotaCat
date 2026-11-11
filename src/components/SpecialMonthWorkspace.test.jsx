@@ -18,38 +18,40 @@ const LEAVE_BY_DATE = new Map([
   ]],
 ])
 
-function renderWorkspace(props = {}) {
+function renderWorkspace(props = {}, route = '/leave') {
   return render(
-    <SpecialMonthWorkspace
-      year={2026}
-      month={8}
-      onMonthChange={vi.fn()}
-      leaveByDate={LEAVE_BY_DATE}
-      publicHolidaysByDate={new Map([['2026-08-09', "Women's Day"]])}
-      rotationsByDoctorId={new Map()}
-      onBack={vi.fn()}
-      {...props}
-    />,
-    { wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter> },
+    <MemoryRouter initialEntries={[route]}>
+      <SpecialMonthWorkspace
+        year={2026}
+        month={8}
+        onMonthChange={vi.fn()}
+        leaveByDate={LEAVE_BY_DATE}
+        publicHolidaysByDate={new Map([['2026-08-09', "Women's Day"]])}
+        rotationsByDoctorId={new Map()}
+        onBack={vi.fn()}
+        {...props}
+      />
+    </MemoryRouter>
   )
 }
 
-// jsdom applies no breakpoints, so the desktop grid and the mobile dot grid
-// are both in the DOM. Scope day queries to the desktop one.
-function badgeFill(cell) {
-  return cell.querySelector('svg circle')?.getAttribute('fill')
+// jsdom applies no breakpoints, so the desktop grid and the phone grid are
+// both in the DOM. Scope day queries to one of them.
+function desktopGrid() {
+  return screen.getByTestId('planner-calendar-grid').querySelector('.hidden.lg\\:block')
 }
-
-function desktopDay(container, dayNumber) {
-  const grid = container.querySelector('.hidden.lg\\:block')
-  return within(grid).getByText(String(dayNumber)).closest('button')
+function mobileGrid() {
+  return screen.getByTestId('planner-calendar-grid').querySelector('.lg\\:hidden')
 }
-
-// Mobile dot grid counterpart of desktopDay — the phone cells carry the
-// category badges, the desktop ones carry surnames.
-function mobileDay(container, dayNumber) {
-  const grid = within(container).getByTestId('special-mobile-grid')
-  return within(grid).getByText(String(dayNumber)).closest('button')
+function desktopDay(date) {
+  return desktopGrid().querySelector(`[aria-label^="${date}"]`)
+}
+function details() {
+  return within(screen.getByTestId('special-day-details'))
+}
+async function selectDay(user, date) {
+  await user.click(desktopDay(date))
+  return details()
 }
 
 describe('SpecialMonthWorkspace', () => {
@@ -58,191 +60,219 @@ describe('SpecialMonthWorkspace', () => {
     mockAuth = { isAdmin: true, canSubmitLeave: true }
   })
 
-  it('renders a calendar grid with names and category badges read straight off the day cells', () => {
-    const { container } = renderWorkspace()
-    const day10 = desktopDay(container, 10)
-    expect(within(day10).getByText('Ellis')).toBeInTheDocument()
-    expect(within(day10).getByText('Vance')).toBeInTheDocument()
-    // Ellis is an MO, Vance a Consultant — each name carries its own badge.
-    expect(within(day10).getByText('MO')).toBeInTheDocument()
-    expect(within(day10).getByText('C')).toBeInTheDocument()
+  describe('calendar grid', () => {
+    it('is the shared Monday-first grid, with names and category abbreviations read off the desktop cells', () => {
+      renderWorkspace()
+      const headers = [...desktopGrid().querySelectorAll('[role="columnheader"], .grid > div')].map(d => d.textContent)
+      expect(headers[0]).toBe('Monday')
+      const day10 = desktopDay('2026-08-10')
+      expect(within(day10).getByText('Ellis')).toBeInTheDocument()
+      expect(within(day10).getByText('Vance')).toBeInTheDocument()
+      expect(within(day10).getByText('MO')).toBeInTheDocument()
+      expect(within(day10).getByText('C')).toBeInTheDocument()
+    })
+
+    it('puts pips on every day, worded for the guideline, and the phone cells carry number and pips only', () => {
+      renderWorkspace()
+      // Two doctors out on the 10th of the three-doctor guideline.
+      expect(within(desktopDay('2026-08-10')).getByRole('img', { name: '2 of 3 on special leave' })).toBeInTheDocument()
+      expect(within(desktopDay('2026-08-12')).getByRole('img', { name: '0 of 3 on special leave' })).toBeInTheDocument()
+      const phone10 = mobileGrid().querySelector('[aria-label^="2026-08-10"]')
+      expect(within(phone10).getByRole('img', { name: '2 of 3 on special leave' })).toBeInTheDocument()
+      expect(within(phone10).queryByText('Ellis')).not.toBeInTheDocument()
+      expect(phone10.className).toContain('min-h-[44px]')
+    })
+
+    it('marks a public holiday on the grid', () => {
+      renderWorkspace()
+      expect(within(desktopDay('2026-08-09')).getByText("Women's Day")).toBeInTheDocument()
+      expect(desktopDay('2026-08-09').className).toContain('ring-ink')
+    })
+
+    // Consultant privacy (EC_LEAVE_PLANNER_RULES.md) — on the grid itself,
+    // not just in the day card.
+    it("hides a Consultant's leave from a non-admin, in the grid and the day card, but still counts the slot", async () => {
+      mockAuth = { isAdmin: false, canSubmitLeave: true }
+      const user = userEvent.setup()
+      renderWorkspace()
+      const day10 = desktopDay('2026-08-10')
+      expect(within(day10).getByText('Ellis')).toBeInTheDocument()
+      expect(within(day10).queryByText('Vance')).not.toBeInTheDocument()
+      const card = await selectDay(user, '2026-08-10')
+      expect(card.queryByText('Vance')).not.toBeInTheDocument()
+      expect(card.getByText('2 of 3 on special leave')).toBeInTheDocument()
+    })
   })
 
-  // Capacity is carried by the category badges' fill, not by the cell
-  // background or the date number: a month of full-bleed fills reads as a wall
-  // of colour and forces every name in the cell to stay legible against four
-  // different grounds. A day with nobody out has no badges and so no colour at
-  // all, which is the one state that needs no signal.
-  it('colours each day\'s category badges by its capacity state', () => {
-    const { container } = renderWorkspace()
-    // Two doctors out on the 10th of three guideline slots — near capacity.
-    expect(badgeFill(desktopDay(container, 10))).toBe('rgb(var(--color-capNear))')
-    expect(badgeFill(mobileDay(container, 10))).toBe('rgb(var(--color-capNear))')
-    // Nobody out on the 12th: no badges to colour.
-    expect(badgeFill(desktopDay(container, 12))).toBeUndefined()
+  describe('toolbar and panel', () => {
+    it('has the shared toolbar: one Overview link, a name search, the legend trigger and the guideline key', async () => {
+      const user = userEvent.setup()
+      const onBack = vi.fn()
+      renderWorkspace({ onBack })
+      const toolbar = within(screen.getByTestId('planner-toolbar'))
+      expect(toolbar.getAllByRole('button', { name: 'Overview' })).toHaveLength(1)
+      expect(toolbar.getAllByRole('button', { name: 'Legend' })).toHaveLength(1)
+      expect(screen.getByTestId('guideline-key')).toHaveTextContent('0 on leave')
+      expect(screen.getByTestId('guideline-key')).toHaveTextContent('3+ on leave')
+      await user.type(toolbar.getByRole('searchbox', { name: 'Search name' }), 'ell')
+      expect(within(desktopDay('2026-08-10')).getByText('Ellis')).toBeInTheDocument()
+      expect(within(desktopDay('2026-08-10')).queryByText('Vance')).not.toBeInTheDocument()
+      // The pips are the true count whatever the search.
+      expect(within(desktopDay('2026-08-10')).getByRole('img', { name: '2 of 3 on special leave' })).toBeInTheDocument()
+      await user.click(toolbar.getByRole('button', { name: 'Overview' }))
+      expect(onBack).toHaveBeenCalled()
+    })
+
+    it('one panel: eyebrow, the month stepper as the only period control, Showing, the days-with-room headline, the guideline bar, one filled button', () => {
+      renderWorkspace()
+      const panel = screen.getByTestId('planner-request-panel')
+      expect(panel).toHaveTextContent('Special leave · Month')
+      expect(within(panel).getByRole('button', { name: /^August 2026, jump to month or year/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+      expect(within(panel).getByLabelText('Showing')).toBeInTheDocument()
+      // Nothing in the fixture reaches three doctors on one day.
+      expect(panel).toHaveTextContent('31')
+      expect(panel).toHaveTextContent('of 31 days have room')
+      // The fixture is keyed by day: only the 10th carries entries.
+      expect(within(panel).getByText('30 days · 0 of 3 used')).toBeInTheDocument()
+      expect(within(panel).getByText('0 days · 1 of 3').closest('li')).toHaveClass('text-ink-muted/60')
+      expect(within(panel).getByText('1 day · 2 of 3')).toBeInTheDocument()
+      expect(within(panel).getByText('0 days · at guideline').closest('li')).toHaveClass('text-ink-muted/60')
+      expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
+      expect(panel.parentElement).toHaveClass('order-1', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+    })
+
+    it('counts a day at the guideline in the bar and the headline', () => {
+      const pressured = new Map([['2026-08-10', [
+        entry('p1', 'study', '2026-08-10', '2026-08-10', 'approved', 'Ellis'),
+        entry('p2', 'workshop', '2026-08-10', '2026-08-10', 'approved', 'Stone'),
+        entry('p3', 'conference', '2026-08-10', '2026-08-10', 'approved', 'Vance'),
+      ]]])
+      renderWorkspace({ leaveByDate: pressured })
+      const panel = screen.getByTestId('planner-request-panel')
+      expect(panel).toHaveTextContent('30')
+      expect(panel).toHaveTextContent('of 31 days have room')
+      expect(within(panel).getByText('1 day · at guideline').closest('li')).not.toHaveClass('text-ink-muted/60')
+    })
+
+    it('the Showing picker opens on the viewer\'s own group and narrows the names, never the pips or the day card', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: true, profile: { category: 'MO' } }
+      const user = userEvent.setup()
+      renderWorkspace()
+      expect(within(desktopDay('2026-08-10')).getByText('Ellis')).toBeInTheDocument()
+      expect(within(desktopDay('2026-08-10')).queryByText('Vance')).not.toBeInTheDocument()
+      expect(within(desktopDay('2026-08-10')).getByRole('img', { name: '2 of 3 on special leave' })).toBeInTheDocument()
+
+      await user.click(screen.getByLabelText('Showing'))
+      await user.click(await screen.findByRole('option', { name: 'All categories' }))
+      expect(within(desktopDay('2026-08-10')).getByText('Vance')).toBeInTheDocument()
+
+      const card = await selectDay(user, '2026-08-10')
+      expect(card.getByText('Vance')).toBeInTheDocument()
+      expect(card.getByText('Ellis')).toBeInTheDocument()
+    })
+
+    it('Request special leave opens the form on a sensible date with the type leading on Special leave', async () => {
+      const user = userEvent.setup()
+      renderWorkspace()
+      await user.click(screen.getByRole('button', { name: 'Request special leave' }))
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
+      expect(within(dialog).getByLabelText('From')).toHaveValue('2026-08-01')
+    })
+
+    it('hides every request action from a viewer who cannot submit leave', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false }
+      const user = userEvent.setup()
+      renderWorkspace()
+      expect(screen.queryByRole('button', { name: 'Request special leave' })).not.toBeInTheDocument()
+      await selectDay(user, '2026-08-12')
+      expect(screen.queryByRole('button', { name: 'Request leave from this day' })).not.toBeInTheDocument()
+    })
   })
 
-  // The Special tab had no request path short of finding a tappable day.
-  it('offers one request panel in a sticky rail beside the grid, reporting the month against the guideline', async () => {
-    const user = userEvent.setup()
-    renderWorkspace()
-    // Nothing in the fixture reaches 3 doctors on one day.
-    expect(screen.getByText(/days are at the 3-doctor guideline/)).toBeInTheDocument()
-    const panel = screen.getByText('Special leave planner · August 2026').closest('div.rounded-xl')
-    expect(panel.parentElement).toHaveClass('order-first', 'lg:sticky', 'lg:top-4', 'lg:w-80')
-    // Stepper first, then Showing, then the reading and the action.
-    const stepper = within(panel).getByRole('button', { name: /^August 2026/ }).parentElement
-    expect(stepper).toHaveClass('btn-utility', 'w-full')
-    expect(stepper.compareDocumentPosition(screen.getByLabelText('Showing')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+  describe('selected day', () => {
+    it('rests on the empty message until a day is picked, then reads the day in the rail card', async () => {
+      const user = userEvent.setup()
+      renderWorkspace()
+      const card = screen.getByTestId('planner-details-card')
+      expect(card).toHaveTextContent('Selected day')
+      expect(card).toHaveTextContent('Select a day to see details.')
+      await user.click(desktopDay('2026-08-10'))
+      expect(desktopDay('2026-08-10')).toHaveAttribute('aria-pressed', 'true')
+      expect(within(card).getByRole('heading', { name: 'Monday, 10 Aug 2026' })).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
 
-    // Straight into the request form for a sensible date, no day-hunting.
-    await user.click(screen.getByRole('button', { name: 'Request special leave' }))
-    const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    it('reads the day against the guideline, with the full period, type and status per person', async () => {
+      const user = userEvent.setup()
+      renderWorkspace()
+      const card = await selectDay(user, '2026-08-10')
+      expect(card.getByText('2 of 3 on special leave')).toBeInTheDocument()
+      expect(card.getByText(/It is not a cap/)).toBeInTheDocument()
+      expect(card.getByText('Ellis')).toBeInTheDocument()
+      expect(card.getByText(/MO · Maternity · /)).toBeInTheDocument()
+      expect(card.getByText('Pending review')).toBeInTheDocument()
+      expect(card.getByText('Approved')).toBeInTheDocument()
+    })
+
+    it('words a free day, a day at the guideline and one past it', async () => {
+      const user = userEvent.setup()
+      const ids = n => Array.from({ length: n }, (_, i) => entry(`p${i}`, 'study', '2026-08-20', '2026-08-20', 'approved', `S${i}`))
+      const byDate = new Map([['2026-08-20', ids(3)], ['2026-08-21', ids(4).map(e => ({ ...e, dateFrom: '2026-08-21', dateTo: '2026-08-21' }))]])
+      renderWorkspace({ leaveByDate: byDate })
+      let card = await selectDay(user, '2026-08-12')
+      expect(card.getByText('Free · 0 of 3 on special leave')).toBeInTheDocument()
+      expect(card.getByText('No one is on special leave today.')).toBeInTheDocument()
+      card = await selectDay(user, '2026-08-20')
+      expect(card.getByText('At guideline · 3 of 3 on special leave')).toBeInTheDocument()
+      card = await selectDay(user, '2026-08-21')
+      expect(card.getByText('Over guideline · 4 on special leave, guideline 3')).toBeInTheDocument()
+      expect(within(desktopDay('2026-08-21')).getByRole('img', { name: '4 of 3 on special leave' })).toHaveTextContent('+1')
+    })
+
+    it('always offers an outlined request action for the day, since the guideline is not a cap', async () => {
+      const user = userEvent.setup()
+      const full = new Map([['2026-08-20', ['a', 'b', 'c'].map(id => entry(id, 'study', '2026-08-20', '2026-08-20', 'approved', id))]])
+      renderWorkspace({ leaveByDate: full })
+      const card = await selectDay(user, '2026-08-20')
+      const action = card.getByRole('button', { name: 'Request leave from this day' })
+      expect(action).toHaveClass('btn-secondary')
+      await user.click(action)
+      const dialog = await screen.findByRole('dialog')
+      expect(within(dialog).getByLabelText('From')).toHaveValue('2026-08-20')
+      expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
+    })
+
+    it('keeps the selected day in the URL and reopens it from there', () => {
+      renderWorkspace({}, '/leave?sday=2026-08-10')
+      expect(desktopDay('2026-08-10')).toHaveAttribute('aria-pressed', 'true')
+      expect(details().getByText('Ellis')).toBeInTheDocument()
+    })
+
+    it('below lg the day opens in a bottom sheet, not a centred popup', async () => {
+      const mql = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }
+      window.matchMedia = vi.fn().mockReturnValue(mql)
+      try {
+        const user = userEvent.setup()
+        renderWorkspace()
+        expect(screen.queryByTestId('planner-details-card')).not.toBeInTheDocument()
+        await user.click(desktopDay('2026-08-10'))
+        const sheet = await screen.findByRole('dialog', { name: 'Selected day' })
+        expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
+        await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      } finally {
+        delete window.matchMedia
+      }
+    })
   })
 
-  it('the Showing picker narrows which names the grid lists, never the day\'s colour or the day panel', async () => {
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    // Opens on everyone: both of the 10th's names in the desktop cell.
-    expect(within(desktopDay(container, 10)).getByText('Ellis')).toBeInTheDocument()
-    expect(within(desktopDay(container, 10)).getByText('Vance')).toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('Showing'))
-    await user.click(await screen.findByRole('option', { name: 'MO' }))
-    expect(within(desktopDay(container, 10)).getByText('Ellis')).toBeInTheDocument()
-    expect(within(desktopDay(container, 10)).queryByText('Vance')).not.toBeInTheDocument()
-    // Still two of three slots: the fill is the true shared count.
-    expect(badgeFill(desktopDay(container, 10))).toBe('rgb(var(--color-capNear))')
-
-    // The day panel lists the whole pool its "N of 3" counts.
-    await user.click(desktopDay(container, 10))
-    const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByText('2 of 3 slots taken')).toBeInTheDocument()
-    expect(within(dialog).getByText('Vance')).toBeInTheDocument()
-  })
-
-  it('hides the panel action from a viewer who cannot submit leave', () => {
-    mockAuth = { isAdmin: true, canSubmitLeave: false }
-    renderWorkspace()
-    expect(screen.getAllByText(/guideline/).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Request special leave' })).not.toBeInTheDocument()
-  })
-
-  it('marks a public holiday on the grid', () => {
-    const { container } = renderWorkspace()
-    expect(within(desktopDay(container, 9)).getByText("Women's Day")).toBeInTheDocument()
-  })
-
-  // The row shape is the point of the whole exercise: it must read the same
-  // as the Annual planner's day review.
-  it('clicking a day opens a review panel with category, type, full period and status', async () => {
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    await user.click(desktopDay(container, 10))
-
-    const panel = await screen.findByRole('dialog')
-    expect(within(panel).getByText(/Monday, 2026-08-10/)).toBeInTheDocument()
-    expect(within(panel).getByText('Ellis')).toBeInTheDocument()
-    // Full request period, not just the day clicked, and the shortened type.
-    expect(within(panel).getByText(/MO · Maternity · /)).toBeInTheDocument()
-    expect(within(panel).getByText('Pending review')).toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('Close'))
-    expect(screen.queryByText(/Monday, 2026-08-10/)).not.toBeInTheDocument()
-  })
-
-  it('says so plainly for a day with nobody on leave', async () => {
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    await user.click(desktopDay(container, 12))
-    const panel = await screen.findByRole('dialog')
-    expect(within(panel).getByText(/Wednesday, 2026-08-12/)).toBeInTheDocument()
-    expect(within(panel).getByText('No one is on leave today')).toBeInTheDocument()
-  })
-
-  // Consultant privacy (EC_LEAVE_PLANNER_RULES.md) — must hold on the grid
-  // itself, not just in the day panel.
-  it("hides a Consultant's leave from a non-admin, in the grid and the panel", async () => {
-    mockAuth = { isAdmin: false }
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-
-    const day10 = desktopDay(container, 10)
-    expect(within(day10).getByText('Ellis')).toBeInTheDocument()
-    expect(within(day10).queryByText('Vance')).not.toBeInTheDocument()
-
-    await user.click(day10)
-    const panel = await screen.findByRole('dialog')
-    expect(within(panel).queryByText('Vance')).not.toBeInTheDocument()
-  })
-
-  // The guideline banner that used to sit above the grid is deliberately
-  // gone: the day panel already states the slots for the day being asked
-  // about, and a permanent month-wide restatement of a rule nothing
-  // enforces was noise above every grid.
+  // The guideline banner that used to sit above the grid stays gone: the
+  // panel's bar and the day card say what the month and the day are at.
   it('has no capacity banner above the grid', () => {
-    renderWorkspace({ myCategory: 'MO' })
+    renderWorkspace()
     expect(screen.queryByText(/shared guideline/)).not.toBeInTheDocument()
     expect(screen.queryByText(/counted under/)).not.toBeInTheDocument()
-  })
-
-  it('shows category badges on the mobile day cells', () => {
-    const { container } = renderWorkspace()
-    const day10 = mobileDay(container, 10)
-    expect(within(day10).getByText('MO')).toBeInTheDocument()
-    expect(within(day10).getByText('C')).toBeInTheDocument()
-  })
-
-  it('counts the day panel\'s slots against the shared soft cap', async () => {
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    await user.click(desktopDay(container, 10))
-    const panel = await screen.findByRole('dialog')
-    expect(within(panel).getByText('2 of 3 slots taken')).toBeInTheDocument()
-    expect(panel).toHaveTextContent('1 slot available across all doctor categories.')
-  })
-
-  // The count is the true shared one — a non-admin can't see WHO the
-  // Consultant is, but the slot they occupy still has to be counted, or the
-  // guideline would read as looser than it is.
-  it('still counts hidden Consultant leave in a non-admin\'s slot line', async () => {
-    mockAuth = { isAdmin: false, canSubmitLeave: true }
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    await user.click(desktopDay(container, 10))
-    const panel = await screen.findByRole('dialog')
-    expect(within(panel).getByText('2 of 3 slots taken')).toBeInTheDocument()
-    expect(within(panel).queryByText('Vance')).not.toBeInTheDocument()
-  })
-
-  it('opens the request form for the clicked day, and hides it from viewers who cannot submit', async () => {
-    const user = userEvent.setup()
-    const { container } = renderWorkspace()
-    await user.click(desktopDay(container, 12))
-    await user.click(await screen.findByRole('button', { name: 'Request leave for this day' }))
-    const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('button', { name: 'Back' })).toBeInTheDocument()
-    // Opened from the Special tab, so the type leads with Special leave —
-    // the SelectMenu trigger is named by its current value.
-    expect(within(dialog).getByRole('button', { name: 'Special leave' })).toBeInTheDocument()
-    expect(within(dialog).queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
-
-    await user.click(screen.getByLabelText('Close'))
-    mockAuth = { isAdmin: true, canSubmitLeave: false }
-    const second = renderWorkspace()
-    await user.click(desktopDay(second.container, 12))
-    await screen.findByRole('dialog')
-    expect(screen.queryByRole('button', { name: 'Request leave for this day' })).not.toBeInTheDocument()
-  })
-
-  it('Overview returns to the year view', async () => {
-    const user = userEvent.setup()
-    const onBack = vi.fn()
-    renderWorkspace({ onBack })
-    await user.click(screen.getByRole('button', { name: 'Overview' }))
-    expect(onBack).toHaveBeenCalled()
   })
 })

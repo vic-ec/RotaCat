@@ -1,82 +1,90 @@
 import { useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
-import { weeksForMonth, monthsForYear, COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS, capacityStateForCount } from '../lib/leaveYearGrid'
+import { useSearchParams } from 'react-router-dom'
+import { COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
-import { shortLeaveTypeLabel, SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
-import { todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
-import { specialCountsByDate, specialMonthMarkers, SPECIAL_CATEGORY_FILTER_OPTIONS, matchesSpecialCategory } from '../lib/specialPlanner'
-import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
+import { SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
+import { todayStr } from '../lib/dateRange'
+import { daysBySlotsUsed } from '../lib/plannerCalendar'
+import {
+  specialCountsByDate, specialMonthMarkers, specialCapacityBarLabels, SPECIAL_CATEGORY_FILTER_OPTIONS, matchesSpecialCategory, defaultSpecialCategoryKey,
+} from '../lib/specialPlanner'
 import { useAuth } from '../context/AuthContext'
-import CategoryBadge from './CategoryBadge'
 import DateStepper from './DateStepper'
 import Modal from './Modal'
 import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerToolbar from './PlannerToolbar'
+import PlannerCalendarGrid from './PlannerCalendarGrid'
+import PlannerDetailsCard from './PlannerDetailsCard'
+import CapacityBar from './CapacityBar'
 import LeaveRequestForm from './LeaveRequestForm'
 import SelectMenu from './SelectMenu'
+import SpecialDayDetails from './special/SpecialDayDetails'
 import { SpecialLegendTrigger } from './SpecialPlannerOverview'
 
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 
-// The Special planner's single-month view — the counterpart of the Annual
-// planner's MonthWorkspace, opened from the overview's Open month action
-// or a second click on an already-selected month card. A real calendar
-// grid rather than the day-row spreadsheet this tab used to show, so
-// reading surnames happens straight off the grid and clicking a day opens
-// the same review panel on every viewport.
+// The Special planner's single-month view, on the same blocks as the
+// Annual month view (MonthWorkspace): PlannerToolbar above, the
+// Monday-first PlannerCalendarGrid beside a rail holding the request panel
+// (month stepper, Showing, the days-with-room headline, the month's
+// guideline bar, Request special leave) and the SELECTED DAY card. On a
+// phone the panel comes first, then the toolbar, then the grid, and a
+// tapped day opens SpecialDayDetails in a bottom sheet.
 //
-// Read-only by design, and that is the deliberate difference from Annual's
-// workspace: approving and rejecting special leave lives in Planners →
-// Requests, and there are no capacity caps to enforce here (see
-// SPECIAL_LEAVE_SOFT_CAP — a documented guideline, not an enforced rule).
+// What differs from Annual is only what the numbers mean: special leave
+// has no enforced cap, just the EC Leave Planner sheet's guideline of
+// SPECIAL_LEAVE_SOFT_CAP doctors at once, so the pips, bar and day reading
+// are worded as "on special leave" against a guideline, and the day's
+// request action is always offered. Approving lives in Planners →
+// Requests, so the day card is read-only apart from that action.
 export default function SpecialMonthWorkspace({
   year, month, onMonthChange, leaveByDate, displayNames = new Map(), publicHolidaysByDate = new Map(),
   rotationsByDoctorId, onBack, onDataChanged, ruleIntro, ruleBullets,
 }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, profile } = useAuth()
   // Consultant leave is admin-only (EC_LEAVE_PLANNER_RULES.md's Consultant
-  // privacy rule) — filtered here as well as in the day panel, so a
+  // privacy rule) — filtered here as well as in the day card, so a
   // non-admin never sees it in a grid cell either.
   const visibleKeys = new Set(
     (isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(c => c.key !== LEAVE_OTHER_COLUMN.key)).map(c => c.key)
   )
-  const [selectedDate, setSelectedDate] = useState(null)
-  // Opening the day panel straight onto its request form — the panel's
-  // "Request special leave" action, which is the same journey as tapping a
-  // day and pressing "Request leave for this day", one step shorter.
-  const [openFormOnOpen, setOpenFormOnOpen] = useState(false)
-  // The request panel's Showing picker: which group's names the day cells
-  // show. Same vocabulary and filter as the overview's own picker, and
-  // like it, it narrows WHO is listed, never what the colours mean — the
-  // cell fill stays on the true shared count against the 3-doctor
-  // guideline. Opens on everyone (the overview opens on the viewer's own
-  // group, but a calendar is a who-is-off-when read, and a day coloured
-  // red with no names in it would read as a bug), and the day panel a tap
-  // opens is always unfiltered, since its "N of 3 slots taken" is the
-  // whole pool and listing fewer people than that count would contradict it.
-  const [categoryKey, setCategoryKey] = useState('all')
 
-  const today = todayStr()
-  const weeks = weeksForMonth(year, month)
-  const monthLabel = monthsForYear(year)[month - 1].label
-  const countsByDate = specialCountsByDate(leaveByDate)
-  const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
-  const markersByDate = new Map(monthMarkers.map(m => [m.date, m]))
-  const monthGuidelineDays = monthMarkers.filter(m => m.overSoftCap).length
-
-  // Today when today is in the month being viewed, else the 1st — so a
-  // doctor browsing ahead still lands on a sensible date rather than an
-  // empty field. Same rule the Annual planner's own panel uses.
-  function openRequestLeave() {
-    const isCurrentMonth = year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7))
-    setOpenFormOnOpen(true)
-    setSelectedDate(isCurrentMonth ? today : `${year}-${String(month).padStart(2, '0')}-01`)
+  // The selected day lives in the URL (`sday=YYYY-MM-DD`) for the same
+  // reason the planner's own syear/sview/smonth do: a backgrounded phone
+  // browser can reload the page at any time, and the URL survives that.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedDate = searchParams.get('sday')
+  function setSelectedDate(date) {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (date) next.set('sday', date)
+      else next.delete('sday')
+      return next
+    }, { replace: true })
   }
 
-  function closeDayPanel() {
-    setSelectedDate(null)
-    setOpenFormOnOpen(false)
+  // The Showing picker opens on the viewer's own group, as the overview's
+  // does. It narrows WHO the cells list, never what the pips show — the
+  // count is the true shared one against the 3-doctor guideline, and the
+  // day card a tap opens is always unfiltered.
+  const [categoryKey, setCategoryKey] = useState(() => defaultSpecialCategoryKey(profile?.category, profile?.contract_type))
+  const [searchQuery, setSearchQuery] = useState('')
+  const [requestFormDate, setRequestFormDate] = useState(null)
+
+  const today = todayStr()
+  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`
+  const monthStartDate = `${monthPrefix}-01`
+  const countsByDate = specialCountsByDate(leaveByDate)
+  const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
+  const daysWithRoom = monthMarkers.filter(m => m.count < SPECIAL_LEAVE_SOFT_CAP).length
+  const monthBuckets = daysBySlotsUsed(year, month, d => countsByDate.get(d) || 0, { max: SPECIAL_LEAVE_SOFT_CAP })
+
+  // Today when today is in the month being viewed, else the 1st — so a
+  // doctor browsing ahead still lands on a sensible date.
+  function openRequestLeave(date) {
+    if (date) { setRequestFormDate(date); return }
+    const isCurrentMonth = year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7))
+    setRequestFormDate(isCurrentMonth ? today : monthStartDate)
   }
 
   function rowsForDate(date) {
@@ -90,316 +98,117 @@ export default function SpecialMonthWorkspace({
       })
       .filter(row => visibleKeys.has(row.columnKey))
   }
-  // The grid's own read of a day: rowsForDate narrowed to the Showing
-  // picker's group (see categoryKey above).
-  function shownRowsForDate(date) {
-    return rowsForDate(date).filter(row => matchesSpecialCategory(row, categoryKey, rotationsByDoctorId))
+
+  // One cell per day for the shared grid: the day's true count, the public
+  // holiday, and the names narrowed by the Showing picker and the toolbar
+  // search. Capacity never narrows with either.
+  const query = searchQuery.trim().toLowerCase()
+  const gridCells = new Map()
+  for (const marker of monthMarkers) {
+    const names = rowsForDate(marker.date)
+      .filter(row => matchesSpecialCategory(row, categoryKey, rotationsByDoctorId))
+      .map(e => ({ key: `${e.profileId}-${e.leaveType}-${e.dateFrom}`, label: displayNames.get(e.profileId) ?? e.surname, badge: COLUMN_BADGE_LABEL[e.columnKey], pending: e.status === 'pending' }))
+      .filter(n => !query || n.label.toLowerCase().includes(query))
+    if (marker.count === 0 && names.length === 0 && !marker.isPublicHoliday) continue
+    gridCells.set(marker.date, { used: marker.count, names, isPublicHoliday: marker.isPublicHoliday, phName: marker.publicHolidayName })
   }
+
+  const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
   return (
     <div>
-      {/* Just the way back and the Legend up here: the month stepper lives
-          in the request panel beside the grid, as on the overview. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-1 rounded px-1.5 py-1 text-sm font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
-        >
-          <ChevronLeft className="h-4 w-4" /> Overview
-        </button>
-        <SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />
-      </div>
-
-      {/* The same grid-plus-rail split as the overview: on a desktop the
-          request panel sticks in a 320px rail beside the calendar; on a
-          phone it comes first, above the grid, full width. */}
-      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="w-full min-w-0 lg:flex-1">
-      {/* Desktop: full weekday names and named cells with surnames read
-          straight off the grid. Mobile: a compact dot grid, tapped for the
-          same day panel — mirrors MonthWorkspace's own two grids, including
-          how they colour: every cell is filled by its own capacity state
-          (green available → red at capacity), so the month reads as a heat
-          map at a glance rather than needing a corner dot to be found and
-          decoded one day at a time. */}
-      <div className="hidden overflow-hidden rounded-lg border border-slate-line lg:block">
-        <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
-          {WEEKDAY_NAMES.map(d => (
-            <div key={d} className="px-2 py-1.5 text-center text-xs font-semibold text-ink-muted">{d}</div>
-          ))}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="order-2 lg:order-none lg:col-span-2">
+          <PlannerToolbar
+            onBack={onBack}
+            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+            legend={<SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />}
+            middle={<GuidelineKey />}
+          />
         </div>
-        <div className="grid grid-cols-7">
-          {weeks.flat().map((date, i) => {
-            if (!date) return <div key={`blank-${i}`} className="min-h-[86px] border-b border-r border-slate-line bg-canvas-sunken/40" />
-            const marker = markersByDate.get(date)
-            const rows = shownRowsForDate(date)
-            return (
-              <button
-                key={date}
-                type="button"
-                onClick={() => setSelectedDate(date)}
-                className={`min-h-[86px] border-b border-r border-slate-line p-1.5 text-left align-top transition-colors hover:bg-canvas-sunken ${
-                  marker?.isPublicHoliday ? 'ring-2 ring-inset ring-ink' : ''
-                }`}
-              >
-                {/* Today is the date number's own accent chip rather than a
-                    ring around the cell: a ring in a fifth colour on top of
-                    a red or orange fill is just another thing to decode,
-                    and this is the same marker the Annual grid uses. */}
-                {/* Same treatment as the Annual grid: the number is plain
-                    and pinned top-left on every cell, and the day's pressure
-                    is carried by the category badges' fill instead. */}
-                <span className="flex items-center justify-between gap-1">
-                  <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-                    date === today ? 'bg-accent text-on-fill' : 'text-ink'
-                  }`}>
-                    {Number(date.slice(-2))}
-                  </span>
-                </span>
-                {marker?.isPublicHoliday && (
-                  <span className="mt-0.5 block truncate text-[10px] font-medium text-ink-muted">{marker.publicHolidayName}</span>
-                )}
-                {/* A badge per name, as on the phone cells and in the day
-                    panel — a surname alone doesn't say which group is out,
-                    which is the question a doctor scanning the month is
-                    actually asking. Per name rather than one badge per
-                    category group (the Annual grid's shape): this cell caps
-                    at three names, so grouping would save no rows. */}
-                <span className="mt-0.5 block space-y-0.5">
-                  {rows.slice(0, 3).map(e => (
-                    <span
-                      key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`}
-                      className={`flex items-center gap-1 text-[11px] leading-tight ${
-                        e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'
-                      }`}
-                    >
-                      <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={14} fill={marker?.capacityState.swatch} textFill={marker?.capacityState.swatchInk} />
-                      <span className="truncate">{displayNames.get(e.profileId) ?? e.surname}</span>
-                    </span>
-                  ))}
-                  {rows.length > 3 && <span className="block text-[10px] text-ink-muted">+{rows.length - 3} more</span>}
-                </span>
-              </button>
-            )
-          })}
+
+        <div className="order-3 min-w-0 lg:order-none">
+          <PlannerCalendarGrid
+            year={year}
+            month={month}
+            cells={gridCells}
+            selectedDate={selectedDate}
+            today={today}
+            onSelect={setSelectedDate}
+            max={SPECIAL_LEAVE_SOFT_CAP}
+            pipLabel={used => `${used} of ${SPECIAL_LEAVE_SOFT_CAP} on special leave`}
+          />
+        </div>
+
+        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+          <PlannerRequestPanel
+            eyebrow="Special leave · Month"
+            stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
+            headline={(
+              <PanelReading
+                value={daysWithRoom}
+                valueClassName={daysWithRoom === monthMarkers.length ? 'text-capAvailable-ink' : daysWithRoom === 0 ? 'text-capAtCapacity-ink' : 'text-capNear-ink'}
+                unit={`of ${monthMarkers.length} days have room`}
+              />
+            )}
+            capacityBar={<CapacityBar buckets={monthBuckets} labels={specialCapacityBarLabels()} max={SPECIAL_LEAVE_SOFT_CAP} />}
+            actionLabel="Request special leave"
+            onAction={() => openRequestLeave()}
+          >
+            <label htmlFor="special-scope-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
+            <div className="mt-1">
+              <SelectMenu id="special-scope-month" value={categoryKey} onChange={setCategoryKey} options={SPECIAL_CATEGORY_FILTER_OPTIONS} />
+            </div>
+          </PlannerRequestPanel>
+
+          <PlannerDetailsCard
+            className="mt-3"
+            eyebrow="Selected day"
+            emptyMessage="Select a day to see details."
+            open={selectedInMonth}
+            onClose={() => setSelectedDate(null)}
+          >
+            {selectedInMonth && (
+              <SpecialDayDetails
+                key={selectedDate}
+                date={selectedDate}
+                rows={rowsForDate(selectedDate)}
+                count={countsByDate.get(selectedDate) || 0}
+                phName={publicHolidaysByDate.get(selectedDate)}
+                displayNames={displayNames}
+                onRequestLeave={openRequestLeave}
+              />
+            )}
+          </PlannerDetailsCard>
         </div>
       </div>
 
-      <div data-testid="special-mobile-grid" className="lg:hidden">
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
-          {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
-        </div>
-        <div className="mt-1 grid grid-cols-7 gap-1">
-          {weeks.flat().map((date, i) => {
-            if (!date) return <span key={`blank-${i}`} />
-            const marker = markersByDate.get(date)
-            // Which categories are out, not just how many people — the same
-            // EC/MO/Reg/OT badges the day panel and the Annual grid use, so
-            // a doctor can see at a glance whether it's their own group
-            // taking the slots. Capped at three with a +N tail; the cells
-            // are one-seventh of a phone screen wide.
-            const badges = [...new Set(shownRowsForDate(date).map(r => r.columnKey))]
-            return (
-              <button
-                key={date}
-                type="button"
-                onClick={() => setSelectedDate(date)}
-                className={`relative flex aspect-square flex-col items-center gap-0.5 rounded-md border pt-[19px] text-xs ${
-                  marker?.isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
-                } ${date === today ? 'ring-1 ring-accent' : ''} bg-canvas-raised`}
-              >
-                {/* Plain number; capacity is on the badges below. Pinned to
-                    the corner rather than centred in the flex flow,
-                    exactly as the Annual grid's phone cells do it: a centred
-                    number sits at a different height on a day with badges than
-                    on one without, so the row of numbers wandered as you
-                    scanned across a week. */}
-                <span className="absolute left-1.5 top-1 font-bold text-ink">{Number(date.slice(-2))}</span>
-                {badges.length > 0 && (
-                  <span className="flex items-center gap-[1px]">
-                    {badges.slice(0, 3).map(key => (
-                      <CategoryBadge key={key} label={COLUMN_BADGE_LABEL[key]} size={11} fill={marker?.capacityState.swatch} textFill={marker?.capacityState.swatchInk} />
-                    ))}
-                    {badges.length > 3 && (
-                      <span className="text-[8px] font-semibold text-ink-muted">
-                        +{badges.length - 3}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      </div>
-
-      {/* Where this month stands, and the way to ask — the Special tab had
-          no request path at all short of finding a tappable day cell. The
-          reading is the month's pressure days rather than Annual's
-          days-with-room: special leave's only capacity number is the
-          shared 3-doctor guideline, and the short list (the days already
-          at it) is the one worth naming. */}
-      <div className={PANEL_RAIL}>
-        <SpecialRequestPanel
-          year={year}
-          month={month}
-          onMonthChange={onMonthChange}
-          monthLabel={monthLabel}
-          categoryKey={categoryKey}
-          onCategoryChange={setCategoryKey}
-          guidelineDays={monthGuidelineDays}
-          totalDays={monthMarkers.length}
-          onRequestLeave={openRequestLeave}
-        />
-      </div>
-      </div>
-
-      {selectedDate && (
-        <DayPanel
-          date={selectedDate}
-          rows={rowsForDate(selectedDate)}
-          count={countsByDate.get(selectedDate) || 0}
-          phName={publicHolidaysByDate.get(selectedDate)}
-          displayNames={displayNames}
-          initialShowRequestForm={openFormOnOpen}
-          onClose={closeDayPanel}
-          onSubmitted={onDataChanged}
-        />
+      {requestFormDate && (
+        <Modal title="Request special leave" onClose={() => setRequestFormDate(null)} centered>
+          <LeaveRequestForm
+            initialDateFrom={requestFormDate}
+            initialDateTo={requestFormDate}
+            // Opened from the Special tab, so the type leads with Special
+            // leave — still a plain dropdown the requester can change.
+            initialLeaveType="special_leave"
+            onSubmitted={() => { setRequestFormDate(null); onDataChanged?.() }}
+          />
+        </Modal>
       )}
-
     </div>
   )
 }
 
-// The Special tab's own fill of the shared planner panel: the month
-// stepper, the Showing picker (who the grid lists), and — since there is
-// no per-category reading to give, the guideline being one shared number
-// for everyone — how much of the month is already at it.
-function SpecialRequestPanel({ year, month, onMonthChange, monthLabel, categoryKey, onCategoryChange, guidelineDays, totalDays, onRequestLeave }) {
-  const atGuideline = guidelineDays > 0
+// The toolbar's middle slot on a desktop: the pips' four-state key, worded
+// for the guideline rather than slots.
+function GuidelineKey() {
   return (
-    <PlannerRequestPanel
-      eyebrow={`Special leave planner · ${monthLabel} ${year}`}
-      stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
-      actionLabel="Request special leave"
-      onAction={onRequestLeave}
-    >
-      <label htmlFor="special-scope-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
-      <div className="mt-1">
-        <SelectMenu id="special-scope-month" value={categoryKey} onChange={onCategoryChange} options={SPECIAL_CATEGORY_FILTER_OPTIONS} />
-      </div>
-      <PanelReading
-        value={guidelineDays}
-        valueClassName={atGuideline ? 'text-capNear-ink' : 'text-capAvailable-ink'}
-        unit={atGuideline
-          ? `of ${totalDays} days are at the ${SPECIAL_LEAVE_SOFT_CAP}-doctor guideline — the rest have room`
-          : `days are at the ${SPECIAL_LEAVE_SOFT_CAP}-doctor guideline — every day this month has room`}
-      />
-    </PlannerRequestPanel>
-  )
-}
-
-// One day's leave, in the same row shape the Annual planner's day review
-// uses — category badge, name, category, leave type, full leave period,
-// status — so a row reads identically on both planner tabs.
-// Built on the shared Modal — a bottom sheet on mobile, a centered card on
-// desktop — so tapping a day here lands exactly where tapping a day on the
-// Annual planner does, rather than in this tab's own hand-rolled panel.
-function DayPanel({ date, rows, count, phName, displayNames, initialShowRequestForm = false, onClose, onSubmitted }) {
-  const { canSubmitLeave } = useAuth()
-  const [showRequestForm, setShowRequestForm] = useState(initialShowRequestForm)
-  const formatted = `${WEEKDAY_NAMES[dayOfWeek(date)]}, ${date}`
-  const remaining = Math.max(0, SPECIAL_LEAVE_SOFT_CAP - count)
-  const atGuideline = count >= SPECIAL_LEAVE_SOFT_CAP
-  const panelState = capacityStateForCount(count)
-
-  if (showRequestForm) {
-    return (
-      <Modal title={formatted} onClose={onClose} maxWidthClassName="md:max-w-lg">
-        <button
-          type="button"
-          onClick={() => setShowRequestForm(false)}
-          className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Back
-        </button>
-        <div className="mt-2">
-          <LeaveRequestForm
-            initialDateFrom={date}
-            initialDateTo={date}
-            // Opened from the Special tab, so the type leads with Special
-            // leave rather than Annual — still a plain dropdown the
-            // requester can change.
-            initialLeaveType="special_leave"
-            onSubmitted={() => { setShowRequestForm(false); onSubmitted?.() }}
-          />
-        </div>
-      </Modal>
-    )
-  }
-
-  return (
-    <Modal title={formatted} onClose={onClose} maxWidthClassName="md:max-w-lg">
-      <div>
-        {/* Slots, worded as the guideline it actually is — special leave has
-            no enforced cap, so "N of 3 taken" must not imply a request over
-            it will be refused the way the Annual banner's does. It carries
-            the day's capacity colour at every count, not just at the
-            guideline: the Annual planner reports each state and a day here
-            showing nothing read as "no guideline applies". */}
-        <div className={`flex items-start gap-2 rounded-lg p-3 text-sm ring-1 ring-inset ${panelState.tint} ${panelState.ringDark}`}>
-          <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${panelState.dark}`}>
-            {atGuideline ? '!' : count === 0 ? '✓' : '!'}
-          </span>
-          <div>
-            <p className={`font-bold ${panelState.text}`}>{count} of {SPECIAL_LEAVE_SOFT_CAP} slots taken</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              {atGuideline
-                ? 'At the guideline for special leave. Requests still go through; an admin decides.'
-                : `${remaining} ${remaining === 1 ? 'slot' : 'slots'} available across all doctor categories.`}
-            </p>
-          </div>
-        </div>
-        {phName && <p className="mt-1 text-sm font-medium text-accent">{phName}</p>}
-
-        {rows.length === 0 ? (
-          <p className="mt-4 text-sm text-ink-muted">No one is on leave today</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-            {rows.map(e => (
-              <li key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`} className="flex items-center justify-between gap-2 py-2 text-sm">
-                <span className="flex min-w-0 items-center gap-2">
-                  <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                  <span className="flex-shrink-0 text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
-                  <span className="truncate text-xs text-ink-muted">
-                    {[
-                      e.columnLabel,
-                      e.leaveType ? shortLeaveTypeLabel(e.leaveType) : null,
-                      e.dateFrom && e.dateTo ? formatShortDateRange(e.dateFrom, e.dateTo) : null,
-                    ].filter(Boolean).join(' · ')}
-                  </span>
-                </span>
-                <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
-                  {e.status === 'pending' ? REVIEW_STATUS_LABELS.pending : 'Approved'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {canSubmitLeave && (
-          <button
-            type="button"
-            onClick={() => setShowRequestForm(true)}
-            className="btn-primary mt-4 w-full text-sm"
-          >
-            Request leave for this day
-          </button>
-        )}
-      </div>
-    </Modal>
+    <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted md:flex" data-testid="guideline-key">
+      {LEAVE_CAPACITY_STATES.map((state, i) => (
+        <span key={state.key} className="flex items-center gap-1">
+          <span className={`h-2 w-2 rounded-[3px] ${state.fill}`} /> {i === LEAVE_CAPACITY_STATES.length - 1 ? `${SPECIAL_LEAVE_SOFT_CAP}+` : i} on leave
+        </span>
+      ))}
+    </div>
   )
 }

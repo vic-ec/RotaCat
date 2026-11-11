@@ -125,3 +125,10 @@ describe('specialMonthEntries', () => {
     expect(specialMonthEntries(2026, 12, BY_DATE)).toEqual([])
   })
 })
+
+describe('specialCapacityBarLabels', () => {
+  it('names the last level "at guideline" rather than "full"', async () => {
+    const { specialCapacityBarLabels } = await import('./specialPlanner')
+    expect(specialCapacityBarLabels()).toEqual(['0 of 3 used', '1 of 3', '2 of 3', 'at guideline'])
+  })
+})

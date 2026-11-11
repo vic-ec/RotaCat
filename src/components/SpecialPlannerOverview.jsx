@@ -2,19 +2,20 @@ import { useState } from 'react'
 import Modal from './Modal'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import LeaveRequestForm from './LeaveRequestForm'
-import { Link } from 'react-router-dom'
-import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
 import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
-import { SPECIAL_LEAVE_SOFT_CAP, shortLeaveTypeLabel } from '../lib/leaveRequests'
-import { formatShortDateRange, todayStr } from '../lib/dateRange'
+import { SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
+import { todayStr } from '../lib/dateRange'
+import { daysBySlotsUsed } from '../lib/plannerCalendar'
 import {
   specialCountsByDate, specialMonthMarkers, leadingBlanksForMonth, specialMonthStats, specialMonthEntries,
   SPECIAL_CATEGORY_FILTER_OPTIONS as CATEGORY_FILTER_OPTIONS, defaultSpecialCategoryKey as defaultCategoryKey, matchesSpecialCategory as matchesCategory,
 } from '../lib/specialPlanner'
-import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import DateStepper from './DateStepper'
+import PlannerDetailsCard from './PlannerDetailsCard'
+import SpecialMonthSummary from './special/SpecialMonthSummary'
 import LegendSheet from './LegendSheet'
 import { LegendIcon } from './PlannerIcons'
 
@@ -53,6 +54,7 @@ export default function SpecialPlannerOverview({
 
   const selected = monthCards[selectedMonth - 1]
   const selectedEntries = specialMonthEntries(year, selectedMonth, leaveByDate)
+  const selectedBuckets = daysBySlotsUsed(year, selectedMonth, d => countsByDate.get(d) || 0, { max: SPECIAL_LEAVE_SOFT_CAP })
 
   // The month tiles and cards, read through the Showing picker. The day
   // bars and the state chip stay on the TRUE shared count — special
@@ -85,17 +87,9 @@ export default function SpecialPlannerOverview({
     ? filteredMonthCards.filter(m => m.month < currentMonth)
     : year < todayYear ? filteredMonthCards : []
 
-  // DateStepper handles the Dec/Jan rollover itself, calling back with
-  // whichever year the stepped-to month landed in — only forward that up
-  // when it differs from the year already being browsed.
-  function handleSelectedMonthChange(y, m) {
-    if (y !== year) onYearChange(y)
-    setSelectedMonth(m)
-  }
-
   // The same request panel the Annual and Weekend planners lead with, on
-  // every viewport: the eyebrow names the planner and year, the year
-  // stepper under it is the page's only year control, then the picker and
+  // every viewport: the eyebrow names the planner and view, the year
+  // stepper under it is the page's only period control, then the picker and
   // the request action. "Showing", not Annual's "Showing capacity for":
   // special leave has one shared 3-doctor guideline rather than a cap per
   // category, so this narrows who you're looking at — it can't narrow the
@@ -105,7 +99,7 @@ export default function SpecialPlannerOverview({
   function renderRequestPanel(id) {
     return (
       <PlannerRequestPanel
-        eyebrow={`Special leave planner · ${year}`}
+        eyebrow="Special leave · Overview"
         stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
         actionLabel="Request special leave"
         onAction={() => setRequestOpen(true)}
@@ -200,71 +194,22 @@ export default function SpecialPlannerOverview({
 
         <div className={PANEL_RAIL}>
         {renderRequestPanel('special-scope-desktop')}
-        <div
-          data-testid="special-inspector"
-          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <div className="mt-1">
-            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
-            <InspectorStat icon={Calendar} label="Approved" value={`${selected.stats.approved} ${selected.stats.approved === 1 ? 'request' : 'requests'}`} />
-            <InspectorStat icon={Clock} label="Pending" value={`${selected.stats.pending} ${selected.stats.pending === 1 ? 'request' : 'requests'}`} />
-          </div>
-
-          {/* The guideline, reported rather than enforced — see
-              SPECIAL_LEAVE_SOFT_CAP. Omitted at zero: "0 days above the
-              guideline" is not news, and the Annual planner's equivalent
-              tile row is a genuine utilisation breakdown this has no
-              counterpart for. */}
-          {selected.stats.pressureDays > 0 && (
-            <div className="mt-3 border-t border-slate-line pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Above guideline</p>
-              <p className="mt-1 text-sm text-ink-light">
-                <span className="font-semibold text-flagAmber">{selected.stats.pressureDays}</span>
-                {' '}{selected.stats.pressureDays === 1 ? 'day has' : 'days have'} {SPECIAL_LEAVE_SOFT_CAP}+ doctors on special leave at once.
-              </p>
-            </div>
-          )}
-
-          {selectedEntries.length > 0 ? (
-            <div className="mt-3 border-t border-slate-line pt-3">
-              <p className="text-sm font-semibold text-ink">Leave in {selected.label}</p>
-              <p className="mt-0.5 text-sm text-ink-muted">
-                {selected.stats.approved} approved · {selected.stats.pending} pending
-              </p>
-              <ul data-testid="special-month-entries" className="mt-2 space-y-0.5">
-                {selectedEntries.map(e => (
-                  <li key={`${e.profileId}-${e.leaveType}-${e.dateFrom}`} className="flex items-baseline justify-between gap-1.5 px-1 py-1 text-sm">
-                    <span className="flex min-w-0 items-baseline gap-1.5">
-                      <span className="flex-shrink-0 font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
-                      <span className="truncate text-xs text-ink-muted">
-                        {shortLeaveTypeLabel(e.leaveType)} · {formatShortDateRange(e.dateFrom, e.dateTo)}
-                      </span>
-                    </span>
-                    <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      e.status === 'pending' ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                    }`}>
-                      {e.status === 'pending' ? REVIEW_STATUS_LABELS.pending : 'Approved'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className="mt-3 border-t border-slate-line pt-3 text-sm text-ink-muted">No leave this month.</p>
-          )}
-
-          <div className="mt-4 space-y-2">
-            <button type="button" onClick={() => onOpenWorkspace(selectedMonth)} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ExternalLink className="h-3.5 w-3.5" /> Open month
-            </button>
-            <Link to="/leave?tab=requests&from=special" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ListChecks className="h-3.5 w-3.5" /> {isAdmin ? 'View requests' : 'View my requests'}
-            </Link>
-          </div>
+        {/* SELECTED MONTH: the card's title is the month the grid has
+            selected — the year stepper in the panel above is this view's
+            only period control, so no second stepper here. */}
+        <div data-testid="special-inspector" className="mt-3">
+          <PlannerDetailsCard eyebrow="Selected month" title={`${selected.label} ${year}`}>
+            <SpecialMonthSummary
+              stats={selected.stats}
+              buckets={selectedBuckets}
+              totalDays={selected.markers.length}
+              entries={selectedEntries}
+              displayNames={displayNames}
+              isAdmin={isAdmin}
+              onOpenMonth={() => onOpenWorkspace(selectedMonth)}
+              requestsHref="/leave?tab=requests&from=special"
+            />
+          </PlannerDetailsCard>
         </div>
         </div>
       </div>
@@ -367,18 +312,6 @@ export function SpecialLegendTrigger({ ruleIntro, ruleBullets }) {
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
     </LegendSheet>
-  )
-}
-
-function InspectorStat({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-start gap-2">
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-ink-muted" />
-      <span className="min-w-0">
-        <span className="block text-xs text-ink-muted">{label}</span>
-        <span className="block text-sm font-semibold text-ink">{value}</span>
-      </span>
-    </div>
   )
 }
 

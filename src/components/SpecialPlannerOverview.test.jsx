@@ -53,25 +53,61 @@ describe('SpecialPlannerOverview', () => {
     renderOverview()
     expect(grid().getAllByRole('button')).toHaveLength(12)
     expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(inspector().getByText('August 2026')).toBeInTheDocument()
+    expect(inspector().getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
   })
 
   it("lists the selected month's leave with type, period and status", () => {
     renderOverview()
-    // Scoped to the entries list: "Approved" is also a stat label in the
-    // rail above it, so an unscoped query is genuinely ambiguous here.
     const entries = within(screen.getByTestId('special-month-entries'))
     expect(entries.getByText('Ellis')).toBeInTheDocument()
     // Shortened: "Maternity", not "Maternity leave".
-    expect(entries.getByText(/^Maternity · /)).toBeInTheDocument()
+    expect(entries.getByText('Maternity')).toBeInTheDocument()
+    expect(entries.getByText('10–11 Aug')).toBeInTheDocument()
     expect(entries.getByText('Pending review')).toBeInTheDocument()
     expect(entries.getByText('Approved')).toBeInTheDocument()
   })
 
-  it('counts a multi-day request once in the approved/pending tallies', () => {
+  it('counts a multi-day request once in the requests-only stat row', () => {
     renderOverview()
     // Ellis spans 10-11 Aug but is one request, so approved reads 1 not 2.
-    expect(inspector().getByText(/1 approved · 1 pending/)).toBeInTheDocument()
+    const approved = inspector().getByText('Approved', { selector: 'p' }).parentElement
+    expect(approved).toHaveTextContent('1 request')
+    const pending = inspector().getByText('Pending', { selector: 'p' }).parentElement
+    expect(pending).toHaveTextContent('1 request')
+  })
+
+  // One period control per view: the year stepper in the panel. The card
+  // is titled by the month the grid has selected.
+  it('has the shared panel and a Selected month card with the guideline bar, an outlined Open month and a requests link', () => {
+    renderOverview()
+    const panel = screen.getByTestId('planner-request-panel')
+    expect(panel).toHaveTextContent('Special leave · Overview')
+    expect(within(panel).getByRole('button', { name: '2026, jump to year' })).toBeInTheDocument()
+    expect(within(panel).getByLabelText('Showing')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^August 2026/ })).not.toBeInTheDocument()
+
+    const card = inspector()
+    expect(card.getByText('Selected month')).toBeInTheDocument()
+    expect(card.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
+    expect(card.getByText('Special leave · 31 days')).toBeInTheDocument()
+    expect(card.getByText('0 days at guideline')).toBeInTheDocument()
+    expect(card.getByText('29 days · 0 of 3 used')).toBeInTheDocument()
+    expect(card.getByText('1 day · 1 of 3')).toBeInTheDocument()
+    expect(card.getByText('1 day · 2 of 3').closest('li')).not.toHaveClass('text-ink-muted/60')
+    expect(card.getByText('0 days · at guideline').closest('li')).toHaveClass('text-ink-muted/60')
+    expect(card.getByRole('button', { name: /Open month/ })).toHaveClass('btn-secondary')
+    expect(card.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/leave?tab=requests&from=special')
+    // Exactly one filled button on the page: the panel's own action.
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(0) // mockAuth has no canSubmitLeave
+  })
+
+  it('a doctor sees "My requests", and the one filled button is Request special leave', () => {
+    mockAuth = { isAdmin: false, canSubmitLeave: true }
+    renderOverview()
+    expect(inspector().getByRole('link', { name: 'My requests' })).toBeInTheDocument()
+    const desktop = document.querySelector('.hidden.lg\\:block')
+    expect(desktop.querySelectorAll('.btn-primary')).toHaveLength(1)
+    expect(desktop.querySelector('.btn-primary')).toHaveTextContent('Request special leave')
   })
 
   it('a second click on the already-selected month opens it, the first click just selects', async () => {
@@ -81,7 +117,7 @@ describe('SpecialPlannerOverview', () => {
 
     await user.click(grid().getByRole('button', { name: /^March/ }))
     expect(onOpenWorkspace).not.toHaveBeenCalled()
-    expect(inspector().getByText('March 2026')).toBeInTheDocument()
+    expect(inspector().getByRole('heading', { name: 'March 2026' })).toBeInTheDocument()
 
     await user.click(grid().getByRole('button', { name: /^March/ }))
     expect(onOpenWorkspace).toHaveBeenCalledWith(3)
@@ -99,7 +135,7 @@ describe('SpecialPlannerOverview', () => {
     const user = userEvent.setup()
     renderOverview()
     await user.click(grid().getByRole('button', { name: /^January/ }))
-    expect(inspector().getByText('No leave this month.')).toBeInTheDocument()
+    expect(inspector().getByText('No special leave booked or pending this month.')).toBeInTheDocument()
   })
 
   // Reported, never enforced — see SPECIAL_LEAVE_SOFT_CAP.
@@ -111,11 +147,11 @@ describe('SpecialPlannerOverview', () => {
       entry('p3', 'conference', '2026-08-10', '2026-08-10'),
     ]]])
     renderOverview({ leaveByDate: pressured })
-    expect(inspector().getByText('Above guideline')).toBeInTheDocument()
-    expect(inspector().getByText(/3\+ doctors on special leave at once/)).toBeInTheDocument()
+    expect(inspector().getByText('1 day at guideline')).toBeInTheDocument()
+    expect(inspector().getByText('1 day · at guideline').closest('li')).not.toHaveClass('text-ink-muted/60')
 
     await user.click(grid().getByRole('button', { name: /^January/ }))
-    expect(inspector().queryByText('Above guideline')).not.toBeInTheDocument()
+    expect(inspector().getByText('0 days at guideline')).toBeInTheDocument()
   })
 
   // ── Non-admin mobile month finder (mirrors the Annual tab's) ──────────

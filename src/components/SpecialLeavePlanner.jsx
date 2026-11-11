@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { buildLeaveByDate } from '../lib/leaveYearGrid'
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
-import { SPECIAL_LEAVE_TYPES, SPECIAL_LEAVE_SOFT_CAP, countSpecialLeavePressureDaysInYear } from '../lib/leaveRequests'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import SpecialPlannerOverview from './SpecialPlannerOverview'
 import SpecialMonthWorkspace from './SpecialMonthWorkspace'
@@ -158,26 +157,8 @@ export default function SpecialLeavePlanner() {
     setLoading(false)
   }
 
-  // The real number behind the InlineRuleHint's "no more than 3 doctors…"
-  // guideline sentence — reuses leaveByDate rather than a separate fetch,
-  // since it's already loaded for the whole year; just narrowed to
-  // SPECIAL_LEAVE_TYPES entries first (leaveByDate itself also carries
-  // sick/pending-annual rows the guideline isn't about).
-  const pressureDaysThisYear = useMemo(() => {
-    const specialOnlyByDate = new Map(
-      [...leaveByDate].map(([date, entries]) => [date, entries.filter(e => SPECIAL_LEAVE_TYPES.includes(e.leaveType))])
-    )
-    return countSpecialLeavePressureDaysInYear({ year, byDate: specialOnlyByDate, profileIdOf: e => e.profileId })
-  }, [leaveByDate, year])
-
   return (
     <div>
-      {!loading && !error && pressureDaysThisYear > 0 && (
-        <p className="mt-2 text-xs text-ink-muted">
-          <span className="font-semibold text-flagAmber">{pressureDaysThisYear}</span> day{pressureDaysThisYear === 1 ? '' : 's'} in {year} already {pressureDaysThisYear === 1 ? 'has' : 'have'} {SPECIAL_LEAVE_SOFT_CAP}+ doctors on special leave at once — above the informal guideline.
-        </p>
-      )}
-
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
       {!loading && !error && (

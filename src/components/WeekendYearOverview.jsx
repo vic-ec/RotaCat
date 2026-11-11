@@ -5,6 +5,8 @@ import { todayStr, parseLocalDate } from '../lib/dateRange'
 import { weekendCoverageSummary, formatWeekendRange, weekendExceptionsForMonth } from '../lib/weekendPlanner'
 import { monthWeekendMarkers, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerDetailsCard from './PlannerDetailsCard'
 
 // Small square fill + legend swatch + label per health state — kept to the
 // flagRed/flagAmber-bg+flagAmber/success-bg+success roster-state tokens
@@ -38,7 +40,8 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
   const months = monthsForYear(year)
   const monthCards = months.map(m => ({ ...m, markers: monthWeekendMarkers(m.year, m.month, byWeekend) }))
 
-  const selectedMarkers = monthCards[selectedMonth - 1].markers
+  const selected = monthCards[selectedMonth - 1]
+  const selectedMarkers = selected.markers
 
   // The nearest weekend (today or later) still short a role, across the
   // whole year already loaded here — not just the currently selected
@@ -52,14 +55,6 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
   const nextOpenWeekendCoverage = nextOpenWeekend ? weekendCoverageSummary(byWeekend.get(nextOpenWeekend)) : null
   const nextOpenWeekendTextClass = nextOpenWeekendCoverage?.filledGroups === 0 ? 'text-flagRed' : 'text-flagAmber'
 
-  // Selected-month chevrons/jump-sheet: DateStepper itself handles the
-  // Dec/Jan year rollover, calling back with whichever year the stepped-to
-  // month landed in — only forward that to onYearChange when it's actually
-  // different from the year this page is already browsing.
-  function handleSelectedMonthChange(y, m) {
-    if (y !== year) onYearChange(y)
-    setSelectedMonth(m)
-  }
   const selectedStats = {
     fullyPlanned: selectedMarkers.filter(m => m.health === 'green').length,
     partial: selectedMarkers.filter(m => m.health === 'amber').length,
@@ -105,22 +100,19 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
           ))}
         </div>
 
-        {/* One combined rail card — Selected month / Next weekend as
-            sections separated by a divider line, matching
-            AnnualPlannerOverview's single-inspector shape. No standalone
-            year selector: the Selected month jump sheet already has a year
-            stepper (and its own 12-year grid, one tap on the year label
-            away — see DateStepper's MonthJumpSheet) that fully covers
-            year navigation, and the year-wide totals a "Select year"
-            section used to show are redundant with the gap-count/complete
-            badges already on every month card in the grid. */}
-        <div className="order-first w-full flex-shrink-0 rounded-lg border border-slate-line bg-canvas-raised p-3 lg:order-none lg:sticky lg:top-4 lg:w-72">
-          <div data-testid="weekend-year-inspector">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-            <div className="mt-1">
-              <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
-            </div>
-
+        {/* The same rail every planner overview hangs beside its grid: the
+            request panel on top (here the year stepper alone — an admin has
+            no weekend-off request to make, and the eyebrow names the view)
+            and the SELECTED MONTH card under it, titled by the month the
+            grid has selected. The year stepper is this view's only period
+            control. */}
+        <div className={PANEL_RAIL}>
+          <PlannerRequestPanel
+            eyebrow="Weekends · Overview"
+            stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
+          />
+          <div data-testid="weekend-year-inspector" className="mt-3">
+          <PlannerDetailsCard eyebrow="Selected month" title={`${selected.label} ${year}`}>
             <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-line pt-2">
               <StatCell label="Fully staffed" value={selectedStats.fullyPlanned} colorClass="text-success" bgClass="bg-success-bg ring-1 ring-inset ring-success/45" />
               <StatCell label="Need staff" value={selectedStats.partial} colorClass="text-flagAmber" bgClass="bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45" />
@@ -131,14 +123,10 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
                 counts and Open month, because they qualify those counts: a
                 pending exception means the plan above isn't settled yet.
                 Both approved and pending are listed (pending italicised and
-                badged, matching the leave planners' pending treatment), and
-                a boundary-straddling weekend appears under both its months.
-                These are NOT special leave and carry no special-leave
-                capacity weight — they're an exception to WHICH weekend a
-                doctor works, still approved via Planners -> Requests. The
-                section is omitted entirely when the month has none, rather
-                than showing an empty-state line, so the common case keeps
-                the rail short. */}
+                badged), and a boundary-straddling weekend appears under both
+                its months. These are NOT special leave and carry no
+                special-leave capacity weight. Omitted entirely when the
+                month has none. */}
             {selectedExceptions.length > 0 && (
               <div data-testid="weekend-exception-list" className="mt-2 border-t border-slate-line pt-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
@@ -169,13 +157,16 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
               </div>
             )}
 
+            {/* Outlined: the one filled button on this page is Plan now,
+                the action on the weekend that most needs it. */}
             <button
               type="button"
               onClick={() => onOpenMonth(selectedMonth)}
-              className="btn-primary mt-2 flex w-full items-center justify-center gap-1.5 text-sm"
+              className="btn-secondary mt-3 flex w-full items-center justify-center gap-1.5 text-sm"
             >
               <ExternalLink className="h-3.5 w-3.5" /> Open month
             </button>
+          </PlannerDetailsCard>
           </div>
 
           {/* Next weekend needing staff — finding the nearest open weekend
@@ -187,8 +178,8 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
               date line (nextOpenWeekendTextClass), not a full tinted
               section background — matches Annual's plain-section styling. */}
           {nextOpenWeekend && (
-            <div className="mt-3 border-t border-slate-line pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
+            <div className="card mt-3 p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Next weekend needing staff</p>
               <p className={`mt-0.5 text-base font-semibold ${nextOpenWeekendTextClass}`}>{formatWeekendRange(nextOpenWeekend)}</p>
               <p className="mt-1 text-sm text-ink-light">
                 {nextOpenWeekendCoverage.filledGroups} of {nextOpenWeekendCoverage.totalGroups} groups staffed

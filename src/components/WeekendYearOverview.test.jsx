@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeekendYearOverview from './WeekendYearOverview'
+
+// The request panel reads canSubmitLeave; an admin has no weekend-off
+// request to make, so the panel is the year stepper alone.
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, canSubmitLeave: false }) }))
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
 
 // The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
@@ -48,7 +52,8 @@ describe('WeekendYearOverview', () => {
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
 
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    expect(inspector.getByText('August 2026')).toBeInTheDocument()
+    expect(inspector.getByText('Selected month')).toBeInTheDocument()
+    expect(inspector.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
     // aug1 fully planned, aug8 needs staff, aug15/22/29 empty — the inspector
     // only shows the selected month's own stats now, so each label is unique.
     expect(inspector.getByText('Fully staffed').closest('div')).toHaveTextContent('1')
@@ -56,10 +61,21 @@ describe('WeekendYearOverview', () => {
     expect(inspector.getByText('No staff').closest('div')).toHaveTextContent('3')
   })
 
-  it('there is no standalone Select year section — year navigation lives in the Selected month jump sheet', () => {
-    renderOverview()
+  it('the panel holds the year stepper, the one period control, with no Today and no request action for an admin', async () => {
+    const user = userEvent.setup()
+    const onYearChange = vi.fn()
+    renderOverview({ onYearChange })
     expect(screen.queryByTestId('weekend-year-stats')).not.toBeInTheDocument()
     expect(screen.queryByText('Select year')).not.toBeInTheDocument()
+    const panel = screen.getByTestId('planner-request-panel')
+    expect(panel).toHaveTextContent('Weekends · Overview')
+    expect(within(panel).getByRole('button', { name: `${YEAR}, jump to year` })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+    expect(panel.querySelector('.btn-primary')).toBeNull()
+    await user.click(within(panel).getByRole('button', { name: 'Next year' }))
+    expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
+    // The card has no stepper of its own.
+    expect(within(screen.getByTestId('weekend-year-inspector')).queryByRole('button', { name: 'Next month' })).not.toBeInTheDocument()
   })
 
   it('marks a fully-planned weekend with a check badge instead of a gap-count badge', () => {
@@ -82,7 +98,7 @@ describe('WeekendYearOverview', () => {
     await user.click(grid().getByRole('button', { name: /^January/ }))
     expect(onOpenMonth).not.toHaveBeenCalled()
     const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    expect(inspector.getByText('January 2026')).toBeInTheDocument()
+    expect(inspector.getByRole('heading', { name: 'January 2026' })).toBeInTheDocument()
     expect(grid().getByRole('button', { name: /^January/ })).toHaveAttribute('aria-pressed', 'true')
     expect(grid().getByRole('button', { name: /^August/ })).toHaveAttribute('aria-pressed', 'false')
   })
@@ -97,39 +113,27 @@ describe('WeekendYearOverview', () => {
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
-  it('the inspector\'s "Open month" button opens the selected month', async () => {
+  it('the card\'s outlined "Open month" opens the selected month, leaving Plan now the one filled button', async () => {
     const user = userEvent.setup()
     const onOpenMonth = vi.fn()
     renderOverview({ onOpenMonth })
 
-    await user.click(screen.getByRole('button', { name: 'Open month' }))
+    const open = screen.getByRole('button', { name: 'Open month' })
+    expect(open).toHaveClass('btn-secondary')
+    await user.click(open)
     expect(onOpenMonth).toHaveBeenCalledWith(8)
+    const filled = [...document.querySelectorAll('.btn-primary')]
+    expect(filled.map(b => b.textContent.trim())).toEqual(['Plan now'])
   })
 
-  it('stepping the Selected month panel past a year boundary calls onYearChange', async () => {
+  it('the year stepper\'s label opens a jump-to-year sheet', async () => {
     const user = userEvent.setup()
     const onYearChange = vi.fn()
-    // year 2020 (not "today"'s real year) so selectedMonth deterministically
-    // starts at January.
-    renderOverview({ year: 2020, onYearChange })
-
-    const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    await user.click(inspector.getByRole('button', { name: 'Previous month' }))
-    expect(onYearChange).toHaveBeenCalledWith(2019)
-  })
-
-  it('Selected month panel has chevrons and a jump-to-month sheet, independent of the year selector above', async () => {
-    const user = userEvent.setup()
-    renderOverview()
-    const inspector = within(screen.getByTestId('weekend-year-inspector'))
-
-    await user.click(inspector.getByRole('button', { name: 'Next month' }))
-    expect(inspector.getByText('September 2026')).toBeInTheDocument()
-
-    await user.click(inspector.getByRole('button', { name: /^September 2026/ }))
-    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
-    await user.click(sheet.getByRole('button', { name: 'March' }))
-    expect(inspector.getByText('March 2026')).toBeInTheDocument()
+    renderOverview({ onYearChange })
+    await user.click(screen.getByRole('button', { name: `${YEAR}, jump to year` }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to year' }))
+    await user.click(sheet.getByRole('button', { name: String(YEAR + 1) }))
+    expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
   })
 
   it('shows a gap-count badge for a needs-staff/empty weekend, omitted for a fully-planned one', () => {

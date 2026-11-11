@@ -24,7 +24,8 @@ import DateStepper from './DateStepper'
 import LegendSheet from './LegendSheet'
 import PageActionsMenu from './PageActionsMenu'
 import { ActionSheet, ActionSheetButton } from './ActionSheet'
-import Toolbar from './Toolbar'
+import PlannerToolbar from './PlannerToolbar'
+import PlannerDetailsCard from './PlannerDetailsCard'
 import SelectMenu from './SelectMenu'
 import Modal from './Modal'
 import LeaveRequestForm from './LeaveRequestForm'
@@ -388,8 +389,9 @@ function WeekendInspector({
 }
 
 // Mobile-only read-only quick-glance for a weekend, opened by tapping a
-// card's date header — mirrors LeaveYearGrid.jsx's DayDetailSheet (fixed
-// inset-0, the shared `scrim` class, items-end on mobile / items-center on desktop). This
+// card's date header — the SELECTED WEEKEND bottom sheet (ActionSheet),
+// never a centred popup, the same container PlannerDetailsCard gives the
+// leave planners' day details below lg. This
 // is deliberately NOT a replacement for the mobile card's own
 // always-expanded, fully editable breakdown below it (which stays exactly
 // as-is): that inline view already has everything, admin controls
@@ -404,15 +406,10 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
   const badge = weekendBadge(saturday, weekendIndex)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
-      <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h2 className="font-display text-base font-bold text-ink">{formatWeekendRange(saturday)}</h2>
-            <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
-          </div>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
-        </div>
+    <ActionSheet title="Selected weekend" onClose={onClose}>
+      <div className="px-3 pb-3 pt-1">
+        <h2 className="font-display text-base font-bold text-ink">{formatWeekendRange(saturday)}</h2>
+        <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.chip}`}>{badge.label}</span>
 
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-line pt-3">
           <span className="text-sm text-ink-muted">Overall status</span>
@@ -438,7 +435,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
           ))}
         </div>
       </div>
-    </div>
+    </ActionSheet>
   )
 }
 
@@ -603,21 +600,16 @@ function MonthExceptionsPanel({ exceptions, displayNames }) {
 }
 
 // One weekend's exception requests, opened from that weekend's warning
-// icon. Same sheet shell as WeekendDetailSheet above, and the same row
+// icon. A bottom sheet, as WeekendDetailSheet above, and the same row
 // shape as the Annual/Special planners' day views (name, then category and
 // period muted beside it, status right-aligned) so a request row reads
 // identically wherever it appears.
 function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
-      <div className="card w-full max-w-md rounded-b-none p-5 sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">Weekend off requests</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
-        </div>
-        <p className="mt-1 text-sm text-ink-muted">{formatWeekendRange(saturday)}</p>
-
-        <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
+    <ActionSheet title={formatWeekendRange(saturday)} onClose={onClose}>
+      <div className="px-3 pb-3 pt-1">
+        <h2 className="font-display text-base font-bold text-ink">Weekend off requests</h2>
+        <ul className="mt-3 divide-y divide-slate-line border-t border-slate-line">
           {exceptions.map(req => {
             const isPending = req.status === 'pending'
             return (
@@ -639,7 +631,7 @@ function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose })
           })}
         </ul>
       </div>
-    </div>
+    </ActionSheet>
   )
 }
 
@@ -1546,29 +1538,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }
 
   const defaultFilter = isAdmin || isClerk ? 'all' : 'mine'
-  // A function, not a single element — mobile keeps this as its own
-  // standalone row (default `mb-4` spacing), while desktop instead embeds
-  // it as one flex item inline with the nav row below (`className=""`, its
-  // own margin would just misalign against nav-row siblings that don't
-  // carry one) — two different layouts sharing the same underlying search/
-  // filter state, not two different controls.
-  // Scope moved out to the Showing picker beside the month nav, so the
-  // toolbar is just the search now. Without `compact` it takes Toolbar's
-  // standard 320px, which is the inspector's own width — and since it is
-  // the right-hand child of a justify-between row whose width the inspector
-  // also ends at, the two line up on both edges.
-  function renderToolbar(className) {
-    return (
-      <Toolbar
-        className={className}
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search name…"
-        active={Boolean(searchQuery)}
-        onClearAll={() => setSearchQuery('')}
-      />
-    )
-  }
 
   // The month stepper, "Showing", and the one action this page never
   // offered, in the same panel shape the other two planners use — the year
@@ -1581,7 +1550,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
     return (
       <PlannerRequestPanel
         className={className}
-        eyebrow={`Weekend planner · ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`}
+        eyebrow="Weekends · Month"
         stepper={<DateStepper unit="month" year={viewYear} month={viewMonth} onChange={goToMonth} showToday={false} centered />}
         actionLabel="Request weekend off"
         onAction={() => setRequestOpen(true)}
@@ -1654,14 +1623,15 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 trigger is information, not an action, so it gets its own
                 caption line rather than competing with the link for the
                 row. */}
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            {/* Panel first, then the toolbar row, then the weekends — the
+                order every planner month view keeps on a phone. The panel
+                holds the month stepper, Showing and the request action;
+                search and the admin actions are in the FAB. */}
+            <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-line pb-3">
               {renderBackLink()}
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
-            {/* Above the weekends, as on the overview: the month stepper,
-                Showing, and the request action, in one panel. Search and
-                the admin actions are in the FAB. */}
-            <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
             {/* Fixed-positioned, so where it sits in this block is
                 immaterial. The Legend trigger deliberately stays out of it
                 (see the row above: information, not an action), so
@@ -1805,15 +1775,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {/* ── Desktop: weekend-first summary table + inspector (see file-level comment for rationale) ── */}
           <div className="hidden lg:block" data-testid="weekend-desktop">
-            {/* One toolbar row: back out of the month, then the search that
-                narrows the table, then the admin extras. The month stepper
-                and the scope picker both live in the rail panel beside the
-                table, as on the overview — not loose up here. */}
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-slate-line pb-3">
-              {renderBackLink()}
-              <div className="min-w-0">{renderToolbar('')}</div>
-              {isAdmin && (
-                <div className="flex items-center gap-3">
+            {/* The one toolbar every planner month view shares: back out of
+                the month, the search that narrows the table, the live
+                coverage-count Legend, and — in the slot a planner with a
+                second view would give its toggle — the admin's More
+                Actions. The month stepper and the scope picker live in the
+                rail panel beside the table, as on the overview. */}
+            <div className="mt-6">
+              <PlannerToolbar
+                onBack={onBackToYear}
+                search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+                legend={<MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />}
+                viewToggle={isAdmin && (
                   <PageActionsMenu
                     items={weekendMenuItems}
                     trigger={(onClick, open) => (
@@ -1822,9 +1795,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                       </button>
                     )}
                   />
-                  <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
-                </div>
-              )}
+                )}
+              />
             </div>
 
             <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
@@ -1927,9 +1899,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               </div>
 
               <div className={PANEL_RAIL}>
-              {renderRequestPanel('weekend-scope-desktop', 'mb-3')}
-              <div className="rounded-lg border border-slate-line p-4">
-                {inspectorSaturday ? (
+              {renderRequestPanel('weekend-scope-desktop')}
+              <PlannerDetailsCard className="mt-3" eyebrow="Selected weekend" emptyMessage="Select a weekend to see details.">
+                {inspectorSaturday && (
                   <WeekendInspector
                     saturday={inspectorSaturday}
                     weekendIndex={monthSaturdays.indexOf(inspectorSaturday) + 1}
@@ -1948,10 +1920,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     hasWeekendClipboard={clipboard?.granularity === 'weekend'}
                     onOpenAddDoctor={groupKey => setOpenRolePicker({ saturday: inspectorSaturday, groupKey })}
                   />
-                ) : (
-                  <p className="text-sm text-ink-muted">Select a weekend to see details.</p>
                 )}
-              </div>
+              </PlannerDetailsCard>
               </div>
             </div>
           </div>

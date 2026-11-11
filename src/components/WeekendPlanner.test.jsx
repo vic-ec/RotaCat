@@ -162,16 +162,10 @@ describe('WeekendPlanner', () => {
     renderPlanner()
     await screen.findByText('Weekend Planner')
 
-    // No standalone year stepper anymore — jump to a year via the Selected
-    // month panel's own jump sheet (label -> swap to year grid -> pick a
-    // year -> pick a month, which is what actually fires onChange).
-    const inspector = within(screen.getByTestId('weekend-year-inspector'))
-    await user.click(inspector.getByRole('button', { name: /2026/ }))
-    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
-    await user.click(sheet.getByRole('button', { name: '2026' }))
-    await user.click(sheet.getByRole('button', { name: '2027' }))
-    await user.click(sheet.getByRole('button', { name: 'January' }))
-    expect(await within(screen.getByTestId('weekend-year-inspector')).findByText('January 2027')).toBeInTheDocument()
+    // The panel's year stepper is the view's one period control; the
+    // Selected month card is titled by the month the grid has selected.
+    await user.click(screen.getByRole('button', { name: 'Next year' }))
+    expect(await within(screen.getByTestId('weekend-year-inspector')).findByRole('heading', { name: 'January 2027' })).toBeInTheDocument()
   })
 
   // The Showing picker on the year view and the month view's filter chips

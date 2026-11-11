@@ -212,9 +212,10 @@ describe('WeekendPlannerView', () => {
       expect(stepper).toHaveClass('btn-utility', 'w-full')
       expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-      // The panel precedes the list, and the back link precedes the panel.
-      expect(panel.compareDocumentPosition(view.getByTestId('weekend-mobile-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(view.getByRole('button', { name: 'Overview' }).compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      // Panel first, then the toolbar row with the back link, then the list.
+      const back = view.getByRole('button', { name: 'Overview' })
+      expect(panel.compareDocumentPosition(back) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(back.compareDocumentPosition(view.getByTestId('weekend-mobile-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it('mobile: Review log lives inside the FAB\'s More actions sheet, and still opens the review log', async () => {
@@ -829,14 +830,19 @@ describe('WeekendPlannerView', () => {
       }
     })
 
-    it('inspector: no "Selected weekend" label — the date is the panel\'s own heading', async () => {
+    it('inspector: sits in the shared SELECTED WEEKEND card under the panel, the date as its own heading', async () => {
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
+      const card = view.getByTestId('planner-details-card')
+      expect(within(card).getByText('Selected weekend')).toBeInTheDocument()
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).queryByText('Selected weekend')).not.toBeInTheDocument()
+      expect(card).toContainElement(inspector)
       expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
+      const panel = view.getByTestId('planner-request-panel')
+      expect(panel.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(panel).toHaveTextContent('Weekends · Month')
     })
 
     it('inspector: the Wknd parity badge sits beneath the date, not beside it', async () => {
@@ -1004,33 +1010,22 @@ describe('WeekendPlannerView', () => {
       expect(panel.parentElement).not.toHaveClass('w-80')
     })
 
-    it('desktop: search+filter share one row with the month nav/More Actions/Legend cluster, and the search field is width-capped rather than stretching full width', async () => {
+    it('desktop: the shared toolbar — back link, a width-capped search, the Legend counts and More Actions in one row, the stepper in the rail', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
 
-      // Regression: search+filter used to render as their own row above the
-      // nav row, with nothing tying them together — the search field, alone
-      // in its row, stretched across nearly the full table width. Now the
-      // back link, search and More Actions share one flex row (the month
-      // stepper itself lives in the rail panel, see the test above).
-      // The Filter trigger's own `.md\\:flex` row (the desktop, not mobile,
-      // half of Toolbar) is where the desktop-facing search input lives —
-      // scoped this way since the placeholder text alone would otherwise
-      // also match Toolbar's own internal mobile-half input.
-      const searchInput = view.getAllByPlaceholderText('Search name…').find(el => el.closest('div.md\\:flex'))
-      const moreActionsButton = view.getByRole('button', { name: 'More Actions' })
-
-      const row = searchInput.closest('div.border-b')
-      expect(row).not.toBeNull()
-      expect(row.contains(moreActionsButton)).toBe(true)
+      const toolbar = view.getByTestId('planner-toolbar')
+      const row = toolbar.firstElementChild
+      expect(row).toHaveClass('h-11')
+      expect(row.contains(view.getByRole('button', { name: 'Overview' }))).toBe(true)
+      expect(row.contains(view.getByRole('button', { name: 'More Actions' }))).toBe(true)
+      expect(row.contains(view.getByRole('button', { name: 'Legend and how it works' }))).toBe(true)
       expect(row.contains(view.getByRole('button', { name: /^August 2026/ }))).toBe(false)
-
-      // Toolbar's standard 320px, not the old capped-and-shrinkable
-      // `compact` width — it is the inspector's own width, and the row's
-      // right edge is the inspector's right edge, so the two line up.
-      expect(searchInput.closest('div.w-80')).not.toBeNull()
+      // The desktop field is capped, not stretched across the table.
+      const searchInput = view.getByRole('searchbox', { name: 'Search name' })
+      expect(searchInput.closest('div.w-64')).not.toBeNull()
     })
 
     it('desktop: the Legend trigger next to More Actions opens a sheet with "How it works" as its footer', async () => {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
@@ -11,6 +12,7 @@ import DateStepper from './DateStepper'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerDetailsCard from './PlannerDetailsCard'
 import LegendSheet from './LegendSheet'
 import SelectMenu from './SelectMenu'
 import { LegendIcon } from './PlannerIcons'
@@ -129,7 +131,8 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
     staffingMarkers: monthStaffingMarkers(m.year, m.month, byWeekend),
   }))
 
-  const selectedTotals = monthTotals(monthCards[selectedMonth - 1].markers)
+  const selected = monthCards[selectedMonth - 1]
+  const selectedTotals = monthTotals(selected.markers)
 
   // Current month first, then the rest of the year, then what's already
   // been and gone — the same split the Annual and Special planners' mobile
@@ -143,15 +146,6 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   const previousMonthCards = todayYear === year
     ? monthCards.filter(m => m.month < currentMonth)
     : year < todayYear ? monthCards : []
-
-  // Selected-month chevrons/jump-sheet: DateStepper itself handles the
-  // Dec/Jan year rollover, calling back with whichever year the stepped-to
-  // month landed in — only forward that to onYearChange when it's actually
-  // different from the year this page is already browsing.
-  function handleSelectedMonthChange(y, m) {
-    if (y !== year) onYearChange(y)
-    setSelectedMonth(m)
-  }
 
   // Behind an icon rather than spelled out across the toolbar, as on the
   // Annual and Special planners — four colour names ate the row this page
@@ -178,7 +172,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
   function renderRequestPanel(id) {
     return (
       <PlannerRequestPanel
-        eyebrow={`Weekend planner · ${year}`}
+        eyebrow="Weekends · Overview"
         stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
         actionLabel="Request weekend off"
         onAction={() => setRequestOpen(true)}
@@ -271,42 +265,45 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
             w-80 — a bare one lost to w-full and starved the grid. */}
         <div className={PANEL_RAIL}>
         {renderRequestPanel('weekend-scope-desktop')}
-        <div
-          data-testid="my-weekend-year-inspector"
-          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <div className="mt-1">
-            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
-          </div>
-
-          <div className="mt-3 space-y-3 border-t border-slate-line pt-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-ink-muted">Weekends working</span>
-              <span className="font-medium text-accent">{selectedTotals.working}</span>
-            </div>
-            {/* Requests split by status rather than the old pending-only
-                line: an approved weekend off is the outcome a doctor comes
-                here to confirm, and it used to be readable nowhere. */}
-            <div>
+        {/* SELECTED MONTH: titled by the month the grid has selected — the
+            year stepper in the panel above is this view's only period
+            control, so no second stepper here. */}
+        <div data-testid="my-weekend-year-inspector" className="mt-3">
+          <PlannerDetailsCard eyebrow="Selected month" title={`${selected.label} ${year}`}>
+            <div className="mt-3 space-y-3 border-t border-slate-line pt-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-muted">Weekend off requests</span>
-                <span className="font-medium text-ink">{selectedTotals.pending + selectedTotals.approved}</span>
+                <span className="text-ink-muted">Weekends working</span>
+                <span className="font-medium text-accent">{selectedTotals.working}</span>
               </div>
-              <p className="mt-1 flex flex-wrap gap-x-3 text-xs">
-                <span className="text-flagAmber">{selectedTotals.pending} pending</span>
-                <span className="text-success">{selectedTotals.approved} approved</span>
-              </p>
+              {/* Requests split by status rather than the old pending-only
+                  line: an approved weekend off is the outcome a doctor comes
+                  here to confirm, and it used to be readable nowhere. */}
+              <div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-ink-muted">Weekend off requests</span>
+                  <span className="font-medium text-ink">{selectedTotals.pending + selectedTotals.approved}</span>
+                </div>
+                <p className="mt-1 flex flex-wrap gap-x-3 text-xs">
+                  <span className="text-flagAmber">{selectedTotals.pending} pending</span>
+                  <span className="text-success">{selectedTotals.approved} approved</span>
+                </p>
+              </div>
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => onOpenMonth(selectedMonth)}
-            className="btn-primary mt-4 flex w-full items-center justify-center gap-1.5 text-sm"
-          >
-            <ExternalLink className="h-3.5 w-3.5" /> Open month
-          </button>
+            {/* Outlined: the panel's primary action is the one filled button. */}
+            <button
+              type="button"
+              onClick={() => onOpenMonth(selectedMonth)}
+              className="btn-secondary mt-4 flex w-full items-center justify-center gap-1.5 text-sm"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open month
+            </button>
+            <p className="mt-2 text-center text-xs">
+              <Link to="/leave?tab=requests&from=weekends" className="font-medium text-accent underline-offset-2 hover:underline">
+                My requests
+              </Link>
+            </p>
+          </PlannerDetailsCard>
         </div>
         </div>
       </div>

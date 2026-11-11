@@ -1,47 +1,42 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
+import { todayStr } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
-  weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
-  splitForOverflow,
+  totalLeaveSlotsForDate,
 } from '../lib/leaveYearGrid'
 import {
-  dayEntriesByColumn, dayCapacitySummary, daysWithRoomForCategory, categoryPressureState,
-  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates, genericDayAvailabilityLine,
+  dayEntriesByColumn, dayCapacitySummary, daysWithRoomForCategory, categoryPressureState, myCategoryLegendStates,
 } from '../lib/monthWorkspace'
+import { daysBySlotsUsed } from '../lib/plannerCalendar'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
-import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
-import { annualDaysSummary } from '../lib/leaveRequests'
-import CategoryBadge, { CategoryOverflowChip } from './CategoryBadge'
+import CategoryBadge from './CategoryBadge'
 import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerToolbar from './PlannerToolbar'
+import PlannerCalendarGrid from './PlannerCalendarGrid'
+import PlannerDetailsCard from './PlannerDetailsCard'
+import CapacityBar from './CapacityBar'
+import DayDetails from './annual/DayDetails'
 import DateStepper from './DateStepper'
 import { LegendIcon } from './PlannerIcons'
 import LegendSheet from './LegendSheet'
-import LeaveCapacityBanner from './LeaveCapacityBanner'
 import LeaveRequestForm from './LeaveRequestForm'
 import Modal from './Modal'
 import SelectMenu from './SelectMenu'
-import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 
-function hasWarnings(w) {
-  return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning) || Boolean(w.capacityWarning))
-}
-
-// The Annual planner's detailed single-month view — opened from the year
-// overview's "Open month workspace" action (or its Month toggle) for
-// whichever month was selected there. A real calendar grid (full weekday
-// names, week rows), not the old day-row spreadsheet: reading surnames and
-// checking capacity happen straight off the grid, and clicking a day opens
-// a review panel for reading pending requests, approving/rejecting them
-// (with the same Tier-2 warnings and a capacity-breach check surfaced),
-// and submitting new leave for that day.
+// The Annual planner's single-month view — opened from the year overview's
+// "Open month" action for whichever month was selected there. Built on the
+// blocks every planner month view shares: PlannerToolbar above, the
+// Monday-first PlannerCalendarGrid beside a rail holding the request panel
+// (month stepper, Showing, the room-for-your-category headline, the
+// month's capacity bar, Request annual leave) and the SELECTED DAY card
+// (DayDetails: the day's reading, who is on leave, the admin's pending
+// review, and the way to ask). On a phone the panel comes first, then the
+// toolbar, then the grid, and a tapped day opens DayDetails in a bottom
+// sheet instead of the rail card.
 //
 // Reuses the same year-wide fetch AnnualLeavePlanner.jsx already holds for
 // the overview (approvedByDate/pendingByDate/etc.) rather than fetching
@@ -56,35 +51,25 @@ export default function MonthWorkspace({
   // Consultant leave is only ever visible to an admin (or another
   // Consultant — see EC_LEAVE_PLANNER_RULES.md's Consultant privacy rule),
   // so a non-admin viewer shouldn't see the category referenced at all —
-  // neither in this legend nor in DayReviewModal's per-category breakdown
-  // (which has its own identical filter, since it gets isAdmin from its
-  // own useAuth() call rather than as a prop from here).
+  // neither in this legend nor in DayDetails' per-category list (which has
+  // its own identical filter off its own useAuth() call).
   const legendColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
 
   // First of the month being VIEWED (not today) — an Intern's own column
   // here should reflect whichever rotation covers the month this workspace
   // is currently showing, so browsing into a future/past month with a
   // different rotation reads correctly rather than always showing today's.
-  const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
-
-  // The mobile day-cell grid (MobileDayCell, <lg) fills each day by the
-  // viewer's own pool for a non-admin doctor with a resolvable capacity
-  // column, instead of the generic cross-category total — see
-  // myCategoryCapacityStateForDate. Admins, and anyone without a category
-  // column (Consultant, no profile), keep the generic total-based read
-  // everywhere, including on their own mobile view — their job there is
-  // still cross-category exception spotting, not personal planning. The
-  // desktop grid (DayCell, lg+) always stays generic regardless of role.
+  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`
+  const monthStartDate = `${monthPrefix}-01`
   const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
-  const personalizeFill = !isAdmin && Boolean(myColumnDef)
-  const mobileLegendStates = personalizeFill ? myCategoryLegendStates(myColumnKey) : LEAVE_CAPACITY_STATES
+  const mobileLegendStates = !isAdmin && myColumnDef ? myCategoryLegendStates(myColumnKey) : LEAVE_CAPACITY_STATES
 
-  // Which day's review sheet is open lives in the URL (`day=YYYY-MM-DD`),
-  // not plain useState — same reasoning as AnnualLeavePlanner.jsx's
+  // Which day is selected lives in the URL (`day=YYYY-MM-DD`), not plain
+  // useState — same reasoning as AnnualLeavePlanner.jsx's
   // ayear/aview/amonth: a backgrounded mobile browser/PWA can get killed and
   // reloaded by the OS at any time, and the URL is what survives that,
-  // reopening this same day's sheet instead of silently closing it.
+  // reopening this same day's details instead of silently losing it.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedDate = searchParams.get('day')
 
@@ -98,200 +83,202 @@ export default function MonthWorkspace({
   }
 
   const today = todayStr()
-  const weeks = weeksForMonth(year, month)
-  const monthLabel = monthsForYear(year)[month - 1].label
+  const [searchQuery, setSearchQuery] = useState('')
 
-  // highlightDate seeds the initially-open day (e.g. the Requests queue's
-  // "View Calendar" action landing straight on that request's date) — a
-  // one-shot: only writes `day` into the URL if nothing's open there yet
-  // (a reload with an already-open day should keep showing that day, not
-  // get overridden by a stale highlight prop).
+  // highlightDate seeds the initially-selected day (e.g. the Requests
+  // queue's "View Calendar" action landing straight on that request's date)
+  // — a one-shot: only writes `day` into the URL if nothing's selected yet
+  // (a reload with an already-selected day should keep showing that day,
+  // not get overridden by a stale highlight prop).
   useEffect(() => {
     if (highlightDate && !selectedDate) setSelectedDate(highlightDate)
     if (highlightDate) onHighlightConsumed?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only ever run once on mount, consuming whatever highlightDate this instance was seeded with
   }, [])
 
-  // "Request leave" from the mobile Your Leave card (below) should open the
-  // same in-context form as tapping a day and hitting "Request annual leave
-  // for this day" — not send the doctor off to the separate My Leave tab.
-  // Picks today if it falls in the month being viewed, else the 1st, so the
-  // date fields still start prefilled with something sensible for a future
-  // month the doctor is just browsing ahead into.
-  const [openRequestFormOnOpen, setOpenRequestFormOnOpen] = useState(false)
-  function openRequestLeave() {
+  // The request form, prefilled with a day: from the panel's primary
+  // action (today if it falls in the month being viewed, else the 1st, so
+  // the date fields still start with something sensible for a future month
+  // the doctor is just browsing ahead into) or from the selected day's own
+  // "Request leave from this day" / "Submit for admin approval".
+  const [requestFormDate, setRequestFormDate] = useState(null)
+  function openRequestLeave(date) {
+    if (date) { setRequestFormDate(date); return }
     const isCurrentMonth = year === Number(today.slice(0, 4)) && month === Number(today.slice(5, 7))
-    setOpenRequestFormOnOpen(true)
-    setSelectedDate(isCurrentMonth ? today : `${year}-${String(month).padStart(2, '0')}-01`)
+    setRequestFormDate(isCurrentMonth ? today : monthStartDate)
   }
+
+  // One cell per day for the shared grid: the day's true combined count
+  // (the pips are the same four-state scale for everyone), the public
+  // holiday, and the names — read straight off the grid on a desktop,
+  // narrowed by the toolbar search. Capacity itself never narrows: a
+  // search for one surname still shows every day's real pips.
+  const query = searchQuery.trim().toLowerCase()
+  const gridCells = new Map()
+  const datesWithLeave = new Set([...approvedByDate.keys(), ...pendingByDate.keys()].filter(d => d.startsWith(monthPrefix)))
+  for (const date of datesWithLeave) {
+    const byColumn = dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId)
+    const names = []
+    for (const [key, columnEntries] of byColumn) {
+      if (!legendColumns.some(c => c.key === key)) continue
+      for (const e of columnEntries) {
+        const label = displayNames.get(e.profileId) ?? e.surname
+        if (query && !label.toLowerCase().includes(query)) continue
+        names.push({ key: `${e.profileId}-${e.status}`, label, badge: COLUMN_BADGE_LABEL[key], pending: e.status === 'pending' })
+      }
+    }
+    gridCells.set(date, { used: totalLeaveSlotsForDate(date, countByColumnPerDate), names })
+  }
+  for (const [date, phName] of publicHolidaysByDate) {
+    if (!date.startsWith(monthPrefix)) continue
+    gridCells.set(date, { ...(gridCells.get(date) ?? { used: totalLeaveSlotsForDate(date, countByColumnPerDate), names: [] }), isPublicHoliday: true, phName })
+  }
+  const monthBuckets = daysBySlotsUsed(year, month, d => totalLeaveSlotsForDate(d, countByColumnPerDate))
+
+  const legendSheet = (
+    <LegendSheet
+      trigger={onClick => (
+        <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
+          <LegendIcon className="h-4 w-4" />
+        </button>
+      )}
+      ruleIntro={ruleHintIntro}
+      ruleBullets={ruleHintBullets}
+    >
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
+        {legendColumns.map(col => (
+          <span key={col.key} className="flex items-center gap-1.5">
+            <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
+            {col.label}
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
+      </div>
+      {/* Two variants, gated by viewport: the phone cells' pips are the
+          generic four-state scale too, but a non-admin's own pool only
+          ever reaches three of those states, so the phone legend lists
+          just the ones their own room can show. */}
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
+        {mobileLegendStates.map(state => (
+          <span key={state.key} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
+          </span>
+        ))}
+      </div>
+      <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
+        {LEAVE_CAPACITY_STATES.map(state => (
+          <span key={state.key} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
+          </span>
+        ))}
+      </div>
+    </LegendSheet>
+  )
+
+  const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
   return (
     <div>
-      {/* Just the way back and the Legend up here: the month stepper lives
-          in the request panel beside the grid, as on the overview. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-light hover:text-ink"
-        >
-          <ChevronLeft className="h-4 w-4 flex-shrink-0" /> Overview
-        </button>
-        <LegendSheet
-          trigger={onClick => (
-            <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0">
-              <LegendIcon className="h-4 w-4" />
-            </button>
-          )}
-          ruleIntro={ruleHintIntro}
-          ruleBullets={ruleHintBullets}
-        >
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
-            {legendColumns.map(col => (
-              <span key={col.key} className="flex items-center gap-1.5">
-                <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
-                {col.label}
-              </span>
-            ))}
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
-          </div>
-          {/* Two variants, gated by viewport rather than role directly —
-              this mirrors which day-cell grid (DayCell vs MobileDayCell)
-              each breakpoint actually shows below, so the legend always
-              matches the fill colours the viewer can currently see: the
-              desktop grid stays generic for everyone, so its legend does
-              too, while the mobile grid personalises for a non-admin
-              viewer with a category, so its legend follows suit. */}
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:hidden">
-            {mobileLegendStates.map(state => (
-              <span key={state.key} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
-              </span>
-            ))}
-          </div>
-          <div className="mt-2 hidden flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted lg:flex">
-            {LEAVE_CAPACITY_STATES.map(state => (
-              <span key={state.key} className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full ${state.fill}`} /> {state.label}
-              </span>
-            ))}
-          </div>
-        </LegendSheet>
-      </div>
-
-      {/* The same grid-plus-rail split as the overview: on a desktop the
-          request panel (month stepper, capacity picker, reading, action)
-          sticks in a 320px rail beside the calendar; on a phone it comes
-          first, above the grid, full width. One panel, not one per
-          viewport, so a picked category survives a viewport change. */}
-      <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="w-full min-w-0 lg:flex-1">
-      {/* Desktop (lg+): full weekday-name grid, surnames inline on the cell.
-          Mobile (<lg): a compact glance grid (day number + category dots
-          only, same treatment as the Special Leave planner's mobile
-          calendar in SpecialMonthWorkspace.jsx) — reading surnames happens in the
-          tap-opened day sheet below instead of being crammed into a
-          phone-width cell. */}
-      <div className="hidden overflow-hidden rounded-lg border border-slate-line lg:block">
-        <div className="grid grid-cols-7 border-b border-slate-line bg-canvas-sunken">
-          {WEEKDAY_NAMES.map(d => (
-            <div key={d} className="px-2 py-2 text-center text-xs font-semibold text-ink-muted">{d}</div>
-          ))}
+      {/* One grid, three areas. Desktop: the toolbar spans both columns,
+          then the calendar beside the sticky rail. Below lg the same three
+          children stack as panel, toolbar, grid (order utilities), with
+          the details in a bottom sheet rather than the rail. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="order-2 lg:order-none lg:col-span-2">
+          <PlannerToolbar
+            onBack={onBack}
+            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+            legend={legendSheet}
+            middle={<CapacityKey />}
+          />
         </div>
-        <div className="grid grid-cols-7">
-          {weeks.flat().map((date, i) => date ? (
-            <DayCell
-              key={date}
-              date={date}
-              isToday={date === today}
-              phName={publicHolidaysByDate.get(date)}
-              entriesByColumn={dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
-              displayNames={displayNames}
-              capacityState={capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))}
-              onClick={() => setSelectedDate(date)}
-            />
-          ) : (
-            <div key={`blank-${i}`} className="min-h-[104px] border-b border-r border-slate-line bg-canvas-sunken/30" />
-          ))}
+
+        <div className="order-3 min-w-0 lg:order-none">
+          <PlannerCalendarGrid
+            year={year}
+            month={month}
+            cells={gridCells}
+            selectedDate={selectedDate}
+            today={today}
+            onSelect={setSelectedDate}
+          />
+        </div>
+
+        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+          <YourLeaveCard
+            profile={profile}
+            year={year}
+            month={month}
+            onMonthChange={onMonthChange}
+            maxByColumnKey={maxByColumnKey}
+            maxFullTime={maxFullTime}
+            countByColumnPerDate={countByColumnPerDate}
+            rotationsByDoctorId={rotationsByDoctorId}
+            monthBuckets={monthBuckets}
+            onRequestLeave={() => openRequestLeave()}
+          />
+          <PlannerDetailsCard
+            className="mt-3"
+            eyebrow="Selected day"
+            emptyMessage="Select a day to see details."
+            open={selectedInMonth}
+            onClose={() => setSelectedDate(null)}
+          >
+            {selectedInMonth && (
+              <DayDetails
+                key={selectedDate}
+                date={selectedDate}
+                entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
+                capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
+                phName={publicHolidaysByDate.get(selectedDate)}
+                displayNames={displayNames}
+                pendingRows={pendingRows}
+                maxByColumnKey={maxByColumnKey}
+                maxFullTime={maxFullTime}
+                rotationsByDoctorId={rotationsByDoctorId}
+                onDataChanged={onDataChanged}
+                onRequestLeave={openRequestLeave}
+              />
+            )}
+          </PlannerDetailsCard>
         </div>
       </div>
 
-      <div className="lg:hidden">
-        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
-          {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
-        </div>
-        <div className="mt-1 grid grid-cols-7 gap-1">
-          {weeks.flat().map((date, i) => date ? (
-            <MobileDayCell
-              key={date}
-              date={date}
-              isToday={date === today}
-              isPublicHoliday={Boolean(publicHolidaysByDate.get(date))}
-              // One key per person on leave that day, not one per category
-              // present — a day with 2 EC Interns on leave needs 2 EC
-              // badges, not 1 (splitForOverflow already caps the total
-              // shown and folds the rest into a +N chip, so feeding it
-              // every person here rather than deduped categories is safe).
-              columnsPresent={[...dayEntriesByColumn(date, { approvedByDate, pendingByDate }, rotationsByDoctorId).entries()]
-                .flatMap(([key, entries]) => entries.map(() => key))}
-              capacityState={
-                personalizeFill
-                  ? myCategoryCapacityStateForDate(date, myColumnKey, maxByColumnKey, maxFullTime, countByColumnPerDate)
-                  : capacityStateForCount(totalLeaveSlotsForDate(date, countByColumnPerDate))
-              }
-              onClick={() => setSelectedDate(date)}
-            />
-          ) : (
-            <div key={`blank-${i}`} />
-          ))}
-        </div>
-      </div>
-      </div>
-
-      <div className={PANEL_RAIL}>
-        <YourLeaveCard
-          profile={profile}
-          year={year}
-          month={month}
-          onMonthChange={onMonthChange}
-          monthLabel={monthLabel}
-          maxByColumnKey={maxByColumnKey}
-          maxFullTime={maxFullTime}
-          countByColumnPerDate={countByColumnPerDate}
-          rotationsByDoctorId={rotationsByDoctorId}
-          onRequestLeave={openRequestLeave}
-        />
-      </div>
-      </div>
-
-      {selectedDate && (
-        <DayReviewModal
-          key={selectedDate}
-          date={selectedDate}
-          entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
-          capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
-          phName={publicHolidaysByDate.get(selectedDate)}
-          displayNames={displayNames}
-          pendingRows={pendingRows}
-          maxByColumnKey={maxByColumnKey}
-          maxFullTime={maxFullTime}
-          rotationsByDoctorId={rotationsByDoctorId}
-          initialShowRequestForm={openRequestFormOnOpen}
-          onDataChanged={onDataChanged}
-          onClose={() => { setSelectedDate(null); setOpenRequestFormOnOpen(false) }}
-        />
+      {requestFormDate && (
+        <Modal title="Request annual leave" onClose={() => setRequestFormDate(null)} centered>
+          <LeaveRequestForm
+            initialDateFrom={requestFormDate}
+            initialDateTo={requestFormDate}
+            onSubmitted={() => { setRequestFormDate(null); onDataChanged() }}
+          />
+        </Modal>
       )}
     </div>
   )
 }
 
-// The month view's request panel: the month stepper, then — for a viewer
-// whose category has a capacity column — "Showing capacity for" and the
-// one question a doctor actually opens this page to answer ("can I take
-// leave, and when's easiest?"): how many days this month still have room
-// in that category, not a generic headcount. A viewer with no column
-// (Consultant, Locum, admin, or no signed-in profile) gets the stepper
-// alone — there's nothing to personalise for them.
+// The toolbar's middle slot on a desktop: the four-state capacity key the
+// pips use, inline, so the grid never needs a sheet opened to be read.
+function CapacityKey() {
+  return (
+    <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted md:flex" data-testid="capacity-key">
+      {LEAVE_CAPACITY_STATES.map((state, i) => (
+        <span key={state.key} className="flex items-center gap-1">
+          <span className={`h-2 w-2 rounded-[3px] ${state.fill}`} /> {i === 3 ? '3+' : i} used
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// The month view's request panel: the month stepper (this view's one
+// period control), "Showing" — for a viewer whose category has a capacity
+// column, which column's room the headline reads — the headline itself
+// ("N of M days have room for your category", respecting BOTH the
+// per-category and the combined cap via daysWithRoomForCategory), the
+// month's capacity bar, and the one filled button on the page. A viewer
+// with no column (Consultant, admin, no profile) gets the stepper and the
+// bar alone — there's nothing to personalise for them.
 //
 // The picker opens on the viewer's own column and lets them preview a
 // DIFFERENT column's room for this same month — useful for an Intern
@@ -303,7 +290,7 @@ export default function MonthWorkspace({
 // — a note below makes that explicit whenever an override is active, and it
 // resets on every month change so a stale "previewing OT" state can't
 // silently follow the viewer around.
-function YourLeaveCard({ profile, year, month, onMonthChange, monthLabel, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, onRequestLeave }) {
+function YourLeaveCard({ profile, year, month, onMonthChange, maxByColumnKey, maxFullTime, countByColumnPerDate, rotationsByDoctorId, monthBuckets, onRequestLeave }) {
   const monthStartDate = `${year}-${String(month).padStart(2, '0')}-01`
   const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date: monthStartDate, rotationsByDoctorId })
   const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
@@ -319,8 +306,16 @@ function YourLeaveCard({ profile, year, month, onMonthChange, monthLabel, maxByC
 
   return (
     <PlannerRequestPanel
-      eyebrow={`Annual leave planner · ${monthLabel} ${year}`}
+      eyebrow="Annual leave · Month"
       stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
+      headline={stat && state && (
+        <PanelReading
+          value={stat.withRoom}
+          valueClassName={state.text}
+          unit={`of ${stat.total} days have room for ${isOverridden ? 'that' : 'your'} category`}
+        />
+      )}
+      capacityBar={<CapacityBar buckets={monthBuckets} />}
       // Says which leave, now that the same page can also lead to a special
       // leave request: "Request leave" alone doesn't say which kind.
       actionLabel="Request annual leave"
@@ -328,7 +323,7 @@ function YourLeaveCard({ profile, year, month, onMonthChange, monthLabel, maxByC
     >
       {myColumnDef && (
         <>
-          <label htmlFor="annual-capacity-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
+          <label htmlFor="annual-capacity-month" className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
           <div className="mt-1">
             <SelectMenu
               id="annual-capacity-month"
@@ -343,364 +338,8 @@ function YourLeaveCard({ profile, year, month, onMonthChange, monthLabel, maxByC
               <button type="button" onClick={() => setOverrideColumnKey(null)} className="underline">Reset</button>
             </p>
           )}
-          {stat && state && (
-            <PanelReading
-              value={stat.withRoom}
-              valueClassName={state.text}
-              unit={`of ${stat.total} days have room for ${isOverridden ? 'that' : 'your'} category`}
-            />
-          )}
         </>
       )}
     </PlannerRequestPanel>
-  )
-}
-
-function DayCell({ date, isToday, phName, entriesByColumn, displayNames, capacityState, onClick }) {
-  const dateNum = Number(date.slice(-2))
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex min-h-[104px] flex-col items-stretch gap-1 border-b border-r border-slate-line p-2 text-left transition-colors hover:bg-canvas-sunken ${phName ? 'ring-2 ring-inset ring-ink' : ''}`}
-    >
-      <div className="flex items-center justify-between">
-        {/* Day number stays plain and top-left, in the same place on every
-            cell whatever it holds. Capacity is on the category badges below
-            (see CategoryBadge's `fill`): the number is how you find a date,
-            not how you read the day's pressure, and giving it a coloured
-            disc made every cell look occupied even when nobody was away.
-            Today keeps its accent chip — that is identity, not capacity. */}
-        <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday ? 'bg-accent text-on-fill' : 'text-ink'
-        }`}>
-          {dateNum}
-        </span>
-      </div>
-      {phName && <span className="truncate text-[10px] font-medium text-ink-muted">{phName}</span>}
-      {/* This list clips vertically once it outgrows the cell's fixed
-          min-height, via overflow-hidden below — but a `ring` (box-shadow)
-          bleeds outside its own box and gets clipped by that same
-          overflow-hidden the instant a dot sits flush against the list's
-          left edge, no matter how much padding the outer cell has. A real
-          `border` stays inside the box model instead, so it can't be cut
-          off that way. */}
-      <div className="flex-1 space-y-0.5 overflow-hidden">
-        {[...entriesByColumn.entries()].map(([key, entries]) => (
-          <div key={key} className="flex items-center gap-1 text-[11px] leading-tight">
-            <CategoryBadge label={COLUMN_BADGE_LABEL[key]} size={15} fill={capacityState.swatch} textFill={capacityState.swatchInk} />
-            <span className="truncate">
-              {entries.map((e, i) => (
-                <span key={e.profileId} className={e.status === 'pending' ? 'italic text-ink-muted' : 'text-ink'}>
-                  {displayNames.get(e.profileId) ?? e.surname}{i < entries.length - 1 ? ', ' : ''}
-                </span>
-              ))}
-            </span>
-          </div>
-        ))}
-      </div>
-    </button>
-  )
-}
-
-function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacityState, onClick }) {
-  const dateNum = Number(date.slice(-2))
-  const { shown, overflow } = splitForOverflow(columnsPresent)
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative flex min-h-[64px] flex-col items-center rounded border pt-[23px] text-xs ${
-        isPublicHoliday ? 'border-ink ring-1 ring-inset ring-ink' : 'border-slate-line'
-      } ${isToday ? 'ring-1 ring-accent' : ''} hover:bg-canvas-sunken`}
-    >
-      {/* Pinned to the same corner on every cell via absolute positioning,
-          taken out of the flex flow entirely — otherwise this shares the
-          flex-col's layout with the badge grid below it, so a 4-badge day
-          and a no-badge day put the date number at two different heights.
-          The badge grid itself is top-anchored (no `justify-center` on the
-          button — flex-col defaults to flex-start), sitting right under
-          the `pt-[23px]` reserved for the number (3px of breathing room
-          under its own 20px line), at the same fixed position
-          whether it holds 1 badge or 4 — not re-centred within whatever
-          space is left over depending on occupancy, which previously made
-          the same row of badges sit at a different height from one day to
-          the next. */}
-      <span className="absolute left-1.5 top-1 font-bold text-ink">{dateNum}</span>
-      {columnsPresent.length > 0 && (
-        <span className="grid grid-cols-2 gap-0.5">
-          {shown.map((key, i) => <CategoryBadge key={`${key}-${i}`} label={COLUMN_BADGE_LABEL[key]} size={14} fill={capacityState.swatch} textFill={capacityState.swatchInk} />)}
-          {overflow > 0 && <CategoryOverflowChip count={overflow} size={14} fill={capacityState.swatch} textFill={capacityState.swatchInk} />}
-        </span>
-      )}
-    </button>
-  )
-}
-
-function DayReviewModal({
-  date, entriesByColumn, capacity, phName, displayNames, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
-  initialShowRequestForm = false, onDataChanged, onClose,
-}) {
-  const { user, profile, isAdmin, canSubmitLeave } = useAuth()
-  // See MonthWorkspace's own legendColumns above — same Consultant-privacy
-  // filter, computed separately here since this is a different component
-  // with its own useAuth() call.
-  const visibleColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
-  const [warningsById, setWarningsById] = useState({})
-  const [actioningId, setActioningId] = useState(null)
-  const [confirmingApproveId, setConfirmingApproveId] = useState(null)
-  const [rejectingId, setRejectingId] = useState(null)
-  const [rejectNotes, setRejectNotes] = useState('')
-  const [error, setError] = useState('')
-  const [showRequestForm, setShowRequestForm] = useState(initialShowRequestForm)
-
-  const pendingRequestsThisDate = pendingRows.filter(r => r.date_from <= date && r.date_to >= date)
-
-  useEffect(() => {
-    let cancelled = false
-    async function loadWarnings() {
-      const entries = await Promise.all(
-        pendingRequestsThisDate.map(async r => [r.id, await getApprovalWarnings(r)])
-      )
-      if (!cancelled) setWarningsById(Object.fromEntries(entries))
-    }
-    if (isAdmin && pendingRequestsThisDate.length > 0) loadWarnings()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-runs when the reviewed date changes; pendingRequestsThisDate is derived fresh each render
-  }, [date, isAdmin])
-
-  async function handleApprove(request) {
-    setActioningId(request.id)
-    try {
-      await approveLeaveRequest(request, user.id)
-    } catch (err) {
-      setError(err.message)
-      setActioningId(null)
-      return
-    }
-    setConfirmingApproveId(null)
-    setActioningId(null)
-    onDataChanged()
-  }
-
-  async function handleReject(request) {
-    setActioningId(request.id)
-    try {
-      await rejectLeaveRequest(request, user.id, rejectNotes)
-    } catch (err) {
-      setError(err.message)
-      setActioningId(null)
-      return
-    }
-    setRejectingId(null)
-    setRejectNotes('')
-    setActioningId(null)
-    onDataChanged()
-  }
-
-  const formattedDate = formatWeekdayDate(date)
-  const totalSlots = capacity.reduce((sum, col) => sum + col.count, 0)
-  const dayCapacityState = capacityStateForCount(totalSlots)
-  const totalCeiling = totalLeaveCeiling(maxFullTime, maxByColumnKey)
-  const atFullCapacity = totalSlots >= totalCeiling
-
-  // The top banner personalises to the viewer's own category rather than a
-  // flat admin-style headcount — a doctor cares whether *they* could still
-  // get leave today, not the generic combined total. myColumnDef is null for
-  // a category with no capacity column (Consultant/no profile), which falls
-  // back to the old generic "Full" banner below instead. Rendering itself
-  // (colours/copy/the generic fallback) lives in LeaveCapacityBanner, shared
-  // with LeaveRequestForm's own capacity preview.
-  const myColumnKey = resolveLeaveCapacityColumn({ category: profile?.category, contractType: profile?.contract_type, profileId: profile?.id, date, rotationsByDoctorId })
-  const myColumnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === myColumnKey)
-  const mySlots = myColumnDef ? myCategoryDaySlots(myColumnKey, capacity, maxFullTime) : null
-
-  // One consolidated list instead of a heading per category — an empty
-  // category no longer gets a row at all (it was pure visual weight with no
-  // information), and individual x/y quotas are gone entirely: with the
-  // combined cap now spanning multiple categories at once, a lone column's
-  // own headroom doesn't tell a viewer anything reliable about whether they
-  // can actually get leave that day.
-  const allEntries = visibleColumns.flatMap(col =>
-    (entriesByColumn.get(col.key) || []).map(e => ({ ...e, columnKey: col.key, columnLabel: col.label }))
-  )
-
-  return (
-    <Modal title={formattedDate} onClose={onClose} maxWidthClassName="md:max-w-lg">
-      <LeaveCapacityBanner
-        mySlots={mySlots}
-        columnLabel={myColumnDef?.label}
-        pooled={Boolean(mySlots?.pooled)}
-        atFullCapacity={atFullCapacity}
-        dayCapacityState={dayCapacityState}
-        totalSlots={totalSlots}
-        totalCeiling={totalCeiling}
-        detail={genericDayAvailabilityLine(capacity, maxFullTime)}
-      />
-      {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
-      {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
-
-      {showRequestForm ? (
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setShowRequestForm(false)}
-            className="flex items-center gap-1 rounded px-1.5 py-1 text-xs font-medium text-ink-light transition-colors hover:bg-canvas-sunken hover:text-ink"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
-          <div className="mt-2">
-            <LeaveRequestForm
-              initialDateFrom={date}
-              initialDateTo={date}
-              onSubmitted={() => { setShowRequestForm(false); onDataChanged() }}
-            />
-          </div>
-        </div>
-      ) : (
-        <>
-          {allEntries.length === 0 ? (
-            <p className="mt-4 text-sm text-ink-muted">No one is on annual leave today</p>
-          ) : (
-            <ul className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-              {allEntries.map(e => (
-                <li key={e.profileId} className="flex items-center justify-between gap-2 py-2 text-sm">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <CategoryBadge label={COLUMN_BADGE_LABEL[e.columnKey]} size={18} />
-                    <span className="flex-shrink-0 text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
-                    <span className="truncate text-xs text-ink-muted">{e.columnLabel} · {formatShortDateRange(e.dateFrom, e.dateTo)}</span>
-                  </span>
-                  <span className={`flex-shrink-0 text-xs font-medium ${e.status === 'pending' ? 'text-flagAmber' : 'text-success'}`}>
-                    {e.status === 'pending' ? REVIEW_STATUS_LABELS.pending : 'Approved'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {isAdmin && pendingRequestsThisDate.length > 0 && (
-            <div className="mt-4 space-y-3 border-t border-slate-line pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Pending requests</p>
-              {pendingRequestsThisDate.map(request => {
-                // Every warning, capacity included, comes from
-                // getApprovalWarnings — the capacity one is the
-                // annual_leave_capacity RPC's live re-check of this request
-                // against everyone else's leave, the same check the Requests
-                // queue runs, so the two screens can never disagree.
-                const w = warningsById[request.id]
-                const warned = hasWarnings(w)
-                const capacityWarned = Boolean(w?.capacityWarning)
-                const confirming = confirmingApproveId === request.id
-                const isActioning = actioningId === request.id
-                const approveLabel = isActioning ? 'Approving…'
-                  : capacityWarned ? (confirming ? 'Confirm overbooked approval' : 'Approve as overbooked')
-                  : warned ? (confirming ? 'Confirm approval' : 'Approve anyway')
-                  : 'Approve'
-
-                return (
-                  <div key={request.id} className="rounded-lg border border-slate-line p-3">
-                    <p className="text-sm font-medium text-ink">
-                      {request.profiles?.name} {request.profiles?.surname}
-                    </p>
-                    <p className="text-xs text-ink-muted">
-                      {request.date_from === request.date_to
-                        ? formatWeekdayDate(request.date_from)
-                        : `${formatWeekdayDate(request.date_from)} → ${formatWeekdayDate(request.date_to)}`}
-                    </p>
-                    {annualDaysSummary(request) && <p className="text-xs text-ink-muted">{annualDaysSummary(request)}</p>}
-                    {request.notes && <p className="mt-1 text-xs italic text-ink-light">&quot;{request.notes}&quot;</p>}
-
-                    {capacityWarned && (
-                      <div className="mt-2 flex items-start gap-1.5 rounded border border-flagAmber bg-flagAmber-bg p-2 text-xs text-flagAmber">
-                        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                        <span>
-                          Approving would breach the {w.capacityWarning.limitLabel} ({w.capacityWarning.limitMax}) on {w.capacityWarning.firstBreachDate}. Approve as overbooked to proceed.
-                        </span>
-                      </div>
-                    )}
-                    {request.over_capacity && !capacityWarned && (
-                      <p className="mt-2 text-xs text-ink-muted">Submitted as overbooked; capacity has since freed up.</p>
-                    )}
-                    {warned && (
-                      <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-2">
-                        {w.supervisionBreaches.length > 0 && (
-                          <p className="text-xs text-flagAmber">
-                            ⚠ Approving would drop supervision below the required minimum on {w.supervisionBreaches.length} shift{w.supervisionBreaches.length !== 1 ? 's' : ''}.
-                          </p>
-                        )}
-                        {w.balanceWarnings.map(bw => (
-                          <p key={bw.year} className="text-xs text-flagAmber">
-                            ⚠ {bw.year} annual leave balance would go negative ({bw.remainingAfter} of {bw.daysAllotted} days remaining).
-                          </p>
-                        ))}
-                        {w.hourCeilingWarning && (
-                          <p className="text-xs text-flagAmber">
-                            ⚠ Five-eighths doctor already has {w.hourCeilingWarning.alreadyRosteredHours}h rostered this month (ceiling: {w.hourCeilingWarning.maxHours}h).
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {rejectingId === request.id ? (
-                      <div className="mt-2 space-y-2">
-                        <textarea
-                          value={rejectNotes}
-                          onChange={e => setRejectNotes(e.target.value)}
-                          placeholder="Reason (optional, visible to the doctor)…"
-                          rows={2}
-                          className="input-field w-full"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleReject(request)}
-                            disabled={isActioning}
-                            className="rounded border border-flagRed px-3 py-1 text-xs font-medium text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {isActioning ? 'Rejecting…' : 'Confirm reject'}
-                          </button>
-                          <button onClick={() => { setRejectingId(null); setRejectNotes('') }} className="btn-secondary">Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => warned && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
-                          disabled={isActioning || warningsById[request.id] === undefined}
-                          className="btn-success"
-                        >
-                          {approveLabel}
-                        </button>
-                        <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-danger-outline">
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {canSubmitLeave && (
-            <>
-              {atFullCapacity && (
-                <p className="mt-4 text-xs text-ink-muted">
-                  This day is already at capacity for annual leave — a request for it will be blocked at submission unless the dates change or an admin frees up a slot.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowRequestForm(true)}
-                className={`btn-primary w-full text-sm ${atFullCapacity ? 'mt-2' : 'mt-4'}`}
-              >
-                Request annual leave for this day
-              </button>
-            </>
-          )}
-        </>
-      )}
-    </Modal>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { ActionSheet } from './ActionSheet'
 import { TodayIcon } from './PlannerIcons'
@@ -26,8 +26,11 @@ function stepMonth(year, month, delta) {
 // still look like every other period picker in the app. Without
 // `onLabelClick` the label is plain text rather than a button, since a
 // control that looks pressable and isn't is worse than one that doesn't.
+// `labelAriaLabel`: what the pressable label is called — "August 2026,
+// jump to month or year" — so it reads as the control it is rather than as
+// a heading; a small down-caret beside the text says the same to the eye.
 export function StepperShell({
-  label, onLabelClick, onPrev, onNext, prevLabel, nextLabel,
+  label, labelAriaLabel, onLabelClick, onPrev, onNext, prevLabel, nextLabel,
   canGoPrev = true, canGoNext = true, centered = false,
 }) {
   const labelClassName = `whitespace-nowrap px-2 font-display text-base font-semibold text-ink ${centered ? 'flex-1 text-center' : ''}`
@@ -43,8 +46,14 @@ export function StepperShell({
         <ChevronLeft className="h-4 w-4" />
       </button>
       {onLabelClick ? (
-        <button type="button" onClick={onLabelClick} className={`${labelClassName} transition-colors hover:text-accent`}>
+        <button
+          type="button"
+          onClick={onLabelClick}
+          aria-label={labelAriaLabel}
+          className={`${labelClassName} inline-flex items-center justify-center gap-1 transition-colors hover:text-accent`}
+        >
           {label}
+          <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 flex-shrink-0 text-ink-muted" />
         </button>
       ) : (
         <span className={labelClassName}>{label}</span>
@@ -125,6 +134,7 @@ export default function DateStepper({
     <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
       <StepperShell
         label={label}
+        labelAriaLabel={unit === 'year' ? `${label}, jump to year` : `${label}, jump to month or year`}
         onLabelClick={() => setJumpOpen(true)}
         onPrev={() => go(-1)}
         onNext={() => go(1)}

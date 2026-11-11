@@ -5,15 +5,19 @@ import { useAuth } from '../context/AuthContext'
 // leave request from any planner page, and only on a phone. Same four slots
 // everywhere, and a planner fills the ones it has something to say in:
 //
-//   eyebrow   which planner and when ("Annual leave planner · 2026")
-//   aside     one optional secondary control on the eyebrow's own line
-//   stepper   the period being browsed — a DateStepper (year or month,
-//             `centered`, no Today), directly under the eyebrow, so the one
-//             control that changes what every card or cell below means is
-//             the first thing in the panel
-//   children  the "Showing" picker and/or the reading itself (see
-//             PanelReading), or nothing where a planner has neither
-//   action    a full-width primary button
+// The slots, in the one order every planner uses:
+//
+//   eyebrow      which planner and which view ("Annual leave · Overview",
+//                "Annual leave · Month")
+//   aside        one optional secondary control on the eyebrow's own line
+//   stepper      the period being browsed — the view's ONE period control
+//                (year on an overview, month on a month view): a DateStepper,
+//                `centered`, no Today
+//   children     the "Showing" picker — its label is always "Showing"
+//   headline     the reading (PanelReading) — month views only
+//   capacityBar  a CapacityBar — month views on the leave planners only
+//   action       a full-width primary button, the only filled button on
+//                the page
 //
 // The action is gated on canSubmitLeave here rather than at each call site,
 // so an admin or clerk reads the same panel without a button they'd be
@@ -22,17 +26,19 @@ import { useAuth } from '../context/AuthContext'
 // Placement is the same on every planner page, overview and month view
 // alike: on a desktop (lg+) it leads the sticky right-hand rail beside the
 // grid (see PANEL_RAIL); below that it sits above the grid, full width.
-export default function PlannerRequestPanel({ eyebrow, aside, stepper, children, actionLabel, onAction, className = '' }) {
+export default function PlannerRequestPanel({ eyebrow, aside, stepper, children, headline, capacityBar, actionLabel, onAction, className = '' }) {
   const { canSubmitLeave } = useAuth()
 
   return (
-    <div className={`rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3 ${className}`}>
+    <div data-testid="planner-request-panel" className={`rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-wide text-accent-dark">{eyebrow}</p>
         {aside}
       </div>
       {stepper && <div className="mt-2">{stepper}</div>}
       {children}
+      {headline}
+      {capacityBar && <div className="mt-3">{capacityBar}</div>}
       {canSubmitLeave && actionLabel && (
         <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center">
           {actionLabel}

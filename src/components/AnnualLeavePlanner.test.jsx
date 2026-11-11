@@ -129,52 +129,47 @@ describe('AnnualLeavePlanner', () => {
     expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
   })
 
-  it('inspector defaults to August, showing "Leave during" the pressure date range and who is on it', async () => {
+  it('the Selected month card defaults to August and lists everyone on leave that month', async () => {
     renderPage()
     await grid()
 
-    expect(screen.getByText('Selected month')).toBeInTheDocument()
-    expect(screen.getByText('August 2026')).toBeInTheDocument()
-    expect(screen.getByText('Leave during 12–13 Aug')).toBeInTheDocument() // the Registrar at-cap range
-    expect(screen.getByText('3 approved · 0 pending')).toBeInTheDocument()
-    expect(screen.getByText('Anderson')).toBeInTheDocument() // also on leave those days
-    expect(screen.getByText('Botha')).toBeInTheDocument()
-    expect(screen.getByText('Dlamini')).toBeInTheDocument()
+    const card = within(screen.getByTestId('annual-inspector'))
+    expect(card.getByText('Selected month')).toBeInTheDocument()
+    expect(card.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
+    expect(card.getByText('On leave')).toBeInTheDocument()
+    expect(card.getByText('Anderson')).toBeInTheDocument()
+    expect(card.getByText('Botha')).toBeInTheDocument()
+    expect(card.getByText('Dlamini')).toBeInTheDocument()
+    expect(card.getByText('Cosmo')).toBeInTheDocument() // pending, listed after the approved
+    // Stat row: 3 approved requests (9 annual days), 1 pending (1 day).
+    expect(card.getByText('9 days')).toBeInTheDocument()
+    expect(card.getByText('3 requests')).toBeInTheDocument()
+    expect(card.getByText('1 day')).toBeInTheDocument()
+    expect(card.getByText('1 request')).toBeInTheDocument()
   })
 
-  it('shows a combined "X of 3 slots taken" capacity breakdown in "Leave Slot Utilization", not a per-category one', async () => {
+  it('shows the month\'s capacity bar — every level, with the day counts — instead of the old "N of 3 slots taken" tiles', async () => {
     renderPage()
     await grid()
-    const inspector = within(screen.getByTestId('annual-inspector'))
-    expect(inspector.getByText('Leave Slot Utilization')).toBeInTheDocument()
-
-    // 11, 14, 15 Aug: Anderson (MO) alone — 1 of 3. 20 Aug: Cosmo's pending
-    // EC COSMO/Intern request alone — also 1 of 3. Four days total.
-    expect(within(inspector.getByText('1 of 3').closest('div')).getByText('4 days')).toBeInTheDocument()
-    // Nothing is ever exactly 2 of 3 in this fixture.
-    expect(within(inspector.getByText('2 of 3').closest('div')).getByText('0 days')).toBeInTheDocument()
-    // 12-13 Aug: Anderson (MO) + Botha and Dlamini (Registrars) — 3 of 3.
-    expect(within(inspector.getByText('3 of 3').closest('div')).getByText('2 days')).toBeInTheDocument()
+    const card = within(screen.getByTestId('annual-inspector'))
+    expect(screen.queryByText('Leave Slot Utilization')).not.toBeInTheDocument()
+    expect(card.getByText('Leave slots · 31 days')).toBeInTheDocument()
+    // 11, 14, 15 Aug: Anderson alone; 20 Aug: Cosmo's pending alone — 1 of 3.
+    // 12-13 Aug: Anderson + Botha + Dlamini — full. Nothing is ever 2 of 3.
+    expect(card.getByText('25 days · 0 of 3 used')).toBeInTheDocument()
+    expect(card.getByText('4 days · 1 of 3')).toBeInTheDocument()
+    expect(card.getByText('0 days · 2 of 3')).toBeInTheDocument()
+    expect(card.getByText('2 days · full')).toBeInTheDocument()
+    expect(card.getByText('2 days full')).toBeInTheDocument()
   })
 
-  it('tapping a name in the date-range list reveals their full leave dates', async () => {
-    const user = userEvent.setup()
+  it('shows a right-aligned Approved/Pending status pill for each name in the On leave list', async () => {
     renderPage()
     await grid()
-
-    expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
-    await user.click(screen.getByText('Anderson'))
-    expect(screen.getByText('Full leave: 11–15 Aug')).toBeInTheDocument()
-
-    await user.click(screen.getByText('Anderson'))
-    expect(screen.queryByText(/Full leave:/)).not.toBeInTheDocument()
-  })
-
-  it('shows a right-aligned Approved/Pending status pill for each name in the "Leave during" list', async () => {
-    renderPage()
-    await grid()
-    // Anderson, Botha and Dlamini, all approved on 12-13 Aug.
-    expect(screen.getAllByText('Approved')).toHaveLength(3)
+    const card = within(screen.getByTestId('annual-inspector'))
+    // Anderson, Botha and Dlamini approved; Cosmo pending.
+    expect(card.getAllByText('Approved', { selector: 'span' })).toHaveLength(3)
+    expect(card.getAllByText('Pending review')).toHaveLength(1)
   })
 
   it("shows a public holiday's name on hover in the year grid", async () => {
@@ -203,11 +198,10 @@ describe('AnnualLeavePlanner', () => {
     expect(screen.getByText('No leave this month.')).toBeInTheDocument()
   })
 
-  it('shows a pending request in the "Leave" list even when it never creates capacity pressure', async () => {
+  it('shows a pending request in the On leave list even when it never creates capacity pressure', async () => {
     // A lone MO request nowhere near the default cap of 2 — no day in
-    // September ever reaches pressure, so this used to disappear behind
-    // "No capacity pressure this month" even though there's a real pending
-    // request an admin still needs to see and act on.
+    // September ever reaches pressure; a pending request an admin still
+    // needs to see and act on is listed all the same.
     mockResponses['leave_requests:select'] = {
       data: [...LEAVE_REQUESTS, {
         id: 'req-5', profile_id: 'p5', date_from: '2026-09-05', date_to: '2026-09-07', leave_type: 'annual',
@@ -220,25 +214,26 @@ describe('AnnualLeavePlanner', () => {
     const g = await grid()
 
     await user.click(g.getByRole('button', { name: /^September/ }))
-    expect(screen.getByText('Leave in September')).toBeInTheDocument()
-    expect(screen.getByText('Farrow')).toBeInTheDocument()
-    expect(screen.getByText('Pending review')).toBeInTheDocument()
+    const card = within(screen.getByTestId('annual-inspector'))
+    expect(card.getByRole('heading', { name: 'September 2026' })).toBeInTheDocument()
+    expect(card.getByText('Farrow')).toBeInTheDocument()
+    expect(card.getByText('Pending review')).toBeInTheDocument()
   })
 
-  it('"View requests" links to the Requests planner tab', async () => {
+  it('"Requests" links to the Requests tab from the Selected month card (admin wording)', async () => {
     renderPage()
     await grid()
-    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests&from=annual')
+    expect(within(screen.getByTestId('annual-inspector')).getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/leave?tab=requests&from=annual')
   })
 
-  it('"Open month workspace" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {
+  it('"Open month" switches to the month calendar (for the selected month), and Back returns to the overview', async () => {
     const user = userEvent.setup()
     renderPage()
     await grid()
 
-    await user.click(screen.getByRole('button', { name: /Open month workspace/ }))
+    await user.click(screen.getByRole('button', { name: 'Open month' }))
     expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument()
-    expect(screen.getByText('Sunday')).toBeInTheDocument() // full weekday name column header
+    expect(screen.getByText('Monday')).toBeInTheDocument() // full weekday name column header, week starts Monday
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
     expect(screen.queryByText('Selected month')).not.toBeInTheDocument()
 
@@ -253,7 +248,7 @@ describe('AnnualLeavePlanner', () => {
     // can't survive an OS-killed-and-reloaded PWA).
     renderPage(['/?ayear=2026&aview=workspace&amonth=8'])
     expect(await screen.findByRole('button', { name: 'Overview' })).toBeInTheDocument()
-    expect(screen.getByText('Sunday')).toBeInTheDocument()
+    expect(screen.getByText('Monday')).toBeInTheDocument()
     expect(screen.getAllByText('August 2026').length).toBeGreaterThan(0)
   })
 

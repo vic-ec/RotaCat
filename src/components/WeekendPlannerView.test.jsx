@@ -208,7 +208,7 @@ describe('WeekendPlannerView', () => {
       const scope = document.getElementById('weekend-scope-mobile')
       expect(view.getByLabelText('Showing')).toBe(scope)
       const panel = scope.closest('div.rounded-xl')
-      const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+      const stepper = within(panel).getByRole('button', { name: /^August 2026/ }).parentElement
       expect(stepper).toHaveClass('btn-utility', 'w-full')
       expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
@@ -986,7 +986,7 @@ describe('WeekendPlannerView', () => {
       const searchInput = view.getAllByPlaceholderText('Search name…')[0]
       const row = searchInput.closest('div.border-b')
       expect(row.contains(view.getByRole('button', { name: 'Overview' }))).toBe(true)
-      expect(row.contains(view.getByRole('button', { name: 'August 2026' }))).toBe(false)
+      expect(row.contains(view.getByRole('button', { name: /^August 2026/ }))).toBe(false)
 
       // The stepper, then scope, then the action, in one panel at the top
       // of the rail beside the table — not loose in the toolbar. The rail
@@ -995,7 +995,7 @@ describe('WeekendPlannerView', () => {
       expect(scope).toBeInTheDocument()
       expect(row.contains(scope)).toBe(false)
       const panel = scope.closest('div.rounded-xl')
-      const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+      const stepper = within(panel).getByRole('button', { name: /^August 2026/ }).parentElement
       expect(stepper).toHaveClass('btn-utility', 'w-full')
       expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
@@ -1025,7 +1025,7 @@ describe('WeekendPlannerView', () => {
       const row = searchInput.closest('div.border-b')
       expect(row).not.toBeNull()
       expect(row.contains(moreActionsButton)).toBe(true)
-      expect(row.contains(view.getByRole('button', { name: 'August 2026' }))).toBe(false)
+      expect(row.contains(view.getByRole('button', { name: /^August 2026/ }))).toBe(false)
 
       // Toolbar's standard 320px, not the old capped-and-shrinkable
       // `compact` width — it is the inspector's own width, and the row's

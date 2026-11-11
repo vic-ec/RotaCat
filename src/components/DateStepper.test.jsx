@@ -81,7 +81,7 @@ describe('DateStepper', () => {
       const onChange = vi.fn()
       render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
 
-      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      await user.click(screen.getByRole('button', { name: /^March 2026/ }))
       expect(screen.getByRole('dialog', { name: 'Jump to month' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'January' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'December' })).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe('DateStepper', () => {
     it('body scrolls independently of the sheet, capped so it never grows unbounded past the viewport', async () => {
       const user = userEvent.setup()
       render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} />)
-      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      await user.click(screen.getByRole('button', { name: /^March 2026/ }))
 
       const dialog = screen.getByRole('dialog', { name: 'Jump to month' })
       expect(dialog.className).toContain('max-h-[80vh]')
@@ -106,7 +106,7 @@ describe('DateStepper', () => {
       const user = userEvent.setup()
       const onChange = vi.fn()
       render(<DateStepper unit="month" year={2026} month={3} onChange={onChange} />)
-      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      await user.click(screen.getByRole('button', { name: /^March 2026/ }))
       const dialog = screen.getByRole('dialog') // only one dialog open at a time, name changes below
 
       await user.click(within(dialog).getByRole('button', { name: '2026' }))
@@ -129,7 +129,7 @@ describe('DateStepper', () => {
     it('the embedded year grid pages a whole 12-year block at a time, independent of the month stepper', async () => {
       const user = userEvent.setup()
       render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} />)
-      await user.click(screen.getByRole('button', { name: 'March 2026' }))
+      await user.click(screen.getByRole('button', { name: /^March 2026/ }))
       const dialog = screen.getByRole('dialog')
       await user.click(within(dialog).getByRole('button', { name: '2026' }))
 
@@ -142,13 +142,27 @@ describe('DateStepper', () => {
     })
   })
 
+  describe('label caret', () => {
+    it('the month label is spoken as a jump control and carries a down-caret, so it reads as clickable', () => {
+      render(<DateStepper unit="month" year={2026} month={8} onChange={vi.fn()} showToday={false} />)
+      const label = screen.getByRole('button', { name: 'August 2026, jump to month or year' })
+      expect(label).toHaveTextContent('August 2026')
+      expect(label.querySelector('svg')).toBeInTheDocument()
+    })
+
+    it('a year label says it jumps to a year', () => {
+      render(<DateStepper unit="year" year={2026} onChange={vi.fn()} showToday={false} />)
+      expect(screen.getByRole('button', { name: '2026, jump to year' })).toBeInTheDocument()
+    })
+  })
+
   describe('year jump sheet', () => {
     it('opens on the label click, lists a 12-year range around the current year, and picking one calls onChange and closes', async () => {
       const user = userEvent.setup()
       const onChange = vi.fn()
       render(<DateStepper unit="year" year={2026} onChange={onChange} />)
 
-      await user.click(screen.getByRole('button', { name: '2026' }))
+      await user.click(screen.getByRole('button', { name: '2026, jump to year' }))
       const dialog = within(screen.getByRole('dialog', { name: 'Jump to year' }))
       const yearButton = dialog.getByRole('button', { name: '2026' })
       expect(yearButton).toHaveAttribute('aria-current', 'true')
@@ -161,7 +175,7 @@ describe('DateStepper', () => {
     it('the range stepper pages a whole 12-year block at a time', async () => {
       const user = userEvent.setup()
       render(<DateStepper unit="year" year={2026} onChange={vi.fn()} />)
-      await user.click(screen.getByRole('button', { name: '2026' }))
+      await user.click(screen.getByRole('button', { name: '2026, jump to year' }))
 
       const range = screen.getByText(/–/, { selector: 'span' })
       const before = range.textContent
@@ -173,14 +187,14 @@ describe('DateStepper', () => {
   describe('centered layout', () => {
     it('flanks the label with equal-width chevrons instead of the default left-flowing row', () => {
       render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} showToday={false} centered />)
-      const label = screen.getByRole('button', { name: 'March 2026' })
+      const label = screen.getByRole('button', { name: /^March 2026/ })
       expect(label.className).toContain('flex-1')
       expect(label.className).toContain('text-center')
     })
 
     it('off by default — the label stays left-flowing, un-centered', () => {
       render(<DateStepper unit="month" year={2026} month={3} onChange={vi.fn()} showToday={false} />)
-      const label = screen.getByRole('button', { name: 'March 2026' })
+      const label = screen.getByRole('button', { name: /^March 2026/ })
       expect(label.className).not.toContain('flex-1')
     })
   })

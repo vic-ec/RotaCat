@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import MyWeekendYearOverview from './MyWeekendYearOverview'
 
 // The request panel reads canSubmitLeave, and its form talks to Supabase —
@@ -54,7 +55,8 @@ function renderOverview(overrides = {}) {
       myProfileId={MY_PROFILE_ID}
       onOpenMonth={vi.fn()}
       {...overrides}
-    />
+    />,
+    { wrapper: MemoryRouter }
   )
 }
 
@@ -82,7 +84,8 @@ describe('MyWeekendYearOverview', () => {
     expect(augustCard).toHaveAttribute('aria-pressed', 'true')
 
     const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
-    expect(inspector.getByText('August 2026')).toBeInTheDocument()
+    expect(inspector.getByText('Selected month')).toBeInTheDocument()
+    expect(inspector.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
     expect(inspector.getByText('Weekends working').closest('div')).toHaveTextContent('1')
     // One request on file this month, pending — and an approved count that
     // reads 0 rather than being absent, so "nothing approved yet" is said
@@ -99,7 +102,7 @@ describe('MyWeekendYearOverview', () => {
 
     await user.click(screen.getByRole('button', { name: 'January' }))
     expect(onOpenMonth).not.toHaveBeenCalled()
-    expect(within(screen.getByTestId('my-weekend-year-inspector')).getByText('January 2026')).toBeInTheDocument()
+    expect(within(screen.getByTestId('my-weekend-year-inspector')).getByRole('heading', { name: 'January 2026' })).toBeInTheDocument()
   })
 
   it('clicking the already-selected month opens it directly', async () => {
@@ -150,18 +153,23 @@ describe('MyWeekendYearOverview', () => {
     }
   })
 
-  it('Selected month panel has chevrons and a jump-to-month sheet', async () => {
-    const user = userEvent.setup()
+  // One period control per view: the panel's year stepper. The card is
+  // titled by the grid's selection, with an outlined Open month and the
+  // way to the viewer's own requests.
+  it('the Selected month card has no stepper of its own, an outlined Open month and a My requests link', () => {
     renderOverview()
     const inspector = within(screen.getByTestId('my-weekend-year-inspector'))
+    expect(inspector.queryByRole('button', { name: 'Next month' })).not.toBeInTheDocument()
+    expect(inspector.queryByRole('button', { name: /^August 2026/ })).not.toBeInTheDocument()
+    expect(inspector.getByRole('button', { name: /Open month/ })).toHaveClass('btn-secondary')
+    expect(inspector.getByRole('link', { name: 'My requests' })).toHaveAttribute('href', '/leave?tab=requests&from=weekends')
+    // Exactly one filled button on the desktop page: the panel's action.
+    expect(screen.getByTestId('my-weekend-dashboard').querySelectorAll('.btn-primary')).toHaveLength(1)
+  })
 
-    await user.click(inspector.getByRole('button', { name: 'Next month' }))
-    expect(inspector.getByText('September 2026')).toBeInTheDocument()
-
-    await user.click(inspector.getByRole('button', { name: /^September 2026/ }))
-    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
-    await user.click(sheet.getByRole('button', { name: 'March' }))
-    expect(inspector.getByText('March 2026')).toBeInTheDocument()
+  it('the panel eyebrow names the planner and the view', () => {
+    renderOverview()
+    expect(dashboard().getByText('Weekends · Overview')).toBeInTheDocument()
   })
 
   it('lists months as single lines of weekend blocks, current month first', () => {

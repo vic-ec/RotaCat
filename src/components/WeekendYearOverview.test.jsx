@@ -126,7 +126,7 @@ describe('WeekendYearOverview', () => {
     await user.click(inspector.getByRole('button', { name: 'Next month' }))
     expect(inspector.getByText('September 2026')).toBeInTheDocument()
 
-    await user.click(inspector.getByRole('button', { name: 'September 2026' }))
+    await user.click(inspector.getByRole('button', { name: /^September 2026/ }))
     const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
     await user.click(sheet.getByRole('button', { name: 'March' }))
     expect(inspector.getByText('March 2026')).toBeInTheDocument()

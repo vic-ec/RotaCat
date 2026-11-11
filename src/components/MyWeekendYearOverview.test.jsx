@@ -141,7 +141,7 @@ describe('MyWeekendYearOverview', () => {
     for (const [view, id] of [[dashboard(), 'weekend-scope-desktop'], [finder(), 'weekend-scope-mobile']]) {
       const scope = document.getElementById(id)
       const panel = scope.closest('div.rounded-xl')
-      const stepper = within(panel).getByRole('button', { name: String(YEAR) }).parentElement
+      const stepper = within(panel).getByRole('button', { name: `${YEAR}, jump to year` }).parentElement
       expect(stepper).toHaveClass('btn-utility', 'w-full')
       expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       // The toolbar is the title and Legend only.
@@ -158,7 +158,7 @@ describe('MyWeekendYearOverview', () => {
     await user.click(inspector.getByRole('button', { name: 'Next month' }))
     expect(inspector.getByText('September 2026')).toBeInTheDocument()
 
-    await user.click(inspector.getByRole('button', { name: 'September 2026' }))
+    await user.click(inspector.getByRole('button', { name: /^September 2026/ }))
     const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
     await user.click(sheet.getByRole('button', { name: 'March' }))
     expect(inspector.getByText('March 2026')).toBeInTheDocument()

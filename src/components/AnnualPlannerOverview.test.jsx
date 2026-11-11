@@ -9,7 +9,7 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuth,
 }))
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 2, OT_Intern: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 2, EC_Intern: 2, OT_Intern: 1 }
 
 // August 10 has 2 MOs on leave — exactly the MO cap — so August is the one
 // "Requires checking" month for an MO viewer; every other month is clear.
@@ -111,7 +111,7 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     const { container } = renderOverview({ myCategory: 'MO' })
     const mobile = within(mobileBlock(container))
 
-    await user.click(mobile.getByRole('button', { name: 'Showing capacity for' }))
+    await user.click(mobile.getByRole('button', { name: 'Showing' }))
     // SelectMenu's option list renders through a portal onto document.body,
     // outside the scoped mobile block — query it globally instead.
     await user.click(await screen.findByRole('option', { name: 'Registrar' }))
@@ -141,7 +141,7 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.getByRole('button', { name: 'Legend' })).toBeInTheDocument()
   })
 
-  it('the year selector is the request panel\'s own stepper at the top of the rail, not a standalone toolbar control', () => {
+  it('the year stepper is the page\'s one period control, at the top of the request panel; the Selected month card has none', () => {
     mockAuth = { isAdmin: true, isClerk: false }
     renderOverview({ myCategory: 'MO' })
     // Rendered as admin so only the one (shared) dashboard is in the DOM —
@@ -150,13 +150,17 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
     const prev = screen.getByRole('button', { name: 'Previous year' })
     const panel = prev.closest('div.rounded-xl')
-    expect(within(panel).getByText('Annual leave planner · 2026')).toBeInTheDocument()
+    expect(within(panel).getByText('Annual leave · Overview')).toBeInTheDocument()
     expect(prev.parentElement).toHaveClass('btn-utility', 'w-full')
     // An admin's panel is the year alone: the category picker narrows a
     // doctor's own capacity read, which the departmental cards don't have.
-    expect(screen.queryByLabelText('Showing capacity for')).not.toBeInTheDocument()
-    // The rail holds the panel, then the Selected month inspector, and is
-    // sticky at 320px on a desktop.
+    expect(screen.queryByLabelText('Showing')).not.toBeInTheDocument()
+    // No month stepper anywhere: the month under the Selected month card is
+    // a plain label set by the grid.
+    expect(screen.queryByRole('button', { name: 'Previous month' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next month' })).not.toBeInTheDocument()
+    // The rail holds the panel, then the Selected month card, and is sticky
+    // at 320px on a desktop.
     const rail = panel.parentElement
     expect(rail).toHaveClass('order-first', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     expect(rail).not.toHaveClass('w-80')
@@ -165,7 +169,7 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('a doctor\'s desktop dashboard carries the same panel as the finder — year, Showing capacity for, and the request action', async () => {
+  it('a doctor\'s desktop dashboard carries the same panel as the finder — year, Showing, and the request action', async () => {
     mockAuth = { isAdmin: false, isClerk: false, canSubmitLeave: true }
     const user = userEvent.setup()
     renderOverview({ myCategory: 'MO' })
@@ -174,66 +178,74 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     const panel = scope.closest('div.rounded-xl')
     expect(within(panel).getByRole('button', { name: 'Previous year' })).toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: 'Request annual leave' })).toBeInTheDocument()
-    // One id per viewport, both labelled.
-    expect(screen.getAllByLabelText('Showing capacity for')).toHaveLength(2)
+    // One id per viewport, both labelled "Showing".
+    expect(screen.getAllByLabelText('Showing')).toHaveLength(2)
+    // The one filled button on the page is the panel's own action (jsdom
+    // holds both viewports' copies, so count within the desktop dashboard).
+    const dashboard = scope.closest('.hidden.lg\\:block')
+    expect(within(dashboard).getAllByRole('button').filter(b => b.className.includes('btn-primary'))).toHaveLength(1)
     await user.click(within(panel).getByRole('button', { name: 'Request annual leave' }))
     expect(await screen.findByRole('dialog', { name: 'Request annual leave' })).toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('the Selected month panel jump sheet can still swap to a year grid, since there is no separate year selector', async () => {
+  it('clicking a month in the grid sets the Selected month card\'s label; the year stepper\'s jump sheet still reaches any year', async () => {
     const user = userEvent.setup()
     mockAuth = { isAdmin: true, isClerk: false }
     renderOverview({ myCategory: 'MO', year: 2020 })
 
-    const panel = screen.getByTestId('annual-inspector')
-    await user.click(within(panel).getByRole('button', { name: 'January 2020' }))
-    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
-    await user.click(sheet.getByRole('button', { name: '2020' }))
+    const card = screen.getByTestId('annual-inspector')
+    expect(within(card).getByRole('heading', { name: 'January 2020' })).toBeInTheDocument()
+    await user.click(within(screen.getByTestId('annual-year-grid')).getByRole('button', { name: /^November/ }))
+    expect(within(card).getByRole('heading', { name: 'November 2020' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '2020, jump to year' }))
+    const sheet = within(screen.getByRole('dialog', { name: 'Jump to year' }))
     expect(sheet.getByRole('button', { name: '2016' })).toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('the Selected month panel has its own chevrons for stepping through months', async () => {
+  it('the Selected month card: stat row, the capacity bar with every level (greyed where empty), the On leave list, an outlined Open month and a My requests link', async () => {
+    mockAuth = { isAdmin: false, isClerk: false, canSubmitLeave: true }
     const user = userEvent.setup()
-    mockAuth = { isAdmin: true, isClerk: false }
-    // year 2020 (not "today"'s real year) so selectedMonth deterministically
-    // starts at January, regardless of whatever month this suite runs in.
-    renderOverview({ myCategory: 'MO', year: 2020 })
+    const onOpenWorkspace = vi.fn()
+    const approvedByDate = new Map([
+      ['2026-08-10', [{ profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-10', dateTo: '2026-08-11' }]],
+      ['2026-08-11', [{ profileId: 'p1', surname: 'Anderson', category: 'MO', status: 'approved', dateFrom: '2026-08-10', dateTo: '2026-08-11' }]],
+    ])
+    const approvedRows = [{ id: 'r1', profile_id: 'p1', date_from: '2026-08-10', date_to: '2026-08-11', annual_leave_days: 2, status: 'approved' }]
+    renderOverview({ myCategory: 'MO', approvedByDate, approvedRows, onOpenWorkspace })
 
-    const panel = screen.getByTestId('annual-inspector')
-    expect(within(panel).getByText('January 2020')).toBeInTheDocument()
+    const card = within(screen.getByTestId('annual-inspector'))
+    expect(card.getByText('Selected month')).toBeInTheDocument()
+    expect(card.getByText('Approved', { selector: 'p' })).toBeInTheDocument()
+    expect(card.getByText('2 days')).toBeInTheDocument()
+    expect(card.getByText('1 request')).toBeInTheDocument()
+    expect(card.getByText('Pending')).toBeInTheDocument()
+    // August 2026 in the fixture's count map: 2 MOs out on the 10th (2 of 3
+    // used), every other day free. Four legend entries, the empty ones greyed.
+    expect(card.getByText('Leave slots · 31 days')).toBeInTheDocument()
+    expect(card.getByText('0 days full')).toBeInTheDocument()
+    expect(card.getByText('30 days · 0 of 3 used')).toBeInTheDocument()
+    expect(card.getByText('0 days · 1 of 3').closest('li')).toHaveClass('text-ink-muted/60')
+    expect(card.getByText('1 day · 2 of 3')).toBeInTheDocument()
+    expect(card.getByText('0 days · full').closest('li')).toHaveClass('text-ink-muted/60')
+    expect(card.getByText('On leave')).toBeInTheDocument()
+    expect(card.getByText('Anderson')).toBeInTheDocument()
+    expect(card.getByText('10–11 Aug')).toBeInTheDocument()
 
-    await user.click(within(panel).getByRole('button', { name: 'Next month' }))
-    expect(within(panel).getByText('February 2020')).toBeInTheDocument()
-
+    const open = card.getByRole('button', { name: 'Open month' })
+    expect(open).toHaveClass('btn-secondary')
+    await user.click(open)
+    expect(onOpenWorkspace).toHaveBeenCalledWith(8)
+    expect(card.getByRole('link', { name: 'My requests' })).toHaveAttribute('href', '/leave?tab=requests&from=annual')
     mockAuth = { isAdmin: false, isClerk: false }
   })
 
-  it('stepping the Selected month panel past a year boundary rolls the year via onYearChange', async () => {
-    const user = userEvent.setup()
+  it('an admin\'s Selected month card links to Requests, not My requests', () => {
     mockAuth = { isAdmin: true, isClerk: false }
-    const onYearChange = vi.fn()
-    renderOverview({ myCategory: 'MO', year: 2020, onYearChange })
-
-    const panel = screen.getByTestId('annual-inspector')
-    await user.click(within(panel).getByRole('button', { name: 'Previous month' }))
-    expect(onYearChange).toHaveBeenCalledWith(2019)
-
-    mockAuth = { isAdmin: false, isClerk: false }
-  })
-
-  it('the Selected month panel label opens a jump-to-month sheet, same as the shared DateStepper elsewhere', async () => {
-    const user = userEvent.setup()
-    mockAuth = { isAdmin: true, isClerk: false }
-    renderOverview({ myCategory: 'MO', year: 2020 })
-
-    const panel = screen.getByTestId('annual-inspector')
-    await user.click(within(panel).getByRole('button', { name: 'January 2020' }))
-    const sheet = within(screen.getByRole('dialog', { name: 'Jump to month' }))
-    await user.click(sheet.getByRole('button', { name: 'November' }))
-    expect(within(panel).getByText('November 2020')).toBeInTheDocument()
-
+    renderOverview({ myCategory: 'MO' })
+    expect(within(screen.getByTestId('annual-inspector')).getByRole('link', { name: 'Requests' })).toBeInTheDocument()
     mockAuth = { isAdmin: false, isClerk: false }
   })
 

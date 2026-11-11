@@ -91,7 +91,7 @@ describe('SpecialMonthWorkspace', () => {
     const panel = screen.getByText('Special leave planner · August 2026').closest('div.rounded-xl')
     expect(panel.parentElement).toHaveClass('order-first', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     // Stepper first, then Showing, then the reading and the action.
-    const stepper = within(panel).getByRole('button', { name: 'August 2026' }).parentElement
+    const stepper = within(panel).getByRole('button', { name: /^August 2026/ }).parentElement
     expect(stepper).toHaveClass('btn-utility', 'w-full')
     expect(stepper.compareDocumentPosition(screen.getByLabelText('Showing')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()

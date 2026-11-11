@@ -1,23 +1,23 @@
 import { useMemo, useState } from 'react'
 import Modal from './Modal'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerDetailsCard from './PlannerDetailsCard'
+import MonthSummary from './annual/MonthSummary'
 import LeaveRequestForm from './LeaveRequestForm'
-import { Link } from 'react-router-dom'
-import { Calendar, Clock, ExternalLink, ListChecks, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { monthsForYear, LEAVE_CAPACITY_STATES, LEAVE_CAPACITY_COLUMNS, totalLeaveSlotsForDate } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { annualDaysInRange, pendingRequestCountInRange } from '../lib/leaveDashboard'
 import {
-  pressureDatesInYear, monthDayMarkers, monthSummaryLine, firstPressureRangeInMonth,
-  monthTotalCapacityBreakdown, entriesInRange, monthCapacityMarkers,
+  pressureDatesInYear, monthDayMarkers, monthSummaryLine, entriesInRange, monthCapacityMarkers,
 } from '../lib/annualPlannerOverview'
-import { monthBounds, todayStr, dayOfWeek, formatShortDateRange } from '../lib/dateRange'
+import { daysBySlotsUsed } from '../lib/plannerCalendar'
+import { monthBounds, todayStr, dayOfWeek } from '../lib/dateRange'
 import SelectMenu from './SelectMenu'
 import LegendSheet from './LegendSheet'
 import DateStepper from './DateStepper'
 import { LegendIcon } from './PlannerIcons'
-import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Every capacity column plus a blended "All categories" option — the mobile
 // non-admin overview's category picker, defaulting to the viewer's own
@@ -25,13 +25,6 @@ import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 // "does MY category have room," not a departmental blend they'd have to
 // mentally filter themselves.
 const CATEGORY_FILTER_OPTIONS = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })), { value: 'all', label: 'All categories' }]
-
-// Leave Slot Utilization tiles below read as a plain 1/2/3-of-3 traffic
-// light (green/yellow/red) rather than the day-heatmap's 4-state available/
-// limited/near-capacity/at-capacity scale — there's no "0 of 3" tile here
-// (monthTotalCapacityBreakdown only ever returns levels 1-3), so the levels
-// map onto available/limited/at_capacity directly, skipping near_capacity.
-const UTILIZATION_TILE_STATES = [LEAVE_CAPACITY_STATES[0], LEAVE_CAPACITY_STATES[1], LEAVE_CAPACITY_STATES[3]]
 
 // A 12-month "decision" overview for the Annual Leave planner — replaces
 // the old always-visible day-row spreadsheet as the default landing view.
@@ -53,18 +46,10 @@ export default function AnnualPlannerOverview({
   const today = todayStr()
   const currentMonth = Number(today.slice(5, 7))
   const todayYear = Number(today.slice(0, 4))
+  // The month the SELECTED MONTH card is about — set by clicking a month in
+  // the year grid, never by a stepper of its own: the page's one period
+  // control is the year stepper in the request panel.
   const [selectedMonth, setSelectedMonth] = useState(todayYear === year ? currentMonth : 1)
-  const [expandedEntryKey, setExpandedEntryKey] = useState(null)
-
-  // Selected-month chevrons/jump-sheet (in the inspector panel below) —
-  // DateStepper itself handles the Dec/Jan year rollover, calling back
-  // with whichever year the stepped-to month landed in; only forward that
-  // to onYearChange when it's actually different from the year the page
-  // above is already browsing.
-  function handleSelectedMonthChange(y, m) {
-    if (y !== year) onYearChange(y)
-    setSelectedMonth(m)
-  }
 
   // Non-admin mobile view only (see the render below) — which category's
   // capacity the month list/tiles reflect. Defaults to the viewer's own
@@ -131,32 +116,26 @@ export default function AnnualPlannerOverview({
     ? categoryMonthCards.filter(m => m.month < currentMonth)
     : year < todayYear ? categoryMonthCards : []
 
-  const selectedRange = firstPressureRangeInMonth(year, selectedMonth, pressureDates)
   const selectedMonthLabel = months[selectedMonth - 1].label
   const { start: selMonthStart, end: selMonthEnd } = monthBounds(year, selectedMonth)
 
-  // Falls back to the whole selected month whenever there's no capacity-
-  // pressure sub-range — a pending request that never actually pushes a
-  // category to its cap (e.g. the only Intern out that month) used to make
-  // this whole panel disappear behind "No capacity pressure this month,"
-  // hiding a real pending request an admin still needs to see and act on.
-  const rangeEntries = entriesInRange(
-    selectedRange ? selectedRange.from : selMonthStart,
-    selectedRange ? selectedRange.to : selMonthEnd,
-    { approvedByDate, pendingByDate }
-  )
-  const rangeSummary = {
-    people: rangeEntries.length,
-    approved: rangeEntries.filter(e => e.status === 'approved').length,
-    pending: rangeEntries.filter(e => e.status === 'pending').length,
+  // The SELECTED MONTH card's reading: everyone on leave in the month
+  // (approved first, then pending), the stat row, and the month's slot
+  // buckets for the capacity bar — every day, from 0 of 3 used to full.
+  const monthEntries = entriesInRange(selMonthStart, selMonthEnd, { approvedByDate, pendingByDate })
+  const overlapping = rows => rows.filter(r => r.date_from <= selMonthEnd && r.date_to >= selMonthStart)
+  const monthStats = {
+    approved: { days: annualDaysInRange(approvedRows, selMonthStart, selMonthEnd), requests: overlapping(approvedRows).length },
+    pending: { days: annualDaysInRange(pendingRows, selMonthStart, selMonthEnd), requests: overlapping(pendingRows).length },
   }
+  const monthBuckets = daysBySlotsUsed(year, selectedMonth, d => totalLeaveSlotsForDate(d, countByColumnPerDate))
 
-  // The same request panel the Weekend planner leads with, on every
-  // viewport: the eyebrow names the planner and year, the year stepper
-  // under it is the page's only year control, the picker sets whose
-  // capacity the months report, and the request action sits under that.
-  // The picker is a doctor's control only — the admin dashboard's cards
-  // read departmental pressure, which no category narrows (see the mobile
+  // The same request panel every planner leads with, on every viewport:
+  // the eyebrow names the planner and the view, the year stepper under it
+  // is the page's only period control, "Showing" sets whose capacity the
+  // months report, and the request action sits under that. The picker is
+  // a doctor's control only — the admin dashboard's cards read
+  // departmental pressure, which no category narrows (see the mobile
   // finder's comment below), so an admin's panel is just the year.
   // `id` differs per viewport: jsdom (and a real browser at a breakpoint
   // boundary) has both copies in the document, and two controls can't
@@ -164,14 +143,14 @@ export default function AnnualPlannerOverview({
   function renderRequestPanel(id) {
     return (
       <PlannerRequestPanel
-        eyebrow={`Annual leave planner · ${year}`}
+        eyebrow="Annual leave · Overview"
         stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
         actionLabel="Request annual leave"
         onAction={() => setRequestOpen(true)}
       >
         {!isAdmin && (
           <>
-            <label htmlFor={id} className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing capacity for</label>
+            <label htmlFor={id} className="mt-2 block text-[11px] font-semibold text-ink-muted">Showing</label>
             <div className="mt-1">
               <SelectMenu id={id} value={categoryKey} onChange={setCategoryKey} options={CATEGORY_FILTER_OPTIONS} />
             </div>
@@ -272,100 +251,22 @@ export default function AnnualPlannerOverview({
 
         <div className={PANEL_RAIL}>
         {renderRequestPanel('annual-capacity-desktop')}
-        <div
-          data-testid="annual-inspector"
-          className="mt-3 rounded-lg border border-slate-line bg-canvas-raised p-4"
-        >
-          {/* The year lives in the request panel above; the Selected month
-              jump sheet has its own year stepper too (and a 12-year grid,
-              one tap on the year label away — see DateStepper's
-              MonthJumpSheet). */}
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Selected month</p>
-          <div className="mt-1">
-            <DateStepper unit="month" year={year} month={selectedMonth} onChange={handleSelectedMonthChange} showToday={false} centered />
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3 border-t border-slate-line pt-3">
-            <InspectorStat icon={Calendar} label="Approved leave" value={`${annualDaysInRange(approvedRows, selMonthStart, selMonthEnd)} days`} />
-            <InspectorStat
-              icon={Clock}
-              label="Pending requests"
-              value={`${pendingRequestCountInRange(pendingRows, selMonthStart, selMonthEnd)} requests`}
+        {/* The month under the cursor, set by the grid: a plain label, not
+            a second stepper. */}
+        <div data-testid="annual-inspector" className="mt-3">
+          <PlannerDetailsCard eyebrow="Selected month" title={`${selectedMonthLabel} ${year}`}>
+            <MonthSummary
+              stats={monthStats}
+              buckets={monthBuckets}
+              totalDays={monthBuckets.reduce((sum, b) => sum + b.days, 0)}
+              fullDays={monthBuckets[monthBuckets.length - 1].days}
+              entries={monthEntries}
+              displayNames={displayNames}
+              isAdmin={isAdmin}
+              onOpenMonth={() => onOpenWorkspace(selectedMonth)}
+              requestsHref="/leave?tab=requests&from=annual"
             />
-          </div>
-
-          <div className="mt-3 border-t border-slate-line pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Leave Slot Utilization</p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {monthTotalCapacityBreakdown(year, selectedMonth, countByColumnPerDate).map(({ level, days }) => {
-                const state = UTILIZATION_TILE_STATES[level - 1]
-                return (
-                  // Same treatment as the day panel's capacity banner — a
-                  // recessed tint with a ring in the state's own colour,
-                  // rather than a solid block. Three saturated blocks side by
-                  // side were the loudest thing on the page on either ground,
-                  // and on the dark theme they read as lit panels rather than
-                  // as a legend.
-                  <div key={level} className={`flex flex-col items-center justify-center gap-0.5 rounded-lg py-2.5 text-center ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
-                    <span className={`text-sm font-bold ${state.text}`}>{level} of 3</span>
-                    <span className="text-[10px] text-ink-muted">slots taken</span>
-                    <span className={`text-xs font-semibold ${state.text}`}>{days} {days === 1 ? 'day' : 'days'}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {rangeEntries.length > 0 ? (
-            <div className="mt-3 border-t border-slate-line pt-3">
-              <p className="text-sm font-semibold text-ink">
-                {selectedRange
-                  ? `Leave during ${Number(selectedRange.from.slice(-2))}–${Number(selectedRange.to.slice(-2))} ${selectedMonthLabel.slice(0, 3)}`
-                  : `Leave in ${selectedMonthLabel}`}
-              </p>
-              <p className="mt-0.5 text-sm text-ink-muted">
-                {rangeSummary.approved} approved · {rangeSummary.pending} pending
-              </p>
-              <ul className="mt-2 space-y-0.5">
-                {rangeEntries.map(e => {
-                  const entryKey = `${e.profileId}-${e.status}`
-                  return (
-                    <li key={entryKey}>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedEntryKey(key => key === entryKey ? null : entryKey)}
-                        className="flex w-full items-center justify-between gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-canvas-sunken"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-sm font-medium text-ink">{displayNames.get(e.profileId) ?? e.surname}</span>
-                          <span className="text-xs text-ink-muted">{labelForLeaveCategory(e.category, e.contractType)}</span>
-                        </span>
-                        <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          e.status === 'approved' ? 'bg-success-bg text-success' : 'bg-flagAmber-bg text-flagAmber'
-                        }`}>
-                          {e.status === 'approved' ? 'Approved' : REVIEW_STATUS_LABELS.pending}
-                        </span>
-                      </button>
-                      {expandedEntryKey === entryKey && (
-                        <p className="pl-2 pb-1 text-xs text-ink-muted">Full leave: {formatShortDateRange(e.dateFrom, e.dateTo)}</p>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          ) : (
-            <p className="mt-3 border-t border-slate-line pt-3 text-sm text-ink-muted">No leave this month.</p>
-          )}
-
-          <div className="mt-4 space-y-2">
-            <button type="button" onClick={() => onOpenWorkspace(selectedMonth)} className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ExternalLink className="h-3.5 w-3.5" /> Open month workspace
-            </button>
-            <Link to="/leave?tab=requests&from=annual" className="btn-secondary flex w-full items-center justify-center gap-1.5 text-sm">
-              <ListChecks className="h-3.5 w-3.5" /> {isAdmin ? 'View requests' : 'View my requests'}
-            </Link>
-          </div>
+          </PlannerDetailsCard>
         </div>
         </div>
       </div>
@@ -464,15 +365,6 @@ function chipLabelForMonth(worstState, markers) {
     return `No capacity on ${days} day${days === 1 ? '' : 's'}`
   }
   return worstState.label
-}
-
-function InspectorStat({ icon: Icon, label, value }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="flex items-center gap-1.5 text-xs text-ink-muted"><Icon className="h-3.5 w-3.5 flex-shrink-0" /> {label}</span>
-      <span className="text-sm font-semibold text-ink">{value}</span>
-    </div>
-  )
 }
 
 // One month's compact overview: title, a quiet one-line summary, and a

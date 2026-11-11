@@ -98,7 +98,59 @@ describe('LeaveRequestForm', () => {
 
     expect(await screen.findByText('1 of 2 slots taken')).toBeInTheDocument()
     expect(screen.getByText('1 leave slot available for MO')).toBeInTheDocument()
-    expect(fetchAnnualCapacityPreview).toHaveBeenCalledWith({ dateFrom: '2026-08-10', dateTo: '2026-08-14', category: 'MO', profileId: 'doctor-1' })
+    // The server resolves the category; the form only names the doctor and the range.
+    expect(fetchAnnualCapacityPreview).toHaveBeenCalledWith({ dateFrom: '2026-08-10', dateTo: '2026-08-14', profileId: 'doctor-1', columnKeyOverride: undefined })
+    expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Motivations/)).not.toBeRequired()
+  })
+
+  it('annual leave at capacity: is not blocked — explains the overbooked path, requires a motivation, and submits "for admin approval"', async () => {
+    mockAuth = { profile: { id: 'doctor-1', category: 'MO' }, isAdmin: false }
+    fetchAnnualCapacityPreview.mockResolvedValue({
+      date: '2026-08-12', taken: 2, max: 2, atCapacity: true, pooled: true, columnKey: 'MO', columnLabel: 'MO',
+      breach: 'fulltime', breachDates: ['2026-08-12'], breachDate: '2026-08-12', overCapacity: true,
+    })
+    submitLeaveRequest.mockResolvedValue({ overCapacity: true })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+
+    expect(await screen.findByText('2 of 2 slots taken')).toBeInTheDocument()
+    expect(screen.getByTestId('over-capacity-note')).toHaveTextContent('No slot is free on 12 Aug. You can still submit for an emergency; an admin must approve it as overbooked leave.')
+    const submit = screen.getByRole('button', { name: 'Submit for admin approval' })
+    expect(submit).not.toBeDisabled()
+    const notes = screen.getByLabelText(/Motivations \(required for an overbooked request\)/)
+    expect(notes).toBeRequired()
+
+    await user.type(screen.getByLabelText('How many days will be taken as annual leave?'), '5')
+    await user.type(notes, 'Family emergency')
+    await user.click(submit)
+
+    await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(expect.objectContaining({ dateFrom: '2026-08-10', notes: 'Family emergency' })))
+    expect(await screen.findByText(/Flagged as overbooked for the admin to decide/)).toBeInTheDocument()
+  })
+
+  it('annual leave: previewing another category never flags the submission', async () => {
+    mockAuth = { profile: { id: 'doctor-1', category: 'MO' }, isAdmin: false }
+    // The previewed column (Registrar) is full; the doctor's own (MO) is
+    // what submission checks, and the override reading says so.
+    fetchAnnualCapacityPreview.mockResolvedValue({
+      date: '2026-08-12', taken: 2, max: 2, atCapacity: true, pooled: false, columnKey: 'Registrar', columnLabel: 'Registrar',
+      breach: 'column', breachDates: ['2026-08-12'], breachDate: '2026-08-12', overCapacity: true,
+    })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm />)
+
+    await user.type(screen.getByLabelText('From'), '2026-08-10')
+    await user.type(screen.getByLabelText('To'), '2026-08-14')
+    await user.click(await screen.findByText('MO', { selector: 'button *' }))
+    await user.click(await screen.findByRole('option', { name: 'Registrar' }))
+
+    expect(await screen.findByText(/this previews Registrar/)).toBeInTheDocument()
+    expect(screen.queryByTestId('over-capacity-note')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
   })
 
   it('annual leave: shows no banner once the preview resolves null (e.g. a category with no capacity column)', async () => {

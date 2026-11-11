@@ -71,15 +71,20 @@ app (My leave, Team leave, Requests, the planners) shows both numbers
 when they differ, for HR-audit visibility.
 
 **How the app enforces the capacity limit:** the sheet's "no more than one
-person per slot" rule is applied to the Annual Leave grid as a hard cap per
+person per slot" rule is applied to the Annual Leave grid as a cap per
 category column, plus a combined cap across the three "full-time EC doctor"
-columns together — both checked automatically when a doctor submits an
-annual leave request, not just displayed after the fact:
+columns together — both checked automatically (server-side, against every
+pending and approved request) when a doctor submits an annual leave
+request, not just displayed after the fact. A request over a limit is not
+blocked: the doctor is told no slot is free, must give a motivation, and
+the request goes in flagged as **overbooked** for an admin to consciously
+approve as such (an emergency), or decline. Approval re-checks capacity
+live at that moment.
 
 | Column | Categories | Max concurrent |
 | --- | --- | --- |
 | MO | MO | 2 |
-| Registrar | Registrar | 1 |
+| Registrar | Registrar | 2 |
 | EC COSMO / Intern | COSMO, EC_Intern, EC_COSMO_Intern, Intern | 2 |
 | OT COSMO / Intern | COSMOPsych, OT_Intern, OT_COSMO_Intern | 1 |
 
@@ -91,24 +96,26 @@ category) on leave at once.** Valid combinations of full-time EC doctors at
 the 2-doctor combined cap:
 
 1. 2 MO
-2. 1 MO + 1 Registrar
-3. 1 MO + 1 EC COSMO/Intern
-4. 1 Registrar + 1 EC COSMO/Intern
-5. 2 EC COSMO/Intern
+2. 2 Registrar
+3. 1 MO + 1 Registrar
+4. 1 MO + 1 EC COSMO/Intern
+5. 1 Registrar + 1 EC COSMO/Intern
+6. 2 EC COSMO/Intern
 
-Never more than 1 Registrar concurrently (already capped at 1 above), and
-never more than 2 full-time EC doctors combined even if each individual
+Never more than 2 full-time EC doctors combined even if each individual
 column is still under its own cap. The separate OT COSMO/Intern cap of 1
 (this includes any COSMO/Intern Psych) then adds to whichever full-time
 combination is on leave — e.g. 2 MO + 1 OT COSMO/Intern reaches the
-3-doctor overall ceiling.
+3-doctor overall ceiling. The OT COSMO/Intern slot is never available to
+the other categories: a full shared pool with the OT slot free still has
+no room for an MO, Registrar or EC COSMO/Intern.
 
 Consultant doctors have their own uncapped "Other" column on the grid — no
 concurrency cap applies to them — but per the Consultant leave privacy rule
 above, only an admin or another Consultant actually sees names in it; for
 everyone else the column renders empty. These numbers are configurable in
 Supabase (`constraints` table:
-`leave_max_concurrent_mo` / `_registrar` / `_ec_cosmo` / `_ot_cosmo` /
+`leave_max_concurrent_mo` / `_registrar` / `_ec_intern` / `_ot_intern` /
 `_fulltime`) without a redeploy, in case the real caps change.
 
 ## Special / Single-day / Course leave rules

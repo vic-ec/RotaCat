@@ -55,11 +55,10 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
-const MAX_BY_COLUMN = { MO: 2, Registrar: 1, EC_Intern: 1, OT_Intern: 1 }
+const MAX_BY_COLUMN = { MO: 2, Registrar: 2, EC_Intern: 2, OT_Intern: 1 }
 
 // p1 (Anderson, MO) approved on 12 Aug; p2 (Botha, Registrar) pending on
-// 12 Aug — Registrar's cap is 1, so that pending request alone already
-// puts the column at capacity.
+// 12 Aug — together they fill the shared full-time pool (2).
 const APPROVED_ROW = {
   id: 'req-1', profile_id: 'p1', date_from: '2026-08-12', date_to: '2026-08-12',
   leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,
@@ -332,7 +331,9 @@ describe('MonthWorkspace', () => {
     // mock admin has no `profile` in mockAuth and so no personal category,
     // which is exactly the viewer the generic banner is for.
     expect(screen.getByText('2 of 3 slots taken')).toBeInTheDocument()
-    expect(screen.getByText('1 annual leave slot available across all doctor categories.')).toBeInTheDocument()
+    // Pool by pool, never "1 slot available across all categories": the
+    // one free slot is OT Intern's, which an MO/Registrar/EC Intern can't use.
+    expect(screen.getByText('Shared pool full (MO, Registrar, EC Intern). 1 OT Intern slot free.')).toBeInTheDocument()
     expect(screen.queryByText('1/2')).not.toBeInTheDocument()
     expect(screen.queryByText('1/1')).not.toBeInTheDocument()
   })
@@ -436,45 +437,43 @@ describe('MonthWorkspace', () => {
     expect(await screen.findByRole('button', { name: 'Confirm approval' })).toBeInTheDocument()
   })
 
-  it('seeing rule impacts: flags a Registrar-column breach in isolation from the full-time aggregate', async () => {
-    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
-    // A second, already-approved Registrar on the same day means approving
-    // Botha's pending request would push the Registrar column (cap 1) to 2.
-    // maxFullTime is bumped to 3 for this test alone so the (unrelated)
-    // full-time aggregate cap doesn't also breach here — Anderson (MO) +
-    // Davis (Registrar) already sit at the real default of 2, which would
-    // otherwise mask the column-specific message this test is checking for.
-    const otherApproved = {
-      id: 'req-3', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-12',
-      leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,
-      profiles: { name: 'Dana', surname: 'Davis', category: 'Registrar' },
-    }
+  it('seeing rule impacts: shows the live capacity re-check\'s breach, naming the limit and the first date, and asks to approve as overbooked', async () => {
+    // The capacity warning comes from getApprovalWarnings (the
+    // annual_leave_capacity RPC with this request excluded), not from a
+    // client-side recount — the same check the Requests queue runs.
+    getApprovalWarnings.mockResolvedValue({
+      supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null,
+      capacityWarning: { breach: 'column', columnLabel: 'Registrar', limitLabel: 'Registrar limit', limitMax: 2, firstBreachDate: '2026-08-12' },
+    })
     const user = userEvent.setup()
-    renderWorkspace({ approvedRows: [APPROVED_ROW, otherApproved], maxFullTime: 3 })
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
-    expect(await screen.findByText(/Approving would breach the Registrar cap/)).toBeInTheDocument()
+    expect(await screen.findByText(/Approving would breach the Registrar limit \(2\) on 2026-08-12/)).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Approve as overbooked' }))
+    expect(await screen.findByRole('button', { name: 'Confirm overbooked approval' })).toBeInTheDocument()
   })
 
-  it('seeing rule impacts: flags a capacity breach when approving would push the EC full-time group over its cap', async () => {
-    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
-    // Anderson (MO) is already approved on 12 Aug (baseProps), and this adds
-    // a second EC full-time doctor (Davis, Registrar) — with the EC
-    // full-time cap at its real default of 2, MO + Registrar already fills
-    // it, so approving Botha's pending Registrar request would add a 3rd EC
-    // full-time doctor, breaching the full-time cap (on top of Registrar's
-    // own column cap of 1 — see the previous test for that message in
-    // isolation).
-    const otherApproved = {
-      id: 'req-3', profile_id: 'p4', date_from: '2026-08-12', date_to: '2026-08-12',
-      leave_type: 'annual', status: 'approved', annual_leave_days: 1, notes: null,
-      profiles: { name: 'Dana', surname: 'Davis', category: 'Registrar' },
-    }
+  it('seeing rule impacts: a shared-pool breach names the pool', async () => {
+    getApprovalWarnings.mockResolvedValue({
+      supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null,
+      capacityWarning: { breach: 'fulltime', columnLabel: 'Registrar', limitLabel: 'shared pool (MO, Registrar, EC Intern)', limitMax: 2, firstBreachDate: '2026-08-12' },
+    })
     const user = userEvent.setup()
-    renderWorkspace({ approvedRows: [APPROVED_ROW, otherApproved] })
+    renderWorkspace()
     await user.click(screen.getByText('Anderson'))
 
-    expect(await screen.findByText(/Approving would breach the full-time doctor cap/)).toBeInTheDocument()
+    expect(await screen.findByText(/Approving would breach the shared pool \(MO, Registrar, EC Intern\) \(2\) on 2026-08-12/)).toBeInTheDocument()
+  })
+
+  it('seeing rule impacts: a request submitted as overbooked whose capacity has since freed up says so, and approves plainly', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null, capacityWarning: null })
+    const user = userEvent.setup()
+    renderWorkspace({ pendingRows: [{ ...PENDING_ROW, over_capacity: true, capacity_breach: 'fulltime' }] })
+    await user.click(screen.getByText('Anderson'))
+
+    expect(await screen.findByText('Submitted as overbooked; capacity has since freed up.')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
   })
 
   it('rejecting leave: requires a reason field and a confirm step', async () => {

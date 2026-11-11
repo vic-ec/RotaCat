@@ -23,8 +23,13 @@ import { LEAVE_FULL_TIME_POOL_LABEL } from '../lib/leaveYearGrid'
 //     single most useful thing to know before asking for the day.
 //     LeaveRequestForm never hits this branch, since its own preview never
 //     sets mySlots without a resolvable column in the first place.
+// `detail` (generic branch only): the pool-by-pool second line from
+// genericDayAvailabilityLine (monthWorkspace.js) — "Shared pool full (MO,
+// Registrar, EC Intern). 1 OT Intern slot free." — in place of the old
+// "N slots available across all doctor categories", which read as if the
+// OT Intern slot were open to anyone.
 export default function LeaveCapacityBanner({
-  mySlots, columnLabel, pooled, atFullCapacity, dayCapacityState, totalSlots, totalCeiling,
+  mySlots, columnLabel, pooled, atFullCapacity, dayCapacityState, totalSlots, totalCeiling, detail,
 }) {
   if (mySlots) {
     const available = mySlots.max - mySlots.taken
@@ -70,7 +75,7 @@ export default function LeaveCapacityBanner({
         <p className="mt-0.5 text-xs text-ink-muted">
           {atFullCapacity
             ? 'No annual leave slots available for any category today.'
-            : `${remaining} annual leave slot${remaining !== 1 ? 's' : ''} available across all doctor categories.`}
+            : (detail ?? `${remaining} annual leave slot${remaining !== 1 ? 's' : ''} available across all doctor categories.`)}
         </p>
       </div>
     </div>

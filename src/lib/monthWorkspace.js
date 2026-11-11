@@ -1,10 +1,11 @@
 // Pure helpers for the Annual Leave planner's month workspace
 // (MonthWorkspace.jsx) — the detailed single-month calendar opened from
 // the year overview, kept separate from the Supabase fetch so it's
-// unit-testable without mocking the client.
+// unit-testable without mocking the client. The approval-time capacity
+// check that used to live here (checkApprovalCapacityImpact) is now the
+// annual_leave_capacity RPC via getApprovalWarnings (leaveApprovals.js).
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_CAPACITY_STATES,
-  buildLeaveByDate, countByColumnPerDate, findLeaveCapacityBreach, findFullTimeAggregateBreach, datesInMonth,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_FULL_TIME_GROUP_KEYS, LEAVE_FULL_TIME_POOL_LABEL, LEAVE_CAPACITY_STATES, datesInMonth,
 } from './leaveYearGrid'
 import { resolveLeaveCapacityColumn } from './internRotations'
 
@@ -42,54 +43,6 @@ export function dayCapacitySummary(date, countByColumnPerDateMap, maxByColumnKey
   })
 }
 
-// Would approving `request` breach the concurrency cap on any date in its
-// range? Mirrors checkAnnualLeaveCapacity in leaveRequests.js exactly (same
-// two checks: the request's own column, then the full-time aggregate if
-// its column is part of that group) so this gives the same answer
-// submission-time validation would — expected to rarely trigger, since a
-// request that would breach shouldn't have been submittable in the first
-// place, unless a cap was tightened after the fact. `otherRows` must
-// exclude `request` itself (raw leave_requests rows with a `profiles`
-// join, both pending and approved, for the same leave_type/year).
-// rotationsByDoctorId defaults to an empty map — resolveLeaveCapacityColumn
-// degrades to static category bucketing when it's not passed (e.g. tests,
-// or a category with no capacity column at all).
-export function checkApprovalCapacityImpact(request, otherRows, maxByColumnKey, maxFullTime, rotationsByDoctorId = new Map()) {
-  const columnKey = resolveLeaveCapacityColumn({
-    category: request.profiles?.category, contractType: request.profiles?.contract_type, profileId: request.profile_id, date: request.date_from, rotationsByDoctorId,
-  })
-  const columnDef = LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnKey)
-  if (!columnDef) return { applicable: false }
-
-  const byDate = buildLeaveByDate(otherRows, {
-    yearFrom: Number(request.date_from.slice(0, 4)), yearTo: Number(request.date_to.slice(0, 4)),
-  })
-  const countsByDate = countByColumnPerDate(byDate, e => resolveLeaveCapacityColumn({
-    category: e.profiles?.category, contractType: e.profiles?.contract_type, profileId: e.profile_id, date: e.date_from, rotationsByDoctorId,
-  }))
-
-  const maxConcurrent = maxByColumnKey[columnKey]
-  const column = findLeaveCapacityBreach({
-    dateFrom: request.date_from, dateTo: request.date_to, columnKey, maxConcurrent, existingCountsByDate: countsByDate,
-  })
-
-  let fullTime = { hasBreach: false, breachDates: [] }
-  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
-    fullTime = findFullTimeAggregateBreach({
-      dateFrom: request.date_from, dateTo: request.date_to, maxTotal: maxFullTime, existingCountsByDate: countsByDate,
-    })
-  }
-
-  return {
-    applicable: true,
-    columnLabel: columnDef.label,
-    columnBreach: column.hasBreach,
-    columnBreachDates: column.breachDates,
-    fullTimeBreach: fullTime.hasBreach,
-    fullTimeBreachDates: fullTime.breachDates,
-  }
-}
-
 // True for any category with a real cap to compare against — the three
 // LEAVE_FULL_TIME_GROUP_KEYS always do (their combined pool), OT COSMO/
 // Intern does via its own maxByColumnKey entry; false for a column-less
@@ -99,24 +52,40 @@ function hasCapacityColumn(columnKey, maxByColumnKey) {
   return LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey) || maxByColumnKey[columnKey] != null
 }
 
-// MO/Registrar/EC_Intern draw from one shared pool (maxFullTime, default 2
-// — see LEAVE_FULL_TIME_GROUP_KEYS/totalLeaveCeiling in leaveYearGrid.js):
-// a day with 1 MO + 1 Registrar already has zero room left for a 3rd
-// MO/Registrar/EC COSMO doctor, even though neither individual column's own
-// historical max (2/1/2) has been hit on its own. OT COSMO/Intern is a
-// separate, independent pool with its own cap (1) — additive, not part of
-// this shared pool.
-// Exported (not just used internally) so leaveRequests.js's
-// fetchAnnualCapacityPreview can reuse the exact same combined-pool
-// calculation for a not-yet-submitted request's date range, instead of
-// reimplementing it against its own countByColumnPerDate map.
+// The one rule for "is there room for one more doctor in this column": a
+// day has no room if EITHER the column's own cap OR, for MO/Registrar/
+// EC_Intern, the shared full-time pool's cap (maxFullTime, default 2) is
+// reached. Both limits apply at once — 1 MO + 1 Registrar leaves no room for
+// a 3rd pooled doctor though neither column is at its own cap, and 2
+// Registrars leave the Registrar column full though the pool's reading is
+// the same number. Reports whichever limit has the LEAST room left (ties
+// go to the pool, which is the reading the banners name); `pooled` says
+// which one that was, so LeaveCapacityBanner can word it. OT Intern is a
+// separate, independent pool with its own cap (1) — additive, never part
+// of the shared pool, and never available to the other categories.
+// Shared by every reading below, by fetchAnnualCapacityPreview's worst-day
+// scan and by the day panel (via myCategoryDaySlots), so no two screens can
+// disagree about whether a day has room.
+export function tightestSlotsForColumn({ columnKey, columnTaken, columnMax, poolTaken, poolMax }) {
+  const inPool = LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)
+  const column = columnMax == null ? null : { taken: columnTaken, max: columnMax, pooled: false }
+  const pool = inPool && poolMax != null ? { taken: poolTaken, max: poolMax, pooled: true } : null
+  if (!column && !pool) return null
+  if (!column) return pool
+  if (!pool) return column
+  return (column.max - column.taken) < (pool.max - pool.taken) ? column : pool
+}
+
 export function slotsForColumnOnDate(date, columnKey, maxByColumnKey, maxFullTime, countByColumnPerDateMap) {
   const counts = countByColumnPerDateMap.get(date)
-  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
-    const taken = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (counts?.get(key) || 0), 0)
-    return { taken, max: maxFullTime }
-  }
-  return { taken: counts?.get(columnKey) || 0, max: maxByColumnKey[columnKey] }
+  const poolTaken = LEAVE_FULL_TIME_GROUP_KEYS.reduce((sum, key) => sum + (counts?.get(key) || 0), 0)
+  return tightestSlotsForColumn({
+    columnKey,
+    columnTaken: counts?.get(columnKey) || 0,
+    columnMax: maxByColumnKey[columnKey],
+    poolTaken,
+    poolMax: maxFullTime,
+  })
 }
 
 // The day-view banner's own "how urgent is this" read — a 3-step scale
@@ -135,21 +104,49 @@ export function bannerStateForSlots({ taken, max }) {
   return LEAVE_CAPACITY_STATES[2]
 }
 
-// Same combined-pool logic as slotsForColumnOnDate, but for a single
-// already-summarised day — MonthWorkspace's DayReviewModal already has a
-// `capacity` prop (dayCapacitySummary's per-column {key,count,max} array
-// for that one date) rather than a whole month's countByColumnPerDateMap,
-// so the day view reads directly off that instead of re-deriving it.
+// Same rule as slotsForColumnOnDate, but for a single already-summarised
+// day — MonthWorkspace's DayReviewModal already has a `capacity` prop
+// (dayCapacitySummary's per-column {key,count,max} array for that one date)
+// rather than a whole month's countByColumnPerDateMap, so the day view
+// reads directly off that instead of re-deriving it.
 export function myCategoryDaySlots(columnKey, capacity, maxFullTime) {
-  if (LEAVE_FULL_TIME_GROUP_KEYS.includes(columnKey)) {
-    const taken = capacity
-      .filter(c => LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key))
-      .reduce((sum, c) => sum + c.count, 0)
-    return { taken, max: maxFullTime }
-  }
   const col = capacity.find(c => c.key === columnKey)
-  if (!col || col.max == null) return null
-  return { taken: col.count, max: col.max }
+  const poolTaken = capacity
+    .filter(c => LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key))
+    .reduce((sum, c) => sum + c.count, 0)
+  return tightestSlotsForColumn({
+    columnKey,
+    columnTaken: col?.count || 0,
+    columnMax: col?.max ?? null,
+    poolTaken,
+    poolMax: maxFullTime,
+  })
+}
+
+// The generic (no own category — an admin, a Consultant) day banner's
+// second line, pool by pool: the shared pool and each separate column,
+// each named with its own room left. "N slots available across all
+// categories" was wrong whenever the pools were unevenly full — a full
+// shared pool with the OT Intern slot free read as one slot anyone could
+// take, and the OT Intern slot is never available to the other categories.
+// Returns null when nothing at all is free (the banner's own "Full" copy
+// covers that).
+export function genericDayAvailabilityLine(capacity, maxFullTime) {
+  const poolTaken = capacity
+    .filter(c => LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key))
+    .reduce((sum, c) => sum + c.count, 0)
+  const poolFree = Math.max(0, maxFullTime - poolTaken)
+  const separate = capacity
+    .filter(c => !LEAVE_FULL_TIME_GROUP_KEYS.includes(c.key) && c.max != null)
+    .map(c => ({ label: c.label, free: Math.max(0, c.max - c.count) }))
+  if (poolFree === 0 && separate.every(c => c.free === 0)) return null
+  const parts = [
+    poolFree === 0
+      ? `Shared pool full (${LEAVE_FULL_TIME_POOL_LABEL}).`
+      : `${poolFree} of ${maxFullTime} shared pool slot${maxFullTime === 1 ? '' : 's'} free (${LEAVE_FULL_TIME_POOL_LABEL}).`,
+    ...separate.map(c => c.free === 0 ? `${c.label} slot full.` : `${c.free} ${c.label} slot${c.free === 1 ? '' : 's'} free.`),
+  ]
+  return parts.join(' ')
 }
 
 // Personalised day-cell fill for the non-admin mobile month grid

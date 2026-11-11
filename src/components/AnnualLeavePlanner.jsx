@@ -236,12 +236,12 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     'An Annual Leave form must be submitted and approved. 22 days available per yearly cycle.',
     "You're unavailable for rostering for the whole date range requested, but only the days you enter as \"annual leave\" reduce your balance — e.g. a 7-day request covering a padding weekend might only be 5 annual leave days; the other 2 still need their hours made up elsewhere.",
     `At most ${maxFullTime} full time EC staff and ${maxByColumnKey.OT_Intern ?? 1} doctor doing EC overtime (Psych, Day Hospital, TB hospital) may be on leave at once.`,
-    `No more than ${maxFullTime} full-time EC doctors (MO + Registrar + EC COSMO/Intern combined) on leave at once — e.g. 2 MO, 1 MO + 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC COSMO/Intern — never 2 Registrar. OT COSMO/Intern is a separate pool, capped at ${maxByColumnKey.OT_Intern ?? 1} on its own and additive on top of the full-time cap (e.g. 2 MO + 1 OT COSMO/Intern reaches the ${totalCeiling}-doctor ceiling). Enforced automatically at submission.`,
+    `No more than ${maxFullTime} full-time EC doctors (MO + Registrar + EC COSMO/Intern combined) on leave at once — e.g. 2 MO, 2 Registrar, 1 MO + 1 Registrar, 1 MO + 1 EC COSMO/Intern, 1 Registrar + 1 EC COSMO/Intern, or 2 EC COSMO/Intern. OT COSMO/Intern is a separate pool, capped at ${maxByColumnKey.OT_Intern ?? 1} on its own and additive on top of the full-time cap (e.g. 2 MO + 1 OT COSMO/Intern reaches the ${totalCeiling}-doctor ceiling) — that slot is never available to the other categories. Checked automatically at submission: a request over the limit is not blocked, but is flagged for an admin to approve as overbooked.`,
     "Taking 5 days' leave: weekend either side allowed, but \"on\" weekend hours must be made up elsewhere.",
     "Taking 10 days' leave (2 weeks): if the middle weekend is \"on\", those hours don't need to be made up.",
     'Leave spanning a public holiday: the PH counts as a shift/leave day, or hours are made up elsewhere.',
     'Public holidays are highlighted on the grid; tap or hover the date to see the name.',
-    'Pending requests count toward the cap too, not just approved ones — once a category is full, submitting another overlapping request for it is blocked until one already pending is decided.',
+    'Pending requests count toward the cap too, not just approved ones — once a category is full, another overlapping request for it can still be submitted as an emergency (with a motivation), but is flagged as overbooked and needs an admin to approve it as such.',
   ]
 
   return (

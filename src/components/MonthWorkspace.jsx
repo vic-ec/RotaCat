@@ -4,13 +4,13 @@ import { TriangleAlert, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { todayStr, formatWeekdayDate, formatShortDateRange } from '../lib/dateRange'
 import {
-  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, LEAVE_FULL_TIME_GROUP_KEYS, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
+  LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
   weeksForMonth, monthsForYear, totalLeaveSlotsForDate, capacityStateForCount, totalLeaveCeiling,
   splitForOverflow,
 } from '../lib/leaveYearGrid'
 import {
-  dayEntriesByColumn, dayCapacitySummary, checkApprovalCapacityImpact, daysWithRoomForCategory, categoryPressureState,
-  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates,
+  dayEntriesByColumn, dayCapacitySummary, daysWithRoomForCategory, categoryPressureState,
+  myCategoryDaySlots, myCategoryCapacityStateForDate, myCategoryLegendStates, genericDayAvailabilityLine,
 } from '../lib/monthWorkspace'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
@@ -31,7 +31,7 @@ const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
 
 function hasWarnings(w) {
-  return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning))
+  return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning) || Boolean(w.capacityWarning))
 }
 
 // The Annual planner's detailed single-month view — opened from the year
@@ -48,7 +48,7 @@ function hasWarnings(w) {
 // again — this view is just a different lens on the same data, filtered to
 // one month by the calendar itself.
 export default function MonthWorkspace({
-  year, month, onMonthChange, approvedByDate, pendingByDate, approvedRows, pendingRows,
+  year, month, onMonthChange, approvedByDate, pendingByDate, pendingRows,
   countByColumnPerDate, publicHolidaysByDate, rotationsByDoctorId, displayNames = new Map(), highlightDate, onHighlightConsumed, maxByColumnKey, maxFullTime, onDataChanged, onBack,
   ruleHintIntro, ruleHintBullets,
 }) {
@@ -272,7 +272,6 @@ export default function MonthWorkspace({
           capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
           phName={publicHolidaysByDate.get(selectedDate)}
           displayNames={displayNames}
-          approvedRows={approvedRows}
           pendingRows={pendingRows}
           maxByColumnKey={maxByColumnKey}
           maxFullTime={maxFullTime}
@@ -441,7 +440,7 @@ function MobileDayCell({ date, isToday, isPublicHoliday, columnsPresent, capacit
 }
 
 function DayReviewModal({
-  date, entriesByColumn, capacity, phName, displayNames, approvedRows, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
+  date, entriesByColumn, capacity, phName, displayNames, pendingRows, maxByColumnKey, maxFullTime, rotationsByDoctorId,
   initialShowRequestForm = false, onDataChanged, onClose,
 }) {
   const { user, profile, isAdmin, canSubmitLeave } = useAuth()
@@ -458,7 +457,6 @@ function DayReviewModal({
   const [showRequestForm, setShowRequestForm] = useState(initialShowRequestForm)
 
   const pendingRequestsThisDate = pendingRows.filter(r => r.date_from <= date && r.date_to >= date)
-  const allRows = [...approvedRows, ...pendingRows]
 
   useEffect(() => {
     let cancelled = false
@@ -533,11 +531,12 @@ function DayReviewModal({
       <LeaveCapacityBanner
         mySlots={mySlots}
         columnLabel={myColumnDef?.label}
-        pooled={Boolean(myColumnKey) && LEAVE_FULL_TIME_GROUP_KEYS.includes(myColumnKey)}
+        pooled={Boolean(mySlots?.pooled)}
         atFullCapacity={atFullCapacity}
         dayCapacityState={dayCapacityState}
         totalSlots={totalSlots}
         totalCeiling={totalCeiling}
+        detail={genericDayAvailabilityLine(capacity, maxFullTime)}
       />
       {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
       {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
@@ -585,14 +584,20 @@ function DayReviewModal({
             <div className="mt-4 space-y-3 border-t border-slate-line pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Pending requests</p>
               {pendingRequestsThisDate.map(request => {
+                // Every warning, capacity included, comes from
+                // getApprovalWarnings — the capacity one is the
+                // annual_leave_capacity RPC's live re-check of this request
+                // against everyone else's leave, the same check the Requests
+                // queue runs, so the two screens can never disagree.
                 const w = warningsById[request.id]
                 const warned = hasWarnings(w)
-                const impact = checkApprovalCapacityImpact(
-                  request, allRows.filter(r => r.id !== request.id), maxByColumnKey, maxFullTime, rotationsByDoctorId
-                )
-                const capacityWarned = impact.applicable && (impact.columnBreach || impact.fullTimeBreach)
+                const capacityWarned = Boolean(w?.capacityWarning)
                 const confirming = confirmingApproveId === request.id
                 const isActioning = actioningId === request.id
+                const approveLabel = isActioning ? 'Approving…'
+                  : capacityWarned ? (confirming ? 'Confirm overbooked approval' : 'Approve as overbooked')
+                  : warned ? (confirming ? 'Confirm approval' : 'Approve anyway')
+                  : 'Approve'
 
                 return (
                   <div key={request.id} className="rounded-lg border border-slate-line p-3">
@@ -611,9 +616,12 @@ function DayReviewModal({
                       <div className="mt-2 flex items-start gap-1.5 rounded border border-flagAmber bg-flagAmber-bg p-2 text-xs text-flagAmber">
                         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
                         <span>
-                          Approving would breach the {impact.fullTimeBreach ? 'full-time doctor' : impact.columnLabel} cap on {(impact.columnBreachDates[0] || impact.fullTimeBreachDates[0])}.
+                          Approving would breach the {w.capacityWarning.limitLabel} ({w.capacityWarning.limitMax}) on {w.capacityWarning.firstBreachDate}. Approve as overbooked to proceed.
                         </span>
                       </div>
+                    )}
+                    {request.over_capacity && !capacityWarned && (
+                      <p className="mt-2 text-xs text-ink-muted">Submitted as overbooked; capacity has since freed up.</p>
                     )}
                     {warned && (
                       <div className="mt-2 space-y-1 rounded border border-flagAmber bg-flagAmber-bg p-2">
@@ -658,11 +666,11 @@ function DayReviewModal({
                     ) : (
                       <div className="mt-2 flex gap-2">
                         <button
-                          onClick={() => (warned || capacityWarned) && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
+                          onClick={() => warned && !confirming ? setConfirmingApproveId(request.id) : handleApprove(request)}
                           disabled={isActioning || warningsById[request.id] === undefined}
                           className="btn-success"
                         >
-                          {isActioning ? 'Approving…' : (warned || capacityWarned) ? (confirming ? 'Confirm approval' : 'Approve anyway') : 'Approve'}
+                          {approveLabel}
                         </button>
                         <button onClick={() => setRejectingId(request.id)} disabled={isActioning} className="btn-danger-outline">
                           Reject

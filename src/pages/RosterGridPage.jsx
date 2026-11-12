@@ -15,7 +15,7 @@ import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
-import Toolbar from '../components/Toolbar'
+import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -494,6 +494,15 @@ export default function RosterGridPage() {
   // One row that opens its three sizes, not three rows: spelling them out
   // made the top half of the sheet a list of near-identical labels, none of
   // which is an action, and it buried the two that are.
+  const unpublishItem = isAdmin && rosterMonth.status === 'published' ? {
+    key: 'unpublish',
+    icon: <Undo className="h-4 w-4" />,
+    label: publishing ? 'Reverting…' : 'Undo Publish',
+    danger: true,
+    disabled: publishing,
+    onClick: handleUnpublish,
+  } : null
+
   const rosterMenuItems = [
     {
       key: 'text-size',
@@ -516,159 +525,80 @@ export default function RosterGridPage() {
       label: 'Review log',
       onClick: () => setShowChangeLog(true),
     }] : []),
-    ...(isAdmin && rosterMonth.status === 'published' ? ['divider', {
-      key: 'unpublish',
-      icon: <Undo className="h-4 w-4" />,
-      label: publishing ? 'Reverting…' : 'Undo Publish',
-      danger: true,
-      disabled: publishing,
-      onClick: handleUnpublish,
-    }] : []),
+    ...(unpublishItem ? ['divider', unpublishItem] : []),
   ]
+
+  // Desktop's kebab holds only what is risky to leave one click away.
+  const desktopMenuItems = unpublishItem ? [unpublishItem] : []
+
+  const kebabTrigger = (onClick, open) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label="More actions"
+      className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+    >
+      <EllipsisVertical className="h-4 w-4" />
+    </button>
+  )
+
+  // Publish — always labelled, since it's the one action here with real
+  // consequences. Opens a confirmation instead of publishing immediately.
+  const showPublish = isAdmin && rosterMonth.status === 'draft'
+  const publishButton = (
+    <button
+      onClick={() => setShowPublishConfirm(true)}
+      disabled={publishing}
+      className="btn-primary text-sm"
+    >
+      <BookUp className="h-4 w-4" />
+      Publish
+    </button>
+  )
 
   return (
     <div className="mx-auto max-w-full">
-      {/* Header */}
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
+      {/* Header — back link, then the title line, then status.
+          On a phone the back-link line also carries the view switches +
+          kebab (the desktop toolbar row below is hidden there), leaving the
+          title room for Publish beside it. Only Publish ever sits beside
+          the title. Nothing wraps or moves as the window narrows. Undo Publish is never here: next to
+          the title it was too easy to hit by mistake, so it lives in the
+          kebab on both breakpoints. */}
+      <div className="mb-4">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <button
             onClick={() => navigate('/roster')}
-            className="mb-2 flex items-center gap-1.5 rounded px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
+            className="flex items-center gap-1.5 rounded px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
           >
             <ChevronLeftIcon className="h-4 w-4" /> Rosters
           </button>
-          <h1 className="font-display text-2xl font-bold text-ink">
-            {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
-          </h1>
-          <div className="mt-1 flex items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              rosterMonth.status === 'published'
-                ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
-                : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
-            }`}>
-              {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
-            </span>
-            {totalFlags > 0 && (
-              <span className="text-xs text-flagRed">{totalFlags} flagged slot{totalFlags !== 1 ? 's' : ''}</span>
-            )}
-            {totalLocums > 0 && (
-              <span className="text-xs text-flagAmber">{totalLocums} locum placeholder{totalLocums !== 1 ? 's' : ''}</span>
-            )}
+          <div className="flex flex-shrink-0 items-center gap-2 md:hidden">
+            <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+            <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
+            <PageActionsMenu items={rosterMenuItems} trigger={kebabTrigger} />
           </div>
         </div>
-
-        {/* flex-wrap, not nowrap: two view toggles plus up to three action
-            buttons overflow a narrow phone otherwise, and this cluster
-            wrapping onto a second line is the cheapest way out. */}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {/* The two view switches sit side by side, as one cluster: they
-              answer neighbouring questions (what shape the roster is drawn
-              in, and how much of it at once) and pairing them keeps either
-              from reading as a property of the toolbar row below. Rows/
-              Lanes comes first — pick the shape, then the span. Both are
-              the shared ViewToggle rather than one being hand-rolled, so
-              they line up at the same 30px height. */}
-          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
-          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
-
-          {/* Text size. Same 30px switch as its neighbours but kept as its
-              own group behind a Type icon, because it answers a different
-              kind of question: the other two change what you're looking at,
-              this one only changes how big it is. S is the size the grids
-              were always drawn at, so an existing user who never touches
-              this sees no change — M is the default because the grids are
-              the densest screens in the app and 12px is small for them.
-              Desktop only: on a phone it lives in the More actions sheet
-              below, since it is a preference you set once rather than
-              something you flick between while reading the roster. */}
-          <div className="hidden items-center gap-1.5 md:flex" role="group" aria-label="Roster text size">
-            <Type className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
-            <ViewToggle view={textSize} onChange={setTextSize} options={ROSTER_TEXT_SIZES} />
-          </div>
-
-          {/* Hours Summary — visible to every role that can view this page
-              except locum (matches Roster Hours Summary's own visibility
-              rule); pre-seeds the summary's month/year to this roster's own,
-              rather than landing on the current month. Passes this roster's
-              id/label via navigation state so Hours Summary can show its own
-              back button straight to this page — see RosterSummaryPage.jsx. */}
-          {!isLocum && (
-            <button
-              onClick={goToHoursSummary}
-              className="hidden md:inline-flex btn-secondary text-sm"
-            >
-              <ClipboardClock className="h-4 w-4" />
-              Hours Summary
-            </button>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
+            {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
+          </h1>
+          {showPublish && <div className="flex-shrink-0">{publishButton}</div>}
+        </div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            rosterMonth.status === 'published'
+              ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
+              : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
+          }`}>
+            {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
+          </span>
+          {totalFlags > 0 && (
+            <span className="text-xs text-flagRed">{totalFlags} flagged slot{totalFlags !== 1 ? 's' : ''}</span>
           )}
-
-          {/* Review log */}
-          {isAdmin && (
-            <button
-              onClick={() => setShowChangeLog(true)}
-              className="hidden md:inline-flex btn-secondary text-sm"
-            >
-              <ScrollText className="h-4 w-4" />
-              Review log
-            </button>
-          )}
-
-          {/* Undo Publish — reverts back to draft; sits where Publish would
-              be, since the two states (draft/published) are mutually
-              exclusive and this button only ever shows for the other one.
-              Dressed as .btn-danger-outline, the Reject/Decline shape:
-              taking a published roster back off the wall is a negative
-              action, and the outline (rather than solid .btn-danger) keeps
-              it from shouting at an admin who only came to look. */}
-          {isAdmin && rosterMonth.status === 'published' && (
-            <button
-              onClick={handleUnpublish}
-              disabled={publishing}
-              className="hidden md:inline-flex btn-danger-outline text-sm"
-            >
-              <Undo className="h-4 w-4" />
-              {publishing ? 'Reverting…' : 'Undo Publish'}
-            </button>
-          )}
-
-          {/* …and the same three, plus text size, as one kebab below md.
-              Six controls never fitted a phone header — they wrapped onto a
-              second and third row — and of the six these are the ones you
-              reach for once (or never), so they are what collapses. What
-              stays on the row is the two view switches and Publish. */}
-          <div className="md:hidden">
-            <PageActionsMenu
-              items={rosterMenuItems}
-              trigger={(onClick, open) => (
-                <button
-                  type="button"
-                  onClick={onClick}
-                  aria-expanded={open}
-                  aria-label="More actions"
-                  className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
-                >
-                  <EllipsisVertical className="h-4 w-4" />
-                </button>
-              )}
-            />
-          </div>
-
-          {/* Publish — always shows a label (unlike Hours Summary/Review
-              log, which collapse to icon-only below md) since it's the one
-              action here with real consequences, so it stays unambiguous
-              at every width. "Publish" alone rather than "Publish Roster"
-              — the longer label wrapped to two lines at the button's width
-              on mobile. Opens a confirmation instead of publishing
-              immediately. */}
-          {isAdmin && rosterMonth.status === 'draft' && (
-            <button
-              onClick={() => setShowPublishConfirm(true)}
-              disabled={publishing}
-              className="btn-primary text-sm"
-            >
-              <BookUp className="h-4 w-4" />
-              Publish
-            </button>
+          {totalLocums > 0 && (
+            <span className="text-xs text-flagAmber">{totalLocums} locum placeholder{totalLocums !== 1 ? 's' : ''}</span>
           )}
         </div>
       </div>
@@ -772,26 +702,79 @@ export default function RosterGridPage() {
         </div>
       )}
 
-      {/* Find-a-doctor row: search at the standard 320px (layout-spec,
-          Search width), Filter beside it. `mobileMode="inline"` so the two
-          share one row on a phone instead of Filter dropping below a
-          full-width search box — this row sits directly above a grid that
-          already wants every vertical pixel it can get. */}
-      <div className="mb-3">
-        <Toolbar
-          className=""
-          mobileMode="inline"
-          searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search by surname…"
-          filterGroups={categoryOptions.length > 0 ? [{
-            key: 'category', label: 'Category',
-            options: categoryOptions,
-            selected: filterCategory, onChange: setFilterCategory,
-          }] : []}
-          active={filtersActive}
-          onClearAll={clearFilters}
-        />
+      {/* One toolbar row: find-a-doctor on the left, view controls on the
+          right (desktop only — a phone carries those in the header above).
+          A fixed row rather than a wrapping cluster beside the title, so the
+          controls sit in the same place at every desktop width. When space
+          runs short the search box shrinks and Hours Summary / Review log
+          drop to icons (below xl) — nothing wraps onto a second line. */}
+      <div className="mb-3 flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <Toolbar
+            className=""
+            compact
+            mobileMode="inline"
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search by surname…"
+            filterGroups={categoryOptions.length > 0 ? [{
+              key: 'category', label: 'Category',
+              options: categoryOptions,
+              selected: filterCategory, onChange: setFilterCategory,
+            }] : []}
+            active={filtersActive}
+            onClearAll={clearFilters}
+          />
+        </div>
+
+        <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
+          {/* Shape first (Rows/Lanes), then span (Month/Week). */}
+          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
+
+          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+
+          {/* Font size — "Aa" opening S/M/L, rather than four bare letters
+              whose meaning wasn't obvious. */}
+          <ToolbarFacet
+            icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
+            label="Font size"
+            compact
+            value={textSize}
+            onChange={setTextSize}
+            options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
+          />
+
+          {/* Hours Summary — every role except locum (matches Roster Hours
+              Summary's own visibility rule). */}
+          {!isLocum && (
+            <button
+              onClick={goToHoursSummary}
+              aria-label="Hours Summary"
+              title="Hours Summary"
+              className="btn-secondary text-sm"
+            >
+              <ClipboardClock className="h-4 w-4" />
+              <span className="hidden xl:inline">Hours Summary</span>
+            </button>
+          )}
+
+          {isAdmin && (
+            <button
+              onClick={() => setShowChangeLog(true)}
+              aria-label="Review log"
+              title="Review log"
+              className="btn-secondary text-sm"
+            >
+              <ScrollText className="h-4 w-4" />
+              <span className="hidden xl:inline">Review log</span>
+            </button>
+          )}
+
+          {/* Kebab — only rendered when it has something in it (today: Undo
+              Publish on a published roster, admins only). */}
+          <PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} />
+        </div>
       </div>
 
       {layout === 'lanes' ? (

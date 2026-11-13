@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
@@ -24,6 +24,7 @@ import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize,
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
+import { useIsDesktop } from '../lib/useIsDesktop'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -68,8 +69,6 @@ const WEEKDAY_SHIFTS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'])
 const WEEKEND_SHIFTS = shiftColumns(['WE_08', 'WE_13', 'WE_20'])
 const PH_WEEKDAY_SHIFTS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'])
 const PH_WEEKEND_SHIFTS = shiftColumns(['PH_08', 'PH_13', 'PH_20'])
-
-const MAX_SHIFT_COLUMNS = 4
 
 function getShiftsForDay(dayType) {
   if (dayType === 'weekday') return WEEKDAY_SHIFTS
@@ -144,6 +143,9 @@ export default function RosterGridPage() {
   useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
   const { base: rosterBase } = rosterTextSize(textSize)
   const rosterScale = rosterTextScale(textSize)
+  // Below md the Consultant column folds into the date rail (see the grid),
+  // so the column plan changes with the breakpoint, not just the CSS.
+  const wideGrid = useIsDesktop(768)
 
   useEffect(() => {
     loadAll()
@@ -856,16 +858,28 @@ export default function RosterGridPage() {
           <LanesLegend textSize={textSize} />
         </>
       ) : (
-      /* Grid — horizontally scrollable */
-      <div className="overflow-x-auto rounded-lg border border-slate-line" style={{ fontSize: `${rosterBase}px` }}>
-        <table className="w-full table-fixed border-collapse" style={{ minWidth: Math.round(580 * rosterScale) }}>
-          {/* Every column 20px narrower than before: date 64px -> 44px;
-              Consultant + up to 4 shift columns were auto-sharing ~127px
-              each, now fixed at 107px each so the reduction is uniform
-              instead of just redistributing the freed space. */}
+      /* Grid — horizontally scrollable. Each day is its own bordered
+         block on the page background: `border-separate` with a spacer row
+         between days (6px, 14px before a Monday) rather than a divider
+         line, so adjacent flag fills can never merge into one slab. The
+         cells carry the block's border themselves (top and bottom on every
+         cell, left on the rail, right on the last shift cell), which is
+         what lets a short weekend row close its frame after three columns
+         without a filler cell. Kept as a table so drag-and-drop, the cell
+         picker and the fixed column plan all stay as they were.
+         Full-bleed below md: the rail plus three shift columns is 385px,
+         which only fits a 390px phone without the page's side padding. */
+      <div className="-mx-4 overflow-x-auto md:mx-0" style={{ fontSize: `${rosterBase}px` }}>
+        <table
+          className="w-full table-fixed border-separate border-spacing-0"
+          style={{ minWidth: Math.round((wideGrid ? 580 : 495) * rosterScale) }}
+        >
+          {/* Date rail 44px, Consultant + up to 4 shift columns 107px each.
+              Below md the Consultant column is gone and the rail widens to
+              64px to carry the consultant under the date. */}
           <colgroup>
-            <col style={{ width: Math.round(44 * rosterScale) }} />
-            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round((wideGrid ? 44 : 64) * rosterScale) }} />
+            {wideGrid && <col style={{ width: Math.round(107 * rosterScale) }} />}
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
@@ -884,88 +898,101 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
+              // Parse date parts directly to avoid UTC timezone shift
+              const [y, m, d] = day.dateStr.split('-').map(Number)
+              const localDate = new Date(y, m - 1, d)
+              const isMonday = localDate.getDay() === 1
               // Three day types, three fills: weekdays on white, weekends
-              // on the accent tint, public holidays (either kind) on the
-              // rose tint. Each block's shift-time header is one step
-              // darker than the rows beneath it (sunken / accent-light /
-              // rose-light) so it reads as a header, not another row.
+              // on the accent tint, public holidays (either kind) on
+              // rose-light. The date rail and the shift-time header band
+              // share one tone per type, a step darker than the row body
+              // (neutral day-rail / accent-light / rose-night), so each
+              // day has a left anchor and a header that read as chrome.
               const isPH = day.dayType === 'PH' || day.dayType === 'PH_weekday'
-              // Public-holiday rows sit on rose-light (a clear pink) rather
-              // than the near-white rose-tint, which sat too close to the
-              // peach locum-cell fill to tell the two apart at a glance.
-              const headerBg = isPH
+              const chromeBg = isPH
                 ? 'bg-rose-night text-rose-dark'
-                : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-canvas-sunken text-ink'
+                : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-day-rail text-ink'
               const rowBg = isPH ? 'bg-rose-light' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
               const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
+              // The block's own 1px border, in the accent on today so the
+              // outline wraps the whole day.
+              const line = isToday ? 'border-accent' : 'border-slate-line'
+              const cellFrame = `border-y ${line}`
+              const headerBand = `whitespace-nowrap border-b ${line} px-1 py-1 text-center text-[0.917em] font-semibold ${chromeBg}`
+
+              const consultantCell = (
+                <ConsultantCell
+                  date={day.dateStr}
+                  rosterMonthId={id}
+                  existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
+                  consultantProfiles={consultantProfiles}
+                  displayNames={displayNames}
+                  isAdmin={canEdit}
+                  onRefresh={refreshEntries}
+                />
+              )
 
               return (
-                <tr
-                  key={day.dateStr}
-                  className={`border-b-4 border-canvas ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
-                >
-                  {/* Date label */}
-                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${dateInk}`}>
-                    {(() => {
-                      // Parse date parts directly to avoid UTC timezone shift
-                      const [y, m, d] = day.dateStr.split('-').map(Number)
-                      const localDate = new Date(y, m - 1, d)
-                      return (
-                        <>
-                          <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
-                          <span>{d}</span>
-                          {day.phName && (
-                            <span className="mt-0.5 block">
-                              <PublicHolidayBadge name={day.phName} />
-                            </span>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </td>
-
-                  {/* Consultant column */}
-                  <td className="border-r border-slate-line align-top p-0">
-                    {showHeader && (
-                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
-                        Consultant
+                <Fragment key={day.dateStr}>
+                  {dayIdx > 0 && (
+                    <tr aria-hidden="true" data-testid="day-gap" className={isMonday ? 'h-[14px]' : 'h-[6px]'}>
+                      <td colSpan={wideGrid ? 6 : 5} className="p-0" />
+                    </tr>
+                  )}
+                  <tr data-testid="day-row" data-date={day.dateStr} className={rowBg}>
+                  {/* Date rail: pinned left on a phone with an opaque fill so
+                      the shift columns scroll beneath it. */}
+                  <td
+                    className={`${cellFrame} border-l border-r rounded-l-md px-2 py-1.5 align-top font-medium ${chromeBg} ${dateInk} ${wideGrid ? '' : 'sticky left-0 z-10'}`}
+                  >
+                    <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
+                    <span>{d}</span>
+                    {day.phName && (
+                      <span className="mt-0.5 block">
+                        <PublicHolidayBadge name={day.phName} />
+                      </span>
+                    )}
+                    {!wideGrid && (
+                      <div data-testid="rail-consultant" className="mt-1 overflow-hidden text-[0.834em] text-ink-muted">
+                        {consultantCell}
                       </div>
                     )}
-                    <div className="px-1.5 py-1">
-                      <ConsultantCell
-                        date={day.dateStr}
-                        rosterMonthId={id}
-                        existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
-                        consultantProfiles={consultantProfiles}
-                        displayNames={displayNames}
-                        isAdmin={canEdit}
-                        onRefresh={refreshEntries}
-                      />
-                    </div>
                   </td>
+
+                  {/* Consultant column (md and up) */}
+                  {wideGrid && (
+                    <td data-testid="consultant-cell" className={`${cellFrame} border-r align-top p-0`}>
+                      {showHeader && <div className={headerBand}>Consultant</div>}
+                      <div className="px-1.5 py-1">{consultantCell}</div>
+                    </td>
+                  )}
 
                   {/* Shift columns */}
                   {shifts.map(({ code, label }, colIdx) => {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
                     const hasShortfall = cellEntries.some(e => e.is_flagged)
                     const hasLocum = cellEntries.some(e => e.is_locum)
+                    const last = colIdx === shifts.length - 1
 
                     return (
                       <td
                         key={code}
-                        className={`border-r border-slate-line align-top p-0 ${
-                          colIdx === shifts.length - 1 ? 'border-r-0' : ''
-                        } ${hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''}`}
+                        className={`${cellFrame} align-top p-0 ${last ? 'border-r rounded-r-md' : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >
                         {/* Column header when day type starts */}
-                        {showHeader && (
-                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
-                            {label}
-                          </div>
-                        )}
-                        <div className="min-h-[36px] p-1 space-y-0.5">
+                        {showHeader && <div className={headerBand}>{label}</div>}
+                        {/* The flag fill sits on this inner block, inset
+                            from the cell edges, so flagged cells on
+                            consecutive days stay two separate marks and
+                            the header above is never tinted. */}
+                        <div
+                          data-testid="shift-cell"
+                          className={`m-[3px] min-h-[36px] rounded p-1 space-y-0.5 ${
+                            hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''
+                          }`}
+                        >
                           {cellEntries.map(entry => (
                             <DoctorChip
                               key={entry.id}
@@ -993,22 +1020,8 @@ export default function RosterGridPage() {
                       </td>
                     )
                   })}
-                  {/* Weekend/PH rows have one shift column fewer than a
-                      weekday. The empty space is a real cell, with its
-                      bottom rule hidden when the next day is just as
-                      short, so the gap between Sat and Sun isn't drawn
-                      across a column that holds nothing — the rules above
-                      the first and below the last short row stay. */}
-                  {shifts.length < MAX_SHIFT_COLUMNS && (
-                    <td
-                      aria-hidden="true"
-                      className={`bg-canvas ${
-                        visibleDays[dayIdx + 1] && getShiftsForDay(visibleDays[dayIdx + 1].dayType).length < MAX_SHIFT_COLUMNS
-                          ? '[border-bottom-style:hidden]' : ''
-                      }`}
-                    />
-                  )}
-                </tr>
+                  </tr>
+                </Fragment>
               )
             })}
           </tbody>

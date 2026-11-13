@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical } from 'lucide-react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -127,6 +127,14 @@ export default function RosterGridPage() {
   // change for every doctor on the roster, so it gets an explicit "are you
   // sure" rather than firing straight off the button click.
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  // The edit gate: cells are read-only until an admin presses Edit, the
+  // same gate the Weekend planner's month view has. Every cell change still
+  // writes immediately once editing — the gate only stops a stray click on
+  // a dense grid from reassigning someone. `?mode=edit` (the dashboard's
+  // Edit action) opens the page already editing; `?publish=1` (its Publish
+  // action) opens the publish confirmation straight away.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editing, setEditing] = useState(searchParams.get('mode') === 'edit')
   // Roster text size (S/M/L), per device. The grids are the densest thing in
   // the app and 12px cell text does not suit every pair of eyes.
   const [textSize, setTextSize] = useState(readRosterTextSize)
@@ -138,6 +146,15 @@ export default function RosterGridPage() {
     loadAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAll is redefined every render; including it would refetch in a loop
   }, [id])
+
+  // Dashboard's Publish action: land here with the confirmation open, then
+  // drop the flag from the URL so a reload doesn't ask again.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('publish') !== '1') return
+    if (rosterMonth.status === 'draft') setShowPublishConfirm(true)
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('publish'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
 
   async function loadAll() {
     setLoading(true)
@@ -304,8 +321,10 @@ export default function RosterGridPage() {
     setFilterCategory(new Set())
   }
 
+  const canEdit = isAdmin && editing
+
   async function handleCellClick(date, shiftCode, existingEntry) {
-    if (!isAdmin) return
+    if (!canEdit) return
     // Occupied slot on a published roster: route through the removal/
     // reassignment workflow instead of the plain assign-or-remove dropdown —
     // an empty slot, a locum placeholder, or anything on a draft roster
@@ -584,7 +603,19 @@ export default function RosterGridPage() {
           <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
             {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
           </h1>
-          {showPublish && <div className="flex-shrink-0">{publishButton}</div>}
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setEditing(e => !e)}
+                aria-pressed={editing}
+                className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm`}
+              >
+                {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
+              </button>
+            )}
+            {showPublish && publishButton}
+          </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -869,7 +900,7 @@ export default function RosterGridPage() {
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
                         consultantProfiles={consultantProfiles}
                         displayNames={displayNames}
-                        isAdmin={isAdmin}
+                        isAdmin={canEdit}
                         onRefresh={refreshEntries}
                       />
                     </div>
@@ -904,14 +935,14 @@ export default function RosterGridPage() {
                               profile={profileMap[entry.profile_id]}
                               dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
-                              onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
+                              onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
-                              isAdmin={isAdmin}
+                              isAdmin={canEdit}
                               canDrag={rosterMonth.status !== 'published'}
                             />
                           ))}
-                          {/* Add slot if admin */}
-                          {isAdmin && (
+                          {/* Add slot while editing */}
+                          {canEdit && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
                               className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"

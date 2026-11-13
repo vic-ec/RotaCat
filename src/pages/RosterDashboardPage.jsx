@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List, LayoutGrid } from 'lucide-react'
+import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -11,6 +11,7 @@ import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
 import ViewToggle from '../components/ViewToggle'
 import FloatingActionMenu from '../components/FloatingActionMenu'
+import PageActionsMenu from '../components/PageActionsMenu'
 import RosterSummaryPage from './RosterSummaryPage'
 
 const ROSTER_VIEW_OPTIONS = [
@@ -326,33 +327,6 @@ export default function RosterDashboardPage() {
       {outerTabs.length > 1 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <PageTabs tabs={outerTabs} active={view} onChange={setView} ariaLabel="Rosters" />
-          {/* Stays mounted (for an admin) across every view/tab, not just
-              Rosters > Active where it actually applies — an admin's own
-              button is taller than PageTabs' own text+underline, so the
-              flex row's height (max of its children) used to shrink the
-              moment this unmounted on Archive/Bin/Hours Summary, visibly
-              shifting the tab rows and list below up or down depending on
-              which sub-tab was open. `invisible` (not conditional
-              rendering) keeps its footprint reserved at every tab so the
-              row's height — and everything below it — never moves;
-              aria-hidden keeps it out of the accessibility tree while
-              it's just a placeholder. */}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              aria-label="Create roster"
-              title="Create roster"
-              aria-hidden={!(view === 'rosters' && tab === 'active')}
-              tabIndex={view === 'rosters' && tab === 'active' ? 0 : -1}
-              className={`btn-primary h-[42px] flex-shrink-0 justify-center whitespace-nowrap md:h-auto md:w-auto ${
-                view === 'rosters' && tab === 'active' ? '' : 'invisible'
-              }`}
-            >
-              <PencilSparklesIcon className="h-4 w-4" />
-              Create
-            </button>
-          )}
         </div>
       )}
 
@@ -380,14 +354,34 @@ export default function RosterDashboardPage() {
           {tab === 'active' && (
           <>
             {((isAdmin && drafts.length > 0) || published.length > 0) && (
-              <RosterToolbar
-                search={activeSearch} onSearchChange={setActiveSearch}
-                filterMonth={activeFilterMonth} onFilterMonthChange={setActiveFilterMonth}
-                filterYear={activeFilterYear} onFilterYearChange={setActiveFilterYear}
-                years={activeYears}
-                sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
-                view={rosterView} onViewChange={setRosterView}
-              />
+              <div className="flex items-start gap-2">
+                {/* Create leads the toolbar row, beside the search it sits
+                    above the lists it adds to — not off in the page's top
+                    corner away from everything it relates to. */}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    aria-label="Create roster"
+                    title="Create roster"
+                    // A phone has the floating "+" for this already.
+                    className="btn-primary hidden flex-shrink-0 justify-center whitespace-nowrap md:inline-flex"
+                  >
+                    <PencilSparklesIcon className="h-4 w-4" />
+                    Create
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <RosterToolbar
+                    search={activeSearch} onSearchChange={setActiveSearch}
+                    filterMonth={activeFilterMonth} onFilterMonthChange={setActiveFilterMonth}
+                    filterYear={activeFilterYear} onFilterYearChange={setActiveFilterYear}
+                    years={activeYears}
+                    sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
+                    view={rosterView} onViewChange={setRosterView}
+                  />
+                </div>
+              </div>
             )}
             {isAdmin && (
               <RosterSection
@@ -400,6 +394,7 @@ export default function RosterDashboardPage() {
                 actions={[{ label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
                 view={rosterView}
+                isAdmin={isAdmin}
               />
             )}
             <RosterSection
@@ -412,6 +407,7 @@ export default function RosterDashboardPage() {
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
               view={rosterView}
+              isAdmin={isAdmin}
             />
             {(!isAdmin || drafts.length === 0) && published.length === 0 && (
               <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
@@ -439,6 +435,7 @@ export default function RosterDashboardPage() {
               actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
               emptyText="No archived rosters match these filters."
               view={rosterView}
+              isAdmin={isAdmin}
             />
           </>
         )}
@@ -467,6 +464,7 @@ export default function RosterDashboardPage() {
               ]}
               emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
               view={rosterView}
+              isAdmin={isAdmin}
             />
           </>
         )}
@@ -598,7 +596,37 @@ function EmptyState({ isAdmin, onCreate }) {
 // group (Drafts/Published/Archived/Bin) selects independently, so this
 // stays a per-group inline swap rather than reusing Staff's `SelectAllRow`,
 // which assumes one list per tab, not two.
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list' }) {
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false }) {
+  // Grid view: one horizontally scrolling row rather than wrapping onto a
+  // second line, stepped by the chevrons either side (the same shape as a
+  // date stepper). The chevrons only show once the row actually overflows.
+  const rowRef = useRef(null)
+  const [overflow, setOverflow] = useState(false)
+  useEffect(() => {
+    const el = rowRef.current
+    if (!el || view !== 'grid') return
+    const check = () => setOverflow(el.scrollWidth > el.clientWidth + 1)
+    check()
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [view, rosters.length])
+  function scrollRow(dir) {
+    const el = rowRef.current
+    if (el) el.scrollBy({ left: dir * Math.max(200, el.clientWidth - 80), behavior: 'smooth' })
+  }
+
+  // View / Edit / Publish for one roster — the same three on a list row
+  // (text on a desktop, icons on a phone) and in a card's kebab.
+  function rosterActions(roster) {
+    const items = [
+      { key: 'view', icon: <Eye className="h-4 w-4" />, label: 'View', onClick: () => navigate(`/roster/${roster.id}`) },
+      { key: 'edit', icon: <Pencil className="h-4 w-4" />, label: 'Edit', onClick: () => navigate(`/roster/${roster.id}?mode=edit`) },
+    ]
+    if (roster.status === 'draft') items.push({ key: 'publish', icon: <BookUp className="h-4 w-4" />, label: 'Publish', onClick: () => navigate(`/roster/${roster.id}?mode=edit&publish=1`) })
+    return items
+  }
+
   if (rosters.length === 0) {
     return emptyText ? (
       <div className="card p-8 text-center text-sm text-ink-muted">{emptyText}</div>
@@ -620,7 +648,9 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
 
   return (
     <div className="mb-6">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      {/* min-h reserves the bulk-action buttons' height, so ticking a box
+          swaps the label row's content without pushing the cards down. */}
+      <div className="mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2">
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -648,20 +678,43 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
         )}
       </div>
       {view === 'grid' ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {rosters.map(roster => (
-            <RosterCard
-              key={roster.id}
-              checked={selected.has(roster.id)}
-              onToggleCheck={() => toggleOne(roster.id)}
-              selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
-              month={MONTH_NAMES[roster.month]}
-              year={roster.year}
-              meta={metaFn(roster)}
-              status={roster.status}
-              onClick={() => navigate(`/roster/${roster.id}`)}
-            />
-          ))}
+        <div className="relative">
+          {overflow && (
+            <button
+              type="button"
+              onClick={() => scrollRow(-1)}
+              aria-label={`Scroll ${title} left`}
+              className="btn-utility absolute -left-3 top-1/2 z-10 h-8 w-8 -translate-y-1/2 p-0 shadow-card"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div ref={rowRef} className="flex gap-3 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:thin]">
+            {rosters.map(roster => (
+              <RosterCard
+                key={roster.id}
+                checked={selected.has(roster.id)}
+                onToggleCheck={() => toggleOne(roster.id)}
+                selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
+                month={MONTH_NAMES[roster.month]}
+                year={roster.year}
+                meta={metaFn(roster)}
+                status={roster.status}
+                onClick={() => navigate(`/roster/${roster.id}`)}
+                menuItems={isAdmin ? rosterActions(roster) : null}
+              />
+            ))}
+          </div>
+          {overflow && (
+            <button
+              type="button"
+              onClick={() => scrollRow(1)}
+              aria-label={`Scroll ${title} right`}
+              className="btn-utility absolute -right-3 top-1/2 z-10 h-8 w-8 -translate-y-1/2 p-0 shadow-card"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       ) : (
         <div className="card divide-y divide-slate-line overflow-hidden">
@@ -675,6 +728,19 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               subtitle={metaAsLine(metaFn(roster))}
               statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
               onClick={() => navigate(`/roster/${roster.id}`)}
+              actions={isAdmin ? rosterActions(roster).map(a => (
+                <button
+                  key={a.key}
+                  type="button"
+                  onClick={a.onClick}
+                  aria-label={a.label}
+                  title={a.label}
+                  className={`${a.key === 'publish' ? 'btn-primary' : 'btn-secondary'} h-8 px-2 text-xs md:px-2.5`}
+                >
+                  {a.icon}
+                  <span className="hidden md:inline">{a.label}</span>
+                </button>
+              )) : undefined}
             />
           ))}
         </div>
@@ -697,28 +763,48 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
 // checkbox+month/year+meta content, not a literal copy of one pixel
 // value. Worth a live look in case it reads cramped or too tall — nothing
 // here forces it to stay at that height if that turns out wrong.
-function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, status, onClick }) {
+function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, status, onClick, menuItems }) {
   const metaLines = Array.isArray(meta) ? meta : [meta]
   return (
     <div
       onClick={onClick}
-      className={`flex min-h-36 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
+      className={`flex min-h-36 w-52 flex-shrink-0 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
     >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggleCheck}
-        onClick={e => e.stopPropagation()}
-        aria-label={selectLabel}
-        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-      />
+      <div className="flex items-start justify-between">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggleCheck}
+          onClick={e => e.stopPropagation()}
+          aria-label={selectLabel}
+          className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+        />
+        {menuItems && (
+          <div onClick={e => e.stopPropagation()}>
+            <PageActionsMenu
+              title={`${month} ${year}`}
+              items={menuItems}
+              trigger={onOpen => (
+                <button
+                  type="button"
+                  onClick={onOpen}
+                  aria-label={`Actions for ${month} ${year}`}
+                  className="-mr-1.5 -mt-1.5 flex h-7 w-7 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                >
+                  <EllipsisVertical className="h-4 w-4" />
+                </button>
+              )}
+            />
+          </div>
+        )}
+      </div>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <p className="truncate font-display text-lg font-bold leading-tight text-ink">{month}</p>
         <p className="font-display text-lg font-bold leading-tight text-ink">{year}</p>
       </div>
       <div className="min-w-0">
         {metaLines.map((line, i) => (
-          <p key={i} className="truncate text-xs text-ink-light">{line}</p>
+          <p key={i} className="truncate text-xs text-ink-light" title={line}>{line}</p>
         ))}
       </div>
     </div>

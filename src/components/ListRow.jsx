@@ -159,7 +159,7 @@ export function ListRowIdentity({
 // See docs/design/layout-spec.md §7.
 export function ListRowRecord({
   checked, onToggleCheck, selectLabel,
-  title, subtitle, statusTag,
+  title, subtitle, statusTag, actions,
   onClick, selected = false, chevron = true,
 }) {
   const clickable = Boolean(onClick)
@@ -185,6 +185,13 @@ export function ListRowRecord({
         </div>
         {subtitle && <p className="mt-0.5 truncate text-xs text-ink-muted">{subtitle}</p>}
       </div>
+      {/* Per-row actions (View / Edit / Publish on a roster row): their own
+          click target, so pressing one never also opens the row. */}
+      {actions && (
+        <div className="flex flex-shrink-0 items-center gap-1" onClick={e => e.stopPropagation()}>
+          {actions}
+        </div>
+      )}
       {chevron && <ChevronRightIcon className="h-4 w-4 flex-shrink-0 text-ink-muted" />}
     </div>
   )

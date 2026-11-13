@@ -34,6 +34,8 @@ import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
 import DoctorDropdown from './DoctorDropdown'
 import { useSwatch } from '../lib/useSwatch'
+import { ToolbarFacet } from './Toolbar'
+import { ROSTER_TEXT_SIZES, rosterTextSize, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 const MONTHS_PADDING = 3 // either side of a freshly-navigated-to month — see boundsAroundMonth below
@@ -818,6 +820,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   const [cellEditor, setCellEditor] = useState(null) // { saturday, groupKey, entryId } or null
   const [cellEditorSearch, setCellEditorSearch] = useState('')
   const swatch = useSwatch()
+  // The same S/M/L text size the roster grid uses, stored under the same
+  // key, so the two pages' pills read at one size.
+  const [textSize, setTextSize] = useState(readRosterTextSize)
+  useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
+  const { base: rosterBase } = rosterTextSize(textSize)
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
   // Seeded from initialFilter — whatever the year overview's own Showing
@@ -1678,7 +1685,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 // More actions sits with the search and the legend, one
                 // compact control in the same cluster, rather than alone at
                 // the far end of the row.
-                middle={isAdmin && (
+                middle={(
+                  <div className="flex items-center gap-2">
+                    <ToolbarFacet
+                      icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
+                      label="Font size"
+                      compact
+                      value={textSize}
+                      onChange={setTextSize}
+                      options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
+                    />
+                    {isAdmin && (
                   <PageActionsMenu
                     items={weekendMenuItems}
                     trigger={(onClick, open) => (
@@ -1687,6 +1704,8 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                       </button>
                     )}
                   />
+                    )}
+                  </div>
                 )}
               />
             </div>
@@ -1700,8 +1719,15 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   list of weekends rather than a dense grid — the names are
                   read here, and the rail beside it is for acting on the
                   selected one. */}
-              <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto">
-                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+              <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto" style={{ fontSize: `${rosterBase}px` }}>
+                {/* Five equal columns. The percentage widths hold unless a
+                    name would wrap (pills never wrap), in which case the
+                    auto layout widens that column and the rest give way. */}
+                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-[1em]">
+                  <colgroup>
+                    <col style={{ width: '20%' }} />
+                    {CATEGORY_GROUPS.map(group => <col key={group.key} style={{ width: '20%' }} />)}
+                  </colgroup>
                   <thead>
                     <tr className="text-left text-xs text-ink-muted">
                       <th className="sticky top-0 left-0 z-20 bg-canvas-raised px-3 py-2 font-medium">Weekend</th>
@@ -1771,7 +1797,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                   {groupEntries.map(e => {
                                     const doctor = doctorById.get(e.profile_id)
                                     const label = displayNames.get(e.profile_id) ?? doctor?.surname ?? '(unknown)'
-                                    const pill = `flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-sm font-medium text-ink ${isEditing ? 'cursor-pointer hover:bg-canvas-sunken' : ''}`
+                                    const pill = `flex items-center whitespace-nowrap rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${isEditing ? 'cursor-pointer hover:bg-canvas-sunken' : ''}`
                                     const rail = { borderLeftColor: swatch.stroke(doctor?.color_code || '#4A90D9') }
                                     return isEditing ? (
                                       <button
@@ -1792,7 +1818,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                     )
                                   })}
                                   {groupEntries.length === 0 && !isEditing && (
-                                    <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
+                                    <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-[0.834em] font-medium text-flagAmber">Open</span>
                                   )}
                                   {isEditing && (
                                     <button
@@ -1800,9 +1826,9 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                       onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: null }) }}
                                       disabled={saving}
                                       aria-label={`Add a doctor to ${group.label} on ${saturday}`}
-                                      className="flex w-full items-center justify-center rounded-sm border border-dashed border-slate-line py-0.5 text-ink-muted hover:border-accent hover:text-accent"
+                                      className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
                                     >
-                                      <Plus className="h-3.5 w-3.5" />
+                                      +
                                     </button>
                                   )}
                                 </div>

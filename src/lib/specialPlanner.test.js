@@ -127,8 +127,8 @@ describe('specialMonthEntries', () => {
 })
 
 describe('specialCapacityBarLabels', () => {
-  it('names the last level "at guideline" rather than "full"', async () => {
+  it('reads the same n/3 slots used levels as Annual', async () => {
     const { specialCapacityBarLabels } = await import('./specialPlanner')
-    expect(specialCapacityBarLabels()).toEqual(['0 of 3 used', '1 of 3', '2 of 3', 'at guideline'])
+    expect(specialCapacityBarLabels()).toEqual(['0/3 slots used', '1/3 slots used', '2/3 slots used', '3/3 slots used'])
   })
 })

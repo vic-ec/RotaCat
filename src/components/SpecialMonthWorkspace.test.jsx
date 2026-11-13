@@ -134,10 +134,10 @@ describe('SpecialMonthWorkspace', () => {
       expect(panel).toHaveTextContent('31')
       expect(panel).toHaveTextContent('of 31 days have room')
       // The fixture is keyed by day: only the 10th carries entries.
-      expect(within(panel).getByText('30 days · 0 of 3 used')).toBeInTheDocument()
-      expect(within(panel).getByText('0 days · 1 of 3').closest('li')).toHaveClass('text-ink-muted/60')
-      expect(within(panel).getByText('1 day · 2 of 3')).toBeInTheDocument()
-      expect(within(panel).getByText('0 days · at guideline').closest('li')).toHaveClass('text-ink-muted/60')
+      expect(within(panel).getByText('0/3 slots used · 30 days')).toBeInTheDocument()
+      expect(within(panel).getByText('1/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
+      expect(within(panel).getByText('2/3 slots used · 1 day')).toBeInTheDocument()
+      expect(within(panel).getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
       expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
       expect(panel.parentElement).toHaveClass('order-1', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     })
@@ -152,7 +152,7 @@ describe('SpecialMonthWorkspace', () => {
       const panel = screen.getByTestId('planner-request-panel')
       expect(panel).toHaveTextContent('30')
       expect(panel).toHaveTextContent('of 31 days have room')
-      expect(within(panel).getByText('1 day · at guideline').closest('li')).not.toHaveClass('text-ink-muted/60')
+      expect(within(panel).getByText('3/3 slots used · 1 day').closest('li')).not.toHaveClass('text-ink-muted/60')
     })
 
     it('the Showing picker opens on the viewer\'s own group and narrows the names, never the pips or the day card', async () => {

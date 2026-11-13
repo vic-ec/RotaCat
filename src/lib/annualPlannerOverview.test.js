@@ -84,14 +84,14 @@ describe('monthDayMarkers', () => {
 })
 
 describe('monthSummaryLine', () => {
-  it('counts the staff on leave when any request is approved', () => {
-    expect(monthSummaryLine({ approvedStaff: 3, pendingRequests: 1 })).toBe('3 staff on leave')
-    expect(monthSummaryLine({ approvedStaff: 1, pendingRequests: 0 })).toBe('1 staff on leave')
-  })
-
-  it('counts pending requests when nothing is approved yet', () => {
+  it('counts the people on leave, then the requests still pending', () => {
+    expect(monthSummaryLine({ approvedStaff: 3, pendingRequests: 0 })).toBe('3 on leave')
     expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 3 })).toBe('3 requests pending')
     expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 1 })).toBe('1 request pending')
+  })
+
+  it('joins both with a semicolon when a month has approved and pending leave', () => {
+    expect(monthSummaryLine({ approvedStaff: 3, pendingRequests: 1 })).toBe('3 on leave; 1 request pending')
   })
 
   it('says "No-one on leave" when there is nothing at all', () => {

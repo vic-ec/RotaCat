@@ -124,7 +124,7 @@ describe('AnnualLeavePlanner', () => {
     const g = await grid()
     const augustCard = g.getByRole('button', { name: /^August/ })
     // Approved people, counted once each, outrank the pending count.
-    expect(within(augustCard).getByText(/^\d+ staff on leave$/)).toBeInTheDocument()
+    expect(within(augustCard).getByText(/^\d+ on leave(; \d+ requests? pending)?$/)).toBeInTheDocument()
 
     const januaryCard = g.getByRole('button', { name: /^January/ })
     expect(within(januaryCard).getByText('No-one on leave')).toBeInTheDocument()

@@ -851,23 +851,25 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
-              // The shift-time header cells are the darkest fill in the
-              // grid; a weekend/PH row's own body sits two steps lighter
-              // (canvas.cool, not canvas.sunken) so the header reads as a
-              // header rather than merging into the tinted rows under it.
-              const headerBg = isWeekend ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head'
+              // Three day types, three fills: weekdays on white, weekends
+              // on the accent tint, public holidays (either kind) on the
+              // rose tint. Each block's shift-time header is one step
+              // darker than the rows beneath it (sunken / accent-light /
+              // rose-light) so it reads as a header, not another row.
+              const isPH = day.dayType === 'PH' || day.dayType === 'PH_weekday'
+              const headerBg = isPH
+                ? 'bg-rose-light text-rose-dark'
+                : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-canvas-sunken text-ink'
+              const rowBg = isPH ? 'bg-rose-tint' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
+              const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
 
               return (
                 <tr
                   key={day.dateStr}
-                  className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-canvas-cool' : 'bg-canvas-raised'
-                  } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
+                  className={`border-b-2 border-slate-line ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
-                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${
-                    isWeekend ? 'text-accent-dark' : 'text-ink'
-                  }`}>
+                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${dateInk}`}>
                     {(() => {
                       // Parse date parts directly to avoid UTC timezone shift
                       const [y, m, d] = day.dateStr.split('-').map(Number)
@@ -889,7 +891,7 @@ export default function RosterGridPage() {
                   {/* Consultant column */}
                   <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
-                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
+                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
                         Consultant
                       </div>
                     )}
@@ -923,7 +925,7 @@ export default function RosterGridPage() {
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
+                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
                             {label}
                           </div>
                         )}
@@ -945,7 +947,7 @@ export default function RosterGridPage() {
                           {canEdit && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
-                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                              className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light"
                               title="Add doctor"
                             >
                               +
@@ -1125,7 +1127,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
             {existing.consultant_name}
           </div>
         ) : isAdmin ? (
-          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
+          <div className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light">
             +
           </div>
         ) : (

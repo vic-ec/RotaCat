@@ -1763,7 +1763,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                               tint opacity modifier (that let their text ghost through
                               beneath the date). */}
                           <td className={`sticky left-0 z-10 whitespace-nowrap rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
-                            isSelected ? 'border-y-accent border-l-accent bg-accent-tint' : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
+                            isSelected ? (isEditing ? 'border-y-rose border-l-rose bg-rose-tint' : 'border-y-accent border-l-accent bg-accent-tint') : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
                           }`}>
                             <div className="flex flex-col gap-1">
                               <span>{formatWeekendRange(saturday)}</span>
@@ -1786,7 +1786,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                             const groupEntries = bySaturday[group.key] || []
                             const last = gi === CATEGORY_GROUPS.length - 1
                             return (
-                              <td key={group.key} className={`border-y px-4 py-4 align-top ${last ? 'rounded-r-lg border-r' : ''} ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
+                              <td key={group.key} className={`border-y px-4 py-4 align-top ${last ? 'rounded-r-lg border-r' : ''} ${isSelected ? (isEditing ? 'border-rose bg-rose-tint' : 'border-accent bg-accent-tint') : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
                                 {/* The roster's own cell layout: one pill per
                                     doctor with their colour as a left rail,
                                     and a dashed "+" pill under the list. While
@@ -1827,7 +1827,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                       onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: null }) }}
                                       disabled={saving}
                                       aria-label={`Add a doctor to ${group.label} on ${saturday}`}
-                                      className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                                      className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light disabled:opacity-50"
                                     >
                                       +
                                     </button>

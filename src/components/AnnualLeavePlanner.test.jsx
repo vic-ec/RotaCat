@@ -156,10 +156,10 @@ describe('AnnualLeavePlanner', () => {
     expect(card.getByText('Leave slots · 31 days')).toBeInTheDocument()
     // 11, 14, 15 Aug: Anderson alone; 20 Aug: Cosmo's pending alone — 1 of 3.
     // 12-13 Aug: Anderson + Botha + Dlamini — full. Nothing is ever 2 of 3.
-    expect(card.getByText('25 days · 0 of 3 used')).toBeInTheDocument()
-    expect(card.getByText('4 days · 1 of 3')).toBeInTheDocument()
-    expect(card.getByText('0 days · 2 of 3')).toBeInTheDocument()
-    expect(card.getByText('2 days · full')).toBeInTheDocument()
+    expect(card.getByText('0/3 slots used · 25 days')).toBeInTheDocument()
+    expect(card.getByText('1/3 slots used · 4 days')).toBeInTheDocument()
+    expect(card.getByText('2/3 slots used · 0 days')).toBeInTheDocument()
+    expect(card.getByText('3/3 slots used · 2 days')).toBeInTheDocument()
     expect(card.getByText('2 days full')).toBeInTheDocument()
   })
 

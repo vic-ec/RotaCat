@@ -50,7 +50,5 @@ export function daysBySlotsUsed(year, month, usedOn, { max = 3 } = {}) {
 // The bar legend's default wording per level: "0 of 3 used", "1 of 3",
 // "2 of 3", "full". Special passes its own last label ("at guideline").
 export function capacityBarLabels(max = 3) {
-  return Array.from({ length: max + 1 }, (_, level) =>
-    level === 0 ? `0 of ${max} used` : level === max ? 'full' : `${level} of ${max}`
-  )
+  return Array.from({ length: max + 1 }, (_, i) => `${i}/${max} slots used`)
 }

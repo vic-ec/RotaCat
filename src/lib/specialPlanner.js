@@ -136,9 +136,9 @@ export function matchesSpecialCategory(entry, categoryKey, rotationsByDoctorId) 
   }) === categoryKey
 }
 
-// The Special planners' capacity-bar legend: the same first three levels
-// the Annual bar reads, with the last named for what it is here — a day at
-// (or past) the guideline, not a full one.
+// The Special planners' capacity-bar legend: the same "n/3 slots used"
+// levels the Annual bar reads (the aside beside the bar says how many days
+// are at the guideline).
 export function specialCapacityBarLabels(cap = SPECIAL_LEAVE_SOFT_CAP) {
-  return [`0 of ${cap} used`, ...Array.from({ length: cap - 1 }, (_, i) => `${i + 1} of ${cap}`), 'at guideline']
+  return Array.from({ length: cap + 1 }, (_, i) => `${i}/${cap} slots used`)
 }

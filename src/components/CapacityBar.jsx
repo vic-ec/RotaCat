@@ -3,18 +3,19 @@ import { capacityBarLabels } from '../lib/plannerCalendar'
 
 // One horizontal bar for a month: four segments, each as wide as the number
 // of days at that slot level (0, 1, 2, 3+ used), in the capacity scale's
-// own colours, with a 2x2 legend under it — "7 days · 0 of 3 used", "3 days
-// · 1 of 3", "14 days · 2 of 3", "7 days · full". Replaces the Annual
+// own colours, with a 2x2 legend under it — "0/3 slots used · 7 days",
+// "1/3 slots used · 3 days", "2/3 slots used · 14 days", "3/3 slots used ·
+// 7 days". Replaces the Annual
 // overview's three "N of 3 slots taken" tiles and sits in the month view's
 // request panel. `buckets` is daysBySlotsUsed's output (every level present,
 // zero days included — those legend entries are greyed, and their segment
-// is simply absent from the bar). `labels` lets Special word the last level
-// "at guideline" instead of "full"; `heading`/`aside` are the optional
+// is simply absent from the bar). `labels` overrides the level wording;
+// `heading`/`aside` are the optional
 // caption row above the bar ("LEAVE SLOTS · 31 DAYS" / "7 days full").
 export default function CapacityBar({ buckets, labels, heading, aside, max = 3, className = '' }) {
   const total = buckets.reduce((sum, b) => sum + b.days, 0)
   const legend = labels ?? capacityBarLabels(max)
-  const aria = buckets.map(b => `${b.days} ${b.days === 1 ? 'day' : 'days'} ${legend[b.level]}`).join(', ')
+  const aria = buckets.map(b => `${legend[b.level]} ${b.days} ${b.days === 1 ? 'day' : 'days'}`).join(', ')
 
   return (
     <div className={className}>
@@ -41,7 +42,7 @@ export default function CapacityBar({ buckets, labels, heading, aside, max = 3, 
           return (
             <li key={b.level} className={`flex items-center gap-1.5 text-[11px] ${empty ? 'text-ink-muted/60' : 'text-ink-light'}`}>
               <span className={`h-2 w-2 flex-shrink-0 rounded-[3px] ${empty ? 'ring-1 ring-inset ring-ink-muted/40' : state.fill}`} />
-              <span className="tabular-nums">{b.days} {b.days === 1 ? 'day' : 'days'} · {legend[b.level]}</span>
+              <span className="tabular-nums">{legend[b.level]} · {b.days} {b.days === 1 ? 'day' : 'days'}</span>
             </li>
           )
         })}

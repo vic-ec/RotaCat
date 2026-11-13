@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical } from 'lucide-react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -68,6 +69,8 @@ const WEEKEND_SHIFTS = shiftColumns(['WE_08', 'WE_13', 'WE_20'])
 const PH_WEEKDAY_SHIFTS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'])
 const PH_WEEKEND_SHIFTS = shiftColumns(['PH_08', 'PH_13', 'PH_20'])
 
+const MAX_SHIFT_COLUMNS = 4
+
 function getShiftsForDay(dayType) {
   if (dayType === 'weekday') return WEEKDAY_SHIFTS
   if (dayType === 'weekend') return WEEKEND_SHIFTS
@@ -127,6 +130,14 @@ export default function RosterGridPage() {
   // change for every doctor on the roster, so it gets an explicit "are you
   // sure" rather than firing straight off the button click.
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  // The edit gate: cells are read-only until an admin presses Edit, the
+  // same gate the Weekend planner's month view has. Every cell change still
+  // writes immediately once editing — the gate only stops a stray click on
+  // a dense grid from reassigning someone. `?mode=edit` (the dashboard's
+  // Edit action) opens the page already editing; `?publish=1` (its Publish
+  // action) opens the publish confirmation straight away.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editing, setEditing] = useState(searchParams.get('mode') === 'edit')
   // Roster text size (S/M/L), per device. The grids are the densest thing in
   // the app and 12px cell text does not suit every pair of eyes.
   const [textSize, setTextSize] = useState(readRosterTextSize)
@@ -138,6 +149,15 @@ export default function RosterGridPage() {
     loadAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAll is redefined every render; including it would refetch in a loop
   }, [id])
+
+  // Dashboard's Publish action: land here with the confirmation open, then
+  // drop the flag from the URL so a reload doesn't ask again.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('publish') !== '1') return
+    if (rosterMonth.status === 'draft') setShowPublishConfirm(true)
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('publish'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
 
   async function loadAll() {
     setLoading(true)
@@ -304,8 +324,10 @@ export default function RosterGridPage() {
     setFilterCategory(new Set())
   }
 
+  const canEdit = isAdmin && editing
+
   async function handleCellClick(date, shiftCode, existingEntry) {
-    if (!isAdmin) return
+    if (!canEdit) return
     // Occupied slot on a published roster: route through the removal/
     // reassignment workflow instead of the plain assign-or-remove dropdown —
     // an empty slot, a locum placeholder, or anything on a draft roster
@@ -455,6 +477,16 @@ export default function RosterGridPage() {
     setPublishing(false)
   }
 
+  // Delete (soft): the same deleted_at the dashboard's Delete uses, so the
+  // roster lands in its Recently deleted list and can be restored from
+  // there. Lives only in the ⋮ menu, behind a confirm.
+  async function handleDelete() {
+    if (!window.confirm(`Delete the ${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year} roster? It can be restored from the Rosters page for a while.`)) return
+    const { error } = await supabase.from('roster_months').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) { alert('Could not delete roster: ' + error.message); return }
+    navigate('/roster')
+  }
+
   function goToHoursSummary() {
     navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
       state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
@@ -503,6 +535,14 @@ export default function RosterGridPage() {
     onClick: handleUnpublish,
   } : null
 
+  const deleteItem = isAdmin ? {
+    key: 'delete',
+    icon: <Trash2 className="h-4 w-4" />,
+    label: 'Delete roster',
+    danger: true,
+    onClick: handleDelete,
+  } : null
+
   const rosterMenuItems = [
     {
       key: 'text-size',
@@ -525,11 +565,11 @@ export default function RosterGridPage() {
       label: 'Review log',
       onClick: () => setShowChangeLog(true),
     }] : []),
-    ...(unpublishItem ? ['divider', unpublishItem] : []),
+    ...(unpublishItem || deleteItem ? ['divider', ...[unpublishItem, deleteItem].filter(Boolean)] : []),
   ]
 
   // Desktop's kebab holds only what is risky to leave one click away.
-  const desktopMenuItems = unpublishItem ? [unpublishItem] : []
+  const desktopMenuItems = [unpublishItem, deleteItem].filter(Boolean)
 
   const kebabTrigger = (onClick, open) => (
     <button
@@ -550,7 +590,7 @@ export default function RosterGridPage() {
     <button
       onClick={() => setShowPublishConfirm(true)}
       disabled={publishing}
-      className="btn-primary text-sm"
+      className="btn-primary text-sm shadow-raised"
     >
       <BookUp className="h-4 w-4" />
       Publish
@@ -584,7 +624,6 @@ export default function RosterGridPage() {
           <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
             {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
           </h1>
-          {showPublish && <div className="flex-shrink-0">{publishButton}</div>}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -602,6 +641,31 @@ export default function RosterGridPage() {
           )}
         </div>
       </div>
+
+      {/* Edit / Publish float at the bottom-right so they stay in reach
+          however far the grid has been scrolled. On a phone they fold into
+          the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
+      {isAdmin && (
+        <>
+          <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => setEditing(e => !e)}
+              aria-pressed={editing}
+              className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm shadow-raised`}
+            >
+              {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
+            </button>
+            {showPublish && publishButton}
+          </div>
+          <FloatingActionMenu
+            actions={[
+              { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
+              showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
+            ]}
+          />
+        </>
+      )}
 
       {/* Publish confirmation */}
       {showPublishConfirm && (
@@ -820,23 +884,28 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
-              // The shift-time header cells are the darkest fill in the
-              // grid; a weekend/PH row's own body sits two steps lighter
-              // (canvas.cool, not canvas.sunken) so the header reads as a
-              // header rather than merging into the tinted rows under it.
-              const headerBg = isWeekend ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head'
+              // Three day types, three fills: weekdays on white, weekends
+              // on the accent tint, public holidays (either kind) on the
+              // rose tint. Each block's shift-time header is one step
+              // darker than the rows beneath it (sunken / accent-light /
+              // rose-light) so it reads as a header, not another row.
+              const isPH = day.dayType === 'PH' || day.dayType === 'PH_weekday'
+              // Public-holiday rows sit on rose-light (a clear pink) rather
+              // than the near-white rose-tint, which sat too close to the
+              // peach locum-cell fill to tell the two apart at a glance.
+              const headerBg = isPH
+                ? 'bg-rose-night text-rose-dark'
+                : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-canvas-sunken text-ink'
+              const rowBg = isPH ? 'bg-rose-light' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
+              const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
 
               return (
                 <tr
                   key={day.dateStr}
-                  className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-canvas-cool' : 'bg-canvas-raised'
-                  } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
+                  className={`border-b-4 border-canvas ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
-                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${
-                    isWeekend ? 'text-accent-dark' : 'text-ink'
-                  }`}>
+                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${dateInk}`}>
                     {(() => {
                       // Parse date parts directly to avoid UTC timezone shift
                       const [y, m, d] = day.dateStr.split('-').map(Number)
@@ -858,7 +927,7 @@ export default function RosterGridPage() {
                   {/* Consultant column */}
                   <td className="border-r border-slate-line align-top p-0">
                     {showHeader && (
-                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
+                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
                         Consultant
                       </div>
                     )}
@@ -869,7 +938,7 @@ export default function RosterGridPage() {
                         existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
                         consultantProfiles={consultantProfiles}
                         displayNames={displayNames}
-                        isAdmin={isAdmin}
+                        isAdmin={canEdit}
                         onRefresh={refreshEntries}
                       />
                     </div>
@@ -892,7 +961,7 @@ export default function RosterGridPage() {
                       >
                         {/* Column header when day type starts */}
                         {showHeader && (
-                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
+                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold ${headerBg}`}>
                             {label}
                           </div>
                         )}
@@ -904,17 +973,17 @@ export default function RosterGridPage() {
                               profile={profileMap[entry.profile_id]}
                               dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
-                              onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
+                              onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
-                              isAdmin={isAdmin}
+                              isAdmin={canEdit}
                               canDrag={rosterMonth.status !== 'published'}
                             />
                           ))}
-                          {/* Add slot if admin */}
-                          {isAdmin && (
+                          {/* Add slot while editing */}
+                          {canEdit && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
-                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                              className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light"
                               title="Add doctor"
                             >
                               +
@@ -924,6 +993,21 @@ export default function RosterGridPage() {
                       </td>
                     )
                   })}
+                  {/* Weekend/PH rows have one shift column fewer than a
+                      weekday. The empty space is a real cell, with its
+                      bottom rule hidden when the next day is just as
+                      short, so the gap between Sat and Sun isn't drawn
+                      across a column that holds nothing — the rules above
+                      the first and below the last short row stay. */}
+                  {shifts.length < MAX_SHIFT_COLUMNS && (
+                    <td
+                      aria-hidden="true"
+                      className={`bg-canvas ${
+                        visibleDays[dayIdx + 1] && getShiftsForDay(visibleDays[dayIdx + 1].dayType).length < MAX_SHIFT_COLUMNS
+                          ? '[border-bottom-style:hidden]' : ''
+                      }`}
+                    />
+                  )}
                 </tr>
               )
             })}
@@ -1094,7 +1178,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
             {existing.consultant_name}
           </div>
         ) : isAdmin ? (
-          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
+          <div className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light">
             +
           </div>
         ) : (

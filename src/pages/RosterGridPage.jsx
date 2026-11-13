@@ -857,16 +857,19 @@ export default function RosterGridPage() {
               // darker than the rows beneath it (sunken / accent-light /
               // rose-light) so it reads as a header, not another row.
               const isPH = day.dayType === 'PH' || day.dayType === 'PH_weekday'
+              // Public-holiday rows sit on rose-light (a clear pink) rather
+              // than the near-white rose-tint, which sat too close to the
+              // peach locum-cell fill to tell the two apart at a glance.
               const headerBg = isPH
-                ? 'bg-rose-light text-rose-dark'
+                ? 'bg-rose-night text-rose-dark'
                 : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-canvas-sunken text-ink'
-              const rowBg = isPH ? 'bg-rose-tint' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
+              const rowBg = isPH ? 'bg-rose-light' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
               const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
 
               return (
                 <tr
                   key={day.dateStr}
-                  className={`border-b-2 border-slate-line ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
+                  className={`border-b-[3px] border-ink-muted/40 ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
                   <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${dateInk}`}>

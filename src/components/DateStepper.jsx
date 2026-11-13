@@ -33,7 +33,7 @@ export function StepperShell({
   label, labelAriaLabel, onLabelClick, onPrev, onNext, prevLabel, nextLabel,
   canGoPrev = true, canGoNext = true, centered = false,
 }) {
-  const labelClassName = `whitespace-nowrap px-2 font-display text-base font-semibold text-ink ${centered ? 'flex-1 text-center' : ''}`
+  const labelClassName = `whitespace-nowrap font-display text-base font-semibold text-ink ${centered ? 'min-w-0 flex-1 px-0.5 text-center sm:px-2' : 'px-2'}`
   return (
     <div className={`btn-utility inline-flex items-center overflow-hidden p-0 ${centered ? 'w-full' : ''}`}>
       <button
@@ -110,6 +110,9 @@ export default function DateStepper({
   // has already made room for both. `todayLabel`: a worded "Today" button
   // rather than the calendar icon, where the row has the width for it.
   nowrap = false, todayLabel = false,
+  // `compactBelowSm`: on a phone a month reads "Nov 2026" rather than
+  // "November 2026", for a row the stepper shares with other controls.
+  compactBelowSm = false,
 }) {
   const [jumpOpen, setJumpOpen] = useState(false)
 
@@ -137,7 +140,12 @@ export default function DateStepper({
   return (
     <div className={`flex ${nowrap ? 'flex-nowrap' : 'flex-wrap'} items-center gap-2 ${centered ? 'w-full' : ''}`}>
       <StepperShell
-        label={label}
+        label={compactBelowSm && unit === 'month' ? (
+          <>
+            <span className="sm:hidden">{label.slice(0, 3)} {year}</span>
+            <span className="hidden sm:inline">{label}</span>
+          </>
+        ) : label}
         labelAriaLabel={unit === 'year' ? `${label}, jump to year` : `${label}, jump to month or year`}
         onLabelClick={() => setJumpOpen(true)}
         onPrev={() => go(-1)}

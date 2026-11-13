@@ -17,8 +17,8 @@ import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } fr
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 const VIEW_OPTIONS = [
-  { key: 'week', label: 'Week', icon: CalendarRange },
-  { key: 'month', label: 'Month', icon: CalendarDays },
+  { key: 'week', label: 'Week', shortLabel: 'W', icon: CalendarRange },
+  { key: 'month', label: 'Month', shortLabel: 'M', icon: CalendarDays },
   { key: 'people', label: 'People', icon: Users },
 ]
 
@@ -38,7 +38,7 @@ const VIEW_HINTS = [
   ['People', 'Grouped by doctor instead of by date — one person\u2019s leave, all of it, in one place.'],
 ]
 
-const VIEW_HINT_TEXT = (
+export const VIEW_HINT_TEXT = (
   <dl className="space-y-2">
     {VIEW_HINTS.map(([term, detail]) => (
       <div key={term}>
@@ -143,7 +143,10 @@ export default function TeamLeaveMobile({ requests }) {
           and Filter do move into the FAB below `md`. This block runs to
           `lg` while the FAB stops at `md`, so the md–lg band keeps the
           inline pair rather than losing them entirely. */}
-      <div className="flex items-center gap-2">
+      {/* One row on a phone: the view switch, then the date filling the
+          rest. From `md` search and Filter join the switch and the date
+          wraps to a full-width line of its own (basis-full). */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
           <div className="min-w-0 flex-1">
             <ClearableInput
@@ -164,7 +167,23 @@ export default function TeamLeaveMobile({ requests }) {
             word on the row. Below `md` search and Filter are in the FAB and
             the pair simply starts the row on their own. */}
         <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS_WITH_TITLES} />
-        <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
+        {/* Below `sm` the explainer rides the sub-tab line above instead
+            (LeavePlannerPage) — there is no room for it on this row. */}
+        <span className="hidden sm:inline-flex">
+          <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
+        </span>
+        {view !== 'people' && (
+          <div className="min-w-0 flex-1 md:flex-none md:basis-full">
+            <TeamLeaveDateNavigator
+              view={view}
+              weekAnchor={weekAnchor}
+              onWeekChange={setWeekAnchor}
+              year={monthYear}
+              month={monthMonth}
+              onMonthChange={(y, m) => { setMonthYear(y); setMonthMonth(m) }}
+            />
+          </div>
+        )}
       </div>
 
       <FloatingActionMenu
@@ -196,18 +215,6 @@ export default function TeamLeaveMobile({ requests }) {
         </div>
       )}
 
-      {view !== 'people' && (
-        <div className="mt-3">
-          <TeamLeaveDateNavigator
-            view={view}
-            weekAnchor={weekAnchor}
-            onWeekChange={setWeekAnchor}
-            year={monthYear}
-            month={monthMonth}
-            onMonthChange={(y, m) => { setMonthYear(y); setMonthMonth(m) }}
-          />
-        </div>
-      )}
 
       {view === 'week' && <TeamLeaveWeekView requests={filtered} weekAnchor={weekAnchor} onSelectLeave={setDetail} />}
       {view === 'month' && <TeamLeaveMonthView requests={filtered} year={monthYear} month={monthMonth} onSelectLeave={setDetail} />}

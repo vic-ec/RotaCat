@@ -12,16 +12,24 @@ import { weekStart } from '../lib/teamLeaveMobile'
 // two loose square buttons flanking a bare label.
 export default function TeamLeaveDateNavigator({ view, weekAnchor, onWeekChange, year, month, onMonthChange }) {
   if (view === 'month') {
-    return <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} />
+    return <DateStepper unit="month" year={year} month={month} onChange={onMonthChange} nowrap centered compactBelowSm />
   }
 
   const start = weekStart(weekAnchor)
   const end = addDays(start, 6)
-  const label = `${formatShortDateRange(start, end)} ${start.slice(0, 4)}`
+  // The year drops off below `sm`, where this shares a row with the view
+  // switch — "9–15 Nov", not "9–15 Nov 2026".
+  const range = formatShortDateRange(start, end)
+  const label = (
+    <>
+      {range}<span className="hidden sm:inline"> {start.slice(0, 4)}</span>
+    </>
+  )
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-nowrap items-center gap-2">
       <StepperShell
+        centered
         label={label}
         onPrev={() => onWeekChange(addDays(weekAnchor, -7))}
         onNext={() => onWeekChange(addDays(weekAnchor, 7))}

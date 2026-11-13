@@ -8,6 +8,8 @@ import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import MyRequestHistory from '../components/MyRequestHistory'
 import LeaveListView from '../components/LeaveListView'
+import DetailInfoButton from '../components/DetailInfoButton'
+import { VIEW_HINT_TEXT } from '../components/TeamLeaveMobile'
 import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
 import WeekendPlanner from '../components/WeekendPlanner'
@@ -274,7 +276,18 @@ export default function LeavePlannerPage() {
           }`}
         >
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Team Leave</h2>
-          <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
+          {/* On a phone the Week/Month/People explainer sits at the end of
+              this line — its own row (TeamLeaveMobile) has no room for it. */}
+          <div className="flex items-stretch">
+            <div className="min-w-0 flex-1">
+              <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
+            </div>
+            {teamTab === 'current' && (
+              <span className="flex items-center border-b border-slate-line pl-2 sm:hidden">
+                <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
+              </span>
+            )}
+          </div>
         </div>
       )}
 

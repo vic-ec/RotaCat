@@ -25,13 +25,18 @@ export default function CapacityBar({ buckets, labels, heading, aside, max = 3, 
           {aside && <p className="text-[11px] font-medium text-ink-light">{aside}</p>}
         </div>
       )}
-      <div role="img" aria-label={aria} className={`flex h-2.5 w-full overflow-hidden rounded-full bg-canvas-sunken ${heading || aside ? 'mt-1.5' : ''}`}>
+      {/* The segments carry their own rounding on the two ends rather than
+          relying on the track's overflow clip alone: a clipped child under a
+          rounded parent is anti-aliased separately from the parent in
+          Chrome, which made the middle segments look taller than the
+          rounded ends. `isolate` keeps the clip on its own layer too. */}
+      <div role="img" aria-label={aria} className={`isolate flex h-2.5 w-full overflow-hidden rounded-full bg-canvas-sunken ${heading || aside ? 'mt-1.5' : ''}`}>
         {buckets.filter(b => b.days > 0).map(b => (
           <span
             key={b.level}
             data-level={b.level}
             style={{ flexGrow: b.days, flexBasis: 0 }}
-            className={`block h-full ${LEAVE_CAPACITY_STATES[Math.min(b.level, 3)].fill}`}
+            className={`block min-w-0 self-stretch first:rounded-l-full last:rounded-r-full ${LEAVE_CAPACITY_STATES[Math.min(b.level, 3)].fill}`}
           />
         ))}
       </div>

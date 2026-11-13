@@ -378,7 +378,7 @@ function MonthCard({ month, isSelected, onSelect, isAdmin }) {
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       </div>
-      {/* "3 staff on leave" / "2 requests pending" / "No-one on leave"
+      {/* "3 on leave; 2 requests pending" / "No-one on leave"
           answers an admin's question — what is booked and what is waiting.
           A doctor is asking whether they can take leave, which is what the
           capacity chip says, and it is the same wording their phone already

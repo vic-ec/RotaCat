@@ -67,11 +67,11 @@ describe('SpecialPlannerOverview', () => {
     expect(entries.getByText('Approved')).toBeInTheDocument()
   })
 
-  it('the month card summary reads staff on leave, requests pending, or No-one on leave', async () => {
+  it('the month card summary reads n on leave, n requests pending, or No-one on leave', async () => {
     const user = userEvent.setup()
     renderOverview()
     // August: Ellis approved (one person), Stone pending — approved wins.
-    expect(within(grid().getByRole('button', { name: /^August/ })).getByText('1 staff on leave')).toBeInTheDocument()
+    expect(within(grid().getByRole('button', { name: /^August/ })).getByText('1 on leave; 1 request pending')).toBeInTheDocument()
     expect(within(grid().getByRole('button', { name: /^January/ })).getByText('No-one on leave')).toBeInTheDocument()
     const pendingOnly = new Map([['2026-03-10', [entry('p2', 'maternity', '2026-03-10', '2026-03-10', 'pending', 'Stone')]]])
     const second = renderOverview({ leaveByDate: pendingOnly })

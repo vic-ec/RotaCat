@@ -42,9 +42,9 @@ const { default: InternRotationsPlanner } = await import('./InternRotationsPlann
 
 async function openEditor(user) {
   render(<InternRotationsPlanner />)
-  // Two buttons carry the doctor's name — their matrix row and the chip in
-  // the "right now" panel. The panel chip is the one that opens the side panel.
-  const panel = (await screen.findByText(/right now/)).closest('div')
+  // Two buttons carry the doctor's name — their matrix row and the name in
+  // the "right now" panel. The panel's is the one that opens the side panel.
+  const panel = (await screen.findByText('Right now')).closest('div')
   await user.click(within(panel).getByRole('button', { name: 'Ada Adeyemi' }))
   await user.click(await screen.findByRole('button', { name: 'Edit rotations' }))
   expect(screen.getByRole('button', { name: 'Done editing' })).toBeInTheDocument()

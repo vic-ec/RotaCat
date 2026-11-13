@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
-  TriangleAlert, X, Plus, ListFilter,
+  TriangleAlert, X, Plus, ListFilter, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import SelectMenu from './SelectMenu'
 import DateFieldButton from './DateFieldButton'
-import DoctorChip from './DoctorChip'
 import DoctorDropdown from './DoctorDropdown'
 import Modal from './Modal'
 import LegendSheet from './LegendSheet'
@@ -18,7 +17,7 @@ import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from 
 import {
   ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, ROTATION_TYPE_COLOR,
 } from '../lib/staffDefaults'
-import { todayStr, addDays, addMonths, MONTH_ABBR } from '../lib/dateRange'
+import { todayStr, addDays, addMonths, MONTH_ABBR, formatDayMonthYear } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
 
 // Literal pixel widths, not 1fr/minmax — every row (and the header) shares
@@ -40,6 +39,22 @@ const CATEGORY_FILTER_OPTIONS = [
   { value: 'Intern', label: 'Intern' },
   { value: 'Registrar', label: 'Registrar' },
 ]
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+// The "right now" panel's sections. Registrars only ever rotate in the EC,
+// so they need no EC/OT split; interns do.
+const NOW_SECTIONS = [
+  { key: 'ec-interns', label: 'EC interns' },
+  { key: 'ot-interns', label: 'OT interns' },
+  { key: 'registrars', label: 'Registrars' },
+]
+
+// "From 1 Jul 2026 to 31 Dec 2026", or "From 1 Jul 2026 · ongoing" with no end.
+function rotationPeriodLabel(rotation) {
+  const from = `From ${formatDayMonthYear(rotation.start_date)}`
+  return rotation.end_date ? `${from} to ${formatDayMonthYear(rotation.end_date)}` : `${from} · ongoing`
+}
 
 const FAR_FUTURE = '9999-12-31' // stand-in for a null (open-ended) end_date in string date-range comparisons only
 
@@ -164,6 +179,10 @@ export default function InternRotationsMatrix({
   const currentYear = Number(today.slice(0, 4))
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
   const [collapsedGroups, setCollapsedGroups] = useState({})
+  // "Right now" panel: which of its sections are folded, and (below lg)
+  // whether its sheet is open.
+  const [collapsedNowSections, setCollapsedNowSections] = useState({})
+  const [showNowSheet, setShowNowSheet] = useState(false)
   const [editing, setEditing] = useState(false)
   const [savingBlockId, setSavingBlockId] = useState(null)
   const [blockError, setBlockError] = useState('')
@@ -267,6 +286,7 @@ export default function InternRotationsMatrix({
   }, [focusDoctorId])
 
   const currentOverlapPairs = selectedDoctorId ? overlapPairSet(selectedDoctorRotations) : new Map()
+  const currentRotationId = selectedDoctorId ? rotationForDate(selectedDoctorRotations, today)?.id : null
 
   async function handleBlockUpdate(rotation, patch) {
     setSavingBlockId(rotation.id)
@@ -352,20 +372,25 @@ export default function InternRotationsMatrix({
     setSavingBlockId(null)
   }
 
-  // "Current month" panel default view — resolved off TODAY, not
-  // whichever year the grid happens to be showing (answers "who's doing
-  // what right now" independent of browsing), and respects the toolbar's
-  // own search/category filter same as the grid/cards below it.
-  const currentByTypeKey = new Map()
-  if (!selectedDoctorId) {
-    for (const doctor of filteredDoctors) {
-      const rotation = rotationForDate(rotationsByDoctorId.get(doctor.id), today)
-      if (!rotation) continue
-      const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
-      if (!currentByTypeKey.has(key)) currentByTypeKey.set(key, [])
-      currentByTypeKey.get(key).push(doctor)
-    }
+  // "Right now" panel — resolved off TODAY, not whichever year the grid
+  // happens to be showing (answers "who's doing what right now"
+  // independent of browsing), and respects the toolbar's own
+  // search/category filter same as the grid/cards below it.
+  const nowBySection = new Map(NOW_SECTIONS.map(sec => [sec.key, []]))
+  for (const doctor of filteredDoctors) {
+    const rotation = rotationForDate(rotationsByDoctorId.get(doctor.id), today)
+    if (!rotation) continue
+    const typeKey = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+    const sectionKey = categoryGroupKey(doctor) === 'Registrar'
+      ? 'registrars'
+      : (typeKey === 'EC' ? 'ec-interns' : 'ot-interns')
+    nowBySection.get(sectionKey).push({ doctor, rotation, typeKey })
   }
+  for (const rows of nowBySection.values()) {
+    rows.sort((x, y) => (x.doctor.surname || '').localeCompare(y.doctor.surname || ''))
+  }
+  const nowCount = [...nowBySection.values()].reduce((n, rows) => n + rows.length, 0)
+  const nowTitle = `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`
 
   // Add-doctor candidates: doctors with zero intern_rotations rows at
   // all — "unassigned". Always computed off the full, unfiltered doctor
@@ -435,7 +460,7 @@ export default function InternRotationsMatrix({
   // and the same "Today only shows once you've paged away" behaviour as
   // every other planner for free, instead of yet another bespoke copy of
   // both.
-  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} />
+  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel />
 
   const overflowMenu = (
     <PageActionsMenu
@@ -456,28 +481,66 @@ export default function InternRotationsMatrix({
   )
 
   // ── Shared panel content (desktop's sticky aside / mobile's bottom sheet) ──
-  function renderNoSelectionPanel() {
+  function renderNoSelectionPanel(showHeader = true) {
     return (
       <>
-        <p className="text-sm font-semibold text-ink">{MONTH_ABBR[currentMonthIndex]} {currentYear} — right now</p>
-        {currentByTypeKey.size === 0 ? (
-          <p className="mt-2 text-xs text-ink-muted">No active rotations this month.</p>
+        {showHeader && (
+          <>
+            <p className="text-section-label uppercase text-ink-muted">Right now</p>
+            <p className="mt-1 font-display text-lg font-semibold text-ink">{nowTitle}</p>
+          </>
+        )}
+        {nowCount === 0 ? (
+          <p className="mt-3 text-xs text-ink-muted">No active rotations this month.</p>
         ) : (
-          ROTATION_TYPE_KEY_OPTIONS.filter(o => currentByTypeKey.has(o.key)).map(o => (
-            <div key={o.key} className="mt-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-ink-muted">
-                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
-                {o.label}
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {currentByTypeKey.get(o.key).map(doctor => (
-                  <button key={doctor.id} type="button" onClick={() => selectDoctorFromList(doctor.id)}>
-                    <DoctorChip profile={doctor} displayNames={displayNames} />
-                  </button>
-                ))}
+          NOW_SECTIONS.filter(sec => nowBySection.get(sec.key).length > 0).map(sec => {
+            const rows = nowBySection.get(sec.key)
+            const collapsed = collapsedNowSections[sec.key]
+            return (
+              <div key={sec.key} className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedNowSections(c => ({ ...c, [sec.key]: !c[sec.key] }))}
+                  aria-expanded={!collapsed}
+                  className="sheen-divider text-left transition-[filter] hover:brightness-110 active:brightness-110"
+                >
+                  <span>{sec.label} <span className="divider-meta ml-1 normal-case font-normal">{rows.length}</span></span>
+                  <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
+                </button>
+                {!collapsed && (
+                  <ul className="mt-1 divide-y divide-slate-hairline">
+                    {rows.map(({ doctor, rotation, typeKey }) => (
+                      <li key={doctor.id} className="flex items-start gap-2 py-2">
+                        <span
+                          aria-hidden="true"
+                          className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-sm"
+                          style={{ backgroundColor: ROTATION_TYPE_COLOR[typeKey] }}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => { setShowNowSheet(false); selectDoctorFromList(doctor.id) }}
+                              className="text-left text-sm font-semibold text-ink underline decoration-accent/50 underline-offset-[3px] transition-colors hover:text-accent"
+                            >
+                              {displayNames?.get(doctor.id) ?? doctor.surname}
+                            </button>
+                            {/* OT placement (Psych, LRCHC…) — plain OT has none. */}
+                            {typeKey.startsWith('OT_') && (
+                              <span className="rounded-full border border-slate-line px-1.5 text-[10px] text-ink-light">
+                                {typeLabel(typeKey).replace('OT · ', '')}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-xs text-ink-muted">{rotationPeriodLabel(rotation)}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </>
     )
@@ -491,19 +554,21 @@ export default function InternRotationsMatrix({
     return (
       <>
         {showHeader && (
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-ink" title={`${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()}>
-              {displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname}
-            </p>
+          <>
+            {/* Back to the "right now" list this doctor was opened from
+                (or that sits behind a grid-row click). */}
             <button
               type="button"
               onClick={() => onSelectDoctor(null)}
-              aria-label="Close"
-              className="btn-close h-6 w-6 text-ink-muted"
+              className="-ml-1 flex items-center gap-0.5 rounded px-1 text-sm font-medium text-accent hover:text-accent-dark"
             >
-              <X className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4" /> Right now
             </button>
-          </div>
+            <p className="mt-2 text-section-label uppercase text-ink-muted">{selectedDoctor.category}</p>
+            <p className="mt-1 truncate font-display text-lg font-semibold text-ink" title={`${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()}>
+              {displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname}
+            </p>
+          </>
         )}
 
         {currentOverlapPairs.size > 0 && (
@@ -529,17 +594,24 @@ export default function InternRotationsMatrix({
               )}
               {selectedDoctorRotations.map(rotation => {
                 const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+                const isCurrent = rotation.id === currentRotationId
                 return (
-                  <div key={rotation.id} className="flex items-center gap-2 text-xs">
+                  <div
+                    key={rotation.id}
+                    className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs ${
+                      isCurrent ? 'border-accent bg-accent-tint' : 'border-slate-line'
+                    }`}
+                  >
                     <span
-                      className="rounded px-1.5 py-0.5 font-medium text-white"
+                      className="flex-shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 font-medium text-white"
                       style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}
                     >
                       {typeLabel(key)}
                     </span>
                     <span className="text-ink-light">
-                      {rotation.start_date} – {rotation.end_date || 'ongoing'}
+                      {formatDayMonthYear(rotation.start_date)} – {rotation.end_date ? formatDayMonthYear(rotation.end_date) : 'ongoing'}
                     </span>
+                    {isCurrent && <span className="ml-auto text-[10px] font-bold tracking-wide text-accent">NOW</span>}
                   </div>
                 )
               })}
@@ -694,22 +766,37 @@ export default function InternRotationsMatrix({
   // ── Desktop ──────────────────────────────────────────────────────────
   if (isDesktop) {
     return (
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div>
+        {/* One toolbar row across the full width — find on the left, the
+            year and the kebab on the right — the same shape as the Roster
+            page's. The search box is what gives as the window narrows, so
+            the year, Today and the kebab never wrap. */}
+        <div className="mb-2 flex items-center gap-2">
+          <div className="min-w-0 max-w-[480px] flex-1">
+            <Toolbar
+              className=""
+              stretch
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search name…"
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
+          </div>
+          <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+            {dateNav}
+            <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+            {overflowMenu}
+          </div>
+        </div>
+
+        <div className="mb-3">{legendSwatches}</div>
+
+        {/* Grid and panel start on the same line, below the toolbar. */}
+        <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <Toolbar
-            className="mb-3"
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search name…"
-            filterFacets={filterFacets}
-            mobileMode="inline"
-            desktopTrailing={<div className="flex items-center gap-2">{dateNav}{overflowMenu}</div>}
-            active={clearActive}
-            onClearAll={onClearAll}
-          />
-
-          <div className="mb-3">{legendSwatches}</div>
-
           <div className="card overflow-x-auto p-0">
             <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
               <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
@@ -797,9 +884,12 @@ export default function InternRotationsMatrix({
           </div>
         </div>
 
-        <aside className="lg:sticky lg:top-4 lg:h-fit lg:w-72 lg:flex-shrink-0">
-          <div className="card p-3">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
+        {/* Scrolls on its own once the list outgrows the screen; the grid
+            stays put. */}
+        <aside className="sticky top-4 w-72 flex-shrink-0">
+          <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
         </aside>
+        </div>
 
         {addDoctorPicker}
         {addDoctorError && <p className="mt-2 text-xs text-flagRed">{addDoctorError}</p>}
@@ -812,40 +902,57 @@ export default function InternRotationsMatrix({
   // ── Mobile ───────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Below `md` everything here except the year selector moves into the
-          Toolbar FAB (§15) — search, Category, Legend and the kebab. This
-          branch runs to `lg` (useIsDesktop) while the FAB stops at `md`, so
-          the md–lg band keeps the row it already had. The year selector
-          stays put at every width: it's what the grid below is showing, not
-          a way of narrowing it. */}
-      <div className="sticky top-0 z-20 -mx-4 space-y-2 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="hidden md:block">
-          <Toolbar
-            className=""
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search name…"
-            filterFacets={filterFacets}
-            mobileMode="inline"
-            active={clearActive}
-            onClearAll={onClearAll}
-            trailing={
-              <div className="flex items-center gap-1.5">
-                <LegendSheet
-                  title="Legend"
-                  trigger={onClick => (
-                    <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
-                  )}
-                >
-                  {legendSwatches}
-                </LegendSheet>
-                {overflowMenu}
-              </div>
-            }
-          />
+      {/* Below `md` search, Category, Legend and the kebab live in the
+          Toolbar FAB (§15), so only the year selector stays on this row.
+          From `md` to `lg` (this branch runs to useIsDesktop's 1024px) they
+          share one row with it: find on the left, year + Legend + kebab on
+          the right — the desktop toolbar's shape, nothing wrapping. */}
+      <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="hidden min-w-0 flex-1 md:block">
+            <Toolbar
+              className=""
+              stretch
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search name…"
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {dateNav}
+            <div className="hidden items-center gap-2 md:flex">
+              <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+              <LegendSheet
+                title="Legend"
+                trigger={onClick => (
+                  <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
+                )}
+              >
+                {legendSwatches}
+              </LegendSheet>
+              {overflowMenu}
+            </div>
+          </div>
         </div>
-        {dateNav}
       </div>
+
+      {/* The "right now" panel, folded to one line — a 288px side panel
+          would squeeze the grid at this width. Opens the full list. */}
+      <button
+        type="button"
+        onClick={() => setShowNowSheet(true)}
+        className="card mt-3 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+      >
+        <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
+        <span className="truncate text-xs text-ink-muted">{nowCount} active</span>
+        <span className="ml-auto flex flex-shrink-0 items-center text-xs font-medium text-accent">
+          View <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      </button>
 
       <div className="mt-3 space-y-4 pb-20">
         {groups.length === 0 && (
@@ -930,6 +1037,12 @@ export default function InternRotationsMatrix({
         legend={{ title: 'Legend', children: legendSwatches }}
         moreMenu={{ title: 'Intern & Registrar Rotations', items: menuItems }}
       />
+
+      {showNowSheet && (
+        <Modal title={`Right now · ${nowTitle}`} onClose={() => setShowNowSheet(false)}>
+          {renderNoSelectionPanel(false)}
+        </Modal>
+      )}
 
       {selectedDoctor && (
         <Modal title={displayNames?.get(selectedDoctor.id) ?? selectedDoctor.surname} onClose={() => onSelectDoctor(null)}>

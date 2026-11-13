@@ -70,6 +70,13 @@ export function formatWeekdayDateShort(dateStr) {
   return `${WEEKDAY_ABBR[d.getDay()]}, ${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
 }
 
+// "2026-07-01" -> "1 Jul 2026" — a plain date with no weekday, for ranges
+// written out in words ("From 1 Jul 2026 to 31 Dec 2026").
+export function formatDayMonthYear(dateStr) {
+  const d = parseLocalDate(dateStr)
+  return `${d.getDate()} ${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`
+}
+
 // A timestamp column (reviewed_at, created_at — an ISO instant, not a
 // plain "YYYY-MM-DD" date) -> "19 Aug 2026". The day-month-year ordering
 // the roster and weekend change logs already display timestamps in, and

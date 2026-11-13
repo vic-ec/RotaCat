@@ -71,11 +71,32 @@ describe('InternRotationsMatrix', () => {
     expect(screen.getAllByText('OT · Psych').length).toBeGreaterThan(0)
   })
 
-  it('with nothing selected, the side panel groups current-month doctors by type', () => {
+  it('with nothing selected, the side panel lists current doctors by section, one row each with their period', () => {
     // 15 Jun 2027 falls in intern-1's OT·LRCHC block and registrar-1's EC block
     renderMatrix()
-    expect(screen.getByText(/right now/)).toBeInTheDocument()
-    expect(screen.getAllByText('OT · LRCHC').length).toBeGreaterThan(0)
+    const panel = screen.getByText('Right now').closest('div')
+    expect(within(panel).getByText('June 2027')).toBeInTheDocument()
+    // Intern on OT lands under OT interns, with their placement; no EC interns now
+    expect(within(panel).getByRole('button', { name: /OT interns 1/ })).toBeInTheDocument()
+    expect(within(panel).getByText('LRCHC')).toBeInTheDocument()
+    expect(within(panel).getByText('From 1 Apr 2027 · ongoing')).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /EC interns/ })).not.toBeInTheDocument()
+    // Registrars get their own section
+    expect(within(panel).getByRole('button', { name: /Registrars 1/ })).toBeInTheDocument()
+    expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
+  })
+
+  it('folds and unfolds a "right now" section from its header', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const panel = screen.getByText('Right now').closest('div')
+    const header = within(panel).getByRole('button', { name: /Registrars 1/ })
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+    await user.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    expect(within(panel).queryByText('From 1 Jan 2027 to 31 Dec 2027')).not.toBeInTheDocument()
+    await user.click(header)
+    expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
   })
 
   it('selecting a doctor shows their block list with type + date range', async () => {
@@ -88,8 +109,11 @@ describe('InternRotationsMatrix', () => {
   it('doctor selected: lists blocks, and Edit rotations reveals the type dropdown + From/To inputs', async () => {
     const user = userEvent.setup()
     renderMatrix({ selectedDoctorId: 'intern-1' })
-    expect(screen.getByText('2027-01-01 – 2027-03-31')).toBeInTheDocument()
-    expect(screen.getByText('2027-04-01 – ongoing')).toBeInTheDocument()
+    expect(screen.getByText('1 Jan 2027 – 31 Mar 2027')).toBeInTheDocument()
+    expect(screen.getByText('1 Apr 2027 – ongoing')).toBeInTheDocument()
+    // The block running today is marked, and Right now leads back to the list
+    expect(screen.getByText('NOW')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Right now/ })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Edit rotations' }))
     expect(screen.getAllByText('From').length).toBeGreaterThan(0)
@@ -151,11 +175,11 @@ describe('InternRotationsMatrix', () => {
     }))
   })
 
-  it('clicking a doctor chip in the no-selection panel selects them', async () => {
+  it('clicking a name in the no-selection panel selects them', async () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onSelectDoctor })
-    const panel = screen.getByText(/right now/).closest('div')
+    const panel = screen.getByText('Right now').closest('div')
     await user.click(within(panel).getByRole('button', { name: 'Intern' }))
     expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
   })
@@ -253,27 +277,33 @@ describe('InternRotationsMatrix — mobile layout', () => {
     expect(screen.getByText(/Assign doctor/)).toBeInTheDocument()
   })
 
-  it('the year selector gets its own row below the search+filter/Legend/kebab row, left-aligned', () => {
+  it('the year selector shares one row with search/filter (left) and Legend/kebab (right)', () => {
     renderMatrix()
     // Toolbar mounts both its own internal desktop/mobile rows regardless
-    // of viewport (jsdom applies no layout) — same reasoning as the
-    // category filter test above; either instance proves the same DOM order.
+    // of viewport (jsdom applies no layout) — either instance proves the
+    // same DOM order.
     const search = screen.getAllByPlaceholderText('Search name…')[0]
     const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
     const yearLabel = screen.getByText('2027')
 
-    // Search comes before Legend (search left, filter/Legend/kebab right).
     // compareDocumentPosition is a bitmask API, hence the &.
-    expect(search.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // The year selector follows the whole toolbar row, on its own line below.
-    expect(legend.compareDocumentPosition(yearLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(search.compareDocumentPosition(yearLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(yearLabel.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const sticky = yearLabel.closest('.sticky')
     expect(sticky.contains(search)).toBe(true)
     expect(sticky.contains(legend)).toBe(true)
-    // Year selector isn't inside the same Toolbar component instance as
-    // search/filter — it's a sibling row underneath, not nested within it.
-    const toolbarRow = search.closest('.md\\:hidden, .md\\:flex')
-    expect(toolbarRow.contains(yearLabel)).toBe(false)
+    // Today is worded and stays on the stepper's line
+    const today = screen.getByRole('button', { name: 'Today' })
+    expect(today).toHaveTextContent('Today')
+    expect(today.parentElement).toHaveClass('flex-nowrap')
+  })
+
+  it('the "Now" strip opens the right-now list in a sheet', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    await user.click(screen.getByRole('button', { name: /Now · Jun 2027/ }))
+    const sheet = screen.getByRole('dialog', { name: /Right now · June 2027/ })
+    expect(within(sheet).getByText('From 1 Apr 2027 · ongoing')).toBeInTheDocument()
   })
 })

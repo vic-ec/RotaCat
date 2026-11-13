@@ -4,14 +4,15 @@ import {
 } from './color'
 
 const DARK = 'neutral-dark'
-const DARK_GROUND = '#1D2F2B' // --color-canvas-raised on the dark theme
+const DARK_GROUND = '#111B19' // --color-canvas-raised on the dark theme
 const LIGHT_GROUND = '#FFFFFF'
+const EDGE_BELOW = 2 // color.js's EDGE_BELOW_RATIO
 
 describe('swatchEdgeColor', () => {
   it('outlines a colour that all but disappears into the dark theme', () => {
     // #182C61 on the dark theme's raised surface is 1.05:1 — the pill in the
     // screenshot that prompted this.
-    expect(contrastRatio('#182C61', DARK_GROUND)).toBeLessThan(1.1)
+    expect(contrastRatio('#182C61', DARK_GROUND)).toBeLessThan(EDGE_BELOW)
     const edge = swatchEdgeColor('#182C61', DARK)
     expect(edge).not.toBeNull()
     expect(contrastRatio(edge, DARK_GROUND)).toBeGreaterThanOrEqual(3)

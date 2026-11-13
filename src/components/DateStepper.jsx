@@ -106,6 +106,10 @@ export function StepperShell({
 // own natural width so every planner's stepper is the same size.
 export default function DateStepper({
   unit, year, month, onChange, showToday = true, canGoPrev = true, canGoNext = true, children, centered = false,
+  // `nowrap`: keep Today on the stepper's line — for a toolbar row that
+  // has already made room for both. `todayLabel`: a worded "Today" button
+  // rather than the calendar icon, where the row has the width for it.
+  nowrap = false, todayLabel = false,
 }) {
   const [jumpOpen, setJumpOpen] = useState(false)
 
@@ -131,7 +135,7 @@ export default function DateStepper({
   // current period is a harmless no-op.
 
   return (
-    <div className={`flex flex-wrap items-center gap-2 ${centered ? 'w-full' : ''}`}>
+    <div className={`flex ${nowrap ? 'flex-nowrap' : 'flex-wrap'} items-center gap-2 ${centered ? 'w-full' : ''}`}>
       <StepperShell
         label={label}
         labelAriaLabel={unit === 'year' ? `${label}, jump to year` : `${label}, jump to month or year`}
@@ -150,9 +154,9 @@ export default function DateStepper({
           onClick={goToday}
           aria-label="Today"
           title="Today"
-          className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+          className={todayLabel ? 'btn-utility h-[30px] flex-shrink-0 px-3 text-sm' : 'btn-utility h-[30px] w-[30px] flex-shrink-0 p-0'}
         >
-          <TodayIcon className="h-4 w-4" />
+          {todayLabel ? 'Today' : <TodayIcon className="h-4 w-4" />}
         </button>
       )}
       {children}

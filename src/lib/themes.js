@@ -21,7 +21,7 @@ export const THEMES = [
   {
     id: DARK_THEME,
     label: 'Night vision',
-    swatch: ['#0F1613', '#1D2F2B', '#6EBDAE']
+    swatch: ['#0F1613', '#111B19', '#6EBDAE']
   }
 ]
 

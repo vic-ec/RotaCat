@@ -89,10 +89,13 @@ export default function AnnualPlannerOverview({
     const pressureDayCount = markers.filter(d => d.isPressure).length
     const { start, end } = monthBounds(m.year, m.month)
     const pendingCount = pendingRequestCountInRange(pendingRows, start, end)
+    const approvedStaff = new Set(
+      entriesInRange(start, end, { approvedByDate, pendingByDate }).filter(e => e.status === 'approved').map(e => e.profileId)
+    ).size
     const capacity = capacityByMonth.get(m.month)
     return {
       ...m, markers, pressureDayCount, pendingCount,
-      summaryLine: monthSummaryLine({ pressureDayCount, pendingCount }),
+      summaryLine: monthSummaryLine({ approvedStaff, pendingRequests: pendingCount }),
       capacityMarkers: capacity.markers, worstState: capacity.worstState,
     }
   })
@@ -314,12 +317,9 @@ function AnnualLegendTrigger({ ruleHintIntro, ruleHintBullets }) {
 // strip of the month's daily capacity states in one row rather than a
 // calendar grid — reads as "is this month worth a closer look" without
 // requiring anyone to count or decode individual day cells first. Tapping
-// opens the month workspace directly. The chip's own label carries the
-// day-count detail directly for the two states worth quantifying (how many
-// days are limited/full) rather than a separate "N pressure days" line
-// repeating a coarser version of the same fact.
+// opens the month workspace directly.
 function CategoryMonthTile({ month, onOpen }) {
-  const chipLabel = chipLabelForMonth(month.worstState, month.markers)
+  const chipLabel = chipLabelForMonth(month.worstState)
   return (
     <button
       type="button"
@@ -348,22 +348,13 @@ function CategoryMonthTile({ month, onOpen }) {
   )
 }
 
-// "Limited"/"At capacity" on their own don't say how many days are actually
-// affected — spells out the day count behind the chip's own colour (yellow
-// blocks for "limited", red blocks for "at capacity") instead of the
-// generic state label. Available/near-capacity keep their plain label —
-// "available" needs no count, and near-capacity has no default combination
-// of category caps that reaches it (see categoryDayCapacityState in
-// annualPlannerOverview.js), so there's nothing to quantify there yet.
-function chipLabelForMonth(worstState, markers) {
-  if (worstState.key === 'limited') {
-    const days = markers.filter(d => d.capacityState.key === 'limited').length
-    return `Limited capacity on ${days} day${days === 1 ? '' : 's'}`
-  }
-  if (worstState.key === 'at_capacity') {
-    const days = markers.filter(d => d.capacityState.key === 'at_capacity').length
-    return `No capacity on ${days} day${days === 1 ? '' : 's'}`
-  }
+// The chip names the month's worst day in plain words — "Limited
+// capacity", "No capacity" — without a day count: how many days reach a
+// state is what the heat strip and the month view are for, and the count
+// read as a figure to be reconciled rather than a signal.
+function chipLabelForMonth(worstState) {
+  if (worstState.key === 'limited') return 'Limited capacity'
+  if (worstState.key === 'at_capacity') return 'No capacity'
   return worstState.label
 }
 
@@ -387,15 +378,16 @@ function MonthCard({ month, isSelected, onSelect, isAdmin }) {
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">{month.label}</span>
       </div>
-      {/* "2 pressure days · 1 pending" answers an admin's question — how much
-          is this month going to cost me to run. A doctor is asking whether
-          they can take leave, which is what the capacity chip says, and it
-          is the same wording their phone already gives them. */}
+      {/* "3 staff on leave" / "2 requests pending" / "No-one on leave"
+          answers an admin's question — what is booked and what is waiting.
+          A doctor is asking whether they can take leave, which is what the
+          capacity chip says, and it is the same wording their phone already
+          gives them. */}
       {isAdmin ? (
         <p className="mt-0.5 text-xs text-ink-muted">{month.summaryLine}</p>
       ) : (
         <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${month.worstState.tint} ${month.worstState.text}`}>
-          {chipLabelForMonth(month.worstState, month.capacityMarkers)}
+          {chipLabelForMonth(month.worstState)}
         </span>
       )}
 

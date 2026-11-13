@@ -9,6 +9,7 @@ import { monthsForYear, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
 import { todayStr } from '../lib/dateRange'
 import { daysBySlotsUsed } from '../lib/plannerCalendar'
+import { monthSummaryLine } from '../lib/annualPlannerOverview'
 import {
   specialCountsByDate, specialMonthMarkers, leadingBlanksForMonth, specialMonthStats, specialMonthEntries,
   SPECIAL_CATEGORY_FILTER_OPTIONS as CATEGORY_FILTER_OPTIONS, defaultSpecialCategoryKey as defaultCategoryKey, matchesSpecialCategory as matchesCategory,
@@ -73,6 +74,7 @@ export default function SpecialPlannerOverview({
     return {
       ...m, worstState,
       people: new Set(entries.map(e => e.profileId)).size,
+      approvedStaff: new Set(entries.filter(e => e.status === 'approved').map(e => e.profileId)).size,
       pending: entries.filter(e => e.status === 'pending').length,
     }
   })
@@ -254,31 +256,23 @@ function SpecialMonthTile({ month, categoryKey, onOpen }) {
             />
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-ink-muted">{month.people === 0 ? 'Nobody on leave' : who}</p>
+        <p className="mt-1.5 text-xs text-ink-muted">{month.people === 0 ? 'No-one on leave' : who}</p>
       </div>
       <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
     </button>
   )
 }
 
-// Days, not just a state name: "Limited" alone doesn't say whether that's
-// one awkward day or half the month. Same wording the Annual planner's own
-// month tiles use (chipLabelForMonth there), so a chip means the same thing
-// on both tabs — with one state Annual can't reach: special leave has no
+// The chip names the month's worst day in plain words, as the Annual
+// planner's does — with one state Annual can't reach: special leave has no
 // enforced cap, so a day CAN go past the 3-doctor guideline, and "No
 // capacity" would understate a day that is already over it.
 function chipLabelForMonth(month) {
-  const days = key => month.markers.filter(d => d.capacityState.key === key).length
-  const overGuideline = month.markers.filter(d => d.count > SPECIAL_LEAVE_SOFT_CAP).length
-  if (overGuideline > 0) return `Capacity exceeded on ${dayCount(overGuideline)}`
-  if (month.worstState.key === 'at_capacity') return `No capacity on ${dayCount(days('at_capacity'))}`
-  if (month.worstState.key === 'near_capacity') return `Near capacity on ${dayCount(days('near_capacity'))}`
-  if (month.worstState.key === 'limited') return `Limited capacity on ${dayCount(days('limited'))}`
-  return month.worstState.label // "Available" — nothing to quantify
-}
-
-function dayCount(days) {
-  return `${days} day${days === 1 ? '' : 's'}`
+  if (month.markers.some(d => d.count > SPECIAL_LEAVE_SOFT_CAP)) return 'Capacity exceeded'
+  if (month.worstState.key === 'at_capacity') return 'No capacity'
+  if (month.worstState.key === 'near_capacity') return 'Near capacity'
+  if (month.worstState.key === 'limited') return 'Limited capacity'
+  return month.worstState.label // "Available"
 }
 
 // Same trigger the Annual planner uses, and the same single entry point to
@@ -317,15 +311,13 @@ export function SpecialLegendTrigger({ ruleIntro, ruleBullets }) {
 
 // One month at a glance: label, a one-line summary, and a Monday-start
 // mini-calendar coloured by how many doctors are on special leave each
-// day. Same card shape as AnnualPlannerOverview's MonthCard. The summary
-// counts whoever the Showing picker has narrowed to (month.people /
-// month.pending, from filteredMonthCards); the cells stay on the true
-// shared count, as the mobile tiles' bars do.
+// day. Same card shape and the same summary line as AnnualPlannerOverview's
+// MonthCard. The summary counts whoever the Showing picker has narrowed to
+// (from filteredMonthCards); the cells stay on the true shared count, as
+// the mobile tiles' bars do.
 function MonthCard({ month, isSelected, onSelect }) {
   const cells = [...Array(leadingBlanksForMonth(month.markers)).fill(null), ...month.markers]
-  const summary = month.people === 0
-    ? 'Nobody on leave'
-    : `${month.people} ${month.people === 1 ? 'person' : 'people'} · ${month.pending} pending`
+  const summary = monthSummaryLine({ approvedStaff: month.approvedStaff, pendingRequests: month.pending })
 
   return (
     <button

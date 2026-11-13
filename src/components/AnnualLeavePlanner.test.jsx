@@ -119,14 +119,15 @@ describe('AnnualLeavePlanner', () => {
     expect(g.getByRole('button', { name: /^January/ })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('shows the pressure/pending summary line on the affected month card', async () => {
+  it('shows the staff-on-leave summary line on the affected month card, and "No-one on leave" on an empty one', async () => {
     renderPage()
     const g = await grid()
     const augustCard = g.getByRole('button', { name: /^August/ })
-    expect(within(augustCard).getByText('2 pressure days · 1 pending')).toBeInTheDocument()
+    // Approved people, counted once each, outrank the pending count.
+    expect(within(augustCard).getByText(/^\d+ staff on leave$/)).toBeInTheDocument()
 
     const januaryCard = g.getByRole('button', { name: /^January/ })
-    expect(within(januaryCard).getByText('Quiet')).toBeInTheDocument()
+    expect(within(januaryCard).getByText('No-one on leave')).toBeInTheDocument()
   })
 
   it('the Selected month card defaults to August and lists everyone on leave that month', async () => {

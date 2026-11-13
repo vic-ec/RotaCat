@@ -91,10 +91,10 @@ describe('SpecialPlannerOverview', () => {
     expect(card.getByRole('heading', { name: 'August 2026' })).toBeInTheDocument()
     expect(card.getByText('Special leave · 31 days')).toBeInTheDocument()
     expect(card.getByText('0 days at guideline')).toBeInTheDocument()
-    expect(card.getByText('29 days · 0 of 3 used')).toBeInTheDocument()
-    expect(card.getByText('1 day · 1 of 3')).toBeInTheDocument()
-    expect(card.getByText('1 day · 2 of 3').closest('li')).not.toHaveClass('text-ink-muted/60')
-    expect(card.getByText('0 days · at guideline').closest('li')).toHaveClass('text-ink-muted/60')
+    expect(card.getByText('0/3 slots used · 29 days')).toBeInTheDocument()
+    expect(card.getByText('1/3 slots used · 1 day')).toBeInTheDocument()
+    expect(card.getByText('2/3 slots used · 1 day').closest('li')).not.toHaveClass('text-ink-muted/60')
+    expect(card.getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
     expect(card.getByRole('button', { name: /Open month/ })).toHaveClass('btn-secondary')
     expect(card.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/leave?tab=requests&from=special')
     // Exactly one filled button on the page: the panel's own action.
@@ -148,7 +148,7 @@ describe('SpecialPlannerOverview', () => {
     ]]])
     renderOverview({ leaveByDate: pressured })
     expect(inspector().getByText('1 day at guideline')).toBeInTheDocument()
-    expect(inspector().getByText('1 day · at guideline').closest('li')).not.toHaveClass('text-ink-muted/60')
+    expect(inspector().getByText('3/3 slots used · 1 day').closest('li')).not.toHaveClass('text-ink-muted/60')
 
     await user.click(grid().getByRole('button', { name: /^January/ }))
     expect(inspector().getByText('0 days at guideline')).toBeInTheDocument()

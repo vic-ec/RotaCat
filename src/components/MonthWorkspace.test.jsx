@@ -262,7 +262,7 @@ describe('MonthWorkspace', () => {
 
       const showing = panel.getByLabelText('Showing')
       const headline = panel.getByText(/of 30 days have room for your category/)
-      const bar = panel.getByRole('img', { name: /0 of 3 used/ })
+      const bar = panel.getByRole('img', { name: /0\/3 slots used/ })
       const action = panel.getByRole('button', { name: 'Request annual leave' })
       const order = [stepper, showing, headline, bar, action]
       for (let i = 1; i < order.length; i++) {
@@ -282,9 +282,9 @@ describe('MonthWorkspace', () => {
     it('the capacity bar in the panel reads the month: 30 days free, 1 day at 2 of 3', () => {
       renderWorkspace()
       const panel = within(screen.getByTestId('planner-request-panel'))
-      expect(panel.getByText('30 days · 0 of 3 used')).toBeInTheDocument()
-      expect(panel.getByText('1 day · 2 of 3')).toBeInTheDocument()
-      expect(panel.getByText('0 days · full').closest('li')).toHaveClass('text-ink-muted/60')
+      expect(panel.getByText('0/3 slots used · 30 days')).toBeInTheDocument()
+      expect(panel.getByText('2/3 slots used · 1 day')).toBeInTheDocument()
+      expect(panel.getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
     })
 
     it('Showing previews another category, with a note that submitting still counts against the real one', async () => {
@@ -308,7 +308,7 @@ describe('MonthWorkspace', () => {
       expect(screen.queryByText(/days have room for your category/)).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Showing')).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument()
-      expect(screen.getByText('30 days · 0 of 3 used')).toBeInTheDocument()
+      expect(screen.getByText('0/3 slots used · 30 days')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Request annual leave' })).toBeInTheDocument()
     })
 

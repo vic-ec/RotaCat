@@ -67,7 +67,7 @@ describe('daysBySlotsUsed', () => {
 })
 
 describe('capacityBarLabels', () => {
-  it('reads "0 of 3 used", "1 of 3", "2 of 3", "full"', () => {
-    expect(capacityBarLabels(3)).toEqual(['0 of 3 used', '1 of 3', '2 of 3', 'full'])
+  it('reads "0/3 slots used" … "3/3 slots used"', () => {
+    expect(capacityBarLabels(3)).toEqual(['0/3 slots used', '1/3 slots used', '2/3 slots used', '3/3 slots used'])
   })
 })

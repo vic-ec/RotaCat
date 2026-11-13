@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { todayStr, addDays, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
-  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange, formatWeekendRangeCompact,
+  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
   nextSaturdayToRequestOff, WEEKEND_RULE_BULLETS,
@@ -261,7 +261,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // a stale picker open.
 function WeekendInspector({
   saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, myRequestName, canViewRequests,
-  removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
+  exceptions = [], removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
 }) {
   const [editing, setEditing] = useState(false)
   useEffect(() => { setEditing(false) }, [saturday])
@@ -294,6 +294,8 @@ function WeekendInspector({
           {myRequestLine(myRequest.status, myRequestName)}
         </p>
       )}
+
+      <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
 
       {!editing ? (
         <>
@@ -388,7 +390,7 @@ function WeekendInspector({
 // fast glance — status + assignments only, reusing WeekendInspector's own
 // read-only AssignmentSummaryRow rather than rebuilding that breakdown a
 // second time.
-function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, onClose }) {
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, exceptions = [], onClose }) {
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
   const badge = weekendBadge(saturday, weekendIndex)
@@ -422,6 +424,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
             <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
           ))}
         </div>
+        <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
       </div>
     </ActionSheet>
   )
@@ -534,46 +537,29 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
   )
 }
 
-// This month's weekend exceptions — the month view's counterpart to the
-// year overview's Selected month panel (WeekendYearOverview). Approved and
-// pending both: a pending exception is precisely the thing that makes the
-// month's plan unsettled, so hiding it until approval would defeat the
-// point of showing it to a planner at all.
-//
-// Weekend exceptions are NOT special leave — they swap which weekend a
-// doctor works rather than reducing hours — which is why they surface here
-// and on the Weekend planner rather than on the Special leave tab, and why
-// they carry no leave-capacity weight anywhere.
-function MonthExceptionsPanel({ exceptions, displayNames }) {
+// One weekend's weekend-off requests, listed inside the SELECTED WEEKEND
+// card under its status (and in the phone's quick-glance sheet) — the same
+// row shape as the Annual/Special planners' day views: name, then category
+// muted beside it, status right-aligned. Omitted entirely when the weekend
+// has none. These are NOT special leave and carry no leave-capacity weight;
+// they are an exception to WHICH weekend a doctor works, still approved via
+// Planners -> Requests.
+function WeekendRequestsList({ exceptions, displayNames }) {
   if (exceptions.length === 0) return null
   return (
-    <div data-testid="weekend-month-exceptions" className="card mt-3 p-4">
-      <div className="flex items-center gap-1.5">
-        <MessageSquareWarning className="h-4 w-4 text-flagAmber" />
-        <h3 className="text-sm font-semibold text-ink">Weekend off requests ({exceptions.length})</h3>
-      </div>
-      <ul className="mt-2 divide-y divide-slate-line border-t border-slate-line">
+    <div data-testid="weekend-requests" className="mt-3 border-t border-slate-line pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Weekend off requests</p>
+      <ul className="mt-1 divide-y divide-slate-line">
         {exceptions.map(req => {
           const isPending = req.status === 'pending'
           return (
-            <li key={req.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <li key={req.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
               <span className="flex min-w-0 items-center gap-2">
-                <span className="flex-shrink-0 text-sm font-medium text-ink">
+                <span className="flex-shrink-0 font-medium text-ink">
                   {displayNames.get(req.profile_id) ?? req.profiles?.surname ?? '(unknown)'}
                 </span>
-                {/* No leave type: every row in a panel headed "Weekend
-                    exceptions" is a weekend exception, so naming it per row
-                    was the same word four times down the column.
-                    formatWeekendRangeCompact (no "Sat "/"Sun " prefixes,
-                    unlike everywhere else a weekend range is shown) — this
-                    row already carries a name and category before it, and
-                    the fuller phrasing crowded the panel. Derived from
-                    date_from, not the stored date_to — an exception always
-                    covers exactly one Sat+Sun pair, so the Sunday is
-                    derivable. */}
                 <span className="truncate text-xs text-ink-muted">
                   {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
-                  {' · '}{formatWeekendRangeCompact(req.date_from)}
                 </span>
               </span>
               <span className={`flex-shrink-0 text-xs font-medium ${isPending ? 'text-flagAmber' : 'text-success'}`}>
@@ -1670,8 +1656,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             )}
 
 
-            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
-
             <div data-testid="weekend-mobile-list" className="mt-3 space-y-3">
               {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
@@ -1789,8 +1773,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
               />
             </div>
 
-            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
-
             {/* Table and a sticky rail (request panel on top, Selected
                 weekend inspector under it) — the same grid-plus-rail split
                 every other planner page uses. */}
@@ -1906,6 +1888,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     isAdmin={isAdmin}
                     saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
+                    exceptions={exceptionsBySaturday.get(inspectorSaturday) || []}
                     myRequestName={myName}
                     canViewRequests={canViewRequests}
                     removeEntry={removeEntry}
@@ -1953,6 +1936,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           displayNames={displayNames}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
+          exceptions={exceptionsBySaturday.get(detailSaturday) || []}
           myRequestName={myName}
           onClose={() => setDetailSaturday(null)}
         />

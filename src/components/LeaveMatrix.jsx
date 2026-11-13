@@ -88,7 +88,7 @@ function TodayLine({ year, monthColWidth }) {
 // A doctor's timeline — one track row per non-empty status (approved above
 // pending). The name button lives in the first track's sticky cell; the
 // second track's cell just carries the muted status label.
-function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns, monthColWidth }) {
+function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns, monthColWidth, striped }) {
   const tracks = []
   if (row.approved.length) tracks.push({ status: 'approved', label: 'Approved', items: row.approved })
   if (row.pending.length) tracks.push({ status: 'pending', label: REVIEW_STATUS_LABELS.pending, items: row.pending })
@@ -97,10 +97,10 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
   return (
     <div className="border-b border-slate-line last:border-0">
       {tracks.map((track, i) => (
-        <div key={track.status} className="grid" style={{ gridTemplateColumns }}>
+        <div key={track.status} className={`grid ${i > 0 ? 'border-t border-dashed border-slate-line' : ''}`} style={{ gridTemplateColumns }}>
           <div
             className={`sticky left-0 z-10 flex flex-col justify-center border-r border-slate-line px-3 py-1 ${
-              doctorSelected ? 'bg-accent-tint' : 'bg-canvas-raised'
+              doctorSelected ? 'bg-accent-tint' : 'bg-canvas-cool'
             }`}
           >
             {i === 0 ? (
@@ -119,7 +119,16 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
             )}
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{track.label}</span>
           </div>
-          <div className="relative col-span-12" style={{ height: TRACK_HEIGHT }}>
+          {/* Faint month lines, so a bar reads against its month without
+              tracing up to the header; alternate doctors are a touch
+              lighter so neighbouring rows don't run together. */}
+          <div
+            className={`relative col-span-12 ${striped ? 'bg-ink/[0.025]' : ''}`}
+            style={{
+              height: TRACK_HEIGHT,
+              backgroundImage: `repeating-linear-gradient(90deg, transparent 0, transparent ${monthColWidth - 1}px, rgb(var(--color-slate-line) / 0.6) ${monthColWidth - 1}px, rgb(var(--color-slate-line) / 0.6) ${monthColWidth}px)`,
+            }}
+          >
             <TodayLine year={year} monthColWidth={monthColWidth} />
             {track.items.map(request => (
               <LeaveBar
@@ -354,12 +363,12 @@ export default function LeaveMatrix({ requests, controls }) {
                 <button
                   type="button"
                   onClick={() => toggleGroupCollapsed(group.key)}
-                  className="flex w-full items-center justify-between bg-canvas-sunken px-2 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted transition-colors hover:bg-slate-line"
+                  className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
                 >
-                  <span>{group.label} <span className="ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                  <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
+                  <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
                 </button>
-                {!collapsedGroups[group.key] && group.items.map(row => (
+                {!collapsedGroups[group.key] && group.items.map((row, rowIndex) => (
                   <DoctorRows
                     key={row.doctor.id}
                     row={row}
@@ -369,6 +378,7 @@ export default function LeaveMatrix({ requests, controls }) {
                     onSelectBlock={request => setSelected({ kind: 'block', request })}
                     gridTemplateColumns={gridTemplateColumns}
                     monthColWidth={monthColWidth}
+                    striped={rowIndex % 2 === 1}
                   />
                 ))}
               </div>

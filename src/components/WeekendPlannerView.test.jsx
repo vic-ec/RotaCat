@@ -735,7 +735,7 @@ describe('WeekendPlannerView', () => {
       expect(within(aug8Row).queryByText('Open')).not.toBeInTheDocument()
     })
 
-    it('defaults the inspector to the next weekend, showing a read-only assignment summary', async () => {
+    it('defaults the inspector to the next weekend: status and actions only, the names stay on the table row', async () => {
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
@@ -743,10 +743,33 @@ describe('WeekendPlannerView', () => {
       const inspector = screen.getByTestId('weekend-inspector')
       expect(within(inspector).getByText('Sat 1 - Sun 2 Aug 2026')).toBeInTheDocument()
       expect(within(inspector).getByText('3 roles open')).toBeInTheDocument()
-      expect(within(inspector).getByText('Anderson')).toBeInTheDocument() // MO filled
-      expect(within(inspector).getAllByText('Open')).toHaveLength(3) // Registrar/COSMO/COSMOPsych open
-      // View mode has no inline edit controls
+      // No assignment summary in the card — the row beside it carries the
+      // names — and no inline edit controls in view mode.
+      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(inspector).queryByText('Assignments')).not.toBeInTheDocument()
+      expect(within(inspector).queryByText('Open')).not.toBeInTheDocument()
       expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+      // The table row still reads the names and the open roles.
+      const row = within(view.getByRole('table')).getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
+      expect(within(row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(row).getAllByText('Open')).toHaveLength(3)
+    })
+
+    it('the table is a list of separated card-like rows, the selected one outlined in the accent', async () => {
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+
+      expect(view.getByRole('table')).toHaveClass('border-separate', 'border-spacing-y-2')
+      const table = within(view.getByRole('table'))
+      const aug1 = table.getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
+      expect(aug1).toHaveAttribute('aria-selected', 'true')
+      expect(aug1.firstElementChild.className).toContain('border-l-accent')
+      expect(aug1.firstElementChild.className).toContain('py-4')
+      const aug15 = (await table.findByText('Sat 15 - Sun 16 Aug 2026')).closest('tr')
+      expect(aug15.firstElementChild.className).toContain('border-l-slate-line')
     })
 
     it('clicking a grid row selects it and updates the inspector without navigating away', async () => {
@@ -861,7 +884,7 @@ describe('WeekendPlannerView', () => {
       )
     })
 
-    it('inspector: assigned names right-align even when they wrap onto a second line', async () => {
+    it('admin: the card leads with Edit assignments, then the other actions, with no names until editing', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       renderView()
       const view = await desktop()
@@ -872,8 +895,13 @@ describe('WeekendPlannerView', () => {
       await user.click(aug8Cell.closest('tr'))
 
       const inspector = screen.getByTestId('weekend-inspector')
-      const names = within(inspector).getByText('Anderson', { exact: false })
-      expect(names).toHaveClass('text-right')
+      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      const buttons = within(inspector).getAllByRole('button').map(b => b.textContent.trim())
+      expect(buttons).toEqual(['Edit assignments', 'Copy weekend', 'Clear weekend'])
+      expect(within(inspector).getByRole('link', { name: /View requests/ })).toBeInTheDocument()
+
+      await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
+      expect(within(inspector).getByText('Anderson')).toBeInTheDocument()
     })
 
     it('admin: can add a doctor to an open slot via the inspector, and the grid row reflects it', async () => {
@@ -1020,7 +1048,11 @@ describe('WeekendPlannerView', () => {
       const row = toolbar.firstElementChild
       expect(row).toHaveClass('h-11')
       expect(row.contains(view.getByRole('button', { name: 'Overview' }))).toBe(true)
-      expect(row.contains(view.getByRole('button', { name: 'More Actions' }))).toBe(true)
+      // More actions sits in the same cluster as the search and the legend,
+      // not alone in the toggle slot at the far end.
+      const more = view.getByRole('button', { name: 'More Actions' })
+      expect(row.contains(more)).toBe(true)
+      expect(more.closest('.lg\\:w-\\[132px\\]')).toBeNull()
       expect(row.contains(view.getByRole('button', { name: 'Legend and how it works' }))).toBe(true)
       expect(row.contains(view.getByRole('button', { name: /^August 2026/ }))).toBe(false)
       // The desktop field is capped, not stretched across the table.

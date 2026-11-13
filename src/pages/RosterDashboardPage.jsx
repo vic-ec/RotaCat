@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical, ChevronLeft, ChevronRight } from 'lucide-react'
+import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -597,25 +597,6 @@ function EmptyState({ isAdmin, onCreate }) {
 // stays a per-group inline swap rather than reusing Staff's `SelectAllRow`,
 // which assumes one list per tab, not two.
 function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false }) {
-  // Grid view: one horizontally scrolling row rather than wrapping onto a
-  // second line, stepped by the chevrons either side (the same shape as a
-  // date stepper). The chevrons only show once the row actually overflows.
-  const rowRef = useRef(null)
-  const [overflow, setOverflow] = useState(false)
-  useEffect(() => {
-    const el = rowRef.current
-    if (!el || view !== 'grid') return
-    const check = () => setOverflow(el.scrollWidth > el.clientWidth + 1)
-    check()
-    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(check) : null
-    ro?.observe(el)
-    return () => ro?.disconnect()
-  }, [view, rosters.length])
-  function scrollRow(dir) {
-    const el = rowRef.current
-    if (el) el.scrollBy({ left: dir * Math.max(200, el.clientWidth - 80), behavior: 'smooth' })
-  }
-
   // View / Edit / Publish for one roster — the same three on a list row
   // (text on a desktop, icons on a phone) and in a card's kebab.
   function rosterActions(roster) {
@@ -678,43 +659,23 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
         )}
       </div>
       {view === 'grid' ? (
-        <div className="relative">
-          {overflow && (
-            <button
-              type="button"
-              onClick={() => scrollRow(-1)}
-              aria-label={`Scroll ${title} left`}
-              className="btn-utility absolute -left-3 top-1/2 z-10 h-8 w-8 -translate-y-1/2 p-0 shadow-card"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          )}
-          <div ref={rowRef} className="flex gap-3 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:thin]">
-            {rosters.map(roster => (
-              <RosterCard
-                key={roster.id}
-                checked={selected.has(roster.id)}
-                onToggleCheck={() => toggleOne(roster.id)}
-                selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
-                month={MONTH_NAMES[roster.month]}
-                year={roster.year}
-                meta={metaFn(roster)}
-                status={roster.status}
-                onClick={() => navigate(`/roster/${roster.id}`)}
-                menuItems={isAdmin ? rosterActions(roster) : null}
-              />
-            ))}
-          </div>
-          {overflow && (
-            <button
-              type="button"
-              onClick={() => scrollRow(1)}
-              aria-label={`Scroll ${title} right`}
-              className="btn-utility absolute -right-3 top-1/2 z-10 h-8 w-8 -translate-y-1/2 p-0 shadow-card"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
+        /* Cards wrap as a grid, but the panel stops at two rows: beyond
+           that it scrolls vertically rather than growing down the page. */
+        <div className="grid max-h-[19.75rem] grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3 overflow-y-auto pr-1 [scrollbar-width:thin]">
+          {rosters.map(roster => (
+            <RosterCard
+              key={roster.id}
+              checked={selected.has(roster.id)}
+              onToggleCheck={() => toggleOne(roster.id)}
+              selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
+              month={MONTH_NAMES[roster.month]}
+              year={roster.year}
+              meta={metaFn(roster)}
+              status={roster.status}
+              onClick={() => navigate(`/roster/${roster.id}`)}
+              menuItems={isAdmin ? rosterActions(roster) : null}
+            />
+          ))}
         </div>
       ) : (
         <div className="card divide-y divide-slate-line overflow-hidden">
@@ -768,7 +729,7 @@ function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, st
   return (
     <div
       onClick={onClick}
-      className={`flex min-h-36 w-52 flex-shrink-0 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
+      className={`flex min-h-36 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
     >
       <div className="flex items-start justify-between">
         <input

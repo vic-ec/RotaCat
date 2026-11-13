@@ -77,7 +77,11 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Fri 14 Aug')).toBeInTheDocument()
     expect(screen.getByText('5 calendar days · 3 leave days')).toBeInTheDocument()
     expect(screen.getByText('Approved')).toBeInTheDocument()
-    expect(screen.getByText('Upcoming leave')).toBeInTheDocument()
+    expect(screen.getByText('Next leave')).toBeInTheDocument()
+    // Balance comes from the same approved annual row: 3 of 22 booked
+    expect(screen.getByText('19')).toBeInTheDocument()
+    expect(screen.getByText('3 of 22 booked · 0 pending')).toBeInTheDocument()
+    expect(screen.queryByText(/more upcoming/)).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
     expect(eqCalls).toContainEqual(['leave_requests', 'profile_id', 'doctor-1'])
   })
@@ -113,14 +117,16 @@ describe('DashboardPage', () => {
     expect(within(empty).queryByRole('link')).toBeNull()
   })
 
-  it('doctor: with nothing booked the leave card shows the balance and "Next: none booked"', async () => {
+  it('doctor: with nothing booked the leave card shows the full balance and "None booked"', async () => {
     mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
 
     renderDashboard()
 
-    expect(await screen.findByText('Next: none booked')).toBeInTheDocument()
-    expect(screen.getByText('Annual leave balance')).toBeInTheDocument()
-    expect(screen.getByText('of 22 days used')).toBeInTheDocument()
+    expect(await screen.findByText('None booked')).toBeInTheDocument()
+    expect(screen.getByText('Annual leave · 2026')).toBeInTheDocument()
+    expect(screen.getByText('22')).toBeInTheDocument()
+    expect(screen.getByText('days left')).toBeInTheDocument()
+    expect(screen.getByText('0 of 22 booked · 0 pending')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
     expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
     expect(screen.getByRole('link', { name: 'Request swap' })).toHaveAttribute('href', '/swaps')
@@ -146,12 +152,32 @@ describe('DashboardPage', () => {
     expect(screen.getByText('22–08')).toHaveClass('chip-night')
   })
 
+  it('doctor: shows only the next leave, with a link to the rest', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    mockResponses['leave_requests:select'] = {
+      data: [
+        { id: 'lr2', leave_type: 'annual', date_from: '2026-09-07', date_to: '2026-09-07', status: 'pending', annual_leave_days: 1 },
+        { id: 'lr1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved', annual_leave_days: 3 },
+      ],
+      error: null,
+    }
+
+    renderDashboard()
+
+    // Soonest first, and only that one
+    expect(await screen.findByText('Mon 10 Aug')).toBeInTheDocument()
+    expect(screen.queryByText('Mon 7 Sep')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /\+1 more upcoming/ })).toHaveAttribute('href', '/leave?tab=my-leave')
+    // Pending counts the request, booked counts only approved days
+    expect(screen.getByText('3 of 22 booked · 1 pending')).toBeInTheDocument()
+  })
+
   it('doctor: omits the swap section entirely when nothing is waiting on them', async () => {
     mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
 
     renderDashboard()
 
-    await screen.findByText('Next: none booked')
+    await screen.findByText('None booked')
     expect(screen.queryByText('Swap requests for you')).not.toBeInTheDocument()
     expect(screen.queryByText(/No pending swap requests/)).not.toBeInTheDocument()
   })

@@ -17,12 +17,15 @@ const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger
 // leave but reads as decoration on a single personal record. Here the range
 // is plain bold text with a quiet arrow, and the day counts sit underneath
 // as small muted text. The other screens keep LeaveDateRange untouched.
-export default function LeaveCard({ request, className = '' }) {
+// `bare`: no card shell or padding of its own — for a row inside a list
+// that is itself one card (My leave's Upcoming) or a column of a larger
+// card (the Dashboard's leave card); the caller pads it.
+export default function LeaveCard({ request, className = '', bare = false }) {
   const { leave_type: leaveType, date_from: dateFrom, date_to: dateTo, status } = request
   const singleDay = dateFrom === dateTo
 
   return (
-    <div className={`card p-4 ${className}`}>
+    <div className={`${bare ? '' : 'card p-4'} ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm font-semibold text-ink">{LEAVE_TYPE_LABELS[leaveType] || 'Leave'}</h3>
         {status && (

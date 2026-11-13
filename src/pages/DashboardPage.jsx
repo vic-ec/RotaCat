@@ -4,9 +4,9 @@ import { ArrowLeftRight, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
-import { todayStr, addDays, formatShortDateRange, parseLocalDate, formatWeekdayDateShort } from '../lib/dateRange'
+import { todayStr, addDays, formatShortDateRange, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
-import { upcomingRequests, annualDaysUsedInYear } from '../lib/leaveDashboard'
+import { upcomingRequests, annualDaysUsedInYear, pendingRequestCount } from '../lib/leaveDashboard'
 import { shortLeaveTypeLabel, ANNUAL_LEAVE_ALLOWANCE } from '../lib/leaveRequests'
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
@@ -139,7 +139,7 @@ export default function DashboardPage() {
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
   const [coworkersByKey, setCoworkersByKey] = useState({})
-  const [annualDaysUsed, setAnnualDaysUsed] = useState(0)
+  const [annualBalance, setAnnualBalance] = useState({ booked: 0, pending: 0 })
   const [phByDate, setPhByDate] = useState({})
   const [incomingSwaps, setIncomingSwaps] = useState([])
   const [swapError, setSwapError] = useState('')
@@ -200,19 +200,23 @@ export default function DashboardPage() {
     return map
   }
 
-  // Approved annual leave this calendar year, for the leave card's
-  // "N of 22 days used" — the same figure the My leave tracker shows.
-  async function loadAnnualDaysUsed() {
+  // Annual leave this calendar year, for the leave card's "N days left ·
+  // M of 22 booked · P pending" — the same figures the My leave tab shows.
+  // All statuses are fetched so the pending count comes from the same rows.
+  async function loadAnnualBalance() {
     const year = new Date().getFullYear()
     const { data } = await supabase
       .from('leave_requests')
       .select('date_from, date_to, annual_leave_days, leave_type, status')
       .eq('profile_id', profile.id)
-      .eq('status', 'approved')
       .eq('leave_type', 'annual')
       .gte('date_to', `${year}-01-01`)
       .lte('date_from', `${year}-12-31`)
-    return annualDaysUsedInYear((data || []).filter(r => r.leave_type === 'annual' && r.status === 'approved'), year)
+    const annualRows = (data || []).filter(r => r.leave_type === 'annual')
+    return {
+      booked: annualDaysUsedInYear(annualRows.filter(r => r.status === 'approved'), year),
+      pending: pendingRequestCount(annualRows, year),
+    }
   }
 
   // PH/PH_weekday shift rows get a calendar-icon button showing the actual
@@ -282,14 +286,14 @@ export default function DashboardPage() {
       loadCoworkersThisWeek(),
       loadPublicHolidaysThisWeek(),
       loadIncomingSwaps(),
-      loadAnnualDaysUsed(),
+      loadAnnualBalance(),
     ])
     setMyLeave(upcomingRequests(leaveRes.data || [], today))
     setMyShifts(shifts)
     setCoworkersByKey(coworkers)
     setPhByDate(ph)
     setIncomingSwaps(swaps)
-    setAnnualDaysUsed(annualUsed)
+    setAnnualBalance(annualUsed)
     setLoading(false)
   }
 
@@ -446,29 +450,52 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* 2. Leave — the balance card (annual days used this year and
-              the next booked date), then one card per upcoming record. */}
+          {/* 2. Leave — one card, two columns (stacked on a phone): the
+              annual balance on the left, the next upcoming request on the
+              right. My leave has the full list; this is the summary. */}
           {!isLocum && (
             <section>
               <SectionHeading to={MY_LEAVE_PATH} linkLabel="View all leave">Leave</SectionHeading>
-              <div className="card p-4">
-                <p className="text-xs font-medium text-ink-muted">Annual leave balance</p>
-                <p className="mt-1">
-                  <span className="font-display text-3xl font-bold text-ink">{annualDaysUsed}</span>
-                  <span className="ml-1.5 text-sm text-ink-muted">of {ANNUAL_LEAVE_ALLOWANCE} days used</span>
-                </p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {myLeave.length > 0
-                    ? `Next: ${formatWeekdayDateShort(myLeave[0].date_from)}`
-                    : 'Next: none booked'}
-                </p>
-              </div>
-              {myLeave.length > 0 && (
-                <div className="mt-3 space-y-3">
-                  <h3 className="text-sm font-semibold text-ink">Upcoming leave</h3>
-                  {myLeave.map(lr => <LeaveCard key={lr.id} request={lr} />)}
+              <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                <div className="p-4">
+                  <p className="text-xs font-medium text-ink-muted">Annual leave · {new Date().getFullYear()}</p>
+                  <p className="mt-1">
+                    <span className="font-display text-3xl font-bold text-ink">{ANNUAL_LEAVE_ALLOWANCE - annualBalance.booked}</span>
+                    <span className="ml-1.5 text-sm text-ink-muted">days left</span>
+                  </p>
+                  <div
+                    className="mt-3 h-1.5 overflow-hidden rounded-full bg-canvas-sunken"
+                    role="progressbar"
+                    aria-label="Annual leave booked"
+                    aria-valuemin={0}
+                    aria-valuemax={ANNUAL_LEAVE_ALLOWANCE}
+                    aria-valuenow={annualBalance.booked}
+                  >
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${Math.min(100, (annualBalance.booked / ANNUAL_LEAVE_ALLOWANCE) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-ink-muted">
+                    {annualBalance.booked} of {ANNUAL_LEAVE_ALLOWANCE} booked · {annualBalance.pending} pending
+                  </p>
                 </div>
-              )}
+                <div className="p-4">
+                  <p className="mb-2 text-xs font-medium text-ink-muted">Next leave</p>
+                  {myLeave.length === 0 ? (
+                    <p className="text-sm text-ink-muted">None booked</p>
+                  ) : (
+                    <>
+                      <LeaveCard request={myLeave[0]} bare />
+                      {myLeave.length > 1 && (
+                        <Link to={MY_LEAVE_PATH} className="mt-2 inline-block text-xs font-medium text-accent hover:text-accent-dark">
+                          +{myLeave.length - 1} more upcoming ›
+                        </Link>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             </section>
           )}
 

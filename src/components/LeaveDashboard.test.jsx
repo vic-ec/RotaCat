@@ -53,7 +53,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
   })
   afterEach(() => vi.useRealTimers())
 
-  it('shows the leave tracker, upcoming requests, and the request form', async () => {
+  it('shows the annual balance, upcoming requests, and the request form', async () => {
     mockQueues.leave_requests = [
       { data: [
         { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5 },
@@ -63,18 +63,25 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     render(<LeaveDashboard />)
 
-    const trackerSection = (await screen.findByText('Leave tracker')).closest('section')
-    expect(trackerSection.textContent).toMatch(/Annual leave.*5\s*days approved.*1 request pending/s)
-    expect(trackerSection.textContent).toMatch(/Resets to zero on 1 January each year/)
+    const balanceSection = (await screen.findByText('Annual leave · 2026')).closest('section')
+    // Days left leads; booked counts approved days only; pending counts requests
+    expect(balanceSection.textContent).toMatch(/Days left\s*17.*Days booked\s*5.*Pending requests\s*1/s)
+    expect(balanceSection.textContent).toMatch(/22 days a year · resets on 1 January/)
+    // Request leave sits on the section heading
+    expect(within(balanceSection).getByRole('button', { name: 'Request leave' })).toBeInTheDocument()
 
     const upcomingSection = screen.getByText('Upcoming').closest('section')
     expect(upcomingSection.textContent).toMatch(/Annual leave/)
     expect(upcomingSection.textContent).toMatch(/Mon 10 Aug/)
     expect(upcomingSection.textContent).toMatch(/5 calendar days · 5 leave days/)
     expect(upcomingSection.textContent).toMatch(/Approved/)
+    expect(upcomingSection.textContent).toMatch(/Pending/)
+    // Upcoming is one card with a row per request, not a card each
+    expect(upcomingSection.querySelectorAll('.card')).toHaveLength(1)
+    expect(upcomingSection.querySelectorAll('li')).toHaveLength(2)
 
-    // Only types actually used this year get a tracker card
-    expect(trackerSection.textContent).not.toMatch(/Sick leave/)
+    // No other leave types used, so no "Other leave" section
+    expect(screen.queryByText(/Other leave/)).not.toBeInTheDocument()
 
     // The form is collapsed behind a button until requested
     expect(screen.queryByRole('button', { name: 'Submit request' })).not.toBeInTheDocument()
@@ -86,7 +93,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     mockQueues.leave_requests = [{ data: [], error: null }]
     const user = userEvent.setup()
     render(<LeaveDashboard />)
-    await screen.findByText('Leave tracker')
+    await screen.findByText('Days left')
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
@@ -100,7 +107,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(screen.getByRole('button', { name: 'Request leave' })).toBeInTheDocument()
   })
 
-  it('links a tracker with pending requests through to the Requests tab, and omits the link with none pending', async () => {
+  it('links pending requests through to the Requests tab, and omits the link with none pending', async () => {
     mockQueues.leave_requests = [
       { data: [
         { id: 'up1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5 },
@@ -113,10 +120,8 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     const link = await screen.findByRole('link', { name: /View request ›/ })
     expect(link).toHaveAttribute('href', '/leave?tab=requests')
-    // The link belongs to the tracker that actually has something pending
-    expect(link.closest('.card').textContent).toMatch(/Annual leave/)
-    // Count and link read as one line, dot-separated
-    expect(link.closest('p').textContent).toMatch(/1 request pending.*·.*View request/)
+    // The link belongs to the annual balance, which has something pending
+    expect(link.closest('section').textContent).toMatch(/Annual leave · 2026/)
     // Sick leave has nothing pending, so it gets no link
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
@@ -134,7 +139,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(await screen.findByRole('link', { name: /View requests ›/ })).toBeInTheDocument()
   })
 
-  it('gives every leave type used this year its own tracker, counting requests where no day figure exists', async () => {
+  it('lists every other leave type used this year, counting requests where no day figure exists', async () => {
     mockQueues.leave_requests = [
       { data: [
         { id: 's1', leave_type: 'special_leave', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' },
@@ -144,18 +149,21 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     render(<LeaveDashboard />)
 
-    const trackerSection = (await screen.findByText('Leave tracker')).closest('section')
-    expect(trackerSection.textContent).toMatch(/Sick leave.*1\s*request approved/s)
-    expect(trackerSection.textContent).toMatch(/Special leave.*1\s*request approved/s)
+    const otherSection = (await screen.findByText('Other leave · 2026')).closest('section')
+    expect(otherSection.textContent).toMatch(/Sick leave.*1 request booked.*0 pending/s)
+    expect(otherSection.textContent).toMatch(/Special leave.*1 request booked/s)
     // No invented day figure for types with no deducted-days column
-    expect(trackerSection.textContent).not.toMatch(/days approved/)
-    expect(trackerSection.textContent).not.toMatch(/Annual leave/)
+    expect(otherSection.textContent).not.toMatch(/days/)
+    expect(otherSection.textContent).not.toMatch(/Annual leave/)
+    // The annual balance still shows, untouched
+    expect(screen.getByText('Annual leave · 2026').closest('section').textContent).toMatch(/Days left\s*22/)
   })
 
-  it('shows an empty state with no requests at all', async () => {
+  it('shows the full balance and an empty Upcoming with no requests at all', async () => {
     mockQueues.leave_requests = [{ data: [], error: null }]
     render(<LeaveDashboard />)
-    expect(await screen.findByText('No leave taken or requested this year.')).toBeInTheDocument()
+    const balanceSection = (await screen.findByText('Annual leave · 2026')).closest('section')
+    expect(balanceSection.textContent).toMatch(/Days left\s*22.*Days booked\s*0.*Pending requests\s*0/s)
     expect(screen.getByText('Nothing upcoming.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Request leave' })).toBeInTheDocument()
   })

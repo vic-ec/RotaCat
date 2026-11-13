@@ -1765,21 +1765,23 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           <div className="hidden lg:block" data-testid="weekend-desktop">
             {/* The one toolbar every planner month view shares: back out of
                 the month, the search that narrows the table, the live
-                coverage-count Legend, and — in the slot a planner with a
-                second view would give its toggle — the admin's More
-                Actions. The month stepper and the scope picker live in the
+                coverage-count Legend and, for an admin, a compact More
+                actions button in the same cluster. The month stepper and the scope picker live in the
                 rail panel beside the table, as on the overview. */}
             <div className="mt-6">
               <PlannerToolbar
                 onBack={onBackToYear}
                 search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
                 legend={<MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />}
-                viewToggle={isAdmin && (
+                // More actions sits with the search and the legend, one
+                // compact control in the same cluster, rather than alone at
+                // the far end of the row.
+                middle={isAdmin && (
                   <PageActionsMenu
                     items={weekendMenuItems}
                     trigger={(onClick, open) => (
-                      <button type="button" onClick={onClick} aria-expanded={open} className="btn-secondary flex items-center gap-1.5 text-sm">
-                        <EllipsisVertical className="h-3.5 w-3.5" /> More Actions
+                      <button type="button" onClick={onClick} aria-expanded={open} aria-label="More Actions" title="More Actions" className="btn-utility flex h-[30px] items-center gap-1 px-2 text-xs">
+                        <EllipsisVertical className="h-3.5 w-3.5" /> More
                       </button>
                     )}
                   />

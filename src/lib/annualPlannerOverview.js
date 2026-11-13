@@ -54,13 +54,14 @@ export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pr
 }
 
 // The one-line summary under a month card on the admin's Annual and Special
-// overviews — the same three readings on both planners: who is on leave
-// (approved requests, counted as distinct people), else what is still
-// waiting on the admin, else nothing at all.
+// overviews — the same reading on both planners: who is on leave (approved
+// requests, counted as distinct people) and what is still waiting on the
+// admin, or nothing at all.
 export function monthSummaryLine({ approvedStaff = 0, pendingRequests = 0 }) {
-  if (approvedStaff > 0) return `${approvedStaff} staff on leave`
-  if (pendingRequests > 0) return `${pendingRequests} ${pendingRequests === 1 ? 'request' : 'requests'} pending`
-  return 'No-one on leave'
+  const parts = []
+  if (approvedStaff > 0) parts.push(`${approvedStaff} on leave`)
+  if (pendingRequests > 0) parts.push(`${pendingRequests} ${pendingRequests === 1 ? 'request' : 'requests'} pending`)
+  return parts.length ? parts.join('; ') : 'No-one on leave'
 }
 
 // The first contiguous run of pressure dates within a month (datesInRange

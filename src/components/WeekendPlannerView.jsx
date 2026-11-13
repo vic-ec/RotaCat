@@ -252,10 +252,11 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
   )
 }
 
-// The desktop split view's right-hand panel: a summary of whichever weekend
-// is selected in the grid, with editing tucked behind an "Edit assignments"
-// action instead of always-on inline controls — a proper inspector, not a
-// second copy of the mobile card. Editing state is local and resets
+// The desktop split view's right-hand panel: the actions for whichever
+// weekend is selected in the table (edit assignments, requests, copy,
+// paste, clear) under its status — not a second copy of the row's names,
+// which are read off the table itself. The per-category rows appear only
+// while editing. Editing state is local and resets
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
@@ -296,22 +297,9 @@ function WeekendInspector({
 
       {!editing ? (
         <>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink-muted">Assignments</p>
-          <div className="mt-1 divide-y divide-slate-line">
-            {CATEGORY_GROUPS.map(group => (
-              <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
-            ))}
-          </div>
-
-          <div className={`mt-4 flex items-start gap-2 rounded-lg p-3 text-xs ${needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'}`}>
-            {needsPlanning ? <CircleAlert className="h-4 w-4 flex-shrink-0" /> : <CircleCheck className="h-4 w-4 flex-shrink-0" />}
-            <span>
-              {needsPlanning
-                ? `${coverage.openGroups.map(k => CATEGORY_GROUPS.find(g => g.key === k)?.label).join(', ')} still need${coverage.openGroups.length === 1 ? 's' : ''} a staff member.`
-                : 'All required groups have an assigned staff member.'}
-            </span>
-          </div>
-
+          {/* No assignments list here: the names are read off the row in
+              the table beside this card. The card is for acting on the
+              selected weekend — its status, then the actions. */}
           <div className="mt-4 space-y-2">
             {isAdmin && (
               <button
@@ -1805,8 +1793,13 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 weekend inspector under it) — the same grid-plus-rail split
                 every other planner page uses. */}
             <div className="mt-4 flex items-start gap-4">
-              <div className="max-h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-slate-line">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
+              {/* Each weekend is its own card-like row: taller, with a gap
+                  between rows (border-spacing), so the table reads as a
+                  list of weekends rather than a dense grid — the names are
+                  read here, and the rail beside it is for acting on the
+                  selected one. */}
+              <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto">
+                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
                   <thead>
                     <tr className="text-left text-xs text-ink-muted">
                       <th className="sticky top-0 left-0 z-20 bg-canvas-raised px-3 py-2 font-medium">Weekend</th>
@@ -1816,7 +1809,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                       <th className="sticky top-0 z-10 bg-canvas-raised px-3 py-2 font-medium">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-line">
+                  <tbody>
                     {searchedSaturdays.length === 0 ? (
                       <tr>
                         <td colSpan={CATEGORY_GROUPS.length + 2} className="px-3 py-6 text-center text-ink-muted">
@@ -1835,15 +1828,15 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           key={saturday}
                           onClick={() => setSelectedSaturday(saturday)}
                           aria-selected={isSelected}
-                          className={`group cursor-pointer transition-colors ${isSelected ? 'bg-accent-tint/50' : 'hover:bg-canvas-sunken/40'}`}
+                          className="group cursor-pointer"
                         >
                           {/* Sticky column needs an OPAQUE background — unlike the rest of
                               the row, it must occlude the non-sticky cells (e.g. MO) that
                               scroll underneath it, so it can't reuse the row's translucent
                               tint opacity modifier (that let their text ghost through
                               beneath the date). */}
-                          <td className={`sticky left-0 z-10 border-l-4 px-3 py-2.5 font-medium text-ink ${
-                            isSelected ? 'border-l-accent bg-accent-tint' : 'border-l-transparent bg-canvas-raised group-hover:bg-canvas-sunken'
+                          <td className={`sticky left-0 z-10 rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
+                            isSelected ? 'border-y-accent border-l-accent bg-accent-tint' : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
                           }`}>
                             <div className="flex flex-col gap-1">
                               <span>{formatWeekendRange(saturday)}</span>
@@ -1853,7 +1846,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           {CATEGORY_GROUPS.map(group => {
                             const groupEntries = bySaturday[group.key] || []
                             return (
-                              <td key={group.key} className="px-3 py-2.5">
+                              <td key={group.key} className={`border-y px-4 py-4 ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
                                 {groupEntries.length === 0 ? (
                                   <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
                                 ) : (
@@ -1864,14 +1857,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                                   // making every row noticeably deeper.
                                   <div className="space-y-0.5">
                                     {groupEntries.map(e => (
-                                      <div key={e.id} className="text-xs text-ink">{displayNames.get(e.profile_id) ?? '(unknown)'}</div>
+                                      <div key={e.id} className="text-sm text-ink">{displayNames.get(e.profile_id) ?? '(unknown)'}</div>
                                     ))}
                                   </div>
                                 )}
                               </td>
                             )
                           })}
-                          <td className="px-3 py-2.5">
+                          <td className={`rounded-r-lg border-y border-r px-4 py-4 ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
                             <span className="inline-flex items-center gap-1.5">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                                 needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'

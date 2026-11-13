@@ -686,7 +686,7 @@ describe('WeekendPlannerView', () => {
   })
 
   describe('desktop layout', () => {
-    it('renders a sticky grid with a Weekend column, one column per category group, and a Status column', async () => {
+    it('renders a sticky grid with a Weekend column and one column per category group — no Status column', async () => {
       renderView()
       const view = await desktop()
       await view.findByText('August 2026')
@@ -696,7 +696,8 @@ describe('WeekendPlannerView', () => {
       expect(view.getByRole('columnheader', { name: 'Registrar' })).toBeInTheDocument()
       expect(view.getByRole('columnheader', { name: 'EC Intern' })).toBeInTheDocument()
       expect(view.getByRole('columnheader', { name: 'OT Intern' })).toBeInTheDocument()
-      expect(view.getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
+      // The row's own status chip under the date replaced the column.
+      expect(view.queryByRole('columnheader', { name: 'Status' })).not.toBeInTheDocument()
     })
 
     it('rows are not tinted by parity — each weekend instead carries a small "Wknd N · Odd/Even" badge', async () => {
@@ -718,7 +719,7 @@ describe('WeekendPlannerView', () => {
       expect(within(aug15Row).getByText(`Wknd 3 · ${isEvenWeekend('2026-08-15') ? 'Even' : 'Odd'}`)).toBeInTheDocument()
     })
 
-    it('Status column shows Fully planned or a gap count per row, and open category cells show an Open chip', async () => {
+    it('status lives in the selected-weekend card ("N roles open" / groups planned); open category cells show an Open chip', async () => {
       const user = userEvent.setup()
       renderView()
       const view = await desktop()
@@ -726,12 +727,16 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const table = within(view.getByRole('table'))
+      const inspector = within(screen.getByTestId('weekend-inspector'))
       const aug1Row = table.getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
-      expect(within(aug1Row).getByText('3 gaps')).toBeInTheDocument()
+      // Aug 1 is the default selection; no status chip on the row itself.
+      expect(inspector.getByText('3 roles open')).toBeInTheDocument()
+      expect(within(aug1Row).queryByText(/roles open/)).not.toBeInTheDocument()
       expect(within(aug1Row).getAllByText('Open')).toHaveLength(3)
 
       const aug8Row = table.getByText('Sat 8 - Sun 9 Aug 2026').closest('tr')
-      expect(within(aug8Row).getByText('Fully planned')).toBeInTheDocument()
+      await user.click(aug8Row)
+      expect(inspector.getByText('4 of 4 groups planned')).toBeInTheDocument()
       expect(within(aug8Row).queryByText('Open')).not.toBeInTheDocument()
     })
 
@@ -814,7 +819,7 @@ describe('WeekendPlannerView', () => {
       expect(link).toHaveAttribute('href', '/leave?tab=requests&from=weekends')
     })
 
-    it('admin: Edit assignments reveals per-category +/x controls, which Done editing hides again', async () => {
+    it('admin: Edit assignments reveals the selected row\'s + pills, which Done editing hides again', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -825,17 +830,21 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+      const table = within(view.getByRole('table'))
+      expect(table.queryByRole('button', { name: /^Add a doctor to/ })).not.toBeInTheDocument()
 
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      expect(within(inspector).getAllByRole('button', { name: 'Add doctor' }).length).toBeGreaterThan(0)
+      // Editing is scoped to the selected weekend (2026-08-01): one + per
+      // category on that row, none on any other.
+      expect(table.getAllByRole('button', { name: /^Add a doctor to .* on 2026-08-01$/ })).toHaveLength(4)
+      expect(table.queryByRole('button', { name: /on 2026-08-08$/ })).not.toBeInTheDocument()
 
       await user.click(within(inspector).getByRole('button', { name: 'Done editing' }))
-      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+      expect(table.queryByRole('button', { name: /^Add a doctor to/ })).not.toBeInTheDocument()
       expect(within(inspector).getByRole('button', { name: /Edit assignments/ })).toBeInTheDocument()
     })
 
-    it('admin: in edit mode, Add doctor is a full-width standard (teal) button, not the old small dashed one', async () => {
+    it('admin: in edit mode, the + is the roster grid\'s own dashed add pill, and the row turns rose', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -844,13 +853,16 @@ describe('WeekendPlannerView', () => {
       await showAll(view, user)
 
       const inspector = screen.getByTestId('weekend-inspector')
+      const table = within(view.getByRole('table'))
+      const row = table.getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
+      expect(row.firstElementChild.className).toContain('bg-accent-tint')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
 
-      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
-      for (const button of addButtons) {
-        expect(button).toHaveClass('btn-primary', 'w-full')
-        expect(button.className).not.toContain('border-dashed')
+      for (const button of table.getAllByRole('button', { name: /^Add a doctor to/ })) {
+        expect(button).toHaveClass('w-full', 'border-dashed')
+        expect(button.className).not.toContain('btn-primary')
       }
+      expect(row.firstElementChild.className).toContain('bg-rose-tint')
     })
 
     it('inspector: sits in the shared SELECTED WEEKEND card under the panel, the date as its own heading', async () => {
@@ -884,7 +896,7 @@ describe('WeekendPlannerView', () => {
       )
     })
 
-    it('admin: the card leads with Edit assignments, then the other actions, with no names until editing', async () => {
+    it('admin: the card leads with Edit assignments, then the other actions, and never lists names', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       renderView()
       const view = await desktop()
@@ -901,10 +913,12 @@ describe('WeekendPlannerView', () => {
       expect(within(inspector).getByRole('link', { name: /View requests/ })).toBeInTheDocument()
 
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      expect(within(inspector).getByText('Anderson')).toBeInTheDocument()
+      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      // The names stay on the row, where they are edited.
+      expect(within(aug8Cell.closest('tr')).getByText('Anderson')).toBeInTheDocument()
     })
 
-    it('admin: can add a doctor to an open slot via the inspector, and the grid row reflects it', async () => {
+    it('admin: the row\'s + opens the roster\'s doctor picker scoped to that category, and picking a name fills the cell', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -917,20 +931,20 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
-      await user.click(addButtons[0]) // MO row is first
+      await user.click(screen.getByRole('button', { name: 'Add a doctor to MO on 2026-08-15' }))
 
-      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
-      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
-      await user.click(within(sheet).getByRole('checkbox', { name: /Alice Anderson/ }))
-      await user.click(within(sheet).getByRole('button', { name: /Add 1 doctor/ }))
+      const picker = await screen.findByRole('dialog', { name: /Assign doctor — MO on/ })
+      // Only MOs are offered.
+      expect(within(picker).getByRole('button', { name: /Anderson/ })).toBeInTheDocument()
+      expect(within(picker).queryByRole('button', { name: /Botha/ })).not.toBeInTheDocument()
+      await user.click(within(picker).getByRole('button', { name: /Anderson/ }))
 
-      expect(await within(inspector).findByText('Anderson')).toBeInTheDocument()
       const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
-      expect(within(aug15Row).getByText('Anderson')).toBeInTheDocument()
+      expect(await within(aug15Row).findByText('Anderson')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog', { name: /Assign doctor/ })).not.toBeInTheDocument()
     })
 
-    it('admin: can select several doctors at once via the inspector, same as mobile', async () => {
+    it('admin: a category takes several doctors — the + stays after the first pick, and an assigned name drops out of the picker', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -940,22 +954,24 @@ describe('WeekendPlannerView', () => {
 
       const aug15Cell = await view.findByText('Sat 15 - Sun 16 Aug 2026')
       await user.click(aug15Cell.closest('tr'))
+      const aug15Row = aug15Cell.closest('tr')
 
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      const addButtons = within(inspector).getAllByRole('button', { name: 'Add doctor' })
-      await user.click(addButtons[1]) // Registrar row
+      await user.click(screen.getByRole('button', { name: 'Add a doctor to Registrar on 2026-08-15' }))
+      let picker = await screen.findByRole('dialog', { name: /Assign doctor — Registrar on/ })
+      await user.click(within(picker).getByRole('button', { name: /Botha/ }))
+      expect(await within(aug15Row).findByText('Botha')).toBeInTheDocument()
 
-      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
-      await user.click(within(sheet).getByRole('checkbox', { name: /Bob Botha/ }))
-      await user.click(within(sheet).getByRole('checkbox', { name: /Erin Eaton/ }))
-      await user.click(within(sheet).getByRole('button', { name: /Add 2 doctors/ }))
-
-      expect(await within(inspector).findByText('Botha')).toBeInTheDocument()
-      expect(within(inspector).getByText('Eaton')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Add a doctor to Registrar on 2026-08-15' }))
+      picker = await screen.findByRole('dialog', { name: /Assign doctor — Registrar on/ })
+      expect(within(picker).queryByRole('button', { name: /Botha/ })).not.toBeInTheDocument()
+      await user.click(within(picker).getByRole('button', { name: /Eaton/ }))
+      expect(await within(aug15Row).findByText('Eaton')).toBeInTheDocument()
+      expect(within(aug15Row).getByText('Botha')).toBeInTheDocument()
     })
 
-    it('admin: a filled category shows a compact + trigger instead of the full-width button, opening the sheet scoped to it', async () => {
+    it('admin: an assigned pill opens the same picker in swap mode, with Remove from this slot at its foot', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -969,14 +985,15 @@ describe('WeekendPlannerView', () => {
 
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
+      // A filled category still offers a + for a second doctor.
+      expect(screen.getByRole('button', { name: 'Add a doctor to MO on 2026-08-08' })).toBeInTheDocument()
 
-      await user.click(within(inspector).getByRole('button', { name: 'Add another doctor to MO' }))
-      const sheet = (await screen.findByRole('heading', { name: /Add doctor —/ })).closest('.card')
-      expect(within(sheet).getByRole('combobox', { name: 'Category' })).toHaveValue('MO')
+      await user.click(screen.getByRole('button', { name: 'Edit Anderson on 2026-08-08' }))
+      const picker = await screen.findByRole('dialog', { name: /Assign doctor — Anderson \(MO\) on/ })
+      expect(within(picker).getByRole('button', { name: 'Remove from this slot' })).toBeInTheDocument()
     })
 
-    it('admin: can remove an assigned doctor via the inspector', async () => {
+    it('admin: can remove an assigned doctor from the swap picker', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -989,10 +1006,13 @@ describe('WeekendPlannerView', () => {
       // Inspector defaults to next weekend (2026-08-01), which has Anderson on MO.
       const inspector = screen.getByTestId('weekend-inspector')
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      const removeButton = await within(inspector).findByRole('button', { name: 'Remove Anderson from 2026-08-01' })
-      await user.click(removeButton)
+      await user.click(await screen.findByRole('button', { name: 'Edit Anderson on 2026-08-01' }))
+      const picker = await screen.findByRole('dialog', { name: /Assign doctor — Anderson/ })
+      await user.click(within(picker).getByRole('button', { name: 'Remove from this slot' }))
 
-      expect(within(inspector).queryByRole('button', { name: 'Remove Anderson from 2026-08-01' })).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Edit Anderson on 2026-08-01' })).not.toBeInTheDocument())
+      const row = within(view.getByRole('table')).getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
+      expect(within(row).queryByText('Anderson')).not.toBeInTheDocument()
     })
 
     it('desktop: Review log lives inside the More Actions kebab too, same as mobile', async () => {
@@ -1190,7 +1210,6 @@ describe('WeekendPlannerView', () => {
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Clear August 2026?' })).not.toBeInTheDocument())
 
       const aug8Row = within(view.getByRole('table')).getByText('Sat 8 - Sun 9 Aug 2026').closest('tr')
-      expect(within(aug8Row).getByText('4 gaps')).toBeInTheDocument()
       expect(within(aug8Row).getAllByText('Open')).toHaveLength(4)
     })
 
@@ -1432,13 +1451,20 @@ describe('WeekendPlannerView', () => {
       },
     ]
 
-    it('admin: lists this month\'s exceptions with category and status, and leaves other months out', async () => {
+    it('admin: the selected weekend\'s card lists its weekend off requests with category and status', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       mockResponses['leave_requests:select'] = { data: EXCEPTIONS, error: null }
       renderView()
 
-      const panel = within((await screen.findAllByTestId('weekend-month-exceptions'))[0])
-      expect(panel.getByText(/Weekend off requests \(1\)/)).toBeInTheDocument()
+      // The month banner is gone: the request now sits in the selected
+      // weekend's card, under Overall status — so select 2026-08-22 first.
+      const user = userEvent.setup()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await showAll(view, user)
+      await user.click((await view.findByText('Sat 22 - Sun 23 Aug 2026')).closest('tr'))
+      const panel = within(await screen.findByTestId('weekend-requests'))
+      expect(panel.getByText('Weekend off requests')).toBeInTheDocument()
       // "Botha" (from the shared displayNames map built off the profiles
       // fetch), not "Bell" from the request's own joined row — the resolver
       // wins so a name reads identically here and on the weekend cards, and
@@ -1448,11 +1474,11 @@ describe('WeekendPlannerView', () => {
       // the panel heading already says that of every row under it. Compact
       // date format here (no "Sat "/"Sun " prefixes) — this row already
       // carries a name and category before it.
-      expect(panel.getByText(/^Registrar · \d/)).toBeInTheDocument()
-      expect(panel.queryByText(/Weekend exception ·/)).not.toBeInTheDocument()
+      expect(panel.getByText('Registrar')).toBeInTheDocument()
       expect(panel.getByText('Pending review')).toBeInTheDocument()
-      // September's exception belongs to September's panel, not August's.
+      // September's exception belongs to another weekend, not this one.
       expect(panel.queryByText('Ash')).not.toBeInTheDocument()
+      expect(panel.queryByText('Anderson')).not.toBeInTheDocument()
     })
 
     it('admin: flags only the weekends that actually have an exception', async () => {

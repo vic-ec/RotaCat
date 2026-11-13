@@ -1720,13 +1720,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   read here, and the rail beside it is for acting on the
                   selected one. */}
               <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto" style={{ fontSize: `${rosterBase}px` }}>
-                {/* Five equal columns. The percentage widths hold unless a
-                    name would wrap (pills never wrap), in which case the
-                    auto layout widens that column and the rest give way. */}
+                {/* The Weekend column is only as wide as its date (which
+                    never wraps); the four category columns share the rest
+                    equally and only widen if a name would wrap, since pills
+                    never do. */}
                 <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-[1em]">
                   <colgroup>
-                    <col style={{ width: '20%' }} />
-                    {CATEGORY_GROUPS.map(group => <col key={group.key} style={{ width: '20%' }} />)}
+                    <col style={{ width: '1%' }} />
+                    {CATEGORY_GROUPS.map(group => <col key={group.key} style={{ width: `${(99 / CATEGORY_GROUPS.length).toFixed(2)}%` }} />)}
                   </colgroup>
                   <thead>
                     <tr className="text-left text-xs text-ink-muted">
@@ -1761,7 +1762,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                               scroll underneath it, so it can't reuse the row's translucent
                               tint opacity modifier (that let their text ghost through
                               beneath the date). */}
-                          <td className={`sticky left-0 z-10 rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
+                          <td className={`sticky left-0 z-10 whitespace-nowrap rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
                             isSelected ? 'border-y-accent border-l-accent bg-accent-tint' : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
                           }`}>
                             <div className="flex flex-col gap-1">

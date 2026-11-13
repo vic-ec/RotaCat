@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Filter, Pencil, Users, CircleCheck, CircleAlert, Copy, ClipboardPaste, Trash2,
-  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning, ChevronLeft, ArrowLeftRight,
+  MoreVertical, EllipsisVertical, ScrollText, Plus, MessageSquareWarning, ChevronLeft,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -32,6 +32,8 @@ import LeaveRequestForm from './LeaveRequestForm'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
+import DoctorDropdown from './DoctorDropdown'
+import { useSwatch } from '../lib/useSwatch'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 const MONTHS_PADDING = 3 // either side of a freshly-navigated-to month — see boundsAroundMonth below
@@ -811,6 +813,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // each name and + Add under each category, on the row itself rather
   // than in the rail card.
   const [editingSaturday, setEditingSaturday] = useState(null)
+  // The roster-style cell editor (DoctorDropdown): which weekend + category,
+  // and which entry is being swapped/removed (null = adding).
+  const [cellEditor, setCellEditor] = useState(null) // { saturday, groupKey, entryId } or null
+  const [cellEditorSearch, setCellEditorSearch] = useState('')
+  const swatch = useSwatch()
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
   // Seeded from initialFilter — whatever the year overview's own Showing
@@ -924,7 +931,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       // entries as "(unknown)". `is_active` is still fetched below so the
       // *assignable* subset (who can be newly rostered going forward) can
       // be derived separately — see assignableDoctors.
-      supabase.from('profiles').select('id, name, surname, category, contract_type, is_active')
+      supabase.from('profiles').select('id, name, surname, category, contract_type, is_active, color_code')
         .eq('is_approved', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
         .gte('weekend_saturday', fetchBounds.from).lte('weekend_saturday', fetchBounds.through),
@@ -1753,59 +1760,52 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                             const last = gi === CATEGORY_GROUPS.length - 1
                             return (
                               <td key={group.key} className={`border-y px-4 py-4 align-top ${last ? 'rounded-r-lg border-r' : ''} ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
-                                {groupEntries.length === 0 && !isEditing ? (
-                                  <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
-                                ) : (
-                                  // One name per line rather than paired/joined —
-                                  // a group with 3-4 doctors used to wrap
-                                  // "A, B" / "C" oddly across the column.
-                                  // While the row is being edited each name
-                                  // carries its own remove and swap, and the
-                                  // category its + Add.
-                                  <div className="space-y-1">
-                                    {groupEntries.map(e => {
-                                      const label = displayNames.get(e.profile_id) ?? '(unknown)'
-                                      return (
-                                        <div key={e.id} className="flex items-center gap-1.5 text-sm text-ink">
-                                          <span>{label}</span>
-                                          {isEditing && (
-                                            <>
-                                              <button
-                                                type="button"
-                                                onClick={ev => { ev.stopPropagation(); removeEntry(e.id) }}
-                                                disabled={saving}
-                                                aria-label={`Remove ${label} from ${saturday}`}
-                                                className="flex h-5 w-5 items-center justify-center rounded text-ink-muted hover:bg-flagRed-bg hover:text-flagRed"
-                                              >
-                                                <XIcon className="h-3 w-3" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={ev => { ev.stopPropagation(); setOpenRolePicker({ saturday, groupKey: group.key, replaceEntryId: e.id }) }}
-                                                disabled={saving}
-                                                aria-label={`Swap ${label} on ${saturday}`}
-                                                className="flex h-5 w-5 items-center justify-center rounded text-accent hover:bg-accent-tint"
-                                              >
-                                                <ArrowLeftRight className="h-3 w-3" />
-                                              </button>
-                                            </>
-                                          )}
-                                        </div>
-                                      )
-                                    })}
-                                    {isEditing && (
+                                {/* The roster's own cell layout: one pill per
+                                    doctor with their colour as a left rail,
+                                    and a dashed "+" pill under the list. While
+                                    the row is being edited a pill opens the
+                                    shared doctor picker (swap, or remove from
+                                    this weekend); otherwise an empty category
+                                    reads "Open". */}
+                                <div className="space-y-1">
+                                  {groupEntries.map(e => {
+                                    const doctor = doctorById.get(e.profile_id)
+                                    const label = displayNames.get(e.profile_id) ?? doctor?.surname ?? '(unknown)'
+                                    const pill = `flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-sm font-medium text-ink ${isEditing ? 'cursor-pointer hover:bg-canvas-sunken' : ''}`
+                                    const rail = { borderLeftColor: swatch.stroke(doctor?.color_code || '#4A90D9') }
+                                    return isEditing ? (
                                       <button
+                                        key={e.id}
                                         type="button"
-                                        onClick={ev => { ev.stopPropagation(); setOpenRolePicker({ saturday, groupKey: group.key }) }}
+                                        onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: e.id }) }}
                                         disabled={saving}
-                                        aria-label={`Add a doctor to ${group.label} on ${saturday}`}
-                                        className="inline-flex items-center gap-1 rounded-full bg-accent-tint px-2 py-0.5 text-xs font-medium text-accent hover:opacity-80"
+                                        aria-label={`Edit ${label} on ${saturday}`}
+                                        className={`${pill} w-full text-left`}
+                                        style={rail}
                                       >
-                                        <Plus className="h-3 w-3" /> Add
+                                        <span className="truncate">{label}</span>
                                       </button>
-                                    )}
-                                  </div>
-                                )}
+                                    ) : (
+                                      <div key={e.id} className={pill} style={rail} title={doctor ? `${doctor.name} ${doctor.surname}` : undefined}>
+                                        <span className="truncate">{label}</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {groupEntries.length === 0 && !isEditing && (
+                                    <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
+                                  )}
+                                  {isEditing && (
+                                    <button
+                                      type="button"
+                                      onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: null }) }}
+                                      disabled={saving}
+                                      aria-label={`Add a doctor to ${group.label} on ${saturday}`}
+                                      className="flex w-full items-center justify-center rounded-sm border border-dashed border-slate-line py-0.5 text-ink-muted hover:border-accent hover:text-accent"
+                                    >
+                                      <Plus className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             )
                           })}
@@ -1880,6 +1880,38 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           onClose={() => setDetailSaturday(null)}
         />
       )}
+
+      {cellEditor && (() => {
+        const group = CATEGORY_GROUPS.find(g => g.key === cellEditor.groupKey)
+        const assigned = assignedDoctorIds(cellEditor.saturday)
+        const excused = excusedBySaturday.get(cellEditor.saturday) ?? new Set()
+        // Same eligibility as the add-doctors sheet: not already on this
+        // weekend, not excused by an approved weekend off, and resolving to
+        // this category on this date.
+        const candidates = assignableDoctors
+          .filter(d => !assigned.has(d.id) && !excused.has(d.id))
+          .filter(d => resolveWeekendCategoryForDoctor({ doctor: d, targetDate: cellEditor.saturday, rotationsByDoctorId }).groupKey === cellEditor.groupKey)
+          .sort((a, b) => a.surname.localeCompare(b.surname))
+        const current = cellEditor.entryId ? doctorById.get(entries.find(e => e.id === cellEditor.entryId)?.profile_id) : null
+        return (
+          <DoctorDropdown
+            profiles={candidates}
+            displayNames={displayNames}
+            search={cellEditorSearch}
+            onSearchChange={setCellEditorSearch}
+            date={formatWeekendRange(cellEditor.saturday)}
+            shiftCode={current ? `${displayNames.get(current.id) ?? current.surname} (${group?.label})` : group?.label}
+            onSelect={async profileId => {
+              const { saturday, groupKey, entryId } = cellEditor
+              setCellEditor(null)
+              if (entryId) await removeEntry(entryId)
+              addEntries(saturday, groupKey, [profileId])
+            }}
+            onRemove={cellEditor.entryId ? () => { const id = cellEditor.entryId; setCellEditor(null); removeEntry(id) } : undefined}
+            onClose={() => setCellEditor(null)}
+          />
+        )
+      })()}
 
       {openRolePicker && (
         <WeekendAddDoctorsSheet

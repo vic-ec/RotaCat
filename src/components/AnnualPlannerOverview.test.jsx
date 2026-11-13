@@ -84,13 +84,14 @@ describe('AnnualPlannerOverview — non-admin mobile category finder', () => {
     expect(within(previousGroup).queryByText('August')).not.toBeInTheDocument()
   })
 
-  it('renames the "At capacity"/"Limited" chip to spell out how many days are affected, and drops the separate "N pressure days" line', () => {
+  it('the chip names the month\'s worst state in plain words, with no day count and no "N pressure days" line', () => {
     const { container } = renderOverview({ myCategory: 'MO' })
     const mobile = within(mobileBlock(container))
 
-    // 2026-08-10 is the only MO-at-cap date in the fixture -> 1 red day.
+    // 2026-08-10 is the only MO-at-cap date in the fixture -> "No capacity".
     const currentGroup = mobile.getByText('Current month').closest('div')
-    expect(within(currentGroup).getByText('No capacity on 1 day')).toBeInTheDocument()
+    expect(within(currentGroup).getByText('No capacity')).toBeInTheDocument()
+    expect(within(currentGroup).queryByText(/No capacity on/)).not.toBeInTheDocument()
     expect(within(currentGroup).queryByText('At capacity')).not.toBeInTheDocument()
     expect(mobile.queryByText(/pressure day/)).not.toBeInTheDocument()
     expect(mobile.queryByText('No pressure days')).not.toBeInTheDocument()

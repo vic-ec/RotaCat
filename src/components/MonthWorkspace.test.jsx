@@ -351,18 +351,16 @@ describe('MonthWorkspace', () => {
   })
 
   describe('legend', () => {
-    it('collapsed by default, shows Consultant for an admin once expanded, hides it for a non-admin', async () => {
+    it('collapsed by default, and lists no category avatars once expanded — the grid spells categories out beside each name', async () => {
       const user = userEvent.setup()
-      const admin = renderWorkspace()
-      expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: 'Legend' }))
-      expect(screen.getByText('Consultant')).toBeInTheDocument()
-      admin.unmount()
-
-      mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true }
       renderWorkspace()
+      expect(screen.queryByText('Public holiday')).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'Legend' }))
-      expect(screen.queryByText('Consultant')).not.toBeInTheDocument()
+      expect(screen.getByText('Public holiday')).toBeInTheDocument()
+      const sheet = screen.getByRole('dialog', { name: 'Legend' })
+      expect(within(sheet).queryByText('Consultant')).not.toBeInTheDocument()
+      expect(within(sheet).queryByText('Registrar')).not.toBeInTheDocument()
+      expect(sheet.querySelector('svg circle')).toBeNull()
     })
 
     it('a non-admin full-time viewer sees only 3 states on the phone legend; the desktop legend still lists the generic 4-state scale', async () => {

@@ -67,6 +67,18 @@ describe('SpecialPlannerOverview', () => {
     expect(entries.getByText('Approved')).toBeInTheDocument()
   })
 
+  it('the month card summary reads staff on leave, requests pending, or No-one on leave', async () => {
+    const user = userEvent.setup()
+    renderOverview()
+    // August: Ellis approved (one person), Stone pending — approved wins.
+    expect(within(grid().getByRole('button', { name: /^August/ })).getByText('1 staff on leave')).toBeInTheDocument()
+    expect(within(grid().getByRole('button', { name: /^January/ })).getByText('No-one on leave')).toBeInTheDocument()
+    const pendingOnly = new Map([['2026-03-10', [entry('p2', 'maternity', '2026-03-10', '2026-03-10', 'pending', 'Stone')]]])
+    const second = renderOverview({ leaveByDate: pendingOnly })
+    expect(within(within(second.container).getByTestId('special-year-grid')).getByText('1 request pending')).toBeInTheDocument()
+    await user.click(within(second.container).getByRole('button', { name: /^March/ }))
+  })
+
   it('counts a multi-day request once in the requests-only stat row', () => {
     renderOverview()
     // Ellis spans 10-11 Aug but is one request, so approved reads 1 not 2.
@@ -202,13 +214,13 @@ describe('SpecialPlannerOverview', () => {
       // Defaults to the viewer's own group — one MO of the three people out.
       expect(august().getByText('1 on leave')).toBeInTheDocument()
       // The chip reads the true shared count (all 3), not the filtered one.
-      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+      expect(august().getByText('No capacity')).toBeInTheDocument()
 
       // The picker's trigger is named by its current value (SelectMenu).
       await user.click(tiles().getByRole('button', { name: 'Showing' }))
       await user.click(await screen.findByRole('option', { name: 'Registrar' }))
       expect(august().getByText('2 on leave')).toBeInTheDocument()
-      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+      expect(august().getByText('No capacity')).toBeInTheDocument()
     })
 
     // The chip names the same states the Annual tab's month tiles do, plus
@@ -223,16 +235,16 @@ describe('SpecialPlannerOverview', () => {
       empty.unmount()
 
       const one = renderOverview({ leaveByDate: dayWith(['p1']) })
-      expect(august().getByText('Limited capacity on 1 day')).toBeInTheDocument()
+      expect(august().getByText('Limited capacity')).toBeInTheDocument()
       one.unmount()
 
       const three = renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3']) })
-      expect(august().getByText('No capacity on 1 day')).toBeInTheDocument()
+      expect(august().getByText('No capacity')).toBeInTheDocument()
       three.unmount()
 
       // A fourth doctor on the same day: past the guideline, not merely at it.
       renderOverview({ leaveByDate: dayWith(['p1', 'p2', 'p3', 'p4']) })
-      expect(august().getByText('Capacity exceeded on 1 day')).toBeInTheDocument()
+      expect(august().getByText('Capacity exceeded')).toBeInTheDocument()
     })
   })
 })

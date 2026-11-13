@@ -4,7 +4,7 @@ import {
 } from './color'
 
 const DARK = 'neutral-dark'
-const DARK_GROUND = '#111B19' // --color-canvas-raised on the dark theme
+const DARK_GROUND = '#162421' // --color-canvas-raised on the dark theme
 const LIGHT_GROUND = '#FFFFFF'
 const EDGE_BELOW = 2 // color.js's EDGE_BELOW_RATIO
 

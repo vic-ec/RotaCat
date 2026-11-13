@@ -258,18 +258,24 @@ describe('DashboardPage', () => {
 
     renderDashboard()
 
-    expect(await screen.findByText('1 away today')).toBeInTheDocument()
-    // Each name carries its leave type — "away" alone never said what for,
-    // which is the first thing an admin scanning this wants to know.
-    expect(screen.getByText('On Leave · Sick')).toBeInTheDocument()
-    expect(screen.getByText('1 away in the next 7 days')).toBeInTheDocument()
-    expect(screen.getByText(/Soon Doctor · Annual/)).toBeInTheDocument()
+    // One Team leave section: heading on the page with its link, a card
+    // split into today and the week ahead.
+    expect(await screen.findByText('On Leave')).toBeInTheDocument()
+    const heading = screen.getByText('Team leave').closest('div')
+    expect(within(heading).getByRole('link', { name: /View team leave/ })).toHaveAttribute('href', '/leave?tab=team')
+    const today_ = screen.getByText('Away today').closest('div')
+    // Each name carries its leave type — "away" alone never said what for.
+    expect(within(today_).getByText('On Leave')).toBeInTheDocument()
+    expect(within(today_).getByText(/^Sick · /)).toBeInTheDocument()
+    const next = screen.getByText('Next 7 days').closest('div')
+    expect(within(next).getByText('Soon Doctor')).toBeInTheDocument()
+    expect(within(next).getByText(/^Annual · /)).toBeInTheDocument()
     expect(screen.queryByText(/Later Doctor/)).not.toBeInTheDocument()
     // No client-side profile_id scoping for the admin's team-wide widgets
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)
   })
 
-  it('admin: shows a single inline row when nothing needs attention', async () => {
+  it('admin: keeps both headings, with the empty messages inside their cards', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
     getDashboardHoursWarnings.mockResolvedValue([])
 
@@ -277,7 +283,9 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('Nothing needs your attention')).toBeInTheDocument()
     expect(screen.getByText('Nobody away today')).toBeInTheDocument()
-    expect(screen.queryByText('Needs attention')).not.toBeInTheDocument()
+    expect(screen.getByText('Nobody starting leave')).toBeInTheDocument()
+    expect(screen.getByText('Needs attention')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
   })
 
   it('locum: shows own upcoming shifts, no leave widget', async () => {

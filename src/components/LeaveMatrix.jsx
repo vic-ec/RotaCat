@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, Search, X } from 'lucide-react'
 import Modal from './Modal'
 import DateStepper from './DateStepper'
+import ClearableInput from './ClearableInput'
 import Tag from './Tag'
 import DoctorChip from './DoctorChip'
 import SectionLabel from './SectionLabel'
 import LeaveBlockDetail from './LeaveBlockDetail'
-import { todayStr, MONTH_ABBR } from '../lib/dateRange'
+import { todayStr, MONTH_ABBR, formatWeekdayDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import {
@@ -19,10 +20,13 @@ import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 // the exact same `gridTemplateColumns` string so month columns stay
 // pixel-aligned across independently-rendered rows (same trick as
 // InternRotationsMatrix.jsx, which this mirrors).
-const MONTH_COL_WIDTH = 64 // px — a touch wider than the intern matrix's 56 for day-precision legibility
-const LABEL_COL_WIDTH = 168 // px
-const TRACK_HEIGHT = 30 // px
-const BAR_HEIGHT = 18 // px
+// The month columns stretch to fill the width the grid is given (the same
+// width the Table view takes); this is only the floor, below which the grid
+// scrolls sideways instead of squeezing a month past day-precision.
+const MIN_MONTH_COL_WIDTH = 64 // px
+const LABEL_COL_WIDTH = 208 // px
+const TRACK_HEIGHT = 38 // px — the Table view's row height, near enough
+const BAR_HEIGHT = 22 // px
 
 // Category groups reuse the same MO / Registrar / EC Intern / OT Intern /
 // Consultant buckets the rest of the leave feature groups by; a doctor whose
@@ -45,8 +49,8 @@ function GroupSwatch({ groupKey }) {
 // One leave bar. Approved = solid family colour; pending = a light tint with a
 // dashed outline in the same colour, so status still reads out of context (not
 // only from which track it sits in).
-function LeaveBar({ request, year, selected, onSelect }) {
-  const span = blockPixelSpan(request.date_from, request.date_to, year, MONTH_COL_WIDTH)
+function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
+  const span = blockPixelSpan(request.date_from, request.date_to, year, monthColWidth)
   if (!span) return null
   const color = LEAVE_GROUP_COLOR[leaveTypeGroupKey(request.leave_type)]
   const pending = request.status === 'pending'
@@ -68,10 +72,10 @@ function LeaveBar({ request, year, selected, onSelect }) {
   )
 }
 
-function TodayLine({ year }) {
+function TodayLine({ year, monthColWidth }) {
   const today = todayStr()
   if (Number(today.slice(0, 4)) !== year) return null
-  const span = blockPixelSpan(today, today, year, MONTH_COL_WIDTH)
+  const span = blockPixelSpan(today, today, year, monthColWidth)
   if (!span) return null
   return (
     <div
@@ -84,7 +88,7 @@ function TodayLine({ year }) {
 // A doctor's timeline — one track row per non-empty status (approved above
 // pending). The name button lives in the first track's sticky cell; the
 // second track's cell just carries the muted status label.
-function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns }) {
+function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTemplateColumns, monthColWidth }) {
   const tracks = []
   if (row.approved.length) tracks.push({ status: 'approved', label: 'Approved', items: row.approved })
   if (row.pending.length) tracks.push({ status: 'pending', label: REVIEW_STATUS_LABELS.pending, items: row.pending })
@@ -95,7 +99,7 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
       {tracks.map((track, i) => (
         <div key={track.status} className="grid" style={{ gridTemplateColumns }}>
           <div
-            className={`sticky left-0 z-10 flex flex-col justify-center border-r border-slate-line px-2 py-1 ${
+            className={`sticky left-0 z-10 flex flex-col justify-center border-r border-slate-line px-3 py-1 ${
               doctorSelected ? 'bg-accent-tint' : 'bg-canvas-raised'
             }`}
           >
@@ -104,7 +108,7 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
                 type="button"
                 onClick={() => onSelectDoctor(row.doctor)}
                 title={fullName(row.doctor)}
-                className={`truncate text-left text-xs font-medium transition-colors hover:text-accent ${
+                className={`truncate text-left text-sm font-medium transition-colors hover:text-accent ${
                   doctorSelected ? 'text-accent' : 'text-ink'
                 }`}
               >
@@ -116,12 +120,13 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
             <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-muted">{track.label}</span>
           </div>
           <div className="relative col-span-12" style={{ height: TRACK_HEIGHT }}>
-            <TodayLine year={year} />
+            <TodayLine year={year} monthColWidth={monthColWidth} />
             {track.items.map(request => (
               <LeaveBar
                 key={request.id}
                 request={request}
                 year={year}
+                monthColWidth={monthColWidth}
                 selected={selected?.kind === 'block' && selected.request.id === request.id}
                 onSelect={onSelectBlock}
               />
@@ -139,8 +144,8 @@ function OnLeaveNow({ activeByGroup }) {
   const groups = LEAVE_GROUP_OPTIONS.filter(o => activeByGroup.has(o.key))
   return (
     <>
-      <p className="text-sm font-semibold text-ink">On leave now</p>
-      <p className="text-xs text-ink-muted">{formatDMY(today)}</p>
+      <p className="text-section-label uppercase text-ink-muted">On leave now</p>
+      <p className="mt-1 font-display text-lg font-semibold text-ink">{formatWeekdayDate(today)}</p>
       {groups.length === 0 ? (
         <p className="mt-3 text-xs text-ink-muted">No one is on leave today.</p>
       ) : (
@@ -225,7 +230,26 @@ function DoctorDetail({ row, onSelectBlock, onClose }) {
 // bars. A sticky side panel answers "who's on leave now" by default and shows
 // a clicked block's full specifics. Read-only — approvals stay in the
 // approval queue. Mirrors InternRotationsMatrix.jsx's visual language.
+// Width of an element, kept current as the window resizes. 0 until measured
+// (and wherever ResizeObserver doesn't exist), which callers treat as "use
+// the minimum".
+function useElementWidth() {
+  const ref = useRef(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth))
+    observer.observe(el)
+    setWidth(el.clientWidth)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, width]
+}
+
 export default function LeaveMatrix({ requests, controls }) {
+  const [gridRef, gridWidth] = useElementWidth()
+  const [search, setSearch] = useState('')
   const isDesktop = useIsDesktop()
   const currentYear = Number(todayStr().slice(0, 4))
   const [year, setYear] = useState(currentYear)
@@ -233,7 +257,12 @@ export default function LeaveMatrix({ requests, controls }) {
   // selected: null | { kind: 'doctor', doctorId } | { kind: 'block', request }
   const [selected, setSelected] = useState(null)
 
-  const rows = useMemo(() => buildDoctorLeaveRows(requests, year), [requests, year])
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const all = buildDoctorLeaveRows(requests, year)
+    if (!q) return all
+    return all.filter(r => `${r.doctor.surname || ''} ${r.doctor.name || ''} ${r.doctor.surname || ''}`.toLowerCase().includes(q))
+  }, [requests, year, search])
   const activeByGroup = useMemo(() => leaveActiveOn(requests, todayStr()), [requests])
   const rowsByDoctorId = useMemo(() => new Map(rows.map(r => [r.doctor.id, r])), [rows])
 
@@ -245,7 +274,8 @@ export default function LeaveMatrix({ requests, controls }) {
     setCollapsedGroups(g => ({ ...g, [key]: !g[key] }))
   }
 
-  const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${MONTH_COL_WIDTH}px)`
+  const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
+  const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
   const currentMonthIndex = Number(todayStr().slice(5, 7)) - 1
 
   const selectedDoctorRow = selected?.kind === 'doctor' ? rowsByDoctorId.get(selected.doctorId) : null
@@ -265,48 +295,59 @@ export default function LeaveMatrix({ requests, controls }) {
     : selectedDoctorRow ? fullName(selectedDoctorRow.doctor) : ''
 
   return (
-    <div className="mt-4 flex flex-col gap-4 lg:flex-row">
-      <div className="min-w-0 flex-1">
-        {/* Year nav + legend */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          {/* The shared stepper, not a hand-rolled pair of square buttons
-              around a bare year — this is the same "which period am I
-              looking at" control the planners carry, so it gets their
-              enclosed shape and their jump-to-year sheet for free. */}
-          <DateStepper unit="year" year={year} onChange={setYear} />
-          {/* `controls` is the caller's own view switch (LeaveListView's
-              Matrix/Table toggle), sharing this row rather than getting a
-              line of its own above the grid — the same row it sits on in
-              the Table view, so it doesn't move when you switch. */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-              {LEAVE_GROUP_OPTIONS.map(o => (
-                <span key={o.key} className="flex items-center gap-1.5">
-                  <GroupSwatch groupKey={o.key} /> {o.label}
-                </span>
-              ))}
-              <span className="flex items-center gap-1.5">
-                <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
-                {REVIEW_STATUS_LABELS.pending}
-              </span>
-            </div>
-            {controls}
-          </div>
+    <div>
+      {/* One toolbar row across the full width, the same shape as the Table
+          view's (and the Roster's): search on the left, then the year, with
+          the caller's Matrix/Table switch last — so the switch sits in the
+          same spot in both views. The colour key gets the line below. */}
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ClearableInput
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by surname or first name…"
+            className="input-field"
+            clearLabel="Clear search"
+            icon={<Search className="h-4 w-4" />}
+          />
         </div>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <DateStepper unit="year" year={year} onChange={setYear} nowrap todayLabel />
+          {controls && <div className="h-5 w-px bg-slate-line" aria-hidden="true" />}
+          {controls}
+        </div>
+      </div>
+      <div className="mb-3 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+        {LEAVE_GROUP_OPTIONS.map(o => (
+          <span key={o.key} className="flex items-center gap-1.5">
+            <GroupSwatch groupKey={o.key} /> {o.label}
+          </span>
+        ))}
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
+          {REVIEW_STATUS_LABELS.pending}
+        </span>
+      </div>
 
-        <div className="card overflow-x-auto p-0">
+      {/* Grid and panel start on the same line, below the toolbar. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="min-w-0 flex-1">
+        <div ref={gridRef} className="card overflow-x-auto p-0">
           {/* Month header */}
           <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
-            <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
+            <div className="sticky left-0 z-10 bg-canvas-cool px-3 py-2">Doctor</div>
             {MONTH_ABBR.map((label, i) => (
-              <div key={label} className={`px-1 py-1.5 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
+              <div key={label} className={`px-1 py-2 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
                 {label}
               </div>
             ))}
           </div>
 
           {groups.length === 0 ? (
-            <p className="px-3 py-8 text-center text-sm text-ink-muted">No approved or pending leave in {year}.</p>
+            <p className="px-3 py-8 text-center text-sm text-ink-muted">
+              {search ? 'No doctors match this search.' : `No approved or pending leave in ${year}.`}
+            </p>
           ) : (
             groups.map(group => (
               <div key={group.key}>
@@ -327,6 +368,7 @@ export default function LeaveMatrix({ requests, controls }) {
                     onSelectDoctor={doctor => setSelected({ kind: 'doctor', doctorId: doctor.id })}
                     onSelectBlock={request => setSelected({ kind: 'block', request })}
                     gridTemplateColumns={gridTemplateColumns}
+                    monthColWidth={monthColWidth}
                   />
                 ))}
               </div>
@@ -336,8 +378,8 @@ export default function LeaveMatrix({ requests, controls }) {
       </div>
 
       {/* Desktop sticky side panel */}
-      <aside className="hidden lg:sticky lg:top-4 lg:block lg:h-fit lg:w-72 lg:flex-shrink-0">
-        <div className="card p-3">{panelBody}</div>
+      <aside className="hidden lg:sticky lg:top-4 lg:block lg:w-72 lg:flex-shrink-0">
+        <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{panelBody}</div>
       </aside>
 
       {/* Mobile: "on leave now" always visible as a stacked card */}
@@ -351,6 +393,7 @@ export default function LeaveMatrix({ requests, controls }) {
       {!isDesktop && selected && (
         <Modal title={modalTitle} onClose={() => setSelected(null)}>{panelBody}</Modal>
       )}
+      </div>
     </div>
   )
 }

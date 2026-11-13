@@ -118,7 +118,7 @@ export function contrastTextColor(hex) {
 // theme's problem colours are dark, the light theme's are light.
 const SWATCH_GROUND = {
   light: '#FFFFFF',       // --color-canvas-raised, light
-  'neutral-dark': '#111B19', // --color-canvas-raised, dark
+  'neutral-dark': '#162421', // --color-canvas-raised, dark
 }
 
 // Below this, a swatch is not reliably distinguishable from the page.

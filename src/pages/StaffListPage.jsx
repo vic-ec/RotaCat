@@ -18,11 +18,11 @@ import { useSwipeToDismiss } from '../lib/useSwipeToDismiss'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
-import { formatShortDateRange } from '../lib/dateRange'
+import { formatShortDateRange, todayStr } from '../lib/dateRange'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory, OT_SUBTYPE_LABELS,
 } from '../lib/staffDefaults'
-import { applyHoursChange } from '../lib/internRotations'
+import { applyHoursChange, fetchInternRotationsForDoctorIds } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { Eye, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
@@ -102,7 +102,15 @@ const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 // purpose: this is informational, not a status — the flag*/success
 // colours are reserved for roster state (see tailwind.config.js), and
 // being new is not a fault.
-function TempPasswordIndicator({ className = '' }) {
+// `notSignedIn`: the account is also inactive — created by an admin and
+// never used. That reads as "User account created; user has not signed in"
+// in rose, rather than the neutral temp-password note an active account
+// (e.g. one whose password was regenerated) gets.
+const NOT_SIGNED_IN_LABEL = 'User account created; user has not signed in'
+const TEMP_PASSWORD_LABEL = 'Temporary password in use'
+
+function TempPasswordIndicator({ className = '', notSignedIn = false }) {
+  const label = notSignedIn ? NOT_SIGNED_IN_LABEL : TEMP_PASSWORD_LABEL
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -114,7 +122,9 @@ function TempPasswordIndicator({ className = '' }) {
     setOpen(true)
   }
 
-  const width = 210
+  // Only for keeping the pill on screen — the pill itself is sized to its
+  // text (max-content) with equal padding either side.
+  const width = notSignedIn ? 300 : 190
   const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
 
   return (
@@ -124,9 +134,9 @@ function TempPasswordIndicator({ className = '' }) {
         type="button"
         onPointerEnter={e => { if (e.pointerType === 'mouse') show() }}
         onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
-        aria-label="Temporary password in use"
+        aria-label={label}
         aria-expanded={open}
-        className="flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink"
+        className={`flex h-5 w-5 items-center justify-center rounded-full ${notSignedIn ? 'text-rose hover:text-rose-dark' : 'text-ink-muted hover:text-ink'}`}
       >
         <ShieldAlert className="h-3.5 w-3.5" />
       </button>
@@ -134,10 +144,10 @@ function TempPasswordIndicator({ className = '' }) {
         <div
           ref={popRef}
           role="tooltip"
-          style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised px-3 py-2 text-xs font-medium text-ink shadow-raised"
+          style={{ ...positionStyle, width: 'max-content' }}
+          className="fixed z-50 whitespace-nowrap rounded-full border border-edge bg-canvas-raised px-3 py-1.5 text-xs font-medium text-ink shadow-raised"
         >
-          Temporary password in use
+          {label}
         </div>,
         document.body
       )}
@@ -399,6 +409,9 @@ export default function StaffListPage() {
   const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
+  // profile id -> the date a doctor's rotation timeline runs out, for
+  // "Active until" on anyone without an explicit scheduled_inactive_date.
+  const [rotationEndById, setRotationEndById] = useState({})
   // role/category/status/isAdmin are each a Set of selected values — empty
   // means "All" for that dimension (see FilterPanel.jsx). Multi-select: a
   // viewer can filter to e.g. "Registrar OR MO" within one dimension.
@@ -596,7 +609,33 @@ export default function StaffListPage() {
     setEmailById(emailMap)
 
     setLoading(false)
+
+    // Rotation end dates — after the list is on screen, since they only add
+    // a date to rows that are already there. A doctor whose last rotation
+    // block is open-ended has no end date; one that has already passed
+    // isn't an "until" either. Best effort: a failed read just leaves
+    // those rows saying "Active".
+    try {
+      const rotating = (accountsRes.data || []).filter(p => p.category === 'Intern' || p.category === 'Registrar')
+      const rotations = await fetchInternRotationsForDoctorIds(rotating.map(p => p.id))
+      const today = todayStr()
+      const byDoctor = {}
+      for (const r of rotations) (byDoctor[r.doctor_id] ||= []).push(r)
+      const ends = {}
+      for (const [doctorId, rows] of Object.entries(byDoctor)) {
+        if (rows.some(r => r.end_date === null)) continue
+        const last = rows.map(r => r.end_date).sort().pop()
+        if (last >= today) ends[doctorId] = last
+      }
+      setRotationEndById(ends)
+    } catch {
+      setRotationEndById({})
+    }
   }
+
+  // The date an active account stops being active: an admin-set
+  // scheduled_inactive_date first, else the end of their rotation timeline.
+  const activeUntilFor = person => person.scheduled_inactive_date || rotationEndById[person.id] || null
 
   async function toggleActive(profileId, currentlyActive) {
     setTogglingId(profileId)
@@ -1284,7 +1323,7 @@ export default function StaffListPage() {
                             )}
                             {(!person.is_active || (isAdmin && person.must_change_password)) && (
                               <div className="flex items-center gap-1">
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} />}
                                 {!person.is_active && (
                                   <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
                                     Inactive
@@ -1471,8 +1510,8 @@ export default function StaffListPage() {
                                         ? <>Starts {formatShortDateRange(person.scheduled_active_date, person.scheduled_active_date)}</>
                                         : 'Inactive')
                                     : leaveProfileIds.has(person.id) ? 'On leave' : 'Active'}
-                                  {person.is_active && person.scheduled_inactive_date && (
-                                    <> until {formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}</>
+                                  {person.is_active && activeUntilFor(person) && (
+                                    <> until {formatShortDateRange(activeUntilFor(person), activeUntilFor(person))}</>
                                   )}
                                 </span>
                                 {isAdmin && (person.scheduled_inactive_date || person.scheduled_active_date) && (
@@ -1486,7 +1525,7 @@ export default function StaffListPage() {
                                     Edit
                                   </button>
                                 )}
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} />}
                               </div>
                             </td>
                             {isAdmin && (
@@ -1831,7 +1870,7 @@ export default function StaffListPage() {
         const statusLabel = !person.is_active
           ? (person.scheduled_active_date ? `Starts ${formatShortDateRange(person.scheduled_active_date, person.scheduled_active_date)}` : 'Inactive')
           : onLeave ? 'On leave'
-          : person.scheduled_inactive_date ? `Active until ${formatShortDateRange(person.scheduled_inactive_date, person.scheduled_inactive_date)}`
+          : activeUntilFor(person) ? `Active until ${formatShortDateRange(activeUntilFor(person), activeUntilFor(person))}`
           : 'Active'
         const statusColor = !person.is_active ? 'text-flagRed' : onLeave ? 'text-statusAway' : 'text-success'
         const firstNameForMissing = person.name || person.surname || 'this person'
@@ -1857,9 +1896,9 @@ export default function StaffListPage() {
                 <div className="flex flex-shrink-0 flex-col items-end gap-1">
                   <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
                   {isAdmin && person.must_change_password && (
-                    <span className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-ink-muted">
+                    <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
                       <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
-                      Temp password in use
+                      {person.is_active ? 'Temp password in use' : 'Account created; not signed in'}
                     </span>
                   )}
                 </div>

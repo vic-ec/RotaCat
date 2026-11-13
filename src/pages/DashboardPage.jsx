@@ -28,23 +28,6 @@ const MAX_UPCOMING_ROWS = 5
 // How far ahead "upcoming team leave" looks, for the admin view.
 const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 
-// An empty section collapses to this single row rather than a full-height
-// card announcing that there's nothing to see — the state a doctor is in
-// most of the time shouldn't cost the most screen space.
-function EmptyRow({ children, to, linkLabel }) {
-  return (
-    <p className="card flex flex-wrap items-center gap-x-1.5 px-4 py-3 text-sm text-ink-muted">
-      <span>{children}</span>
-      {to && (
-        <>
-          <span aria-hidden="true">·</span>
-          <Link to={to} className="font-medium text-accent hover:text-accent-dark">{linkLabel} ›</Link>
-        </>
-      )}
-    </p>
-  )
-}
-
 function SectionHeading({ children, to, linkLabel }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
@@ -597,79 +580,79 @@ export default function DashboardPage() {
 
       {!loading && isAdmin && (
         <div className="mt-6 space-y-6">
-          {/* Needs attention — counts that are someone's job today, each row
+          {/* Same shape as the doctor view: a heading on the page ground
+              with its link out on the right, and a card underneath. The
+              headings stay put when a section is empty — the empty message
+              goes inside the card.
+
+              Needs attention — counts that are someone's job today, each row
               a link to where that job gets done. Rows with a count of zero
               aren't work, so they don't render. */}
           <section>
+            <SectionHeading to={LEAVE_REQUESTS_PATH} linkLabel="View requests">Needs attention</SectionHeading>
             {pendingLeaveCount === 0 && hoursWarnings.length === 0 ? (
-              <EmptyRow to={LEAVE_REQUESTS_PATH} linkLabel="View requests">Nothing needs your attention</EmptyRow>
+              <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (
-              <>
-                <SectionHeading>Needs attention</SectionHeading>
-                <div className="card divide-y divide-slate-line">
-                  {pendingLeaveCount > 0 && (
-                    <AttentionRow
-                      to={LEAVE_REQUESTS_PATH}
-                      count={pendingLeaveCount}
-                      label={`leave request${pendingLeaveCount === 1 ? '' : 's'} awaiting approval`}
-                    />
-                  )}
-                  {hoursWarnings.length > 0 && (
-                    <AttentionRow
-                      to={HOURS_SUMMARY_PATH}
-                      count={hoursWarnings.length}
-                      label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} at or over the hours ceiling this month`}
-                    />
-                  )}
-                </div>
-              </>
+              <div className="card divide-y divide-slate-line">
+                {pendingLeaveCount > 0 && (
+                  <AttentionRow
+                    to={LEAVE_REQUESTS_PATH}
+                    count={pendingLeaveCount}
+                    label={`leave request${pendingLeaveCount === 1 ? '' : 's'} awaiting approval`}
+                  />
+                )}
+                {hoursWarnings.length > 0 && (
+                  <AttentionRow
+                    to={HOURS_SUMMARY_PATH}
+                    count={hoursWarnings.length}
+                    label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} at or over the hours ceiling this month`}
+                  />
+                )}
+              </div>
             )}
           </section>
 
-          {/* Team leave now — read-only awareness, one line plus names */}
+          {/* Team leave — read-only awareness. One card, two columns
+              (stacked on a phone): who is away today, and who is next. */}
           <section>
-            {onLeaveNow.length === 0 ? (
-              <EmptyRow to={TEAM_LEAVE_PATH} linkLabel="View team leave">Nobody away today</EmptyRow>
-            ) : (
-              <div className="card p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-ink">{onLeaveNow.length} away today</h2>
-                  <Link to={TEAM_LEAVE_PATH} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
-                    View team leave ›
-                  </Link>
-                </div>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {onLeaveNow.map(lr => `${fullName(lr.profiles)} · ${shortLeaveTypeLabel(lr.leave_type)}`).join(', ')}
-                </p>
+            <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Team leave</SectionHeading>
+            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <div className="p-4">
+                <p className="text-xs font-medium text-ink-muted">Away today</p>
+                {onLeaveNow.length === 0 ? (
+                  <p className="mt-2 text-sm text-ink-muted">Nobody away today</p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5">
+                    {onLeaveNow.map(lr => (
+                      <li key={lr.id}>
+                        <p className="text-sm font-semibold text-ink">{fullName(lr.profiles)}</p>
+                        <p className="text-xs text-ink-muted">
+                          {shortLeaveTypeLabel(lr.leave_type)} · {formatShortDateRange(lr.date_from, lr.date_to)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            )}
+              <div className="p-4">
+                <p className="text-xs font-medium text-ink-muted">Next {TEAM_LEAVE_LOOKAHEAD_DAYS} days</p>
+                {onLeaveNext.length === 0 ? (
+                  <p className="mt-2 text-sm text-ink-muted">Nobody starting leave</p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5">
+                    {onLeaveNext.map(lr => (
+                      <li key={lr.id}>
+                        <p className="text-sm font-semibold text-ink">{fullName(lr.profiles)}</p>
+                        <p className="text-xs text-ink-muted">
+                          {shortLeaveTypeLabel(lr.leave_type)} · {formatShortDateRange(lr.date_from, lr.date_to)}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
           </section>
-
-          {onLeaveNext.length > 0 && (
-            <section>
-              <div className="card p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-ink">
-                    {onLeaveNext.length} away in the next {TEAM_LEAVE_LOOKAHEAD_DAYS} days
-                  </h2>
-                  <Link to={TEAM_LEAVE_PATH} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
-                    View team leave ›
-                  </Link>
-                </div>
-                {/* One row per person, not a comma-run: each entry carries a
-                    name, a leave type AND a date range, so three or four of
-                    them joined into a single paragraph became a wall of
-                    commas with no scannable boundary between people. */}
-                <ul className="mt-1 space-y-0.5 text-xs text-ink-muted">
-                  {onLeaveNext.map(lr => (
-                    <li key={lr.id}>
-                      {fullName(lr.profiles)} · {shortLeaveTypeLabel(lr.leave_type)} ({formatShortDateRange(lr.date_from, lr.date_to)})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
 
           <UpcomingBirthdays />
         </div>

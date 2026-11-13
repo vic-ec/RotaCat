@@ -69,7 +69,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // Spelled out in full so Tailwind's scanner sees both class names.
 const HIDE_FROM = { md: 'md:hidden', lg: 'lg:hidden' }
 
-export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, hideFrom = 'md', hidden = false }) {
+export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, actions, hideFrom = 'md', hidden = false }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheet, setSheet] = useState(null) // 'sort' | 'filter' | null
@@ -84,6 +84,10 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   const hasMore = Boolean(moreMenu?.items?.length)
   const hasView = Boolean(cycleView)
   const hasPrimary = Boolean(primaryAction)
+  const hasSearch = Boolean(search)
+  // Extra page actions (Roster's Edit / Publish) stacked right above the
+  // primary slot, in the order given.
+  const extras = (actions || []).filter(Boolean)
 
   function nextViewOption() {
     const i = cycleView.options.findIndex(o => o.value === cycleView.value)
@@ -95,7 +99,8 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   // with a visible hole in the timing where Sort's turn would have been.
   const slots = [
     hasPrimary && 'primary',
-    'search',
+    ...extras.map(a => `action:${a.key}`),
+    hasSearch && 'search',
     hasSort && 'sort',
     hasFilter && 'filter',
     hasLegend && 'legend',
@@ -109,7 +114,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
       className={`fixed z-30 ${HIDE_FROM[hideFrom] ?? HIDE_FROM.md}`}
       style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))', right: 'max(1rem, env(safe-area-inset-right))' }}
     >
-      {searchOpen ? (
+      {searchOpen && hasSearch ? (
         <div className="flex w-[calc(100vw-2rem)] max-w-sm items-center gap-1 rounded-full border border-edge bg-canvas-raised py-1 pl-3 pr-1 shadow-raised">
           <Search className="h-4 w-4 flex-shrink-0 text-ink-muted" />
           {/* ClearableInput wraps its <input> in a positioning div, so the
@@ -166,12 +171,24 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
                 onClick={() => { primaryAction.onClick(); setOpen(false) }}
               />
             )}
-            <FabItem
-              {...stagger('search')}
-              icon={Search}
-              label="Search"
-              onClick={() => { setSearchOpen(true); setOpen(false) }}
-            />
+            {extras.map(a => (
+              <FabItem
+                key={a.key}
+                {...stagger(`action:${a.key}`)}
+                icon={a.icon}
+                label={a.label}
+                active={a.active}
+                onClick={() => { a.onClick(); setOpen(false) }}
+              />
+            ))}
+            {hasSearch && (
+              <FabItem
+                {...stagger('search')}
+                icon={Search}
+                label="Search"
+                onClick={() => { setSearchOpen(true); setOpen(false) }}
+              />
+            )}
             {hasSort && (
               <FabItem
                 {...stagger('sort')}

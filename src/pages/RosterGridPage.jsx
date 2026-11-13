@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -67,6 +68,8 @@ const WEEKDAY_SHIFTS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'])
 const WEEKEND_SHIFTS = shiftColumns(['WE_08', 'WE_13', 'WE_20'])
 const PH_WEEKDAY_SHIFTS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'])
 const PH_WEEKEND_SHIFTS = shiftColumns(['PH_08', 'PH_13', 'PH_20'])
+
+const MAX_SHIFT_COLUMNS = 4
 
 function getShiftsForDay(dayType) {
   if (dayType === 'weekday') return WEEKDAY_SHIFTS
@@ -474,6 +477,16 @@ export default function RosterGridPage() {
     setPublishing(false)
   }
 
+  // Delete (soft): the same deleted_at the dashboard's Delete uses, so the
+  // roster lands in its Recently deleted list and can be restored from
+  // there. Lives only in the ⋮ menu, behind a confirm.
+  async function handleDelete() {
+    if (!window.confirm(`Delete the ${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year} roster? It can be restored from the Rosters page for a while.`)) return
+    const { error } = await supabase.from('roster_months').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) { alert('Could not delete roster: ' + error.message); return }
+    navigate('/roster')
+  }
+
   function goToHoursSummary() {
     navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
       state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
@@ -522,6 +535,14 @@ export default function RosterGridPage() {
     onClick: handleUnpublish,
   } : null
 
+  const deleteItem = isAdmin ? {
+    key: 'delete',
+    icon: <Trash2 className="h-4 w-4" />,
+    label: 'Delete roster',
+    danger: true,
+    onClick: handleDelete,
+  } : null
+
   const rosterMenuItems = [
     {
       key: 'text-size',
@@ -544,11 +565,11 @@ export default function RosterGridPage() {
       label: 'Review log',
       onClick: () => setShowChangeLog(true),
     }] : []),
-    ...(unpublishItem ? ['divider', unpublishItem] : []),
+    ...(unpublishItem || deleteItem ? ['divider', ...[unpublishItem, deleteItem].filter(Boolean)] : []),
   ]
 
   // Desktop's kebab holds only what is risky to leave one click away.
-  const desktopMenuItems = unpublishItem ? [unpublishItem] : []
+  const desktopMenuItems = [unpublishItem, deleteItem].filter(Boolean)
 
   const kebabTrigger = (onClick, open) => (
     <button
@@ -569,7 +590,7 @@ export default function RosterGridPage() {
     <button
       onClick={() => setShowPublishConfirm(true)}
       disabled={publishing}
-      className="btn-primary text-sm"
+      className="btn-primary text-sm shadow-raised"
     >
       <BookUp className="h-4 w-4" />
       Publish
@@ -603,19 +624,6 @@ export default function RosterGridPage() {
           <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
             {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
           </h1>
-          <div className="flex flex-shrink-0 items-center gap-2">
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setEditing(e => !e)}
-                aria-pressed={editing}
-                className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm`}
-              >
-                {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
-              </button>
-            )}
-            {showPublish && publishButton}
-          </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -633,6 +641,31 @@ export default function RosterGridPage() {
           )}
         </div>
       </div>
+
+      {/* Edit / Publish float at the bottom-right so they stay in reach
+          however far the grid has been scrolled. On a phone they fold into
+          the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
+      {isAdmin && (
+        <>
+          <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => setEditing(e => !e)}
+              aria-pressed={editing}
+              className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm shadow-raised`}
+            >
+              {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
+            </button>
+            {showPublish && publishButton}
+          </div>
+          <FloatingActionMenu
+            actions={[
+              { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
+              showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
+            ]}
+          />
+        </>
+      )}
 
       {/* Publish confirmation */}
       {showPublishConfirm && (
@@ -869,7 +902,7 @@ export default function RosterGridPage() {
               return (
                 <tr
                   key={day.dateStr}
-                  className={`border-b-[3px] border-ink-muted/40 ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
+                  className={`border-b-4 border-canvas ${rowBg} ${isToday ? 'outline outline-1 outline-accent' : ''}`}
                 >
                   {/* Date label */}
                   <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${dateInk}`}>
@@ -960,6 +993,21 @@ export default function RosterGridPage() {
                       </td>
                     )
                   })}
+                  {/* Weekend/PH rows have one shift column fewer than a
+                      weekday. The empty space is a real cell, with its
+                      bottom rule hidden when the next day is just as
+                      short, so the gap between Sat and Sun isn't drawn
+                      across a column that holds nothing — the rules above
+                      the first and below the last short row stay. */}
+                  {shifts.length < MAX_SHIFT_COLUMNS && (
+                    <td
+                      aria-hidden="true"
+                      className={`bg-canvas ${
+                        visibleDays[dayIdx + 1] && getShiftsForDay(visibleDays[dayIdx + 1].dayType).length < MAX_SHIFT_COLUMNS
+                          ? '[border-bottom-style:hidden]' : ''
+                      }`}
+                    />
+                  )}
                 </tr>
               )
             })}

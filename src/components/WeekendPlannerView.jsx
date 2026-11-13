@@ -631,7 +631,7 @@ function MobileRoleRow({ group, groupEntries, doctorById, displayNames, isAdmin,
 // weekend, so offering them would invite an assignment contradicting it.
 // Other conflicts (leave overlaps, hour caps) remain out of scope, already
 // flagged as separate future work.
-function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, excusedIds, rotationsByDoctorId, swapping, onAdd, onClose }) {
+function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, excusedIds, rotationsByDoctorId, swapping, onAdd, onRemove, onClose }) {
   const [groupKey, setGroupKey] = useState(initialGroupKey)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
@@ -725,6 +725,18 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
         >
           {swapping ? `Swap for ${selectedIds.size > 0 ? selectedIds.size : ''} doctor${selectedIds.size === 1 ? '' : 's'}` : `Add ${selectedIds.size > 0 ? selectedIds.size : ''} doctor${selectedIds.size === 1 ? '' : 's'}`}
         </button>
+        {/* Tapping an assigned name opens this same sheet in swap mode, so
+            the remove action lives here too — one tap to swap or remove,
+            matching the desktop cell editor. */}
+        {swapping && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="btn-secondary mt-2 w-full text-sm text-flagRed"
+          >
+            <Trash2 className="h-4 w-4" /> Remove from this weekend
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1660,7 +1672,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           displayNames={displayNames}
                           isAdmin={isAdmin}
                           onOpenPicker={() => setOpenRolePicker({ saturday, groupKey: group.key })}
-                          onOpenRemove={entry => setRemoveSheetEntry({ entry, saturday, groupLabel: group.label })}
+                          onOpenRemove={entry => setOpenRolePicker({ saturday, groupKey: group.key, replaceEntryId: entry.id })}
                         />
                       ))}
                     </div>
@@ -1955,6 +1967,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             if (replaceEntryId) await removeEntry(replaceEntryId)
             addEntries(saturday, groupKey, profileIds)
           }}
+          onRemove={openRolePicker.replaceEntryId ? () => { const id = openRolePicker.replaceEntryId; setOpenRolePicker(null); removeEntry(id) } : undefined}
           onClose={() => setOpenRolePicker(null)}
         />
       )}

@@ -153,7 +153,7 @@ export function brand(html: string): string {
 // Where to send someone who wasn't expecting an email. A mailto: link in
 // the accent colour, re-painted mint under dark mode via .rc-link.
 export const ADMIN_EMAIL = 'admin.rotacat@gmail.com'
-export function adminLink(label = 'contact your roster administrator'): string {
+export function adminLink(label = 'contact your administrator'): string {
   const p = EMAIL_PALETTE.light
   return `<a class="rc-link" href="mailto:${ADMIN_EMAIL}" style="color:${p.accent};text-decoration:underline;">${label}</a>`
 }
@@ -314,7 +314,7 @@ export function buildText({ firstName, password, appUrl, isReset }: Omit<Welcome
     'You will be asked to choose your own password the first time you sign in.',
     PASSWORD_RULES,
     '',
-    `If you weren't expecting this email, please contact your roster administrator at ${ADMIN_EMAIL}.`,
+    `If you weren't expecting this email, please contact your administrator at ${ADMIN_EMAIL}.`,
     '',
     `RotaCat — vic-ec © ${new Date().getFullYear()}`,
   ].filter(line => line !== undefined).join('\n')

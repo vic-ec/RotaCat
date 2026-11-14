@@ -38,9 +38,9 @@ const authTemplates = {
     intro: 'Thanks for creating a RotaCat account. Enter this code on the confirmation screen to finish signing up &mdash; it is valid for one hour.',
     panel: panelLabel('Confirmation code') + panelCode('{{ .Token }}'),
     notes: [
-      'Once your email is confirmed, a roster administrator still needs to approve your account before you can see the roster. You will be able to sign in, and RotaCat will tell you when approval is pending.',
+      'Once your email is confirmed, an administrator still needs to approve your account to give you full access.',
     ],
-    footnote: "If you didn't create a RotaCat account, you can ignore this email &mdash; nothing happens without the code.",
+    footnote: "If you didn't create a RotaCat account, you can ignore this email.",
   }),
   'reset-password': renderEmail({
     preheader: 'Choose a new RotaCat password.',
@@ -50,7 +50,7 @@ const authTemplates = {
     notes: [
       'The link is valid for one hour and can be used once. Your new password needs at least 10 characters, including an uppercase letter, a lowercase letter, a number and a symbol.',
     ],
-    footnote: "If you didn't ask to reset your password, you can ignore this email &mdash; your current password still works.",
+    footnote: "If you didn't ask to reset your password, you can ignore this email.",
   }),
   'change-email': renderEmail({
     preheader: 'Confirm the new email address for your RotaCat account.',
@@ -63,7 +63,7 @@ const authTemplates = {
     notes: [
       'Until both confirmations are in, you keep signing in with your current address.',
     ],
-    footnote: `If you didn't request this change, please ${adminLink()} &mdash; someone may have access to your account.`,
+    footnote: `If you didn't request this change, please ${adminLink()}.`,
   }),
 }
 

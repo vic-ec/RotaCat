@@ -144,8 +144,8 @@ function buildHtml({ firstName, password, appUrl, isReset }: Omit<WelcomeEmailIn
                 </table>
 
                 <p style="margin:20px 0 0;font-size:14px;line-height:1.55;color:${INK_MUTED};">
-                  You will be asked to choose your own password the first time you sign in. It needs at least 10 characters,
-                  including an uppercase letter, a lowercase letter, a number and a symbol.
+                  This temporary password is valid for 14 days. You will be asked to choose your own password the first time
+                  you sign in. It needs at least 10 characters, including an uppercase letter, a lowercase letter, a number and a symbol.
                 </p>
                 <p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:${INK_MUTED};">
                   If you weren't expecting this email, please contact your roster administrator.
@@ -175,6 +175,7 @@ function buildText({ firstName, password, appUrl, isReset }: Omit<WelcomeEmailIn
     '',
     appUrl ? `Sign in: ${appUrl}` : '',
     '',
+    'This temporary password is valid for 14 days.',
     'You will be asked to choose your own password the first time you sign in.',
     'It needs at least 10 characters, including an uppercase letter, a lowercase letter, a number and a symbol.',
     '',

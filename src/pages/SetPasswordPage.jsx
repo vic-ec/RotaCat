@@ -11,6 +11,7 @@ import PasswordRequirementsInfo from '../components/PasswordRequirementsInfo'
 import PasswordRevealToggle from '../components/PasswordRevealToggle'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { isTempPasswordExpired, TEMP_PASSWORD_EXPIRED_MESSAGE } from '../lib/tempPassword'
 import { authFieldClass, authButtonClass, AUTH_LABEL_LG, AUTH_PANEL, AUTH_ERROR, AUTH_FIELD_ERROR } from '../lib/authStyles'
 
 // Mandatory first-sign-in password change for anyone still using a password
@@ -105,7 +106,7 @@ function SetPasswordForm({ profile, onDone }) {
     // gate lifted if this write failed.
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ must_change_password: false })
+      .update({ must_change_password: false, temp_password_issued_at: null })
       .eq('id', profile.id)
     setSubmitting(false)
 
@@ -253,8 +254,15 @@ export default function SetPasswordPage() {
   // there is nothing to do here.
   if (!mustChangePassword) return <Navigate to="/" replace />
 
-  const heading = 'Set your password'
-  const intro = `Welcome to RotaCat${profile?.name ? `, ${profile.name}` : ''}. Please set a new password to continue.`
+  // The 14-day window on an admin-issued password has closed. Sign-in
+  // normally refuses it before this screen; this is the backstop for a
+  // session that was already open when it lapsed. No form — the person
+  // needs an admin to regenerate, and the sign-out link is the way out.
+  const expired = isTempPasswordExpired(profile)
+  const heading = expired ? 'Temporary password expired' : 'Set your password'
+  const intro = expired
+    ? TEMP_PASSWORD_EXPIRED_MESSAGE
+    : `Welcome to RotaCat${profile?.name ? `, ${profile.name}` : ''}. Please set a new password to continue.`
 
   // Ends the session rather than getting past the requirement — rose, the
   // app's own colour for the secondary link on an auth screen ("Create an
@@ -275,7 +283,7 @@ export default function SetPasswordPage() {
     </button>
   )
 
-  const form = <SetPasswordForm profile={profile} onDone={handleDone} />
+  const form = expired ? null : <SetPasswordForm profile={profile} onDone={handleDone} />
 
   // Mobile: full-bleed white hero above a rounded bottom sheet on the deep
   // brushed ground — the same shape as LoginPage's phone landing, which is
@@ -292,9 +300,11 @@ export default function SetPasswordPage() {
         <div className="auth-page relative -mt-[28px] flex flex-none flex-col justify-center rounded-t-[28px] px-5 pb-5 pt-6">
           <h2 className="text-center text-2xl font-semibold text-auth-sheet-ink">{heading}</h2>
           <p className="mt-2 text-center text-[14.7px] text-auth-sheet-ink-light">{intro}</p>
-          <div className="mt-4 rounded-[14px] border border-auth-shell-border bg-auth-panel px-4 pb-4 pt-1">
-            {form}
-          </div>
+          {form && (
+            <div className="mt-4 rounded-[14px] border border-auth-shell-border bg-auth-panel px-4 pb-4 pt-1">
+              {form}
+            </div>
+          )}
           {signOutLink(true)}
           <AuthFooter onSheen topGap="mt-4" compact />
         </div>

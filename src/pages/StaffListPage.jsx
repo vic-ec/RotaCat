@@ -19,6 +19,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { formatPhoneDisplay, phoneTelHref, phoneSmsHref, phoneWhatsAppHref } from '../lib/phone'
 import { msTeamsChatHref, msTeamsCallHref } from '../lib/msTeams'
 import { formatShortDateRange, todayStr } from '../lib/dateRange'
+import { isTempPasswordExpired, tempPasswordExpiresAt, formatExpiryDate } from '../lib/tempPassword'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory, OT_SUBTYPE_LABELS,
 } from '../lib/staffDefaults'
@@ -88,9 +89,9 @@ const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 // account otherwise has no signal at all between creating it and the
 // person turning up on a roster. Pairs with the row's "Regenerate
 // password" action for the case where the answer is no. The temp
-// password itself never expires — must_change_password only clears on
-// a real sign-in, never on a timer — so this stays lit indefinitely
-// until that happens or an admin regenerates it.
+// password is good for 14 days (tempPassword.js); the label carries the
+// expiry date and turns rose once it has passed, which is the cue to
+// regenerate. must_change_password itself only clears on a real sign-in.
 //
 // Icon-only (not a permanent text badge) — the explanation shows on
 // hover for a real mouse only (checked via pointerType, not CSS :hover,
@@ -109,8 +110,20 @@ const AZ_DIRECTION_KEY = 'rotacat:staffAzDirection'
 const NOT_SIGNED_IN_LABEL = 'User account created; user has not signed in'
 const TEMP_PASSWORD_LABEL = 'Temporary password in use'
 
-function TempPasswordIndicator({ className = '', notSignedIn = false }) {
-  const label = notSignedIn ? NOT_SIGNED_IN_LABEL : TEMP_PASSWORD_LABEL
+// "… · expires 28 Nov", or "Temporary password expired 28 Nov" once the
+// 14-day window has closed (tempPassword.js) — the admin's cue to
+// regenerate. An account from before the window has no date and reads as
+// before.
+function tempPasswordLabel(person, notSignedIn) {
+  const base = notSignedIn ? NOT_SIGNED_IN_LABEL : TEMP_PASSWORD_LABEL
+  const expiresAt = tempPasswordExpiresAt(person?.temp_password_issued_at)
+  if (!expiresAt) return { label: base, expired: false }
+  if (isTempPasswordExpired(person)) return { label: `Temporary password expired ${formatExpiryDate(expiresAt)}`, expired: true }
+  return { label: `${base} · expires ${formatExpiryDate(expiresAt)}`, expired: false }
+}
+
+function TempPasswordIndicator({ className = '', notSignedIn = false, person }) {
+  const { label, expired } = tempPasswordLabel(person, notSignedIn)
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -124,7 +137,7 @@ function TempPasswordIndicator({ className = '', notSignedIn = false }) {
 
   // Only for keeping the pill on screen — the pill itself is sized to its
   // text (max-content) with equal padding either side.
-  const width = notSignedIn ? 300 : 190
+  const width = notSignedIn || expired ? 300 : 260
   const positionStyle = anchorRect ? computeAnchoredPosition(anchorRect, width) : null
 
   return (
@@ -136,7 +149,7 @@ function TempPasswordIndicator({ className = '', notSignedIn = false }) {
         onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
         aria-label={label}
         aria-expanded={open}
-        className={`flex h-5 w-5 items-center justify-center rounded-full ${notSignedIn ? 'text-rose hover:text-rose-dark' : 'text-ink-muted hover:text-ink'}`}
+        className={`flex h-5 w-5 items-center justify-center rounded-full ${notSignedIn || expired ? 'text-rose hover:text-rose-dark' : 'text-ink-muted hover:text-ink'}`}
       >
         <ShieldAlert className="h-3.5 w-3.5" />
       </button>
@@ -1323,7 +1336,7 @@ export default function StaffListPage() {
                             )}
                             {(!person.is_active || (isAdmin && person.must_change_password)) && (
                               <div className="flex items-center gap-1">
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
                                 {!person.is_active && (
                                   <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
                                     Inactive
@@ -1525,7 +1538,7 @@ export default function StaffListPage() {
                                     Edit
                                   </button>
                                 )}
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
                               </div>
                             </td>
                             {isAdmin && (
@@ -1896,9 +1909,11 @@ export default function StaffListPage() {
                 <div className="flex flex-shrink-0 flex-col items-end gap-1">
                   <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
                   {isAdmin && person.must_change_password && (
-                    <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
+                    <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
                       <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
-                      {person.is_active ? 'Temp password in use' : 'Account created; not signed in'}
+                      {isTempPasswordExpired(person)
+                        ? `Temp password expired ${formatExpiryDate(tempPasswordExpiresAt(person.temp_password_issued_at))}`
+                        : person.is_active ? 'Temp password in use' : 'Account created; not signed in'}
                     </span>
                   )}
                 </div>

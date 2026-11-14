@@ -77,7 +77,7 @@ describe('SetPasswordPage', () => {
       password: 'Str0ng!Passw0rd',
     }))
     expect(profileUpdates).toEqual([
-      { table: 'profiles', payload: { must_change_password: false }, eq: ['id', 'u1'] },
+      { table: 'profiles', payload: { must_change_password: false, temp_password_issued_at: null }, eq: ['id', 'u1'] },
     ])
     expect(await screen.findByText('Dashboard')).toBeInTheDocument()
   })
@@ -191,6 +191,20 @@ describe('SetPasswordPage', () => {
     authState.current = { ...authState.current, mustChangePassword: false }
     renderPage()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
+  })
+
+  // The 14-day window on an admin-issued password has closed: no form, a
+  // plain explanation, and sign-out as the way off the screen.
+  it('refuses an expired temporary password instead of offering the form', () => {
+    authState.current = {
+      ...authState.current,
+      profile: { id: 'u1', name: 'Ada', must_change_password: true, temp_password_issued_at: '2026-01-01T09:00:00Z' },
+    }
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Temporary password expired' })).toBeInTheDocument()
+    expect(screen.getByText(/Ask an admin to issue a new one/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('New password')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sign out instead' })).toBeInTheDocument()
   })
 
   // Signing out ends the session rather than getting past the requirement

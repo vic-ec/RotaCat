@@ -1976,7 +1976,7 @@ export default function StaffListPage() {
             requestTypeLabel={REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
             changeLine={changeLine}
             reason={r.reason}
-            deletionWarning={r.request_type === 'deletion' ? 'Approving deactivates the account. The auth user itself must still be removed manually in Supabase.' : null}
+            deletionWarning={r.request_type === 'deletion' ? 'Approving deactivates the account. To remove it entirely, open the account and use Delete account in its Danger Zone.' : null}
             submittedDate={submittedDate}
             submittedTime={submittedTime}
             onClose={() => setExpandedRequestId(null)}

@@ -12,6 +12,7 @@ import TurnstileWidget, { TURNSTILE_ENABLED } from '../components/TurnstileWidge
 import TurnstileSlot from '../components/TurnstileSlot'
 import AuthModal from '../components/AuthModal'
 import AuthField from '../components/AuthField'
+import ConfirmEmailForm from '../components/ConfirmEmailForm'
 import {
   authButtonClass, AUTH_BUTTON_OUTLINE, AUTH_PANEL, AUTH_PANEL_TITLE, AUTH_CLOSE_BUTTON, AUTH_ERROR,
 } from '../lib/authStyles'
@@ -256,6 +257,11 @@ export default function LoginPage() {
 
   const [showSignInModal, setShowSignInModal] = useState(false)
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false)
+  // Set when Supabase answers "Email not confirmed": the person registered
+  // but never entered the code. The error banner then offers "Resend code",
+  // which opens the confirm-email dialog for that address.
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('')
+  const [showConfirmEmail, setShowConfirmEmail] = useState(false)
   const signInTriggerRef = useRef(null)
   const forgotTriggerRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -296,6 +302,7 @@ export default function LoginPage() {
 
   async function handleSignIn(email, password) {
     setError(null)
+    setUnconfirmedEmail('')
 
     if (verifying) {
       setError('Please complete the verification check.')
@@ -315,6 +322,9 @@ export default function LoginPage() {
       const invalidCredentials = signInError.message === 'Invalid login credentials'
       if (invalidCredentials) {
         setError('Incorrect email or password.')
+      } else if (signInError.message === 'Email not confirmed') {
+        setError('Email not confirmed.')
+        setUnconfirmedEmail(email)
       } else {
         setError(signInError.message && signInError.message !== '{}' ? signInError.message : 'Something went wrong. Please try again.')
       }
@@ -342,7 +352,7 @@ export default function LoginPage() {
     if (!isDesktop) setShowSignInModal(true)
   }
 
-  const modalOpen = showSignInModal || showForgotPasswordModal
+  const modalOpen = showSignInModal || showForgotPasswordModal || showConfirmEmail
 
   const formProps = {
     onSubmit: handleSignIn,
@@ -350,7 +360,10 @@ export default function LoginPage() {
     submitting,
     verifying,
     onForgotPassword: openForgotPasswordModal,
-    onDismissError: () => setError(null),
+    onDismissError: () => { setError(null); setUnconfirmedEmail('') },
+    errorAction: unconfirmedEmail
+      ? { label: 'Resend code', onClick: () => { setShowSignInModal(false); setShowConfirmEmail(true) } }
+      : null,
     captcha: TURNSTILE_ENABLED
       ? <TurnstileWidget ref={turnstileRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} />
       : null,
@@ -452,6 +465,21 @@ export default function LoginPage() {
           triggerRef={signInTriggerRef}
           formProps={formProps}
         />
+      )}
+      {showConfirmEmail && (
+        <AuthModal
+          size="small"
+          title="Confirm your email"
+          titleId="confirm-email-title"
+          onClose={() => setShowConfirmEmail(false)}
+        >
+          <ConfirmEmailForm
+            email={unconfirmedEmail}
+            sendOnMount
+            showBackLink={false}
+            onConfirmed={() => { setShowConfirmEmail(false); navigate('/') }}
+          />
+        </AuthModal>
       )}
       <ForgotPasswordModal
         isOpen={showForgotPasswordModal}

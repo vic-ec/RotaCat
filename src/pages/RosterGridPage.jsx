@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
+import { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -570,8 +571,18 @@ export default function RosterGridPage() {
     ...(unpublishItem || deleteItem ? ['divider', ...[unpublishItem, deleteItem].filter(Boolean)] : []),
   ]
 
-  // Desktop's kebab holds only what is risky to leave one click away.
+  // Wide desktop's kebab holds only what is risky to leave one click away;
+  // between md and xl it also takes Hours and Log, which leave the row
+  // there. (Font size stays on the row as "Aa" from md up.)
   const desktopMenuItems = [unpublishItem, deleteItem].filter(Boolean)
+  const midMenuItems = rosterMenuItems.slice(2)
+
+  const weekView = viewMode === 'week'
+  const filterGroups = categoryOptions.length > 0 ? [{
+    key: 'category', label: 'Category',
+    options: categoryOptions,
+    selected: filterCategory, onChange: setFilterCategory,
+  }] : []
 
   const kebabTrigger = (onClick, open) => (
     <button
@@ -616,11 +627,6 @@ export default function RosterGridPage() {
           >
             <ChevronLeftIcon className="h-4 w-4" /> Rosters
           </button>
-          <div className="flex flex-shrink-0 items-center gap-2 md:hidden">
-            <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
-            <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
-            <PageActionsMenu items={rosterMenuItems} trigger={kebabTrigger} />
-          </div>
         </div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
@@ -648,7 +654,6 @@ export default function RosterGridPage() {
           however far the grid has been scrolled. On a phone they fold into
           the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
       {isAdmin && (
-        <>
           <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
             <button
               type="button"
@@ -660,14 +665,18 @@ export default function RosterGridPage() {
             </button>
             {showPublish && publishButton}
           </div>
-          <FloatingActionMenu
-            actions={[
-              { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
-              showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
-            ]}
-          />
-        </>
       )}
+      {/* Phone quick-actions ⊕: Find (search + Filter) for everyone, plus
+          Edit and Publish for admins — the same place Rotations and Team
+          Leave keep their search. */}
+      <FloatingActionMenu
+        search={{ value: search, onChange: setSearch, placeholder: 'Search by surname…' }}
+        filter={{ groups: filterGroups, active: filtersActive, onClearAll: clearFilters, sheetTitle: 'Filters' }}
+        actions={isAdmin ? [
+          { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
+          showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
+        ] : undefined}
+      />
 
       {/* Publish confirmation */}
       {showPublishConfirm && (
@@ -745,63 +754,67 @@ export default function RosterGridPage() {
         />
       )}
 
-      {/* Week navigation (week view only) */}
-      {viewMode === 'week' && (
-        <div className="mb-3 flex items-center gap-3">
-          <button
-            onClick={() => setCurrentWeek(w => Math.max(0, w - 1))}
-            disabled={currentWeek === 0}
-            className="btn-utility px-2 py-1 text-sm disabled:opacity-40"
-          >
-            <ChevronLeftIcon className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-medium text-ink">
-            Week {currentWeek + 1} of {weeks.length}
-          </span>
-          <button
-            onClick={() => setCurrentWeek(w => Math.min(weeks.length - 1, w + 1))}
-            disabled={currentWeek === weeks.length - 1}
-            className="btn-utility px-2 py-1 text-sm disabled:opacity-40"
-          >
-            <ChevronRightIcon className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {/* One toolbar row: find-a-doctor on the left, view controls on the
-          right (desktop only — a phone carries those in the header above).
-          A fixed row rather than a wrapping cluster beside the title, so the
-          controls sit in the same place at every desktop width. When space
-          runs short the search box shrinks and Hours Summary / Review log
-          drop to icons (below xl) — nothing wraps onto a second line. */}
-      <div className="mb-3 flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <Toolbar
-            className=""
-            compact
-            mobileMode="inline"
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Search by surname…"
-            filterGroups={categoryOptions.length > 0 ? [{
-              key: 'category', label: 'Category',
-              options: categoryOptions,
-              selected: filterCategory, onChange: setFilterCategory,
-            }] : []}
-            active={filtersActive}
-            onClearAll={clearFilters}
-          />
+      {/* One toolbar row, the same order at every width, in three zones:
+          When (Month/Week + the week stepper) · Find (search + Filter) ·
+          View and more (Rows/Lanes, Aa, Hours, Log, ⋮). Nothing changes
+          zone as the window narrows — controls shorten, then the least-used
+          fold away: Hours and Log into ⋮ below xl, Aa into ⋮ and Find into
+          the quick-actions ⊕ below md. ⋮ is always last. The title area
+          above carries no controls on any screen. */}
+      <div className="mb-3 flex items-center gap-1.5 sm:gap-2">
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
+          {/* Stays in place, greyed out, in month view — so switching
+              M ↔ W moves nothing on the row. */}
+          <div className={weekView ? '' : 'pointer-events-none opacity-40'} aria-disabled={!weekView}>
+            <StepperShell
+              label={weekView ? (
+                <>
+                  <span className="-mx-1 text-sm sm:mx-0 sm:text-base xl:hidden">Wk {currentWeek + 1}/{weeks.length}</span>
+                  <span className="hidden xl:inline">Week {currentWeek + 1} of {weeks.length}</span>
+                </>
+              ) : (
+                <>
+                  <span className="-mx-1 text-sm sm:mx-0 sm:text-base xl:hidden">Month</span>
+                  <span className="hidden xl:inline">Whole month</span>
+                </>
+              )}
+              onPrev={() => setCurrentWeek(w => Math.max(0, w - 1))}
+              onNext={() => setCurrentWeek(w => Math.min(weeks.length - 1, w + 1))}
+              prevLabel="Previous week"
+              nextLabel="Next week"
+              canGoPrev={weekView && currentWeek > 0}
+              canGoNext={weekView && currentWeek < weeks.length - 1}
+            />
+          </div>
         </div>
 
-        <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
-          {/* Span (Month/Week), then shape (Rows/Lanes), then size — the
-              three ways of changing the view — and a divider before the
-              places this page links out to. */}
-          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
-          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+        <div className="hidden h-5 w-px flex-shrink-0 bg-slate-line md:block" aria-hidden="true" />
+
+        {/* Find — on the row from md; in the ⊕ below it, where the View zone's
+            ml-auto keeps it against the right edge. */}
+        <div className="hidden min-w-0 flex-1 md:block">
+          <div>
+            <Toolbar
+              className=""
+              compact
+              mobileMode="inline"
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search by surname…"
+              filterGroups={filterGroups}
+              active={filtersActive}
+              onClearAll={clearFilters}
+            />
+          </div>
+        </div>
+
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="lg" />
 
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
+          <div className="hidden md:block">
           <ToolbarFacet
             icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
             label="Font size"
@@ -810,8 +823,9 @@ export default function RosterGridPage() {
             onChange={setTextSize}
             options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
           />
+          </div>
 
-          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+          <div className="hidden h-5 w-px bg-slate-line xl:block" aria-hidden="true" />
 
           {/* Hours Summary — every role except locum (matches Roster Hours
               Summary's own visibility rule). */}
@@ -820,10 +834,10 @@ export default function RosterGridPage() {
               onClick={goToHoursSummary}
               aria-label="Hours Summary"
               title="Hours Summary"
-              className="btn-secondary text-sm"
+              className="hidden btn-secondary text-sm xl:inline-flex"
             >
               <ClipboardClock className="h-4 w-4" />
-              <span className="hidden xl:inline">Hours</span>
+              <span>Hours</span>
             </button>
           )}
 
@@ -832,16 +846,18 @@ export default function RosterGridPage() {
               onClick={() => setShowChangeLog(true)}
               aria-label="Review log"
               title="Review log"
-              className="btn-secondary text-sm"
+              className="hidden btn-secondary text-sm xl:inline-flex"
             >
               <ScrollText className="h-4 w-4" />
-              <span className="hidden xl:inline">Log</span>
+              <span>Log</span>
             </button>
           )}
 
-          {/* Kebab — only rendered when it has something in it (today: Undo
-              Publish on a published roster, admins only). */}
-          <PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} />
+          {/* ⋮ — always last, holding whatever isn't on the row at this
+              width. Renders nothing when it would be empty. */}
+          <div className="md:hidden"><PageActionsMenu items={rosterMenuItems} trigger={kebabTrigger} /></div>
+          <div className="hidden md:block xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
+          <div className="hidden xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
         </div>
       </div>
 
@@ -1294,13 +1310,6 @@ function ChevronLeftIcon(props) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-  )
-}
-function ChevronRightIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
     </svg>
   )
 }

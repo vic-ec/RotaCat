@@ -33,7 +33,12 @@ which is not enough to mint credentials.
 ## Deploying
 
 Deployed from this directory's four files (`index.ts`, `password.ts`,
-`email.ts`, `defaults.ts`) as a single function. `defaults.ts` is a
+`email.ts`, `defaults.ts`) plus `../_shared/email.ts`, which holds the
+layout, palette, dark-mode treatment and SMTP transport every RotaCat email
+shares (also used by `account-status-email`, and by
+`scripts/email-templates.mjs` to generate the Supabase Auth templates in
+`supabase/templates/`). Deploy with the Supabase CLI from the repo root so
+the `_shared` import resolves. `defaults.ts` is a
 hand-maintained mirror of `src/lib/staffDefaults.js`; `defaults.test.ts`
 fails if the two drift, and `password.test.ts` asserts the generator
 satisfies the Supabase Auth password policy on every run. Both run under

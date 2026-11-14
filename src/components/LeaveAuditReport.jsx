@@ -22,6 +22,7 @@ import FilterPanel from './FilterPanel'
 import { QuickSelectButton } from './Toolbar'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
+import { useFillToViewport } from '../lib/useFillToViewport'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const STATUS_BADGE = {
@@ -121,6 +122,8 @@ function BucketCell({ bucket }) {
 // multi-select grouped-facet pattern as the Staff list) rather than four
 // permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
+  // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
+  const [tableRef, tableFill] = useFillToViewport()
   const swatch = useSwatch()
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
@@ -349,7 +352,7 @@ export default function LeaveAuditReport() {
               are the same problem as eleven: the numbers say nothing
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
-          <div className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-line">
+          <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
             {/* table-fixed, unlike every other grid in this app, because
                 this is the one that has to hold fifteen columns at the SAME
                 width. Auto layout cannot: a specified width there is a floor

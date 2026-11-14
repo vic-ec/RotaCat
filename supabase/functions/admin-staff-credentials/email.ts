@@ -142,9 +142,9 @@ function wordmark(p: Palette) {
 
 // Every "RotaCat" in running text gets the wordmark's two-tone treatment
 // too: "Rota" inherits the surrounding ink, "Cat" takes the accent (and
-// the dark accent under dark mode via .rc-accent). The button label is the
-// one exception — on an accent fill the teal "Cat" would vanish — so it is
-// not passed through this.
+// the dark accent under dark mode via .rc-accent). The button label does
+// not name the app — on an accent fill the teal "Cat" would vanish — so
+// nothing passes a button through this.
 export function brand(html: string): string {
   const p = EMAIL_PALETTE.light
   return html.replace(/RotaCat/g, `Rota<span class="rc-accent" style="color:${p.accent};">Cat</span>`)
@@ -274,7 +274,7 @@ export function buildHtml({ firstName, password, appUrl, isReset }: Omit<Welcome
       panelValue(escapeHtml(loginEmail)) +
       panelLabel('Temporary password') +
       panelValue(escapeHtml(password), { last: true, mono: true }),
-    button: appUrl ? { label: 'Sign in to RotaCat', href: escapeHtml(appUrl) } : undefined,
+    button: appUrl ? { label: 'Sign in to your account', href: escapeHtml(appUrl) } : undefined,
     notes: [
       `You will be asked to choose your own password the first time you sign in. ${PASSWORD_RULES}`,
     ],

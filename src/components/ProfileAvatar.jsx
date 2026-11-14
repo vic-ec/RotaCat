@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NEUTRAL_AVATAR_COLOR, mutedAvatarColor, placeholderAvatarColor } from '../lib/color'
+import { NEUTRAL_AVATAR_COLOR } from '../lib/color'
 import { patternBackgroundStyle } from '../lib/avatarPatterns'
 import { useSwatch } from '../lib/useSwatch'
 
@@ -167,11 +167,14 @@ export default function ProfileAvatar({ profile, size = 40, className = '', show
 
   return (
     <div
-      className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full font-medium text-white ${className}`}
+      className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full font-medium ${className}`}
       style={{
         width: size,
         height: size,
-        ...swatch.fill(hasPhoto ? mutedAvatarColor(color) : placeholderAvatarColor(profile?.id)),
+        // The person's own profile colour, as the roster shows it (no
+        // pattern): the same hue as their chip's rail, so the staff list
+        // and the roster agree on who is which colour.
+        ...swatch.fill(color, { text: true }),
         fontSize: Math.max(8, Math.round(size * (initials.length > 2 ? 0.24 : 0.32))),
       }}
     >

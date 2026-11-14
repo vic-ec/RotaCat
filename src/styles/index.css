@@ -248,6 +248,7 @@
   --focus-ring: #3FA896;
   /* Roster grid header row: pale, with weekend columns a step greener. */
   --color-grid-head: 247 249 250;             /* #F7F9FA */
+  --color-day-rail: 238 241 243;              /* #EEF1F3 — roster grid: weekday date rail + header band, a neutral step below the white row */
   --color-grid-head-weekend: 237 244 242;     /* #EDF4F2 */
   /* The reviewer's Approve (filled) and Decline (outlined) pair. */
   --color-approve: 79 158 111;                /* #4F9E6F */
@@ -514,6 +515,7 @@
   --shadow-btn-fab-pressed: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 3px 8px -4px rgba(0, 0, 0, 0.50);
   --focus-ring: #8FD3C5;
   --color-grid-head: 23 33 30;                /* #17211E */
+  --color-day-rail: 26 36 32;                 /* #1A2420 */
   --color-grid-head-weekend: 27 42 39;        /* #1B2A27 */
   --color-approve: 107 175 128;               /* #6BAF80 */
   --color-approve-dark: 134 193 152;          /* #86C198 */

@@ -20,7 +20,6 @@ import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
 import { useSwatch } from '../lib/useSwatch'
-import { PATTERN_TYPES, randomPatternType, patternBackgroundStyle } from '../lib/avatarPatterns'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib/phone'
 import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
@@ -527,7 +526,7 @@ export default function AccountSettingsPage() {
   const [showAdvancedNotifications, setShowAdvancedNotifications] = useState(false)
 
   // Appearance: colour + pattern (own account only)
-  const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR, patternType: null })
+  const [colorForm, setColorForm] = useState({ colorCode: NEUTRAL_AVATAR_COLOR })
   const [colorSaving, setColorSaving] = useState(false)
   const [colorJustSaved, setColorJustSaved] = useState(false)
   const [surprising, setSurprising] = useState(false)
@@ -625,10 +624,7 @@ export default function AccountSettingsPage() {
     setAdminSubtype(profile.psych_subcategory || null)
     setAdminIsAdmin(profile.is_admin === true)
     setAdminIsActive(profile.is_active !== false)
-    setColorForm({
-      colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR,
-      patternType: profile.pattern_type || null,
-    })
+    setColorForm({ colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR })
   }, [profile])
 
   // These three depend on `user`'s primitives rather than the object: it is
@@ -915,20 +911,18 @@ export default function AccountSettingsPage() {
     }
   }
 
-  // ── Appearance: colour + pattern (own account only) ──────────
-  // Checks whether another *active* profile already has this exact combo —
-  // an inactive profile's combo is implicitly "recycled" since it's excluded
+  // ── Appearance: colour (own account only) ────────────────────
+  // Checks whether another *active* profile already wears this colour — an
+  // inactive profile's colour is implicitly "recycled" since it's excluded
   // here. Manual picks just get a heads-up (cosmetic, not blocking); Surprise
   // me actively avoids collisions instead since there's no cost to retrying.
-  async function checkComboTaken(colorCode, patternType) {
-    let query = supabase
+  async function checkColorTaken(colorCode) {
+    const { data } = await supabase
       .from('profiles')
       .select('id')
       .eq('is_active', true)
       .eq('color_code', colorCode)
       .neq('id', user.id)
-    query = patternType ? query.eq('pattern_type', patternType) : query.is('pattern_type', null)
-    const { data } = await query
     return (data || []).length > 0
   }
 
@@ -936,48 +930,39 @@ export default function AccountSettingsPage() {
   // Each pick still runs a read-only collision preview so the warning stays
   // current, but mashing Surprise me! no longer fires a wave of concurrent
   // writes that can race/slow down/error.
-  async function previewCombo(colorCode, patternType) {
-    const taken = await checkComboTaken(colorCode, patternType)
-    setColorMsg(taken ? { type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' } : null)
+  async function previewColor(colorCode) {
+    const taken = await checkColorTaken(colorCode)
+    setColorMsg(taken ? { type: 'warning', text: 'Another active staff member already has this colour.' } : null)
   }
   function pickColorSwatch(hex) {
-    const next = { ...colorForm, colorCode: hex }
-    setColorForm(next)
-    previewCombo(next.colorCode, next.patternType)
-  }
-  function pickPatternType(patternType) {
-    const next = { ...colorForm, patternType }
-    setColorForm(next)
-    previewCombo(next.colorCode, next.patternType)
+    setColorForm({ colorCode: hex })
+    previewColor(hex)
   }
   async function surpriseMe() {
     if (surprising) return
     setSurprising(true)
     const { data: activeProfiles } = await supabase
       .from('profiles')
-      .select('id, color_code, pattern_type')
+      .select('id, color_code')
       .eq('is_active', true)
-    const taken = new Set(
-      (activeProfiles || [])
-        .filter(p => p.id !== user.id)
-        .map(p => `${p.color_code}|${p.pattern_type || ''}`)
-    )
-    let colorCode, patternType, attempts = 0
+    const taken = new Set((activeProfiles || []).filter(p => p.id !== user.id).map(p => p.color_code))
+    let colorCode, attempts = 0
     do {
       colorCode = randomAvatarColor()
-      patternType = randomPatternType()
       attempts += 1
-    } while (taken.has(`${colorCode}|${patternType}`) && attempts < 30)
-    setColorForm({ colorCode, patternType })
+    } while (taken.has(colorCode) && attempts < 30)
+    setColorForm({ colorCode })
     setSurprising(false)
-    previewCombo(colorCode, patternType)
+    previewColor(colorCode)
   }
   async function saveAppearance() {
     setColorSaving(true)
     setColorMsg(null)
+    // Patterns are no longer chosen here; saving a colour also clears any
+    // pattern the profile still carries so the roster shows plain colour.
     const { error } = await supabase
       .from('profiles')
-      .update({ color_code: colorForm.colorCode, pattern_type: colorForm.patternType })
+      .update({ color_code: colorForm.colorCode, pattern_type: null })
       .eq('id', user.id)
     setColorSaving(false)
     if (error) {
@@ -986,21 +971,17 @@ export default function AccountSettingsPage() {
     }
     refreshProfile()
     flashSaved(setColorJustSaved)
-    const taken = await checkComboTaken(colorForm.colorCode, colorForm.patternType)
+    const taken = await checkColorTaken(colorForm.colorCode)
     if (taken) {
-      setColorMsg({ type: 'warning', text: 'Another active staff member already has this exact colour + pattern.' })
+      setColorMsg({ type: 'warning', text: 'Another active staff member already has this colour.' })
     }
   }
   // Discards any unsaved local picks, reverting back to what's actually saved.
   function cancelAppearance() {
-    setColorForm({
-      colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR,
-      patternType: profile.pattern_type || null,
-    })
+    setColorForm({ colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR })
     setColorMsg(null)
   }
   const isColorDirty = colorForm.colorCode !== (profile?.color_code || NEUTRAL_AVATAR_COLOR)
-    || colorForm.patternType !== (profile?.pattern_type || null)
   // Same fallback the roster grid's own chip uses when a doctor has no
   // colour set, so the preview doesn't show one colour and the roster
   // another.
@@ -2007,24 +1988,19 @@ export default function AccountSettingsPage() {
         <div className="card overflow-hidden divide-y divide-slate-line">
             <SectionRow icon={<PaletteIcon className="h-5 w-5" />} title="Appearance">
           {/* The roster's own assignment chip rather than the avatar: this
-              colour and pattern are worn almost entirely on a roster, so the
-              preview is the thing itself — same box, type scale, colour
-              fallback and pattern maths as RosterGridPage's AssignmentChip,
-              at the size it actually renders there. Small on purpose: a
-              blown-up swatch flatters a pattern that turns to mush at 10px,
-              which is the only size that matters. */}
+              colour is worn almost entirely on a roster, so the preview is
+              the thing itself — the same rounded box with the colour as a
+              left rail that RosterGridPage's DoctorChip draws, at the size
+              it renders there. */}
           <div className="mb-5 flex items-center gap-4">
             <span
-              className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
-              style={{
-                ...swatch.fill(appearancePreviewColor, { text: true }),
-                ...(colorForm.patternType ? patternBackgroundStyle(colorForm.patternType, appearancePreviewColor, 8) : null),
-              }}
+              className="flex items-center whitespace-nowrap rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-xs font-medium text-ink"
+              style={{ borderLeftColor: swatch.stroke(appearancePreviewColor) }}
             >
               {profile.surname}
             </span>
             <div className="flex items-center gap-1.5">
-              <p className="text-sm font-medium text-ink">Profile pattern</p>
+              <p className="text-sm font-medium text-ink">Profile colour</p>
               <DetailInfoButton
                 label="About this preview"
                 text="This is how your name will appear on the roster."
@@ -2045,35 +2021,6 @@ export default function AccountSettingsPage() {
                     colorForm.colorCode === hex ? 'ring-ink' : 'ring-transparent'
                   }`}
                   style={swatch.fill(hex)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="label-text">Pattern</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => pickPatternType(null)}
-                aria-label="No pattern"
-                title="None"
-                className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
-                  !colorForm.patternType ? 'ring-ink' : 'ring-transparent'
-                }`}
-                style={swatch.fill(colorForm.colorCode)}
-              />
-              {PATTERN_TYPES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => pickPatternType(key)}
-                  aria-label={label}
-                  title={label}
-                  className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-canvas-raised transition-transform hover:scale-105 ${
-                    colorForm.patternType === key ? 'ring-ink' : 'ring-transparent'
-                  }`}
-                  style={{ ...swatch.fill(colorForm.colorCode), ...patternBackgroundStyle(key, colorForm.colorCode, 10) }}
                 />
               ))}
             </div>

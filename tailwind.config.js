@@ -110,6 +110,7 @@ export default {
         // they cannot just be `canvas` on both themes.
         // App theme (docs/app-theme/SPEC.md): the four surface roles' tokens.
         'canvas-app': 'rgb(var(--color-canvas-app) / <alpha-value>)',
+        'day-rail': 'rgb(var(--color-day-rail) / <alpha-value>)',
         'grid-head': {
           DEFAULT: 'rgb(var(--color-grid-head) / <alpha-value>)',
           weekend: 'rgb(var(--color-grid-head-weekend) / <alpha-value>)',

@@ -84,20 +84,18 @@ describe('monthDayMarkers', () => {
 })
 
 describe('monthSummaryLine', () => {
-  it('combines pressure and pending counts', () => {
-    expect(monthSummaryLine({ pressureDayCount: 2, pendingCount: 1 })).toBe('2 pressure days · 1 pending')
+  it('counts the people on leave, then the requests still pending', () => {
+    expect(monthSummaryLine({ approvedStaff: 3, pendingRequests: 0 })).toBe('3 on leave')
+    expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 3 })).toBe('3 requests pending')
+    expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 1 })).toBe('1 request pending')
   })
 
-  it('singularises a lone pressure day', () => {
-    expect(monthSummaryLine({ pressureDayCount: 1, pendingCount: 0 })).toBe('1 pressure day')
+  it('joins both with a semicolon when a month has approved and pending leave', () => {
+    expect(monthSummaryLine({ approvedStaff: 3, pendingRequests: 1 })).toBe('3 on leave; 1 request pending')
   })
 
-  it('shows only pending when there is no pressure', () => {
-    expect(monthSummaryLine({ pressureDayCount: 0, pendingCount: 3 })).toBe('3 pending')
-  })
-
-  it('falls back to Quiet when there is nothing to flag', () => {
-    expect(monthSummaryLine({ pressureDayCount: 0, pendingCount: 0 })).toBe('Quiet')
+  it('says "No-one on leave" when there is nothing at all', () => {
+    expect(monthSummaryLine({ approvedStaff: 0, pendingRequests: 0 })).toBe('No-one on leave')
   })
 })
 

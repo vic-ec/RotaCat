@@ -9,6 +9,7 @@ import SectionLabel from './SectionLabel'
 import LeaveBlockDetail from './LeaveBlockDetail'
 import { todayStr, MONTH_ABBR, formatWeekdayDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { useFillToViewport } from '../lib/useFillToViewport'
 import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import {
   LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
@@ -23,8 +24,11 @@ import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 // The month columns stretch to fill the width the grid is given (the same
 // width the Table view takes); this is only the floor, below which the grid
 // scrolls sideways instead of squeezing a month past day-precision.
-const MIN_MONTH_COL_WIDTH = 64 // px
-const LABEL_COL_WIDTH = 208 // px
+// 44px still gives a day better than a pixel; with the 150px Doctor
+// column that is 678px in all, which fits beside the side panel on a
+// laptop without a sideways scroll.
+const MIN_MONTH_COL_WIDTH = 44 // px
+const LABEL_COL_WIDTH = 150 // px
 const TRACK_HEIGHT = 38 // px — the Table view's row height, near enough
 const BAR_HEIGHT = 22 // px
 
@@ -258,6 +262,10 @@ function useElementWidth() {
 
 export default function LeaveMatrix({ requests, controls }) {
   const [gridRef, gridWidth] = useElementWidth()
+  // The grid runs to the bottom of the window like the Table view and
+  // Hours Summary, scrolling inside itself past that.
+  const [fillRef, fillStyle] = useFillToViewport()
+  const setGridNode = el => { gridRef.current = el; fillRef(el) }
   const [search, setSearch] = useState('')
   const isDesktop = useIsDesktop()
   const currentYear = Number(todayStr().slice(0, 4))
@@ -310,7 +318,9 @@ export default function LeaveMatrix({ requests, controls }) {
           the caller's Matrix/Table switch last — so the switch sits in the
           same spot in both views. The colour key gets the line below. */}
       <div className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
+        {/* The app's standard 320px search (Toolbar's own width), not a
+            stretched one; the year and the view switch keep the right. */}
+        <div className="w-80 flex-shrink-0">
           <ClearableInput
             type="text"
             value={search}
@@ -321,7 +331,7 @@ export default function LeaveMatrix({ requests, controls }) {
             icon={<Search className="h-4 w-4" />}
           />
         </div>
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
           <DateStepper unit="year" year={year} onChange={setYear} nowrap todayLabel />
           {controls && <div className="h-5 w-px bg-slate-line" aria-hidden="true" />}
           {controls}
@@ -342,9 +352,9 @@ export default function LeaveMatrix({ requests, controls }) {
       {/* Grid and panel start on the same line, below the toolbar. */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1">
-        <div ref={gridRef} className="card overflow-x-auto p-0">
+        <div ref={setGridNode} style={fillStyle} className="card overflow-auto p-0">
           {/* Month header */}
-          <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
+          <div className="sticky top-0 z-20 grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
             <div className="sticky left-0 z-10 bg-canvas-cool px-3 py-2">Doctor</div>
             {MONTH_ABBR.map((label, i) => (
               <div key={label} className={`px-1 py-2 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>

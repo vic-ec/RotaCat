@@ -53,14 +53,15 @@ export function monthDayMarkers(year, month, { approvedByDate, pendingByDate, pr
   })
 }
 
-// One line of copy for a month card: "2 pressure days · 1 pending", "1
-// pending", "2 pressure days", or "Quiet" when there's nothing to flag —
-// kept as a single formatter so every card phrases this identically.
-export function monthSummaryLine({ pressureDayCount, pendingCount }) {
+// The one-line summary under a month card on the admin's Annual and Special
+// overviews — the same reading on both planners: who is on leave (approved
+// requests, counted as distinct people) and what is still waiting on the
+// admin, or nothing at all.
+export function monthSummaryLine({ approvedStaff = 0, pendingRequests = 0 }) {
   const parts = []
-  if (pressureDayCount > 0) parts.push(`${pressureDayCount} pressure ${pressureDayCount === 1 ? 'day' : 'days'}`)
-  if (pendingCount > 0) parts.push(`${pendingCount} pending`)
-  return parts.length ? parts.join(' · ') : 'Quiet'
+  if (approvedStaff > 0) parts.push(`${approvedStaff} on leave`)
+  if (pendingRequests > 0) parts.push(`${pendingRequests} ${pendingRequests === 1 ? 'request' : 'requests'} pending`)
+  return parts.length ? parts.join('; ') : 'No-one on leave'
 }
 
 // The first contiguous run of pressure dates within a month (datesInRange

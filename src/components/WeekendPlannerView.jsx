@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { todayStr, addDays, monthBounds } from '../lib/dateRange'
 import {
   CATEGORY_GROUPS, groupForCategory, resolvedCategoryForDoctor, resolveWeekendCategoryForDoctor,
-  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange, formatWeekendRangeCompact,
+  saturdaysInRange, saturdaysInMonth, nextWeekendSaturday, formatWeekendRange,
   weekendCoverageSummary, isProfileAssignedToWeekend, groupEntriesByWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, planWeekendPasteAcrossMonths,
   nextSaturdayToRequestOff, WEEKEND_RULE_BULLETS,
@@ -32,6 +32,10 @@ import LeaveRequestForm from './LeaveRequestForm'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import FloatingActionMenu from './FloatingActionMenu'
 import Tag from './Tag'
+import DoctorDropdown from './DoctorDropdown'
+import { useSwatch } from '../lib/useSwatch'
+import { ToolbarFacet } from './Toolbar'
+import { ROSTER_TEXT_SIZES, rosterTextSize, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 
 const WEEKS_AHEAD = 26 // ~6 months, enough runway to plan several roster months ahead
 const MONTHS_PADDING = 3 // either side of a freshly-navigated-to month — see boundsAroundMonth below
@@ -147,11 +151,6 @@ function XIcon(props) {
 // Splits a list into rows of (at most) 2 — used to lay assigned names out as
 // two lines (e.g. a 4-person MO group) instead of one line that can overflow
 // a fixed-width column/panel.
-function chunkInPairs(items) {
-  const rows = []
-  for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2))
-  return rows
-}
 
 // One category group's row: assigned surname(s) (or an open-slot count) plus
 // the admin add/remove controls — the desktop inspector's edit mode. Mirrors
@@ -162,68 +161,6 @@ function chunkInPairs(items) {
 // inconsistency left once WeekendAddDoctorsSheet became both viewports'
 // shared add mechanism (multi-select, switchable category), replacing this
 // row's own single-doctor native <select>.
-function CategoryGroupRow({
-  group, groupEntries, doctorById, displayNames, isAdmin, saving, textClass, saturday, removeEntry, onOpenPicker,
-}) {
-  const rows = chunkInPairs(groupEntries)
-  const isEmpty = groupEntries.length === 0
-  return (
-    <div className="py-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-ink-muted">{group.label}</span>
-        {isEmpty && <span className="text-xs font-medium text-rose-dark">1 open</span>}
-      </div>
-
-      {rows.length > 0 && (
-        <div className="mt-1 space-y-1">
-          {rows.map((row, i) => (
-            <div key={i} className="flex items-center gap-3">
-              {row.map(entry => {
-                const doctor = doctorById.get(entry.profile_id)
-                const label = doctor ? (displayNames.get(doctor.id) ?? doctor.surname) : '(unknown)'
-                return (
-                  <span key={entry.id} className={`flex items-center gap-1 text-sm ${textClass}`}>
-                    {label}
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => removeEntry(entry.id)}
-                        disabled={saving}
-                        className={`${textClass} hover:text-flagRed`}
-                        aria-label={`Remove ${label} from ${saturday}`}
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </button>
-                    )}
-                  </span>
-                )
-              })}
-              {!isEmpty && i === rows.length - 1 && isAdmin && (
-                <button
-                  type="button"
-                  onClick={onOpenPicker}
-                  disabled={saving}
-                  aria-label={`Add another doctor to ${group.label}`}
-                  className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent hover:opacity-80"
-                >
-                  <Plus className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {isEmpty && isAdmin && (
-        <div className="mt-1.5">
-          <button type="button" onClick={onOpenPicker} disabled={saving} className="btn-primary w-full text-sm">
-            Add doctor
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // One category's read-only summary row for the desktop inspector's default
 // (non-editing) view: label, comma-joined surnames or an "Open" chip, and a
@@ -260,11 +197,9 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, doctorById, displayNames, isAdmin, saving, myRequest, myRequestName, canViewRequests,
-  removeEntry, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard, onOpenAddDoctor,
+  saturday, weekendIndex, bySaturday, displayNames, isAdmin, myRequest, myRequestName, canViewRequests,
+  exceptions = [], editing = false, onToggleEditing, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard,
 }) {
-  const [editing, setEditing] = useState(false)
-  useEffect(() => { setEditing(false) }, [saturday])
 
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
@@ -295,19 +230,20 @@ function WeekendInspector({
         </p>
       )}
 
-      {!editing ? (
-        <>
-          {/* No assignments list here: the names are read off the row in
-              the table beside this card. The card is for acting on the
-              selected weekend — its status, then the actions. */}
+      <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
+
+      {/* No assignments list here: the names are read off — and, while
+          editing, changed on — the weekend's own row in the table beside
+          this card. The card is for acting on the selected weekend: its
+          status, then the actions. */}
           <div className="mt-4 space-y-2">
             {isAdmin && (
               <button
                 type="button"
-                onClick={() => setEditing(true)}
+                onClick={onToggleEditing}
                 className="btn-primary flex w-full items-center justify-center gap-1.5 text-sm"
               >
-                <Pencil className="h-3.5 w-3.5" /> Edit assignments
+                {editing ? <><CircleCheck className="h-3.5 w-3.5" /> Done editing</> : <><Pencil className="h-3.5 w-3.5" /> Edit assignments</>}
               </button>
             )}
             {canViewRequests && (
@@ -347,31 +283,6 @@ function WeekendInspector({
               </button>
             )}
           </div>
-        </>
-      ) : (
-        <>
-          <div className="mt-4 divide-y divide-slate-line border-t border-slate-line">
-            {CATEGORY_GROUPS.map(group => (
-              <CategoryGroupRow
-                key={group.key}
-                group={group}
-                groupEntries={bySaturday[group.key] || []}
-                doctorById={doctorById}
-                displayNames={displayNames}
-                isAdmin={isAdmin}
-                saving={saving}
-                textClass="text-ink"
-                saturday={saturday}
-                removeEntry={removeEntry}
-                onOpenPicker={() => onOpenAddDoctor(group.key)}
-              />
-            ))}
-          </div>
-          <button type="button" onClick={() => setEditing(false)} className="btn-secondary mt-4 w-full text-sm">
-            Done editing
-          </button>
-        </>
-      )}
     </div>
   )
 }
@@ -388,7 +299,7 @@ function WeekendInspector({
 // fast glance — status + assignments only, reusing WeekendInspector's own
 // read-only AssignmentSummaryRow rather than rebuilding that breakdown a
 // second time.
-function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, onClose }) {
+function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, displayNames, myRequest, myRequestName, exceptions = [], onClose }) {
   const coverage = weekendCoverageSummary(bySaturday)
   const needsPlanning = coverage.openGroups.length > 0
   const badge = weekendBadge(saturday, weekendIndex)
@@ -422,6 +333,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
             <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
           ))}
         </div>
+        <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
       </div>
     </ActionSheet>
   )
@@ -534,46 +446,29 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
   )
 }
 
-// This month's weekend exceptions — the month view's counterpart to the
-// year overview's Selected month panel (WeekendYearOverview). Approved and
-// pending both: a pending exception is precisely the thing that makes the
-// month's plan unsettled, so hiding it until approval would defeat the
-// point of showing it to a planner at all.
-//
-// Weekend exceptions are NOT special leave — they swap which weekend a
-// doctor works rather than reducing hours — which is why they surface here
-// and on the Weekend planner rather than on the Special leave tab, and why
-// they carry no leave-capacity weight anywhere.
-function MonthExceptionsPanel({ exceptions, displayNames }) {
+// One weekend's weekend-off requests, listed inside the SELECTED WEEKEND
+// card under its status (and in the phone's quick-glance sheet) — the same
+// row shape as the Annual/Special planners' day views: name, then category
+// muted beside it, status right-aligned. Omitted entirely when the weekend
+// has none. These are NOT special leave and carry no leave-capacity weight;
+// they are an exception to WHICH weekend a doctor works, still approved via
+// Planners -> Requests.
+function WeekendRequestsList({ exceptions, displayNames }) {
   if (exceptions.length === 0) return null
   return (
-    <div data-testid="weekend-month-exceptions" className="card mt-3 p-4">
-      <div className="flex items-center gap-1.5">
-        <MessageSquareWarning className="h-4 w-4 text-flagAmber" />
-        <h3 className="text-sm font-semibold text-ink">Weekend off requests ({exceptions.length})</h3>
-      </div>
-      <ul className="mt-2 divide-y divide-slate-line border-t border-slate-line">
+    <div data-testid="weekend-requests" className="mt-3 border-t border-slate-line pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Weekend off requests</p>
+      <ul className="mt-1 divide-y divide-slate-line">
         {exceptions.map(req => {
           const isPending = req.status === 'pending'
           return (
-            <li key={req.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+            <li key={req.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
               <span className="flex min-w-0 items-center gap-2">
-                <span className="flex-shrink-0 text-sm font-medium text-ink">
+                <span className="flex-shrink-0 font-medium text-ink">
                   {displayNames.get(req.profile_id) ?? req.profiles?.surname ?? '(unknown)'}
                 </span>
-                {/* No leave type: every row in a panel headed "Weekend
-                    exceptions" is a weekend exception, so naming it per row
-                    was the same word four times down the column.
-                    formatWeekendRangeCompact (no "Sat "/"Sun " prefixes,
-                    unlike everywhere else a weekend range is shown) — this
-                    row already carries a name and category before it, and
-                    the fuller phrasing crowded the panel. Derived from
-                    date_from, not the stored date_to — an exception always
-                    covers exactly one Sat+Sun pair, so the Sunday is
-                    derivable. */}
                 <span className="truncate text-xs text-ink-muted">
                   {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
-                  {' · '}{formatWeekendRangeCompact(req.date_from)}
                 </span>
               </span>
               <span className={`flex-shrink-0 text-xs font-medium ${isPending ? 'text-flagAmber' : 'text-success'}`}>
@@ -736,7 +631,7 @@ function MobileRoleRow({ group, groupEntries, doctorById, displayNames, isAdmin,
 // weekend, so offering them would invite an assignment contradicting it.
 // Other conflicts (leave overlaps, hour caps) remain out of scope, already
 // flagged as separate future work.
-function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, excusedIds, rotationsByDoctorId, onAdd, onClose }) {
+function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedIds, excusedIds, rotationsByDoctorId, swapping, onAdd, onRemove, onClose }) {
   const [groupKey, setGroupKey] = useState(initialGroupKey)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
@@ -775,9 +670,11 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
       <div className="card flex w-full max-w-sm flex-col rounded-b-none p-4 sm:max-h-[75vh] sm:rounded-b-lg" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-ink">Add doctor — {formatWeekendRange(saturday)}</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-ink">{swapping ? `Swap ${swapping} — ` : 'Add doctor — '}{formatWeekendRange(saturday)}</h2>
+          <button type="button" onClick={onClose} className="btn-close h-8 w-8 flex-shrink-0 text-ink-muted" aria-label="Close">
+            <XIcon className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="mt-3">
@@ -826,8 +723,20 @@ function WeekendAddDoctorsSheet({ saturday, initialGroupKey, doctors, assignedId
           disabled={selectedIds.size === 0}
           className="btn-primary mt-3 w-full text-sm disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Add {selectedIds.size > 0 ? selectedIds.size : ''} doctor{selectedIds.size === 1 ? '' : 's'}
+          {swapping ? `Swap for ${selectedIds.size > 0 ? selectedIds.size : ''} doctor${selectedIds.size === 1 ? '' : 's'}` : `Add ${selectedIds.size > 0 ? selectedIds.size : ''} doctor${selectedIds.size === 1 ? '' : 's'}`}
         </button>
+        {/* Tapping an assigned name opens this same sheet in swap mode, so
+            the remove action lives here too — one tap to swap or remove,
+            matching the desktop cell editor. */}
+        {swapping && onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="btn-secondary mt-2 w-full text-sm text-flagRed"
+          >
+            <Trash2 className="h-4 w-4" /> Remove from this weekend
+          </button>
+        )}
       </div>
     </div>
   )
@@ -913,7 +822,21 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // card's own Open pill/+ triggers and the desktop inspector's per-category
   // + trigger alike (both funnel through WeekendAddDoctorsSheet now, not two
   // separate edit mechanisms).
-  const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey } or null
+  const [openRolePicker, setOpenRolePicker] = useState(null) // { saturday, groupKey, replaceEntryId? } or null — replaceEntryId makes it a swap
+  // Which weekend's table row is in edit mode (desktop): x / swap beside
+  // each name and + Add under each category, on the row itself rather
+  // than in the rail card.
+  const [editingSaturday, setEditingSaturday] = useState(null)
+  // The roster-style cell editor (DoctorDropdown): which weekend + category,
+  // and which entry is being swapped/removed (null = adding).
+  const [cellEditor, setCellEditor] = useState(null) // { saturday, groupKey, entryId } or null
+  const [cellEditorSearch, setCellEditorSearch] = useState('')
+  const swatch = useSwatch()
+  // The same S/M/L text size the roster grid uses, stored under the same
+  // key, so the two pages' pills read at one size.
+  const [textSize, setTextSize] = useState(readRosterTextSize)
+  useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
+  const { base: rosterBase } = rosterTextSize(textSize)
   const [removeSheetEntry, setRemoveSheetEntry] = useState(null) // { entry, saturday, groupLabel } or null
   const [cardMenuSaturday, setCardMenuSaturday] = useState(null) // which card's ⋮ menu is open, or null
   // Seeded from initialFilter — whatever the year overview's own Showing
@@ -1027,7 +950,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
       // entries as "(unknown)". `is_active` is still fetched below so the
       // *assignable* subset (who can be newly rostered going forward) can
       // be derived separately — see assignableDoctors.
-      supabase.from('profiles').select('id, name, surname, category, contract_type, is_active')
+      supabase.from('profiles').select('id, name, surname, category, contract_type, is_active, color_code')
         .eq('is_approved', true),
       supabase.from('weekend_planner_entries').select('id, weekend_saturday, profile_id, category')
         .gte('weekend_saturday', fetchBounds.from).lte('weekend_saturday', fetchBounds.through),
@@ -1670,8 +1593,6 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             )}
 
 
-            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
-
             <div data-testid="weekend-mobile-list" className="mt-3 space-y-3">
               {searchedSaturdays.length === 0 ? (
                 <p className="text-sm text-ink-muted">
@@ -1751,7 +1672,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                           displayNames={displayNames}
                           isAdmin={isAdmin}
                           onOpenPicker={() => setOpenRolePicker({ saturday, groupKey: group.key })}
-                          onOpenRemove={entry => setRemoveSheetEntry({ entry, saturday, groupLabel: group.label })}
+                          onOpenRemove={entry => setOpenRolePicker({ saturday, groupKey: group.key, replaceEntryId: entry.id })}
                         />
                       ))}
                     </div>
@@ -1776,7 +1697,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 // More actions sits with the search and the legend, one
                 // compact control in the same cluster, rather than alone at
                 // the far end of the row.
-                middle={isAdmin && (
+                middle={(
+                  <div className="flex items-center gap-2">
+                    <ToolbarFacet
+                      icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
+                      label="Font size"
+                      compact
+                      value={textSize}
+                      onChange={setTextSize}
+                      options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
+                    />
+                    {isAdmin && (
                   <PageActionsMenu
                     items={weekendMenuItems}
                     trigger={(onClick, open) => (
@@ -1785,11 +1716,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                       </button>
                     )}
                   />
+                    )}
+                  </div>
                 )}
               />
             </div>
-
-            <MonthExceptionsPanel exceptions={monthExceptions} displayNames={displayNames} />
 
             {/* Table and a sticky rail (request panel on top, Selected
                 weekend inspector under it) — the same grid-plus-rail split
@@ -1800,30 +1731,36 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   list of weekends rather than a dense grid — the names are
                   read here, and the rail beside it is for acting on the
                   selected one. */}
-              <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto">
-                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
+              <div className="max-h-[70vh] min-w-0 flex-1 overflow-auto" style={{ fontSize: `${rosterBase}px` }}>
+                {/* The Weekend column is only as wide as its date (which
+                    never wraps); the four category columns share the rest
+                    equally and only widen if a name would wrap, since pills
+                    never do. */}
+                <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-[1em]">
+                  <colgroup>
+                    <col style={{ width: '1%' }} />
+                    {CATEGORY_GROUPS.map(group => <col key={group.key} style={{ width: `${(99 / CATEGORY_GROUPS.length).toFixed(2)}%` }} />)}
+                  </colgroup>
                   <thead>
                     <tr className="text-left text-xs text-ink-muted">
                       <th className="sticky top-0 left-0 z-20 bg-canvas-raised px-3 py-2 font-medium">Weekend</th>
                       {CATEGORY_GROUPS.map(group => (
                         <th key={group.key} className="sticky top-0 z-10 bg-canvas-raised px-3 py-2 font-medium">{group.label}</th>
                       ))}
-                      <th className="sticky top-0 z-10 bg-canvas-raised px-3 py-2 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {searchedSaturdays.length === 0 ? (
                       <tr>
-                        <td colSpan={CATEGORY_GROUPS.length + 2} className="px-3 py-6 text-center text-ink-muted">
+                        <td colSpan={CATEGORY_GROUPS.length + 1} className="px-3 py-6 text-center text-ink-muted">
                           {monthSaturdays.length === 0 ? 'No weekends to plan in this month yet.' : 'No weekends match this filter/search.'}
                         </td>
                       </tr>
                     ) : searchedSaturdays.map(saturday => {
                       const bySaturday = byWeekend.get(saturday) || {}
-                      const coverage = weekendCoverageSummary(bySaturday)
-                      const needsPlanning = coverage.openGroups.length > 0
                       const badge = weekendBadge(saturday, monthSaturdays.indexOf(saturday) + 1)
                       const isSelected = saturday === inspectorSaturday
+                      const isEditing = isAdmin && isSelected && editingSaturday === saturday
 
                       return (
                         <tr
@@ -1837,55 +1774,80 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                               scroll underneath it, so it can't reuse the row's translucent
                               tint opacity modifier (that let their text ghost through
                               beneath the date). */}
-                          <td className={`sticky left-0 z-10 rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
-                            isSelected ? 'border-y-accent border-l-accent bg-accent-tint' : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
+                          <td className={`sticky left-0 z-10 whitespace-nowrap rounded-l-lg border-y border-l-4 px-4 py-4 font-medium text-ink ${
+                            isSelected ? (isEditing ? 'border-y-rose border-l-rose bg-rose-tint' : 'border-y-accent border-l-accent bg-accent-tint') : 'border-y-slate-line border-l-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'
                           }`}>
                             <div className="flex flex-col gap-1">
                               <span>{formatWeekendRange(saturday)}</span>
-                              <span className={`inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.chip}`}>{badge.label}</span>
+                              <span className="flex items-center gap-1.5">
+                                <span className={`inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.chip}`}>{badge.label}</span>
+                                {exceptionsBySaturday.has(saturday) && (
+                                  <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); setExceptionsSaturday(saturday) }}
+                                    aria-label={`Weekend off requests for ${saturday}`}
+                                    className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
+                                  >
+                                    <MessageSquareWarning className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </span>
                             </div>
                           </td>
-                          {CATEGORY_GROUPS.map(group => {
+                          {CATEGORY_GROUPS.map((group, gi) => {
                             const groupEntries = bySaturday[group.key] || []
+                            const last = gi === CATEGORY_GROUPS.length - 1
                             return (
-                              <td key={group.key} className={`border-y px-4 py-4 ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
-                                {groupEntries.length === 0 ? (
-                                  <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-xs font-medium text-flagAmber">Open</span>
-                                ) : (
-                                  // One name per line rather than paired/joined —
-                                  // a group with 3-4 doctors used to wrap
-                                  // "A, B" / "C" oddly across the column;
-                                  // text-xs keeps the taller cell from
-                                  // making every row noticeably deeper.
-                                  <div className="space-y-0.5">
-                                    {groupEntries.map(e => (
-                                      <div key={e.id} className="text-sm text-ink">{displayNames.get(e.profile_id) ?? '(unknown)'}</div>
-                                    ))}
-                                  </div>
-                                )}
+                              <td key={group.key} className={`border-y px-4 py-4 align-top ${last ? 'rounded-r-lg border-r' : ''} ${isSelected ? (isEditing ? 'border-rose bg-rose-tint' : 'border-accent bg-accent-tint') : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
+                                {/* The roster's own cell layout: one pill per
+                                    doctor with their colour as a left rail,
+                                    and a dashed "+" pill under the list. While
+                                    the row is being edited a pill opens the
+                                    shared doctor picker (swap, or remove from
+                                    this weekend); otherwise an empty category
+                                    reads "Open". */}
+                                <div className="space-y-1">
+                                  {groupEntries.map(e => {
+                                    const doctor = doctorById.get(e.profile_id)
+                                    const label = displayNames.get(e.profile_id) ?? doctor?.surname ?? '(unknown)'
+                                    const pill = `flex items-center whitespace-nowrap rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${isEditing ? 'cursor-pointer hover:bg-canvas-sunken' : ''}`
+                                    const rail = { borderLeftColor: swatch.stroke(doctor?.color_code || '#4A90D9') }
+                                    return isEditing ? (
+                                      <button
+                                        key={e.id}
+                                        type="button"
+                                        onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: e.id }) }}
+                                        disabled={saving}
+                                        aria-label={`Edit ${label} on ${saturday}`}
+                                        className={`${pill} w-full text-left`}
+                                        style={rail}
+                                      >
+                                        <span className="truncate">{label}</span>
+                                      </button>
+                                    ) : (
+                                      <div key={e.id} className={pill} style={rail} title={doctor ? `${doctor.name} ${doctor.surname}` : undefined}>
+                                        <span className="truncate">{label}</span>
+                                      </div>
+                                    )
+                                  })}
+                                  {groupEntries.length === 0 && !isEditing && (
+                                    <span className="inline-flex items-center rounded-full bg-flagAmber-bg px-2 py-0.5 text-[0.834em] font-medium text-flagAmber">Open</span>
+                                  )}
+                                  {isEditing && (
+                                    <button
+                                      type="button"
+                                      onClick={ev => { ev.stopPropagation(); setCellEditorSearch(''); setCellEditor({ saturday, groupKey: group.key, entryId: null }) }}
+                                      disabled={saving}
+                                      aria-label={`Add a doctor to ${group.label} on ${saturday}`}
+                                      className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light disabled:opacity-50"
+                                    >
+                                      +
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             )
                           })}
-                          <td className={`rounded-r-lg border-y border-r px-4 py-4 ${isSelected ? 'border-accent bg-accent-tint' : 'border-slate-line bg-canvas-raised group-hover:bg-canvas-sunken'}`}>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                                needsPlanning ? 'bg-flagAmber-bg text-flagAmber' : 'bg-success-bg text-success'
-                              }`}>
-                                {needsPlanning ? <CircleAlert className="h-3.5 w-3.5" /> : <CircleCheck className="h-3.5 w-3.5" />}
-                                {needsPlanning ? `${coverage.openGroups.length} ${coverage.openGroups.length === 1 ? 'gap' : 'gaps'}` : 'Fully planned'}
-                              </span>
-                              {exceptionsBySaturday.has(saturday) && (
-                                <button
-                                  type="button"
-                                  onClick={() => setExceptionsSaturday(saturday)}
-                                  aria-label={`Weekend off requests for ${saturday}`}
-                                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-flagAmber hover:bg-canvas-sunken"
-                                >
-                                  <MessageSquareWarning className="h-4 w-4" />
-                                </button>
-                              )}
-                            </span>
-                          </td>
                         </tr>
                       )
                     })}
@@ -1901,19 +1863,18 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     saturday={inspectorSaturday}
                     weekendIndex={monthSaturdays.indexOf(inspectorSaturday) + 1}
                     bySaturday={byWeekend.get(inspectorSaturday) || {}}
-                    doctorById={doctorById}
                     displayNames={displayNames}
                     isAdmin={isAdmin}
-                    saving={saving}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
+                    exceptions={exceptionsBySaturday.get(inspectorSaturday) || []}
                     myRequestName={myName}
                     canViewRequests={canViewRequests}
-                    removeEntry={removeEntry}
+                    editing={editingSaturday === inspectorSaturday}
+                    onToggleEditing={() => setEditingSaturday(prev => prev === inspectorSaturday ? null : inspectorSaturday)}
                     onClearWeekend={saturday => setClearWeekendTarget(saturday)}
                     onCopyWeekend={copyWeekend}
                     onPasteWeekend={openWeekendPaste}
                     hasWeekendClipboard={clipboard?.granularity === 'weekend'}
-                    onOpenAddDoctor={groupKey => setOpenRolePicker({ saturday: inspectorSaturday, groupKey })}
                   />
                 )}
               </PlannerDetailsCard>
@@ -1953,10 +1914,43 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           doctorById={doctorById}
           displayNames={displayNames}
           myRequest={myRequestsBySaturday.get(detailSaturday)}
+          exceptions={exceptionsBySaturday.get(detailSaturday) || []}
           myRequestName={myName}
           onClose={() => setDetailSaturday(null)}
         />
       )}
+
+      {cellEditor && (() => {
+        const group = CATEGORY_GROUPS.find(g => g.key === cellEditor.groupKey)
+        const assigned = assignedDoctorIds(cellEditor.saturday)
+        const excused = excusedBySaturday.get(cellEditor.saturday) ?? new Set()
+        // Same eligibility as the add-doctors sheet: not already on this
+        // weekend, not excused by an approved weekend off, and resolving to
+        // this category on this date.
+        const candidates = assignableDoctors
+          .filter(d => !assigned.has(d.id) && !excused.has(d.id))
+          .filter(d => resolveWeekendCategoryForDoctor({ doctor: d, targetDate: cellEditor.saturday, rotationsByDoctorId }).groupKey === cellEditor.groupKey)
+          .sort((a, b) => a.surname.localeCompare(b.surname))
+        const current = cellEditor.entryId ? doctorById.get(entries.find(e => e.id === cellEditor.entryId)?.profile_id) : null
+        return (
+          <DoctorDropdown
+            profiles={candidates}
+            displayNames={displayNames}
+            search={cellEditorSearch}
+            onSearchChange={setCellEditorSearch}
+            date={formatWeekendRange(cellEditor.saturday)}
+            shiftCode={current ? `${displayNames.get(current.id) ?? current.surname} (${group?.label})` : group?.label}
+            onSelect={async profileId => {
+              const { saturday, groupKey, entryId } = cellEditor
+              setCellEditor(null)
+              if (entryId) await removeEntry(entryId)
+              addEntries(saturday, groupKey, [profileId])
+            }}
+            onRemove={cellEditor.entryId ? () => { const id = cellEditor.entryId; setCellEditor(null); removeEntry(id) } : undefined}
+            onClose={() => setCellEditor(null)}
+          />
+        )
+      })()}
 
       {openRolePicker && (
         <WeekendAddDoctorsSheet
@@ -1966,7 +1960,14 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           assignedIds={assignedDoctorIds(openRolePicker.saturday)}
           excusedIds={excusedBySaturday.get(openRolePicker.saturday)}
           rotationsByDoctorId={rotationsByDoctorId}
-          onAdd={(groupKey, profileIds) => { addEntries(openRolePicker.saturday, groupKey, profileIds); setOpenRolePicker(null) }}
+          swapping={openRolePicker.replaceEntryId ? (displayNames.get(entries.find(e => e.id === openRolePicker.replaceEntryId)?.profile_id) ?? 'doctor') : null}
+          onAdd={async (groupKey, profileIds) => {
+            const { saturday, replaceEntryId } = openRolePicker
+            setOpenRolePicker(null)
+            if (replaceEntryId) await removeEntry(replaceEntryId)
+            addEntries(saturday, groupKey, profileIds)
+          }}
+          onRemove={openRolePicker.replaceEntryId ? () => { const id = openRolePicker.replaceEntryId; setOpenRolePicker(null); removeEntry(id) } : undefined}
           onClose={() => setOpenRolePicker(null)}
         />
       )}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
+import FloatingActionMenu from '../components/FloatingActionMenu'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -23,6 +24,7 @@ import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize,
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
+import { useIsDesktop } from '../lib/useIsDesktop'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -127,17 +129,37 @@ export default function RosterGridPage() {
   // change for every doctor on the roster, so it gets an explicit "are you
   // sure" rather than firing straight off the button click.
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  // The edit gate: cells are read-only until an admin presses Edit, the
+  // same gate the Weekend planner's month view has. Every cell change still
+  // writes immediately once editing — the gate only stops a stray click on
+  // a dense grid from reassigning someone. `?mode=edit` (the dashboard's
+  // Edit action) opens the page already editing; `?publish=1` (its Publish
+  // action) opens the publish confirmation straight away.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [editing, setEditing] = useState(searchParams.get('mode') === 'edit')
   // Roster text size (S/M/L), per device. The grids are the densest thing in
   // the app and 12px cell text does not suit every pair of eyes.
   const [textSize, setTextSize] = useState(readRosterTextSize)
   useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
   const { base: rosterBase } = rosterTextSize(textSize)
   const rosterScale = rosterTextScale(textSize)
+  // Below md the Consultant column folds into the date rail (see the grid),
+  // so the column plan changes with the breakpoint, not just the CSS.
+  const wideGrid = useIsDesktop(768)
 
   useEffect(() => {
     loadAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAll is redefined every render; including it would refetch in a loop
   }, [id])
+
+  // Dashboard's Publish action: land here with the confirmation open, then
+  // drop the flag from the URL so a reload doesn't ask again.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('publish') !== '1') return
+    if (rosterMonth.status === 'draft') setShowPublishConfirm(true)
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('publish'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
 
   async function loadAll() {
     setLoading(true)
@@ -304,8 +326,10 @@ export default function RosterGridPage() {
     setFilterCategory(new Set())
   }
 
+  const canEdit = isAdmin && editing
+
   async function handleCellClick(date, shiftCode, existingEntry) {
-    if (!isAdmin) return
+    if (!canEdit) return
     // Occupied slot on a published roster: route through the removal/
     // reassignment workflow instead of the plain assign-or-remove dropdown —
     // an empty slot, a locum placeholder, or anything on a draft roster
@@ -455,6 +479,16 @@ export default function RosterGridPage() {
     setPublishing(false)
   }
 
+  // Delete (soft): the same deleted_at the dashboard's Delete uses, so the
+  // roster lands in its Recently deleted list and can be restored from
+  // there. Lives only in the ⋮ menu, behind a confirm.
+  async function handleDelete() {
+    if (!window.confirm(`Delete the ${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year} roster? It can be restored from the Rosters page for a while.`)) return
+    const { error } = await supabase.from('roster_months').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    if (error) { alert('Could not delete roster: ' + error.message); return }
+    navigate('/roster')
+  }
+
   function goToHoursSummary() {
     navigate(`/roster?view=summary&year=${rosterMonth.year}&month=${rosterMonth.month}`, {
       state: { fromRosterId: id, fromRosterLabel: `${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}` },
@@ -503,6 +537,14 @@ export default function RosterGridPage() {
     onClick: handleUnpublish,
   } : null
 
+  const deleteItem = isAdmin ? {
+    key: 'delete',
+    icon: <Trash2 className="h-4 w-4" />,
+    label: 'Delete roster',
+    danger: true,
+    onClick: handleDelete,
+  } : null
+
   const rosterMenuItems = [
     {
       key: 'text-size',
@@ -525,11 +567,11 @@ export default function RosterGridPage() {
       label: 'Review log',
       onClick: () => setShowChangeLog(true),
     }] : []),
-    ...(unpublishItem ? ['divider', unpublishItem] : []),
+    ...(unpublishItem || deleteItem ? ['divider', ...[unpublishItem, deleteItem].filter(Boolean)] : []),
   ]
 
   // Desktop's kebab holds only what is risky to leave one click away.
-  const desktopMenuItems = unpublishItem ? [unpublishItem] : []
+  const desktopMenuItems = [unpublishItem, deleteItem].filter(Boolean)
 
   const kebabTrigger = (onClick, open) => (
     <button
@@ -550,7 +592,7 @@ export default function RosterGridPage() {
     <button
       onClick={() => setShowPublishConfirm(true)}
       disabled={publishing}
-      className="btn-primary text-sm"
+      className="btn-primary text-sm shadow-raised"
     >
       <BookUp className="h-4 w-4" />
       Publish
@@ -584,7 +626,6 @@ export default function RosterGridPage() {
           <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
             {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
           </h1>
-          {showPublish && <div className="flex-shrink-0">{publishButton}</div>}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -602,6 +643,31 @@ export default function RosterGridPage() {
           )}
         </div>
       </div>
+
+      {/* Edit / Publish float at the bottom-right so they stay in reach
+          however far the grid has been scrolled. On a phone they fold into
+          the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
+      {isAdmin && (
+        <>
+          <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => setEditing(e => !e)}
+              aria-pressed={editing}
+              className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm shadow-raised`}
+            >
+              {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
+            </button>
+            {showPublish && publishButton}
+          </div>
+          <FloatingActionMenu
+            actions={[
+              { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
+              showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
+            ]}
+          />
+        </>
+      )}
 
       {/* Publish confirmation */}
       {showPublishConfirm && (
@@ -792,16 +858,28 @@ export default function RosterGridPage() {
           <LanesLegend textSize={textSize} />
         </>
       ) : (
-      /* Grid — horizontally scrollable */
-      <div className="overflow-x-auto rounded-lg border border-slate-line" style={{ fontSize: `${rosterBase}px` }}>
-        <table className="w-full table-fixed border-collapse" style={{ minWidth: Math.round(580 * rosterScale) }}>
-          {/* Every column 20px narrower than before: date 64px -> 44px;
-              Consultant + up to 4 shift columns were auto-sharing ~127px
-              each, now fixed at 107px each so the reduction is uniform
-              instead of just redistributing the freed space. */}
+      /* Grid — horizontally scrollable. Each day is its own bordered
+         block on the page background: `border-separate` with a spacer row
+         between days (6px, 14px before a Monday) rather than a divider
+         line, so adjacent flag fills can never merge into one slab. The
+         cells carry the block's border themselves (top and bottom on every
+         cell, left on the rail, right on the last shift cell), which is
+         what lets a short weekend row close its frame after three columns
+         without a filler cell. Kept as a table so drag-and-drop, the cell
+         picker and the fixed column plan all stay as they were.
+         Full-bleed below md: the rail plus three shift columns is 385px,
+         which only fits a 390px phone without the page's side padding. */
+      <div className="-mx-4 overflow-x-auto md:mx-0" style={{ fontSize: `${rosterBase}px` }}>
+        <table
+          className="w-full table-fixed border-separate border-spacing-0"
+          style={{ minWidth: Math.round((wideGrid ? 580 : 495) * rosterScale) }}
+        >
+          {/* Date rail 44px, Consultant + up to 4 shift columns 107px each.
+              Below md the Consultant column is gone and the rail widens to
+              64px to carry the consultant under the date. */}
           <colgroup>
-            <col style={{ width: Math.round(44 * rosterScale) }} />
-            <col style={{ width: Math.round(107 * rosterScale) }} />
+            <col style={{ width: Math.round((wideGrid ? 44 : 64) * rosterScale) }} />
+            {wideGrid && <col style={{ width: Math.round(107 * rosterScale) }} />}
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
             <col style={{ width: Math.round(107 * rosterScale) }} />
@@ -820,83 +898,101 @@ export default function RosterGridPage() {
               // new block of weekday/weekend/PH days)
               const prevDay = visibleDays[dayIdx - 1]
               const showHeader = !prevDay || prevDay.dayType !== day.dayType
-              // The shift-time header cells are the darkest fill in the
-              // grid; a weekend/PH row's own body sits two steps lighter
-              // (canvas.cool, not canvas.sunken) so the header reads as a
-              // header rather than merging into the tinted rows under it.
-              const headerBg = isWeekend ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head'
+              // Parse date parts directly to avoid UTC timezone shift
+              const [y, m, d] = day.dateStr.split('-').map(Number)
+              const localDate = new Date(y, m - 1, d)
+              const isMonday = localDate.getDay() === 1
+              // Three day types, three fills: weekdays on white, weekends
+              // on the accent tint, public holidays (either kind) on
+              // rose-light. The date rail and the shift-time header band
+              // share one tone per type, a step darker than the row body
+              // (neutral day-rail / accent-light / rose-night), so each
+              // day has a left anchor and a header that read as chrome.
+              const isPH = day.dayType === 'PH' || day.dayType === 'PH_weekday'
+              const chromeBg = isPH
+                ? 'bg-rose-night text-rose-dark'
+                : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-day-rail text-ink'
+              const rowBg = isPH ? 'bg-rose-light' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
+              const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
+              // The block's own 1px border, in the accent on today so the
+              // outline wraps the whole day.
+              const line = isToday ? 'border-accent' : 'border-slate-line'
+              const cellFrame = `border-y ${line}`
+              const headerBand = `whitespace-nowrap border-b ${line} px-1 py-1 text-center text-[0.917em] font-semibold ${chromeBg}`
+
+              const consultantCell = (
+                <ConsultantCell
+                  date={day.dateStr}
+                  rosterMonthId={id}
+                  existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
+                  consultantProfiles={consultantProfiles}
+                  displayNames={displayNames}
+                  isAdmin={canEdit}
+                  onRefresh={refreshEntries}
+                />
+              )
 
               return (
-                <tr
-                  key={day.dateStr}
-                  className={`border-b border-slate-line ${
-                    isWeekend ? 'bg-canvas-cool' : 'bg-canvas-raised'
-                  } ${isToday ? 'outline outline-1 outline-accent' : ''}`}
-                >
-                  {/* Date label */}
-                  <td className={`border-r border-slate-line px-2 py-1.5 font-medium ${
-                    isWeekend ? 'text-accent-dark' : 'text-ink'
-                  }`}>
-                    {(() => {
-                      // Parse date parts directly to avoid UTC timezone shift
-                      const [y, m, d] = day.dateStr.split('-').map(Number)
-                      const localDate = new Date(y, m - 1, d)
-                      return (
-                        <>
-                          <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
-                          <span>{d}</span>
-                          {day.phName && (
-                            <span className="mt-0.5 block">
-                              <PublicHolidayBadge name={day.phName} />
-                            </span>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </td>
-
-                  {/* Consultant column */}
-                  <td className="border-r border-slate-line align-top p-0">
-                    {showHeader && (
-                      <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
-                        Consultant
+                <Fragment key={day.dateStr}>
+                  {dayIdx > 0 && (
+                    <tr aria-hidden="true" data-testid="day-gap" className={isMonday ? 'h-[14px]' : 'h-[6px]'}>
+                      <td colSpan={wideGrid ? 6 : 5} className="p-0" />
+                    </tr>
+                  )}
+                  <tr data-testid="day-row" data-date={day.dateStr} className={rowBg}>
+                  {/* Date rail: pinned left on a phone with an opaque fill so
+                      the shift columns scroll beneath it. */}
+                  <td
+                    className={`${cellFrame} border-l border-r rounded-l-md px-2 py-1.5 align-top font-medium ${chromeBg} ${dateInk} ${wideGrid ? '' : 'sticky left-0 z-10'}`}
+                  >
+                    <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
+                    <span>{d}</span>
+                    {day.phName && (
+                      <span className="mt-0.5 block">
+                        <PublicHolidayBadge name={day.phName} />
+                      </span>
+                    )}
+                    {!wideGrid && (
+                      <div data-testid="rail-consultant" className="mt-1 overflow-hidden text-[0.834em] text-ink-muted">
+                        {consultantCell}
                       </div>
                     )}
-                    <div className="px-1.5 py-1">
-                      <ConsultantCell
-                        date={day.dateStr}
-                        rosterMonthId={id}
-                        existing={entryMap[`${day.dateStr}|CONSULTANT`]?.[0]}
-                        consultantProfiles={consultantProfiles}
-                        displayNames={displayNames}
-                        isAdmin={isAdmin}
-                        onRefresh={refreshEntries}
-                      />
-                    </div>
                   </td>
+
+                  {/* Consultant column (md and up) */}
+                  {wideGrid && (
+                    <td data-testid="consultant-cell" className={`${cellFrame} border-r align-top p-0`}>
+                      {showHeader && <div className={headerBand}>Consultant</div>}
+                      <div className="px-1.5 py-1">{consultantCell}</div>
+                    </td>
+                  )}
 
                   {/* Shift columns */}
                   {shifts.map(({ code, label }, colIdx) => {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
                     const hasShortfall = cellEntries.some(e => e.is_flagged)
                     const hasLocum = cellEntries.some(e => e.is_locum)
+                    const last = colIdx === shifts.length - 1
 
                     return (
                       <td
                         key={code}
-                        className={`border-r border-slate-line align-top p-0 ${
-                          colIdx === shifts.length - 1 ? 'border-r-0' : ''
-                        } ${hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''}`}
+                        className={`${cellFrame} align-top p-0 ${last ? 'border-r rounded-r-md' : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >
                         {/* Column header when day type starts */}
-                        {showHeader && (
-                          <div className={`whitespace-nowrap border-b border-slate-line px-1 py-1 text-center text-[0.917em] font-semibold text-ink-muted ${headerBg}`}>
-                            {label}
-                          </div>
-                        )}
-                        <div className="min-h-[36px] p-1 space-y-0.5">
+                        {showHeader && <div className={headerBand}>{label}</div>}
+                        {/* The flag fill sits on this inner block, inset
+                            from the cell edges, so flagged cells on
+                            consecutive days stay two separate marks and
+                            the header above is never tinted. */}
+                        <div
+                          data-testid="shift-cell"
+                          className={`m-[3px] min-h-[36px] rounded p-1 space-y-0.5 ${
+                            hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''
+                          }`}
+                        >
                           {cellEntries.map(entry => (
                             <DoctorChip
                               key={entry.id}
@@ -904,17 +1000,17 @@ export default function RosterGridPage() {
                               profile={profileMap[entry.profile_id]}
                               dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
-                              onClick={() => isAdmin && handleCellClick(day.dateStr, code, entry)}
+                              onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
-                              isAdmin={isAdmin}
+                              isAdmin={canEdit}
                               canDrag={rosterMonth.status !== 'published'}
                             />
                           ))}
-                          {/* Add slot if admin */}
-                          {isAdmin && (
+                          {/* Add slot while editing */}
+                          {canEdit && (
                             <button
                               onClick={() => handleCellClick(day.dateStr, code, null)}
-                              className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink"
+                              className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light"
                               title="Add doctor"
                             >
                               +
@@ -924,7 +1020,8 @@ export default function RosterGridPage() {
                       </td>
                     )
                   })}
-                </tr>
+                  </tr>
+                </Fragment>
               )
             })}
           </tbody>
@@ -1094,7 +1191,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
             {existing.consultant_name}
           </div>
         ) : isAdmin ? (
-          <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-line py-0.5 text-[0.834em] text-ink-muted hover:bg-canvas-sunken hover:text-ink">
+          <div className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light">
             +
           </div>
         ) : (

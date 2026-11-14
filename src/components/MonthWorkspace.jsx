@@ -11,7 +11,6 @@ import {
 } from '../lib/monthWorkspace'
 import { daysBySlotsUsed } from '../lib/plannerCalendar'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
-import CategoryBadge from './CategoryBadge'
 import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
@@ -145,13 +144,10 @@ export default function MonthWorkspace({
       ruleIntro={ruleHintIntro}
       ruleBullets={ruleHintBullets}
     >
+      {/* No category key: the grid names each person's category in plain
+          letters beside their name (MO, REG, EC, OT), so there is no avatar
+          to decode. */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-ink-muted">
-        {legendColumns.map(col => (
-          <span key={col.key} className="flex items-center gap-1.5">
-            <CategoryBadge label={COLUMN_BADGE_LABEL[col.key]} size={18} />
-            {col.label}
-          </span>
-        ))}
         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-ink/10 ring-1 ring-inset ring-ink-muted" /> Public holiday</span>
       </div>
       {/* Two variants, gated by viewport: the phone cells' pips are the

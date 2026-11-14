@@ -15,7 +15,13 @@
 // Table/Timeline toggle so other pages (e.g. RosterDashboardPage's
 // List/Grid switch) can reuse the same shape instead of a second hand-
 // rolled copy.
-export default function ViewToggle({ view, onChange, options }) {
+// `tight`: a little less side padding below `sm`, for a phone row that has to
+// fit several controls. `labelFrom`: the breakpoint at which an icon option's
+// word comes back ('sm' by default; 'lg' for a row that is still crowded on
+// a tablet).
+const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline' }
+
+export default function ViewToggle({ view, onChange, options, tight = false, labelFrom = 'sm' }) {
   return (
     <div className="seg-track h-[30px] flex-shrink-0">
       {options.map(o => {
@@ -27,7 +33,7 @@ export default function ViewToggle({ view, onChange, options }) {
             onClick={() => onChange(o.key)}
             aria-label={o.ariaLabel ?? o.label}
             title={o.title}
-            className={`flex items-center gap-1.5 rounded ${o.shortLabel || options.some(x => x.shortLabel) ? 'px-2.5 sm:px-3' : 'px-3'} text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 rounded ${tight || options.some(x => x.shortLabel) ? 'px-2.5 sm:px-3' : 'px-3'} text-xs font-medium transition-colors ${
               view === o.key ? 'seg-on' : 'text-ink-light hover:bg-canvas-sunken active:bg-canvas-sunken'
             }`}
           >
@@ -36,7 +42,7 @@ export default function ViewToggle({ view, onChange, options }) {
                 side are indistinguishable at this size, two letters aren't. */}
             {Icon && <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${o.shortLabel ? 'hidden sm:block' : ''}`} />}
             {o.shortLabel && <span className="sm:hidden" aria-hidden="true">{o.shortLabel}</span>}
-            <span className={Icon ? 'hidden sm:inline' : ''}>{o.label}</span>
+            <span className={Icon ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
           </button>
         )
       })}

@@ -7,7 +7,7 @@ palette (the app's light tokens, swapping to the dark theme's under
 `prefers-color-scheme: dark`) and one footer.
 
 **Do not edit these files by hand.** They are generated from the layout in
-`supabase/functions/admin-staff-credentials/email.ts` by:
+`supabase/functions/_shared/email.ts` by:
 
 ```bash
 node scripts/email-templates.mjs
@@ -37,7 +37,7 @@ are not used by the app and are left at Supabase's defaults.
   send time; these generated files carry the year they were generated, so
   regenerate and re-paste them each January.
 - "Contact your administrator" links to `admin.rotacat@gmail.com`
-  (`ADMIN_EMAIL` in `email.ts`). Change it there, not in the HTML.
+  (`ADMIN_EMAIL` in `_shared/email.ts`). Change it there, not in the HTML.
 
 - **Confirm sign up** uses `{{ .Token }}`, the 6-digit code the app's
   confirmation screen asks for. It says the code lasts one hour; that is the

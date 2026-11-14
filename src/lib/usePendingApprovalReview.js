@@ -221,6 +221,11 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
       is_approved: false,
       is_active: false,
       is_rejected: true,
+      // Stored on the row so the "not approved" email (sent by a database
+      // trigger — see migration 20261114120000) can carry the note. The
+      // in-app notification below is kept, but a rejected person can never
+      // sign in to read it, so the email is what actually reaches them.
+      rejection_note: reason?.trim() || null,
     }).eq('id', id)
 
     setActioning(false)

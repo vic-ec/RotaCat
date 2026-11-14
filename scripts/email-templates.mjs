@@ -33,10 +33,17 @@ const previewsDir = resolve(root, 'docs/email-templates')
 // it sends. {{ .Token }} is the 6-digit code the app's ConfirmEmailForm
 // asks for; {{ .ConfirmationURL }} already carries the redirect_to the
 // app passed (reset lands on /reset-password).
+// Both sign-up paths store the first name in auth user metadata (the app's
+// signUp passes `name`; admin-staff-credentials sets user_metadata.name), so
+// the Auth templates can greet by name. The Go conditional falls back to a
+// plain "Hi there," for any account that somehow lacks one.
+const GREETING = '{{ if .Data.name }}Hi {{ .Data.name }},{{ else }}Hi there,{{ end }}'
+
 const authTemplates = {
   'confirm-signup': renderEmail({
     preheader: 'Your RotaCat confirmation code is {{ .Token }}.',
     heading: 'Confirm your email address',
+    greeting: GREETING,
     intro: 'Thanks for creating a RotaCat account. Enter this code on the confirmation screen to finish signing up &mdash; it is valid for one hour.',
     panel: panelLabel('Confirmation code') + panelCode('{{ .Token }}'),
     notes: [
@@ -47,6 +54,7 @@ const authTemplates = {
   'reset-password': renderEmail({
     preheader: 'Choose a new RotaCat password.',
     heading: 'Reset your password',
+    greeting: GREETING,
     intro: 'We received a request to reset the password for the RotaCat account registered to <strong>{{ .Email }}</strong>. Use the button below to choose a new one.',
     button: { label: 'Choose a new password', href: '{{ .ConfirmationURL }}' },
     notes: [
@@ -57,6 +65,7 @@ const authTemplates = {
   'change-email': renderEmail({
     preheader: 'Confirm the new email address for your RotaCat account.',
     heading: 'Confirm your new email address',
+    greeting: GREETING,
     intro: 'You asked to change the email address on your RotaCat account. The change only takes effect once it has been confirmed from <strong>both</strong> the old and the new inbox.',
     panel:
       panelLabel('Current address') + panelValue('{{ .Email }}') +
@@ -79,6 +88,7 @@ for (const [name, html] of Object.entries(authTemplates)) {
 if (process.argv.includes('--previews')) {
   const sample = { appUrl: 'https://rotacat.example', email: 'tayla.37pt5v@bumpmail.io' }
   const fill = html => html
+    .replaceAll(GREETING, 'Hi Tayla,')
     .replaceAll('{{ .Token }}', '482913')
     .replaceAll('{{ .Email }}', sample.email)
     .replaceAll('{{ .NewEmail }}', 'tayla.vhw@example.org')

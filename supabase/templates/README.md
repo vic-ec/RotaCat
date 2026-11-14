@@ -33,6 +33,12 @@ are not used by the app and are left at Supabase's defaults.
 
 ## Things the copy assumes
 
+- The footer reads `vic-ec © <year>`. The Edge Function fills the year at
+  send time; these generated files carry the year they were generated, so
+  regenerate and re-paste them each January.
+- "Contact your roster administrator" links to `admin.rotacat@gmail.com`
+  (`ADMIN_EMAIL` in `email.ts`). Change it there, not in the HTML.
+
 - **Confirm sign up** uses `{{ .Token }}`, the 6-digit code the app's
   confirmation screen asks for. It says the code lasts one hour; that is the
   project's default OTP expiry (Authentication → Providers → Email → "Email

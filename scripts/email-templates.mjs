@@ -19,7 +19,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import {
-  renderEmail, panelLabel, panelValue, panelCode, buildHtml,
+  renderEmail, panelLabel, panelValue, panelCode, buildHtml, adminLink,
 } from '../supabase/functions/admin-staff-credentials/email.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -63,7 +63,7 @@ const authTemplates = {
     notes: [
       'Until both confirmations are in, you keep signing in with your current address.',
     ],
-    footnote: "If you didn't request this change, please contact your roster administrator &mdash; someone may have access to your account.",
+    footnote: `If you didn't request this change, please ${adminLink()} &mdash; someone may have access to your account.`,
   }),
 }
 

@@ -369,6 +369,14 @@ export function groupEntriesByWeekend(entries) {
 //   unmatchedSourceCount — how many source weekends had no same-parity
 //               target to land on (that parity ran longer on the source
 //               side than the target), i.e. how many were silently dropped.
+//   unmatchedSourceSaturdays — those weekends' own dates, for naming them.
+//   unfilledTargets — [{ saturday, repeatOf }] — target weekends that had no
+//               source of their parity to take from (the target month runs
+//               a weekend longer). `repeatOf` is the last target weekend of
+//               the same parity that DID receive a source, i.e. two weeks
+//               earlier: the natural weekend to repeat if the admin asks.
+//               With `fillExtraTargets: true` these are filled from the same
+//               source that fed `repeatOf`, through the same skip rules.
 //
 // `sourceWeekends` is [{ saturday, entries }, ...] — each source weekend's
 // OWN date, not just its entries, matters here: once there's more than one
@@ -390,11 +398,13 @@ export function groupEntriesByWeekend(entries) {
 // Saturdays are always opposite parity, so parity-matching a lone weekend
 // would often refuse to paste at all (any target one week away from the
 // source would land in a parity bucket the source doesn't occupy).
-export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
+export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWeekend, activeDoctorIds, mode = 'fill-empty', fillExtraTargets = false }) {
   const toInsert = []
   const toDelete = []
   const skipped = []
   let unmatchedSourceCount = 0
+  const unmatchedSourceSaturdays = []
+  const unfilledTargets = []
 
   function processPair(sourceEntries, targetSaturday, weekendIndex) {
     const existingBySaturday = existingByWeekend.get(targetSaturday) || {}
@@ -436,8 +446,9 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
       processPair(sourceWeekends[0].entries, targetSaturdays[0], 0)
     } else if (sourceWeekends.length === 1) {
       unmatchedSourceCount = 1
+      unmatchedSourceSaturdays.push(sourceWeekends[0].saturday)
     }
-    return { toInsert, toDelete, skipped, unmatchedSourceCount }
+    return { toInsert, toDelete, skipped, unmatchedSourceCount, unmatchedSourceSaturdays, unfilledTargets }
   }
 
   const sourceByParity = { true: [], false: [] }
@@ -450,13 +461,22 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
     const targets = targetByParity[parity]
     const matchedCount = Math.min(sources.length, targets.length)
     unmatchedSourceCount += Math.max(0, sources.length - targets.length)
+    for (let i = matchedCount; i < sources.length; i++) unmatchedSourceSaturdays.push(sources[i].saturday)
 
     for (let i = 0; i < matchedCount; i++) {
       processPair(sources[i].entries, targets[i], i)
     }
+    // The target month ran longer in this parity: name the spare weekends,
+    // and fill each by repeating the last source of this parity if asked.
+    if (matchedCount > 0) {
+      for (let i = matchedCount; i < targets.length; i++) {
+        unfilledTargets.push({ saturday: targets[i], repeatOf: targets[matchedCount - 1] })
+        if (fillExtraTargets) processPair(sources[matchedCount - 1].entries, targets[i], i)
+      }
+    }
   }
 
-  return { toInsert, toDelete, skipped, unmatchedSourceCount }
+  return { toInsert, toDelete, skipped, unmatchedSourceCount, unmatchedSourceSaturdays, unfilledTargets }
 }
 
 // Scales planWeekendPaste up to a copied month or quarter without changing
@@ -478,27 +498,32 @@ export function planWeekendPaste({ sourceWeekends, targetSaturdays, existingByWe
 // month with no matching target month (quarter longer than what's
 // available to paste into) has its weekends counted in unmatchedSourceCount
 // same as planWeekendPaste's own per-weekend case.
-export function planWeekendPasteAcrossMonths({ sourceMonths, targetMonths, existingByWeekend, activeDoctorIds, mode = 'fill-empty' }) {
+export function planWeekendPasteAcrossMonths({ sourceMonths, targetMonths, existingByWeekend, activeDoctorIds, mode = 'fill-empty', fillExtraTargets = false }) {
   const toInsert = []
   const toDelete = []
   const skipped = []
   let unmatchedSourceCount = 0
+  const unmatchedSourceSaturdays = []
+  const unfilledTargets = []
   const matchedMonthCount = Math.min(sourceMonths.length, targetMonths.length)
 
   for (let i = 0; i < matchedMonthCount; i++) {
     const monthPlan = planWeekendPaste({
-      sourceWeekends: sourceMonths[i], targetSaturdays: targetMonths[i], existingByWeekend, activeDoctorIds, mode,
+      sourceWeekends: sourceMonths[i], targetSaturdays: targetMonths[i], existingByWeekend, activeDoctorIds, mode, fillExtraTargets,
     })
     toInsert.push(...monthPlan.toInsert)
     toDelete.push(...monthPlan.toDelete)
     skipped.push(...monthPlan.skipped)
     unmatchedSourceCount += monthPlan.unmatchedSourceCount
+    unmatchedSourceSaturdays.push(...monthPlan.unmatchedSourceSaturdays)
+    unfilledTargets.push(...monthPlan.unfilledTargets)
   }
   for (let i = matchedMonthCount; i < sourceMonths.length; i++) {
     unmatchedSourceCount += sourceMonths[i].length
+    unmatchedSourceSaturdays.push(...sourceMonths[i].map(w => w.saturday))
   }
 
-  return { toInsert, toDelete, skipped, unmatchedSourceCount }
+  return { toInsert, toDelete, skipped, unmatchedSourceCount, unmatchedSourceSaturdays, unfilledTargets }
 }
 
 // The durable-undo diffing behind "Restore this" (WeekendPlannerChangeLogModal)

@@ -347,9 +347,13 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
 // always match what Confirm would actually do.
 function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWeekend, activeDoctorIds, saving, onConfirm, onClose }) {
   const [mode, setMode] = useState('fill-empty')
+  // Off by default: repeating a weekend is a guess about the rota, and an
+  // admin who wants the spare weekend left open should not have to notice
+  // and untick something.
+  const [fillExtra, setFillExtra] = useState(false)
   const plan = useMemo(
-    () => planWeekendPasteAcrossMonths({ sourceMonths: clipboard.months, targetMonths, existingByWeekend, activeDoctorIds, mode }),
-    [clipboard, targetMonths, existingByWeekend, activeDoctorIds, mode]
+    () => planWeekendPasteAcrossMonths({ sourceMonths: clipboard.months, targetMonths, existingByWeekend, activeDoctorIds, mode, fillExtraTargets: fillExtra }),
+    [clipboard, targetMonths, existingByWeekend, activeDoctorIds, mode, fillExtra]
   )
   const inactiveCount = plan.skipped.filter(s => s.reason === 'inactive').length
   const alreadyAssignedCount = plan.skipped.filter(s => s.reason === 'already-assigned').length
@@ -387,12 +391,31 @@ function WeekendPasteModal({ clipboard, targetMonths, targetLabel, existingByWee
 
         {plan.unmatchedSourceCount > 0 && (
           <p className="mt-3 text-xs text-ink-muted">
-            {clipboard.sourceLabel} had {sourceWeekendCount} weekends, {targetLabel} has {targetWeekendCount} — the last {plan.unmatchedSourceCount} won&rsquo;t be pasted.
+            {clipboard.sourceLabel} has {sourceWeekendCount} weekends, {targetLabel} has {targetWeekendCount} — {' '}
+            {plan.unmatchedSourceSaturdays.length > 0
+              ? `${plan.unmatchedSourceSaturdays.map(formatWeekendRange).join(', ')} ${plan.unmatchedSourceSaturdays.length === 1 ? 'has' : 'have'} no weekend to paste into and won’t be pasted.`
+              : `the last ${plan.unmatchedSourceCount} won’t be pasted.`}
           </p>
+        )}
+        {plan.unfilledTargets.length > 0 && (
+          <div className="mt-3 rounded-lg border border-flagAmber/40 bg-flagAmber-bg/40 px-3 py-2 text-xs text-ink">
+            <p>
+              {targetLabel} has {targetWeekendCount} weekends, {clipboard.sourceLabel} has {sourceWeekendCount} — {' '}
+              {plan.unfilledTargets.map(t => formatWeekendRange(t.saturday)).join(', ')} {plan.unfilledTargets.length === 1 ? 'has' : 'have'} nothing to copy from and will stay empty.
+            </p>
+            <label className="mt-2 flex cursor-pointer items-start gap-2">
+              <input type="checkbox" checked={fillExtra} onChange={e => setFillExtra(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-line text-accent focus:ring-accent" />
+              <span>
+                {plan.unfilledTargets.length === 1
+                  ? `Fill ${formatWeekendRange(plan.unfilledTargets[0].saturday)} with the same doctors as ${formatWeekendRange(plan.unfilledTargets[0].repeatOf)}`
+                  : `Fill ${plan.unfilledTargets.map(t => formatWeekendRange(t.saturday)).join(' and ')} with the same doctors as the weekend two weeks before each`}
+              </span>
+            </label>
+          </div>
         )}
 
         <p className="mt-3 text-sm text-ink">
-          Will add {plan.toInsert.length} assignment{plan.toInsert.length === 1 ? '' : 's'} across {weekendCount} weekend{weekendCount === 1 ? '' : 's'}.
+          Will add {plan.toInsert.length} assignment{plan.toInsert.length === 1 ? '' : 's'} across {weekendCount + (fillExtra ? plan.unfilledTargets.length : 0)} weekend{weekendCount + (fillExtra ? plan.unfilledTargets.length : 0) === 1 ? '' : 's'}.
           {alreadyAssignedCount > 0 && ` ${alreadyAssignedCount} skipped (already assigned elsewhere that weekend).`}
           {inactiveCount > 0 && ` ${inactiveCount} skipped (no longer active).`}
           {mode === 'overwrite' && plan.toDelete.length > 0 && ` ${plan.toDelete.length} existing assignment${plan.toDelete.length === 1 ? '' : 's'} will be removed first.`}
@@ -1426,11 +1449,31 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // group after a divider (previously a separate always-visible button on
   // both viewports; now this menu's one home instead of two entry points
   // to the same action). Shared by both viewports' own trigger instances.
+  // Paste, wherever the clipboard came from, offered in the More menu and
+  // the phone's ⊕. A copied weekend pastes into the SELECTED weekend (tap a
+  // card on a phone, a row on a desktop), so the action is disabled until
+  // one is chosen that is not the source itself; a copied month or quarter
+  // pastes into the one being viewed, as the clipboard pill's button does.
+  const pasteWeekendTarget = clipboard?.granularity === 'weekend'
+    && selectedSaturday && searchedSaturdays.includes(selectedSaturday) && selectedSaturday !== clipboard.sourceSaturday
+    ? selectedSaturday : null
+  const pasteActions = !isAdmin || !clipboard ? [] : clipboard.granularity === 'weekend' ? [{
+    key: 'paste-weekend',
+    label: pasteWeekendTarget ? `Paste into ${formatWeekendRange(pasteWeekendTarget)}` : 'Paste weekend — select a weekend first',
+    disabled: !pasteWeekendTarget,
+    onClick: () => pasteWeekendTarget && openWeekendPaste(pasteWeekendTarget),
+  }] : clipboard.granularity === 'month' ? [{
+    key: 'paste-month', label: `Paste into ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, disabled: monthSaturdays.length === 0, onClick: openMonthPaste,
+  }] : [{
+    key: 'paste-quarter', label: `Paste into ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, onClick: openQuarterPaste,
+  }]
+
   const weekendMenuItems = [
-    { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]}`, disabled: monthSaturdays.length === 0, onClick: copyMonth },
-    { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: 'Copy quarter', disabled: monthSaturdays.length === 0, onClick: copyQuarter },
-    { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
-    { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: 'Clear quarter', danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
+    { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, disabled: monthEntryCount === 0, onClick: copyMonth },
+    { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: `Copy ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, disabled: quarterEntryCount === 0, onClick: copyQuarter },
+    ...pasteActions.map(a => ({ key: a.key, icon: <ClipboardPaste className="h-4 w-4" />, label: a.label, disabled: a.disabled, onClick: a.onClick })),
+    { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
+    { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
     'divider',
     { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', onClick: () => setShowChangeLog(true) },
   ]
@@ -1504,7 +1547,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {isAdmin && clipboard && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
-              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend’s ⋮ menu to paste' : ''}</span>
+              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — select another weekend, then paste from ⊕ or its ⋮ menu' : ''}</span>
               <div className="flex items-center gap-2">
                 {clipboard.granularity === 'month' && (
                   <button type="button" onClick={openMonthPaste} className="btn-primary px-3">
@@ -1564,6 +1607,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 sheetTitle: 'Filters',
               }}
               moreMenu={isAdmin ? { title: 'More actions', items: weekendMenuItems } : undefined}
+              actions={pasteActions.map(a => ({ ...a, icon: ClipboardPaste }))}
             />
             {/* "Next weekend needing staff" moved to the year overview
                 (WeekendYearOverview, between its year selector and Selected
@@ -1610,7 +1654,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <div
                     key={saturday}
                     ref={el => { if (el) cardRefs.current.set(saturday, el); else cardRefs.current.delete(saturday) }}
-                    className={`card border-l-4 p-4 ${even ? 'border-l-groupEven' : 'border-l-groupOdd'} ${isClipboardSource ? 'ring-2 ring-accent' : ''}`}
+                    data-testid="weekend-card"
+                    data-selected={selectedSaturday === saturday || undefined}
+                    onClick={() => setSelectedSaturday(saturday)}
+                    /* Tapping anywhere on the card selects the weekend — the
+                       target for a paste from the ⊕ or the More menu. The
+                       selected card gets the accent ring; the one the
+                       clipboard was copied from, a dashed outline. */
+                    className={`card cursor-pointer border-l-4 p-4 ${even ? 'border-l-groupEven' : 'border-l-groupOdd'} ${
+                      selectedSaturday === saturday ? 'ring-2 ring-accent' : ''
+                    } ${isClipboardSource ? 'outline-dashed outline-2 outline-offset-2 outline-accent' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

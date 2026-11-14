@@ -1426,9 +1426,29 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   // group after a divider (previously a separate always-visible button on
   // both viewports; now this menu's one home instead of two entry points
   // to the same action). Shared by both viewports' own trigger instances.
+  // Paste, wherever the clipboard came from, offered in the More menu and
+  // the phone's ⊕. A copied weekend pastes into the SELECTED weekend (tap a
+  // card on a phone, a row on a desktop), so the action is disabled until
+  // one is chosen that is not the source itself; a copied month or quarter
+  // pastes into the one being viewed, as the clipboard pill's button does.
+  const pasteWeekendTarget = clipboard?.granularity === 'weekend'
+    && selectedSaturday && searchedSaturdays.includes(selectedSaturday) && selectedSaturday !== clipboard.sourceSaturday
+    ? selectedSaturday : null
+  const pasteActions = !isAdmin || !clipboard ? [] : clipboard.granularity === 'weekend' ? [{
+    key: 'paste-weekend',
+    label: pasteWeekendTarget ? `Paste into ${formatWeekendRange(pasteWeekendTarget)}` : 'Paste weekend — select a weekend first',
+    disabled: !pasteWeekendTarget,
+    onClick: () => pasteWeekendTarget && openWeekendPaste(pasteWeekendTarget),
+  }] : clipboard.granularity === 'month' ? [{
+    key: 'paste-month', label: `Paste into ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, disabled: monthSaturdays.length === 0, onClick: openMonthPaste,
+  }] : [{
+    key: 'paste-quarter', label: `Paste into ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, onClick: openQuarterPaste,
+  }]
+
   const weekendMenuItems = [
     { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]}`, disabled: monthSaturdays.length === 0, onClick: copyMonth },
     { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: 'Copy quarter', disabled: monthSaturdays.length === 0, onClick: copyQuarter },
+    ...pasteActions.map(a => ({ key: a.key, icon: <ClipboardPaste className="h-4 w-4" />, label: a.label, disabled: a.disabled, onClick: a.onClick })),
     { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
     { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: 'Clear quarter', danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
     'divider',
@@ -1504,7 +1524,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
 
           {isAdmin && clipboard && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent-tint px-3 py-2 text-sm text-accent-dark">
-              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — tap another weekend’s ⋮ menu to paste' : ''}</span>
+              <span>📋 {clipboard.sourceLabel} copied{clipboard.granularity === 'weekend' ? ' — select another weekend, then paste from ⊕ or its ⋮ menu' : ''}</span>
               <div className="flex items-center gap-2">
                 {clipboard.granularity === 'month' && (
                   <button type="button" onClick={openMonthPaste} className="btn-primary px-3">
@@ -1564,6 +1584,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 sheetTitle: 'Filters',
               }}
               moreMenu={isAdmin ? { title: 'More actions', items: weekendMenuItems } : undefined}
+              actions={pasteActions.map(a => ({ ...a, icon: ClipboardPaste }))}
             />
             {/* "Next weekend needing staff" moved to the year overview
                 (WeekendYearOverview, between its year selector and Selected
@@ -1610,7 +1631,16 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                   <div
                     key={saturday}
                     ref={el => { if (el) cardRefs.current.set(saturday, el); else cardRefs.current.delete(saturday) }}
-                    className={`card border-l-4 p-4 ${even ? 'border-l-groupEven' : 'border-l-groupOdd'} ${isClipboardSource ? 'ring-2 ring-accent' : ''}`}
+                    data-testid="weekend-card"
+                    data-selected={selectedSaturday === saturday || undefined}
+                    onClick={() => setSelectedSaturday(saturday)}
+                    /* Tapping anywhere on the card selects the weekend — the
+                       target for a paste from the ⊕ or the More menu. The
+                       selected card gets the accent ring; the one the
+                       clipboard was copied from, a dashed outline. */
+                    className={`card cursor-pointer border-l-4 p-4 ${even ? 'border-l-groupEven' : 'border-l-groupOdd'} ${
+                      selectedSaturday === saturday ? 'ring-2 ring-accent' : ''
+                    } ${isClipboardSource ? 'outline-dashed outline-2 outline-offset-2 outline-accent' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">

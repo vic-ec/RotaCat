@@ -1268,7 +1268,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(aug8Menu).getByRole('button', { name: 'Copy weekend' }))
 
       expect(await screen.findByText(/Sat 8 - Sun 9 Aug 2026 copied/)).toBeInTheDocument()
-      expect(aug8Card.className).toMatch(/ring-2 ring-accent/)
+      expect(aug8Card.className).toMatch(/outline-dashed/)
 
       const aug15Card = (await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' })).closest('.card')
       await user.click(within(aug15Card).getByRole('button', { name: 'More actions for weekend 2026-08-15' }))
@@ -1279,6 +1279,57 @@ describe('WeekendPlannerView', () => {
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
 
       expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin (phone): a copied weekend pastes into the tapped card from the ⊕, which stays disabled until a target is chosen', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const aug8Card = (await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' })).closest('.card')
+      await user.click(within(aug8Card).getByRole('button', { name: 'More actions for weekend 2026-08-08' }))
+      await user.click(within(await screen.findByRole('dialog', { name: 'Sat 8 - Sun 9 Aug 2026' })).getByRole('button', { name: 'Copy weekend' }))
+      await screen.findByText(/Sat 8 - Sun 9 Aug 2026 copied/)
+
+      // Nothing selected yet: the ⊕ offers paste, greyed out.
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      expect(screen.getByRole('button', { name: 'Paste weekend — select a weekend first' })).toHaveAttribute('aria-disabled', 'true')
+      await user.click(screen.getByRole('button', { name: 'Close quick actions' }))
+
+      // Tap another card to select it, then paste from the ⊕.
+      const aug15Card = (await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' })).closest('.card')
+      await user.click(within(aug15Card).getByText(/Wknd 3/))
+      expect(aug15Card).toHaveAttribute('data-selected', 'true')
+      expect(aug15Card.className).toMatch(/ring-2 ring-accent/)
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      await user.click(screen.getByRole('button', { name: 'Paste into Sat 15 - Sun 16 Aug 2026' }))
+
+      await screen.findByRole('heading', { name: /Paste Sat 8 - Sun 9 Aug 2026 into Sat 15 - Sun 16 Aug 2026/ })
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin (phone): a copied month offers Paste into the viewed month from the ⊕ and the More menu', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      await user.click(screen.getByRole('button', { name: 'More actions' }))
+      await user.click(await screen.findByRole('button', { name: 'Copy August' }))
+      await screen.findByText(/August 2026 copied/)
+
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      // Both the ⊕ action and the More menu entry exist; the pill's own
+      // button makes three routes to the same paste.
+      expect(screen.getAllByRole('button', { name: 'Paste into August 2026' }).length).toBeGreaterThanOrEqual(2)
+      await user.click(screen.getByRole('button', { name: 'More actions' }))
+      const sheet = await screen.findByRole('dialog', { name: 'More actions' })
+      expect(within(sheet).getByRole('button', { name: 'Paste into August 2026' })).toBeInTheDocument()
     })
 
     it('non-admin: no Clear weekend action on the mobile card or desktop inspector', async () => {

@@ -140,15 +140,26 @@ function wordmark(p: Palette) {
   return `<span class="rc-ink" style="font-family:${SERIF};font-size:30px;line-height:1.1;font-weight:600;letter-spacing:0.2px;color:${p.ink};">Rota<span class="rc-accent" style="color:${p.accent};">Cat</span></span>`
 }
 
+// Every "RotaCat" in running text gets the wordmark's two-tone treatment
+// too: "Rota" inherits the surrounding ink, "Cat" takes the accent (and
+// the dark accent under dark mode via .rc-accent). The button label is the
+// one exception — on an accent fill the teal "Cat" would vanish — so it is
+// not passed through this.
+export function brand(html: string): string {
+  const p = EMAIL_PALETTE.light
+  return html.replace(/RotaCat/g, `Rota<span class="rc-accent" style="color:${p.accent};">Cat</span>`)
+}
+
 export function renderEmail(parts: EmailParts): string {
   const p = EMAIL_PALETTE.light
   const d = EMAIL_PALETTE.dark
+  const b = brand
   const greeting = parts.greeting
-    ? `<p class="rc-ink" style="margin:0 0 14px;font-size:15px;line-height:1.55;color:${p.ink};">${parts.greeting}</p>`
+    ? `<p class="rc-ink" style="margin:0 0 14px;font-size:15px;line-height:1.55;color:${p.ink};">${b(parts.greeting)}</p>`
     : ''
   const panel = parts.panel
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="rc-panel" style="margin:22px 0 0;background-color:${p.cool};border:1px solid ${p.line};border-radius:10px;">
-                  <tr><td style="padding:18px 20px;">${parts.panel}</td></tr>
+                  <tr><td style="padding:18px 20px;">${b(parts.panel)}</td></tr>
                 </table>`
     : ''
   const button = parts.button
@@ -161,10 +172,10 @@ export function renderEmail(parts: EmailParts): string {
                 </table>`
     : ''
   const notes = (parts.notes ?? [])
-    .map(n => `<p class="rc-ink-light" style="margin:22px 0 0;font-size:14px;line-height:1.6;color:${p.inkLight};">${n}</p>`)
+    .map(n => `<p class="rc-ink-light" style="margin:22px 0 0;font-size:14px;line-height:1.6;color:${p.inkLight};">${b(n)}</p>`)
     .join('\n                ')
   const footnote = parts.footnote
-    ? `<p class="rc-ink-muted rc-rule" style="margin:24px 0 0;padding-top:18px;border-top:1px solid ${p.line};font-size:13px;line-height:1.55;color:${p.inkMuted};">${parts.footnote}</p>`
+    ? `<p class="rc-ink-muted rc-rule" style="margin:24px 0 0;padding-top:18px;border-top:1px solid ${p.line};font-size:13px;line-height:1.55;color:${p.inkMuted};">${b(parts.footnote)}</p>`
     : ''
 
   return `<!doctype html>
@@ -200,9 +211,9 @@ export function renderEmail(parts: EmailParts): string {
             </tr>
             <tr>
               <td style="padding:28px 32px 30px;">
-                <h1 class="rc-ink" style="margin:0 0 16px;font-family:${SANS};font-size:22px;line-height:1.3;font-weight:600;color:${p.ink};">${parts.heading}</h1>
+                <h1 class="rc-ink" style="margin:0 0 16px;font-family:${SANS};font-size:22px;line-height:1.3;font-weight:600;color:${p.ink};">${b(parts.heading)}</h1>
                 ${greeting}
-                <p class="rc-ink" style="margin:0;font-size:15px;line-height:1.6;color:${p.ink};">${parts.intro}</p>
+                <p class="rc-ink" style="margin:0;font-size:15px;line-height:1.6;color:${p.ink};">${b(parts.intro)}</p>
                 ${panel}
                 ${button}
                 ${notes}
@@ -210,7 +221,7 @@ export function renderEmail(parts: EmailParts): string {
               </td>
             </tr>
           </table>
-          <p class="rc-ink-muted" style="margin:18px 0 0;font-family:${SANS};font-size:12px;line-height:1.5;color:${p.inkMuted};">RotaCat &middot; VHW Emergency Centre</p>
+          <p class="rc-ink-muted" style="margin:18px 0 0;font-family:${SANS};font-size:12px;line-height:1.5;color:${p.inkMuted};">${b('RotaCat')} &middot; VHW Emergency Centre</p>
         </td>
       </tr>
     </table>

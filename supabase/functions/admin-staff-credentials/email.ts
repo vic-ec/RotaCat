@@ -42,7 +42,7 @@ export function buildHtml({ firstName, password, appUrl, isReset }: Omit<Welcome
       panelValue(escapeHtml(password), { last: true, mono: true }),
     button: appUrl ? { label: 'Sign in to your account', href: escapeHtml(appUrl) } : undefined,
     notes: [
-      `You will be asked to choose your own password the first time you sign in. ${PASSWORD_RULES}`,
+      `This temporary password is valid for 14 days. You will be asked to choose your own password the first time you sign in. ${PASSWORD_RULES}`,
     ],
     footnote: `If you weren't expecting this email, please ${adminLink()}.`,
   })
@@ -62,6 +62,7 @@ export function buildText({ firstName, password, appUrl, isReset }: Omit<Welcome
     '',
     appUrl ? `Sign in: ${appUrl}` : '',
     '',
+    'This temporary password is valid for 14 days.',
     'You will be asked to choose your own password the first time you sign in.',
     PASSWORD_RULES,
     '',

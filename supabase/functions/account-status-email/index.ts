@@ -2,7 +2,7 @@
 // administrator approves or rejects their registration.
 //
 // Called by the database, not the browser: the trigger in
-// supabase/migrations/20261114120000_account_status_email_trigger.sql
+// supabase/migrations/20261114130000_account_status_email_trigger.sql
 // fires after `profiles.is_approved` or `profiles.is_rejected` flips to
 // true and POSTs here through pg_net. That is deliberate — the decision
 // and the email are then tied to the row changing, so it works whichever

@@ -2,7 +2,7 @@
 
 Sends the "Your account has been approved" and "Your registration was not
 approved" emails. It is called by the database, not by the app: the trigger
-in `supabase/migrations/20261114120000_account_status_email_trigger.sql`
+in `supabase/migrations/20261114130000_account_status_email_trigger.sql`
 fires when an administrator's decision flips `profiles.is_approved` or
 `profiles.is_rejected` to true, and POSTs here through `pg_net`.
 

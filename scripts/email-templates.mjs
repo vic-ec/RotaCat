@@ -42,7 +42,7 @@ const GREETING = '{{ if .Data.name }}Hi {{ .Data.name }},{{ else }}Hi there,{{ e
 const authTemplates = {
   'confirm-signup': renderEmail({
     preheader: 'Your RotaCat confirmation code is {{ .Token }}.',
-    heading: 'Confirm your email address',
+    heading: 'Confirm your account',
     greeting: GREETING,
     intro: 'Thanks for creating a RotaCat account. Enter this code on the confirmation screen to finish signing up &mdash; it is valid for one hour.',
     panel: panelLabel('Confirmation code') + panelCode('{{ .Token }}'),

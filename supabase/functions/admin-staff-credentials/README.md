@@ -8,7 +8,16 @@ both actions live here rather than in the frontend.
 ```
 POST { action: 'create',     ...form fields }  → new confirmed auth user + filled-in profile
 POST { action: 'regenerate', profileId }       → fresh password for an existing account
+POST { action: 'delete',     profileId }       → remove the auth user; the profile cascades
 ```
+
+`delete` is refused for the caller's own account, for admins, and for anyone
+who already appears on a roster or weekend plan (those rows are history and
+do not cascade — deactivate the account instead). It clears the handful of
+non-history references first (change requests, leave balances, staff
+reference row, `approved_by` on other profiles), then deletes the auth
+user; `profiles.id` cascades from `auth.users`, and the person's own leave,
+rotations, weekend patterns, notifications and stats cascade from there.
 
 `create` takes `rotations` as an array of `{ rotationType, subtype, startDate,
 endDate }`, so an Intern's or Registrar's whole year can be planned at

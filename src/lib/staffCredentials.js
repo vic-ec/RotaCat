@@ -53,3 +53,13 @@ export async function createStaffAccount(fields) {
 export async function regenerateStaffPassword(profileId) {
   return invoke({ action: 'regenerate', profileId })
 }
+
+/**
+ * Permanently removes an account: the auth user and, by cascade, the
+ * profile and the person's own leave, rotation and planner rows. Refused
+ * for admins, for the caller's own account, and for anyone with roster
+ * history (deactivate those instead). Resolves to { ok } or { ok: false, error }.
+ */
+export async function deleteStaffAccount(profileId) {
+  return invoke({ action: 'delete', profileId })
+}

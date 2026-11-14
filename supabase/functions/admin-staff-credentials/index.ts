@@ -9,6 +9,7 @@
 //
 //   POST { action: 'create',     ...form fields }  → new auth user + profile
 //   POST { action: 'regenerate', profileId }       → new password for an existing one
+//   POST { action: 'delete',     profileId }       → remove the auth user (profile cascades)
 //
 // This runs with the service role key and is therefore the only place in
 // the system that can mint credentials. Every request is authenticated as
@@ -93,7 +94,7 @@ Deno.serve(async (req: Request) => {
     .eq('id', caller.user.id)
     .single()
   if (callerProfileError || callerProfile?.is_admin !== true) {
-    return json({ error: 'Only an admin can issue staff credentials.' }, 403)
+    return json({ error: 'Only an admin can manage staff accounts.' }, 403)
   }
 
   let payload: Record<string, unknown>
@@ -111,11 +112,12 @@ Deno.serve(async (req: Request) => {
   try {
     if (payload.action === 'create') return await handleCreate(admin, payload, caller.user.id, appUrl)
     if (payload.action === 'regenerate') return await handleRegenerate(admin, payload, appUrl)
+    if (payload.action === 'delete') return await handleDelete(admin, payload, caller.user.id)
     return json({ error: 'Unknown action.' }, 400)
   } catch (err) {
     if (err instanceof ValidationError) return json({ error: err.message }, 400)
     console.error('admin-staff-credentials failed:', err instanceof Error ? err.message : String(err))
-    return json({ error: 'Something went wrong creating the account. Nothing was saved.' }, 500)
+    return json({ error: 'Something went wrong. Nothing was changed.' }, 500)
   }
 })
 
@@ -426,4 +428,71 @@ async function handleRegenerate(
     ...delivery,
     ...(delivery.emailSent ? {} : { password }),
   })
+}
+
+// Permanent removal. Deleting the auth user cascades to the profile
+// (profiles.id → auth.users ON DELETE CASCADE) and from there to the
+// person's own leave requests, rotations, weekend patterns, notifications
+// and stats. Rows that record what they DID on a roster or weekend plan
+// (roster_entries, weekend_planner_entries, swap_requests, shift claims)
+// are history other people rely on and do not cascade, so an account with
+// any of those is refused here and should be deactivated instead. The few
+// remaining hard references that carry no history are cleared first.
+const HISTORY_TABLES: Array<[string, string]> = [
+  ['roster_entries', 'profile_id'],
+  ['weekend_planner_entries', 'profile_id'],
+  ['swap_requests', 'requester_id'],
+  ['swap_requests', 'target_id'],
+  ['shift_advertisements', 'claimed_by'],
+]
+
+async function handleDelete(
+  admin: ReturnType<typeof createClient>,
+  payload: Record<string, unknown>,
+  callerId: string,
+) {
+  const profileId = trimmed(payload.profileId)
+  if (!profileId) throw new ValidationError('profileId is required.')
+  if (profileId === callerId) throw new ValidationError('You cannot delete your own account from here.')
+
+  const { data: target, error: targetError } = await admin
+    .from('profiles')
+    .select('id, name, surname, is_admin')
+    .eq('id', profileId)
+    .maybeSingle()
+  if (targetError) throw new Error(`Could not read the account: ${targetError.message}`)
+  if (!target) throw new ValidationError('No account found for that person.')
+  if (target.is_admin) throw new ValidationError('Admin accounts cannot be deleted from the app.')
+
+  for (const [table, column] of HISTORY_TABLES) {
+    const { count, error } = await admin.from(table).select('*', { count: 'exact', head: true }).eq(column, profileId)
+    if (error) throw new Error(`Could not check ${table}: ${error.message}`)
+    if ((count ?? 0) > 0) {
+      throw new ValidationError(
+        'This account already appears on a roster or weekend plan, so it cannot be deleted. Deactivate it instead.',
+      )
+    }
+  }
+
+  // Non-history references that would otherwise block the cascade.
+  const clears: Array<Promise<{ error: { message: string } | null }>> = [
+    admin.from('account_change_requests').delete().eq('profile_id', profileId),
+    admin.from('annual_leave_balances').delete().eq('profile_id', profileId),
+    admin.from('staff_reference').delete().eq('profile_id', profileId),
+    admin.from('profiles').update({ approved_by: null }).eq('approved_by', profileId),
+  ]
+  for (const step of clears) {
+    const { error } = await step
+    if (error) throw new Error(`Could not clear references: ${error.message}`)
+  }
+
+  const { error: deleteError } = await admin.auth.admin.deleteUser(profileId)
+  if (deleteError) {
+    if (/foreign key|violates/i.test(deleteError.message)) {
+      throw new ValidationError('This account is still referenced by other records and cannot be deleted. Deactivate it instead.')
+    }
+    throw new Error(`Delete failed: ${deleteError.message}`)
+  }
+
+  return json({ ok: true })
 }

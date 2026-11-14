@@ -256,6 +256,7 @@ async function handleCreate(
       scheduled_active_date: startsNow ? null : activeFrom,
       scheduled_inactive_date: activeUntil,
       must_change_password: true,
+      temp_password_issued_at: new Date().toISOString(),
       email_verified: true,
     })
     .eq('id', userId)
@@ -408,7 +409,7 @@ async function handleRegenerate(
 
   const { error: flagError } = await admin
     .from('profiles')
-    .update({ must_change_password: true })
+    .update({ must_change_password: true, temp_password_issued_at: new Date().toISOString() })
     .eq('id', profileId)
   // is_approved is deliberately untouched: a reissued password is a
   // credential change, not a re-vetting of who this person is.

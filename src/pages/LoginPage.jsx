@@ -322,6 +322,8 @@ export default function LoginPage() {
       const invalidCredentials = signInError.message === 'Invalid login credentials'
       if (invalidCredentials) {
         setError('Incorrect email or password.')
+      } else if (signInError.code === 'temp_password_expired') {
+        setError(signInError.message)
       } else if (signInError.message === 'Email not confirmed') {
         setError('Email not confirmed.')
         setUnconfirmedEmail(email)

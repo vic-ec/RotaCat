@@ -1469,11 +1469,11 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
   }]
 
   const weekendMenuItems = [
-    { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]}`, disabled: monthEntryCount === 0, onClick: copyMonth },
-    { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: 'Copy quarter', disabled: quarterEntryCount === 0, onClick: copyQuarter },
+    { key: 'copy-month', icon: <Copy className="h-4 w-4" />, label: `Copy ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, disabled: monthEntryCount === 0, onClick: copyMonth },
+    { key: 'copy-quarter', icon: <Copy className="h-4 w-4" />, label: `Copy ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, disabled: quarterEntryCount === 0, onClick: copyQuarter },
     ...pasteActions.map(a => ({ key: a.key, icon: <ClipboardPaste className="h-4 w-4" />, label: a.label, disabled: a.disabled, onClick: a.onClick })),
-    { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
-    { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: 'Clear quarter', danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
+    { key: 'clear-month', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${MONTH_LABELS[viewMonth - 1]} ${viewYear}`, danger: true, disabled: monthEntryCount === 0, onClick: () => setShowClearMonthModal(true) },
+    { key: 'clear-quarter', icon: <Trash2 className="h-4 w-4" />, label: `Clear ${quarterLabel(quarterMonthsFrom(viewYear, viewMonth))}`, danger: true, disabled: quarterEntryCount === 0, onClick: () => setShowClearQuarterModal(true) },
     'divider',
     { key: 'review-log', icon: <ScrollText className="h-4 w-4" />, label: 'Review log', onClick: () => setShowChangeLog(true) },
   ]

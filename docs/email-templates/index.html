@@ -37,7 +37,7 @@
 <main>
   <header>
     <h1>Rota<span>Cat</span> email mockups</h1>
-    <p>Every email a RotaCat user can receive, rendered from the real templates with sample data. Left is how a phone or mail app in light mode shows it, right is dark mode where the mail client honours it.</p>
+    <p>Every email a RotaCat user can receive, including the two proposed account-decision emails (6 and 7), rendered from the real templates with sample data. Left is how a phone or mail app in light mode shows it, right is dark mode where the mail client honours it.</p>
     <div class="meta"><span><b>Wordmark</b> Rota in ink, Cat in teal, Fraunces semibold</span><span><b>Body</b> Figtree, with the system sans as fallback</span></div>
     <div class="swatches">
       <span class="swatch"><i style="background:#F3F5F6"></i>day ground #F3F5F6</span>
@@ -89,13 +89,37 @@
     </div>
   </section>
 
+  <section>
+    <h2>6. Account approved <small>Admin approves a self-registered account</small></h2>
+    <div class="pair">
+      <figure><figcaption>Light</figcaption><img src="account-approved-light.png" alt="Account approved email, light mode"></figure>
+      <figure><figcaption>Dark</figcaption><img src="account-approved-dark.png" alt="Account approved email, dark mode"></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>6b. Account approved, with a future start date <small>Admin set "Active from"</small></h2>
+    <div class="pair">
+      <figure><figcaption>Light</figcaption><img src="account-approved-scheduled-light.png" alt="Account approved with start date, light mode"></figure>
+      <figure><figcaption>Dark</figcaption><img src="account-approved-scheduled-dark.png" alt="Account approved with start date, dark mode"></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Registration not approved <small>Admin rejects, with an optional note</small></h2>
+    <div class="pair">
+      <figure><figcaption>Light</figcaption><img src="account-not-approved-light.png" alt="Registration not approved email, light mode"></figure>
+      <figure><figcaption>Dark</figcaption><img src="account-not-approved-dark.png" alt="Registration not approved email, dark mode"></figure>
+    </div>
+  </section>
+
   <div class="notes">
     <h2>Where dark mode applies</h2>
     <ul>
       <li>Apple Mail, iOS Mail, Outlook (Mac, iOS, Android, Outlook.com), Samsung Mail and Thunderbird follow the email's own dark palette, as shown on the right.</li>
       <li>Gmail ignores author dark-mode styles and applies its own inversion to the light version. The light palette is the one it starts from.</li>
       <li>Every mention of RotaCat in the text, not only the header, is set with Rota in ink and Cat in teal (mint in dark mode). The button says "Sign in to your account" rather than naming the app, since teal lettering would vanish on the teal fill.</li>
-      <li>Emails 1 and 2 are sent by the Supabase Edge Function in the repo. Emails 3 to 5 are sent by Supabase Auth and must be pasted into the dashboard once.</li>
+      <li>Emails 1, 2, 6 and 7 are sent by Supabase Edge Functions in the repo; 6 and 7 fire from the database when an admin decides. Emails 3 to 5 are sent by Supabase Auth and must be pasted into the dashboard once.</li>
     </ul>
   </div>
 </main>

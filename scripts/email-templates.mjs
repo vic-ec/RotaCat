@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Generates the Supabase Auth email templates — and, with --previews, a
 // light + dark screenshot of every email RotaCat sends — from the one
-// layout in supabase/functions/admin-staff-credentials/email.ts.
+// layout in supabase/functions/_shared/email.ts.
 //
 //   node scripts/email-templates.mjs             # rewrite supabase/templates/*.html
 //   node scripts/email-templates.mjs --previews  # …and docs/email-templates/*.png
@@ -19,8 +19,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import {
-  renderEmail, panelLabel, panelValue, panelCode, buildHtml, adminLink,
-} from '../supabase/functions/admin-staff-credentials/email.ts'
+  renderEmail, panelLabel, panelValue, panelCode, adminLink,
+} from '../supabase/functions/_shared/email.ts'
+import { buildHtml } from '../supabase/functions/admin-staff-credentials/email.ts'
+import { buildApprovedHtml, buildRejectedHtml } from '../supabase/functions/account-status-email/email.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const templatesDir = resolve(root, 'supabase/templates')
@@ -88,6 +90,9 @@ if (process.argv.includes('--previews')) {
     'confirm-signup': fill(authTemplates['confirm-signup']),
     'reset-password': fill(authTemplates['reset-password']),
     'change-email': fill(authTemplates['change-email']),
+    'account-approved': buildApprovedHtml({ firstName: 'Tayla', appUrl: sample.appUrl, activeFrom: null }),
+    'account-approved-scheduled': buildApprovedHtml({ firstName: 'Tayla', appUrl: sample.appUrl, activeFrom: '2026-03-02' }),
+    'account-not-approved': buildRejectedHtml({ firstName: 'Tayla', reason: 'We could not match your details to a current staff member. If you have just joined, please register again with your work email.' }),
   }
 
   // Playwright is a dev-machine tool, not a dependency of the app: resolve

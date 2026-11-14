@@ -617,8 +617,8 @@ export default function RosterGridPage() {
             <ChevronLeftIcon className="h-4 w-4" /> Rosters
           </button>
           <div className="flex flex-shrink-0 items-center gap-2 md:hidden">
-            <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
             <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
+            <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
             <PageActionsMenu items={rosterMenuItems} trigger={kebabTrigger} />
           </div>
         </div>
@@ -794,11 +794,11 @@ export default function RosterGridPage() {
         </div>
 
         <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
-          {/* Shape first (Rows/Lanes), then span (Month/Week). */}
-          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
+          {/* Span (Month/Week), then shape (Rows/Lanes), then size — the
+              three ways of changing the view — and a divider before the
+              places this page links out to. */}
           <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} />
-
-          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} />
 
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
@@ -811,6 +811,8 @@ export default function RosterGridPage() {
             options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
           />
 
+          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+
           {/* Hours Summary — every role except locum (matches Roster Hours
               Summary's own visibility rule). */}
           {!isLocum && (
@@ -821,7 +823,7 @@ export default function RosterGridPage() {
               className="btn-secondary text-sm"
             >
               <ClipboardClock className="h-4 w-4" />
-              <span className="hidden xl:inline">Hours Summary</span>
+              <span className="hidden xl:inline">Hours</span>
             </button>
           )}
 
@@ -833,7 +835,7 @@ export default function RosterGridPage() {
               className="btn-secondary text-sm"
             >
               <ScrollText className="h-4 w-4" />
-              <span className="hidden xl:inline">Review log</span>
+              <span className="hidden xl:inline">Log</span>
             </button>
           )}
 

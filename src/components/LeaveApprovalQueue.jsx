@@ -11,7 +11,7 @@ import LeaveRequestSummary from './LeaveRequestSummary'
 import CapacityAssessment from './CapacityAssessment'
 import AffectedLeaveList from './AffectedLeaveList'
 import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
-import { SelectAllRow, ApprovalAction } from './ListRow'
+import { SelectAllRow } from './ListRow'
 import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
@@ -38,11 +38,8 @@ function hasWarnings(w) {
 // tag, and a one-line "{type} request, submitted {date}" summary.
 // Approve/reject now live in the detail panel (LeaveRequestDetailPanel below) opened by tapping the
 // row, so the row itself only keeps the always-visible View Calendar
-// action — ListRow's `ApprovalAction`, not its `RowActions`, since
-// RowActions collapses even a single action behind a kebab on mobile and
-// this one wants to stay visible on every viewport. (It was a hand-rolled
-// copy of ApprovalAction's neutral tone, which meant it silently missed
-// fixes to the shared tone classes.)
+// action, as the app's standard secondary row button (see the button
+// itself) — always visible, never collapsed behind a kebab.
 function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, checked, onToggleCheck, onOpen, onViewCalendar }) {
   // Same "DD-MM-YYYY · HH:MM" template as the detail drawer's own
   // "Submitted X" meta line, so the row and the drawer never disagree.
@@ -73,12 +70,19 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
         </div>
         <p className="mt-0.5 truncate text-xs text-ink-muted">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</p>
       </div>
-      <ApprovalAction
-        icon={<CalendarSearch className="h-5 w-5" />}
-        label="View Calendar"
-        tone="neutral"
-        onClick={onViewCalendar}
-      />
+      {/* The app's standard row button — a rounded square with just the
+          icon on a phone, icon + words from md — the same recipe as the
+          Rosters list's View / Edit, rather than a one-off circle. */}
+      <button
+        type="button"
+        title="View Calendar"
+        aria-label="View Calendar"
+        onClick={e => { e.stopPropagation(); onViewCalendar() }}
+        className="btn-secondary h-8 flex-shrink-0 px-2 text-xs md:px-2.5"
+      >
+        <CalendarSearch className="h-4 w-4" />
+        <span className="hidden md:inline">View Calendar</span>
+      </button>
     </div>
   )
 }

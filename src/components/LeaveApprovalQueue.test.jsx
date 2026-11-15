@@ -130,7 +130,7 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
-  it('row shows name, category, "<type> request, submitted <date>", and a circular View Calendar icon button', async () => {
+  it('row shows name, category, "<type> request, submitted <date>", and the standard View Calendar row button', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
@@ -139,8 +139,11 @@ describe('LeaveApprovalQueue', () => {
     expect(screen.getByText('Annual leave request, submitted 05-08-2026 · 14:32')).toBeInTheDocument()
 
     const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
-    expect(viewCalendarBtn).toHaveClass('rounded-full', 'border', 'h-8', 'w-8')
-    expect(viewCalendarBtn.className).toMatch(/text-accent/)
+    // The app's standard secondary row button (rounded square), not a
+    // one-off circle; its words are in the DOM for md+ (CSS hides them below).
+    expect(viewCalendarBtn).toHaveClass('btn-secondary', 'h-8')
+    expect(viewCalendarBtn).not.toHaveClass('rounded-full')
+    expect(viewCalendarBtn).toHaveTextContent('View Calendar')
   })
 
   it('clicking a row opens a review drawer with status-led identity, the natural-language period, and a wide primary Approve action', async () => {

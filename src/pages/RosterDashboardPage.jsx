@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -94,6 +94,19 @@ function metaAsLine(meta) {
   return Array.isArray(meta) ? meta.join(' · ') : meta
 }
 
+// A Set of ids kept in sessionStorage under `key`. Takes a Set, not an
+// updater function — every caller here already builds the next Set itself.
+function useSessionSet(key) {
+  const [value, setValue] = useState(() => {
+    try { return new Set(JSON.parse(sessionStorage.getItem(key) || '[]')) } catch { return new Set() }
+  })
+  function set(next) {
+    setValue(next)
+    try { sessionStorage.setItem(key, JSON.stringify([...next])) } catch { /* ignore */ }
+  }
+  return [value, set]
+}
+
 export default function RosterDashboardPage() {
   const navigate = useNavigate()
   const { isAdmin, isLocum } = useAuth()
@@ -131,10 +144,14 @@ export default function RosterDashboardPage() {
   const [lastEditByRosterId, setLastEditByRosterId] = useState({})
 
   const [tab, setTab] = useState('active')
-  const [draftSel, setDraftSel] = useState(new Set())
-  const [pubSel, setPubSel] = useState(new Set())
-  const [archiveSel, setArchiveSel] = useState(new Set())
-  const [binSel, setBinSel] = useState(new Set())
+  // Ticks survive a trip into a roster and back (sessionStorage) — one
+  // stray click on a row used to cost the whole selection. They still
+  // clear on a tab switch and when the browser tab closes.
+  const [draftSel, setDraftSel] = useSessionSet('rotacat:rosterSel:draft')
+  const [pubSel, setPubSel] = useSessionSet('rotacat:rosterSel:published')
+  const [archiveSel, setArchiveSel] = useSessionSet('rotacat:rosterSel:archive')
+  const [binSel, setBinSel] = useSessionSet('rotacat:rosterSel:bin')
+  const prevTab = useRef(tab)
 
   const [activeSearch, setActiveSearch] = useState('')
   const [activeFilterMonth, setActiveFilterMonth] = useState(new Set())
@@ -166,11 +183,33 @@ export default function RosterDashboardPage() {
   }, [])
 
   useEffect(() => {
+    // Only on a real tab switch — on mount the restored ticks are what we
+    // want. Compared against the previous tab rather than a "has mounted"
+    // flag, which React's development double-run of effects defeats.
+    if (prevTab.current === tab) return
+    prevTab.current = tab
     setDraftSel(new Set())
     setPubSel(new Set())
     setArchiveSel(new Set())
     setBinSel(new Set())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the setters are stable in effect; this fires on a tab switch only
   }, [tab])
+
+  // Once the lists are in, drop any restored tick whose roster has since
+  // moved section or gone — a bulk action must never carry a stale id.
+  useEffect(() => {
+    if (loading) return
+    const prune = (sel, setSel, list) => {
+      const ids = new Set(list.map(r => r.id))
+      const kept = [...sel].filter(id => ids.has(id))
+      if (kept.length !== sel.size) setSel(new Set(kept))
+    }
+    prune(draftSel, setDraftSel, rosters.filter(r => r.status === 'draft' && !r.deleted_at))
+    prune(pubSel, setPubSel, rosters.filter(r => r.status === 'published' && !r.deleted_at))
+    prune(archiveSel, setArchiveSel, rosters.filter(r => r.status === 'archived' && !r.deleted_at))
+    prune(binSel, setBinSel, rosters.filter(r => r.deleted_at))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the roster list (re)loads, not on every tick
+  }, [rosters, loading])
 
   async function loadRosters() {
     setLoading(true)
@@ -636,8 +675,10 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
     <div className="mb-6">
       {/* min-h reserves the bulk-action buttons' height, so ticking a box
           swaps the label row's content without pushing the cards down. */}
-      <div className="mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2">
-        <label className="flex items-center gap-2">
+      {/* pl-[17px]: the card's 1px border + its rows' px-4, so this tick box
+          sits directly above the rows' own. gap-3 matches theirs too. */}
+      <div className="mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 pl-[17px]">
+        <label className="flex items-center gap-3">
           <input
             type="checkbox"
             checked={allSelected}

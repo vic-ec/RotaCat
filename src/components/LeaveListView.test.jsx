@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
 import LeaveListView from './LeaveListView'
 
 // useAuth only gates the admin "Cancel" action (see the cancel tests at the
@@ -160,7 +160,11 @@ describe('LeaveListView — role visibility matrix', () => {
 })
 
 describe('LeaveListView — admin cancel action', () => {
-  beforeEach(() => { methodCalls.length = 0 })
+  beforeEach(() => {
+    methodCalls.length = 0
+    try { localStorage.clear() } catch { /* ignore */ }
+  })
+  afterEach(() => { cleanup(); mockAuth.isAdmin = false })
 
   it('shows a Cancel action to admins on pending/approved rows only', async () => {
     mockAuth.isAdmin = true
@@ -176,7 +180,6 @@ describe('LeaveListView — admin cancel action', () => {
     expect(buttons).toHaveLength(1)
     expect(buttons[0]).toHaveAccessibleName("Cancel Doc live's leave")
     expect(screen.getByText('Cancelled')).toBeInTheDocument()
-    mockAuth.isAdmin = false
   })
 
   it('shows no Cancel action to non-admins', async () => {

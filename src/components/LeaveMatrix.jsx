@@ -267,7 +267,7 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
   const [gridRef, gridWidth] = useElementWidth()
   // The grid runs to the bottom of the window like the Table view and
   // Hours Summary, scrolling inside itself past that.
-  const [fillRef, fillStyle] = useFillToViewport()
+  const [fillRef, fillStyle] = useFillToViewport(32, { fit: true })
   const setGridNode = el => { gridRef.current = el; fillRef(el) }
   const [search, setSearch] = useState('')
   const isDesktop = useIsDesktop()

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -10,7 +10,7 @@ import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
-import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { labelForLeaveCategory, columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import {
   DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
   CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
@@ -89,6 +89,9 @@ export default function RosterSummaryPage() {
   // 'category-asc' (MO → Registrar → Intern) is the default/neutral order.
   const [sortMode, setSortMode] = useState(DEFAULT_DOCTOR_SORT)
   const [leaveOpen, setLeaveOpen] = useState(false)
+  // Category sections (MO, Registrar, EC Intern, OT Intern) fold from
+  // their header, like the Staff list's.
+  const [collapsedGroups, setCollapsedGroups] = useState({})
   // A clicked row stays lit while the twenty columns scroll past it — see
   // useSelectedRow.
   const { rowProps } = useSelectedRow()
@@ -171,6 +174,16 @@ export default function RosterSummaryPage() {
       if (b.profileId === profile?.id) return 1
       return 0
     })
+
+  // Rows grouped under their category, in the leave planners' column order
+  // (MO, Registrar, EC Intern, OT Intern), anything else last. The sort and
+  // "my row first" passes above run before grouping, so they hold within
+  // each section.
+  const groupKeyOf = r => columnForLeaveCategory(r.category, r.contractType) ?? 'Other'
+  const groups = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ key: c.key, label: c.label })), { key: 'Other', label: 'Other' }]
+    .map(g => ({ ...g, rows: filteredRows.filter(r => groupKeyOf(r) === g.key) }))
+    .filter(g => g.rows.length > 0)
+  const columnCount = 1 + 3 + WEEKDAY_COLUMNS.length + WEEKEND_COLUMNS.length + PH_WEEKDAY_COLUMNS.length + PH_WEEKEND_COLUMNS.length + 2 + (leaveOpen ? 2 : 0)
 
   return (
     <div className="mx-auto max-w-full">
@@ -325,7 +338,7 @@ export default function RosterSummaryPage() {
                 <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Lieu Taken</th>
                 {leaveOpen && (
                   <>
-                    <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium">Days</th>
+                    <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 font-medium" title="Calendar days away this month">Days away</th>
                     <th className="border-b border-slate-line bg-canvas-sunken px-2 py-1 text-left font-medium">Breakdown</th>
                   </>
                 )}
@@ -340,7 +353,27 @@ export default function RosterSummaryPage() {
                 bottom line so it doesn't double up against the container's
                 own rounded frame. */}
             <tbody className="[&>tr:last-child>td]:border-b-0">
-              {filteredRows.map(row => {
+              {groups.map(group => (
+                <Fragment key={group.key}>
+                  <tr
+                    onClick={() => setCollapsedGroups(c => ({ ...c, [group.key]: !c[group.key] }))}
+                    className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
+                  >
+                    {/* The header pins to the left edge of the scroll area, so
+                        its label and chevron stay on screen however far the
+                        twenty columns have been scrolled. */}
+                    <td colSpan={columnCount} className="border-b border-slate-hairline bg-canvas p-1">
+                      <button
+                        type="button"
+                        aria-expanded={!collapsedGroups[group.key]}
+                        className="sheen-divider sticky left-1 !w-72 max-w-[calc(100vw-3rem)] text-left"
+                      >
+                        <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.rows.length}</span></span>
+                        <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
+                      </button>
+                    </td>
+                  </tr>
+                  {!collapsedGroups[group.key] && group.rows.map(row => {
                 const band = hoursBand(row)
                 // The signed-in doctor's own row: a soft `canvas-cool`
                 // fill plus a teal accent bar down its leading edge. The
@@ -423,7 +456,14 @@ export default function RosterSummaryPage() {
                             {Object.entries(row.leaveByType).map(([type, days]) => (
                               <Tag key={type} className="text-[10px]">{LEAVE_TYPE_LABELS[type] || type}: {days}</Tag>
                             ))}
-                            {Object.keys(row.leaveByType).length === 0 && <span className="text-ink-muted">—</span>}
+                            {/* Booked for this month, then cancelled — struck
+                                through so it reads as a record, not as leave. */}
+                            {Object.entries(row.cancelledLeaveByType).map(([type, days]) => (
+                              <Tag key={`cancelled-${type}`} className="text-[10px] opacity-70" >
+                                <span className="line-through">{LEAVE_TYPE_LABELS[type] || type}: {days}</span> cancelled
+                              </Tag>
+                            ))}
+                            {Object.keys(row.leaveByType).length === 0 && Object.keys(row.cancelledLeaveByType).length === 0 && <span className="text-ink-muted">—</span>}
                           </div>
                         </td>
                       </>
@@ -431,6 +471,8 @@ export default function RosterSummaryPage() {
                   </tr>
                 )
               })}
+                </Fragment>
+              ))}
               {filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={99} className="p-6 text-center text-sm text-ink-muted">No doctors match this filter.</td>

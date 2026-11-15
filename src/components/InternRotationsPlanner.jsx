@@ -6,8 +6,7 @@ import { todayStr } from '../lib/dateRange'
 import { fetchAllInternRotations, createInternRotation, updateInternRotation, deleteInternRotation } from '../lib/internRotations'
 import InternRotationsMatrix from './InternRotationsMatrix'
 import EndOfRotationQueue from './EndOfRotationQueue'
-import UpcomingDoctorsList from './UpcomingDoctorsList'
-import CompletedDoctorsList from './CompletedDoctorsList'
+import RotationStatusTable from './RotationStatusTable'
 import PageTabs from './PageTabs'
 import { buildDoctorFullNames } from '../lib/doctorNames'
 
@@ -109,7 +108,7 @@ export default function InternRotationsPlanner() {
 
   // Active = the Matrix's own doctor pool, unchanged. Upcoming/Completed
   // split the rest by whether a future start is already scheduled (see
-  // UpcomingDoctorsList/CompletedDoctorsList).
+  // RotationStatusTable).
   const activeInterns = interns.filter(d => d.is_active)
   const upcomingInterns = interns.filter(d => !d.is_active && d.scheduled_active_date)
   const completedInterns = interns.filter(d => !d.is_active && !d.scheduled_active_date)
@@ -150,7 +149,7 @@ export default function InternRotationsPlanner() {
     await load()
   }
 
-  // Upcoming tab actions (UpcomingDoctorsList below).
+  // Upcoming tab actions (RotationStatusTable below).
   async function updateScheduledActiveDate(doctorId, date) {
     const { error: updateError } = await supabase.from('profiles')
       .update({ scheduled_active_date: date })
@@ -166,7 +165,7 @@ export default function InternRotationsPlanner() {
     await load()
   }
 
-  // Completed tab's Reactivate (CompletedDoctorsList below) — a
+  // Completed tab's Reactivate (RotationStatusTable below) — a
   // today-or-earlier date reactivates immediately and drops the admin
   // straight into the Matrix's doctor-edit panel to add the doctor's next
   // block (same focusDoctorId mechanism the end-of-rotation queue's "View
@@ -181,6 +180,21 @@ export default function InternRotationsPlanner() {
       await updateScheduledActiveDate(doctorId, date)
     }
   }
+
+  // "Edit rotation" on an Upcoming doctor opens the Active tab's own
+  // rotation editor on them: they join the matrix as a row for as long as
+  // the admin stays on that tab, selected and already in edit mode.
+  const [editingUpcomingId, setEditingUpcomingId] = useState(null)
+  function editUpcomingRotation(doctorId) {
+    setEditingUpcomingId(doctorId)
+    setTab('active')
+    setFocusDoctorId(doctorId)
+  }
+  useEffect(() => {
+    if (tab !== 'active') setEditingUpcomingId(null)
+  }, [tab])
+  const guestDoctor = editingUpcomingId ? interns.find(d => d.id === editingUpcomingId && !d.is_active) : null
+  const matrixDoctors = guestDoctor ? [...activeInterns, guestDoctor] : activeInterns
 
   const tabsWithBadges = TABS.map(t => {
     if (t.key === 'upcoming') return { ...t, badge: upcomingInterns.length }
@@ -215,7 +229,7 @@ export default function InternRotationsPlanner() {
 
           <div className="mt-4">
             <InternRotationsMatrix
-              doctors={activeInterns}
+              doctors={matrixDoctors}
               rotations={rotations}
               displayNames={displayNames}
               currentUserId={profile?.id}
@@ -234,17 +248,22 @@ export default function InternRotationsPlanner() {
       )}
 
       {!initialLoading && tab === 'upcoming' && (
-        <UpcomingDoctorsList
+        <RotationStatusTable
+          variant="upcoming"
           doctors={upcomingInterns}
+          rotations={rotations}
           displayNames={displayNames}
           onUpdateDate={updateScheduledActiveDate}
           onActivateNow={activateNow}
+          onEditRotation={editUpcomingRotation}
         />
       )}
 
       {!initialLoading && tab === 'completed' && (
-        <CompletedDoctorsList
+        <RotationStatusTable
+          variant="completed"
           doctors={completedInterns}
+          rotations={rotations}
           displayNames={displayNames}
           onReactivate={reactivate}
         />

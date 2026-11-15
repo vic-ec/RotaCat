@@ -170,7 +170,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
               {isScheduling && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {/* Label beside the field rather than around it — see
-                      UpcomingDoctorsList for why. */}
+                      RotationStatusTable for the same pattern. */}
                   <div className="flex items-center gap-1.5 text-xs text-ink-muted">
                     <label htmlFor={`inactive-from-${doctor.id}`}>Inactive from</label>
                     <DateFieldButton

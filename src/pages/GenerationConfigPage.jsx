@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generateRoster } from '../lib/schedulerApi'
+import { saveGenerationReport } from '../lib/generationReport'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { useSwatch } from '../lib/useSwatch'
 
@@ -58,6 +59,10 @@ export default function GenerationConfigPage() {
   const [generating, setGenerating]   = useState(false)
   const [progressIdx, setProgressIdx] = useState(0)
   const [error, setError]             = useState('')
+  // The doctors list is folded to a one-line summary per category until
+  // someone needs to change who is included — it is 20+ rows that are
+  // almost always left exactly as they are.
+  const [showDoctors, setShowDoctors] = useState(false)
 
   useEffect(() => {
     loadLeaveSummary()
@@ -140,6 +145,10 @@ export default function GenerationConfigPage() {
     setError('')
     setGenerating(true)
     setProgressIdx(0)
+    // Fold the list away and bring the page back to the top, so the
+    // progress dialog opens over a short, settled page.
+    setShowDoctors(false)
+    window.scrollTo?.({ top: 0, behavior: 'smooth' })
 
     try {
       const result = await generateRoster({
@@ -151,7 +160,10 @@ export default function GenerationConfigPage() {
       })
 
       if (result.roster_month_id) {
-        navigate(`/roster/${result.roster_month_id}`)
+        // Keep the engine's own account of the run, and open the roster on
+        // it — this response is the only place it ever exists.
+        saveGenerationReport(result.roster_month_id, result, { excludedCount: excluded.size })
+        navigate(`/roster/${result.roster_month_id}?report=1`)
       } else {
         throw new Error(result.message || 'Generation failed — no roster ID returned.')
       }
@@ -294,8 +306,17 @@ export default function GenerationConfigPage() {
             <p className="label-text">
               Doctors included in this roster
             </p>
-            <span className="text-xs text-ink-muted">
+            <span className="flex items-center gap-3 text-xs text-ink-muted">
               {includedCount} of {allDoctors.length} included
+              <button
+                type="button"
+                onClick={() => setShowDoctors(v => !v)}
+                disabled={generating}
+                aria-expanded={showDoctors}
+                className="font-medium text-accent hover:text-accent-dark hover:underline disabled:opacity-40"
+              >
+                {showDoctors ? 'Done' : 'Change'}
+              </button>
             </span>
           </div>
 
@@ -307,6 +328,26 @@ export default function GenerationConfigPage() {
 
           {loadingDoctors ? (
             <p className="text-sm text-ink-muted">Loading doctors…</p>
+          ) : !showDoctors ? (
+            /* Folded: one line per category, and the names of anyone left
+               out — the only detail worth seeing without opening it. */
+            <div className="rounded-lg border border-slate-line">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 px-3 py-2.5 text-sm text-ink-light">
+                {Object.entries(grouped).map(([categoryLabel, doctors]) => (
+                  <span key={categoryLabel}>
+                    {categoryLabel}{' '}
+                    <span className="font-semibold text-ink">
+                      {doctors.filter(d => !excluded.has(d.id)).length}/{doctors.length}
+                    </span>
+                  </span>
+                ))}
+              </div>
+              {excluded.size > 0 && (
+                <p className="border-t border-slate-line px-3 py-2 text-xs text-ink-muted">
+                  Excluded: {allDoctors.filter(d => excluded.has(d.id)).map(d => d.surname).join(', ')}
+                </p>
+              )}
+            </div>
           ) : (
             <div className="rounded-lg border border-slate-line overflow-hidden">
               {/* Select all / none */}
@@ -338,6 +379,7 @@ export default function GenerationConfigPage() {
                       {categoryLabel} ({doctors.filter(d => !excluded.has(d.id)).length}/{doctors.length})
                     </p>
                   </div>
+                  <div className="grid sm:grid-cols-2">
                   {doctors.map(doc => {
                     const isExcluded = excluded.has(doc.id)
                     return (
@@ -345,7 +387,7 @@ export default function GenerationConfigPage() {
                         key={doc.id}
                         onClick={() => !generating && toggleDoctor(doc.id)}
                         disabled={generating}
-                        className={`flex w-full items-center gap-3 border-b border-slate-line px-3 py-2.5 text-left transition-colors last:border-b-0 ${
+                        className={`flex w-full items-center gap-2.5 border-b border-slate-hairline px-3 py-1.5 text-left transition-colors ${
                           isExcluded
                             ? 'bg-canvas-sunken opacity-50'
                             : 'hover:bg-accent-tint'
@@ -374,6 +416,7 @@ export default function GenerationConfigPage() {
                       </button>
                     )
                   })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -387,28 +430,37 @@ export default function GenerationConfigPage() {
           </div>
         )}
 
-        {/* Generate button / progress */}
-        {generating ? (
-          <div className="rounded-lg border border-accent-light bg-accent-tint p-5 text-center">
-            <SpinnerIcon className="mx-auto mb-3 h-7 w-7 animate-spin text-accent" />
-            <p className="text-sm font-medium text-ink">
+        {/* Generate — the progress itself is the dialog below, not a
+            panel down here at the foot of the form. */}
+        <button
+          onClick={handleGenerate}
+          disabled={includedCount === 0 || generating}
+          className="btn-primary w-full disabled:opacity-50"
+        >
+          {generating ? 'Generating…' : <>Generate {MONTH_NAMES[month]} {year} roster{excluded.size > 0 && ` (${includedCount} doctors)`}</>}
+        </button>
+      </div>
+
+      {/* Progress — centred over the page for as long as the run takes. No
+          close button and no click-away: there is nothing to do here but
+          wait, and the form behind is locked while it runs. It closes
+          itself — onto the new roster, or back to the form with the error. */}
+      {generating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center scrim-strong px-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="generating-title" className="card w-full max-w-sm p-6 text-center">
+            <SpinnerIcon className="mx-auto mb-4 h-9 w-9 animate-spin text-accent" />
+            <h2 id="generating-title" className="font-display text-base font-bold text-ink">
+              Generating {MONTH_NAMES[month]} {year}
+            </h2>
+            <p className="mt-2 text-sm text-ink-light" aria-live="polite">
               {PROGRESS_MESSAGES[progressIdx]}
             </p>
-            <p className="mt-1.5 text-xs text-ink-muted">
-              Please don&apos;t close this tab — generation can take up to 2 minutes.
+            <p className="mt-4 text-xs text-ink-muted">
+              This can take up to 2 minutes. Keep this tab open — the roster opens by itself when it&apos;s ready.
             </p>
           </div>
-        ) : (
-          <button
-            onClick={handleGenerate}
-            disabled={includedCount === 0}
-            className="btn-primary w-full disabled:opacity-50"
-          >
-            Generate {MONTH_NAMES[month]} {year} roster
-            {excluded.size > 0 && ` (${includedCount} doctors)`}
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2 } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -9,9 +9,11 @@ import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 import { monthBounds } from '../lib/dateRange'
-import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
+import { computeWeekendPlannerDrift, weekendPlannerChangedSince } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
+import GenerationReportModal from '../components/GenerationReportModal'
+import { readGenerationReport, reportMatchesDraft } from '../lib/generationReport'
 import PublicHolidayBadge from '../components/PublicHolidayBadge'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
@@ -45,6 +47,12 @@ const ROSTER_RANGES = [
   { key: 'month', label: 'M', ariaLabel: 'Month', title: 'Month' },
   { key: 'week', label: 'W', ariaLabel: 'Week', title: 'Week' },
 ]
+
+// ⅝-contract doctors are rostered on weekends by their own cadence, not
+// from the Weekend Planner — see computeWeekendPlannerDrift.
+function outsidePlannerIds(profiles) {
+  return new Set((profiles || []).filter(p => p.contract_type === 'five_eighths').map(p => p.id))
+}
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -107,6 +115,9 @@ export default function RosterGridPage() {
   // drift's own content, so it self-invalidates the moment the planner
   // changes again rather than needing to be manually re-armed.
   const [plannerDrift, setPlannerDrift] = useState([])
+  // Whether the planner was actually edited after this draft was generated
+  // — decides which of two messages a drift gets (see the banner).
+  const [plannerChangedSince, setPlannerChangedSince] = useState(false)
   const [dismissedDrift, setDismissedDrift] = useState(false)
   const [showDriftDetails, setShowDriftDetails] = useState(false)
 
@@ -125,6 +136,10 @@ export default function RosterGridPage() {
 
   // Review log (audit trail of manual edits to this roster)
   const [showChangeLog, setShowChangeLog] = useState(false)
+  // The engine's report on the run that made this draft — opened straight
+  // after a generation (?report=1, set by the Generate page) and again from
+  // the ⋮ menu. Only offered while it still describes the draft on screen.
+  const [showGenerationReport, setShowGenerationReport] = useState(false)
 
   // Publish confirmation — publishing is a visible, hard-to-miss state
   // change for every doctor on the roster, so it gets an explicit "are you
@@ -159,6 +174,15 @@ export default function RosterGridPage() {
     if (!rosterMonth || !isAdmin || searchParams.get('publish') !== '1') return
     if (rosterMonth.status === 'draft') setShowPublishConfirm(true)
     setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('publish'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
+
+  // Straight from the Generate page: open the engine's report on arrival,
+  // then drop the flag so a reload doesn't reopen it.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('report') !== '1') return
+    setShowGenerationReport(true)
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('report'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id])
 
@@ -209,11 +233,12 @@ export default function RosterGridPage() {
         const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
         const { data: plannerData } = await supabase
           .from('weekend_planner_entries')
-          .select('weekend_saturday, profile_id')
+          .select('weekend_saturday, profile_id, created_at, updated_at')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
-        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap)
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data))
         setPlannerDrift(newDrift)
+        setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
         setDismissedDrift(isDriftMuted(id, newDrift))
       } else {
         setPlannerDrift([])
@@ -267,11 +292,12 @@ export default function RosterGridPage() {
       const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
       const { data: plannerData } = await supabase
         .from('weekend_planner_entries')
-        .select('weekend_saturday, profile_id')
+        .select('weekend_saturday, profile_id, created_at, updated_at')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
-      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes)
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles))
       setPlannerDrift(newDrift)
+      setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
       setDismissedDrift(isDriftMuted(id, newDrift))
     }
   }
@@ -291,6 +317,8 @@ export default function RosterGridPage() {
   // a deactivated doctor can't be newly rostered, but their history stays
   // intact and fully named.
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
+  const savedReport = isAdmin && rosterMonth?.status === 'draft' ? readGenerationReport(id) : null
+  const generationReport = savedReport && reportMatchesDraft(savedReport, entries) ? savedReport : null
   const assignableProfiles = profiles.filter(p => p.is_active)
 
   // Same-surname disambiguation ("J. Nolan" vs "P. Nolan") for every
@@ -546,6 +574,13 @@ export default function RosterGridPage() {
     onClick: handleDelete,
   } : null
 
+  const generationReportItem = {
+    key: 'generation-report',
+    icon: <ClipboardList className="h-4 w-4" />,
+    label: 'Generation report',
+    onClick: () => setShowGenerationReport(true),
+  }
+
   const rosterMenuItems = [
     {
       key: 'text-size',
@@ -568,13 +603,19 @@ export default function RosterGridPage() {
       label: 'Review log',
       onClick: () => setShowChangeLog(true),
     }] : []),
+    ...(generationReport ? [generationReportItem] : []),
     ...(unpublishItem || deleteItem ? ['divider', ...[unpublishItem, deleteItem].filter(Boolean)] : []),
   ]
 
   // Wide desktop's kebab holds only what is risky to leave one click away;
   // between md and xl it also takes Hours and Log, which leave the row
   // there. (Font size stays on the row as "Aa" from md up.)
-  const desktopMenuItems = [unpublishItem, deleteItem].filter(Boolean)
+  const dangerItems = [unpublishItem, deleteItem].filter(Boolean)
+  const desktopMenuItems = [
+    ...(generationReport ? [generationReportItem] : []),
+    ...(generationReport && dangerItems.length > 0 ? ['divider'] : []),
+    ...dangerItems,
+  ]
   const midMenuItems = rosterMenuItems.slice(2)
 
   const weekView = viewMode === 'week'
@@ -712,14 +753,32 @@ export default function RosterGridPage() {
           <div className="flex items-start gap-2 pr-6">
             <WarningIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-flagAmber" />
             <div>
-              <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
-              <p className="mt-0.5 text-sm text-ink-light">
-                Changed since this draft was generated — regenerate to apply the latest plan.
-              </p>
+              {/* Two different facts, two different messages. Only a planner
+                  edit made after generation is "updated"; otherwise the draft
+                  simply doesn't match the plan (the scheduling engine can't
+                  always honour it, and drafts get hand-edited), and saying
+                  the planner changed would be untrue. */}
+              {plannerChangedSince ? (
+                <>
+                  <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
+                  <p className="mt-0.5 text-sm text-ink-light">
+                    Changed since this draft was generated — regenerate to apply the latest plan.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-ink">Draft differs from the Weekend Planner</p>
+                  <p className="mt-0.5 text-sm text-ink-light">
+                    {plannerDrift.length} weekend{plannerDrift.length === 1 ? '' : 's'} in this draft {plannerDrift.length === 1 ? "doesn't" : "don't"} match the plan. The planner hasn&apos;t changed since this draft was generated.
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
-            {isAdmin && (
+            {/* Regenerate only when there is a newer plan to apply — against
+                an unchanged plan it would just run the same inputs again. */}
+            {isAdmin && plannerChangedSince && (
               <button
                 onClick={() => navigate('/roster/generate')}
                 className="btn-primary text-sm"
@@ -731,7 +790,7 @@ export default function RosterGridPage() {
               onClick={() => setShowDriftDetails(true)}
               className="btn-secondary text-sm"
             >
-              View changes
+              {plannerChangedSince ? 'View changes' : 'View differences'}
             </button>
           </div>
         </div>
@@ -740,6 +799,7 @@ export default function RosterGridPage() {
       {showDriftDetails && (
         <WeekendDriftDetailsModal
           drift={plannerDrift}
+          plannerChanged={plannerChangedSince}
           profileMap={profileMap}
           driftMuted={isDriftMuted(id, plannerDrift)}
           onToggleMute={muted => {
@@ -1084,6 +1144,15 @@ export default function RosterGridPage() {
           displayNames={displayNames}
           rosterMonthId={id}
           onDone={() => { setActiveVacancy(null); refreshEntries() }}
+        />
+      )}
+
+      {showGenerationReport && generationReport && (
+        <GenerationReportModal
+          report={generationReport}
+          monthLabel={`${MONTH_NAMES[rosterMonth.month]} ${rosterMonth.year}`}
+          profileMap={profileMap}
+          onClose={() => setShowGenerationReport(false)}
         />
       )}
 

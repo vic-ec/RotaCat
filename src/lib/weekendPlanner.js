@@ -252,6 +252,29 @@ export function weekendExceptionsForMonth(requests, year, month) {
     .sort((a, b) => a.date_from.localeCompare(b.date_from) || String(a.id).localeCompare(String(b.id)))
 }
 
+// Was the Weekend Planner edited after this draft was generated? A drift
+// (computeWeekendPlannerDrift below) only says the two DIFFER — it can't
+// say why. The scheduling engine doesn't always follow the planner exactly,
+// and a draft can be hand-edited, so a difference on its own is not
+// evidence the planner moved. This is: a planner row created or updated
+// after the draft's entries were written.
+//
+// "Generated at" is the earliest created_at among the draft's own entries —
+// generation replaces every entry in one write, so that is the moment of
+// the run even on a re-generated month (whose roster_months.created_at
+// still dates from the first run). Later hand-added entries only have later
+// timestamps, so they never move it. A removed planner row leaves no
+// timestamp behind, so a pure removal reads as "differs", never "updated".
+export function weekendPlannerChangedSince(rosterEntries, plannerEntries) {
+  const generatedAt = rosterEntries.map(e => e.created_at).filter(Boolean).sort()[0]
+  if (!generatedAt) return false
+  const generated = new Date(generatedAt).getTime()
+  return plannerEntries.some(p => {
+    const touched = [p.created_at, p.updated_at].filter(Boolean).map(t => new Date(t).getTime())
+    return touched.some(t => t > generated)
+  })
+}
+
 // Shift codes that land on the Saturday/Sunday of a real weekend — used
 // to derive "who actually worked this weekend" from a draft roster's own
 // roster_entries, for comparison against the Weekend Planner.
@@ -269,10 +292,16 @@ const WEEKEND_DAY_CODES = new Set(['WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 
 // removed are arrays of profile_id no longer matching between the two
 // (added = now in the planner but not in the draft, removed = in the
 // draft but no longer in the planner). Empty when nothing has drifted.
-export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes) {
+//
+// `outsidePlannerIds`: doctors the scheduling engine rosters on weekends
+// WITHOUT consulting the planner — ⅝-contract doctors, who by design keep
+// their own alternating cadence (RotaCatScheduler, solver.py
+// add_weekend_pattern_constraints). Their weekend shifts are never a
+// difference from the plan, because the plan was never meant to hold them.
+export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes, outsidePlannerIds = new Set()) {
   const actualBySaturday = new Map()
   for (const entry of rosterEntries) {
-    if (!entry.profile_id) continue
+    if (!entry.profile_id || outsidePlannerIds.has(entry.profile_id)) continue
     const code = shiftTypeCodes[entry.shift_type_id]
     if (!WEEKEND_DAY_CODES.has(code)) continue
     const saturday = dayOfWeek(entry.date) === 0 ? addDays(entry.date, -1) : entry.date
@@ -282,6 +311,7 @@ export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftT
 
   const plannedBySaturday = new Map()
   for (const entry of plannerEntries) {
+    if (outsidePlannerIds.has(entry.profile_id)) continue
     if (!plannedBySaturday.has(entry.weekend_saturday)) plannedBySaturday.set(entry.weekend_saturday, new Set())
     plannedBySaturday.get(entry.weekend_saturday).add(entry.profile_id)
   }

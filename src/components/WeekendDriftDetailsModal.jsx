@@ -4,12 +4,16 @@
 // regardless of how many weekends have drifted. Also hosts "don't show
 // this message again" as a low-emphasis control down here rather than
 // beside the banner's primary action, where it competed for attention.
-export default function WeekendDriftDetailsModal({ drift, profileMap, driftMuted, onToggleMute, onClose }) {
+// `plannerChanged`: true when the planner was edited after the draft was
+// generated ("now planned / no longer planned"); false when the draft just
+// doesn't match an unchanged plan ("planned, not rostered / rostered, not
+// planned") — the same two lists, worded for what actually happened.
+export default function WeekendDriftDetailsModal({ drift, profileMap, driftMuted, onToggleMute, onClose, plannerChanged = true }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
       <div className="card w-full max-w-lg max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-ink">Weekend Planner changes</h2>
+          <h2 className="font-display text-lg font-bold text-ink">{plannerChanged ? 'Weekend Planner changes' : 'Differences from the Weekend Planner'}</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink" aria-label="Close">×</button>
         </div>
         <ul className="mt-4 space-y-3 text-sm text-flagAmber">
@@ -17,11 +21,11 @@ export default function WeekendDriftDetailsModal({ drift, profileMap, driftMuted
             <li key={saturday}>
               <span className="font-medium">{saturday}:</span>{' '}
               {added.length > 0 && (
-                <span>now planned: {added.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
+                <span>{plannerChanged ? 'now planned' : 'planned, not rostered'}: {added.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
               )}
               {added.length > 0 && removed.length > 0 && ' — '}
               {removed.length > 0 && (
-                <span>no longer planned: {removed.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
+                <span>{plannerChanged ? 'no longer planned' : 'rostered, not planned'}: {removed.map(pid => profileMap[pid]?.surname || pid).join(', ')}</span>
               )}
             </li>
           ))}

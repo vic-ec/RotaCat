@@ -332,7 +332,9 @@ export function SelectAllRow({
 }) {
   const showActions = count > 0 && actions.length > 0
   return (
-    <div className={`flex min-h-[48px] items-center gap-2 px-4 py-2 transition-colors md:gap-3 md:px-5 ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
+    // px-4 + gap-3 at every width — the rows' own (ROW_BASE), so this tick
+    // box sits directly above theirs. It used to step out to px-5 at md.
+    <div className={`flex min-h-[48px] items-center gap-3 px-4 py-2 transition-colors ${active ? 'bg-accent-tint' : 'bg-canvas-raised'}`}>
       <input
         type="checkbox"
         checked={checked}

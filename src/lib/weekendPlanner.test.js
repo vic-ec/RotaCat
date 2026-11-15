@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift,
+  groupForCategory, saturdaysInRange, groupEntriesByWeekend, computeWeekendPlannerDrift, weekendPlannerChangedSince,
   saturdaysInMonth, nextWeekendSaturday, weekendCoverageSummary, isProfileAssignedToWeekend,
   isEvenWeekend, weekendExceptionRequestsBySaturday, weekendExceptionsForMonth, weekendHealthState, planWeekendPaste,
   planWeekendPasteAcrossMonths, planBatchRestore, resolveEffectiveCategory, resolveWeekendCategoryForDoctor,
@@ -734,3 +734,36 @@ describe('resolveWeekendCategoryForDoctor', () => {
   })
 })
 
+describe('computeWeekendPlannerDrift — doctors outside the planner', () => {
+  it('ignores a ⅝ doctor rostered on a weekend they were never planned for', () => {
+    const codes = { st1: 'WE_13' }
+    const roster = [
+      { profile_id: 'planned', shift_type_id: 'st1', date: '2026-12-05' },
+      { profile_id: 'five-eighths', shift_type_id: 'st1', date: '2026-12-05' },
+    ]
+    const planner = [{ weekend_saturday: '2026-12-05', profile_id: 'planned' }]
+    expect(computeWeekendPlannerDrift(roster, planner, codes)).toHaveLength(1)
+    expect(computeWeekendPlannerDrift(roster, planner, codes, new Set(['five-eighths']))).toEqual([])
+  })
+})
+
+describe('weekendPlannerChangedSince', () => {
+  const entries = [
+    { created_at: '2026-11-15T08:17:04Z' },
+    { created_at: '2026-11-15T09:30:00Z' }, // hand-added later — must not move "generated at"
+  ]
+
+  it('is false when every planner row predates the draft (the draft just differs)', () => {
+    const planner = [{ created_at: '2026-11-10T08:00:00Z', updated_at: '2026-11-14T08:08:57Z' }]
+    expect(weekendPlannerChangedSince(entries, planner)).toBe(false)
+  })
+
+  it('is true when a planner row was updated or added after generation', () => {
+    expect(weekendPlannerChangedSince(entries, [{ created_at: '2026-11-10T08:00:00Z', updated_at: '2026-11-15T08:30:00Z' }])).toBe(true)
+    expect(weekendPlannerChangedSince(entries, [{ created_at: '2026-11-16T08:00:00Z', updated_at: null }])).toBe(true)
+  })
+
+  it('is false with no entries to date the draft by', () => {
+    expect(weekendPlannerChangedSince([], [{ created_at: '2026-11-16T08:00:00Z' }])).toBe(false)
+  })
+})

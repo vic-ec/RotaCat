@@ -9,7 +9,7 @@ import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 import { monthBounds } from '../lib/dateRange'
-import { computeWeekendPlannerDrift } from '../lib/weekendPlanner'
+import { computeWeekendPlannerDrift, weekendPlannerChangedSince } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
 import PublicHolidayBadge from '../components/PublicHolidayBadge'
@@ -107,6 +107,9 @@ export default function RosterGridPage() {
   // drift's own content, so it self-invalidates the moment the planner
   // changes again rather than needing to be manually re-armed.
   const [plannerDrift, setPlannerDrift] = useState([])
+  // Whether the planner was actually edited after this draft was generated
+  // — decides which of two messages a drift gets (see the banner).
+  const [plannerChangedSince, setPlannerChangedSince] = useState(false)
   const [dismissedDrift, setDismissedDrift] = useState(false)
   const [showDriftDetails, setShowDriftDetails] = useState(false)
 
@@ -209,11 +212,12 @@ export default function RosterGridPage() {
         const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
         const { data: plannerData } = await supabase
           .from('weekend_planner_entries')
-          .select('weekend_saturday, profile_id')
+          .select('weekend_saturday, profile_id, created_at, updated_at')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
         const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap)
         setPlannerDrift(newDrift)
+        setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
         setDismissedDrift(isDriftMuted(id, newDrift))
       } else {
         setPlannerDrift([])
@@ -267,11 +271,12 @@ export default function RosterGridPage() {
       const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
       const { data: plannerData } = await supabase
         .from('weekend_planner_entries')
-        .select('weekend_saturday, profile_id')
+        .select('weekend_saturday, profile_id, created_at, updated_at')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
       const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes)
       setPlannerDrift(newDrift)
+      setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
       setDismissedDrift(isDriftMuted(id, newDrift))
     }
   }
@@ -712,14 +717,32 @@ export default function RosterGridPage() {
           <div className="flex items-start gap-2 pr-6">
             <WarningIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-flagAmber" />
             <div>
-              <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
-              <p className="mt-0.5 text-sm text-ink-light">
-                Changed since this draft was generated — regenerate to apply the latest plan.
-              </p>
+              {/* Two different facts, two different messages. Only a planner
+                  edit made after generation is "updated"; otherwise the draft
+                  simply doesn't match the plan (the scheduling engine can't
+                  always honour it, and drafts get hand-edited), and saying
+                  the planner changed would be untrue. */}
+              {plannerChangedSince ? (
+                <>
+                  <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
+                  <p className="mt-0.5 text-sm text-ink-light">
+                    Changed since this draft was generated — regenerate to apply the latest plan.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-ink">Draft differs from the Weekend Planner</p>
+                  <p className="mt-0.5 text-sm text-ink-light">
+                    {plannerDrift.length} weekend{plannerDrift.length === 1 ? '' : 's'} in this draft {plannerDrift.length === 1 ? "doesn't" : "don't"} match the plan. The planner hasn&apos;t changed since this draft was generated.
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
-            {isAdmin && (
+            {/* Regenerate only when there is a newer plan to apply — against
+                an unchanged plan it would just run the same inputs again. */}
+            {isAdmin && plannerChangedSince && (
               <button
                 onClick={() => navigate('/roster/generate')}
                 className="btn-primary text-sm"
@@ -731,7 +754,7 @@ export default function RosterGridPage() {
               onClick={() => setShowDriftDetails(true)}
               className="btn-secondary text-sm"
             >
-              View changes
+              {plannerChangedSince ? 'View changes' : 'View differences'}
             </button>
           </div>
         </div>
@@ -740,6 +763,7 @@ export default function RosterGridPage() {
       {showDriftDetails && (
         <WeekendDriftDetailsModal
           drift={plannerDrift}
+          plannerChanged={plannerChangedSince}
           profileMap={profileMap}
           driftMuted={isDriftMuted(id, plannerDrift)}
           onToggleMute={muted => {

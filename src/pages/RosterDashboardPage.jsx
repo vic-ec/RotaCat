@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical } from 'lucide-react'
+import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -379,6 +379,7 @@ export default function RosterDashboardPage() {
                     years={activeYears}
                     sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
                     view={rosterView} onViewChange={setRosterView}
+                    onCreate={isAdmin ? () => setShowCreateModal(true) : undefined}
                   />
                 </div>
               </div>
@@ -499,6 +500,9 @@ function RosterToolbar({
   sortDir, onSortDirChange,
   sortLabels = { asc: 'Oldest first', desc: 'Newest first' },
   view, onViewChange,
+  // Phone only: the Create roster action, nearest the ⊕. The desktop row
+  // has its own Create button beside the search.
+  onCreate,
 }) {
   const filtersActive = filterMonth.size > 0 || filterYear.size > 0
 
@@ -550,6 +554,7 @@ function RosterToolbar({
           the FAB has no inline row left to hang FilterPanel off. List/Grid
           becomes a single cycling icon (see cycleView). */}
       <FloatingActionMenu
+        primaryAction={onCreate ? { icon: Plus, label: 'Create roster', onClick: onCreate } : undefined}
         search={{ value: search, onChange: onSearchChange, placeholder: 'Search by month or year…' }}
         sort={{ facets: sortFacets, active: sortDir !== 'desc' }}
         filter={{

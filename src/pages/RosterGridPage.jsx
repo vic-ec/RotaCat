@@ -321,7 +321,11 @@ export default function RosterGridPage() {
   // a deactivated doctor can't be newly rostered, but their history stays
   // intact and fully named.
   const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
-  const savedReport = isAdmin && rosterMonth?.status === 'draft' ? readGenerationReport(id) : null
+  // From the roster itself (shared between admins); the device-local copy
+  // only stands in when that save failed.
+  const savedReport = isAdmin && rosterMonth?.status === 'draft'
+    ? (rosterMonth.generation_report || readGenerationReport(id))
+    : null
   const generationReport = savedReport && reportMatchesDraft(savedReport, entries) ? savedReport : null
   const assignableProfiles = profiles.filter(p => p.is_active)
 

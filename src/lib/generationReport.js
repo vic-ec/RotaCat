@@ -1,22 +1,27 @@
 // The scheduling engine's own account of a generation run, kept so the
 // roster page can show it. The engine returns it once, in the response to
-// POST /generate-roster (RotaCatScheduler app/main.py: status, summary) —
-// it is not stored anywhere server-side, and the Generate page used to
-// navigate away and drop it. Kept per roster in localStorage: it survives a
-// reload and a return visit on this device, and is simply absent anywhere
-// else (the page shows nothing rather than a guess).
+// POST /generate-roster (RotaCatScheduler app/main.py: status, summary),
+// and the Generate page used to navigate away and drop it. It is now saved
+// on the roster itself (roster_months.generation_report), so any admin on
+// any device can open it. localStorage is only the fallback for a save
+// that failed — better this device than nowhere.
 
 const KEY = id => `rotacat:generationReport:${id}`
 
-export function saveGenerationReport(rosterMonthId, result, { excludedCount = 0 } = {}) {
-  if (!rosterMonthId || !result) return
-  const report = {
+// The stored shape, from the engine's response.
+export function buildGenerationReport(result, { excludedCount = 0 } = {}) {
+  return {
     status: result.status,
     entriesWritten: result.entries_written ?? null,
     summary: result.summary || {},
     excludedCount,
     savedAt: new Date().toISOString(),
   }
+}
+
+// Device-local copy — the fallback when saving to the roster failed.
+export function saveGenerationReport(rosterMonthId, report) {
+  if (!rosterMonthId || !report) return
   try { localStorage.setItem(KEY(rosterMonthId), JSON.stringify(report)) } catch { /* storage full or blocked — the report just isn't kept */ }
 }
 

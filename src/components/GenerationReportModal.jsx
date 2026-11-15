@@ -80,7 +80,7 @@ export default function GenerationReportModal({ report, monthLabel, profileMap, 
       )}
 
       <p className="mt-4 border-t border-slate-line pt-3 text-xs text-ink-muted">
-        Saved on this device only. It describes the run above, not edits made to the draft since.
+        Saved with this draft, so any admin can open it. It is a record of the run above — it does not change when the draft is edited afterwards.
       </p>
     </Modal>
   )

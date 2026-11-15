@@ -19,9 +19,8 @@ export default function PendingApprovalPage() {
           Hi {profile?.name || 'there'}, your account is awaiting approval
         </h2>
         <p className="mt-2 text-sm text-ink-light">
-          An admin needs to approve your account and link it to your staff record
-          before you can access the roster. You&apos;ll receive a notification once
-          that&apos;s done.
+          An administrator needs to approve your account before you get full
+          access. We&apos;ll email you once that&apos;s done.
         </p>
         <button type="button" onClick={signOut} className={`${AUTH_BUTTON_OUTLINE} mt-6`}>
           Sign out

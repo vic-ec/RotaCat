@@ -1107,7 +1107,7 @@ describe('WeekendPlannerView', () => {
       renderView()
       await screen.findByRole('button', { name: 'More Actions' })
 
-      await clickMoreAction(user, 'Copy August')
+      await clickMoreAction(user, 'Copy August 2026')
 
       expect(screen.getByText('📋 August 2026 copied')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Paste into August 2026' })).toBeInTheDocument()
@@ -1129,7 +1129,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Copy August')
+      await clickMoreAction(user, 'Copy August 2026')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
 
@@ -1159,6 +1159,40 @@ describe('WeekendPlannerView', () => {
       expect(within(sep12Row).getByText('Anderson')).toBeInTheDocument()
     })
 
+    it('admin: pasting a 4-weekend month into a 5-weekend one names the spare weekend and offers to fill it, off by default', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      // September 2026 has 4 Saturdays; October has 5 (3, 10, 17, 24, 31).
+      // Something on every September weekend so the copy carries 4.
+      mockResponses['weekend_planner_entries:select'] = { data: ['2026-09-05', '2026-09-12', '2026-09-19', '2026-09-26'].map((s, i) => ({ id: `s${i}`, weekend_saturday: s, profile_id: 'p1', category: 'MO' })), error: null }
+      const user = userEvent.setup()
+      renderView({ initialYear: 2026, initialMonth: 9 })
+      const view = await desktop()
+      await view.findByText('September 2026')
+      await clickMoreAction(user, 'Copy September 2026')
+      await user.click(view.getByRole('button', { name: 'Next month' }))
+      await view.findByText('October 2026')
+      await user.click(screen.getByRole('button', { name: 'Paste into October 2026' }))
+      const modal = (await screen.findByRole('heading', { name: 'Paste September 2026 into October 2026' })).closest('.card')
+      expect(modal).toHaveTextContent('Sat 31 Oct - Sun 1 Nov 2026 has nothing to copy from and will stay empty.')
+      const fill = within(modal).getByRole('checkbox', { name: /Fill Sat 31 Oct - Sun 1 Nov 2026 with the same doctors as Sat 17 - Sun 18 Oct 2026/ })
+      expect(fill).not.toBeChecked()
+      expect(modal).toHaveTextContent('Will add 4 assignments across 4 weekends.')
+      await user.click(fill)
+      expect(modal).toHaveTextContent('Will add 5 assignments across 5 weekends.')
+    })
+
+    it('admin: Copy month and Copy quarter are greyed out when there is nothing to copy', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      mockResponses['weekend_planner_entries:select'] = { data: [], error: null }
+      const user = userEvent.setup()
+      renderView()
+      const view = await desktop()
+      await view.findByText('August 2026')
+      await user.click(screen.getByRole('button', { name: 'More Actions' }))
+      expect(await screen.findByRole('button', { name: 'Copy August 2026' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Copy Aug-Oct 2026' })).toBeDisabled()
+    })
+
     it('admin: paste modal counts an already-assigned skip under fill-empty, and switches to a delete-first note under Overwrite', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       // p1 is already on 2026-09-05 (Registrar). Parity-based matching (see
@@ -1178,7 +1212,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Copy August')
+      await clickMoreAction(user, 'Copy August 2026')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
       await user.click(screen.getByRole('button', { name: 'Paste into September 2026' }))
@@ -1201,7 +1235,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Clear August')
+      await clickMoreAction(user, 'Clear August 2026')
       const heading = await screen.findByRole('heading', { name: 'Clear August 2026?' })
       // ENTRIES has 5 assignments in August: 1 at Aug 1, 4 at Aug 8.
       expect(heading.closest('.card')).toHaveTextContent('This removes 5 assignments.')
@@ -1268,7 +1302,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(aug8Menu).getByRole('button', { name: 'Copy weekend' }))
 
       expect(await screen.findByText(/Sat 8 - Sun 9 Aug 2026 copied/)).toBeInTheDocument()
-      expect(aug8Card.className).toMatch(/ring-2 ring-accent/)
+      expect(aug8Card.className).toMatch(/outline-dashed/)
 
       const aug15Card = (await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' })).closest('.card')
       await user.click(within(aug15Card).getByRole('button', { name: 'More actions for weekend 2026-08-15' }))
@@ -1279,6 +1313,57 @@ describe('WeekendPlannerView', () => {
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
 
       expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin (phone): a copied weekend pastes into the tapped card from the ⊕, which stays disabled until a target is chosen', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      const aug8Card = (await view.findByRole('button', { name: 'Sat 8 - Sun 9 Aug 2026' })).closest('.card')
+      await user.click(within(aug8Card).getByRole('button', { name: 'More actions for weekend 2026-08-08' }))
+      await user.click(within(await screen.findByRole('dialog', { name: 'Sat 8 - Sun 9 Aug 2026' })).getByRole('button', { name: 'Copy weekend' }))
+      await screen.findByText(/Sat 8 - Sun 9 Aug 2026 copied/)
+
+      // Nothing selected yet: the ⊕ offers paste, greyed out.
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      expect(screen.getByRole('button', { name: 'Paste weekend — select a weekend first' })).toHaveAttribute('aria-disabled', 'true')
+      await user.click(screen.getByRole('button', { name: 'Close quick actions' }))
+
+      // Tap another card to select it, then paste from the ⊕.
+      const aug15Card = (await view.findByRole('button', { name: 'Sat 15 - Sun 16 Aug 2026' })).closest('.card')
+      await user.click(within(aug15Card).getByText(/Wknd 3/))
+      expect(aug15Card).toHaveAttribute('data-selected', 'true')
+      expect(aug15Card.className).toMatch(/ring-2 ring-accent/)
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      await user.click(screen.getByRole('button', { name: 'Paste into Sat 15 - Sun 16 Aug 2026' }))
+
+      await screen.findByRole('heading', { name: /Paste Sat 8 - Sun 9 Aug 2026 into Sat 15 - Sun 16 Aug 2026/ })
+      await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
+      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('admin (phone): a copied month offers Paste into the viewed month from the ⊕ and the More menu', async () => {
+      mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+      const user = userEvent.setup()
+      renderView()
+      const view = await mobile()
+      await view.findByText('August 2026')
+
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      await user.click(screen.getByRole('button', { name: 'More actions' }))
+      await user.click(await screen.findByRole('button', { name: 'Copy August 2026' }))
+      await screen.findByText(/August 2026 copied/)
+
+      await user.click(screen.getByRole('button', { name: 'Quick actions' }))
+      // Both the ⊕ action and the More menu entry exist; the pill's own
+      // button makes three routes to the same paste.
+      expect(screen.getAllByRole('button', { name: 'Paste into August 2026' }).length).toBeGreaterThanOrEqual(2)
+      await user.click(screen.getByRole('button', { name: 'More actions' }))
+      const sheet = await screen.findByRole('dialog', { name: 'More actions' })
+      expect(within(sheet).getByRole('button', { name: 'Paste into August 2026' })).toBeInTheDocument()
     })
 
     it('non-admin: no Clear weekend action on the mobile card or desktop inspector', async () => {
@@ -1331,7 +1416,7 @@ describe('WeekendPlannerView', () => {
       renderView()
       await screen.findByRole('button', { name: 'More Actions' })
 
-      await clickMoreAction(user, 'Copy quarter')
+      await clickMoreAction(user, 'Copy Aug-Oct 2026')
 
       expect(screen.getByText('📋 Aug-Oct 2026 copied')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Paste into Aug-Oct 2026' })).toBeInTheDocument()
@@ -1343,7 +1428,7 @@ describe('WeekendPlannerView', () => {
       renderView()
       await screen.findByRole('button', { name: 'More Actions' })
 
-      await clickMoreAction(user, 'Clear quarter')
+      await clickMoreAction(user, 'Clear Aug-Oct 2026')
 
       // ENTRIES only has assignments in August within Aug/Sep/Oct: 1 at Aug 1, 4 at Aug 8.
       const heading = await screen.findByRole('heading', { name: 'Clear Aug-Oct 2026?' })
@@ -1357,7 +1442,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Clear August')
+      await clickMoreAction(user, 'Clear August 2026')
       await screen.findByRole('heading', { name: 'Clear August 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
 
@@ -1375,7 +1460,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Copy August')
+      await clickMoreAction(user, 'Copy August 2026')
       await user.click(view.getByRole('button', { name: 'Next month' }))
       await view.findByText('September 2026')
 
@@ -1405,7 +1490,7 @@ describe('WeekendPlannerView', () => {
       const view = await desktop()
       await view.findByText('August 2026')
 
-      await clickMoreAction(user, 'Clear August')
+      await clickMoreAction(user, 'Clear August 2026')
       await screen.findByRole('heading', { name: 'Clear August 2026?' })
       await user.click(screen.getByRole('button', { name: 'Clear' }))
       await screen.findByText('Cleared August 2026')

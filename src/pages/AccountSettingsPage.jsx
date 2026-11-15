@@ -24,6 +24,7 @@ import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib
 import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
+import { deleteStaffAccount } from '../lib/staffCredentials'
 import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -581,6 +582,11 @@ export default function AccountSettingsPage() {
 
   const [deleteConfirming, setDeleteConfirming] = useState(false)
   const [deleteSaving, setDeleteSaving] = useState(false)
+  // Admin removing someone else's account outright (admin-staff-credentials
+  // `delete`), as opposed to a doctor requesting their own removal above.
+  const [adminDeleteConfirming, setAdminDeleteConfirming] = useState(false)
+  const [adminDeleting, setAdminDeleting] = useState(false)
+  const [adminDeleteError, setAdminDeleteError] = useState('')
 
   // ── Load the account being viewed (self or, for admins, someone else) ──
   async function reloadTarget() {
@@ -1220,6 +1226,18 @@ export default function AccountSettingsPage() {
       setRequestForm({ type: 'role', value: '', subtype: null, reason: '' })
       loadMyRequests()
     }
+  }
+
+  async function adminDeleteAccount() {
+    setAdminDeleting(true)
+    setAdminDeleteError('')
+    const result = await deleteStaffAccount(targetId)
+    setAdminDeleting(false)
+    if (!result.ok) {
+      setAdminDeleteError(result.error)
+      return
+    }
+    navigate('/staff')
   }
 
   // ── Account deletion request ────────────────────────────────
@@ -2140,6 +2158,40 @@ export default function AccountSettingsPage() {
                 <LogoutIcon className="h-5 w-5 text-ink-light" />
                 Sign out
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Danger zone (admin, someone else's account) ────────── */}
+        {!isOwnAccount && isAdmin && (
+          <div>
+            <SectionLabel>Danger Zone</SectionLabel>
+            <div className="card overflow-hidden border-danger/40 bg-danger-bg">
+              <SectionRow icon={<TrashIcon className="h-5 w-5" />} title="Delete account" danger>
+                {adminDeleteConfirming ? (
+                  <div className="rounded-lg border border-danger/30 bg-danger/10 p-4">
+                    <p className="text-sm text-danger">
+                      This permanently removes {profile?.name} {profile?.surname}&rsquo;s sign-in and profile. It cannot be undone.
+                    </p>
+                    <p className="mt-1 text-xs text-ink-light">
+                      Accounts that already appear on a roster or weekend plan can&rsquo;t be deleted; deactivate those instead.
+                    </p>
+                    {adminDeleteError && <p className="mt-2 text-sm text-danger" role="alert">{adminDeleteError}</p>}
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={adminDeleteAccount} disabled={adminDeleting} className="btn-danger">
+                        {adminDeleting ? 'Deleting…' : 'Yes, delete account'}
+                      </button>
+                      <button type="button" onClick={() => { setAdminDeleteConfirming(false); setAdminDeleteError('') }} disabled={adminDeleting} className="btn-secondary">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setAdminDeleteConfirming(true)} className="btn-danger">
+                    Delete account
+                  </button>
+                )}
+              </SectionRow>
             </div>
           </div>
         )}

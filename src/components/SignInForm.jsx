@@ -85,7 +85,7 @@ const LINK_CLASS = 'font-medium text-accent underline decoration-accent/45 under
 // borrows a few pixels of the gaps either side. Always mounted, so a
 // screen reader's live region exists before it has anything to say;
 // `empty:hidden` keeps the empty region from painting.
-function CredentialErrorMessage({ error, onDismiss }) {
+function CredentialErrorMessage({ error, errorAction, onDismiss }) {
   return (
     <p
       role="alert"
@@ -96,6 +96,11 @@ function CredentialErrorMessage({ error, onDismiss }) {
         <>
           <AlertIcon />
           <span className="min-w-0 flex-1 truncate" title={error}>{error}</span>
+          {errorAction && (
+            <button type="button" onClick={errorAction.onClick} className="shrink-0 font-semibold underline underline-offset-2 hover:no-underline">
+              {errorAction.label}
+            </button>
+          )}
           <button
             type="button"
             onClick={onDismiss}
@@ -116,6 +121,9 @@ export default function SignInForm({
   variant = 'inline',
   onSubmit,
   error = null,
+  // Optional { label, onClick } shown inside the error banner — the one
+  // case today is "Resend code" next to "Email not confirmed".
+  errorAction = null,
   submitting = false,
   verifying = false,
   captcha = null,
@@ -334,7 +342,7 @@ export default function SignInForm({
       <div className={`relative flex flex-col items-center justify-center ${
         inline || error || (verifying && !submitting) ? 'min-h-[28px]' : '-mt-[22px] h-0'
       }`}>
-        <CredentialErrorMessage error={error} onDismiss={handleDismissError} />
+        <CredentialErrorMessage error={error} errorAction={errorAction} onDismiss={handleDismissError} />
         <p id="verify-status" role="status" className="text-center text-sm text-ink-light empty:hidden">
           {verifying && !submitting && !error ? 'Checking your connection is secure…' : ''}
         </p>

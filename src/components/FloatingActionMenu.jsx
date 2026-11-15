@@ -178,6 +178,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
                 icon={a.icon}
                 label={a.label}
                 active={a.active}
+                disabled={a.disabled}
                 onClick={() => { a.onClick(); setOpen(false) }}
               />
             ))}
@@ -310,7 +311,7 @@ const OPEN_EASE = 'cubic-bezier(0.34, 1.8, 0.64, 1)'
 // stack can't be tabbed into or tapped through. `visibility` gets its own
 // zero-length step in the opening transition so it flips at the start of
 // each button's turn rather than for the whole stack at once.
-function FabItem({ icon: Icon, label, onClick, active, open, index }) {
+function FabItem({ icon: Icon, label, onClick, active, disabled = false, open, index }) {
   // Closing isn't animated at all — the stack is gone the frame the ⊕ is
   // tapped. Dismissing is a correction, and a cascade played backwards just
   // makes the user wait to get their screen back; there's also nothing to
@@ -323,8 +324,9 @@ function FabItem({ icon: Icon, label, onClick, active, open, index }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       aria-label={label}
+      aria-disabled={disabled || undefined}
       aria-hidden={!open}
       tabIndex={open ? undefined : -1}
       title={label}
@@ -334,7 +336,7 @@ function FabItem({ icon: Icon, label, onClick, active, open, index }) {
         open ? 'pointer-events-auto visible scale-100 opacity-100' : 'invisible scale-0 opacity-0'
       } ${
         active ? 'bg-accent text-on-fill' : 'bg-canvas-raised text-ink hover:bg-canvas-sunken'
-      }`}
+      } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
     >
       <Icon className="h-[18px] w-[18px]" />
     </button>

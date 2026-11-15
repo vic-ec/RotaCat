@@ -16,6 +16,7 @@ import { formatPhoneProgressive } from '../lib/phone'
 import DateFieldButton from '../components/DateFieldButton'
 import AuthModal from '../components/AuthModal'
 import AuthField from '../components/AuthField'
+import ConfirmEmailForm from '../components/ConfirmEmailForm'
 import TurnstileSlot from '../components/TurnstileSlot'
 import { authButtonClass, AUTH_LINK, AUTH_LINK_MUTED, AUTH_ERROR, AUTH_MODAL } from '../lib/authStyles'
 import { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
@@ -72,7 +73,7 @@ const PERIOD_REQUIRED_CATEGORIES = new Set(['Intern', 'Registrar'])
 
 
 function RoleModal({ role, onClose }) {
-  const { signUp, verifySignupOtp, resendSignupOtp } = useAuth()
+  const { signUp } = useAuth()
   const navigate = useNavigate()
   const nameRef = useRef(null)
   const [category, setCategory] = useState('')
@@ -105,11 +106,6 @@ function RoleModal({ role, onClose }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [otpError, setOtpError] = useState('')
-  const [verifying, setVerifying] = useState(false)
-  const [resending, setResending] = useState(false)
-  const [resent, setResent] = useState(false)
   const capsLock = useCapsLockWarning()
 
   const emailInvalid = emailTouched && email.length > 0 && !isValidEmail(email)
@@ -177,28 +173,6 @@ function RoleModal({ role, onClose }) {
     setSubmitted(true)
   }
 
-  async function handleVerifyOtp(e) {
-    e.preventDefault()
-    setOtpError('')
-    setVerifying(true)
-    const { error } = await verifySignupOtp(email, otp)
-    setVerifying(false)
-
-    if (error) {
-      setOtpError(error.message && error.message !== '{}' ? error.message : 'Something went wrong. Please try again.')
-      return
-    }
-    navigate('/')
-  }
-
-  async function handleResendOtp() {
-    setResending(true)
-    setResent(false)
-    const { error } = await resendSignupOtp(email)
-    setResending(false)
-    if (!error) setResent(true)
-  }
-
   const title = MODAL_TITLES[role]
   const dateOrderInvalid = Boolean(activeFrom && activeUntil && activeUntil < activeFrom)
   const periodDescribedBy = `${dateOrderInvalid ? 'activity-period-error ' : ''}activity-period-hint`
@@ -228,64 +202,7 @@ function RoleModal({ role, onClose }) {
       )}
     >
       {submitted ? (
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-bg">
-            <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p className="text-sm text-ink-muted">
-            We sent a 6-digit code to <span className="font-medium text-ink">{email}</span>.
-            Enter it below to confirm your address.
-          </p>
-
-          <form onSubmit={handleVerifyOtp} className="mt-4 text-left">
-            <AuthField
-              id="otp"
-              label="Confirmation code"
-              name="otp"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              required
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="123456"
-              controlClassName="text-center text-lg tracking-[0.3em] placeholder:tracking-normal"
-            />
-
-            {otpError && (
-              <div role="alert" className={`mt-4 ${AUTH_ERROR}`}>
-                {otpError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={verifying || otp.length !== 6}
-              className={authButtonClass({ large: false, extra: 'mt-4' })}
-            >
-              {verifying ? 'Confirming…' : 'Confirm email'}
-            </button>
-          </form>
-
-          <button
-            type="button"
-            onClick={handleResendOtp}
-            disabled={resending}
-            className={`mt-3 text-sm ${AUTH_LINK} disabled:opacity-60`}
-          >
-            {resending ? 'Resending…' : resent ? 'Code resent — check your email' : "Didn't get a code? Resend"}
-          </button>
-
-          <Link
-            to="/login"
-            className={`mt-6 block text-sm ${AUTH_LINK_MUTED}`}
-          >
-            Back to sign in
-          </Link>
-        </div>
+        <ConfirmEmailForm email={email} onConfirmed={() => navigate('/')} />
       ) : (
         <form id="role-details-form" onSubmit={handleSubmit}>
           {/* Honeypot — off-screen and unreachable by keyboard/AT, so a

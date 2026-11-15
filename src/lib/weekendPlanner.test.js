@@ -443,6 +443,41 @@ describe('planWeekendPaste', () => {
     expect(plan.unmatchedSourceCount).toBe(1)
   })
 
+  it('names the dropped source weekend when the source runs longer', () => {
+    const sourceWeekends = [0, 1, 2, 3, 4].map(i => ({
+      saturday: shiftWeeks(sourceSaturday, i),
+      entries: [{ groupKey: 'MO', profileId: 'p1', category: 'MO' }],
+    }))
+    const plan = planWeekendPaste({
+      sourceWeekends, targetSaturdays, existingByWeekend: new Map(),
+      activeDoctorIds: new Set(['p1']), mode: 'fill-empty',
+    })
+    expect(plan.unmatchedSourceSaturdays).toEqual([shiftWeeks(sourceSaturday, 4)])
+    expect(plan.unfilledTargets).toEqual([])
+  })
+
+  it('a target that runs a weekend longer is reported with the weekend it would repeat, and filled from it only when asked', () => {
+    // 4 source weekends into 5 targets: the 5th target shares parity with
+    // the 3rd, which received the 3rd source — so that is what repeats.
+    const sourceWeekends = [0, 1, 2, 3].map(i => ({
+      saturday: shiftWeeks(sourceSaturday, i),
+      entries: [{ groupKey: 'MO', profileId: `p${i}`, category: 'MO' }],
+    }))
+    const fiveTargets = [...targetSaturdays, shiftWeeks(targetSaturdays[3], 1)]
+    const base = { sourceWeekends, targetSaturdays: fiveTargets, existingByWeekend: new Map(), activeDoctorIds: new Set(['p0', 'p1', 'p2', 'p3']), mode: 'fill-empty' }
+
+    const plan = planWeekendPaste(base)
+    expect(plan.unfilledTargets).toEqual([{ saturday: fiveTargets[4], repeatOf: fiveTargets[2] }])
+    expect(plan.unmatchedSourceCount).toBe(0)
+    expect(plan.toInsert.map(i => i.weekendSaturday)).not.toContain(fiveTargets[4])
+
+    const filled = planWeekendPaste({ ...base, fillExtraTargets: true })
+    expect(filled.toInsert.filter(i => i.weekendSaturday === fiveTargets[4])).toEqual([
+      { weekendSaturday: fiveTargets[4], groupKey: 'MO', profileId: 'p2', category: 'MO' },
+    ])
+    expect(filled.toInsert).toHaveLength(5)
+  })
+
   it('within one target weekend, a profile copied into two groups only lands in the first (defensive dedupe)', () => {
     const sourceWeekends = [{
       saturday: sourceSaturday,

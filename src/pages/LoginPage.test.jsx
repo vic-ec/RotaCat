@@ -9,7 +9,9 @@ const { signIn, desktop } = vi.hoisted(() => ({
   desktop: { current: true },
 }))
 
-vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ signIn }) }))
+const resendSignupOtp = vi.fn().mockResolvedValue({ error: null })
+const verifySignupOtp = vi.fn().mockResolvedValue({ error: null })
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ signIn, resendSignupOtp, verifySignupOtp }) }))
 vi.mock('../lib/supabase', () => ({ supabase: { auth: { resetPasswordForEmail: vi.fn() } } }))
 vi.mock('../lib/useIsDesktop', () => ({ useIsDesktop: () => desktop.current }))
 vi.mock('../lib/useAuthMascot', () => ({ useAuthMascot: () => 'mascot.png' }))
@@ -124,6 +126,25 @@ describe('LoginPage — desktop (lg and up)', () => {
     await user.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(alert).toBeEmptyDOMElement()
     expect(document.activeElement).toBe(document.getElementById('password'))
+  })
+
+  it('on an unconfirmed email: offers "Resend code", which opens the confirm-email dialog for that address', async () => {
+    const user = userEvent.setup()
+    signIn.mockResolvedValue({ error: { message: 'Email not confirmed' } })
+    renderPage()
+
+    await user.type(document.getElementById('email'), 'lucy@example.com')
+    await user.type(document.getElementById('password'), 'secret-pass-1!')
+    await user.click(within(inlineForm()).getByRole('button', { name: 'Sign in' }))
+
+    const alert = document.querySelector('[role="alert"]')
+    await waitFor(() => expect(alert).toHaveTextContent('Email not confirmed.'))
+    await user.click(within(alert).getByRole('button', { name: 'Resend code' }))
+
+    const dialog = document.querySelector('[aria-labelledby="confirm-email-title"]')
+    expect(dialog).toHaveAttribute('role', 'dialog')
+    expect(within(dialog).getByText('lucy@example.com')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Confirmation code')).toBeInTheDocument()
   })
 
   it('marks the form busy and keeps the submit button in the tab order while signing in', async () => {

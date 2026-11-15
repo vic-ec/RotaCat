@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { isTempPasswordExpired, TEMP_PASSWORD_EXPIRED_CODE, TEMP_PASSWORD_EXPIRED_MESSAGE } from '../lib/tempPassword'
 
 const AuthContext = createContext(undefined)
 
@@ -89,8 +90,31 @@ export function AuthProvider({ children }) {
   // captchaToken is required once CAPTCHA protection is enabled on the
   // Supabase project's Auth settings — see TurnstileWidget.jsx.
   async function signIn(email, password, captchaToken) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
-    return { error }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } })
+    if (error) return { error }
+
+    // An admin-issued password is only good for 14 days (tempPassword.js).
+    // Supabase accepted it, so the session exists for a moment; if the
+    // window has closed, end it here and report that instead, before any
+    // route renders. Read directly rather than waiting on the provider's
+    // own profile fetch, which races this return.
+    const userId = data?.user?.id ?? data?.session?.user?.id
+    if (userId) {
+      try {
+        const { data: row } = await supabase
+          .from('profiles')
+          .select('must_change_password, temp_password_issued_at')
+          .eq('id', userId)
+          .single()
+        if (isTempPasswordExpired(row)) {
+          await supabase.auth.signOut()
+          return { error: { code: TEMP_PASSWORD_EXPIRED_CODE, message: TEMP_PASSWORD_EXPIRED_MESSAGE } }
+        }
+      } catch {
+        /* the profile read is best-effort here; the set-password screen checks again */
+      }
+    }
+    return { error: null }
   }
 
   // Updated: accepts role and category for the new account model.

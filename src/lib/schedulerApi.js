@@ -20,7 +20,7 @@ if (!BASE_URL) {
  * Calls POST /generate-roster on the Render backend.
  * Returns the full response JSON on success, throws on error.
  */
-export async function generateRoster({ year, month, useCarryForward, adminProfileId }) {
+export async function generateRoster({ year, month, useCarryForward, adminProfileId, excludedProfileIds = [] }) {
   const url = `${BASE_URL}/generate-roster`
   const res = await fetch(url, {
     method: 'POST',
@@ -30,6 +30,11 @@ export async function generateRoster({ year, month, useCarryForward, adminProfil
       month,
       use_carry_forward: useCarryForward,
       created_by: adminProfileId,
+      // Doctors the admin unticked on the Generate page. The engine drops
+      // them from the run entirely (GenerateRosterRequest.excluded_profile_ids
+      // -> build_scheduling_context). This was collected by the page but
+      // never sent, so every run silently included everyone.
+      excluded_profile_ids: excludedProfileIds,
       time_limit_seconds: 180,
     }),
   })

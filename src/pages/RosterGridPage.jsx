@@ -46,6 +46,12 @@ const ROSTER_RANGES = [
   { key: 'week', label: 'W', ariaLabel: 'Week', title: 'Week' },
 ]
 
+// ⅝-contract doctors are rostered on weekends by their own cadence, not
+// from the Weekend Planner — see computeWeekendPlannerDrift.
+function outsidePlannerIds(profiles) {
+  return new Set((profiles || []).filter(p => p.contract_type === 'five_eighths').map(p => p.id))
+}
+
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -215,7 +221,7 @@ export default function RosterGridPage() {
           .select('weekend_saturday, profile_id, created_at, updated_at')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
-        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap)
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data))
         setPlannerDrift(newDrift)
         setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
         setDismissedDrift(isDriftMuted(id, newDrift))
@@ -274,7 +280,7 @@ export default function RosterGridPage() {
         .select('weekend_saturday, profile_id, created_at, updated_at')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
-      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes)
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles))
       setPlannerDrift(newDrift)
       setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
       setDismissedDrift(isDriftMuted(id, newDrift))

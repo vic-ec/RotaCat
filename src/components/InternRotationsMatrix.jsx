@@ -27,14 +27,15 @@ import { useFillToViewport } from '../lib/useFillToViewport'
 // that would otherwise size independently. Desktop grid only — mobile
 // renders a per-doctor strip of just the covered months instead (see
 // flattenSegmentsToCells below), not a fixed 12-column grid at all.
-const MONTH_COL_WIDTH = 56 // px
-const LABEL_COL_WIDTH = 152 // px
+// The month columns stretch to fill the table's width; this is only the
+// floor, below which the grid scrolls sideways instead.
+const MIN_MONTH_COL_WIDTH = 56 // px
+const LABEL_COL_WIDTH = 200 // px — room for the name and the rotation line under it
 
 // COSMO was retired as a separate staff_category in Aug 2026 (folded into
 // Intern — see InternRotationsPlanner.jsx) so this page's doctor pool is
 // only ever Intern/Registrar now.
 const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
-const CATEGORY_GROUP_LABEL = { Intern: 'Intern', Registrar: 'Registrar' }
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'All categories' },
   { value: 'Intern', label: 'Intern' },
@@ -177,6 +178,17 @@ export default function InternRotationsMatrix({
 }) {
   const isDesktop = useIsDesktop()
   const [fillRef, fillStyle] = useFillToViewport(32, { fit: true })
+  // The table's own width, so the twelve month columns can share it.
+  const [gridNode, setGridNodeState] = useState(null)
+  const [gridWidth, setGridWidth] = useState(0)
+  useEffect(() => {
+    if (!gridNode || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => setGridWidth(gridNode.clientWidth))
+    observer.observe(gridNode)
+    setGridWidth(gridNode.clientWidth)
+    return () => observer.disconnect()
+  }, [gridNode])
+  const setGridNode = el => { setGridNodeState(el); fillRef(el) }
   const today = todayStr()
   const currentYear = Number(today.slice(0, 4))
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
@@ -222,12 +234,27 @@ export default function InternRotationsMatrix({
 
   const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
 
-  const groups = CATEGORY_GROUP_ORDER
-    .map(key => ({
+  // The table's sections are the "right now" panel's (NOW_SECTIONS): EC
+  // interns, OT interns, Registrars — an intern sits under whichever their
+  // CURRENT rotation is, and moves when it changes. An intern with nothing
+  // running today goes by their next rotation, else their last, else EC.
+  function sectionKeyFor(doctor) {
+    if (categoryGroupKey(doctor) === 'Registrar') return 'registrars'
+    const own = (rotationsByDoctorId.get(doctor.id) || []).slice().sort((a, b) => a.start_date.localeCompare(b.start_date))
+    const rotation = rotationForDate(own, today) || own.find(r => r.start_date > today) || own[own.length - 1]
+    return rotation && rotation.rotation_type === 'OT' ? 'ot-interns' : 'ec-interns'
+  }
+  const groups = NOW_SECTIONS
+    .map(({ key, label }) => ({
       key,
-      label: CATEGORY_GROUP_LABEL[key],
+      label,
+      // Which staff category "+ Add doctor" offers here. Both intern
+      // sections offer interns — a month with every intern on OT would
+      // otherwise have nowhere to add one. (A new doctor starts on an EC
+      // block either way, so they then appear under EC interns.)
+      addCategory: key === 'registrars' ? 'Registrar' : 'Intern',
       items: filteredDoctors
-        .filter(d => categoryGroupKey(d) === key)
+        .filter(d => sectionKeyFor(d) === key)
         .sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
     }))
     .filter(g => g.items.length > 0)
@@ -426,7 +453,8 @@ export default function InternRotationsMatrix({
     setAddingDoctor(false)
   }
 
-  const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${MONTH_COL_WIDTH}px)`
+  const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
+  const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
 
   const filterFacets = [{
     key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
@@ -802,11 +830,13 @@ export default function InternRotationsMatrix({
           {/* Ends at its last row when the list is short; with a long one it
               stops at the window's edge and scrolls inside, month header
               pinned. */}
-          <div ref={fillRef} style={fillStyle} className="card overflow-auto p-0">
-            <div className="sticky top-0 z-20 grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
-              <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
+          {/* On the page's own dark ground rather than a card, like Team
+              Leave and Hours Summary — so a selected row's tint stands out. */}
+          <div ref={setGridNode} style={fillStyle} className="overflow-auto rounded-lg border border-slate-line bg-canvas">
+            <div className="sticky top-0 z-20 grid border-b border-slate-line bg-canvas-sunken text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
+              <div className="sticky left-0 z-10 bg-canvas-sunken px-3 py-2">Doctor</div>
               {MONTH_ABBR.map((label, i) => (
-                <div key={label} className={`px-1 py-1.5 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
+                <div key={label} className={`px-1 py-2 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
                   {label}
                 </div>
               ))}
@@ -821,7 +851,7 @@ export default function InternRotationsMatrix({
                 <button
                   type="button"
                   onClick={() => toggleGroupCollapsed(group.key)}
-                  className="sheen-divider text-left transition-[filter] hover:brightness-110 active:brightness-110"
+                  className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
                 >
                   <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
                   <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -831,27 +861,55 @@ export default function InternRotationsMatrix({
                   const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
                   const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
                   const label = displayNames?.get(doctor.id) ?? doctor.surname
+                  const current = rotationForDate(doctorRotations, today)
+                  const currentKey = current ? rotationTypeKey(current.rotation_type, current.subtype) : null
+                  const isSelected = selectedDoctorId === doctor.id
+                  const cellFill = isSelected ? 'bg-accent-tint' : 'bg-canvas group-hover:bg-canvas-cool'
                   return (
-                    <div key={doctor.id} className="grid border-b border-slate-line last:border-0" style={{ gridTemplateColumns }}>
-                      <button
-                        type="button"
-                        onClick={() => selectDoctor(doctor.id)}
-                        title={`${doctor.name || ''} ${doctor.surname}`.trim()}
-                        className={`sticky left-0 z-10 truncate border-r border-slate-line bg-canvas-raised px-2 py-2 text-left text-xs font-medium transition-colors hover:bg-canvas-sunken ${
-                          selectedDoctorId === doctor.id ? 'bg-accent-tint text-accent' : 'text-ink'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                      <div className="relative col-span-12" style={{ height: 36 }}>
+                    /* The whole row selects — name, bar and the empty months
+                       alike. The name stays a real button so the row is
+                       reachable by keyboard; a click on it bubbles to here. */
+                    <div
+                      key={doctor.id}
+                      onClick={() => selectDoctor(doctor.id)}
+                      aria-selected={isSelected}
+                      className={`group grid cursor-pointer border-t border-slate-hairline transition-colors ${
+                        isSelected ? 'bg-accent-tint shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'hover:bg-canvas-cool'
+                      }`}
+                      style={{ gridTemplateColumns }}
+                    >
+                      <div className={`sticky left-0 z-10 flex min-w-0 flex-col justify-center border-r border-slate-line px-3 py-1.5 transition-colors ${cellFill} ${
+                        isSelected ? 'shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : ''
+                      }`}>
+                        <button
+                          type="button"
+                          title={`${doctor.name || ''} ${doctor.surname}`.trim()}
+                          className={`truncate text-left text-sm font-medium ${isSelected ? 'text-accent' : 'text-ink'}`}
+                        >
+                          {label}
+                        </button>
+                        {/* What they are on today, in the bar's own colour —
+                            so the row reads without tracing to the Nov column. */}
+                        <span className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-ink-muted">
+                          {current ? (
+                            <>
+                              <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[currentKey] }} />
+                              <span className="truncate">
+                                {typeLabel(currentKey)} · {current.end_date ? `to ${formatDayMonthYear(current.end_date)}` : 'ongoing'}
+                              </span>
+                            </>
+                          ) : 'No rotation today'}
+                        </span>
+                      </div>
+                      <div className="relative col-span-12" style={{ height: 44 }}>
                         {segments.map(seg => (
                           <div
                             key={`${seg.startMonthIndex}-${seg.typeKey}`}
                             title={typeLabel(seg.typeKey)}
                             className="absolute top-1/2 -translate-y-1/2"
                             style={{
-                              left: seg.startMonthIndex * MONTH_COL_WIDTH,
-                              width: (seg.endMonthIndex - seg.startMonthIndex + 1) * MONTH_COL_WIDTH,
+                              left: seg.startMonthIndex * monthColWidth,
+                              width: (seg.endMonthIndex - seg.startMonthIndex + 1) * monthColWidth,
                               height: 22,
                               backgroundColor: ROTATION_TYPE_COLOR[seg.typeKey],
                             }}
@@ -861,8 +919,8 @@ export default function InternRotationsMatrix({
                           <div
                             className="pointer-events-none absolute top-1/2 -translate-y-1/2"
                             style={{
-                              left: currentMonthIndex * MONTH_COL_WIDTH,
-                              width: MONTH_COL_WIDTH,
+                              left: currentMonthIndex * monthColWidth,
+                              width: monthColWidth,
                               height: 24,
                               boxShadow: '0 0 0 0.5px white, 0 0 0 2px #0f172a, 0 0 0 2.5px white',
                             }}
@@ -873,11 +931,11 @@ export default function InternRotationsMatrix({
                   )
                 })}
 
-                {!collapsedGroups[group.key] && (
-                  <div className="border-b border-slate-line px-2 py-1.5 last:border-0">
+                {!collapsedGroups[group.key] && group.addCategory && (
+                  <div className="border-t border-slate-hairline px-3 py-1.5">
                     <button
                       type="button"
-                      onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor(group.key) }}
+                      onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor(group.addCategory) }}
                       className="rounded border border-dashed border-slate-line px-2 py-1 text-xs text-ink hover:bg-canvas-sunken"
                     >
                       + Add doctor

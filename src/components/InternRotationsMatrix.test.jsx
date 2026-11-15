@@ -201,9 +201,10 @@ describe('InternRotationsMatrix', () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
-    // The Intern group heading, not the "Intern" row label/chip elsewhere —
-    // its accessible name includes the group's doctor count ("Intern 2").
-    const internHeading = screen.getByRole('button', { name: /Intern \d/ })
+    // The table's own section heading (the "right now" panel has one of the
+    // same name) — sections follow the current rotation, and the only
+    // intern with one is on OT today.
+    const internHeading = screen.getAllByRole('button', { name: /OT interns \d/ })[0]
     await user.click(within(internHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
     const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
@@ -235,6 +236,37 @@ describe('InternRotationsMatrix', () => {
     expect(kebab).toHaveClass('icon-btn', 'icon-btn-idle')
     await user.click(kebab)
     expect(kebab).toHaveClass('icon-btn-active')
+  })
+})
+
+describe('InternRotationsMatrix — table sections and rows', () => {
+  it('sections the table by current rotation, matching the right-now panel', () => {
+    renderMatrix()
+    // intern-1 is on OT·LRCHC today, registrar-1 on EC
+    expect(screen.getAllByRole('button', { name: /OT interns 1/ }).length).toBe(2) // table + panel
+    expect(screen.getAllByRole('button', { name: /Registrars 1/ }).length).toBe(2)
+    // cosmo-1 has no rotation at all: the table still lists them (under EC
+    // interns, the default), the "right now" panel has nobody to show there
+    expect(screen.getAllByRole('button', { name: /EC interns 1/ }).length).toBe(1)
+    expect(within(screen.getByTitle('Cara Cosmo').closest('[aria-selected]')).getByText('No rotation today')).toBeInTheDocument()
+  })
+
+  it('shows the current rotation under the name, and selects from anywhere on the row', async () => {
+    const onSelectDoctor = vi.fn()
+    const user = userEvent.setup()
+    renderMatrix({ onSelectDoctor })
+    const row = screen.getByTitle('Ivy Intern').closest('[aria-selected]')
+    expect(within(row).getByText('OT · LRCHC · ongoing')).toBeInTheDocument()
+    // the bar area, not the name
+    await user.click(row.lastElementChild)
+    expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
+  })
+
+  it('marks the selected row', () => {
+    renderMatrix({ selectedDoctorId: 'registrar-1' })
+    // the side panel repeats the selected doctor's name; the row is the first
+    expect(screen.getAllByTitle('Rae Registrar')[0].closest('[aria-selected]')).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTitle('Ivy Intern').closest('[aria-selected]')).toHaveAttribute('aria-selected', 'false')
   })
 })
 

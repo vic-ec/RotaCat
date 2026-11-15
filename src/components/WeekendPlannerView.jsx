@@ -83,7 +83,7 @@ const CLERK_FILTERS = [FILTERS_BASE.find(f => f.key === 'all')]
 // and these lines only ever describe the signed-in doctor's own request, so
 // the name is theirs. Sentence case, not the uppercase these small labels
 // usually take: a surname shouted in caps reads as a different word.
-const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected' }
+const EXCEPTION_STATUS_LABEL = { pending: 'Weekend off pending', approved: 'Weekend off approved', rejected: 'Weekend off rejected', cancelled: 'Weekend off cancelled' }
 function myRequestLine(status, name) {
   const outcome = EXCEPTION_STATUS_LABEL[status] ?? status
   return name ? `${name} • ${outcome}` : outcome

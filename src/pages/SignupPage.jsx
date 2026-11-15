@@ -18,7 +18,7 @@ import AuthModal from '../components/AuthModal'
 import AuthField from '../components/AuthField'
 import ConfirmEmailForm from '../components/ConfirmEmailForm'
 import TurnstileSlot from '../components/TurnstileSlot'
-import { authButtonClass, AUTH_LINK, AUTH_LINK_MUTED, AUTH_ERROR, AUTH_MODAL } from '../lib/authStyles'
+import { authButtonClass, AUTH_LINK, AUTH_ERROR, AUTH_MODAL } from '../lib/authStyles'
 import { TURNSTILE_ENABLED } from '../components/TurnstileWidget'
 
 // See LoginPage: React 18 forwards `inert` only as a string attribute.

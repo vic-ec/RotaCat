@@ -36,7 +36,9 @@ vi.mock('../lib/supabase', () => ({
       fromCalls.push(table)
       let method = null
       const builder = {
-        select() { method = 'select'; return builder },
+        // A .select() chained after .update() (approve/reject ask for the
+        // touched ids back) keeps the call an update, as PostgREST would.
+        select() { if (method === null) method = 'select'; return builder },
         update() { method = 'update'; return builder },
         insert() { method = 'insert'; return builder },
         eq() { return builder },
@@ -46,7 +48,8 @@ vi.mock('../lib/supabase', () => ({
         single() { return builder },
         order() { return builder },
         then(resolve, reject) {
-          const result = mockResponses[`${table}:${method}`] || { data: null, error: null }
+          const result = mockResponses[`${table}:${method}`]
+            || (method === 'update' ? { data: [{ id: 'updated' }], error: null } : { data: null, error: null })
           return Promise.resolve(result).then(resolve, reject)
         },
       }
@@ -131,7 +134,7 @@ describe('MonthWorkspace', () => {
   beforeEach(() => {
     fromCalls.length = 0
     for (const key of Object.keys(mockResponses)) delete mockResponses[key]
-    mockResponses['leave_requests:update'] = { data: null, error: null }
+    mockResponses['leave_requests:update'] = { data: [{ id: 'p2-pending' }], error: null }
     mockResponses['notifications:insert'] = { data: null, error: null }
     getApprovalWarnings.mockReset()
     createNotification.mockClear()

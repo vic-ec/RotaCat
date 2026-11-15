@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -35,8 +35,13 @@ export default function GenerationConfigPage() {
   const defaultMonth = now.getMonth() === 11 ? 1 : now.getMonth() + 2
   const defaultYear  = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear()
 
-  const [year, setYear]                 = useState(defaultYear)
-  const [month, setMonth]               = useState(defaultMonth)
+  // ?year=&month= opens the page on a specific month — the Roster page's
+  // "View progress" / "Try again" links land here that way.
+  const [searchParams] = useSearchParams()
+  const paramYear  = Number(searchParams.get('year'))
+  const paramMonth = Number(searchParams.get('month'))
+  const [year, setYear]                 = useState(Number.isInteger(paramYear) && paramYear >= 2024 ? paramYear : defaultYear)
+  const [month, setMonth]               = useState(paramMonth >= 1 && paramMonth <= 12 ? paramMonth : defaultMonth)
   const [useCarryForward, setUseCarryForward] = useState(false)
   const [leaveBlocks, setLeaveBlocks]   = useState([])
   const [loadingLeave, setLoadingLeave] = useState(false)
@@ -82,7 +87,19 @@ export default function GenerationConfigPage() {
     fetchLatestGenerationJob(year, month)
       .then(latest => {
         if (cancelled) return
-        setJob(isJobActive(latest) && !isJobStale(latest) ? latest : null)
+        if (isJobActive(latest) && !isJobStale(latest)) {
+          setJob(latest)
+          return
+        }
+        setJob(null)
+        // The last run for this month ended badly and nothing has replaced
+        // it: say so, so "what happened to my run?" is answered here too.
+        const recent = latest && Date.now() - new Date(latest.created_at).getTime() < 24 * 3600000
+        if (recent && !latest.summary?.dry_run && describeJob(latest).phase === 'failed') {
+          showFailure(latest)
+        } else {
+          setError(''); setErrorDetail(''); setErrorRunUrl('')
+        }
       })
       .catch(() => { /* no job to resume is the same as none found */ })
     return () => { cancelled = true }
@@ -230,7 +247,7 @@ export default function GenerationConfigPage() {
     }
   }
 
-  const yearOptions = [now.getFullYear(), now.getFullYear() + 1]
+  const yearOptions = [...new Set([year, now.getFullYear(), now.getFullYear() + 1])].sort()
   const includedCount = allDoctors.length - excluded.size
 
   // Group doctors by category for display in the selection panel

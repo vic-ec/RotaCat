@@ -154,3 +154,44 @@ export function jobFailureDetail(job, now = Date.now()) {
   }
   return lines.join('\n\n')
 }
+
+// How long a finished-badly run stays on the Roster page before it is old
+// news. Long enough to be seen after a night's sleep.
+export const RECENT_JOB_HOURS = 24
+
+/** Jobs requested in the last day, newest first — what the Roster page lists. */
+export async function fetchRecentGenerationJobs(now = Date.now()) {
+  const since = new Date(now - RECENT_JOB_HOURS * 3600000).toISOString()
+  const { data, error } = await supabase
+    .from('roster_generation_jobs')
+    .select('*')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+    .limit(30)
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Which runs deserve a line on the Roster page: for each month, only its
+ * newest job, and only when it is still going or ended in failure. A month
+ * whose newest run succeeded needs nothing here — its draft is in the list
+ * below. A dry run writes no roster, so it is never shown either.
+ * `dismissedIds` are failures the admin has already acknowledged.
+ */
+export function generationRunsToShow(jobs, { dismissedIds = [], now = Date.now() } = {}) {
+  const newestPerMonth = new Map()
+  for (const job of [...jobs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
+    const key = `${job.year}-${job.month}`
+    if (!newestPerMonth.has(key)) newestPerMonth.set(key, job)
+  }
+  const dismissed = new Set(dismissedIds)
+  return [...newestPerMonth.values()]
+    .filter(job => {
+      if (job.summary?.dry_run) return false
+      const phase = describeJob(job, now).phase
+      if (phase === 'queued' || phase === 'running') return true
+      return phase === 'failed' && !dismissed.has(job.id)
+    })
+    .sort((a, b) => (a.year - b.year) || (a.month - b.month))
+}

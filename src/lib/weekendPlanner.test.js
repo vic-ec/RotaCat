@@ -734,6 +734,19 @@ describe('resolveWeekendCategoryForDoctor', () => {
   })
 })
 
+describe('computeWeekendPlannerDrift — doctors outside the planner', () => {
+  it('ignores a ⅝ doctor rostered on a weekend they were never planned for', () => {
+    const codes = { st1: 'WE_13' }
+    const roster = [
+      { profile_id: 'planned', shift_type_id: 'st1', date: '2026-12-05' },
+      { profile_id: 'five-eighths', shift_type_id: 'st1', date: '2026-12-05' },
+    ]
+    const planner = [{ weekend_saturday: '2026-12-05', profile_id: 'planned' }]
+    expect(computeWeekendPlannerDrift(roster, planner, codes)).toHaveLength(1)
+    expect(computeWeekendPlannerDrift(roster, planner, codes, new Set(['five-eighths']))).toEqual([])
+  })
+})
+
 describe('weekendPlannerChangedSince', () => {
   const entries = [
     { created_at: '2026-11-15T08:17:04Z' },

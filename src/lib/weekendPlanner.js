@@ -292,10 +292,16 @@ const WEEKEND_DAY_CODES = new Set(['WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 
 // removed are arrays of profile_id no longer matching between the two
 // (added = now in the planner but not in the draft, removed = in the
 // draft but no longer in the planner). Empty when nothing has drifted.
-export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes) {
+//
+// `outsidePlannerIds`: doctors the scheduling engine rosters on weekends
+// WITHOUT consulting the planner — ⅝-contract doctors, who by design keep
+// their own alternating cadence (RotaCatScheduler, solver.py
+// add_weekend_pattern_constraints). Their weekend shifts are never a
+// difference from the plan, because the plan was never meant to hold them.
+export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes, outsidePlannerIds = new Set()) {
   const actualBySaturday = new Map()
   for (const entry of rosterEntries) {
-    if (!entry.profile_id) continue
+    if (!entry.profile_id || outsidePlannerIds.has(entry.profile_id)) continue
     const code = shiftTypeCodes[entry.shift_type_id]
     if (!WEEKEND_DAY_CODES.has(code)) continue
     const saturday = dayOfWeek(entry.date) === 0 ? addDays(entry.date, -1) : entry.date
@@ -305,6 +311,7 @@ export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftT
 
   const plannedBySaturday = new Map()
   for (const entry of plannerEntries) {
+    if (outsidePlannerIds.has(entry.profile_id)) continue
     if (!plannedBySaturday.has(entry.weekend_saturday)) plannedBySaturday.set(entry.weekend_saturday, new Set())
     plannedBySaturday.get(entry.weekend_saturday).add(entry.profile_id)
   }

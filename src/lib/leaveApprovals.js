@@ -29,13 +29,19 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // a pending request inline too, without duplicating the update+notify flow.
 // Both throw on a Supabase error so callers can surface it the same way
 // submitLeaveRequest's callers already do (catch + show err.message).
+// Both decisions only apply to a row that is still pending: a doctor can
+// cancel while the admin's tab is open, and a stale approve/reject must not
+// overwrite that (or a colleague's earlier decision).
+const ALREADY_DECIDED = 'This request has already been decided or cancelled. Refresh to see its current state.'
+
 export async function approveLeaveRequest(request, reviewerId) {
-  const { error } = await supabase.from('leave_requests').update({
+  const { data, error } = await supabase.from('leave_requests').update({
     status: 'approved',
     reviewed_by: reviewerId,
     reviewed_at: new Date().toISOString(),
-  }).eq('id', request.id)
+  }).eq('id', request.id).eq('status', 'pending').select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error(ALREADY_DECIDED)
 
   await createNotification({
     profileId: request.profile_id,
@@ -47,13 +53,14 @@ export async function approveLeaveRequest(request, reviewerId) {
 }
 
 export async function rejectLeaveRequest(request, reviewerId, notes) {
-  const { error } = await supabase.from('leave_requests').update({
+  const { data, error } = await supabase.from('leave_requests').update({
     status: 'rejected',
     admin_notes: notes || null,
     reviewed_by: reviewerId,
     reviewed_at: new Date().toISOString(),
-  }).eq('id', request.id)
+  }).eq('id', request.id).eq('status', 'pending').select('id')
   if (error) throw new Error(error.message)
+  if (!data || data.length === 0) throw new Error(ALREADY_DECIDED)
 
   await createNotification({
     profileId: request.profile_id,

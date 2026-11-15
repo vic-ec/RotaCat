@@ -6,7 +6,7 @@ import {
   startRosterGeneration, fetchGenerationJob, fetchLatestGenerationJob,
   describeJob, isJobActive, isJobStale, jobToEngineResult, jobFailureDetail, POLL_INTERVAL_MS,
 } from '../lib/rosterGeneration'
-import { saveGenerationReport } from '../lib/generationReport'
+import { buildGenerationReport, saveGenerationReport } from '../lib/generationReport'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { useSwatch } from '../lib/useSwatch'
 
@@ -111,11 +111,7 @@ export default function GenerationConfigPage() {
     if (!job) return
     if (job.status === 'succeeded') {
       if (job.roster_month_id) {
-        // Keep the engine's account of the run and open the roster on it.
-        saveGenerationReport(job.roster_month_id, jobToEngineResult(job), {
-          excludedCount: (job.excluded_profile_ids || []).length,
-        })
-        navigate(`/roster/${job.roster_month_id}?report=1`)
+        openFinishedRoster(job)
       } else {
         showFailure(job, 'The run finished but did not report a roster.')
       }
@@ -124,6 +120,21 @@ export default function GenerationConfigPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the job row only; showFailure/navigate are stable in effect
   }, [job])
+
+  // Keep the engine's account of the run and open the roster on it. Saved
+  // on the roster itself so every admin can open it; if that write fails,
+  // at least keep it on this device.
+  async function openFinishedRoster(finishedJob) {
+    const report = buildGenerationReport(jobToEngineResult(finishedJob), {
+      excludedCount: (finishedJob.excluded_profile_ids || []).length,
+    })
+    const { error: saveError } = await supabase
+      .from('roster_months')
+      .update({ generation_report: report })
+      .eq('id', finishedJob.roster_month_id)
+    if (saveError) saveGenerationReport(finishedJob.roster_month_id, report)
+    navigate(`/roster/${finishedJob.roster_month_id}?report=1`)
+  }
 
   function showFailure(failedJob, fallbackMessage) {
     const described = describeJob(failedJob)

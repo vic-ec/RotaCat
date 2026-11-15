@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowUpDown, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
+import CancelLeaveModal from './CancelLeaveModal'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { LEAVE_TYPE_LABELS, formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays } from '../lib/leaveMatrix'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -23,12 +26,14 @@ const STATUS_BADGE = {
   pending: 'chip-amber',
   approved: 'chip-mint',
   rejected: 'bg-flagRed-bg text-flagRed',
+  cancelled: 'bg-canvas-sunken text-ink-muted',
 }
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: REVIEW_STATUS_LABELS.pending },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 // Same MO/Registrar/EC Intern/OT Intern/Consultant grouping the Annual
@@ -50,7 +55,7 @@ const SORT_OPTIONS = [
   { value: 'status', label: 'Status' },
 ]
 
-const STATUS_SORT_ORDER = { pending: 0, approved: 1, rejected: 2 }
+const STATUS_SORT_ORDER = { pending: 0, approved: 1, rejected: 2, cancelled: 3 }
 
 const VIEW_OPTIONS = [
   { key: 'matrix', label: 'Matrix', icon: LayoutGrid },
@@ -147,6 +152,11 @@ function DateTimePopoverButton({ iso, Icon, label }) {
 // column headers (see filterGroups below) rather than an unrelated set of
 // dimensions.
 export default function LeaveListView() {
+  // Admins may cancel any pending/approved leave from here (matrix detail,
+  // mobile detail sheet, or the table's Actions column); everyone else
+  // only reads. Doctors cancel their own from Planners → My Requests.
+  const { isAdmin } = useAuth()
+  const [cancelTarget, setCancelTarget] = useState(null)
   // The table runs to the bottom of the window with many rows, and to its
   // last row with few — see the hook.
   const [tableRef, tableFill] = useFillToViewport()
@@ -176,7 +186,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])
@@ -271,7 +281,7 @@ export default function LeaveListView() {
           the dense matrix/table stay the wide-screen coordination views. Both
           render from the same fetched `requests` — no second fetch. */}
       <div className="lg:hidden">
-        <TeamLeaveMobile requests={requests} />
+        <TeamLeaveMobile requests={requests} canCancelLeave={isAdmin} onLeaveCancelled={load} />
       </div>
 
       <div className="hidden lg:block">
@@ -279,7 +289,7 @@ export default function LeaveListView() {
           It now rides the row each view already has — the Toolbar in Table,
           the year/legend row in Matrix — so it stays in the same place on
           screen while costing no vertical space of its own. */}
-      {view === 'matrix' && <LeaveMatrix requests={requests} controls={viewToggle} />}
+      {view === 'matrix' && <LeaveMatrix requests={requests} controls={viewToggle} canCancelLeave={isAdmin} onLeaveCancelled={load} />}
 
       {view === 'table' && (
       <>
@@ -343,6 +353,7 @@ export default function LeaveListView() {
                 <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Date Requested</th>
                 <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Date Approved</th>
                 <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2">Approved By</th>
+                {isAdmin && <th className="border-b border-slate-line bg-canvas-sunken px-3 py-2"><span className="sr-only">Actions</span></th>}
               </tr>
             </thead>
             {/* Row lines are `slate-hairline` on the cells themselves, not a
@@ -376,6 +387,20 @@ export default function LeaveListView() {
                     <DateTimePopoverButton iso={lr.reviewed_at} Icon={CalendarCheck} label="View date and time approved" />
                   </td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
+                  {isAdmin && (
+                    <td className="border-b border-slate-hairline px-3 py-2">
+                      {CANCELLABLE_STATUSES.includes(lr.status) && (
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(lr)}
+                          className="text-xs font-medium text-danger underline-offset-2 hover:underline"
+                          aria-label={`Cancel ${lr.profiles?.name || ''} ${lr.profiles?.surname || ''}'s leave`}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -385,6 +410,15 @@ export default function LeaveListView() {
       </>
       )}
       </div>
+
+      {cancelTarget && (
+        <CancelLeaveModal
+          request={cancelTarget}
+          isOwn={false}
+          onClose={() => setCancelTarget(null)}
+          onCancelled={() => { setCancelTarget(null); load() }}
+        />
+      )}
     </div>
   )
 }

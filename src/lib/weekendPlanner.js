@@ -294,10 +294,11 @@ const WEEKEND_DAY_CODES = new Set(['WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 
 // draft but no longer in the planner). Empty when nothing has drifted.
 //
 // `outsidePlannerIds`: doctors the scheduling engine rosters on weekends
-// WITHOUT consulting the planner — ⅝-contract doctors, who by design keep
-// their own alternating cadence (RotaCatScheduler, solver.py
-// add_weekend_pattern_constraints). Their weekend shifts are never a
-// difference from the plan, because the plan was never meant to hold them.
+// WITHOUT consulting the planner — a ⅝-contract doctor the planner doesn't
+// name at all that month, who keeps their own alternating cadence
+// (RotaCatScheduler, solver.py _uses_weekend_planner). Their weekend
+// shifts are never a difference from the plan, because the plan holds
+// nothing for them. The caller decides who that is.
 export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes, outsidePlannerIds = new Set()) {
   const actualBySaturday = new Map()
   for (const entry of rosterEntries) {

@@ -48,10 +48,14 @@ const ROSTER_RANGES = [
   { key: 'week', label: 'W', ariaLabel: 'Week', title: 'Week' },
 ]
 
-// ⅝-contract doctors are rostered on weekends by their own cadence, not
-// from the Weekend Planner — see computeWeekendPlannerDrift.
-function outsidePlannerIds(profiles) {
-  return new Set((profiles || []).filter(p => p.contract_type === 'five_eighths').map(p => p.id))
+// A ⅝-contract doctor the Weekend Planner doesn't name at all this month is
+// rostered on weekends by their own alternating cadence, so the planner has
+// nothing to compare them with. One it names on any weekend follows the
+// planner like everyone else (RotaCatScheduler, _uses_weekend_planner) and
+// IS compared. See computeWeekendPlannerDrift.
+function outsidePlannerIds(profiles, plannerEntries) {
+  const named = new Set((plannerEntries || []).map(e => e.profile_id))
+  return new Set((profiles || []).filter(p => p.contract_type === 'five_eighths' && !named.has(p.id)).map(p => p.id))
 }
 
 const MONTH_NAMES = [
@@ -236,7 +240,7 @@ export default function RosterGridPage() {
           .select('weekend_saturday, profile_id, created_at, updated_at')
           .gte('weekend_saturday', start)
           .lte('weekend_saturday', end)
-        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data))
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data, plannerData))
         setPlannerDrift(newDrift)
         setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
         setDismissedDrift(isDriftMuted(id, newDrift))
@@ -295,7 +299,7 @@ export default function RosterGridPage() {
         .select('weekend_saturday, profile_id, created_at, updated_at')
         .gte('weekend_saturday', start)
         .lte('weekend_saturday', end)
-      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles))
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles, plannerData))
       setPlannerDrift(newDrift)
       setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
       setDismissedDrift(isDriftMuted(id, newDrift))

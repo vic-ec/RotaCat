@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveGenerationReport, readGenerationReport, reportMatchesDraft, generationOutcome, flagTypeLabel } from './generationReport'
+import { buildGenerationReport, saveGenerationReport, readGenerationReport, reportMatchesDraft, generationOutcome, flagTypeLabel } from './generationReport'
 
 describe('generationReport', () => {
   beforeEach(() => localStorage.clear())
 
   it('round-trips the engine response per roster', () => {
-    saveGenerationReport('r1', { status: 'FEASIBLE', entries_written: 400, summary: { total_locums_needed: 12 } }, { excludedCount: 2 })
+    saveGenerationReport('r1', buildGenerationReport({ status: 'FEASIBLE', entries_written: 400, summary: { total_locums_needed: 12 } }, { excludedCount: 2 }))
     const report = readGenerationReport('r1')
     expect(report.status).toBe('FEASIBLE')
     expect(report.entriesWritten).toBe(400)

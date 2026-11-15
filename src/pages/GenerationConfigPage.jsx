@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { generateRoster } from '../lib/schedulerApi'
-import { saveGenerationReport } from '../lib/generationReport'
+import { buildGenerationReport, saveGenerationReport } from '../lib/generationReport'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { useSwatch } from '../lib/useSwatch'
 
@@ -162,7 +162,14 @@ export default function GenerationConfigPage() {
       if (result.roster_month_id) {
         // Keep the engine's own account of the run, and open the roster on
         // it — this response is the only place it ever exists.
-        saveGenerationReport(result.roster_month_id, result, { excludedCount: excluded.size })
+        // Saved on the roster itself so every admin can open it; if that
+        // write fails, at least keep it on this device.
+        const report = buildGenerationReport(result, { excludedCount: excluded.size })
+        const { error: saveError } = await supabase
+          .from('roster_months')
+          .update({ generation_report: report })
+          .eq('id', result.roster_month_id)
+        if (saveError) saveGenerationReport(result.roster_month_id, report)
         navigate(`/roster/${result.roster_month_id}?report=1`)
       } else {
         throw new Error(result.message || 'Generation failed — no roster ID returned.')

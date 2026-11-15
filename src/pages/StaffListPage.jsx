@@ -575,13 +575,23 @@ export default function StaffListPage() {
     setDetailSheetPerson(person)
   }
 
+  // Reload on mount and again whenever `location.key` changes. While an
+  // account or pending-approval slide-over is open on top of this page,
+  // App.jsx renders the list against its *background* location, so the key
+  // holds still; the moment the panel closes (Cancel, Escape, or an action
+  // inside it such as deleting the account) the router hands this page a
+  // fresh location and the list refetches — otherwise a deleted or
+  // deactivated person would stay on screen until a hard refresh. Later
+  // loads are silent so the already-visible rows don't flash to "Loading…".
+  const hasLoadedOnce = useRef(false)
   useEffect(() => {
-    loadAll()
+    loadAll({ silent: hasLoadedOnce.current })
+    hasLoadedOnce.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAll is redefined every render; including it would refetch in a loop
-  }, [isAdmin])
+  }, [isAdmin, location.key])
 
-  async function loadAll() {
-    setLoading(true)
+  async function loadAll({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     setError('')
 
     const [accountsRes, pendingRes, emailsRes, requestsRes, leaveRes] = await Promise.all([

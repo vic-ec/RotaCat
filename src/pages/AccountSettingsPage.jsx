@@ -475,6 +475,22 @@ function AvatarCropModal({ imageSrc, onCancel, onConfirm, saving }) {
   )
 }
 
+// Plain-language load failures for an admin viewing someone else's account.
+// Supabase's raw messages ("Cannot coerce the result to a single JSON
+// object" for a row that isn't there) mean nothing to a reader; the
+// no-row case is by far the most common — the account was just deleted,
+// typically from this very panel — so it gets a message of its own.
+const MISSING_ACCOUNT_MESSAGE =
+  'This account no longer exists. It may have been deleted, or the link you followed is out of date.'
+
+function describeTargetLoadError(error) {
+  if (error?.code === 'PGRST116') return MISSING_ACCOUNT_MESSAGE
+  if (error?.code === '42501' || /permission denied|row-level security/i.test(error?.message || '')) {
+    return "You don't have permission to view this account."
+  }
+  return `We couldn't load this account right now. Please try again in a moment. (${error?.message || 'Unknown error'})`
+}
+
 export default function AccountSettingsPage() {
   const { user, profile: myProfile, isAdmin, isLocum, isClerk, isSuperAdmin, refreshProfile, signOut } = useAuth()
   const { id: routeId } = useParams()
@@ -594,8 +610,9 @@ export default function AccountSettingsPage() {
       await refreshProfile()
       return
     }
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', targetId).single()
-    if (error) setTargetLoadError(error.message)
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', targetId).maybeSingle()
+    if (error) setTargetLoadError(describeTargetLoadError(error))
+    else if (!data) setTargetLoadError(MISSING_ACCOUNT_MESSAGE)
     else setTargetProfile(data)
   }
 
@@ -603,8 +620,9 @@ export default function AccountSettingsPage() {
     if (isOwnAccount) return
     setTargetLoadError('')
     setTargetProfile(null)
-    supabase.from('profiles').select('*').eq('id', targetId).single().then(({ data, error }) => {
-      if (error) setTargetLoadError(error.message)
+    supabase.from('profiles').select('*').eq('id', targetId).maybeSingle().then(({ data, error }) => {
+      if (error) setTargetLoadError(describeTargetLoadError(error))
+      else if (!data) setTargetLoadError(MISSING_ACCOUNT_MESSAGE)
       else setTargetProfile(data)
     })
     supabase.rpc('get_staff_emails').then(({ data }) => {
@@ -1263,7 +1281,7 @@ export default function AccountSettingsPage() {
     return (
       <div className="mx-auto max-w-7xl pb-12 md:max-w-2xl">
         <div className="card border-flagRed bg-flagRed-bg p-4">
-          <p className="text-sm text-flagRed">Couldn&apos;t load this account: {targetLoadError}</p>
+          <p className="text-sm text-flagRed">{targetLoadError}</p>
           <Link to="/staff" className="btn-secondary mt-3 inline-block">Back to Staff list</Link>
         </div>
       </div>

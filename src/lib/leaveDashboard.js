@@ -134,7 +134,7 @@ export function leaveTrackersForYear(requests, year, typeOrder = []) {
 // soonest first, capped to `limit` for a compact dashboard list.
 export function upcomingRequests(requests, todayStr, limit = 5) {
   return requests
-    .filter(r => r.date_to >= todayStr)
+    .filter(r => r.date_to >= todayStr && r.status !== 'cancelled')
     .sort((a, b) => a.date_from.localeCompare(b.date_from))
     .slice(0, limit)
 }

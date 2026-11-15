@@ -71,6 +71,7 @@ const NOTIFICATION_LABELS = {
   roster_published:    'Roster published',
   leave_approved:      'Leave request approved',
   leave_rejected:      'Leave request rejected',
+  leave_cancelled:     'Leave cancelled',
   swap_request:        'New swap request',
   swap_accepted:       'Swap accepted by colleague',
   swap_rejected:       'Swap rejected by colleague',
@@ -83,7 +84,7 @@ const NOTIFICATION_LABELS = {
   general:             'General notifications',
 }
 const NOTIFICATION_ORDER = [
-  'roster_published', 'leave_approved', 'leave_rejected',
+  'roster_published', 'leave_approved', 'leave_rejected', 'leave_cancelled',
   'swap_request', 'swap_accepted', 'swap_rejected', 'swap_admin_approved',
   'shift_claimed', 'shift_cancelled', 'account_approved', 'account_rejected',
   'reminder', 'general',
@@ -92,7 +93,7 @@ const NOTIFICATION_ORDER = [
 // Category-level grouping shown by default; individual events move under "Advanced".
 const NOTIFICATION_GROUPS = [
   { key: 'roster',  label: 'Roster',            keys: ['roster_published'] },
-  { key: 'leave',   label: 'Leave',              keys: ['leave_approved', 'leave_rejected'] },
+  { key: 'leave',   label: 'Leave',              keys: ['leave_approved', 'leave_rejected', 'leave_cancelled'] },
   { key: 'swaps',   label: 'Swaps',              keys: ['swap_request', 'swap_accepted', 'swap_rejected', 'swap_admin_approved'] },
   { key: 'shifts',  label: 'Open shifts',        keys: ['shift_claimed', 'shift_cancelled'] },
   { key: 'account', label: 'Account',            keys: ['account_approved', 'account_rejected'] },

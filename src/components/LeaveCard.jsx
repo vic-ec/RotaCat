@@ -5,7 +5,7 @@ import { leaveDateLabel, leaveDayCountLabel } from '../lib/leaveCard'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
-const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger' }
+const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'neutral' }
 
 // One leave request, one card — shared by the Dashboard's leave section and
 // the "My leave" tab's Upcoming list, so a doctor sees the same object in

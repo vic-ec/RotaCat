@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import LeaveListView from './LeaveListView'
 
+// useAuth only gates the admin "Cancel" action (see the cancel tests at the
+// bottom); the query contract below stays role-blind regardless.
+const mockAuth = vi.hoisted(() => ({ isAdmin: false }))
+vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
+
 // These assertions are about the query contract + which rows come back, so
 // they run against the Table view — the faithful full-list rendering of every
 // returned row. The default Matrix view is deliberately year-scoped and shows
@@ -151,5 +156,35 @@ describe('LeaveListView — role visibility matrix', () => {
     mockData.rows = []
     render(<LeaveListView />)
     expect(await screen.findByText(/no leave requests visible to you/i)).toBeInTheDocument()
+  })
+})
+
+describe('LeaveListView — admin cancel action', () => {
+  beforeEach(() => { methodCalls.length = 0 })
+
+  it('shows a Cancel action to admins on pending/approved rows only', async () => {
+    mockAuth.isAdmin = true
+    mockData.rows = [
+      row('live', { status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' }),
+      row('done', { status: 'rejected' }),
+      row('gone', { status: 'cancelled' }),
+    ]
+    render(<LeaveListView />)
+    await switchToTable()
+    await screen.findByText(/Doc live/)
+    const buttons = screen.getAllByRole('button', { name: /^Cancel Doc .*'s leave$/ })
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toHaveAccessibleName("Cancel Doc live's leave")
+    expect(screen.getByText('Cancelled')).toBeInTheDocument()
+    mockAuth.isAdmin = false
+  })
+
+  it('shows no Cancel action to non-admins', async () => {
+    mockAuth.isAdmin = false
+    mockData.rows = [row('live', { own: true, status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' })]
+    render(<LeaveListView />)
+    await switchToTable()
+    await screen.findByText(/Doc live/)
+    expect(screen.queryByRole('button', { name: /'s leave$/ })).not.toBeInTheDocument()
   })
 })

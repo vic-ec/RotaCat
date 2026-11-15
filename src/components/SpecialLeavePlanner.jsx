@@ -113,6 +113,10 @@ export default function SpecialLeavePlanner() {
         // exception is excluded here too, rather than slipping back in via
         // the "any pending request" arm.
         .neq('leave_type', 'weekend_exception')
+        // Live requests only. specialPlanner.js counts anything that is not
+        // pending as approved, so rejected and cancelled rows must never
+        // reach it — they would inflate the headcount and the pressure days.
+        .in('status', ['pending', 'approved'])
         .lte('date_from', yearEnd)
         .gte('date_to', yearStart),
       supabase.from('public_holidays').select('date, name').gte('date', yearStart).lte('date', yearEnd),

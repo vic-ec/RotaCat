@@ -144,7 +144,7 @@ export function DateCardOneLine({ date, publicHoliday, flagged, className = '' }
   )
 }
 
-const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger' }
+const STATUS_TONE = { pending: 'warning', approved: 'success', rejected: 'danger', cancelled: 'neutral' }
 
 // A leave request's date range — two DateCards (no start/end time, leave
 // has none) bridged by an arrow, with a days-count label alongside.

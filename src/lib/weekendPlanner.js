@@ -252,6 +252,29 @@ export function weekendExceptionsForMonth(requests, year, month) {
     .sort((a, b) => a.date_from.localeCompare(b.date_from) || String(a.id).localeCompare(String(b.id)))
 }
 
+// Was the Weekend Planner edited after this draft was generated? A drift
+// (computeWeekendPlannerDrift below) only says the two DIFFER — it can't
+// say why. The scheduling engine doesn't always follow the planner exactly,
+// and a draft can be hand-edited, so a difference on its own is not
+// evidence the planner moved. This is: a planner row created or updated
+// after the draft's entries were written.
+//
+// "Generated at" is the earliest created_at among the draft's own entries —
+// generation replaces every entry in one write, so that is the moment of
+// the run even on a re-generated month (whose roster_months.created_at
+// still dates from the first run). Later hand-added entries only have later
+// timestamps, so they never move it. A removed planner row leaves no
+// timestamp behind, so a pure removal reads as "differs", never "updated".
+export function weekendPlannerChangedSince(rosterEntries, plannerEntries) {
+  const generatedAt = rosterEntries.map(e => e.created_at).filter(Boolean).sort()[0]
+  if (!generatedAt) return false
+  const generated = new Date(generatedAt).getTime()
+  return plannerEntries.some(p => {
+    const touched = [p.created_at, p.updated_at].filter(Boolean).map(t => new Date(t).getTime())
+    return touched.some(t => t > generated)
+  })
+}
+
 // Shift codes that land on the Saturday/Sunday of a real weekend — used
 // to derive "who actually worked this weekend" from a draft roster's own
 // roster_entries, for comparison against the Weekend Planner.

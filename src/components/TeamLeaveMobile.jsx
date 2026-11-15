@@ -77,7 +77,7 @@ const VIEW_KEYS = ['week', 'month', 'people']
 // People switch over an awareness-and-lookup experience, with on-demand
 // filters that apply across all three views. Read-only — renders from the same
 // `requests` the desktop views use, so there's no second fetch.
-export default function TeamLeaveMobile({ requests }) {
+export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLeaveCancelled }) {
   const today = todayStr()
   const [view, setView] = useState(() => {
     try {
@@ -222,7 +222,11 @@ export default function TeamLeaveMobile({ requests }) {
 
       {detail && (
         <Modal title="Leave details" onClose={() => setDetail(null)}>
-          <LeaveBlockDetail request={detail} />
+          <LeaveBlockDetail
+            request={detail}
+            canCancel={canCancelLeave}
+            onCancelled={row => { setDetail(null); onLeaveCancelled?.(row) }}
+          />
         </Modal>
       )}
     </div>

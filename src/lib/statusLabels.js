@@ -12,6 +12,7 @@ export const REVIEW_STATUS_LABELS = {
   pending: 'Pending review',
   approved: 'Approved',
   rejected: 'Rejected',
+  cancelled: 'Cancelled',
 }
 
 // Falls back to a capitalised version of anything not in the map, so a

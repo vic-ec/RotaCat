@@ -260,7 +260,10 @@ function useElementWidth() {
   return [ref, width]
 }
 
-export default function LeaveMatrix({ requests, controls }) {
+// `canCancelLeave` / `onLeaveCancelled` thread through to LeaveBlockDetail
+// (admin "Cancel leave"); a successful cancel clears the selection, since
+// the block it described is no longer on the matrix.
+export default function LeaveMatrix({ requests, controls, canCancelLeave = false, onLeaveCancelled }) {
   const [gridRef, gridWidth] = useElementWidth()
   // The grid runs to the bottom of the window like the Table view and
   // Hours Summary, scrolling inside itself past that.
@@ -300,7 +303,13 @@ export default function LeaveMatrix({ requests, controls }) {
   // Panel body reflects the current selection; reused by the desktop sticky
   // panel and the mobile modal.
   const panelBody = selected?.kind === 'block' ? (
-    <LeaveBlockDetail request={selected.request} onClose={() => setSelected(null)} showClose={isDesktop} />
+    <LeaveBlockDetail
+      request={selected.request}
+      onClose={() => setSelected(null)}
+      showClose={isDesktop}
+      canCancel={canCancelLeave}
+      onCancelled={row => { setSelected(null); onLeaveCancelled?.(row) }}
+    />
   ) : selectedDoctorRow ? (
     <DoctorDetail row={selectedDoctorRow} onSelectBlock={r => setSelected({ kind: 'block', request: r })} onClose={() => setSelected(null)} />
   ) : (

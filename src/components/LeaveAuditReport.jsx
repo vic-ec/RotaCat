@@ -29,6 +29,7 @@ const STATUS_BADGE = {
   pending: 'bg-flagAmber-bg text-flagAmber',
   approved: 'bg-success-bg text-success',
   rejected: 'bg-flagRed-bg text-flagRed',
+  cancelled: 'bg-canvas-sunken text-ink-muted',
 }
 const CATEGORY_OPTIONS = [
   ...LEAVE_CAPACITY_COLUMNS.map(c => ({ value: c.key, label: c.label })),

@@ -18,6 +18,11 @@ non-history references first (change requests, leave balances, staff
 reference row, `approved_by` on other profiles), then deletes the auth
 user; `profiles.id` cascades from `auth.users`, and the person's own leave,
 rotations, weekend patterns, notifications and stats cascade from there.
+After a successful delete it writes one row to `account_deletion_log`
+(name, surname, email, role, category, who deleted them, when) — the only
+record of the account that survives, shown to admins under Staff list →
+All Staff → "Recently deleted accounts". The table has no client-side
+write policy; this function is the only writer.
 
 `create` takes `rotations` as an array of `{ rotationType, subtype, startDate,
 endDate }`, so an Intern's or Registrar's whole year can be planned at

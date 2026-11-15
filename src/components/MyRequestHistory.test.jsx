@@ -95,3 +95,44 @@ describe('MyRequestHistory', () => {
     expect(screen.queryByText('Rejected')).not.toBeInTheDocument()
   })
 })
+
+describe('MyRequestHistory — cancelling', () => {
+  beforeEach(() => {
+    eqCalls.length = 0
+    mockAuth = { profile: { id: 'doctor-1' }, isAdmin: false }
+  })
+
+  it('offers Cancel on future pending/approved requests but not on past or decided ones', async () => {
+    const future = '2999-01-10'
+    mockData.rows = [
+      { id: 'f1', profile_id: 'doctor-1', leave_type: 'annual', date_from: future, date_to: future, status: 'approved' },
+      { id: 'f2', profile_id: 'doctor-1', leave_type: 'study', date_from: future, date_to: future, status: 'pending' },
+      { id: 'p1', profile_id: 'doctor-1', leave_type: 'annual', date_from: '2020-01-01', date_to: '2020-01-02', status: 'approved' },
+      { id: 'r1', profile_id: 'doctor-1', leave_type: 'annual', date_from: future, date_to: future, status: 'rejected' },
+    ]
+    render(<MyRequestHistory />)
+    await screen.findByText(/Study leave/)
+    const cancelButtons = screen.getAllByRole('button', { name: /^Cancel .* request$/ })
+    expect(cancelButtons).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Cancel Annual leave request' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel Study leave request' })).toBeInTheDocument()
+  })
+
+  it('lists cancelled requests in their own section with who cancelled and why', async () => {
+    mockData.rows = [
+      {
+        id: 'c1', profile_id: 'doctor-1', leave_type: 'annual', date_from: '2026-03-02', date_to: '2026-03-04', status: 'cancelled',
+        cancelled_by: 'doctor-1', cancelled_at: '2026-02-01T09:00:00Z', cancel_reason: 'Plans changed',
+      },
+      {
+        id: 'c2', profile_id: 'doctor-1', leave_type: 'study', date_from: '2026-04-02', date_to: '2026-04-02', status: 'cancelled',
+        cancelled_by: 'admin-9', cancelled_at: '2026-02-02T09:00:00Z', cancel_reason: 'Course withdrawn', canceller: { name: 'Ada', surname: 'Admin' },
+      },
+    ]
+    render(<MyRequestHistory />)
+    expect(await screen.findByRole('region', { name: 'Cancelled' })).toBeInTheDocument()
+    expect(screen.getByText(/Cancelled by you on .* — "Plans changed"/)).toBeInTheDocument()
+    expect(screen.getByText(/Cancelled by Ada Admin on .* — "Course withdrawn"/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Cancel / })).not.toBeInTheDocument()
+  })
+})

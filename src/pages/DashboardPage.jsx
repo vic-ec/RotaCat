@@ -262,6 +262,7 @@ export default function DashboardPage() {
         .from('leave_requests')
         .select('*')
         .eq('profile_id', profile.id)
+        .neq('status', 'cancelled')
         .gte('date_to', today)
         .order('date_from', { ascending: true })
         .limit(10),

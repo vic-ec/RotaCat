@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase'
 import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import { formatTimestampDate } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
+import { todayStr } from '../lib/dateRange'
+import { cancelEligibility } from '../lib/leaveCancellation'
+import CancelLeaveModal from './CancelLeaveModal'
 
 const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 // Approved and Pending take the theme chips (SPEC app-theme); Rejected keeps
@@ -13,6 +16,7 @@ const STATUS_BADGE = {
   pending: 'chip-amber',
   approved: 'chip-mint',
   rejected: 'bg-flagRed-bg text-flagRed',
+  cancelled: 'bg-canvas-sunken text-ink-muted',
 }
 
 // Full personal request history (any type, any status) — the non-admin
@@ -23,10 +27,11 @@ const STATUS_BADGE = {
 // LeaveApprovalQueue's own — LeavePlannerPage.jsx wires both the same way,
 // only when the visitor arrived via a planner's "View requests" link.
 export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [cancelTarget, setCancelTarget] = useState(null)
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; profile.id doesn't change within a session
 
@@ -35,7 +40,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname)')
+      .select('*, reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname)')
       .eq('profile_id', profile.id)
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
@@ -55,16 +60,33 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
   const pending = requests.filter(lr => lr.status === 'pending')
   const approved = requests.filter(lr => lr.status === 'approved')
   const rejected = requests.filter(lr => lr.status === 'rejected')
+  const cancelled = requests.filter(lr => lr.status === 'cancelled')
+
+  // A doctor may cancel their own future leave (pending or approved); an
+  // admin viewing their own history gets the admin rule (any time). The
+  // database function re-checks all of this — see leaveCancellation.js.
+  const today = todayStr()
+  const canCancel = lr => cancelEligibility(lr, { isAdmin, viewerId: profile.id, todayStr: today }).allowed
 
   return (
     <div className="space-y-6">
       {backLink}
-      <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" />
-      <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" />
+      <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" canCancel={canCancel} onCancel={setCancelTarget} />
+      <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" canCancel={canCancel} onCancel={setCancelTarget} />
       {/* Only when there are any — a declined request still has to be
           findable somewhere, and this is the complete-record view, but an
           empty "Rejected" row on every doctor's page would be noise. */}
       {rejected.length > 0 && <RequestSection title="Rejected" requests={rejected} emptyLabel="" />}
+      {cancelled.length > 0 && <RequestSection title="Cancelled" requests={cancelled} emptyLabel="" />}
+
+      {cancelTarget && (
+        <CancelLeaveModal
+          request={cancelTarget}
+          isOwn
+          onClose={() => setCancelTarget(null)}
+          onCancelled={() => { setCancelTarget(null); load() }}
+        />
+      )}
     </div>
   )
 }
@@ -73,7 +95,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
 // the same treatment the Dashboard's shift section uses. With nothing in
 // the section the panel collapses to a single muted row instead of an
 // empty bordered card.
-function RequestSection({ title, requests, emptyLabel }) {
+function RequestSection({ title, requests, emptyLabel, canCancel, onCancel }) {
   return (
     <section aria-label={title}>
       {/* Divider role (SPEC app-theme): a sheen bar with the count. */}
@@ -84,14 +106,24 @@ function RequestSection({ title, requests, emptyLabel }) {
         <p className="card px-4 py-3 text-sm text-ink-muted">{emptyLabel}</p>
       ) : (
         <div className="card divide-y divide-slate-line overflow-hidden">
-          {requests.map(lr => <RequestRow key={lr.id} request={lr} />)}
+          {requests.map(lr => <RequestRow key={lr.id} request={lr} onCancel={canCancel?.(lr) ? onCancel : null} />)}
         </div>
       )}
     </section>
   )
 }
 
-function RequestRow({ request: lr }) {
+function decisionLine(lr) {
+  if (lr.status === 'cancelled') {
+    const who = lr.cancelled_by === lr.profile_id ? 'you' : (lr.canceller ? `${lr.canceller.name} ${lr.canceller.surname}` : 'an admin')
+    return `Cancelled by ${who} on ${formatTimestampDate(lr.cancelled_at)}${lr.cancel_reason ? ` — "${lr.cancel_reason}"` : ''}`
+  }
+  if (lr.status === 'pending' || !lr.reviewed_at) return null
+  return `${lr.status === 'approved' ? 'Approved' : 'Rejected'} by ${lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on ${formatTimestampDate(lr.reviewed_at)}${lr.admin_notes ? ` — "${lr.admin_notes}"` : ''}`
+}
+
+function RequestRow({ request: lr, onCancel }) {
+  const line = decisionLine(lr)
   return (
     <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
       <div>
@@ -101,16 +133,23 @@ function RequestRow({ request: lr }) {
             which this history (unlike the upcoming-only lists) spans. */}
         <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
-        {lr.status !== 'pending' && lr.reviewed_at && (
-          <p className="text-xs text-ink-muted">
-            {lr.status === 'approved' ? 'Approved' : 'Rejected'} by {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on {formatTimestampDate(lr.reviewed_at)}
-            {lr.admin_notes && ` — "${lr.admin_notes}"`}
-          </p>
-        )}
+        {line && <p className="text-xs text-ink-muted">{line}</p>}
       </div>
-      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-        {reviewStatusLabel(lr.status)}
-      </span>
+      <div className="flex flex-shrink-0 items-center gap-3">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={() => onCancel(lr)}
+            className="text-xs font-medium text-danger underline-offset-2 hover:underline"
+            aria-label={`Cancel ${LEAVE_TYPE_LABELS[lr.leave_type]} request`}
+          >
+            Cancel
+          </button>
+        )}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
+          {reviewStatusLabel(lr.status)}
+        </span>
+      </div>
     </div>
   )
 }

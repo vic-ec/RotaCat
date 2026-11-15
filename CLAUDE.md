@@ -31,7 +31,7 @@ Local setup requires `.env.local` (copy from `.env.example`) with `VITE_SUPABASE
 
 **Two backend touchpoints from the frontend:**
 1. `src/lib/supabase.js` — direct Postgres access (staff, rosters, leave, entries) via the Supabase JS client, gated by RLS policies configured in the Supabase project itself (not visible in this repo).
-2. `src/lib/schedulerApi.js` — the only place that calls the Render FastAPI service. Currently one real endpoint (`POST /generate-roster`) plus a `/health` poll used to detect Render's free-tier cold start (~30-60s wake time). Keep all scheduler HTTP calls centralized here rather than calling `fetch` from page components.
+2. Roster generation — a background job, not a web request. `src/lib/rosterGeneration.js` calls the `roster-generation` Edge Function (`supabase/functions/roster-generation`), which inserts a `roster_generation_jobs` row and starts the `generate-roster` GitHub Actions workflow in the RotaCatScheduler repo. The runner writes progress and the outcome back to the row; the Generate page polls it (admins read it via RLS, only the service role writes it). `src/lib/schedulerApi.js` still holds the old direct call to the Render FastAPI service (`POST /generate-roster`), kept as an unused fallback while the GitHub path is piloted — don't add new callers.
 
 **Auth flow** (`src/context/AuthContext.jsx` + `src/components/ProtectedRoute.jsx`):
 - Supabase auth session drives a `profiles` table lookup (role, `is_approved`, name/surname/category) — the profile row, not the auth user, is what the rest of the app reads from `useAuth()`.

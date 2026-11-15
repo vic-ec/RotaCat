@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { generateRoster } from '../lib/schedulerApi'
+import {
+  startRosterGeneration, fetchGenerationJob, fetchLatestGenerationJob,
+  describeJob, isJobActive, isJobStale, jobToEngineResult, jobFailureDetail, POLL_INTERVAL_MS,
+} from '../lib/rosterGeneration'
 import { buildGenerationReport, saveGenerationReport } from '../lib/generationReport'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { useSwatch } from '../lib/useSwatch'
@@ -10,18 +13,6 @@ import { useSwatch } from '../lib/useSwatch'
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
-]
-
-const PROGRESS_MESSAGES = [
-  'Waking up the scheduling engine…',
-  'Loading your team data from the database…',
-  'Building the calendar and checking public holidays…',
-  'Loading approved leave and calendar blocks…',
-  'Running the constraint solver — this can take up to 60 seconds…',
-  'Applying soft constraints and optimising hour distribution…',
-  'Post-processing: generating locum placeholders and flags…',
-  'Writing the draft roster to the database…',
-  'Almost done…',
 ]
 
 // Categories the solver actually schedules — Consultants and Locums
@@ -56,9 +47,18 @@ export default function GenerationConfigPage() {
   const [excluded, setExcluded]       = useState(new Set()) // profile ids to exclude
   const [loadingDoctors, setLoadingDoctors] = useState(false)
 
-  const [generating, setGenerating]   = useState(false)
-  const [progressIdx, setProgressIdx] = useState(0)
+  // Generation is a background job (see lib/rosterGeneration.js): `job`
+  // is the roster_generation_jobs row being followed, `starting` covers
+  // the moment between the click and the job existing. `tick` only exists
+  // to re-render the elapsed time between polls.
+  const [job, setJob]                 = useState(null)
+  const [starting, setStarting]       = useState(false)
+  const [, setTick]                   = useState(0)
   const [error, setError]             = useState('')
+  const [errorDetail, setErrorDetail] = useState('')
+  const [errorRunUrl, setErrorRunUrl] = useState('')
+  const jobActive  = isJobActive(job) && !isJobStale(job)
+  const generating = starting || jobActive
   // The doctors list is folded to a one-line summary per category until
   // someone needs to change who is included — it is 20+ rows that are
   // almost always left exactly as they are.
@@ -74,13 +74,75 @@ export default function GenerationConfigPage() {
     loadDoctors()
   }, [])
 
+  // A run outlives this page: coming back to a month that is still being
+  // generated (by this admin or another) picks its job up again rather
+  // than offering to start a second one.
   useEffect(() => {
-    if (!generating) return
-    const interval = setInterval(() => {
-      setProgressIdx(i => Math.min(i + 1, PROGRESS_MESSAGES.length - 1))
-    }, 9000)
-    return () => clearInterval(interval)
-  }, [generating])
+    let cancelled = false
+    fetchLatestGenerationJob(year, month)
+      .then(latest => {
+        if (cancelled) return
+        setJob(isJobActive(latest) && !isJobStale(latest) ? latest : null)
+      })
+      .catch(() => { /* no job to resume is the same as none found */ })
+    return () => { cancelled = true }
+  }, [year, month])
+
+  // Follow the job until it finishes. The runner updates the row; this
+  // only reads it.
+  const jobId = job?.id
+  useEffect(() => {
+    if (!jobId || !jobActive) return
+    let cancelled = false
+    const interval = setInterval(async () => {
+      setTick(t => t + 1)
+      try {
+        const fresh = await fetchGenerationJob(jobId)
+        if (!cancelled && fresh) setJob(fresh)
+      } catch {
+        /* a dropped poll on hospital wifi is not a failed run — try again */
+      }
+    }, POLL_INTERVAL_MS)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [jobId, jobActive])
+
+  // The job finished (or went stale) while this page was watching it.
+  useEffect(() => {
+    if (!job) return
+    if (job.status === 'succeeded') {
+      if (job.roster_month_id) {
+        openFinishedRoster(job)
+      } else {
+        showFailure(job, 'The run finished but did not report a roster.')
+      }
+    } else if (job.status === 'failed' || isJobStale(job)) {
+      showFailure(job)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the job row only; showFailure/navigate are stable in effect
+  }, [job])
+
+  // Keep the engine's account of the run and open the roster on it. Saved
+  // on the roster itself so every admin can open it; if that write fails,
+  // at least keep it on this device.
+  async function openFinishedRoster(finishedJob) {
+    const report = buildGenerationReport(jobToEngineResult(finishedJob), {
+      excludedCount: (finishedJob.excluded_profile_ids || []).length,
+    })
+    const { error: saveError } = await supabase
+      .from('roster_months')
+      .update({ generation_report: report })
+      .eq('id', finishedJob.roster_month_id)
+    if (saveError) saveGenerationReport(finishedJob.roster_month_id, report)
+    navigate(`/roster/${finishedJob.roster_month_id}?report=1`)
+  }
+
+  function showFailure(failedJob, fallbackMessage) {
+    const described = describeJob(failedJob)
+    setError(fallbackMessage || `${described.title}. ${described.detail}`.trim())
+    setErrorDetail(jobFailureDetail(failedJob))
+    setErrorRunUrl(failedJob?.github_run_url || '')
+    setJob(null)
+  }
 
   async function loadDoctors() {
     setLoadingDoctors(true)
@@ -143,40 +205,28 @@ export default function GenerationConfigPage() {
   async function handleGenerate() {
     if (!profile?.id) return
     setError('')
-    setGenerating(true)
-    setProgressIdx(0)
+    setErrorDetail('')
+    setErrorRunUrl('')
+    setStarting(true)
     // Fold the list away and bring the page back to the top, so the
     // progress dialog opens over a short, settled page.
     setShowDoctors(false)
     window.scrollTo?.({ top: 0, behavior: 'smooth' })
 
-    try {
-      const result = await generateRoster({
-        year,
-        month,
-        useCarryForward,
-        adminProfileId: profile.id,
-        excludedProfileIds: Array.from(excluded),
-      })
+    const result = await startRosterGeneration({
+      year,
+      month,
+      useCarryForward,
+      excludedProfileIds: Array.from(excluded),
+    })
+    setStarting(false)
 
-      if (result.roster_month_id) {
-        // Keep the engine's own account of the run, and open the roster on
-        // it — this response is the only place it ever exists.
-        // Saved on the roster itself so every admin can open it; if that
-        // write fails, at least keep it on this device.
-        const report = buildGenerationReport(result, { excludedCount: excluded.size })
-        const { error: saveError } = await supabase
-          .from('roster_months')
-          .update({ generation_report: report })
-          .eq('id', result.roster_month_id)
-        if (saveError) saveGenerationReport(result.roster_month_id, report)
-        navigate(`/roster/${result.roster_month_id}?report=1`)
-      } else {
-        throw new Error(result.message || 'Generation failed — no roster ID returned.')
-      }
-    } catch (err) {
-      setError(err.message || 'Something went wrong. Check that the scheduling backend is running.')
-      setGenerating(false)
+    if (result.ok) {
+      setJob(result.job)
+    } else {
+      setError(result.error)
+      setErrorDetail(result.detail || result.job?.error_detail || '')
+      setErrorRunUrl(result.job?.github_run_url || '')
     }
   }
 
@@ -215,7 +265,7 @@ export default function GenerationConfigPage() {
           <p className="mt-1 text-sm text-flagAmber">
             Generating a new one will replace its entries.{' '}
             {existingRoster.status === 'published' && (
-              <strong>This month is published — regenerating will revert it to draft.</strong>
+<strong>This month is published — revert it to draft before generating again.</strong>
             )}
           </p>
         </div>
@@ -433,7 +483,22 @@ export default function GenerationConfigPage() {
         {/* Error */}
         {error && (
           <div className="rounded bg-flagRed-bg px-3 py-2.5 text-sm text-flagRed">
-            {error}
+            <p className="font-medium">{error}</p>
+            {/* The technical account, for whoever troubleshoots it: the
+                runner's own error text and a link to its full log. */}
+            {(errorDetail || errorRunUrl) && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs font-medium">Technical details</summary>
+                {errorDetail && (
+                  <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-card p-2 text-xs text-ink">{errorDetail}</pre>
+                )}
+                {errorRunUrl && (
+                  <a href={errorRunUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs underline">
+                    Open the full run log on GitHub
+                  </a>
+                )}
+              </details>
+            )}
           </div>
         )}
 
@@ -448,26 +513,35 @@ export default function GenerationConfigPage() {
         </button>
       </div>
 
-      {/* Progress — centred over the page for as long as the run takes. No
-          close button and no click-away: there is nothing to do here but
-          wait, and the form behind is locked while it runs. It closes
-          itself — onto the new roster, or back to the form with the error. */}
-      {generating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center scrim-strong px-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="generating-title" className="card w-full max-w-sm p-6 text-center">
-            <SpinnerIcon className="mx-auto mb-4 h-9 w-9 animate-spin text-accent" />
-            <h2 id="generating-title" className="font-display text-base font-bold text-ink">
-              Generating {MONTH_NAMES[month]} {year}
-            </h2>
-            <p className="mt-2 text-sm text-ink-light" aria-live="polite">
-              {PROGRESS_MESSAGES[progressIdx]}
-            </p>
-            <p className="mt-4 text-xs text-ink-muted">
-              This can take up to 2 minutes. Keep this tab open — the roster opens by itself when it&apos;s ready.
-            </p>
+      {/* Progress — centred over the page while the run is followed. The
+          run itself happens on a GitHub runner and carries on whether or
+          not this page stays open, so the one action offered is to leave
+          it to it; coming back to this page for the same month picks the
+          run up again. It closes itself onto the new roster, or back to
+          the form with the error. */}
+      {generating && (() => {
+        const described = starting
+          ? { title: 'Starting the run', detail: 'Asking for a runner…' }
+          : describeJob(job)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center scrim-strong px-4">
+            <div role="dialog" aria-modal="true" aria-labelledby="generating-title" className="card w-full max-w-sm p-6 text-center">
+              <SpinnerIcon className="mx-auto mb-4 h-9 w-9 animate-spin text-accent" />
+              <h2 id="generating-title" className="font-display text-base font-bold text-ink">
+                Generating {MONTH_NAMES[job?.month ?? month]} {job?.year ?? year}
+              </h2>
+              <p className="mt-2 text-sm font-medium text-ink" aria-live="polite">{described.title}</p>
+              <p className="mt-1 text-sm text-ink-light">{described.detail}</p>
+              <p className="mt-4 text-xs text-ink-muted">
+                The whole run takes about five minutes. The roster opens by itself when it&apos;s ready. You can leave this page — the run carries on, and Generate roster shows its progress when you come back.
+              </p>
+              <button onClick={() => navigate('/roster')} className="btn-secondary mt-4 w-full">
+                Leave it running
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

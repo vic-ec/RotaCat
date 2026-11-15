@@ -15,7 +15,11 @@ import { useLayoutEffect, useState } from 'react'
 //
 // Returns [ref, style]. `ref` is a callback ref, so a container that only
 // mounts once its data has loaded is still measured the moment it appears.
-export function useFillToViewport(gap = 32) {
+// `fit`: cap the height rather than set it — for a frame with a fill of its
+// own (a card), which would otherwise show as an empty panel below a short
+// list. With few rows the frame ends at its last row; with many it stops at
+// the same line as every other table and scrolls inside.
+export function useFillToViewport(gap = 32, { fit = false } = {}) {
   const [node, setNode] = useState(null)
   const [maxHeight, setMaxHeight] = useState(undefined)
 
@@ -34,5 +38,6 @@ export function useFillToViewport(gap = 32) {
     return () => window.removeEventListener('resize', measure)
   }, [node, gap])
 
-  return [setNode, maxHeight ? { height: maxHeight } : undefined]
+
+  return [setNode, maxHeight ? (fit ? { maxHeight } : { height: maxHeight }) : undefined]
 }

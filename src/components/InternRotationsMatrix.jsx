@@ -19,6 +19,7 @@ import {
 } from '../lib/staffDefaults'
 import { todayStr, addDays, addMonths, MONTH_ABBR, formatDayMonthYear } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { useFillToViewport } from '../lib/useFillToViewport'
 
 // Literal pixel widths, not 1fr/minmax — every row (and the header) shares
 // the exact same `gridTemplateColumns` string built from these two
@@ -175,6 +176,7 @@ export default function InternRotationsMatrix({
   focusDoctorId, onFocusDoctorConsumed,
 }) {
   const isDesktop = useIsDesktop()
+  const [fillRef, fillStyle] = useFillToViewport(32, { fit: true })
   const today = todayStr()
   const currentYear = Number(today.slice(0, 4))
   const currentMonthIndex = Number(today.slice(5, 7)) - 1
@@ -797,8 +799,11 @@ export default function InternRotationsMatrix({
         {/* Grid and panel start on the same line, below the toolbar. */}
         <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <div className="card overflow-x-auto p-0">
-            <div className="grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
+          {/* Ends at its last row when the list is short; with a long one it
+              stops at the window's edge and scrolls inside, month header
+              pinned. */}
+          <div ref={fillRef} style={fillStyle} className="card overflow-auto p-0">
+            <div className="sticky top-0 z-20 grid border-b border-slate-line bg-canvas-cool text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
               <div className="sticky left-0 z-10 bg-canvas-cool px-2 py-1.5">Doctor</div>
               {MONTH_ABBR.map((label, i) => (
                 <div key={label} className={`px-1 py-1.5 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>

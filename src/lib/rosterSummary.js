@@ -4,6 +4,7 @@
 // vhw_scheduling_rules_v2.md for the physical sheet this replicates.
 import { supabase } from './supabase'
 import { monthBounds, datesInRange } from './dateRange'
+import { annualDaysInRange } from './leaveDashboard'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
 // set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
@@ -34,6 +35,10 @@ function emptyRow(profile) {
     totalPH: 0,
     leaveDays: 0,
     leaveByType: {},
+    // Leave that was booked for this month and then cancelled — same
+    // per-type day counts as leaveByType, kept apart so it never inflates
+    // the live figures.
+    cancelledLeaveByType: {},
     phLieuOwed: 0,
     phLieuTaken: 0,
   }
@@ -59,8 +64,8 @@ export async function fetchRosterSummary({ month, year }) {
       .order('surname'),
     supabase.from('roster_months').select('id').eq('year', year).eq('month', month).is('deleted_at', null),
     supabase.from('leave_requests')
-      .select('profile_id, leave_type, date_from, date_to')
-      .eq('status', 'approved')
+      .select('profile_id, leave_type, date_from, date_to, annual_leave_days, status')
+      .in('status', ['approved', 'cancelled'])
       .lte('date_from', monthEnd).gte('date_to', monthStart),
     supabase.from('ph_lieu_ledger').select('profile_id, days_owed, taken'),
   ])
@@ -108,9 +113,22 @@ export async function fetchRosterSummary({ month, year }) {
     const from = lr.date_from < monthStart ? monthStart : lr.date_from
     const to = lr.date_to > monthEnd ? monthEnd : lr.date_to
     if (from > to) continue
-    const days = datesInRange(from, to).length
-    row.leaveDays += days
-    row.leaveByType[lr.leave_type] = (row.leaveByType[lr.leave_type] || 0) + days
+    const calendarDays = datesInRange(from, to).length
+    // The breakdown counts what the leave actually costs: for annual leave
+    // that is annual_leave_days (a 9-day absence over two weekends is 5
+    // leave days), shared across months in proportion when a request spans
+    // a month end — the same rule the My leave balance uses. Every other
+    // type has no such figure, so its calendar days stand.
+    const typeDays = lr.leave_type === 'annual'
+      ? annualDaysInRange([lr], monthStart, monthEnd)
+      : calendarDays
+    if (lr.status === 'cancelled') {
+      row.cancelledLeaveByType[lr.leave_type] = (row.cancelledLeaveByType[lr.leave_type] || 0) + typeDays
+      continue
+    }
+    // `leaveDays` stays calendar days — how long the doctor is away.
+    row.leaveDays += calendarDays
+    row.leaveByType[lr.leave_type] = (row.leaveByType[lr.leave_type] || 0) + typeDays
   }
 
   // Cumulative, not month-scoped — a running PH-in-lieu balance owed/taken

@@ -110,6 +110,12 @@ const REQUEST_STATUS_BADGE = {
 // on their recurring birthday, not to compute an age) — stored as a date
 // with a fixed placeholder year so the column stays a plain `date`. 2000 is
 // a leap year so 29 February stays a selectable day for everyone.
+// Admin "Delete account" runs in two guarded steps: the admin must type
+// the person's surname (so a slip on the wrong row can't go through), and
+// the delete itself only fires after a short countdown with an Undo
+// button. Seconds, not ms, because the countdown is shown to the admin.
+const DELETE_UNDO_SECONDS = 10
+
 const BIRTHDAY_YEAR = 2000
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -603,6 +609,10 @@ export default function AccountSettingsPage() {
   const [adminDeleteConfirming, setAdminDeleteConfirming] = useState(false)
   const [adminDeleting, setAdminDeleting] = useState(false)
   const [adminDeleteError, setAdminDeleteError] = useState('')
+  const [adminDeleteTyped, setAdminDeleteTyped] = useState('')
+  // null = no countdown running; otherwise seconds left until the delete fires.
+  const [adminDeleteCountdown, setAdminDeleteCountdown] = useState(null)
+  const adminDeleteTimerRef = useRef(null)
 
   // ── Load the account being viewed (self or, for admins, someone else) ──
   async function reloadTarget() {
@@ -1246,11 +1256,62 @@ export default function AccountSettingsPage() {
     }
   }
 
+  // The typed surname has to match before the countdown can even start.
+  // Compared loosely (case, surrounding spaces, accents) — the point is
+  // "are you looking at the right person", not a spelling test.
+  const normalizeSurname = value => (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  const adminDeleteSurnameMatches =
+    Boolean(profile?.surname) && normalizeSurname(adminDeleteTyped) === normalizeSurname(profile.surname)
+
+  function clearAdminDeleteTimer() {
+    if (adminDeleteTimerRef.current) clearInterval(adminDeleteTimerRef.current)
+    adminDeleteTimerRef.current = null
+  }
+
+  function resetAdminDelete() {
+    clearAdminDeleteTimer()
+    setAdminDeleteCountdown(null)
+    setAdminDeleteConfirming(false)
+    setAdminDeleteTyped('')
+    setAdminDeleteError('')
+  }
+
+  // Step 2 of 3: start the undo window. Nothing is sent to the server until
+  // it runs out; Undo (or leaving this page) cancels it outright.
+  function startAdminDeleteCountdown() {
+    if (!adminDeleteSurnameMatches || adminDeleting) return
+    setAdminDeleteError('')
+    setAdminDeleteCountdown(DELETE_UNDO_SECONDS)
+    clearAdminDeleteTimer()
+    adminDeleteTimerRef.current = setInterval(() => {
+      setAdminDeleteCountdown(prev => {
+        if (prev === null) return null
+        if (prev <= 1) {
+          clearAdminDeleteTimer()
+          adminDeleteAccount()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  function undoAdminDelete() {
+    clearAdminDeleteTimer()
+    setAdminDeleteCountdown(null)
+  }
+
+  // A countdown must not outlive the page: closing the panel or navigating
+  // away cancels a pending delete rather than firing it unseen.
+  useEffect(() => clearAdminDeleteTimer, [])
+
+  // Step 3 of 3: the actual delete, once the countdown has expired.
   async function adminDeleteAccount() {
     setAdminDeleting(true)
     setAdminDeleteError('')
     const result = await deleteStaffAccount(targetId)
     setAdminDeleting(false)
+    setAdminDeleteCountdown(null)
     if (!result.ok) {
       setAdminDeleteError(result.error)
       return
@@ -2188,21 +2249,66 @@ export default function AccountSettingsPage() {
               <SectionRow icon={<TrashIcon className="h-5 w-5" />} title="Delete account" danger>
                 {adminDeleteConfirming ? (
                   <div className="rounded-lg border border-danger/30 bg-danger/10 p-4">
-                    <p className="text-sm text-danger">
-                      This permanently removes {profile?.name} {profile?.surname}&rsquo;s sign-in and profile. It cannot be undone.
-                    </p>
-                    <p className="mt-1 text-xs text-ink-light">
-                      Accounts that already appear on a roster or weekend plan can&rsquo;t be deleted; deactivate those instead.
-                    </p>
-                    {adminDeleteError && <p className="mt-2 text-sm text-danger" role="alert">{adminDeleteError}</p>}
-                    <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={adminDeleteAccount} disabled={adminDeleting} className="btn-danger">
-                        {adminDeleting ? 'Deleting…' : 'Yes, delete account'}
-                      </button>
-                      <button type="button" onClick={() => { setAdminDeleteConfirming(false); setAdminDeleteError('') }} disabled={adminDeleting} className="btn-secondary">
-                        Cancel
-                      </button>
-                    </div>
+                    {adminDeleteCountdown !== null || adminDeleting ? (
+                      /* Step 2: undo window, then the delete itself */
+                      <div role="status" aria-live="polite">
+                        <p className="text-sm font-medium text-danger">
+                          {adminDeleting
+                            ? `Deleting ${profile?.name} ${profile?.surname}’s account…`
+                            : `Deleting ${profile?.name} ${profile?.surname}’s account in ${adminDeleteCountdown} second${adminDeleteCountdown === 1 ? '' : 's'}.`}
+                        </p>
+                        {!adminDeleting && (
+                          <p className="mt-1 text-xs text-ink-light">
+                            Nothing has been removed yet. Closing this panel also cancels.
+                          </p>
+                        )}
+                        <div className="mt-3 flex gap-2">
+                          <button type="button" onClick={undoAdminDelete} disabled={adminDeleting} className="btn-primary">
+                            Undo
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Step 1: type the surname to unlock */
+                      <>
+                        <p className="text-sm text-danger">
+                          This permanently removes {profile?.name} {profile?.surname}&rsquo;s sign-in and profile. It cannot be undone once it has run.
+                        </p>
+                        <p className="mt-1 text-xs text-ink-light">
+                          Accounts that already appear on a roster or weekend plan can&rsquo;t be deleted; deactivate those instead.
+                          Every deletion is recorded with your name and the date.
+                        </p>
+                        <label className="label-text mt-3 block" htmlFor="admin-delete-surname">
+                          Type <span className="font-semibold text-ink">{profile?.surname}</span> to confirm
+                        </label>
+                        <input
+                          id="admin-delete-surname"
+                          type="text"
+                          autoComplete="off"
+                          spellCheck={false}
+                          value={adminDeleteTyped}
+                          onChange={e => setAdminDeleteTyped(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); startAdminDeleteCountdown() } }}
+                          placeholder={profile?.surname}
+                          className="input-field mt-1"
+                        />
+                        {adminDeleteError && <p className="mt-2 text-sm text-danger" role="alert">{adminDeleteError}</p>}
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={startAdminDeleteCountdown}
+                            disabled={!adminDeleteSurnameMatches}
+                            className="btn-danger"
+                            title={adminDeleteSurnameMatches ? undefined : 'Type the surname exactly to enable'}
+                          >
+                            Delete account
+                          </button>
+                          <button type="button" onClick={resetAdminDelete} className="btn-secondary">
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <button type="button" onClick={() => setAdminDeleteConfirming(true)} className="btn-danger">

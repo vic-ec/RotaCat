@@ -458,12 +458,18 @@ async function handleDelete(
 
   const { data: target, error: targetError } = await admin
     .from('profiles')
-    .select('id, name, surname, is_admin')
+    .select('id, name, surname, role, category, is_admin')
     .eq('id', profileId)
     .maybeSingle()
   if (targetError) throw new Error(`Could not read the account: ${targetError.message}`)
   if (!target) throw new ValidationError('No account found for that person.')
   if (target.is_admin) throw new ValidationError('Admin accounts cannot be deleted from the app.')
+
+  // Snapshot for the deletion log before anything is removed — the email
+  // lives on the auth user, which is about to go. Best effort: an
+  // unreadable email just leaves that column empty.
+  const { data: authUser } = await admin.auth.admin.getUserById(profileId)
+  const targetEmail = authUser?.user?.email ?? null
 
   for (const [table, column] of HISTORY_TABLES) {
     const { count, error } = await admin.from(table).select('*', { count: 'exact', head: true }).eq(column, profileId)
@@ -494,6 +500,21 @@ async function handleDelete(
     }
     throw new Error(`Delete failed: ${deleteError.message}`)
   }
+
+  // The permanent record (see migration 20261115120000_account_deletion_log).
+  // Written after the delete so a refused or failed delete never leaves a
+  // log entry claiming otherwise; a failed log write is reported but does
+  // not undo a delete that has already happened.
+  const { error: logError } = await admin.from('account_deletion_log').insert({
+    deleted_profile_id: profileId,
+    name: target.name,
+    surname: target.surname,
+    email: targetEmail,
+    role: target.role,
+    category: target.category,
+    deleted_by: callerId,
+  })
+  if (logError) console.error(`Account ${profileId} deleted but could not be logged:`, logError.message)
 
   return json({ ok: true })
 }

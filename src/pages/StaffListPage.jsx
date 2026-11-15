@@ -425,6 +425,10 @@ export default function StaffListPage() {
   // profile id -> the date a doctor's rotation timeline runs out, for
   // "Active until" on anyone without an explicit scheduled_inactive_date.
   const [rotationEndById, setRotationEndById] = useState({})
+  // Admin-only: the permanent record of deleted accounts (see
+  // account_deletion_log). Shown as a collapsed footer on All Staff.
+  const [deletionLog, setDeletionLog] = useState([])
+  const [deletionLogOpen, setDeletionLogOpen] = useState(false)
   // role/category/status/isAdmin are each a Set of selected values — empty
   // means "All" for that dimension (see FilterPanel.jsx). Multi-select: a
   // viewer can filter to e.g. "Registrar OR MO" within one dimension.
@@ -594,7 +598,7 @@ export default function StaffListPage() {
     if (!silent) setLoading(true)
     setError('')
 
-    const [accountsRes, pendingRes, emailsRes, requestsRes, leaveRes] = await Promise.all([
+    const [accountsRes, pendingRes, emailsRes, requestsRes, leaveRes, deletionLogRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('*, approver:approved_by(name, surname)')
@@ -617,6 +621,13 @@ export default function StaffListPage() {
             .order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
       supabase.rpc('get_current_leave_profile_ids'),
+      isAdmin
+        ? supabase
+            .from('account_deletion_log')
+            .select('id, name, surname, email, role, category, deleted_at, deleted_by, deleter:deleted_by(name, surname)')
+            .order('deleted_at', { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] }),
     ])
 
     if (accountsRes.error) {
@@ -626,6 +637,7 @@ export default function StaffListPage() {
     setPending(pendingRes.data || [])
     setAccountRequests(requestsRes.data || [])
     setLeaveProfileIds(new Set((leaveRes.data || []).map(r => r.profile_id)))
+    setDeletionLog(deletionLogRes.data || [])
 
     const emailMap = {}
     for (const row of emailsRes.data || []) emailMap[row.id] = row.email
@@ -1606,6 +1618,46 @@ export default function StaffListPage() {
               </table>
             </div>
             </>
+          )}
+
+          {/* ── Recently deleted accounts (admin, All Staff only) ── */}
+          {isAdmin && tab === 'accounts' && deletionLog.length > 0 && (
+            <section className="mt-8" aria-labelledby="deletion-log-heading">
+              <button
+                type="button"
+                id="deletion-log-heading"
+                onClick={() => setDeletionLogOpen(open => !open)}
+                aria-expanded={deletionLogOpen}
+                className="flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink"
+              >
+                <span aria-hidden="true">{deletionLogOpen ? '▾' : '▸'}</span>
+                Recently deleted accounts ({deletionLog.length})
+              </button>
+              {deletionLogOpen && (
+                <div className="card mt-3 overflow-hidden">
+                  <ul className="divide-y divide-edge">
+                    {deletionLog.map(entry => (
+                      <li key={entry.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                        <div>
+                          <span className="font-medium text-ink">{entry.name} {entry.surname}</span>
+                          {entry.email && <span className="ml-2 text-ink-muted">{entry.email}</span>}
+                          <span className="ml-2 text-xs text-ink-light">
+                            {[entry.role && (entry.role[0].toUpperCase() + entry.role.slice(1)), entry.category && (CATEGORY_LABELS[entry.category] || entry.category)].filter(Boolean).join(' · ')}
+                          </span>
+                        </div>
+                        <div className="text-xs text-ink-light">
+                          Deleted {new Date(entry.deleted_at).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {entry.deleter ? ` by ${entry.deleter.name} ${entry.deleter.surname}` : ''}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="border-t border-edge px-4 py-2 text-xs text-ink-light">
+                    Deleted accounts cannot be restored. Someone who returns will need a new account.
+                  </p>
+                </div>
+              )}
+            </section>
           )}
         </div>
       )}

@@ -425,10 +425,9 @@ async function issueTemporaryPassword(
   profileId: string,
   appUrl: string | null,
 ): Promise<{ emailSent: boolean; emailError?: string; password?: string }> {
-  const { data: target, error: targetError } = await admin.auth.admin.getUserById(profileId)
-  if (targetError || !target?.user?.email) {
-    throw new ValidationError('No account found for that person.')
-  }
+  const user = await loadAuthUser(admin, profileId)
+  if (!user.email) throw new ValidationError('No account found for that person.')
+  const target = { user }
 
   const { data: profile } = await admin
     .from('profiles')
@@ -474,6 +473,22 @@ async function issueTemporaryPassword(
   }
 }
 
+// Reads the auth user behind a profile, telling "there is no such account"
+// apart from "the account is there but Auth could not load it". The second
+// is a real case, not a theoretical one: login records inserted with SQL
+// rather than through Auth can make every lookup fail with a 500, and
+// reporting that as "No account found" sent an admin looking for a missing
+// account that was on the page in front of them.
+async function loadAuthUser(admin: ReturnType<typeof createClient>, profileId: string) {
+  const { data, error } = await admin.auth.admin.getUserById(profileId)
+  if (error && error.status !== 404) {
+    console.error(`Auth could not load user ${profileId}:`, error.message)
+    throw new HttpError(500, 'This account exists, but its login record could not be loaded. Nothing was changed.')
+  }
+  if (error || !data?.user) throw new ValidationError('No account found for that person.')
+  return data.user
+}
+
 // Super-admin only: replaces another person's login email. For onboarding
 // real staff onto accounts created with placeholder addresses, where the
 // self-service flow (confirmation links to both inboxes) cannot work
@@ -493,8 +508,7 @@ async function handleChangeEmail(
   if (!check.ok) throw new HttpError(check.status, check.error)
   const { profileId, email, sendCredentials } = check
 
-  const { data: target, error: targetError } = await admin.auth.admin.getUserById(profileId)
-  if (targetError || !target?.user) throw new ValidationError('No account found for that person.')
+  const target = { user: await loadAuthUser(admin, profileId) }
   if (isSameEmail(target.user.email, email)) {
     throw new ValidationError('That is already their email address. Enter a different one.')
   }

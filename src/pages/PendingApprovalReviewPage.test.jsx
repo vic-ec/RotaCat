@@ -35,6 +35,14 @@ vi.mock('../lib/supabase', () => ({
           return Promise.resolve({ data: null, error: null })
         },
         eq() { return builder },
+        // Approving a Registrar checks intern_rotations for an existing block
+        // (.select('id').eq(...).limit(1)) before adding one.
+        limit() { return builder },
+        insert(rows) {
+          method = 'insert'
+          updateCalls.push({ table, patch: rows })
+          return builder
+        },
         single() { return builder },
         then(resolve, reject) {
           const result = mockResponses[`${table}:${method}`] || { data: null, error: null }

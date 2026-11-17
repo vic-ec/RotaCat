@@ -2074,6 +2074,7 @@ export default function StaffListPage() {
       {regeneratePasswordFor && (
         <RegeneratePasswordModal
           person={regeneratePasswordFor}
+          email={emailById[regeneratePasswordFor.id]}
           onClose={() => setRegeneratePasswordFor(null)}
         />
       )}

@@ -2,29 +2,38 @@ import { useState } from 'react'
 import Modal from './Modal'
 import GeneratedPasswordNotice from './GeneratedPasswordNotice'
 import { regenerateStaffPassword } from '../lib/staffCredentials'
+import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
 
 // "Regenerate password" — for anyone who lost the welcome email an admin
 // created their account with, or never got it (spam, a mistyped address
-// since corrected). Issues a fresh password, invalidating the previous
-// one, and puts the account back behind the forced set-your-own-password
-// screen on next sign-in.
+// since corrected). Issues a fresh temporary password, invalidating the
+// previous one, and puts the account back behind the forced
+// set-your-own-password screen on next sign-in.
 //
-// Nothing here expires, because nothing here is a link: this can be run
-// again as many times as needed, with no window to beat. It leaves
-// is_approved untouched — replacing a credential is not a re-vetting of
-// who this person is, and this must never push someone back into the
-// pending-approval queue.
+// Opened from two places — the Staff list's row menu and the Security &
+// Access section of someone else's Account page — and it is this one
+// component in both. `email` is optional: where the caller has the
+// person's address it is shown as the destination, otherwise the wording
+// simply leaves it out.
+//
+// There is no link here, so this can be run again as many times as needed.
+// The password it issues is temporary, though: it stops working after
+// TEMP_PASSWORD_VALIDITY_DAYS, and each run restarts that window. It
+// leaves is_approved untouched — replacing a credential is not a
+// re-vetting of who this person is, and this must never push someone back
+// into the pending-approval queue.
 //
 // Confirmed before it runs because it is destructive to a credential the
 // person may currently be using: the moment it succeeds, their existing
 // password stops working.
-export default function RegeneratePasswordModal({ person, onClose }) {
+export default function RegeneratePasswordModal({ person, email, onClose }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
 
   const firstName = person.name || person.surname || 'this person'
   const fullName = `${person.name ? `${person.name} ` : ''}${person.surname || ''}`.trim() || 'This person'
+  const days = TEMP_PASSWORD_VALIDITY_DAYS
 
   async function handleConfirm() {
     setError('')
@@ -48,14 +57,16 @@ export default function RegeneratePasswordModal({ person, onClose }) {
       >
         {result.emailSent ? (
           <p className="text-sm text-ink">
-            A new password has been emailed to {fullName}. Their previous password no longer works,
-            and they&apos;ll be asked to set their own the next time they sign in.
+            A new temporary password has been emailed to {fullName}{email ? ` at ${email}` : ''}. It
+            is valid for {days} days, and they&apos;ll be asked to set their own the next time they
+            sign in.
           </p>
         ) : (
           <>
             <p className="text-sm text-ink">
               {fullName}&apos;s password was reset, but the email could not be sent
               {result.emailError ? ` (${result.emailError})` : ''}. Their previous password no longer works.
+              Valid for {days} days.
             </p>
             {result.password && <GeneratedPasswordNotice password={result.password} />}
           </>
@@ -80,14 +91,14 @@ export default function RegeneratePasswordModal({ person, onClose }) {
       }
     >
       <p className="text-sm text-ink">
-        This issues {firstName} a brand-new password and emails it to them. Their current password
-        stops working immediately, and they&apos;ll have to set their own password the next time they
-        sign in.
+        This issues {firstName} a new temporary password and emails it
+        {email ? <> to <strong className="font-semibold break-words">{email}</strong></> : ' to them'}.
+        {' '}Their current password stops working immediately.
       </p>
       <p className="mt-3 text-xs text-ink-muted">
-        Safe to repeat — there&apos;s no link and no expiry involved, so it can be run again if the
-        email still doesn&apos;t arrive. It doesn&apos;t affect their account&apos;s approval or
-        active status.
+        The temporary password is valid for {days} days. They&apos;ll be asked to set their own
+        password the first time they sign in. Safe to repeat if the email doesn&apos;t arrive. It
+        doesn&apos;t affect their approval or active status.
       </p>
 
       {error && (

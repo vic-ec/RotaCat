@@ -1,15 +1,48 @@
 # admin-staff-credentials
 
-Service-role Edge Function behind the Staff list's **Add staff** form and its
-per-row **Regenerate password** action. It is the only place in the system
-that can create an auth user or set someone else's password, which is why
-both actions live here rather than in the frontend.
+Service-role Edge Function behind the Staff list's **Add staff** form, the
+**Regenerate password** action (Staff list row menu and the Account page),
+and the super-admin's **change email** on someone else's Account page. It
+is the only place in the system that can create an auth user or set someone
+else's password or login email, which is why these actions live here rather
+than in the frontend.
 
 ```
 POST { action: 'create',     ...form fields }  → new confirmed auth user + filled-in profile
 POST { action: 'regenerate', profileId }       → fresh password for an existing account
+POST { action: 'change_email', profileId, email, sendCredentials }
+                                               → new login email; optionally a fresh password sent to it
 POST { action: 'delete',     profileId }       → remove the auth user; the profile cascades
 ```
+
+| Action | Who may call it |
+| --- | --- |
+| `create`, `regenerate`, `delete` | `profiles.is_admin` |
+| `change_email` | `profiles.is_super_admin` only (403 otherwise) |
+
+`regenerate` issues a temporary password, valid for 14 days
+(`TEMP_PASSWORD_VALIDITY_DAYS` in `src/lib/tempPassword.js`, counted from
+`profiles.temp_password_issued_at`). It can be repeated as often as needed;
+each run invalidates the previous password and restarts the window. An
+account that has never signed in gets the "Welcome to RotaCat" email;
+one that has gets "Your new RotaCat password".
+
+`change_email` replaces another person's login email through the Auth admin
+API (`updateUserById` with `email_confirm: true` — never SQL against
+`auth.users`). It takes effect immediately and sends **no** confirmation
+email to either address; `profiles.email_verified` is set to true. It is
+refused for the caller's own account (that stays on the self-service
+confirmation-link flow), for an address already in use, and for an
+unchanged address. With `sendCredentials: true` it then runs the same
+password path as `regenerate`, so the temporary password goes to the new
+address; with `false` the password, `must_change_password` and
+`temp_password_issued_at` are untouched. It responds with
+`{ ok, profileId, email, credentialsIssued, emailSent?, emailError?, password?, credentialsError? }`.
+If the email changed but the password could not be issued, the change is
+not rolled back: the response is `ok: true`, `credentialsIssued: false`
+with a `credentialsError` message. Email changes are not written to any
+audit table (only a function log line with the two profile ids). Existing
+sessions on the account are not signed out by the change.
 
 `delete` is refused for the caller's own account, for admins, and for anyone
 who already appears on a roster or weekend plan (those rows are history and
@@ -37,8 +70,11 @@ which is not enough to mint credentials.
 
 ## Deploying
 
-Deployed from this directory's four files (`index.ts`, `password.ts`,
-`email.ts`, `defaults.ts`) plus `../_shared/email.ts`, which holds the
+There is no automatic deploy: after merging a change here, run
+`supabase functions deploy admin-staff-credentials` from the repo root.
+
+Deployed from this directory's five files (`index.ts`, `password.ts`,
+`email.ts`, `defaults.ts`, `changeEmail.ts`) plus `../_shared/email.ts`, which holds the
 layout, palette, dark-mode treatment and SMTP transport every RotaCat email
 shares (also used by `account-status-email`, and by
 `scripts/email-templates.mjs` to generate the Supabase Auth templates in
@@ -46,8 +82,11 @@ shares (also used by `account-status-email`, and by
 the `_shared` import resolves. `defaults.ts` is a
 hand-maintained mirror of `src/lib/staffDefaults.js`; `defaults.test.ts`
 fails if the two drift, and `password.test.ts` asserts the generator
-satisfies the Supabase Auth password policy on every run. Both run under
-the repo's normal `npm test`.
+satisfies the Supabase Auth password policy on every run.
+`changeEmail.ts` holds the pure checks behind `change_email` (permission,
+own-account refusal, validation, welcome-vs-reset choice) so
+`changeEmail.test.ts` can cover them. All three run under the repo's
+normal `npm test`.
 
 ## Secrets
 

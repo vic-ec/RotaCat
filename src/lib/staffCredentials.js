@@ -1,7 +1,8 @@
 // Frontend half of the admin-staff-credentials Edge Function — the only
-// path in the app that creates an auth user or issues a password on
-// someone else's behalf. Both live behind the service role key, so
-// neither can be done with a plain supabase-js call from here.
+// path in the app that creates an auth user, issues a password or changes
+// a login email on someone else's behalf. All of it lives behind the
+// service role key, so none can be done with a plain supabase-js call
+// from here.
 //
 // Both calls report the two outcomes separately on purpose: creating the
 // account and delivering the password are independent steps, and an email
@@ -48,10 +49,25 @@ export async function createStaffAccount(fields) {
 /**
  * Issues a fresh password for an existing account, invalidating the
  * previous one, and re-flags it for a forced password change. Repeatable
- * as often as needed — there's no link and no expiry involved.
+ * as often as needed — there's no link involved — but the password itself
+ * is temporary: valid for TEMP_PASSWORD_VALIDITY_DAYS (see tempPassword.js)
+ * from the moment it is issued.
  */
 export async function regenerateStaffPassword(profileId) {
   return invoke({ action: 'regenerate', profileId })
+}
+
+/**
+ * Super-admin only: replaces another person's login email, effective
+ * immediately and with no confirmation email. With sendCredentials true it
+ * also issues a fresh temporary password to the new address; with false
+ * the password is left alone. Not for the caller's own email — that is the
+ * self-service supabase.auth.updateUser flow on the Account page.
+ * Resolves to { ok, profileId, email, credentialsIssued, emailSent?,
+ * emailError?, password?, credentialsError? } or { ok: false, error }.
+ */
+export async function changeStaffEmail(profileId, email, sendCredentials) {
+  return invoke({ action: 'change_email', profileId, email, sendCredentials: sendCredentials === true })
 }
 
 /**

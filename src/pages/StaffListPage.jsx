@@ -10,6 +10,7 @@ import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } 
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
+import ExpandAllButton from '../components/ExpandAllButton'
 import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -929,6 +930,10 @@ export default function StaffListPage() {
     accountFilters.category.size > 0 || accountFilters.status.size > 0 || accountFilters.isAdmin.size > 0
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
+  // Only ever true once a viewer has shut every section themselves — an
+  // ungrouped list (no labels) never counts as collapsed.
+  const allGroupsCollapsed = groups.length > 0 &&
+    groups.every(g => g.label && collapsedGroups[g.key])
 
   // ── Approvals/User Requests: search + role filter, same substring-match
   // and role-equality rules as the accounts tab's own filter. ──
@@ -1532,6 +1537,9 @@ export default function StaffListPage() {
                 </tbody>
               </table>
             </div>
+            {/* One button for both lists: with every category shut, the
+                page is nothing but headers on either viewport. */}
+            {allGroupsCollapsed && <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />}
             </>
           )}
 

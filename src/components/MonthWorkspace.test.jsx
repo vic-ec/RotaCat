@@ -225,25 +225,18 @@ describe('MonthWorkspace', () => {
       expect(mobileGrid().queryByText('Anderson')).not.toBeInTheDocument()
     })
 
-    it('the toolbar search narrows the names on the grid, never the pips', async () => {
-      const user = userEvent.setup()
-      renderWorkspace()
-      await user.type(screen.getByRole('searchbox', { name: 'Search name' }), 'bot')
-      const cell = desktopGrid().getByRole('button', { name: /^2026-08-12/ })
-      expect(within(cell).getByText('Botha')).toBeInTheDocument()
-      expect(within(cell).queryByText('Anderson')).not.toBeInTheDocument()
-      expect(within(cell).getByRole('img', { name: '2 of 3 slots used' })).toBeInTheDocument()
-    })
   })
 
   describe('toolbar and panel', () => {
-    it('one toolbar row: Overview back link, search, legend, the capacity key, and an empty toggle slot', () => {
+    it('one toolbar row: Overview back link, legend, the capacity key, and an empty toggle slot', () => {
       renderWorkspace()
       const toolbar = within(screen.getByTestId('planner-toolbar'))
       const backButton = toolbar.getByRole('button', { name: 'Overview' })
       expect(backButton.className).not.toContain('btn-secondary')
       expect(backButton).toHaveClass('text-ink-light')
-      expect(toolbar.getByRole('searchbox', { name: 'Search name' })).toBeInTheDocument()
+      // No search: a month view's cells already name everyone on them, and
+      // on a phone there are no names in a cell for it to narrow at all.
+      expect(toolbar.queryByRole('searchbox')).not.toBeInTheDocument()
       expect(toolbar.getByRole('button', { name: 'Legend' })).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('0 used')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('3+ used')

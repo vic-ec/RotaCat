@@ -194,7 +194,7 @@ export default function SpecialPlannerOverview({
           ))}
         </div>
 
-        <div className={PANEL_RAIL}>
+        <div className={`order-first ${PANEL_RAIL}`}>
         {renderRequestPanel('special-scope-desktop')}
         {/* SELECTED MONTH: the card's title is the month the grid has
             selected — the year stepper in the panel above is this view's

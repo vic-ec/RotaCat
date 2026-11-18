@@ -139,7 +139,9 @@ describe('SpecialMonthWorkspace', () => {
       expect(within(panel).getByText('2/3 slots used · 1 day')).toBeInTheDocument()
       expect(within(panel).getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
       expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
-      expect(panel.parentElement).toHaveClass('order-1', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+      // Second in the phone stack, under the toolbar: "Overview" is the
+      // way out of this view and belongs above the panel, not below it.
+      expect(panel.parentElement).toHaveClass('order-2', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     })
 
     it('counts a day at the guideline in the bar and the headline', () => {

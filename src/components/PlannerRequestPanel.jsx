@@ -70,4 +70,9 @@ export function PanelReading({ value, unit, valueClassName = 'text-ink' }) {
 // utilities on one element, and which wins is Tailwind's stylesheet order,
 // not this string's — it was landing on w-full at every size and starving
 // the grid beside it of any width at all.
-export const PANEL_RAIL = 'order-first w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 lg:w-80'
+// No order utility here: where the panel sits in the phone stack differs
+// per page (first on the year overviews, under the toolbar on the month
+// views), and `order-first` alongside a caller's own `order-2` on one
+// element resolves by stylesheet order rather than by this string — the
+// same trap as the w-full/lg:w-80 note above. Callers state their own.
+export const PANEL_RAIL = 'w-full flex-shrink-0 lg:order-none lg:sticky lg:top-4 lg:w-80'

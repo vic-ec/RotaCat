@@ -54,14 +54,29 @@ describe('TeamLeaveMobile', () => {
     expect(within(hint).getByText('People')).toBeInTheDocument()
   })
 
+  // The month view is the planners' own calendar (PlannerCalendarGrid), so
+  // its cells are labelled by date and the headcount is read off the slot
+  // pips, exactly as capacity is on the Annual and Special tabs.
   it('Month view shows a per-day count and opens a day sheet', () => {
     render(<TeamLeaveMobile requests={requests} />)
     fireEvent.click(screen.getByRole('button', { name: 'Month' }))
-    const todayCell = screen.getByLabelText(content => content.includes(formatWeekdayDate(today)))
-    expect(todayCell).toHaveTextContent('1') // one person away today
+    // Mobile and desktop grids both render in jsdom; either cell opens the
+    // same sheet.
+    const todayCell = screen.getAllByRole('button', { name: today })[0]
+    expect(within(todayCell).getByRole('img', { name: '1 person away' })).toBeInTheDocument()
     fireEvent.click(todayCell)
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText('Bo Carter')).toBeInTheDocument()
+  })
+
+  it('Month view names the people on a desktop cell, and the day sheet titles the date', () => {
+    render(<TeamLeaveMobile requests={requests} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Month' }))
+    const cells = screen.getAllByRole('button', { name: today })
+    expect(cells.some(c => within(c).queryByText('Carter'))).toBe(true)
+
+    fireEvent.click(cells[0])
+    expect(screen.getByRole('dialog', { name: formatWeekdayDate(today) })).toBeInTheDocument()
   })
 
   it('People view searches and drills through to a leave detail', () => {

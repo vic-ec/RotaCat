@@ -330,12 +330,14 @@ describe('MonthWorkspace', () => {
       expect(screen.getByText(/LeaveRequestFormStub: 2026-08-06 to 2026-08-06/)).toBeInTheDocument()
     })
 
-    it('the rail is sticky at 320px on a desktop and first in the stack below, ahead of the toolbar and grid', () => {
+    // Toolbar first on a phone: "Overview" is the way out of this view, so
+    // it sits where it does on a desktop rather than under a whole panel.
+    it('the rail is sticky at 320px on a desktop, and below lg the stack reads toolbar, panel, grid', () => {
       renderWorkspace()
       const rail = screen.getByTestId('planner-request-panel').parentElement
-      expect(rail).toHaveClass('order-1', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+      expect(rail).toHaveClass('order-2', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
       expect(rail).not.toHaveClass('w-80')
-      expect(screen.getByTestId('planner-toolbar').parentElement).toHaveClass('order-2')
+      expect(screen.getByTestId('planner-toolbar').parentElement).toHaveClass('order-1')
       expect(screen.getByTestId('planner-calendar-grid').parentElement).toHaveClass('order-3', 'min-w-0')
     })
 

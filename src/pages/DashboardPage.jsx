@@ -11,6 +11,7 @@ import { shortLeaveTypeLabel, ANNUAL_LEAVE_ALLOWANCE } from '../lib/leaveRequest
 import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
 import LeaveCard from '../components/LeaveCard'
+import ProfileAvatar from '../components/ProfileAvatar'
 
 // Destinations the dashboard links out to. `MY_LEAVE` is the "My leave" tab
 // of the Leave page (reachable from the Planners nav item too) — the
@@ -323,7 +324,7 @@ export default function DashboardPage() {
         .not('profile_id', 'is', null),
       supabase
         .from('leave_requests')
-        .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, avatar_url, color_code, pattern_type)')
         .eq('status', 'approved')
         .lte('date_from', today)
         .gte('date_to', today),
@@ -352,7 +353,7 @@ export default function DashboardPage() {
         .eq('status', 'pending'),
       supabase
         .from('leave_requests')
-        .select('*, profiles!leave_requests_profile_id_fkey(name, surname)')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, avatar_url, color_code, pattern_type)')
         .eq('status', 'approved')
         .gte('date_to', today)
         .order('date_from', { ascending: true })
@@ -623,15 +624,8 @@ export default function DashboardPage() {
                 {onLeaveNow.length === 0 ? (
                   <p className="mt-2 text-sm text-ink-muted">Nobody away today</p>
                 ) : (
-                  <ul className="mt-2 space-y-1.5">
-                    {onLeaveNow.map(lr => (
-                      <li key={lr.id}>
-                        <p className="text-sm font-semibold text-ink">{fullName(lr.profiles)}</p>
-                        <p className="text-xs text-ink-muted">
-                          {shortLeaveTypeLabel(lr.leave_type)} · {formatShortDateRange(lr.date_from, lr.date_to)}
-                        </p>
-                      </li>
-                    ))}
+                  <ul className="mt-2 space-y-2">
+                    {onLeaveNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
                   </ul>
                 )}
               </div>
@@ -640,15 +634,8 @@ export default function DashboardPage() {
                 {onLeaveNext.length === 0 ? (
                   <p className="mt-2 text-sm text-ink-muted">Nobody starting leave</p>
                 ) : (
-                  <ul className="mt-2 space-y-1.5">
-                    {onLeaveNext.map(lr => (
-                      <li key={lr.id}>
-                        <p className="text-sm font-semibold text-ink">{fullName(lr.profiles)}</p>
-                        <p className="text-xs text-ink-muted">
-                          {shortLeaveTypeLabel(lr.leave_type)} · {formatShortDateRange(lr.date_from, lr.date_to)}
-                        </p>
-                      </li>
-                    ))}
+                  <ul className="mt-2 space-y-2">
+                    {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
                   </ul>
                 )}
               </div>
@@ -659,6 +646,24 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// One person on the team-leave lists: their avatar, then who and when.
+// The avatar is the same one the Staff list and Account pages show — on a
+// list of five names, the face is what an admin recognises first, and the
+// colour/pattern is how this app has always identified a doctor.
+function TeamLeaveRow({ request }) {
+  return (
+    <li className="flex items-center gap-2.5">
+      <ProfileAvatar profile={request.profiles} size={32} />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-ink">{fullName(request.profiles)}</span>
+        <span className="block text-xs text-ink-muted">
+          {shortLeaveTypeLabel(request.leave_type)} · {formatShortDateRange(request.date_from, request.date_to)}
+        </span>
+      </span>
+    </li>
   )
 }
 

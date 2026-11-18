@@ -247,6 +247,16 @@ export default function RotationStatusTable({
 
   const headCell = 'border-b border-slate-line bg-canvas-sunken px-3 py-2'
   const cell = 'border-b border-slate-hairline px-3 py-2.5'
+  // Doctor stays put during horizontal scroll, as on Hours Summary — the
+  // name is what every other column is about, and scrolling to the rotation
+  // used to leave the rows anonymous. A sticky cell can't inherit its row's
+  // background while it repositions, so each one paints its own: z-20 on the
+  // header's corner cell keeps it above both the sticky header row and the
+  // sticky column it sits atop.
+  const stickyHead = `sticky left-0 z-20 border-r border-slate-line ${headCell}`
+  const stickyCell = isSelected => `sticky left-0 z-[1] border-r border-slate-line ${cell} ${
+    isSelected ? 'bg-accent-tint' : 'bg-canvas group-hover:bg-canvas-cool'
+  }`
 
   return (
     <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
@@ -258,7 +268,7 @@ export default function RotationStatusTable({
           <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <th className={headCell}>Doctor</th>
+                <th className={stickyHead}>Doctor</th>
                 <th className={headCell}>Category</th>
                 <th className={headCell}>Status</th>
                 <th className={headCell}>{copy.dateHeading}</th>
@@ -286,9 +296,9 @@ export default function RotationStatusTable({
                         key={doctor.id}
                         onClick={() => select(doctor.id)}
                         aria-selected={isSelected}
-                        className={`cursor-pointer transition-colors ${isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'}`}
+                        className={`group cursor-pointer transition-colors ${isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'}`}
                       >
-                        <td className={`${cell} ${isSelected ? 'shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : ''}`}>
+                        <td className={`${stickyCell(isSelected)} ${isSelected ? 'shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : ''}`}>
                           <button
                             type="button"
                             title={`${doctor.name || ''} ${doctor.surname}`.trim()}

@@ -228,15 +228,26 @@ describe('MonthWorkspace', () => {
   })
 
   describe('toolbar and panel', () => {
-    it('one toolbar row: Overview back link, legend, the capacity key, and an empty toggle slot', () => {
+    it('the toolbar search narrows the names on the grid, never the pips', async () => {
+      const user = userEvent.setup()
+      renderWorkspace()
+      await user.type(screen.getByRole('searchbox', { name: 'Search name' }), 'bot')
+      const cell = desktopGrid().getByRole('button', { name: /^2026-08-12/ })
+      expect(within(cell).getByText('Botha')).toBeInTheDocument()
+      expect(within(cell).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(cell).getByRole('img', { name: '2 of 3 slots used' })).toBeInTheDocument()
+    })
+
+    it('one toolbar row: Overview back link, a desktop-only search, legend, the capacity key, and an empty toggle slot', () => {
       renderWorkspace()
       const toolbar = within(screen.getByTestId('planner-toolbar'))
       const backButton = toolbar.getByRole('button', { name: 'Overview' })
       expect(backButton.className).not.toContain('btn-secondary')
       expect(backButton).toHaveClass('text-ink-light')
-      // No search: a month view's cells already name everyone on them, and
-      // on a phone there are no names in a cell for it to narrow at all.
-      expect(toolbar.queryByRole('searchbox')).not.toBeInTheDocument()
+      // The field is the lg+ one, and there is no phone search icon beside
+      // it: only the desktop grid prints names for a search to narrow.
+      expect(toolbar.getByRole('searchbox', { name: 'Search name' }).closest('div.lg\\:block')).not.toBeNull()
+      expect(toolbar.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
       expect(toolbar.getByRole('button', { name: 'Legend' })).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('0 used')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('3+ used')

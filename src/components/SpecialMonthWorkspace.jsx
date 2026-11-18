@@ -68,6 +68,9 @@ export default function SpecialMonthWorkspace({
   // count is the true shared one against the 3-doctor guideline, and the
   // day card a tap opens is always unfiltered.
   const [categoryKey, setCategoryKey] = useState(() => defaultSpecialCategoryKey(profile?.category, profile?.contract_type))
+  // Desktop-only (see PlannerToolbar): this narrows the names printed in a
+  // cell, and only the lg+ grid prints any.
+  const [searchQuery, setSearchQuery] = useState('')
   const [requestFormDate, setRequestFormDate] = useState(null)
 
   const today = todayStr()
@@ -99,13 +102,15 @@ export default function SpecialMonthWorkspace({
   }
 
   // One cell per day for the shared grid: the day's true count, the public
-  // holiday, and the names narrowed by the Showing picker. Capacity never
-  // narrows with it.
+  // holiday, and the names narrowed by the Showing picker and, on a
+  // desktop, the toolbar search. Capacity never narrows with either.
+  const query = searchQuery.trim().toLowerCase()
   const gridCells = new Map()
   for (const marker of monthMarkers) {
     const names = rowsForDate(marker.date)
       .filter(row => matchesSpecialCategory(row, categoryKey, rotationsByDoctorId))
       .map(e => ({ key: `${e.profileId}-${e.leaveType}-${e.dateFrom}`, label: displayNames.get(e.profileId) ?? e.surname, badge: COLUMN_BADGE_LABEL[e.columnKey], pending: e.status === 'pending' }))
+      .filter(n => !query || n.label.toLowerCase().includes(query))
     if (marker.count === 0 && names.length === 0 && !marker.isPublicHoliday) continue
     gridCells.set(marker.date, { used: marker.count, names, isPublicHoliday: marker.isPublicHoliday, phName: marker.publicHolidayName })
   }
@@ -123,6 +128,7 @@ export default function SpecialMonthWorkspace({
         <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
+            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…', desktopOnly: true }}
             legend={<SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />}
             middle={<GuidelineKey />}
           />

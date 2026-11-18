@@ -117,8 +117,13 @@ export default function SpecialMonthWorkspace({
 
   return (
     <div>
+      {/* Toolbar, panel, grid on a phone; on desktop the toolbar spans
+          both columns above the calendar and its rail. The toolbar leads
+          on both: "Overview" is the way out of this view, and a doctor
+          shouldn't have to scroll past a whole panel to find the way
+          back. */}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="order-2 lg:order-none lg:col-span-2">
+        <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
             search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
@@ -140,7 +145,7 @@ export default function SpecialMonthWorkspace({
           />
         </div>
 
-        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+        <div className={`order-2 lg:order-none ${PANEL_RAIL}`}>
           <PlannerRequestPanel
             eyebrow="Special leave · Month"
             stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}

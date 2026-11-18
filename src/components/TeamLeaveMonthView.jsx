@@ -1,54 +1,60 @@
 import { useMemo, useState } from 'react'
 import Modal from './Modal'
+import PlannerCalendarGrid from './PlannerCalendarGrid'
 import TeamLeavePersonRow from './TeamLeavePersonRow'
-import { datesInMonth, weeksForMonth } from '../lib/leaveYearGrid'
+import { datesInMonth, columnForLeaveCategory, COLUMN_BADGE_LABEL } from '../lib/leaveYearGrid'
 import { todayStr, formatWeekdayDate } from '../lib/dateRange'
 import { peopleAwayByDate } from '../lib/teamLeaveMobile'
 
-const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-
-// A one-month calendar (Sunday-start, mirroring LeaveYearGrid's MonthGlance)
-// where each day shows a headcount of people away — no surnames in cells.
-// Tapping a day opens a bottom-sheet listing that day's people; tapping a
-// person opens their leave's full detail via onSelectLeave.
+// One month of "who is away", on the same calendar the Annual and Special
+// planners use (PlannerCalendarGrid) rather than a second grid of its own —
+// same cell footprint, same Monday-first columns, same slot pips on every
+// day, so a doctor reading leave here and capacity there is reading one
+// calendar twice rather than two that merely rhyme. Tapping a day opens a
+// sheet listing that day's people; tapping a person opens their leave's
+// full detail via onSelectLeave.
+//
+// The pips count people away against the same 3-slot scale the planners
+// use — that ceiling is the department's, not one planner's — and a day
+// past it reads "+N", as it does there.
 export default function TeamLeaveMonthView({ requests, year, month, onSelectLeave }) {
   const [selectedDate, setSelectedDate] = useState(null)
   const dates = useMemo(() => datesInMonth(year, month), [year, month])
-  const weeks = useMemo(() => weeksForMonth(year, month), [year, month])
   const awayByDate = useMemo(() => peopleAwayByDate(requests, dates), [requests, dates])
   const today = todayStr()
+
+  // Pending leave reads italic in a cell, exactly as it does on the
+  // planners — it is a request, not yet a fact.
+  const cells = useMemo(() => {
+    const map = new Map()
+    for (const [date, people] of awayByDate) {
+      if (people.length === 0) continue
+      map.set(date, {
+        used: people.length,
+        names: people.map(({ doctor, request, status }) => ({
+          key: `${request.id}-${status}`,
+          label: doctor.surname || doctor.name || 'Unknown',
+          badge: COLUMN_BADGE_LABEL[columnForLeaveCategory(doctor.category, doctor.contract_type)],
+          pending: status === 'pending',
+        })),
+      })
+    }
+    return map
+  }, [awayByDate])
 
   const dayPeople = selectedDate ? (awayByDate.get(selectedDate) || []) : []
 
   return (
     <div className="mt-4">
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-muted">
-        {WEEKDAY_SHORT.map(d => <div key={d}>{d}</div>)}
-      </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {weeks.flat().map((date, i) => {
-          if (!date) return <div key={`blank-${i}`} />
-          const count = (awayByDate.get(date) || []).length
-          const isToday = date === today
-          return (
-            <button
-              key={date}
-              type="button"
-              onClick={() => setSelectedDate(date)}
-              aria-label={`${formatWeekdayDate(date)} — ${count} ${count === 1 ? 'person' : 'people'} away`}
-              // Same footprint as the Annual planner's mobile day cell
-              // (MonthWorkspace's MobileDayCell): min-h-[64px], pt-[23px], and
-              // the date number pinned top-left out of the flex flow.
-              className={`relative flex min-h-[64px] flex-col items-center rounded border border-slate-line bg-canvas-raised pt-[23px] text-xs transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken ${isToday ? 'ring-1 ring-accent' : ''}`}
-            >
-              <span className="absolute left-1.5 top-1 font-bold text-ink">{Number(date.slice(-2))}</span>
-              {count > 0 && (
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-tint px-1 text-[11px] font-semibold text-accent">{count}</span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <PlannerCalendarGrid
+        year={year}
+        month={month}
+        cells={cells}
+        selectedDate={selectedDate}
+        today={today}
+        onSelect={setSelectedDate}
+        pipLabel={used => `${used} ${used === 1 ? 'person' : 'people'} away`}
+      />
 
       {selectedDate && (
         <Modal title={formatWeekdayDate(selectedDate)} onClose={() => setSelectedDate(null)}>

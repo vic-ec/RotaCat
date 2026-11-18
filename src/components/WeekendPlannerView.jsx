@@ -1908,7 +1908,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 </table>
               </div>
 
-              <div className={PANEL_RAIL}>
+              <div className={`order-first ${PANEL_RAIL}`}>
               {renderRequestPanel('weekend-scope-desktop')}
               <PlannerDetailsCard className="mt-3" eyebrow="Selected weekend" emptyMessage="Select a weekend to see details.">
                 {inspectorSaturday && (

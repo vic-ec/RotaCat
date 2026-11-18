@@ -263,7 +263,7 @@ export default function MyWeekendYearOverview({ year, onYearChange, byWeekend, m
 
         {/* See PANEL_RAIL for why the width is lg:w-80 and not a bare
             w-80 — a bare one lost to w-full and starved the grid. */}
-        <div className={PANEL_RAIL}>
+        <div className={`order-first ${PANEL_RAIL}`}>
         {renderRequestPanel('weekend-scope-desktop')}
         {/* SELECTED MONTH: titled by the month the grid has selected — the
             year stepper in the panel above is this view's only period

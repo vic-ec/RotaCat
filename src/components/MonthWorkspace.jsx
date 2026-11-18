@@ -177,10 +177,14 @@ export default function MonthWorkspace({
     <div>
       {/* One grid, three areas. Desktop: the toolbar spans both columns,
           then the calendar beside the sticky rail. Below lg the same three
-          children stack as panel, toolbar, grid (order utilities), with
-          the details in a bottom sheet rather than the rail. */}
+          children stack as toolbar, panel, grid (order utilities), with
+          the details in a bottom sheet rather than the rail. The toolbar
+          leads on both viewports: "Overview" is the way out of this view,
+          and a doctor shouldn't have to scroll past a whole panel to find
+          the way back — it also puts the back link in the same place on a
+          phone as on a desktop. */}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="order-2 lg:order-none lg:col-span-2">
+        <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
             search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
@@ -200,7 +204,7 @@ export default function MonthWorkspace({
           />
         </div>
 
-        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+        <div className={`order-2 lg:order-none ${PANEL_RAIL}`}>
           <YourLeaveCard
             profile={profile}
             year={year}

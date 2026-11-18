@@ -359,14 +359,18 @@ export default function RosterSummaryPage() {
                     onClick={() => setCollapsedGroups(c => ({ ...c, [group.key]: !c[group.key] }))}
                     className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
                   >
-                    {/* The header pins to the left edge of the scroll area, so
-                        its label and chevron stay on screen however far the
-                        twenty columns have been scrolled. */}
+                    {/* Full width of the table, like every other group
+                        header in the app (LeaveMatrix, the rotations
+                        matrix) — it used to be a fixed 18rem, which left
+                        the bar stopping short of the table's right edge
+                        with the remaining columns bare beside it. Still
+                        sticky, so the label and chevron stay on screen
+                        however far the twenty columns have been scrolled. */}
                     <td colSpan={columnCount} className="border-b border-slate-hairline bg-canvas p-1">
                       <button
                         type="button"
                         aria-expanded={!collapsedGroups[group.key]}
-                        className="sheen-divider sticky left-1 !w-72 max-w-[calc(100vw-3rem)] text-left"
+                        className="sheen-divider sticky left-1 !w-[calc(100%-0.5rem)] text-left"
                       >
                         <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.rows.length}</span></span>
                         <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />

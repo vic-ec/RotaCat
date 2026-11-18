@@ -238,17 +238,39 @@ describe('email row on someone else’s account', () => {
 })
 
 describe('Regenerate password row', () => {
-  it('opens the shared modal, with the address, for an admin', async () => {
+  // Opens underneath its own header, like every other section on this
+  // page — not as a modal over it. (The Staff list's row menu still gets
+  // the modal: a list row has nothing to open into.)
+  it('expands inline, with the address, for an admin', async () => {
     signInAs({ isAdmin: true })
     const user = userEvent.setup()
     renderPage()
 
     await screen.findByText('placeholder@example.com')
-    await user.click(screen.getByRole('button', { name: 'Regenerate password' }))
+    const header = screen.getByRole('button', { name: 'Regenerate password' })
+    expect(header).toHaveAttribute('aria-expanded', 'false')
 
-    const dialog = screen.getByRole('dialog', { name: 'Regenerate password' })
-    expect(dialog).toHaveTextContent('issues Lucy a new temporary password and emails it to placeholder@example.com.')
+    await user.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByRole('dialog', { name: 'Regenerate password' })).not.toBeInTheDocument()
+    expect(screen.getByText(/issues Lucy a new temporary password and emails it/)).toBeInTheDocument()
+    expect(screen.getByText('placeholder@example.com', { selector: 'strong' })).toBeInTheDocument()
+    // Nothing happens until the admin confirms.
     expect(regenerateStaffPassword).not.toHaveBeenCalled()
+  })
+
+  it('issues the password on confirm, and says where it went', async () => {
+    signInAs({ isAdmin: true })
+    regenerateStaffPassword.mockResolvedValue({ ok: true, emailSent: true })
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('placeholder@example.com')
+    await user.click(screen.getByRole('button', { name: 'Regenerate password' }))
+    await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
+
+    expect(regenerateStaffPassword).toHaveBeenCalledWith('p2')
+    expect(await screen.findByText('New password sent')).toBeInTheDocument()
   })
 
   it('is not offered to a non-admin', async () => {

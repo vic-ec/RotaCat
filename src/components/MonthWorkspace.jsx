@@ -82,7 +82,6 @@ export default function MonthWorkspace({
   }
 
   const today = todayStr()
-  const [searchQuery, setSearchQuery] = useState('')
 
   // highlightDate seeds the initially-selected day (e.g. the Requests
   // queue's "View Calendar" action landing straight on that request's date)
@@ -109,10 +108,7 @@ export default function MonthWorkspace({
 
   // One cell per day for the shared grid: the day's true combined count
   // (the pips are the same four-state scale for everyone), the public
-  // holiday, and the names — read straight off the grid on a desktop,
-  // narrowed by the toolbar search. Capacity itself never narrows: a
-  // search for one surname still shows every day's real pips.
-  const query = searchQuery.trim().toLowerCase()
+  // holiday, and the names — read straight off the grid on a desktop.
   const gridCells = new Map()
   const datesWithLeave = new Set([...approvedByDate.keys(), ...pendingByDate.keys()].filter(d => d.startsWith(monthPrefix)))
   for (const date of datesWithLeave) {
@@ -122,7 +118,6 @@ export default function MonthWorkspace({
       if (!legendColumns.some(c => c.key === key)) continue
       for (const e of columnEntries) {
         const label = displayNames.get(e.profileId) ?? e.surname
-        if (query && !label.toLowerCase().includes(query)) continue
         names.push({ key: `${e.profileId}-${e.status}`, label, badge: COLUMN_BADGE_LABEL[key], pending: e.status === 'pending' })
       }
     }
@@ -187,7 +182,6 @@ export default function MonthWorkspace({
         <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
-            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
             legend={legendSheet}
             middle={<CapacityKey />}
           />

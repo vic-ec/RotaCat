@@ -1577,15 +1577,17 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 trigger is information, not an action, so it gets its own
                 caption line rather than competing with the link for the
                 row. */}
-            {/* Panel first, then the toolbar row, then the weekends — the
-                order every planner month view keeps on a phone. The panel
-                holds the month stepper, Showing and the request action;
-                search and the admin actions are in the FAB. */}
-            <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
+            {/* Toolbar row, then the panel, then the weekends — the order
+                every planner month view keeps on a phone: the way back out
+                of the month leads, as it does on a desktop, rather than
+                sitting under a full panel. The panel holds the month
+                stepper, Showing and the request action; search and the
+                admin actions are in the FAB. */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-line pb-3">
               {renderBackLink()}
               <MonthLegendTrigger counts={monthStatusCounts} triggerClassName="flex items-center gap-2.5 text-xs text-ink-muted hover:text-ink" />
             </div>
+            <div className="mt-3">{renderRequestPanel('weekend-scope-mobile')}</div>
             {/* Fixed-positioned, so where it sits in this block is
                 immaterial. The Legend trigger deliberately stays out of it
                 (see the row above: information, not an action), so

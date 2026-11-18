@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
-import { CircleCheck, ExternalLink, CalendarClock, Contrast, KeyRound, ChevronRight } from 'lucide-react'
+import { CircleCheck, ExternalLink, CalendarClock, Contrast, KeyRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -27,7 +27,7 @@ import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { deleteStaffAccount, changeStaffEmail } from '../lib/staffCredentials'
 import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
 import Modal from '../components/Modal'
-import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
+import RegeneratePasswordPanel from '../components/RegeneratePasswordPanel'
 import GeneratedPasswordNotice from '../components/GeneratedPasswordNotice'
 import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
@@ -546,7 +546,6 @@ export default function AccountSettingsPage() {
   const [adminEmailDialog, setAdminEmailDialog] = useState(null)
   const [adminEmailSaving, setAdminEmailSaving] = useState(false)
   // Admin issuing someone else a new temporary password from this page.
-  const [regeneratePasswordOpen, setRegeneratePasswordOpen] = useState(false)
 
   const [phone, setPhone] = useState('')
   const [phoneSaving, setPhoneSaving] = useState(false)
@@ -2135,21 +2134,27 @@ export default function AccountSettingsPage() {
           )}
 
           {/* ── Regenerate password (admin, someone else's account) ──
-              Not a SectionRow (nothing expands inline) — an action row that
-              opens the same RegeneratePasswordModal the Staff list's row
-              menu does. Same shape as See Rotations below. Never on the
-              admin's own account: they have Change password above. */}
+              A SectionRow like every other section on this page: it opens
+              underneath its own header rather than throwing a modal over
+              the page, so a reader never loses their place on the account
+              they are looking at. The Staff list's row menu still opens the
+              same flow as a modal (RegeneratePasswordModal), because a list
+              row has nothing to open into. Never on the admin's own
+              account: they have Change password above. */}
           {isAdmin && !isOwnAccount && (
-            <button
-              type="button"
-              onClick={() => setRegeneratePasswordOpen(true)}
-              aria-haspopup="dialog"
-              className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            <SectionRow
+              icon={<KeyRound className="h-5 w-5" />}
+              title="Regenerate password"
+              // must_change_password / temp_password_issued_at may have
+              // moved by the time this closes.
+              onClose={reloadTarget}
             >
-              <span className="flex-shrink-0 text-ink-light"><KeyRound className="h-5 w-5" /></span>
-              <span className="min-w-0 flex-1 text-sm font-medium text-ink">Regenerate password</span>
-              <span className="flex-shrink-0 rounded p-1 text-ink-muted"><ChevronRight className="h-4 w-4" /></span>
-            </button>
+              <RegeneratePasswordPanel
+                person={profile}
+                email={targetEmail || undefined}
+                onDone={reloadTarget}
+              />
+            </SectionRow>
           )}
 
           {/* ── See Rotations (admin only, Intern/Registrar/COSMO only) ──
@@ -2495,18 +2500,6 @@ export default function AccountSettingsPage() {
           saving={statusConfirmSaving}
           onConfirm={confirmStatusChange}
           onClose={() => !statusConfirmSaving && setStatusConfirmNextActive(null)}
-        />
-      )}
-
-      {regeneratePasswordOpen && profile && (
-        <RegeneratePasswordModal
-          person={profile}
-          email={targetEmail || undefined}
-          onClose={() => {
-            setRegeneratePasswordOpen(false)
-            // must_change_password / temp_password_issued_at may have moved.
-            reloadTarget()
-          }}
         />
       )}
 

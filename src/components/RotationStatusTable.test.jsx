@@ -54,6 +54,31 @@ describe('RotationStatusTable', () => {
     expect(screen.getByRole('button', { name: 'Dlamini' })).toBeInTheDocument()
   })
 
+  // The one state the headers can't get you out of in a single press.
+  it('offers Expand all only once every section is folded, and reopens them', async () => {
+    const user = userEvent.setup()
+    renderTable()
+    expect(screen.queryByRole('button', { name: /Expand all/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Registrar 1/ }))
+    expect(screen.queryByRole('button', { name: /Expand all/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Intern 1/ }))
+
+    await user.click(screen.getByRole('button', { name: /Expand all/ }))
+    expect(screen.getByRole('button', { name: 'Mokoena' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Dlamini' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Expand all/ })).not.toBeInTheDocument()
+  })
+
+  // Regression: an auto-width Doctor column was measured off whichever
+  // rows happened to be open, so folding a section shifted every column
+  // to the right of it sideways.
+  it('pins the Doctor column to a fixed width, header and cells alike', () => {
+    renderTable()
+    expect(screen.getByRole('columnheader', { name: 'Doctor' })).toHaveClass('w-52', 'sticky', 'left-0')
+    expect(screen.getByRole('button', { name: 'Mokoena' }).closest('td')).toHaveClass('w-52', 'sticky', 'left-0')
+  })
+
   it('upcoming: selecting a row fills the panel, with Edit rotation, Change start date and Activate now', async () => {
     const user = userEvent.setup()
     const handlers = renderTable()

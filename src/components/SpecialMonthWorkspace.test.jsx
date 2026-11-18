@@ -105,7 +105,7 @@ describe('SpecialMonthWorkspace', () => {
   })
 
   describe('toolbar and panel', () => {
-    it('has the shared toolbar: one Overview link, a name search, the legend trigger and the guideline key', async () => {
+    it('has the shared toolbar: one Overview link, the legend trigger and the guideline key', async () => {
       const user = userEvent.setup()
       const onBack = vi.fn()
       renderWorkspace({ onBack })
@@ -114,10 +114,10 @@ describe('SpecialMonthWorkspace', () => {
       expect(toolbar.getAllByRole('button', { name: 'Legend' })).toHaveLength(1)
       expect(screen.getByTestId('guideline-key')).toHaveTextContent('0 on leave')
       expect(screen.getByTestId('guideline-key')).toHaveTextContent('3+ on leave')
-      await user.type(toolbar.getByRole('searchbox', { name: 'Search name' }), 'ell')
+      // No search here: the cells name everyone on them already, and the
+      // phone grid has no names for it to narrow at all.
+      expect(toolbar.queryByRole('searchbox')).not.toBeInTheDocument()
       expect(within(desktopDay('2026-08-10')).getByText('Ellis')).toBeInTheDocument()
-      expect(within(desktopDay('2026-08-10')).queryByText('Vance')).not.toBeInTheDocument()
-      // The pips are the true count whatever the search.
       expect(within(desktopDay('2026-08-10')).getByRole('img', { name: '2 of 3 on special leave' })).toBeInTheDocument()
       await user.click(toolbar.getByRole('button', { name: 'Overview' }))
       expect(onBack).toHaveBeenCalled()

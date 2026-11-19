@@ -259,6 +259,19 @@ describe('Regenerate password row', () => {
     expect(regenerateStaffPassword).not.toHaveBeenCalled()
   })
 
+  // Every other section on this page leads with its button on the left;
+  // right-aligned is the modal's shape, not an inline section's.
+  it('puts its button on the left, like every other section', async () => {
+    signInAs({ isAdmin: true })
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText('placeholder@example.com')
+    await user.click(screen.getByRole('button', { name: 'Regenerate password' }))
+    const actions = screen.getByRole('button', { name: 'Regenerate and email' }).parentElement
+    expect(actions.className).not.toContain('justify-end')
+  })
+
   it('issues the password on confirm, and says where it went', async () => {
     signInAs({ isAdmin: true })
     regenerateStaffPassword.mockResolvedValue({ ok: true, emailSent: true })

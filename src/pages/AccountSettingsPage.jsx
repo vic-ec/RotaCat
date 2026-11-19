@@ -425,7 +425,10 @@ function SectionRow({ icon, title, subtitle, danger = false, defaultOpen = false
           <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? '' : 'rotate-180'}`} />
         </span>
       </button>
-      {open && <div className="border-t border-slate-line px-5 py-5">{children}</div>}
+      {/* The seam under the header takes the card's own border colour: a
+          danger card is bordered in danger, and a slate hairline across it
+          read as a stray teal line through an otherwise red panel. */}
+      {open && <div className={`border-t px-5 py-5 ${danger ? 'border-danger/40' : 'border-slate-line'}`}>{children}</div>}
     </div>
   )
 }

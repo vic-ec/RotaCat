@@ -238,7 +238,7 @@ describe('DashboardPage', () => {
     expect(pendingRow).toHaveAttribute('href', '/leave?tab=requests')
     expect(within(pendingRow).getByText('3')).toBeInTheDocument()
 
-    const hoursRow = screen.getByRole('link', { name: /at or over the hours ceiling this month/ })
+    const hoursRow = screen.getByRole('link', { name: /over their contracted hours this month/ })
     expect(hoursRow).toHaveAttribute('href', '/roster?view=summary')
     expect(within(hoursRow).getByText('1')).toBeInTheDocument()
   })
@@ -288,7 +288,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Nobody away today')).toBeInTheDocument()
     expect(screen.getByText('Nobody starting leave')).toBeInTheDocument()
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
+    // rows carry their own links; the heading has none to point the wrong way
+    expect(screen.queryByRole('link', { name: /View requests/ })).not.toBeInTheDocument()
   })
 
   it('locum: shows own upcoming shifts, no leave widget', async () => {

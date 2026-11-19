@@ -591,7 +591,11 @@ export default function DashboardPage() {
               a link to where that job gets done. Rows with a count of zero
               aren't work, so they don't render. */}
           <section>
-            <SectionHeading to={LEAVE_REQUESTS_PATH} linkLabel="View requests">Needs attention</SectionHeading>
+            {/* No link on this heading: the rows go to different places
+                (requests, hours), and each row is already its own link. A
+                single "View requests" beside an hours row pointed at the
+                wrong page. */}
+            <SectionHeading>Needs attention</SectionHeading>
             {pendingLeaveCount === 0 && hoursWarnings.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (
@@ -607,7 +611,7 @@ export default function DashboardPage() {
                   <AttentionRow
                     to={HOURS_SUMMARY_PATH}
                     count={hoursWarnings.length}
-                    label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} at or over the hours ceiling this month`}
+                    label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} over their contracted hours this month`}
                   />
                 )}
               </div>

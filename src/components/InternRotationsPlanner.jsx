@@ -48,6 +48,13 @@ export default function InternRotationsPlanner() {
   // from the Completed tab — can drive both at once.
   const [year, setYear] = useState(currentYear)
   const [selectedDoctorId, setSelectedDoctorId] = useState(null)
+  // Upcoming/Completed get their own independent year selector (see
+  // RotationStatusTable) — Upcoming opens on the year of the earliest
+  // scheduled_active_date among its doctors (set once, after the first
+  // load — see the effect below), Completed just opens on the current
+  // year like Active does.
+  const [upcomingYear, setUpcomingYear] = useState(currentYear)
+  const [completedYear, setCompletedYear] = useState(currentYear)
   // One-shot "jump to this doctor and start editing" trigger — consumed
   // immediately by InternRotationsMatrix, same shape as
   // AnnualLeavePlanner's deepLinkMonth/onDeepLinkConsumed pattern.
@@ -112,6 +119,21 @@ export default function InternRotationsPlanner() {
   const activeInterns = interns.filter(d => d.is_active)
   const upcomingInterns = interns.filter(d => !d.is_active && d.scheduled_active_date)
   const completedInterns = interns.filter(d => !d.is_active && !d.scheduled_active_date)
+
+  // Upcoming's one-shot default year — the earliest scheduled_active_date
+  // on record when the page first loads, so admins land on the year that
+  // actually has someone in it rather than always the current one. Fires
+  // once, right after the first load finishes; never recomputed after
+  // that so it doesn't fight an admin who's since browsed elsewhere.
+  useEffect(() => {
+    if (initialLoading) return
+    const earliest = upcomingInterns
+      .map(d => d.scheduled_active_date)
+      .filter(Boolean)
+      .sort()[0]
+    if (earliest) setUpcomingYear(Number(earliest.slice(0, 4)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fires once when initialLoading flips false, not on every later upcomingInterns change
+  }, [initialLoading])
 
   // Full "First Surname" labels for the Matrix's row labels/chips, its
   // add-doctor dropdown, and the queue/Upcoming/Completed lists — this page
@@ -253,6 +275,8 @@ export default function InternRotationsPlanner() {
           doctors={upcomingInterns}
           rotations={rotations}
           displayNames={displayNames}
+          year={upcomingYear}
+          onYearChange={setUpcomingYear}
           onUpdateDate={updateScheduledActiveDate}
           onActivateNow={activateNow}
           onEditRotation={editUpcomingRotation}
@@ -265,6 +289,8 @@ export default function InternRotationsPlanner() {
           doctors={completedInterns}
           rotations={rotations}
           displayNames={displayNames}
+          year={completedYear}
+          onYearChange={setCompletedYear}
           onReactivate={reactivate}
         />
       )}

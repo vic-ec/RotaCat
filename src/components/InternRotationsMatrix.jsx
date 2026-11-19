@@ -13,11 +13,13 @@ import PageActionsMenu from './PageActionsMenu'
 import Toolbar from './Toolbar'
 import FloatingActionMenu from './FloatingActionMenu'
 import DateStepper from './DateStepper'
-import { rotationForDate, groupRotationsByDoctorId, rotationTouchesMonth } from '../lib/internRotations'
+import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
+import { rotationForDate, groupRotationsByDoctorId, activeRotationStatus, monthSpan } from '../lib/internRotations'
 import {
-  ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, ROTATION_TYPE_COLOR,
+  ROTATION_TYPE_KEY_OPTIONS, rotationTypeKey, rotationTypeOptionsForCategory, rotationTypeLabel, rotationTypeShortName,
+  ROTATION_TYPE_COLOR,
 } from '../lib/staffDefaults'
-import { todayStr, addDays, addMonths, MONTH_ABBR, formatDayMonthYear } from '../lib/dateRange'
+import { todayStr, addDays, addMonths, MONTH_ABBR, formatDayMonthYear, parseLocalDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { useFillToViewport } from '../lib/useFillToViewport'
 
@@ -25,17 +27,19 @@ import { useFillToViewport } from '../lib/useFillToViewport'
 // the exact same `gridTemplateColumns` string built from these two
 // constants, which is what keeps month columns pixel-aligned across rows
 // that would otherwise size independently. Desktop grid only — mobile
-// renders a per-doctor strip of just the covered months instead (see
-// flattenSegmentsToCells below), not a fixed 12-column grid at all.
-// The month columns stretch to fill the table's width; this is only the
-// floor, below which the grid scrolls sideways instead.
+// renders a flat, non-grid row instead (RotationSequenceRow's own
+// 'mobile' layout). The month columns stretch to fill the table's width;
+// this is only the floor, below which the grid scrolls sideways instead.
 const MIN_MONTH_COL_WIDTH = 56 // px
 const LABEL_COL_WIDTH = 200 // px — room for the name and the rotation line under it
 
 // COSMO was retired as a separate staff_category in Aug 2026 (folded into
 // Intern — see InternRotationsPlanner.jsx) so this page's doctor pool is
-// only ever Intern/Registrar now.
+// only ever Intern/Registrar now. A doctor never moves section when their
+// current rotation changes — their category decides it, once, same as the
+// Staff list's own category grouping.
 const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
+const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
 const CATEGORY_FILTER_OPTIONS = [
   { value: 'all', label: 'All categories' },
   { value: 'Intern', label: 'Intern' },
@@ -44,8 +48,11 @@ const CATEGORY_FILTER_OPTIONS = [
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-// The "right now" panel's sections. Registrars only ever rotate in the EC,
-// so they need no EC/OT split; interns do.
+// The "right now" panel's own sections — unlike the table/cards below,
+// which group by fixed category, this panel is specifically about what
+// everyone's doing THIS month, so splitting interns by EC/OT here still
+// earns its keep. Registrars only ever rotate in the EC, so they need no
+// split.
 const NOW_SECTIONS = [
   { key: 'ec-interns', label: 'EC interns' },
   { key: 'ot-interns', label: 'OT interns' },
@@ -58,56 +65,59 @@ function rotationPeriodLabel(rotation) {
   return rotation.end_date ? `${from} to ${formatDayMonthYear(rotation.end_date)}` : `${from} · ongoing`
 }
 
-const FAR_FUTURE = '9999-12-31' // stand-in for a null (open-ended) end_date in string date-range comparisons only
-
-function typeLabel(key) {
-  return ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === key)?.label || key
+// formatDayMonthYear's style, minus the year when it already matches the
+// year the grid/cards are showing — "Until 30 Nov, then TB" reads fine
+// without one; "block ends 28 Feb 2027" needs it once the block runs past
+// the displayed year.
+function formatPositionDate(dateStr, displayYear) {
+  const d = parseLocalDate(dateStr)
+  const base = `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`
+  return d.getFullYear() === displayYear ? base : `${base} ${d.getFullYear()}`
 }
 
-// One type-key per month (1-12) for a doctor's rotations in the displayed
-// year, or null for a genuine gap. A real data overlap (two rotations
-// touching the same month) is tie-broken by latest start_date — this only
-// decides what the bar/cell itself shows; the overlap is still surfaced by
-// the panel's warning banner/modal regardless of which one wins here.
-function monthlyTypeKeys(doctorRotations, year) {
-  const keys = []
-  for (let month = 1; month <= 12; month++) {
-    const touching = doctorRotations.filter(r => rotationTouchesMonth(r, year, month))
-    if (touching.length === 0) { keys.push(null); continue }
-    const winner = [...touching].sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
-    keys.push(rotationTypeKey(winner.rotation_type, winner.subtype))
+// The Active tab's chip + position line for one doctor — see
+// activeRotationStatus in internRotations.js for the underlying situation
+// this formats, and its own docstring for the exact copy per case.
+function activeChipAndLine(doctorRotations, year, today) {
+  const status = activeRotationStatus(doctorRotations, today)
+  const typeChip = rotation => {
+    const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+    return { tone: 'type', color: ROTATION_TYPE_COLOR[key], text: rotationTypeLabel(key) }
   }
-  return keys
+  switch (status.situation) {
+    case 'ongoing':
+      return { chip: typeChip(status.current), line: 'Ongoing' }
+    case 'mid-block': {
+      const nextKey = rotationTypeKey(status.next.rotation_type, status.next.subtype)
+      return {
+        chip: typeChip(status.current),
+        line: `Until ${formatPositionDate(status.current.end_date, year)}, then ${rotationTypeShortName(nextKey)} · block ends ${formatPositionDate(status.blockEnd, year)}`,
+      }
+    }
+    case 'last-in-block':
+      return { chip: typeChip(status.current), line: `Until ${formatPositionDate(status.current.end_date, year)} · last rotation in block` }
+    case 'single': {
+      const index = monthSpan(status.blockStart, today)
+      const total = monthSpan(status.blockStart, status.current.end_date)
+      return { chip: typeChip(status.current), line: `Until ${formatPositionDate(status.current.end_date, year)} · month ${index} of ${total}` }
+    }
+    case 'between-blocks': {
+      const nextKey = rotationTypeKey(status.next.rotation_type, status.next.subtype)
+      return { chip: { tone: 'neutral', text: 'Between blocks' }, line: `Next: ${rotationTypeShortName(nextKey)} from ${formatPositionDate(status.next.start_date, year)}` }
+    }
+    default:
+      return { chip: { tone: 'neutral', text: 'No rotation' }, line: 'No rotation scheduled' }
+  }
 }
 
-// Run-length-encodes 12 monthly type-keys into spanning segments — this is
-// what makes consecutive same-type months render as one bar/run, and
-// adjacent different-type months render as two segments with no gap
-// between them (both fall directly out of the pixel/cell math once
-// segments are computed).
-function runLengthSegments(keys) {
-  const segments = []
-  let i = 0
-  while (i < keys.length) {
-    if (keys[i] === null) { i++; continue }
-    let j = i
-    while (j + 1 < keys.length && keys[j + 1] === keys[i]) j++
-    segments.push({ startMonthIndex: i, endMonthIndex: j, typeKey: keys[i] })
-    i = j + 1
-  }
-  return segments
+function categoryGroupKey(doctor) {
+  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
 }
 
-// Flattens segments into one cell per covered month — the mobile card
-// strip's own unit, since it renders one small box per assigned month
-// (only rounding the very first/last box of the whole strip) rather than
-// desktop's absolutely-positioned spanning bars over a fixed grid.
-function flattenSegmentsToCells(segments) {
-  const cells = []
-  for (const seg of segments) {
-    for (let m = seg.startMonthIndex; m <= seg.endMonthIndex; m++) cells.push({ monthIndex: m, typeKey: seg.typeKey })
-  }
-  return cells
+function matchesSearch(doctor, search) {
+  if (!search.trim()) return true
+  const q = search.trim().toLowerCase()
+  return `${doctor.name || ''} ${doctor.surname || ''}`.toLowerCase().includes(q)
 }
 
 function blocksOverlap(a, b) {
@@ -115,6 +125,8 @@ function blocksOverlap(a, b) {
   const bEnd = b.end_date === null ? FAR_FUTURE : b.end_date
   return a.start_date <= bEnd && b.start_date <= aEnd
 }
+
+const FAR_FUTURE = '9999-12-31' // stand-in for a null (open-ended) end_date in string date-range comparisons only
 
 // Every overlapping pair among a doctor's blocks, as a Map of stable
 // "smallerId|largerId" keys — used both to render the persistent banner
@@ -147,25 +159,15 @@ function overlapMonthRange(a, b) {
   return startMonth === endMonth ? startMonth : `${startMonth}–${endMonth}`
 }
 
-function categoryGroupKey(doctor) {
-  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
-}
-
-function matchesSearch(doctor, search) {
-  if (!search.trim()) return true
-  const q = search.trim().toLowerCase()
-  return `${doctor.name || ''} ${doctor.surname || ''}`.toLowerCase().includes(q)
-}
-
 // The only view this page has — Table and the old 4-month Timeline are
 // both retired (Table's one remaining job, adding a new doctor, is now
 // the "+ Add doctor" flow below). Rows = doctors, grouped by category
 // (Intern / Registrar, same visual pattern as the Staff list's category
-// grouping). Desktop: columns = the 12 months of a navigable
-// year, rotation blocks as colour-coded spanning bars. Mobile: a
-// genuinely different layout, not a shrunk grid — one card per doctor
-// showing only their own covered months as a flush strip, with a bottom
-// sheet instead of the sticky side panel.
+// grouping) — a doctor's row sequence (RotationSequenceRow.jsx) shows
+// their whole year regardless of what's current, so no row ever jumps
+// section when a rotation changes. Desktop: columns = the 12 months of a
+// navigable year. Mobile: a genuinely different layout, not a shrunk
+// grid — flat rows with a hairline divider, not cards.
 //
 // Deliberately month-granularity, not day-precision (a Gantt view was
 // evaluated and dropped) — every date comparison here is in service of
@@ -234,27 +236,16 @@ export default function InternRotationsMatrix({
 
   const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
 
-  // The table's sections are the "right now" panel's (NOW_SECTIONS): EC
-  // interns, OT interns, Registrars — an intern sits under whichever their
-  // CURRENT rotation is, and moves when it changes. An intern with nothing
-  // running today goes by their next rotation, else their last, else EC.
-  function sectionKeyFor(doctor) {
-    if (categoryGroupKey(doctor) === 'Registrar') return 'registrars'
-    const own = (rotationsByDoctorId.get(doctor.id) || []).slice().sort((a, b) => a.start_date.localeCompare(b.start_date))
-    const rotation = rotationForDate(own, today) || own.find(r => r.start_date > today) || own[own.length - 1]
-    return rotation && rotation.rotation_type === 'OT' ? 'ot-interns' : 'ec-interns'
-  }
-  const groups = NOW_SECTIONS
-    .map(({ key, label }) => ({
+  // Fixed category sections — Interns, then Registrars, in that order. A
+  // doctor never moves section when their current rotation changes (that
+  // used to section by EC/OT interns here too, same as the "right now"
+  // panel still does — see NOW_SECTIONS, which is unchanged and unrelated).
+  const groups = CATEGORY_GROUP_ORDER
+    .map(key => ({
       key,
-      label,
-      // Which staff category "+ Add doctor" offers here. Both intern
-      // sections offer interns — a month with every intern on OT would
-      // otherwise have nowhere to add one. (A new doctor starts on an EC
-      // block either way, so they then appear under EC interns.)
-      addCategory: key === 'registrars' ? 'Registrar' : 'Intern',
+      label: CATEGORY_GROUP_LABEL[key],
       items: filteredDoctors
-        .filter(d => sectionKeyFor(d) === key)
+        .filter(d => categoryGroupKey(d) === key)
         .sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
     }))
     .filter(g => g.items.length > 0)
@@ -490,7 +481,7 @@ export default function InternRotationsMatrix({
   // and the same "Today only shows once you've paged away" behaviour as
   // every other planner for free, instead of yet another bespoke copy of
   // both.
-  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel />
+  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel showToday={year !== currentYear} />
 
   const overflowMenu = (
     <PageActionsMenu
@@ -558,7 +549,7 @@ export default function InternRotationsMatrix({
                             {/* OT placement (Psych, LRCHC…) — plain OT has none. */}
                             {typeKey.startsWith('OT_') && (
                               <span className="rounded-full border border-slate-line px-1.5 text-[10px] text-ink-light">
-                                {typeLabel(typeKey).replace('OT · ', '')}
+                                {rotationTypeLabel(typeKey).replace('OT · ', '')}
                               </span>
                             )}
                           </div>
@@ -608,7 +599,7 @@ export default function InternRotationsMatrix({
               {[...currentOverlapPairs.values()].map(([a, b], i) => (
                 <span key={i}>
                   {i > 0 && '; '}
-                  {typeLabel(rotationTypeKey(a.rotation_type, a.subtype))} and {typeLabel(rotationTypeKey(b.rotation_type, b.subtype))} both cover {overlapMonthRange(a, b)}
+                  {rotationTypeLabel(rotationTypeKey(a.rotation_type, a.subtype))} and {rotationTypeLabel(rotationTypeKey(b.rotation_type, b.subtype))} both cover {overlapMonthRange(a, b)}
                 </span>
               ))}
             </span>
@@ -636,11 +627,14 @@ export default function InternRotationsMatrix({
                       className="flex-shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 font-medium text-white"
                       style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}
                     >
-                      {typeLabel(key)}
+                      {rotationTypeLabel(key)}
                     </span>
                     <span className="text-ink-light">
                       {formatDayMonthYear(rotation.start_date)} – {rotation.end_date ? formatDayMonthYear(rotation.end_date) : 'ongoing'}
                     </span>
+                    {key === 'OT' && (
+                      <TriangleAlert className="h-3.5 w-3.5 flex-shrink-0 text-flagRed" aria-label="Needs a subtype" />
+                    )}
                     {isCurrent && <span className="ml-auto text-[10px] font-bold tracking-wide text-accent">NOW</span>}
                   </div>
                 )
@@ -655,7 +649,17 @@ export default function InternRotationsMatrix({
             {selectedDoctorRotations.map(rotation => {
               const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
               const rowSaving = savingBlockId === rotation.id
-              const typeOptions = rotationTypeOptionsForCategory(selectedDoctor.category)
+              // There's no standalone "OT" rotation to pick, so
+              // rotationTypeOptionsForCategory never offers it — but an
+              // existing bare-OT row (legacy data, or a direct DB edit)
+              // still needs its own current value represented, rather than
+              // the dropdown falling back to its placeholder as if nothing
+              // were selected. Shown only for the row that's actually on
+              // it; choosing a real option below moves it off this state
+              // for good, same as warningless rows.
+              const typeOptions = key === 'OT'
+                ? [{ key: 'OT', label: rotationTypeLabel('OT') }, ...rotationTypeOptionsForCategory(selectedDoctor.category)]
+                : rotationTypeOptionsForCategory(selectedDoctor.category)
               return (
                 <div key={rotation.id} className="rounded border border-slate-line p-2">
                   <div className="flex items-center gap-2">
@@ -663,12 +667,16 @@ export default function InternRotationsMatrix({
                       value={key}
                       disabled={rowSaving}
                       onChange={v => {
+                        if (v === 'OT') return // not a real choice — see typeOptions' own comment
                         const opt = ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === v)
                         handleBlockUpdate(rotation, { rotationType: opt.rotationType, subtype: opt.subtype })
                       }}
                       options={typeOptions.map(o => ({ value: o.key, label: o.label }))}
                       className="flex-1"
                     />
+                    {key === 'OT' && (
+                      <TriangleAlert className="h-4 w-4 flex-shrink-0 text-flagRed" aria-label="Needs a subtype" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setRemovingRotation(rotation)}
@@ -762,8 +770,8 @@ export default function InternRotationsMatrix({
   const overlapModal = newOverlapModal && (
     <Modal title="Overlapping rotations" onClose={() => setNewOverlapModal(null)} maxWidthClassName="md:max-w-sm">
       <p className="text-sm text-ink">
-        {typeLabel(rotationTypeKey(newOverlapModal.a.rotation_type, newOverlapModal.a.subtype))} and{' '}
-        {typeLabel(rotationTypeKey(newOverlapModal.b.rotation_type, newOverlapModal.b.subtype))} both cover{' '}
+        {rotationTypeLabel(rotationTypeKey(newOverlapModal.a.rotation_type, newOverlapModal.a.subtype))} and{' '}
+        {rotationTypeLabel(rotationTypeKey(newOverlapModal.b.rotation_type, newOverlapModal.b.subtype))} both cover{' '}
         {overlapMonthRange(newOverlapModal.a, newOverlapModal.b)} for {displayNames?.get(selectedDoctor?.id) ?? selectedDoctor?.surname}.
       </p>
       <p className="mt-2 text-xs text-ink-muted">
@@ -785,7 +793,7 @@ export default function InternRotationsMatrix({
       }
     >
       <p className="text-sm text-ink">
-        {typeLabel(rotationTypeKey(removingRotation.rotation_type, removingRotation.subtype))},{' '}
+        {rotationTypeLabel(rotationTypeKey(removingRotation.rotation_type, removingRotation.subtype))},{' '}
         {removingRotation.start_date} – {removingRotation.end_date || 'ongoing'}, will be removed from{' '}
         {displayNames?.get(selectedDoctor?.id) ?? selectedDoctor?.surname}&apos;s record.
       </p>
@@ -859,83 +867,33 @@ export default function InternRotationsMatrix({
 
                 {!collapsedGroups[group.key] && group.items.map(doctor => {
                   const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
-                  const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
                   const label = displayNames?.get(doctor.id) ?? doctor.surname
-                  const current = rotationForDate(doctorRotations, today)
-                  const currentKey = current ? rotationTypeKey(current.rotation_type, current.subtype) : null
+                  const { chip, line } = activeChipAndLine(doctorRotations, year, today)
                   const isSelected = selectedDoctorId === doctor.id
-                  const cellFill = isSelected ? 'bg-accent-tint' : 'bg-canvas group-hover:bg-canvas-cool'
                   return (
-                    /* The whole row selects — name, bar and the empty months
-                       alike. The name stays a real button so the row is
-                       reachable by keyboard; a click on it bubbles to here. */
-                    <div
+                    <RotationSequenceRow
                       key={doctor.id}
-                      onClick={() => selectDoctor(doctor.id)}
-                      aria-selected={isSelected}
-                      className={`group grid cursor-pointer border-t border-slate-hairline transition-colors ${
-                        isSelected ? 'bg-accent-tint shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : 'hover:bg-canvas-cool'
-                      }`}
-                      style={{ gridTemplateColumns }}
-                    >
-                      <div className={`sticky left-0 z-10 flex min-w-0 flex-col justify-center border-r border-slate-line px-3 py-1.5 transition-colors ${cellFill} ${
-                        isSelected ? 'shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : ''
-                      }`}>
-                        <button
-                          type="button"
-                          title={`${doctor.name || ''} ${doctor.surname}`.trim()}
-                          className={`truncate text-left text-sm font-medium ${isSelected ? 'text-accent' : 'text-ink'}`}
-                        >
-                          {label}
-                        </button>
-                        {/* What they are on today, in the bar's own colour —
-                            so the row reads without tracing to the Nov column. */}
-                        <span className="mt-0.5 flex items-center gap-1.5 truncate text-[10px] text-ink-muted">
-                          {current ? (
-                            <>
-                              <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[currentKey] }} />
-                              <span className="truncate">
-                                {typeLabel(currentKey)} · {current.end_date ? `to ${formatDayMonthYear(current.end_date)}` : 'ongoing'}
-                              </span>
-                            </>
-                          ) : 'No rotation today'}
-                        </span>
-                      </div>
-                      <div className="relative col-span-12" style={{ height: 44 }}>
-                        {segments.map(seg => (
-                          <div
-                            key={`${seg.startMonthIndex}-${seg.typeKey}`}
-                            title={typeLabel(seg.typeKey)}
-                            className="absolute top-1/2 -translate-y-1/2"
-                            style={{
-                              left: seg.startMonthIndex * monthColWidth,
-                              width: (seg.endMonthIndex - seg.startMonthIndex + 1) * monthColWidth,
-                              height: 22,
-                              backgroundColor: ROTATION_TYPE_COLOR[seg.typeKey],
-                            }}
-                          />
-                        ))}
-                        {year === currentYear && (
-                          <div
-                            className="pointer-events-none absolute top-1/2 -translate-y-1/2"
-                            style={{
-                              left: currentMonthIndex * monthColWidth,
-                              width: monthColWidth,
-                              height: 24,
-                              boxShadow: '0 0 0 0.5px white, 0 0 0 2px #0f172a, 0 0 0 2.5px white',
-                            }}
-                          />
-                        )}
-                      </div>
-                    </div>
+                      layout="desktop"
+                      doctor={doctor}
+                      label={label}
+                      rotations={doctorRotations}
+                      year={year}
+                      currentYear={currentYear}
+                      showCurrentMonthHalo
+                      chip={chip}
+                      positionLine={line}
+                      isSelected={isSelected}
+                      onSelect={() => selectDoctor(doctor.id)}
+                      gridTemplateColumns={gridTemplateColumns}
+                    />
                   )
                 })}
 
-                {!collapsedGroups[group.key] && group.addCategory && (
+                {!collapsedGroups[group.key] && (
                   <div className="border-t border-slate-hairline px-3 py-1.5">
                     <button
                       type="button"
-                      onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor(group.addCategory) }}
+                      onClick={() => { setAddDoctorSearch(''); setAddDoctorError(''); setAddDoctorFor(group.key) }}
                       className="rounded border border-dashed border-slate-line px-2 py-1 text-xs text-ink hover:bg-canvas-sunken"
                     >
                       + Add doctor
@@ -946,6 +904,7 @@ export default function InternRotationsMatrix({
             ))}
           </div>
         </div>
+
 
         {/* Scrolls on its own once the list outgrows the screen; the grid
             stays put. */}
@@ -1001,6 +960,7 @@ export default function InternRotationsMatrix({
             </div>
           </div>
         </div>
+        <MonthLetterHeader year={year} currentYear={currentYear} />
       </div>
 
       {/* The "right now" panel, folded to one line — a 288px side panel
@@ -1033,40 +993,26 @@ export default function InternRotationsMatrix({
             </button>
 
             {!collapsedGroups[group.key] && (
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-0 overflow-hidden rounded-lg border border-slate-line">
                 {group.items.map(doctor => {
                   const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
-                  const segments = runLengthSegments(monthlyTypeKeys(doctorRotations, year))
-                  const cells = flattenSegmentsToCells(segments)
                   const label = displayNames?.get(doctor.id) ?? doctor.surname
+                  const { chip, line } = activeChipAndLine(doctorRotations, year, today)
                   return (
-                    <button
+                    <RotationSequenceRow
                       key={doctor.id}
-                      type="button"
-                      onClick={() => selectDoctor(doctor.id)}
-                      className={`card block w-full p-3 text-left ${selectedDoctorId === doctor.id ? 'ring-1 ring-accent' : ''}`}
-                    >
-                      <p className="text-sm font-medium text-ink">{label}</p>
-                      {cells.length === 0 ? (
-                        <p className="mt-1 text-xs text-ink-muted">No rotation in {year}</p>
-                      ) : (
-                        <>
-                          <div className="mt-2 flex overflow-hidden rounded">
-                            {cells.map((cell, i) => (
-                              <div
-                                key={cell.monthIndex}
-                                title={`${MONTH_ABBR[cell.monthIndex]} — ${typeLabel(cell.typeKey)}`}
-                                className={`h-6 flex-1 ${i === 0 ? 'rounded-l' : ''} ${i === cells.length - 1 ? 'rounded-r' : ''}`}
-                                style={{ backgroundColor: ROTATION_TYPE_COLOR[cell.typeKey] }}
-                              />
-                            ))}
-                          </div>
-                          <p className="mt-1 text-xs text-ink-muted">
-                            {MONTH_ABBR[cells[0].monthIndex]} – {MONTH_ABBR[cells[cells.length - 1].monthIndex]} {year}
-                          </p>
-                        </>
-                      )}
-                    </button>
+                      layout="mobile"
+                      doctor={doctor}
+                      label={label}
+                      rotations={doctorRotations}
+                      year={year}
+                      currentYear={currentYear}
+                      showCurrentMonthHalo
+                      chip={chip}
+                      positionLine={line}
+                      isSelected={selectedDoctorId === doctor.id}
+                      onSelect={() => selectDoctor(doctor.id)}
+                    />
                   )
                 })}
               </div>

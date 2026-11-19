@@ -17,10 +17,8 @@ afterEach(() => vi.useRealTimers())
 const DOCTORS = [
   { id: 'intern-1', name: 'Ivy', surname: 'Intern', category: 'Intern', color_code: '#111111' },
   { id: 'registrar-1', name: 'Rae', surname: 'Registrar', category: 'Registrar', color_code: '#222222' },
-  // A second, unassigned Intern (category retired its old COSMO carve-out
-  // in Aug 2026 — COSMO doctors are just Intern doctors now, distinguished
-  // by their intern_rotations rows, not a separate staff_category value).
-  // Kept with no rotations so it's the add-doctor flow's only candidate.
+  // An unassigned Intern — kept with no rotations so it's the add-doctor
+  // flow's only candidate.
   { id: 'cosmo-1', name: 'Cara', surname: 'Cosmo', category: 'Intern', color_code: '#333333' },
 ]
 const displayNames = buildDoctorDisplayNames(DOCTORS)
@@ -52,50 +50,47 @@ function renderMatrix(overrides = {}) {
 }
 
 describe('InternRotationsMatrix', () => {
-  it('renders month headers and groups rows by category (Intern / Registrar)', () => {
+  it('renders month headers and groups rows by fixed category (Interns / Registrars)', () => {
     renderMatrix()
     expect(screen.getByText('Jan')).toBeInTheDocument()
     expect(screen.getByText('Dec')).toBeInTheDocument()
-    expect(screen.getAllByText(/Intern/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/Registrar/).length).toBeGreaterThan(0)
+    // "Registrars 1" also appears as the "right now" panel's own heading —
+    // this just confirms the main table has its own, not that it's unique.
+    expect(screen.getAllByRole('button', { name: /Interns 2/ }).length).toBeGreaterThan(0) // intern-1 + cosmo-1
+    expect(screen.getAllByRole('button', { name: /Registrars 1/ }).length).toBeGreaterThan(0)
     // Row labels use the disambiguated display name as their title, even
     // though the visible text truncates to the surname
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
   })
 
-  it('shows the 5-state legend', () => {
+  it('shows the 4-state legend, with no standalone "OT" option', () => {
     renderMatrix()
     expect(screen.getAllByText('EC').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('OT · LRCHC').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('OT · DPM/BCH').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('OT · Day Hospital').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('OT · TB Hospital').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OT · Psych').length).toBeGreaterThan(0)
+    expect(screen.queryByText('OT · needs subtype')).not.toBeInTheDocument()
   })
 
-  it('with nothing selected, the side panel lists current doctors by section, one row each with their period', () => {
-    // 15 Jun 2027 falls in intern-1's OT·LRCHC block and registrar-1's EC block
+  it('a doctor stays in their category section regardless of their current rotation', () => {
+    // intern-1 is on OT today, but Interns is one fixed section — no more
+    // splitting by current EC/OT the way the old sections used to.
+    renderMatrix()
+    const internsGroup = screen.getByRole('button', { name: /Interns 2/ }).parentElement
+    expect(within(internsGroup).getByTitle('Ivy Intern')).toBeInTheDocument()
+    expect(within(internsGroup).getByTitle('Cara Cosmo')).toBeInTheDocument()
+  })
+
+  it('with nothing selected, the side panel still groups current doctors by EC/OT ("right now" is unchanged)', () => {
+    // 15 Jun 2027 falls in intern-1's OT·Day Hospital block and registrar-1's EC block
     renderMatrix()
     const panel = screen.getByText('Right now').closest('div')
     expect(within(panel).getByText('June 2027')).toBeInTheDocument()
-    // Intern on OT lands under OT interns, with their placement; no EC interns now
     expect(within(panel).getByRole('button', { name: /OT interns 1/ })).toBeInTheDocument()
-    expect(within(panel).getByText('LRCHC')).toBeInTheDocument()
+    expect(within(panel).getByText('Day Hospital')).toBeInTheDocument()
     expect(within(panel).getByText('From 1 Apr 2027 · ongoing')).toBeInTheDocument()
     expect(within(panel).queryByRole('button', { name: /EC interns/ })).not.toBeInTheDocument()
-    // Registrars get their own section
     expect(within(panel).getByRole('button', { name: /Registrars 1/ })).toBeInTheDocument()
-    expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
-  })
-
-  it('folds and unfolds a "right now" section from its header', async () => {
-    const user = userEvent.setup()
-    renderMatrix()
-    const panel = screen.getByText('Right now').closest('div')
-    const header = within(panel).getByRole('button', { name: /Registrars 1/ })
-    expect(header).toHaveAttribute('aria-expanded', 'true')
-    await user.click(header)
-    expect(header).toHaveAttribute('aria-expanded', 'false')
-    expect(within(panel).queryByText('From 1 Jan 2027 to 31 Dec 2027')).not.toBeInTheDocument()
-    await user.click(header)
     expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
   })
 
@@ -111,7 +106,6 @@ describe('InternRotationsMatrix', () => {
     renderMatrix({ selectedDoctorId: 'intern-1' })
     expect(screen.getByText('1 Jan 2027 – 31 Mar 2027')).toBeInTheDocument()
     expect(screen.getByText('1 Apr 2027 – ongoing')).toBeInTheDocument()
-    // The block running today is marked, and Right now leads back to the list
     expect(screen.getByText('NOW')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Right now/ })).toBeInTheDocument()
 
@@ -124,12 +118,21 @@ describe('InternRotationsMatrix', () => {
     const user = userEvent.setup()
     renderMatrix({ selectedDoctorId: 'registrar-1' })
     await user.click(screen.getByRole('button', { name: 'Edit rotations' }))
-    // The combined type SelectMenu's trigger shows the current value ("EC")
-    // — opening it must not offer any OT variant for a Registrar.
     const triggers = screen.getAllByRole('button', { expanded: false })
     const typeTrigger = triggers.find(b => within(b).queryByText('EC'))
     await user.click(typeTrigger)
     expect(screen.queryByRole('option', { name: /OT/ })).not.toBeInTheDocument()
+  })
+
+  it('the combined type dropdown never offers a standalone OT for anyone', async () => {
+    const user = userEvent.setup()
+    renderMatrix({ selectedDoctorId: 'intern-1' })
+    await user.click(screen.getByRole('button', { name: 'Edit rotations' }))
+    const triggers = screen.getAllByRole('button', { expanded: false })
+    const ecTrigger = triggers.find(b => within(b).queryByText('EC'))
+    await user.click(ecTrigger)
+    expect(screen.queryByRole('option', { name: 'OT' })).not.toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'OT · TB Hospital' })).toBeInTheDocument()
   })
 
   it('changing a block\'s combined type writes both rotation_type and subtype', async () => {
@@ -145,6 +148,23 @@ describe('InternRotationsMatrix', () => {
       expect.objectContaining({ id: 'r1' }),
       { rotationType: 'OT', subtype: 'PSYCH' }
     )
+  })
+
+  it('a bare-OT row (no subtype) shows its real state in the editor and warns, without offering it as a new pick', async () => {
+    const user = userEvent.setup()
+    const bareOt = [{ id: 'r1', doctor_id: 'intern-1', rotation_type: 'OT', subtype: null, start_date: '2027-01-01', end_date: null }]
+    renderMatrix({ selectedDoctorId: 'intern-1', rotations: bareOt })
+    expect(screen.getByLabelText('Needs a subtype')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit rotations' }))
+    const panel = screen.getByRole('button', { name: /Add block/ }).closest('.card')
+    expect(within(panel).getByText('OT · needs subtype')).toBeInTheDocument()
+    const triggers = within(panel).getAllByRole('button', { expanded: false })
+    const trigger = triggers.find(b => within(b).queryByText('OT · needs subtype'))
+    await user.click(trigger)
+    // It's shown (so the trigger can label itself) but not a real choice.
+    const options = screen.getAllByRole('option')
+    expect(options.filter(o => within(o).queryByText(/needs subtype/))).toHaveLength(1)
+    expect(screen.getByRole('option', { name: 'EC' })).toBeInTheDocument()
   })
 
   it('shows the persistent overlap banner when two of a doctor\'s blocks overlap', () => {
@@ -191,9 +211,9 @@ describe('InternRotationsMatrix', () => {
     // (CSS, not JS, picks which one is visible) — jsdom applies no layout,
     // so both "Category" buttons exist; either fires the same onChange.
     await user.click(screen.getAllByRole('button', { name: 'Category' })[0])
-    await user.click(within(screen.getByRole('menu')).getByRole('button', { name: 'Intern' }))
-    expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
-    expect(screen.queryByTitle('Rae Registrar')).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('menu')).getByRole('button', { name: 'Registrar' }))
+    expect(screen.getByTitle('Rae Registrar')).toBeInTheDocument()
+    expect(screen.queryByTitle('Ivy Intern')).not.toBeInTheDocument()
   })
 
   it('add-doctor flow: picking an unassigned doctor creates a first EC block, selects them, and opens edit mode', async () => {
@@ -201,11 +221,8 @@ describe('InternRotationsMatrix', () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
-    // The table's own section heading (the "right now" panel has one of the
-    // same name) — sections follow the current rotation, and the only
-    // intern with one is on OT today.
-    const internHeading = screen.getAllByRole('button', { name: /OT interns \d/ })[0]
-    await user.click(within(internHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    const internsHeading = screen.getAllByRole('button', { name: /Interns 2/ })[0]
+    await user.click(within(internsHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
     const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({
@@ -214,17 +231,13 @@ describe('InternRotationsMatrix', () => {
     expect(onSelectDoctor).toHaveBeenCalledWith('cosmo-1')
   })
 
-  // Today is permanently visible now (see DateStepper) — it no longer fades
-  // out while you are already on the current period.
-  it('Today stays visible while already browsing the current year', () => {
-    renderMatrix() // year: 2027, matches the pinned system date (15 Jun 2027)
-    expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument()
-  })
-
-  it('Today jumps back to the current year from a different one', async () => {
+  it('Today is hidden while already browsing the current year, and shown once browsing away from it', async () => {
     const user = userEvent.setup()
+    const { rerender, props } = renderMatrix() // year: 2027, matches the pinned system date
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
+
     const onYearChange = vi.fn()
-    renderMatrix({ year: 2026, onYearChange })
+    rerender(<InternRotationsMatrix {...props} year={2026} onYearChange={onYearChange} />)
     await user.click(screen.getByRole('button', { name: 'Today' }))
     expect(onYearChange).toHaveBeenCalledWith(2027)
   })
@@ -240,33 +253,51 @@ describe('InternRotationsMatrix', () => {
 })
 
 describe('InternRotationsMatrix — table sections and rows', () => {
-  it('sections the table by current rotation, matching the right-now panel', () => {
+  it('shows each doctor\'s position line and chip, reflecting their actual situation', () => {
     renderMatrix()
-    // intern-1 is on OT·LRCHC today, registrar-1 on EC
-    expect(screen.getAllByRole('button', { name: /OT interns 1/ }).length).toBe(2) // table + panel
-    expect(screen.getAllByRole('button', { name: /Registrars 1/ }).length).toBe(2)
-    // cosmo-1 has no rotation at all: the table still lists them (under EC
-    // interns, the default), the "right now" panel has nobody to show there
-    expect(screen.getAllByRole('button', { name: /EC interns 1/ }).length).toBe(1)
-    expect(within(screen.getByTitle('Cara Cosmo').closest('[aria-selected]')).getByText('No rotation today')).toBeInTheDocument()
+    const internRow = screen.getByTitle('Ivy Intern').closest('[aria-selected]')
+    expect(within(internRow).getByText('Ongoing')).toBeInTheDocument()
+    expect(within(internRow).getByText('OT · Day Hospital')).toBeInTheDocument()
+
+    const registrarRow = screen.getByTitle('Rae Registrar').closest('[aria-selected]')
+    expect(within(registrarRow).getByText('Until 31 Dec · month 6 of 12')).toBeInTheDocument()
+
+    const cosmoRow = screen.getByTitle('Cara Cosmo').closest('[aria-selected]')
+    expect(within(cosmoRow).getByText('No rotation scheduled')).toBeInTheDocument()
+    expect(within(cosmoRow).getByText('No rotation')).toBeInTheDocument()
   })
 
-  it('shows the current rotation under the name, and selects from anywhere on the row', async () => {
+  it('selects from anywhere on the row, not just the name', async () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onSelectDoctor })
     const row = screen.getByTitle('Ivy Intern').closest('[aria-selected]')
-    expect(within(row).getByText('OT · LRCHC · ongoing')).toBeInTheDocument()
-    // the bar area, not the name
     await user.click(row.lastElementChild)
     expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
   })
 
   it('marks the selected row', () => {
     renderMatrix({ selectedDoctorId: 'registrar-1' })
-    // the side panel repeats the selected doctor's name; the row is the first
     expect(screen.getAllByTitle('Rae Registrar')[0].closest('[aria-selected]')).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByTitle('Ivy Intern').closest('[aria-selected]')).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('a between-blocks doctor shows the neutral chip and their next rotation', () => {
+    const rotations = [{ id: 'r1', doctor_id: 'intern-1', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2027-08-01', end_date: null }]
+    renderMatrix({ rotations })
+    const row = screen.getByTitle('Ivy Intern').closest('[aria-selected]')
+    expect(within(row).getByText('Between blocks')).toBeInTheDocument()
+    expect(within(row).getByText('Next: Psych from 1 Aug')).toBeInTheDocument()
+  })
+
+  it('a mid-block doctor shows what follows and when the whole block ends', () => {
+    const rotations = [
+      { id: 'r1', doctor_id: 'intern-1', rotation_type: 'EC', subtype: null, start_date: '2027-05-01', end_date: '2027-07-31' },
+      { id: 'r2', doctor_id: 'intern-1', rotation_type: 'OT', subtype: 'DPM_BCH', start_date: '2027-08-01', end_date: '2028-01-31' },
+    ]
+    renderMatrix({ rotations })
+    const row = screen.getByTitle('Ivy Intern').closest('[aria-selected]')
+    expect(within(row).getByText('Until 31 Jul, then TB · block ends 31 Jan 2028')).toBeInTheDocument()
   })
 })
 
@@ -278,19 +309,26 @@ describe('InternRotationsMatrix — mobile layout', () => {
   })
   afterEach(() => { delete window.matchMedia })
 
-  it('renders per-doctor cards instead of the 12-column grid', () => {
+  it('renders flat rows with month cells instead of the 12-column grid', () => {
     renderMatrix()
     expect(screen.queryByText('Jan')).not.toBeInTheDocument()
-    const internCard = screen.getByText('Intern', { selector: 'p' }).closest('button')
-    expect(within(internCard).getByText('Jan – Dec 2027')).toBeInTheDocument()
+    const row = screen.getByTitle('Ivy Intern').closest('button')
+    expect(within(row).getAllByText('E').length).toBe(3)
+    expect(within(row).getAllByText('DH').length).toBe(9)
+    expect(within(row).getByText('Ongoing')).toBeInTheDocument()
   })
 
-  it('tapping a card calls onSelectDoctor', async () => {
+  it('shows the single-letter month header', () => {
+    renderMatrix()
+    expect(screen.getAllByText('J')).toHaveLength(3) // Jan, Jun, Jul
+    expect(screen.getByText('D')).toBeInTheDocument() // Dec
+  })
+
+  it('tapping a row calls onSelectDoctor', async () => {
     const onSelectDoctor = vi.fn()
     const user = userEvent.setup()
     renderMatrix({ onSelectDoctor })
-    const internCard = screen.getByText('Intern', { selector: 'p' }).closest('button')
-    await user.click(internCard)
+    await user.click(screen.getByTitle('Ivy Intern').closest('button'))
     expect(onSelectDoctor).toHaveBeenCalledWith('intern-1')
   })
 
@@ -298,7 +336,6 @@ describe('InternRotationsMatrix — mobile layout', () => {
     renderMatrix({ selectedDoctorId: 'intern-1' })
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit rotations' })).toBeInTheDocument()
-    // Modal supplies its own title + Close — the panel must not repeat them.
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1)
   })
 
@@ -311,24 +348,18 @@ describe('InternRotationsMatrix — mobile layout', () => {
 
   it('the year selector shares one row with search/filter (left) and Legend/kebab (right)', () => {
     renderMatrix()
-    // Toolbar mounts both its own internal desktop/mobile rows regardless
-    // of viewport (jsdom applies no layout) — either instance proves the
-    // same DOM order.
     const search = screen.getAllByPlaceholderText('Search name…')[0]
     const legend = screen.getAllByRole('button', { name: 'Legend' })[0]
     const yearLabel = screen.getByText('2027')
 
-    // compareDocumentPosition is a bitmask API, hence the &.
     expect(search.compareDocumentPosition(yearLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(yearLabel.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const sticky = yearLabel.closest('.sticky')
     expect(sticky.contains(search)).toBe(true)
     expect(sticky.contains(legend)).toBe(true)
-    // Today is worded and stays on the stepper's line
-    const today = screen.getByRole('button', { name: 'Today' })
-    expect(today).toHaveTextContent('Today')
-    expect(today.parentElement).toHaveClass('flex-nowrap')
+    // Today is hidden while already on the current year, same as desktop.
+    expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
   })
 
   it('the "Now" strip opens the right-now list in a sheet', async () => {

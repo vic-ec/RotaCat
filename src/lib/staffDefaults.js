@@ -53,12 +53,9 @@ export const CONTRACT_TYPE_OPTIONS = [
   { value: 'Junior_Doctor_Overtime', label: 'OT — Junior Doctor Overtime (~64–72h/month)' },
 ]
 
-// Only meaningful when contract_type is Junior_Doctor_Overtime — matches
-// intern_rotations.subtype / profiles.psych_subcategory / the backend's
-// PsychSubcategory enum exactly, so these values pass through untranslated.
 export const OT_SUBTYPE_OPTIONS = [
-  { value: 'LRCHC',   label: 'LRCHC' },
-  { value: 'DPM_BCH', label: 'DPM/BCH' },
+  { value: 'LRCHC',   label: 'Day Hospital' },
+  { value: 'DPM_BCH', label: 'TB Hospital' },
   { value: 'PSYCH',   label: 'Psych' },
 ]
 
@@ -68,16 +65,48 @@ export const OT_SUBTYPE_LABELS = Object.fromEntries(OT_SUBTYPE_OPTIONS.map(o => 
 // Matrix's single per-block type dropdown — collapses rotation_type +
 // subtype into one selectable value (e.g. picking "OT · Psych" writes both
 // rotation_type='OT' and subtype='PSYCH' in one step), unlike the Table
-// view's two separate dropdowns. Also backs the Matrix's 5-colour bar/
-// legend mapping — one visual state per key here, including the real
-// "OT with no subtype assigned yet" case (key 'OT').
+// view's two separate dropdowns. Also backs the Matrix's legend/chip
+// colour+code mapping.
+//
+// There is no standalone "OT" rotation to pick — every assignable option
+// here is either EC or OT+subtype, so rotationTypeOptionsForCategory below
+// (the single source every rotation-type dropdown in the app builds from:
+// this Matrix, AddStaffModal's creation form) can never offer a bare OT a
+// doctor could be left stuck on. A *pre-existing* row that has rotation_type
+// 'OT' with no subtype can still exist (historical data, or a direct DB
+// edit) — see rotationTypeLabel/rotationTypeCode below for how that state
+// still renders, just not as something newly pickable.
 export const ROTATION_TYPE_KEY_OPTIONS = [
-  { key: 'EC', rotationType: 'EC', subtype: null, label: 'EC' },
-  { key: 'OT', rotationType: 'OT', subtype: null, label: 'OT' },
-  { key: 'OT_LRCHC', rotationType: 'OT', subtype: 'LRCHC', label: 'OT · LRCHC' },
-  { key: 'OT_DPM_BCH', rotationType: 'OT', subtype: 'DPM_BCH', label: 'OT · DPM/BCH' },
-  { key: 'OT_PSYCH', rotationType: 'OT', subtype: 'PSYCH', label: 'OT · Psych' },
+  { key: 'EC', rotationType: 'EC', subtype: null, label: 'EC', code: 'E' },
+  { key: 'OT_DPM_BCH', rotationType: 'OT', subtype: 'DPM_BCH', label: 'OT · TB Hospital', code: 'TB' },
+  { key: 'OT_LRCHC', rotationType: 'OT', subtype: 'LRCHC', label: 'OT · Day Hospital', code: 'DH' },
+  { key: 'OT_PSYCH', rotationType: 'OT', subtype: 'PSYCH', label: 'OT · Psych', code: 'P' },
 ]
+
+// The one rotation state that's real but not assignable — see
+// ROTATION_TYPE_KEY_OPTIONS' own comment. Kept out of that array (so no
+// dropdown ever offers it) but still needs a label/code/colour so an
+// existing bare-OT row renders as a visible warning instead of blank.
+const OT_NEEDS_SUBTYPE = { key: 'OT', rotationType: 'OT', subtype: null, label: 'OT · needs subtype', code: '?' }
+const ALL_ROTATION_TYPE_STATES = [...ROTATION_TYPE_KEY_OPTIONS, OT_NEEDS_SUBTYPE]
+
+export function rotationTypeLabel(key) {
+  return ALL_ROTATION_TYPE_STATES.find(o => o.key === key)?.label || key
+}
+
+export function rotationTypeCode(key) {
+  return ALL_ROTATION_TYPE_STATES.find(o => o.key === key)?.code || '?'
+}
+
+// The bare type name used inline in a sentence ("Next: Psych from 1 Mar",
+// "EC, then TB, DH") — distinct from both the single/double-letter `code`
+// (the month cells) and the full "OT · X" `label` (the legend/chip): EC and
+// Psych are written out in full, TB/DH stay as their codes.
+export function rotationTypeShortName(key) {
+  if (key === 'EC') return 'EC'
+  if (key === 'OT_PSYCH') return 'Psych'
+  return rotationTypeCode(key) // OT_DPM_BCH -> 'TB', OT_LRCHC -> 'DH', bare OT -> '?'
+}
 
 export function rotationTypeKey(rotationType, subtype) {
   if (rotationType !== 'OT') return 'EC'
@@ -102,12 +131,14 @@ export function rotationTypeOptionsForCategory(category) {
 // reserved strictly for roster-state semantics elsewhere in this app (see
 // tailwind.config.js) and a rotation type isn't a good/bad state, just a
 // category, same reasoning as the groupEven/groupOdd weekend-parity
-// colours having their own dedicated, non-status family.
+// colours having their own dedicated, non-status family. OT_DPM_BCH is
+// #C2410C, not the lighter #EA580C it used to be — white cell-code text on
+// top needs 4.5:1 contrast, which the lighter shade didn't clear.
 export const ROTATION_TYPE_COLOR = {
   EC: '#2563EB',         // blue
-  OT: '#64748B',         // slate — OT, no subtype assigned yet
+  OT: '#64748B',         // slate — bare OT, no subtype assigned (not pickable; see OT_NEEDS_SUBTYPE)
   OT_LRCHC: '#7C3AED',   // violet
-  OT_DPM_BCH: '#EA580C', // orange
+  OT_DPM_BCH: '#C2410C', // orange (darkened for contrast)
   OT_PSYCH: '#DB2777',   // pink
 }
 

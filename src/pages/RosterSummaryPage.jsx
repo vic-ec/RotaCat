@@ -8,6 +8,7 @@ import DateStepper from '../components/DateStepper'
 import { TodayIcon } from '../components/PlannerIcons'
 import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
+import ExpandAllButton from '../components/ExpandAllButton'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { labelForLeaveCategory, columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
@@ -27,6 +28,10 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // group (only categories actually present among this month's rows show up
 // as options) and each row's own category label text.
 // Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
+// One fixed width for the Doctor column, header and cells alike — see the
+// header's own comment for why it can't be measured off the content.
+const DOCTOR_COLUMN = 'w-44 max-w-44'
+
 const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
 
 const WEEKDAY_COLUMNS = shiftColumns(['WD_08', 'WD_12', 'WD_15', 'WD_22'], shiftTimeRange)
@@ -183,6 +188,9 @@ export default function RosterSummaryPage() {
   const groups = [...LEAVE_CAPACITY_COLUMNS.map(c => ({ key: c.key, label: c.label })), { key: 'Other', label: 'Other' }]
     .map(g => ({ ...g, rows: filteredRows.filter(r => groupKeyOf(r) === g.key) }))
     .filter(g => g.rows.length > 0)
+  // With every section shut the table is nothing but headers, and opening
+  // five of them one by one to get back is a chore — see ExpandAllButton.
+  const allCollapsed = groups.length > 0 && groups.every(g => collapsedGroups[g.key])
   const columnCount = 1 + 3 + WEEKDAY_COLUMNS.length + WEEKEND_COLUMNS.length + PH_WEEKDAY_COLUMNS.length + PH_WEEKEND_COLUMNS.length + 2 + (leaveOpen ? 2 : 0)
 
   return (
@@ -315,7 +323,13 @@ export default function RosterSummaryPage() {
                   the rest of the sticky header row and the sticky body
                   column it sits atop. */}
               <tr className="text-[10px] uppercase tracking-wide text-ink-muted">
-                <th className="sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left" rowSpan={2}>Doctor</th>
+                {/* A fixed width, not one measured off the pills: with an
+                    auto-width column, collapsing a section removes the rows
+                    that happened to be setting it and every column to the
+                    right jumps sideways. 11rem fits the longest surname the
+                    roster holds at this size, and a longer one truncates in
+                    its pill rather than moving the grid. */}
+                <th className={`sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left ${DOCTOR_COLUMN}`} rowSpan={2}>Doctor</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={3}>Totals</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKDAY_COLUMNS.length}>Weekday</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKEND_COLUMNS.length}>Weekend</th>
@@ -359,14 +373,18 @@ export default function RosterSummaryPage() {
                     onClick={() => setCollapsedGroups(c => ({ ...c, [group.key]: !c[group.key] }))}
                     className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
                   >
-                    {/* The header pins to the left edge of the scroll area, so
-                        its label and chevron stay on screen however far the
-                        twenty columns have been scrolled. */}
+                    {/* Full width of the table, like every other group
+                        header in the app (LeaveMatrix, the rotations
+                        matrix) — it used to be a fixed 18rem, which left
+                        the bar stopping short of the table's right edge
+                        with the remaining columns bare beside it. Still
+                        sticky, so the label and chevron stay on screen
+                        however far the twenty columns have been scrolled. */}
                     <td colSpan={columnCount} className="border-b border-slate-hairline bg-canvas p-1">
                       <button
                         type="button"
                         aria-expanded={!collapsedGroups[group.key]}
-                        className="sheen-divider sticky left-1 !w-72 max-w-[calc(100vw-3rem)] text-left"
+                        className="sheen-divider sticky left-1 !w-[calc(100%-0.5rem)] text-left"
                       >
                         <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.rows.length}</span></span>
                         <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
@@ -406,13 +424,13 @@ export default function RosterSummaryPage() {
                         what sets the column's width. */}
                     <td
                       title={`${row.name} ${row.surname}`}
-                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${
+                      className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${DOCTOR_COLUMN} ${
                         isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'
                       } ${isMe ? `shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)] ${isSelected ? '' : 'bg-canvas-cool'}` : (isSelected ? '' : 'bg-canvas')}`}
                     >
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+                          className="truncate whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                         >
                           {displayNames.get(row.profileId) ?? row.surname}
@@ -482,6 +500,7 @@ export default function RosterSummaryPage() {
           </table>
         </div>
       )}
+      {!loading && allCollapsed && <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />}
     </div>
   )
 }

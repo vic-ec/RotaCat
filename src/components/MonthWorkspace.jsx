@@ -82,7 +82,6 @@ export default function MonthWorkspace({
   }
 
   const today = todayStr()
-  const [searchQuery, setSearchQuery] = useState('')
 
   // highlightDate seeds the initially-selected day (e.g. the Requests
   // queue's "View Calendar" action landing straight on that request's date)
@@ -100,6 +99,9 @@ export default function MonthWorkspace({
   // the date fields still start with something sensible for a future month
   // the doctor is just browsing ahead into) or from the selected day's own
   // "Request leave from this day" / "Submit for admin approval".
+  // Desktop-only (see PlannerToolbar): this narrows the names printed in a
+  // cell, and only the lg+ grid prints any.
+  const [searchQuery, setSearchQuery] = useState('')
   const [requestFormDate, setRequestFormDate] = useState(null)
   function openRequestLeave(date) {
     if (date) { setRequestFormDate(date); return }
@@ -110,7 +112,7 @@ export default function MonthWorkspace({
   // One cell per day for the shared grid: the day's true combined count
   // (the pips are the same four-state scale for everyone), the public
   // holiday, and the names — read straight off the grid on a desktop,
-  // narrowed by the toolbar search. Capacity itself never narrows: a
+  // narrowed there by the toolbar search. Capacity itself never narrows: a
   // search for one surname still shows every day's real pips.
   const query = searchQuery.trim().toLowerCase()
   const gridCells = new Map()
@@ -177,13 +179,17 @@ export default function MonthWorkspace({
     <div>
       {/* One grid, three areas. Desktop: the toolbar spans both columns,
           then the calendar beside the sticky rail. Below lg the same three
-          children stack as panel, toolbar, grid (order utilities), with
-          the details in a bottom sheet rather than the rail. */}
+          children stack as toolbar, panel, grid (order utilities), with
+          the details in a bottom sheet rather than the rail. The toolbar
+          leads on both viewports: "Overview" is the way out of this view,
+          and a doctor shouldn't have to scroll past a whole panel to find
+          the way back — it also puts the back link in the same place on a
+          phone as on a desktop. */}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="order-2 lg:order-none lg:col-span-2">
+        <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
-            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…', desktopOnly: true }}
             legend={legendSheet}
             middle={<CapacityKey />}
           />
@@ -200,7 +206,7 @@ export default function MonthWorkspace({
           />
         </div>
 
-        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+        <div className={`order-2 lg:order-none ${PANEL_RAIL}`}>
           <YourLeaveCard
             profile={profile}
             year={year}

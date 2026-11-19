@@ -68,6 +68,8 @@ export default function SpecialMonthWorkspace({
   // count is the true shared one against the 3-doctor guideline, and the
   // day card a tap opens is always unfiltered.
   const [categoryKey, setCategoryKey] = useState(() => defaultSpecialCategoryKey(profile?.category, profile?.contract_type))
+  // Desktop-only (see PlannerToolbar): this narrows the names printed in a
+  // cell, and only the lg+ grid prints any.
   const [searchQuery, setSearchQuery] = useState('')
   const [requestFormDate, setRequestFormDate] = useState(null)
 
@@ -100,8 +102,8 @@ export default function SpecialMonthWorkspace({
   }
 
   // One cell per day for the shared grid: the day's true count, the public
-  // holiday, and the names narrowed by the Showing picker and the toolbar
-  // search. Capacity never narrows with either.
+  // holiday, and the names narrowed by the Showing picker and, on a
+  // desktop, the toolbar search. Capacity never narrows with either.
   const query = searchQuery.trim().toLowerCase()
   const gridCells = new Map()
   for (const marker of monthMarkers) {
@@ -117,11 +119,16 @@ export default function SpecialMonthWorkspace({
 
   return (
     <div>
+      {/* Toolbar, panel, grid on a phone; on desktop the toolbar spans
+          both columns above the calendar and its rail. The toolbar leads
+          on both: "Overview" is the way out of this view, and a doctor
+          shouldn't have to scroll past a whole panel to find the way
+          back. */}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-        <div className="order-2 lg:order-none lg:col-span-2">
+        <div className="order-1 lg:order-none lg:col-span-2">
           <PlannerToolbar
             onBack={onBack}
-            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…' }}
+            search={{ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search name…', desktopOnly: true }}
             legend={<SpecialLegendTrigger ruleIntro={ruleIntro} ruleBullets={ruleBullets} />}
             middle={<GuidelineKey />}
           />
@@ -140,7 +147,7 @@ export default function SpecialMonthWorkspace({
           />
         </div>
 
-        <div className={`order-1 lg:order-none ${PANEL_RAIL}`}>
+        <div className={`order-2 lg:order-none ${PANEL_RAIL}`}>
           <PlannerRequestPanel
             eyebrow="Special leave · Month"
             stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}

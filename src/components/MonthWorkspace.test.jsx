@@ -225,6 +225,9 @@ describe('MonthWorkspace', () => {
       expect(mobileGrid().queryByText('Anderson')).not.toBeInTheDocument()
     })
 
+  })
+
+  describe('toolbar and panel', () => {
     it('the toolbar search narrows the names on the grid, never the pips', async () => {
       const user = userEvent.setup()
       renderWorkspace()
@@ -234,16 +237,17 @@ describe('MonthWorkspace', () => {
       expect(within(cell).queryByText('Anderson')).not.toBeInTheDocument()
       expect(within(cell).getByRole('img', { name: '2 of 3 slots used' })).toBeInTheDocument()
     })
-  })
 
-  describe('toolbar and panel', () => {
-    it('one toolbar row: Overview back link, search, legend, the capacity key, and an empty toggle slot', () => {
+    it('one toolbar row: Overview back link, a desktop-only search, legend, the capacity key, and an empty toggle slot', () => {
       renderWorkspace()
       const toolbar = within(screen.getByTestId('planner-toolbar'))
       const backButton = toolbar.getByRole('button', { name: 'Overview' })
       expect(backButton.className).not.toContain('btn-secondary')
       expect(backButton).toHaveClass('text-ink-light')
-      expect(toolbar.getByRole('searchbox', { name: 'Search name' })).toBeInTheDocument()
+      // The field is the lg+ one, and there is no phone search icon beside
+      // it: only the desktop grid prints names for a search to narrow.
+      expect(toolbar.getByRole('searchbox', { name: 'Search name' }).closest('div.lg\\:block')).not.toBeNull()
+      expect(toolbar.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
       expect(toolbar.getByRole('button', { name: 'Legend' })).toHaveClass('btn-utility', 'h-[30px]', 'w-[30px]')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('0 used')
       expect(toolbar.getByTestId('capacity-key')).toHaveTextContent('3+ used')
@@ -330,12 +334,14 @@ describe('MonthWorkspace', () => {
       expect(screen.getByText(/LeaveRequestFormStub: 2026-08-06 to 2026-08-06/)).toBeInTheDocument()
     })
 
-    it('the rail is sticky at 320px on a desktop and first in the stack below, ahead of the toolbar and grid', () => {
+    // Toolbar first on a phone: "Overview" is the way out of this view, so
+    // it sits where it does on a desktop rather than under a whole panel.
+    it('the rail is sticky at 320px on a desktop, and below lg the stack reads toolbar, panel, grid', () => {
       renderWorkspace()
       const rail = screen.getByTestId('planner-request-panel').parentElement
-      expect(rail).toHaveClass('order-1', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+      expect(rail).toHaveClass('order-2', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
       expect(rail).not.toHaveClass('w-80')
-      expect(screen.getByTestId('planner-toolbar').parentElement).toHaveClass('order-2')
+      expect(screen.getByTestId('planner-toolbar').parentElement).toHaveClass('order-1')
       expect(screen.getByTestId('planner-calendar-grid').parentElement).toHaveClass('order-3', 'min-w-0')
     })
 

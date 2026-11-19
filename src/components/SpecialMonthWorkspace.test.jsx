@@ -105,7 +105,7 @@ describe('SpecialMonthWorkspace', () => {
   })
 
   describe('toolbar and panel', () => {
-    it('has the shared toolbar: one Overview link, a name search, the legend trigger and the guideline key', async () => {
+    it('has the shared toolbar: one Overview link, a desktop-only name search, the legend trigger and the guideline key', async () => {
       const user = userEvent.setup()
       const onBack = vi.fn()
       renderWorkspace({ onBack })
@@ -114,6 +114,9 @@ describe('SpecialMonthWorkspace', () => {
       expect(toolbar.getAllByRole('button', { name: 'Legend' })).toHaveLength(1)
       expect(screen.getByTestId('guideline-key')).toHaveTextContent('0 on leave')
       expect(screen.getByTestId('guideline-key')).toHaveTextContent('3+ on leave')
+      // No phone search icon beside it: only the desktop grid prints the
+      // names a search has to narrow.
+      expect(toolbar.queryByRole('button', { name: 'Search' })).not.toBeInTheDocument()
       await user.type(toolbar.getByRole('searchbox', { name: 'Search name' }), 'ell')
       expect(within(desktopDay('2026-08-10')).getByText('Ellis')).toBeInTheDocument()
       expect(within(desktopDay('2026-08-10')).queryByText('Vance')).not.toBeInTheDocument()
@@ -139,7 +142,9 @@ describe('SpecialMonthWorkspace', () => {
       expect(within(panel).getByText('2/3 slots used · 1 day')).toBeInTheDocument()
       expect(within(panel).getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
       expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
-      expect(panel.parentElement).toHaveClass('order-1', 'lg:sticky', 'lg:top-4', 'lg:w-80')
+      // Second in the phone stack, under the toolbar: "Overview" is the
+      // way out of this view and belongs above the panel, not below it.
+      expect(panel.parentElement).toHaveClass('order-2', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     })
 
     it('counts a day at the guideline in the bar and the headline', () => {

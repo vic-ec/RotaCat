@@ -9,6 +9,9 @@
 //
 //   POST { action: 'create',     ...form fields }  → new auth user + profile
 //   POST { action: 'regenerate', profileId }       → new password for an existing one
+//   POST { action: 'change_email', profileId, email, sendCredentials }
+//                                                  → new login email (super-admin only),
+//                                                    optionally with a new password sent to it
 //   POST { action: 'delete',     profileId }       → remove the auth user (profile cascades)
 //
 // This runs with the service role key and is therefore the only place in
@@ -16,6 +19,7 @@
 // a real signed-in user (verify_jwt is on) AND checked against
 // profiles.is_admin before anything is created — the JWT alone only proves
 // "some logged-in account", which is not enough to create staff.
+// `change_email` is narrower still: profiles.is_super_admin only.
 //
 // The generated password is never logged, never stored, and never returned
 // to the caller except in the single case where the email failed to send,
@@ -24,6 +28,10 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { generatePassword, meetsPasswordPolicy } from './password.ts'
 import { sendWelcomeEmail } from './email.ts'
+import {
+  EMAIL_PATTERN, DUPLICATE_EMAIL_MESSAGE,
+  checkChangeEmailRequest, isSameEmail, isDuplicateEmailError, isResetFor,
+} from './changeEmail.ts'
 import {
   defaultHoursForCategory,
   defaultSwapGroupForCategory,
@@ -48,7 +56,6 @@ function json(body: unknown, status = 200) {
 }
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function trimmed(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -65,6 +72,15 @@ function optionalDate(value: unknown, field: string): string | null {
 }
 
 class ValidationError extends Error {}
+
+// A refusal that carries its own status (403 for a permission refusal).
+class HttpError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
@@ -90,7 +106,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: callerProfile, error: callerProfileError } = await admin
     .from('profiles')
-    .select('is_admin')
+    .select('is_admin, is_super_admin')
     .eq('id', caller.user.id)
     .single()
   if (callerProfileError || callerProfile?.is_admin !== true) {
@@ -112,10 +128,16 @@ Deno.serve(async (req: Request) => {
   try {
     if (payload.action === 'create') return await handleCreate(admin, payload, caller.user.id, appUrl)
     if (payload.action === 'regenerate') return await handleRegenerate(admin, payload, appUrl)
+    if (payload.action === 'change_email') {
+      return await handleChangeEmail(
+        admin, payload, { id: caller.user.id, isSuperAdmin: callerProfile.is_super_admin === true }, appUrl,
+      )
+    }
     if (payload.action === 'delete') return await handleDelete(admin, payload, caller.user.id)
     return json({ error: 'Unknown action.' }, 400)
   } catch (err) {
     if (err instanceof ValidationError) return json({ error: err.message }, 400)
+    if (err instanceof HttpError) return json({ error: err.message }, err.status)
     console.error('admin-staff-credentials failed:', err instanceof Error ? err.message : String(err))
     return json({ error: 'Something went wrong. Nothing was changed.' }, 500)
   }
@@ -216,9 +238,9 @@ async function handleCreate(
 
   if (createError || !created?.user) {
     const message = createError?.message ?? 'Could not create the account.'
-    const alreadyExists = /already|registered|exists/i.test(message)
+    const alreadyExists = isDuplicateEmailError(message)
     throw new ValidationError(
-      alreadyExists ? 'An account with that email address already exists.' : message
+      alreadyExists ? DUPLICATE_EMAIL_MESSAGE : message
     )
   }
 
@@ -385,10 +407,27 @@ async function handleRegenerate(
   const profileId = trimmed(payload.profileId)
   if (!profileId) throw new ValidationError('profileId is required.')
 
-  const { data: target, error: targetError } = await admin.auth.admin.getUserById(profileId)
-  if (targetError || !target?.user?.email) {
-    throw new ValidationError('No account found for that person.')
-  }
+  const issued = await issueTemporaryPassword(admin, profileId, appUrl)
+  return json({ ok: true, profileId, ...issued })
+}
+
+// The one place a password is issued for an existing account: used by
+// `regenerate` and by `change_email` when it is asked to send login
+// details. Generates a password, sets it, flags the profile for a forced
+// change, and emails it to the account's CURRENT login address — read here
+// rather than passed in, so after an email change it is the new one.
+//
+// Throws if the password could not be set or flagged. A failed email is
+// not a throw: the password is already live, so it is reported and handed
+// back once for the admin to relay.
+async function issueTemporaryPassword(
+  admin: ReturnType<typeof createClient>,
+  profileId: string,
+  appUrl: string | null,
+): Promise<{ emailSent: boolean; emailError?: string; password?: string }> {
+  const user = await loadAuthUser(admin, profileId)
+  if (!user.email) throw new ValidationError('No account found for that person.')
+  const target = { user }
 
   const { data: profile } = await admin
     .from('profiles')
@@ -398,12 +437,15 @@ async function handleRegenerate(
 
   const password = generatePassword()
   if (!meetsPasswordPolicy(password)) {
-    return json({ error: 'Failed to generate a compliant password. Nothing was changed.' }, 500)
+    throw new HttpError(500, 'Failed to generate a compliant password. Nothing was changed.')
   }
 
-  // Replacing the password invalidates the previous one immediately —
-  // this can be repeated as often as needed, with no link and no expiry
-  // to race against.
+  // Replacing the password invalidates the previous one immediately. This
+  // can be repeated as often as needed — there is no link involved — but
+  // the password itself is temporary: it is valid for
+  // TEMP_PASSWORD_VALIDITY_DAYS (14) days from temp_password_issued_at,
+  // stamped below (see src/lib/tempPassword.js). Each reissue restarts
+  // that window.
   const { error: updateError } = await admin.auth.admin.updateUserById(profileId, { password })
   if (updateError) throw new Error(`Password update failed: ${updateError.message}`)
 
@@ -420,15 +462,96 @@ async function handleRegenerate(
     firstName: profile?.name || 'there',
     password,
     appUrl,
-    isReset: true,
+    // Never signed in → this is effectively their welcome.
+    isReset: isResetFor(target.user.last_sign_in_at),
   })
 
-  return json({
-    ok: true,
-    profileId,
+  return {
     ...delivery,
+    // Only ever returned when the email did not go out. Not persisted anywhere.
     ...(delivery.emailSent ? {} : { password }),
-  })
+  }
+}
+
+// Reads the auth user behind a profile, telling "there is no such account"
+// apart from "the account is there but Auth could not load it". The second
+// is a real case, not a theoretical one: login records inserted with SQL
+// rather than through Auth can make every lookup fail with a 500, and
+// reporting that as "No account found" sent an admin looking for a missing
+// account that was on the page in front of them.
+async function loadAuthUser(admin: ReturnType<typeof createClient>, profileId: string) {
+  const { data, error } = await admin.auth.admin.getUserById(profileId)
+  if (error && error.status !== 404) {
+    console.error(`Auth could not load user ${profileId}:`, error.message)
+    throw new HttpError(500, 'This account exists, but its login record could not be loaded. Nothing was changed.')
+  }
+  if (error || !data?.user) throw new ValidationError('No account found for that person.')
+  return data.user
+}
+
+// Super-admin only: replaces another person's login email. For onboarding
+// real staff onto accounts created with placeholder addresses, where the
+// self-service flow (confirmation links to both inboxes) cannot work
+// because nobody reads the old one.
+//
+// Goes through the Auth admin API, never SQL against auth.users or
+// auth.identities, and is confirmed on the spot: no confirmation email is
+// sent to either address, and the new address is the login immediately.
+// The password is left exactly as it was unless sendCredentials is true.
+async function handleChangeEmail(
+  admin: ReturnType<typeof createClient>,
+  payload: Record<string, unknown>,
+  caller: { id: string; isSuperAdmin: boolean },
+  appUrl: string | null,
+) {
+  const check = checkChangeEmailRequest(caller, payload)
+  if (!check.ok) throw new HttpError(check.status, check.error)
+  const { profileId, email, sendCredentials } = check
+
+  const target = { user: await loadAuthUser(admin, profileId) }
+  if (isSameEmail(target.user.email, email)) {
+    throw new ValidationError('That is already their email address. Enter a different one.')
+  }
+
+  const { error: updateError } = await admin.auth.admin.updateUserById(profileId, { email, email_confirm: true })
+  if (updateError) {
+    if (isDuplicateEmailError(updateError.message)) throw new ValidationError(DUPLICATE_EMAIL_MESSAGE)
+    throw new Error(`Email update failed: ${updateError.message}`)
+  }
+
+  // From here the email HAS changed, and nothing below rolls it back: a
+  // later failure is reported alongside the success instead.
+  console.log(`Login email changed for profile ${profileId} by ${caller.id}.`)
+
+  const { error: verifiedError } = await admin
+    .from('profiles')
+    .update({ email_verified: true })
+    .eq('id', profileId)
+  if (verifiedError) {
+    console.error(`Email changed for ${profileId} but email_verified was not set:`, verifiedError.message)
+  }
+
+  if (!sendCredentials) {
+    return json({ ok: true, profileId, email, credentialsIssued: false })
+  }
+
+  try {
+    const issued = await issueTemporaryPassword(admin, profileId, appUrl)
+    return json({ ok: true, profileId, email, credentialsIssued: true, ...issued })
+  } catch (err) {
+    // Outcome and profile id only — never a password.
+    console.error(
+      `Email changed for ${profileId} but credentials were not issued:`,
+      err instanceof Error ? err.message : String(err),
+    )
+    return json({
+      ok: true,
+      profileId,
+      email,
+      credentialsIssued: false,
+      credentialsError: 'Email changed, but the password could not be issued. Use Regenerate password.',
+    })
+  }
 }
 
 // Permanent removal. Deleting the auth user cascades to the profile

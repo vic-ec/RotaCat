@@ -9,6 +9,7 @@ import SectionLabel from '../components/SectionLabel'
 import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
+import GenerationRunsPanel from '../components/GenerationRunsPanel'
 import ViewToggle from '../components/ViewToggle'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import PageActionsMenu from '../components/PageActionsMenu'
@@ -392,6 +393,9 @@ export default function RosterDashboardPage() {
 
           {tab === 'active' && (
           <>
+            {/* Runs still going, and runs that failed — the way back to a
+                generation after leaving the Generate page. */}
+            {isAdmin && <GenerationRunsPanel onRunFinished={loadRosters} />}
             {((isAdmin && drafts.length > 0) || published.length > 0) && (
               <div className="flex items-start gap-2">
                 {/* Create leads the toolbar row, beside the search it sits

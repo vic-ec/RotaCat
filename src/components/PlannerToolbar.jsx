@@ -8,7 +8,7 @@ import ClearableInput from './ClearableInput'
 //   [< Overview]  [Search name…]  [legend or counts ……………]  [Calendar | List]
 //
 // `onBack` is always the way back to the overview; `search` is
-// { value, onChange, placeholder }; `legend` is a compact trigger (the
+// { value, onChange, placeholder, desktopOnly }; `legend` is a compact trigger (the
 // Legend sheet's icon button) shown on every viewport; `middle` is the
 // inline desktop-only content beside it (a capacity key, or "2 staffed · 2
 // need staff"); `viewToggle` fills the right-hand slot where a planner has
@@ -18,8 +18,15 @@ import ClearableInput from './ClearableInput'
 // Mobile (< lg): the back link and the toggle share the row; search
 // collapses behind an icon that opens a second row with the field, and the
 // inline `middle` content gives way to the compact `legend` trigger alone.
+//
+// `search.desktopOnly` drops the mobile half of that entirely — field, icon
+// and second row — for a planner whose search only has something to narrow
+// on a desktop. The leave planners are exactly that: their cells print
+// names at lg and up, and nowhere else, so a phone got a control that
+// could not change anything on screen.
 export default function PlannerToolbar({ onBack, backLabel = 'Overview', search, legend, middle, viewToggle }) {
   const [searchOpen, setSearchOpen] = useState(false)
+  const mobileSearch = search && !search.desktopOnly
 
   const backLink = (
     <button
@@ -50,7 +57,7 @@ export default function PlannerToolbar({ onBack, backLabel = 'Overview', search,
             />
           </div>
         )}
-        {search && (
+        {mobileSearch && (
           <button
             type="button"
             onClick={() => setSearchOpen(o => !o)}
@@ -67,7 +74,7 @@ export default function PlannerToolbar({ onBack, backLabel = 'Overview', search,
         </div>
         <div className="flex flex-shrink-0 items-center justify-end lg:w-[132px]">{viewToggle}</div>
       </div>
-      {search && searchOpen && (
+      {mobileSearch && searchOpen && (
         <div className="mt-2 lg:hidden">
           <ClearableInput
             type="search"

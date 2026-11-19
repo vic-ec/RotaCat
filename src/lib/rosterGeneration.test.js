@@ -4,6 +4,7 @@ vi.mock('./supabase', () => ({ supabase: {} }))
 
 import {
   describeJob, isJobActive, isJobStale, jobToEngineResult, jobFailureDetail, STALE_AFTER_MINUTES,
+  generationRunsToShow,
 } from './rosterGeneration'
 
 const NOW = new Date('2026-11-15T10:00:00Z').getTime()
@@ -60,5 +61,19 @@ describe('roster generation job helpers', () => {
     expect(detail).toContain('HC-04 Night blocks — 2 violation(s)')
     expect(jobFailureDetail({ id: 'j2', status: 'running', created_at: minutesAgo(40) }, NOW)).toContain('40 minutes after')
     expect(jobFailureDetail(null)).toBe('')
+  })
+
+  it('lists only the newest run per month, when it is active or failed', () => {
+    const jobs = [
+      { id: 'oct-old', year: 2026, month: 10, status: 'failed', created_at: minutesAgo(30) },
+      { id: 'oct-new', year: 2026, month: 10, status: 'failed', created_at: minutesAgo(5) },
+      { id: 'dec', year: 2026, month: 12, status: 'running', created_at: minutesAgo(2), started_at: minutesAgo(1) },
+      { id: 'nov-fail', year: 2026, month: 11, status: 'failed', created_at: minutesAgo(90) },
+      { id: 'nov-ok', year: 2026, month: 11, status: 'succeeded', created_at: minutesAgo(20) },
+      { id: 'sep-dry', year: 2026, month: 9, status: 'failed', created_at: minutesAgo(3), summary: { dry_run: true } },
+      { id: 'aug-stale', year: 2026, month: 8, status: 'queued', created_at: minutesAgo(50) },
+    ]
+    expect(generationRunsToShow(jobs, { now: NOW }).map(j => j.id)).toEqual(['aug-stale', 'oct-new', 'dec'])
+    expect(generationRunsToShow(jobs, { now: NOW, dismissedIds: ['oct-new', 'aug-stale'] }).map(j => j.id)).toEqual(['dec'])
   })
 })

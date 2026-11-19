@@ -212,9 +212,10 @@ describe('WeekendPlannerView', () => {
       expect(stepper).toHaveClass('btn-utility', 'w-full')
       expect(stepper.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(within(panel).queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-      // Panel first, then the toolbar row with the back link, then the list.
+      // Back link first, then the panel, then the list — the order the
+      // Annual and Special month views keep on a phone.
       const back = view.getByRole('button', { name: 'Overview' })
-      expect(panel.compareDocumentPosition(back) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(back.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(back.compareDocumentPosition(view.getByTestId('weekend-mobile-list')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 

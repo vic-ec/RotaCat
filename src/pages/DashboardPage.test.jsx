@@ -270,6 +270,9 @@ describe('DashboardPage', () => {
     const next = screen.getByText('Next 7 days').closest('div')
     expect(within(next).getByText('Soon Doctor')).toBeInTheDocument()
     expect(within(next).getByText(/^Annual · /)).toBeInTheDocument()
+    // Every name carries its avatar, the same one the Staff list shows.
+    expect(within(today_).getByText('OL')).toBeInTheDocument()
+    expect(within(next).getByText('SD')).toBeInTheDocument()
     expect(screen.queryByText(/Later Doctor/)).not.toBeInTheDocument()
     // No client-side profile_id scoping for the admin's team-wide widgets
     expect(eqCalls.some(([table, col]) => table === 'leave_requests' && col === 'profile_id')).toBe(false)

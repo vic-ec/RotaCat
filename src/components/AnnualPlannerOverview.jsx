@@ -252,7 +252,7 @@ export default function AnnualPlannerOverview({
           ))}
         </div>
 
-        <div className={PANEL_RAIL}>
+        <div className={`order-first ${PANEL_RAIL}`}>
         {renderRequestPanel('annual-capacity-desktop')}
         {/* The month under the cursor, set by the grid: a plain label, not
             a second stepper. */}

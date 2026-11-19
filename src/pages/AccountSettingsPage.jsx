@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import Cropper from 'react-easy-crop'
-import { CircleCheck, ExternalLink, CalendarClock, Contrast } from 'lucide-react'
+import { CircleCheck, ExternalLink, CalendarClock, Contrast, KeyRound } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -24,7 +24,11 @@ import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref } from '../lib
 import { categoryNeedsContractChoice, categoryValuesForRole, CONTRACT_TYPE_OPTIONS, OT_SUBTYPE_OPTIONS, OT_SUBTYPE_LABELS } from '../lib/staffDefaults'
 import { applyHoursChange } from '../lib/internRotations'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { deleteStaffAccount } from '../lib/staffCredentials'
+import { deleteStaffAccount, changeStaffEmail } from '../lib/staffCredentials'
+import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
+import Modal from '../components/Modal'
+import RegeneratePasswordPanel from '../components/RegeneratePasswordPanel'
+import GeneratedPasswordNotice from '../components/GeneratedPasswordNotice'
 import { PASSWORD_HINT, passwordProblem } from '../lib/passwordPolicy'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -532,6 +536,16 @@ export default function AccountSettingsPage() {
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailMsg, setEmailMsg] = useState(null)
   const [emailEditing, setEmailEditing] = useState(false)
+  // Super-admin changing SOMEONE ELSE's login email (admin-staff-credentials
+  // `change_email`) — a different operation from the self-service change
+  // above it shares the row with: immediate, no confirmation links, and
+  // optionally issuing a new temporary password to the new address.
+  const canAdminChangeEmail = isSuperAdmin && !isOwnAccount
+  const [adminEmailSend, setAdminEmailSend] = useState(true)
+  // null, or { stage: 'confirm' | 'result', email, send, result? }
+  const [adminEmailDialog, setAdminEmailDialog] = useState(null)
+  const [adminEmailSaving, setAdminEmailSaving] = useState(false)
+  // Admin issuing someone else a new temporary password from this page.
 
   const [phone, setPhone] = useState('')
   const [phoneSaving, setPhoneSaving] = useState(false)
@@ -669,6 +683,12 @@ export default function AccountSettingsPage() {
   useEffect(() => {
     if (isOwnAccount && user) setNewEmail(user.email || '')
   }, [user, user?.email, isOwnAccount])
+
+  // Someone else's account: the super-admin's edit field starts from that
+  // person's current address.
+  useEffect(() => {
+    if (!isOwnAccount) setNewEmail(targetEmail || '')
+  }, [targetEmail, isOwnAccount])
 
   useEffect(() => {
     if (!user) return
@@ -854,9 +874,49 @@ export default function AccountSettingsPage() {
   }
 
   function cancelEmailEdit() {
-    setNewEmail(user?.email || '')
+    setNewEmail((isOwnAccount ? user?.email : targetEmail) || '')
+    setAdminEmailSend(true)
     setEmailMsg(null)
     setEmailEditing(false)
+  }
+
+  // ── Email (super-admin, someone else's account) ──────────────
+  // Deliberately not changeEmail() above: that is supabase.auth.updateUser,
+  // which can only ever change the signed-in user's own address.
+  const adminNewEmail = newEmail.trim().toLowerCase()
+  const adminEmailDirty = Boolean(adminNewEmail) && adminNewEmail !== (targetEmail || '').toLowerCase()
+
+  // Save only opens the confirmation — nothing is sent until "Change email".
+  function askAdminEmailChange(e) {
+    e.preventDefault()
+    setEmailMsg(null)
+    if (!adminEmailDirty) {
+      setEmailMsg({ type: 'error', text: 'Enter a different email address.' })
+      return
+    }
+    setAdminEmailDialog({ stage: 'confirm', email: adminNewEmail, send: adminEmailSend })
+  }
+
+  async function confirmAdminEmailChange() {
+    const { email, send } = adminEmailDialog
+    setAdminEmailSaving(true)
+    const result = await changeStaffEmail(targetId, email, send)
+    setAdminEmailSaving(false)
+
+    if (!result.ok) {
+      // Back to the form, still open and still holding what was typed.
+      setAdminEmailDialog(null)
+      setEmailMsg({ type: 'error', text: result.error })
+      return
+    }
+
+    setAdminEmailDialog({ stage: 'result', email: result.email || email, send, result })
+    setTargetEmail(result.email || email)
+    setAdminEmailSend(true)
+    setEmailMsg(null)
+    setEmailEditing(false)
+    // The verified tick and the temp-password fields live on the profile.
+    reloadTarget()
   }
 
   // ── Avatar (own account only) ────────────────────────────────
@@ -1353,6 +1413,7 @@ export default function AccountSettingsPage() {
   if (!profile) return <p className="text-sm text-ink-muted">Loading…</p>
 
   const displayEmail = isOwnAccount ? user.email : targetEmail
+  const targetFullName = `${profile?.name || ''} ${profile?.surname || ''}`.trim() || 'This person'
 
   const visibleNotificationKeys = NOTIFICATION_ORDER.filter(key => key in prefs)
   const allNotificationsOn = visibleNotificationKeys.length > 0 &&
@@ -1627,10 +1688,55 @@ export default function AccountSettingsPage() {
               href={!isOwnAccount && displayEmail ? `mailto:${displayEmail}` : null}
               editLabel="Edit email address"
               editing={emailEditing}
-              onToggle={() => (emailEditing ? cancelEmailEdit() : setEmailEditing(true))}
-              editable={isOwnAccount}
+              onToggle={() => {
+                // Escape while the confirmation is up belongs to the dialog,
+                // not to the form behind it.
+                if (adminEmailDialog) return
+                emailEditing ? cancelEmailEdit() : setEmailEditing(true)
+              }}
+              editable={isOwnAccount || canAdminChangeEmail}
               verified={profile?.email_verified}
             >
+              {canAdminChangeEmail ? (
+              <form onSubmit={askAdminEmailChange} className="space-y-2" noValidate>
+                <ClearableInput
+                  type="email"
+                  value={newEmail}
+                  onChange={e => setNewEmail(e.target.value)}
+                  className="input-field"
+                  clearLabel="Clear email address"
+                  aria-label="New email address"
+                />
+                <p className="text-xs text-ink-muted">
+                  This is their login username. The change takes effect immediately. No confirmation email is sent.
+                </p>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={adminEmailSend}
+                    onChange={e => setAdminEmailSend(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink">Send login details to the new address</span>
+                    <span className="block text-xs text-ink-muted">
+                      Issues a new temporary password, valid for {TEMP_PASSWORD_VALIDITY_DAYS} days. Their current password stops working.
+                    </span>
+                  </span>
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="submit" disabled={!adminEmailDirty} className="btn-primary">
+                    Save
+                  </button>
+                  <button type="button" onClick={cancelEmailEdit} className="btn-secondary">
+                    Cancel
+                  </button>
+                  {emailMsg && (
+                    <span role="alert" className="text-xs font-medium text-flagRed">{emailMsg.text}</span>
+                  )}
+                </div>
+              </form>
+              ) : (
               <form onSubmit={changeEmail} className="space-y-2">
                 <ClearableInput
                   type="email"
@@ -1657,6 +1763,7 @@ export default function AccountSettingsPage() {
                   )}
                 </div>
               </form>
+              )}
             </ContactRow>
           </div>
         </div>
@@ -2026,6 +2133,30 @@ export default function AccountSettingsPage() {
           </SectionRow>
           )}
 
+          {/* ── Regenerate password (admin, someone else's account) ──
+              A SectionRow like every other section on this page: it opens
+              underneath its own header rather than throwing a modal over
+              the page, so a reader never loses their place on the account
+              they are looking at. The Staff list's row menu still opens the
+              same flow as a modal (RegeneratePasswordModal), because a list
+              row has nothing to open into. Never on the admin's own
+              account: they have Change password above. */}
+          {isAdmin && !isOwnAccount && (
+            <SectionRow
+              icon={<KeyRound className="h-5 w-5" />}
+              title="Regenerate password"
+              // must_change_password / temp_password_issued_at may have
+              // moved by the time this closes.
+              onClose={reloadTarget}
+            >
+              <RegeneratePasswordPanel
+                person={profile}
+                email={targetEmail || undefined}
+                onDone={reloadTarget}
+              />
+            </SectionRow>
+          )}
+
           {/* ── See Rotations (admin only, Intern/Registrar/COSMO only) ──
               Not a SectionRow (nothing expands inline) — a plain
               navigational row to the Rotations planner, landing straight on
@@ -2371,6 +2502,66 @@ export default function AccountSettingsPage() {
           onClose={() => !statusConfirmSaving && setStatusConfirmNextActive(null)}
         />
       )}
+
+      {adminEmailDialog?.stage === 'confirm' && (
+        <Modal
+          title="Change email address"
+          onClose={adminEmailSaving ? () => {} : () => setAdminEmailDialog(null)}
+          footer={
+            <>
+              <button type="button" className="btn-secondary" onClick={() => setAdminEmailDialog(null)} disabled={adminEmailSaving}>
+                Cancel
+              </button>
+              <button type="button" className="btn-primary" onClick={confirmAdminEmailChange} disabled={adminEmailSaving}>
+                {adminEmailSaving ? 'Changing…' : 'Change email'}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-ink">
+            {targetFullName}&rsquo;s login email will change from{' '}
+            <strong className="break-words font-semibold">{targetEmail || 'no address'}</strong> to{' '}
+            <strong className="break-words font-semibold">{adminEmailDialog.email}</strong>.
+          </p>
+          {adminEmailDialog.send && (
+            <p className="mt-3 text-sm text-ink">
+              A new temporary password will be emailed to{' '}
+              <strong className="break-words font-semibold">{adminEmailDialog.email}</strong>.
+            </p>
+          )}
+        </Modal>
+      )}
+
+      {adminEmailDialog?.stage === 'result' && (() => {
+        const { email, result } = adminEmailDialog
+        const close = () => setAdminEmailDialog(null)
+        return (
+          <Modal
+            title="Email changed"
+            onClose={close}
+            footer={<button type="button" className="btn-primary" onClick={close}>Done</button>}
+          >
+            {!result.credentialsIssued ? (
+              <p className="text-sm text-ink">
+                {result.credentialsError || 'Email changed.'}
+              </p>
+            ) : result.emailSent ? (
+              <p className="text-sm text-ink">
+                Email changed. Login details sent to <span className="break-words">{email}</span>.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-ink">
+                  Email changed and a new temporary password set, but the login details could not be emailed
+                  {result.emailError ? ` (${result.emailError})` : ''}. Their previous password no longer works.
+                  Valid for {TEMP_PASSWORD_VALIDITY_DAYS} days.
+                </p>
+                {result.password && <GeneratedPasswordNotice password={result.password} />}
+              </>
+            )}
+          </Modal>
+        )
+      })()}
     </div>
   )
 }

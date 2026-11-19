@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RegeneratePasswordModal from './RegeneratePasswordModal'
+import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
 
 const { regenerateStaffPassword } = vi.hoisted(() => ({ regenerateStaffPassword: vi.fn() }))
 vi.mock('../lib/staffCredentials', () => ({ regenerateStaffPassword }))
@@ -20,7 +21,7 @@ describe('RegeneratePasswordModal', () => {
     const user = userEvent.setup()
     render(<RegeneratePasswordModal person={PERSON} onClose={vi.fn()} />)
 
-    expect(screen.getByText(/issues Ada a brand-new password/)).toBeInTheDocument()
+    expect(screen.getByText(/issues Ada a new temporary password/)).toBeInTheDocument()
     expect(regenerateStaffPassword).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
@@ -70,5 +71,55 @@ describe('RegeneratePasswordModal', () => {
 
     expect(await screen.findByText('No account found for that person.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Regenerate and email' })).toBeInTheDocument()
+  })
+
+  // The modal is opened from the Staff list and from the Account page;
+  // where the address is known it names the destination.
+  it('shows the destination address when given one', async () => {
+    const user = userEvent.setup()
+    render(<RegeneratePasswordModal person={PERSON} email="ada@example.com" onClose={vi.fn()} />)
+
+    expect(screen.getByText('ada@example.com')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveTextContent('emails it to ada@example.com. Their current password stops working immediately.')
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
+    expect(await screen.findByText(/emailed to Ada Nkosi at ada@example.com\./)).toBeInTheDocument()
+  })
+
+  it('leaves the address out, rather than blank, when it is not known', async () => {
+    const user = userEvent.setup()
+    render(<RegeneratePasswordModal person={PERSON} onClose={vi.fn()} />)
+
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveTextContent('emails it to them. Their current password stops working immediately.')
+    expect(dialog).not.toHaveTextContent(/undefined|to \./)
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
+    expect(await screen.findByText(/emailed to Ada Nkosi\. It is valid/)).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).not.toHaveTextContent(' at ')
+  })
+
+  // The window is defined once, in tempPassword.js; the wording must follow it.
+  it('states the validity from TEMP_PASSWORD_VALIDITY_DAYS and no longer claims no expiry', async () => {
+    const user = userEvent.setup()
+    render(<RegeneratePasswordModal person={PERSON} email="ada@example.com" onClose={vi.fn()} />)
+
+    const valid = new RegExp(`valid for ${TEMP_PASSWORD_VALIDITY_DAYS} days`, 'i')
+    expect(screen.getByRole('dialog')).toHaveTextContent(valid)
+    expect(screen.getByRole('dialog')).not.toHaveTextContent(/no expiry/i)
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
+    await screen.findByText('New password sent')
+    expect(screen.getByRole('dialog')).toHaveTextContent(valid)
+  })
+
+  it('states the validity when the email could not be sent', async () => {
+    regenerateStaffPassword.mockResolvedValue({ ok: true, emailSent: false, password: 'Qw8$rtzPmn53' })
+    const user = userEvent.setup()
+    render(<RegeneratePasswordModal person={PERSON} onClose={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'Regenerate and email' }))
+    await screen.findByText('New password set — email not sent')
+    expect(screen.getByRole('dialog')).toHaveTextContent(`Valid for ${TEMP_PASSWORD_VALIDITY_DAYS} days.`)
   })
 })

@@ -106,7 +106,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
             and the SELECTED MONTH card under it, titled by the month the
             grid has selected. The year stepper is this view's only period
             control. */}
-        <div className={PANEL_RAIL}>
+        <div className={`order-first ${PANEL_RAIL}`}>
           <PlannerRequestPanel
             eyebrow="Weekends · Overview"
             stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}

@@ -72,6 +72,19 @@ describe('admin Delete account safeguards', () => {
   beforeEach(() => { deleteStaffAccount.mockReset(); deleteStaffAccount.mockResolvedValue({ ok: true }) })
   afterEach(() => { vi.useRealTimers() })
 
+  // The seam under the header used to be the page's slate hairline, which
+  // read as a stray teal line across an otherwise red panel.
+  it('draws the seam under the header in the card\'s own danger colour', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const header = await screen.findByRole('button', { name: 'Delete account', expanded: false })
+    await user.click(header)
+
+    const body = header.nextElementSibling
+    expect(body.className).toContain('border-danger/40')
+    expect(body.className).not.toContain('border-slate-line')
+  })
+
   it('keeps Delete disabled until the surname is typed (case and spaces ignored)', async () => {
     const user = userEvent.setup()
     renderPage()

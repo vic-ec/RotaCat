@@ -15,7 +15,10 @@ import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
 // (RegeneratePasswordModal), while someone else's Account page opens it
 // inline under its own section header, like every other section on that
 // page. `onCancel` is omitted where there is nothing to cancel back to (an
-// inline section is closed by its own header).
+// inline section is closed by its own header), and `actionsAlign` follows
+// the same split — an inline section leads with its button on the left, as
+// every other section on the Account page does, while a modal keeps the
+// right-aligned pair its Cancel/confirm shape calls for.
 //
 // There is no link here, so this can be run again as many times as needed.
 // The password it issues is temporary, though: it stops working after
@@ -27,7 +30,7 @@ import { TEMP_PASSWORD_VALIDITY_DAYS } from '../lib/tempPassword'
 // Confirmed before it runs because it is destructive to a credential the
 // person may currently be using: the moment it succeeds, their existing
 // password stops working.
-export default function RegeneratePasswordPanel({ person, email, onCancel, onDone }) {
+export default function RegeneratePasswordPanel({ person, email, onCancel, onDone, actionsAlign = 'start' }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
@@ -35,6 +38,7 @@ export default function RegeneratePasswordPanel({ person, email, onCancel, onDon
   const firstName = person.name || person.surname || 'this person'
   const fullName = `${person.name ? `${person.name} ` : ''}${person.surname || ''}`.trim() || 'This person'
   const days = TEMP_PASSWORD_VALIDITY_DAYS
+  const actionsRow = `mt-4 flex items-center gap-3 ${actionsAlign === 'end' ? 'justify-end' : ''}`
 
   async function handleConfirm() {
     setError('')
@@ -71,7 +75,7 @@ export default function RegeneratePasswordPanel({ person, email, onCancel, onDon
             {result.password && <GeneratedPasswordNotice password={result.password} />}
           </>
         )}
-        <div className="mt-4 flex justify-end">
+        <div className={actionsRow}>
           <button type="button" className="btn-primary" onClick={onDone}>Done</button>
         </div>
       </div>
@@ -95,7 +99,7 @@ export default function RegeneratePasswordPanel({ person, email, onCancel, onDon
         <div className="mt-3 rounded bg-flagRed-bg px-3 py-2 text-sm text-flagRed">{error}</div>
       )}
 
-      <div className="mt-4 flex justify-end gap-2">
+      <div className={actionsRow}>
         {onCancel && (
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={submitting}>
             Cancel

@@ -8,7 +8,7 @@ import RegeneratePasswordPanel from './RegeneratePasswordPanel'
 export default function RegeneratePasswordModal({ person, email, onClose }) {
   return (
     <Modal title="Regenerate password" onClose={onClose}>
-      <RegeneratePasswordPanel person={person} email={email} onCancel={onClose} onDone={onClose} />
+      <RegeneratePasswordPanel person={person} email={email} onCancel={onClose} onDone={onClose} actionsAlign="end" />
     </Modal>
   )
 }

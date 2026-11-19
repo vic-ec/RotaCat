@@ -4,6 +4,7 @@ import { ArrowLeftRight, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
+import { fetchAdminAttention } from '../lib/adminAttention'
 import { todayStr, addDays, formatShortDateRange, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
 import { upcomingRequests, annualDaysUsedInYear, pendingRequestCount } from '../lib/leaveDashboard'
@@ -106,7 +107,11 @@ function AttentionRow({ to, count, label }) {
   return (
     <Link to={to} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas-cool">
       <span className="flex items-baseline gap-3">
-        <span className="font-display text-xl font-bold text-ink">{count}</span>
+        {/* A row about one thing (next month's roster) has no count — a
+            dot holds the number's place so the labels stay aligned. */}
+        {count != null
+          ? <span className="min-w-[1.25rem] font-display text-xl font-bold text-ink">{count}</span>
+          : <span className="flex min-w-[1.25rem] justify-center self-center" aria-hidden="true"><span className="h-2 w-2 rounded-full bg-accent" /></span>}
         <span className="text-sm text-ink-light">{label}</span>
       </span>
       <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
@@ -131,6 +136,8 @@ export default function DashboardPage() {
   const [onLeaveNext, setOnLeaveNext] = useState([])
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0)
   const [hoursWarnings, setHoursWarnings] = useState([])
+  // The rest of Needs attention — see lib/adminAttention.js.
+  const [attentionItems, setAttentionItems] = useState([])
   const [onShiftNow, setOnShiftNow] = useState([])
   const [startingSoon, setStartingSoon] = useState([])
   const [loading, setLoading] = useState(true)
@@ -374,8 +381,13 @@ export default function DashboardPage() {
     setOnLeaveNext(rows.filter(r => r.date_from > today && r.date_from <= lookaheadEnd))
 
     const now = new Date()
-    const warnings = await getDashboardHoursWarnings(profilesRes.data || [], { year: now.getFullYear(), month: now.getMonth() + 1 })
+    const [warnings, attention] = await Promise.all([
+      getDashboardHoursWarnings(profilesRes.data || [], { year: now.getFullYear(), month: now.getMonth() + 1 }),
+      // Never let this panel's extra rows take the dashboard down with them.
+      fetchAdminAttention(now).catch(() => []),
+    ])
     setHoursWarnings(warnings)
+    setAttentionItems(attention)
 
     setLoading(false)
   }
@@ -596,7 +608,7 @@ export default function DashboardPage() {
                 single "View requests" beside an hours row pointed at the
                 wrong page. */}
             <SectionHeading>Needs attention</SectionHeading>
-            {pendingLeaveCount === 0 && hoursWarnings.length === 0 ? (
+            {pendingLeaveCount === 0 && hoursWarnings.length === 0 && attentionItems.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (
               <div className="card divide-y divide-slate-line">
@@ -614,6 +626,9 @@ export default function DashboardPage() {
                     label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} over their contracted hours this month`}
                   />
                 )}
+                {attentionItems.map(item => (
+                  <AttentionRow key={item.key} to={item.to} count={item.count} label={item.label} />
+                ))}
               </div>
             )}
           </section>

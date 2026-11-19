@@ -102,7 +102,7 @@ export function buildAttentionItems(data) {
   // 8. Rostered below their contracted minimum this month.
   if (data.underMinimum > 0) {
     items.push({
-      key: 'under-minimum', count: data.underMinimum, to: '/roster?view=summary',
+      key: 'under-minimum', count: data.underMinimum, to: '/roster?view=summary&hours=under',
       label: `${plural(data.underMinimum, 'doctor is', 'doctors are')} under their contracted hours this month`,
     })
   }

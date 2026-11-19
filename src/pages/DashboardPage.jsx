@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ChevronRight } from 'lucide-react'
+import { ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
@@ -29,6 +29,8 @@ const MAX_UPCOMING_ROWS = 5
 
 // How far ahead "upcoming team leave" looks, for the admin view.
 const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
+// How far back the sick-leave panel's "recently" column looks.
+const SICK_LOOKBACK_DAYS = 7
 
 function SectionHeading({ children, to, linkLabel }) {
   return (
@@ -107,11 +109,12 @@ function AttentionRow({ to, count, label }) {
   return (
     <Link to={to} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-canvas-cool">
       <span className="flex items-baseline gap-3">
-        {/* A row about one thing (next month's roster) has no count — a
-            dot holds the number's place so the labels stay aligned. */}
+        {/* A row about one thing (a roster that isn't out) has no count —
+            an amber warning sign holds the number's place. Amber is the
+            roster's own draft colour, which is what these rows are about. */}
         {count != null
           ? <span className="min-w-[1.25rem] font-display text-xl font-bold text-ink">{count}</span>
-          : <span className="flex min-w-[1.25rem] justify-center self-center" aria-hidden="true"><span className="h-2 w-2 rounded-full bg-accent" /></span>}
+          : <span className="flex min-w-[1.25rem] justify-center self-center" aria-hidden="true"><TriangleAlert className="h-4 w-4 text-flagAmber" /></span>}
         <span className="text-sm text-ink-light">{label}</span>
       </span>
       <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
@@ -134,6 +137,10 @@ export default function DashboardPage() {
   const [swapError, setSwapError] = useState('')
   const [onLeaveNow, setOnLeaveNow] = useState([])
   const [onLeaveNext, setOnLeaveNext] = useState([])
+  // Sick leave gets a panel of its own: it is unplanned, so who is off sick
+  // now and who has just been is a different question from planned leave.
+  const [sickNow, setSickNow] = useState([])
+  const [sickRecent, setSickRecent] = useState([])
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0)
   const [hoursWarnings, setHoursWarnings] = useState([])
   // The rest of Needs attention — see lib/adminAttention.js.
@@ -353,7 +360,7 @@ export default function DashboardPage() {
     setLoading(true)
     const today = todayStr()
 
-    const [pendingRes, leaveRes, profilesRes] = await Promise.all([
+    const [pendingRes, leaveRes, profilesRes, sickRes] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('id', { count: 'exact', head: true })
@@ -371,14 +378,32 @@ export default function DashboardPage() {
         .eq('is_approved', true)
         .eq('is_active', true)
         .neq('category', 'Consultant'),
+      // Sick leave touching today or the last SICK_LOOKBACK_DAYS days.
+      // Pending counts too: sick leave is reported as it happens and is
+      // often still waiting on approval while the doctor is already off.
+      supabase
+        .from('leave_requests')
+        .select('*, profiles!leave_requests_profile_id_fkey(name, surname, avatar_url, color_code, pattern_type)')
+        .eq('leave_type', 'sick')
+        .in('status', ['approved', 'pending'])
+        .gte('date_to', addDays(today, -SICK_LOOKBACK_DAYS))
+        .lte('date_from', today)
+        .order('date_from', { ascending: false })
+        .limit(50),
     ])
 
     setPendingLeaveCount(pendingRes.count || 0)
 
-    const rows = leaveRes.data || []
+    // Planned leave only — sick leave has its own panel below.
+    const rows = (leaveRes.data || []).filter(r => r.leave_type !== 'sick')
     const lookaheadEnd = addDays(today, TEAM_LEAVE_LOOKAHEAD_DAYS)
     setOnLeaveNow(rows.filter(r => r.date_from <= today && today <= r.date_to))
     setOnLeaveNext(rows.filter(r => r.date_from > today && r.date_from <= lookaheadEnd))
+
+    const sick = (sickRes.data || []).filter(r => r.leave_type === 'sick')
+    setSickNow(sick.filter(r => r.date_from <= today && today <= r.date_to))
+    // Back at work within the last week, most recent first.
+    setSickRecent(sick.filter(r => r.date_to < today).sort((a, b) => b.date_to.localeCompare(a.date_to)))
 
     const now = new Date()
     const [warnings, attention] = await Promise.all([
@@ -621,7 +646,7 @@ export default function DashboardPage() {
                 )}
                 {hoursWarnings.length > 0 && (
                   <AttentionRow
-                    to={HOURS_SUMMARY_PATH}
+                    to={`${HOURS_SUMMARY_PATH}&hours=over`}
                     count={hoursWarnings.length}
                     label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} over their contracted hours this month`}
                   />
@@ -655,6 +680,34 @@ export default function DashboardPage() {
                 ) : (
                   <ul className="mt-2 space-y-2">
                     {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Sick leave — who is off sick today, and who has been in the
+              last week. Kept apart from Team leave above, which is planned. */}
+          <section>
+            <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Sick leave</SectionHeading>
+            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+              <div className="p-4">
+                <p className="text-xs font-medium text-ink-muted">Off sick today</p>
+                {sickNow.length === 0 ? (
+                  <p className="mt-2 text-sm text-ink-muted">Nobody off sick today</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {sickNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                  </ul>
+                )}
+              </div>
+              <div className="p-4">
+                <p className="text-xs font-medium text-ink-muted">Last {SICK_LOOKBACK_DAYS} days</p>
+                {sickRecent.length === 0 ? (
+                  <p className="mt-2 text-sm text-ink-muted">No other sick leave</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {sickRecent.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
                   </ul>
                 )}
               </div>

@@ -244,7 +244,7 @@ describe('DashboardPage', () => {
     expect(within(pendingRow).getByText('3')).toBeInTheDocument()
 
     const hoursRow = screen.getByRole('link', { name: /over their contracted hours this month/ })
-    expect(hoursRow).toHaveAttribute('href', '/roster?view=summary')
+    expect(hoursRow).toHaveAttribute('href', '/roster?view=summary&hours=over')
     expect(within(hoursRow).getByText('1')).toBeInTheDocument()
   })
 
@@ -270,7 +270,9 @@ describe('DashboardPage', () => {
     const today = todayStr()
     mockResponses['leave_requests:select'] = {
       data: [
-        { id: 'now-1', leave_type: 'sick', date_from: today, date_to: today, profiles: { name: 'On', surname: 'Leave' } },
+        { id: 'now-1', leave_type: 'annual', date_from: today, date_to: today, profiles: { name: 'On', surname: 'Leave' } },
+        { id: 'sick-1', leave_type: 'sick', date_from: today, date_to: today, profiles: { name: 'Off', surname: 'Sick' } },
+        { id: 'sick-2', leave_type: 'sick', date_from: addDays(today, -3), date_to: addDays(today, -2), profiles: { name: 'Back', surname: 'Now' } },
         { id: 'soon-1', leave_type: 'annual', date_from: addDays(today, 3), date_to: addDays(today, 5), profiles: { name: 'Soon', surname: 'Doctor' } },
         { id: 'far-1', leave_type: 'annual', date_from: '2099-01-01', date_to: '2099-01-05', profiles: { name: 'Later', surname: 'Doctor' } },
       ],
@@ -288,7 +290,11 @@ describe('DashboardPage', () => {
     const today_ = screen.getByText('Away today').closest('div')
     // Each name carries its leave type — "away" alone never said what for.
     expect(within(today_).getByText('On Leave')).toBeInTheDocument()
-    expect(within(today_).getByText(/^Sick · /)).toBeInTheDocument()
+    expect(within(today_).getByText(/^Annual · /)).toBeInTheDocument()
+    // Sick leave is not planned leave: it has its own panel, today and the last week
+    expect(within(today_).queryByText('Off Sick')).not.toBeInTheDocument()
+    expect(within(screen.getByText('Off sick today').closest('div')).getByText('Off Sick')).toBeInTheDocument()
+    expect(within(screen.getByText('Last 7 days').closest('div')).getByText('Back Now')).toBeInTheDocument()
     const next = screen.getByText('Next 7 days').closest('div')
     expect(within(next).getByText('Soon Doctor')).toBeInTheDocument()
     expect(within(next).getByText(/^Annual · /)).toBeInTheDocument()

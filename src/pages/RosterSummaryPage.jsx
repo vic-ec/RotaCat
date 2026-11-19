@@ -48,6 +48,15 @@ function hoursBand(row) {
   return null
 }
 
+const HOURS_FILTER_OPTIONS = [
+  { value: 'over', label: 'Over contracted hours' },
+  { value: 'under', label: 'Under contracted hours' },
+  { value: 'within', label: 'Within range' },
+]
+function hoursFilterFromParam(param) {
+  return new Set(HOURS_FILTER_OPTIONS.map(o => o.value).filter(v => v === param))
+}
+
 export default function RosterSummaryPage() {
   // The table runs to the bottom of the window with many rows, and to its
   // last row with few — see the hook.
@@ -90,6 +99,17 @@ export default function RosterSummaryPage() {
   const [error, setError] = useState('')
   const [selectedCategories, setSelectedCategories] = useState(new Set())
   const [selectedContractTypes, setSelectedContractTypes] = useState(new Set())
+  // Over / under / within the contracted range — the same bands the Worked
+  // cell is coloured by. A link can preselect it (?hours=over), which is
+  // how the admin dashboard's hours rows land on exactly the doctors they
+  // counted instead of leaving the admin to hunt for a red cell.
+  const [selectedHours, setSelectedHours] = useState(() => hoursFilterFromParam(searchParams.get('hours')))
+  const hoursParam = searchParams.get('hours')
+  useEffect(() => {
+    // This page stays mounted across tab switches, so a later link in with
+    // a different ?hours= has to re-apply, not just the first mount.
+    if (hoursParam) setSelectedHours(hoursFilterFromParam(hoursParam))
+  }, [hoursParam])
   const [searchQuery, setSearchQuery] = useState('')
   // 'category-asc' (MO → Registrar → Intern) is the default/neutral order.
   const [sortMode, setSortMode] = useState(DEFAULT_DOCTOR_SORT)
@@ -141,7 +161,7 @@ export default function RosterSummaryPage() {
   )
 
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
-  const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0
+  const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0 || selectedHours.size > 0
   const sortFacets = [{
     key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
     value: sortMode, onChange: setSortMode,
@@ -159,14 +179,20 @@ export default function RosterSummaryPage() {
       options: CONTRACT_TYPE_ORDER.map(c => ({ value: c, label: CONTRACT_TYPE_LABEL[c] })),
       selected: selectedContractTypes, onChange: setSelectedContractTypes,
     },
+    {
+      key: 'hours', label: 'Hours',
+      options: HOURS_FILTER_OPTIONS,
+      selected: selectedHours, onChange: setSelectedHours,
+    },
   ]
-  const clearAllFilters = () => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()) }
+  const clearAllFilters = () => { setSelectedCategories(new Set()); setSelectedContractTypes(new Set()); setSelectedHours(new Set()) }
   const query = searchQuery.trim().toLowerCase()
   const filteredRows = rows
     .filter(r =>
       (!query || `${r.name} ${r.surname}`.toLowerCase().includes(query)) &&
       (selectedCategories.size === 0 || selectedCategories.has(r.category)) &&
-      (selectedContractTypes.size === 0 || selectedContractTypes.has(r.contractType))
+      (selectedContractTypes.size === 0 || selectedContractTypes.has(r.contractType)) &&
+      (selectedHours.size === 0 || selectedHours.has(hoursBand(r) ?? 'within'))
     )
     .sort(DOCTOR_SORT_COMPARATORS[sortMode])
     // Own row always leads, whatever sort/filter is active — a second

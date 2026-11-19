@@ -434,8 +434,6 @@ export default function DashboardPage() {
                   : 'Here\'s what\'s happening.'}
           </p>
         </div>
-        {/* Doctor/locum/admin views put birthdays last in the stack instead — see below. */}
-        {isClerk && <UpcomingBirthdays />}
       </div>
 
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
@@ -614,6 +612,9 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Last in the stack, as in every other role's view. */}
+          <UpcomingBirthdays />
         </div>
       )}
 

@@ -56,11 +56,30 @@ describe('UpcomingBirthdays', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders nothing at all when nobody has a birthday in the next 30 days', async () => {
-    mockProfiles.data = [{ id: 'p1', name: 'Far', surname: 'Off', birthday: '2000-01-01' }] // ~5 months from Aug 2
-    const { container } = render(<UpcomingBirthdays />)
-    await waitForFetch()
-    expect(container).toBeEmptyDOMElement()
+  it('still shows, with a reason, when nobody has a birthday in the next 30 days', async () => {
+    mockProfiles.data = [
+      { id: 'p1', name: 'Far', surname: 'Off', birthday: '2000-01-01' }, // ~5 months from Aug 2
+      { id: 'p2', name: 'No', surname: 'Date', birthday: null },
+      { id: 'p3', name: 'Also', surname: 'None', birthday: null },
+    ]
+    render(<UpcomingBirthdays />)
+    expect(await screen.findByText('No birthdays in the next 30 days')).toBeInTheDocument()
+    expect(screen.getByText('Upcoming birthdays')).toBeInTheDocument()
+    // the usual reason the list is short
+    expect(screen.getByText(/1 of 3 staff have a birthday saved/)).toBeInTheDocument()
+  })
+
+  it('runs straight across a month end and a year end', async () => {
+    mockProfiles.data = [
+      { id: 'p1', name: 'Next', surname: 'Month', birthday: '2000-09-01' }, // 30 days out, in September
+      { id: 'p2', name: 'Just', surname: 'Outside', birthday: '2000-09-02' }, // 31 days out
+    ]
+    render(<UpcomingBirthdays />)
+    const items = await screen.findAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Next Month')
+    expect(items[0]).toHaveTextContent('1 September')
+    expect(items[0]).toHaveTextContent('in 30 days')
   })
 
   it('lists upcoming birthdays sorted by proximity, formatted as day + month', async () => {
@@ -87,15 +106,19 @@ describe('UpcomingBirthdays', () => {
   it('wraps a birthday that already passed this year around to next year (falls outside the window)', async () => {
     // Today is 2 August 2026; 1 July already passed this year — should NOT show
     mockProfiles.data = [{ id: 'p1', name: 'Passed', surname: 'Already', birthday: '2000-07-01' }]
-    const { container } = render(<UpcomingBirthdays />)
+    render(<UpcomingBirthdays />)
     await waitForFetch()
-    expect(container).toBeEmptyDOMElement()
+    // nobody listed — the panel shows its empty message instead
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    expect(screen.getByText('No birthdays in the next 30 days')).toBeInTheDocument()
   })
 
   it('ignores rows with no birthday set', async () => {
     mockProfiles.data = [{ id: 'p1', name: 'No', surname: 'Birthday', birthday: null }]
-    const { container } = render(<UpcomingBirthdays />)
+    render(<UpcomingBirthdays />)
     await waitForFetch()
-    expect(container).toBeEmptyDOMElement()
+    // nobody listed — the panel shows its empty message instead
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    expect(screen.getByText('No birthdays in the next 30 days')).toBeInTheDocument()
   })
 })

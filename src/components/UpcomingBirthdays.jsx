@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
+import ProfileAvatar from './ProfileAvatar'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -11,7 +12,6 @@ const MONTH_NAMES = [
 // Only birthdays in the next month are worth surfacing as "upcoming" — a
 // birthday 300 days out isn't actionable, it'd just be noise.
 const UPCOMING_WINDOW_DAYS = 30
-const MAX_SHOWN = 5
 
 // profiles.birthday is stored as a `date` with a fixed placeholder year
 // (2000, a leap year — see AccountSettingsPage's BIRTHDAY_YEAR comment).
@@ -35,9 +35,23 @@ function formatBirthday(birthday) {
 // below it, which branch on isAdmin/isClerk/isLocum), so it fetches
 // independently of those role-specific queries rather than being folded
 // into loadAdminWidgets/loadClerkWidgets/etc.
+function whenLabel(daysUntil) {
+  if (daysUntil === 0) return 'Today'
+  if (daysUntil === 1) return 'Tomorrow'
+  return `in ${daysUntil} days`
+}
+
+// Birthdays in the next 30 days, soonest first — the window runs straight
+// across a month end and a year end (see daysUntilNextBirthday). Always
+// rendered once loaded: this used to disappear entirely whenever the window
+// was empty, which with few birthdays on record meant it was never seen and
+// nobody could tell whether it existed. An empty window now says so, and
+// says how many people have a birthday saved at all — usually the real
+// reason the list is short.
 export default function UpcomingBirthdays() {
   const { profile } = useAuth()
   const [birthdays, setBirthdays] = useState([])
+  const [counts, setCounts] = useState({ total: 0, withBirthday: 0 })
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -45,44 +59,58 @@ export default function UpcomingBirthdays() {
     let cancelled = false
     supabase
       .from('profiles')
-      .select('id, name, surname, birthday')
-      .not('birthday', 'is', null)
+      .select('id, name, surname, birthday, avatar_url, color_code, pattern_type')
       .eq('is_approved', true)
       .eq('is_active', true)
       .then(({ data }) => {
         if (cancelled) return
         const today = todayStr()
-        const upcoming = (data || [])
-          .filter(p => p.birthday)
+        const people = data || []
+        const known = people.filter(p => p.birthday)
+        const upcoming = known
           .map(p => ({ ...p, daysUntil: daysUntilNextBirthday(p.birthday, today) }))
           .filter(p => p.daysUntil <= UPCOMING_WINDOW_DAYS)
-          .sort((a, b) => a.daysUntil - b.daysUntil)
-          .slice(0, MAX_SHOWN)
+          .sort((a, b) => a.daysUntil - b.daysUntil || (a.surname || '').localeCompare(b.surname || ''))
         setBirthdays(upcoming)
+        setCounts({ total: people.length, withBirthday: known.length })
         setLoaded(true)
       })
     return () => { cancelled = true }
   }, [profile?.id])
 
-  // Nothing in the window renders nothing at all — a card reading "No
-  // birthdays in the next 30 days" occupies a whole slot on a phone screen
-  // to tell the reader there's nothing to know. Same rule the Dashboard now
-  // applies to its own conditional sections.
-  if (!loaded || birthdays.length === 0) return null
+  if (!loaded) return null
 
   return (
-    <div className="w-full flex-shrink-0 card p-4 md:w-72">
-      <h2 className="text-sm font-semibold text-ink">Upcoming birthdays</h2>
-      <ul className="mt-2 space-y-1.5 text-sm">
-        {birthdays.map(p => (
-          <li key={p.id} className="flex items-center justify-between gap-3">
-            <span className="text-ink-light">{p.name} {p.surname}</span>
-            <span className={p.daysUntil === 0 ? 'font-medium text-accent' : 'text-ink-muted'}>
-              {p.daysUntil === 0 ? 'Today' : formatBirthday(p.birthday)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-ink">Upcoming birthdays</h2>
+        <span className="whitespace-nowrap text-xs text-ink-muted">Next {UPCOMING_WINDOW_DAYS} days</span>
+      </div>
+      {birthdays.length === 0 ? (
+        <div className="card p-4">
+          <p className="text-sm text-ink-muted">No birthdays in the next {UPCOMING_WINDOW_DAYS} days</p>
+          {counts.withBirthday < counts.total && (
+            <p className="mt-1 text-xs text-ink-muted">
+              {counts.withBirthday} of {counts.total} staff have a birthday saved. Each person can add theirs on their Account page.
+            </p>
+          )}
+        </div>
+      ) : (
+        <ul className="card divide-y divide-slate-line overflow-hidden">
+          {birthdays.map(p => (
+            <li key={p.id} className="flex items-center gap-2.5 px-4 py-2.5">
+              <ProfileAvatar profile={p} size={32} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold text-ink">{p.name} {p.surname}</span>
+                <span className="block text-xs text-ink-muted">{formatBirthday(p.birthday)}</span>
+              </span>
+              <span className={`flex-shrink-0 text-xs ${p.daysUntil === 0 ? 'font-semibold text-accent' : 'text-ink-muted'}`}>
+                {whenLabel(p.daysUntil)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

@@ -11,7 +11,7 @@
 import { supabase } from './supabase'
 import { columnForLeaveCategory } from './leaveYearGrid'
 import { todayStr, addDays } from './dateRange'
-import { defaultHoursForCategory } from './staffDefaults'
+import { defaultHoursForCategory, rotationTypeKey } from './staffDefaults'
 
 // Doctor categories whose EC/OT status is tracked as a rotation timeline
 // rather than a fixed profiles field — mirrors categoryNeedsContractChoice's
@@ -77,6 +77,25 @@ export function rotationTouchesMonth(rotation, year, month) {
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`
   const monthEnd = `${year}-${String(month).padStart(2, '0')}-31` // string comparison is safe here — YYYY-MM-DD sorts lexically, and no real date exceeds 31
   return rotation.start_date <= monthEnd && (rotation.end_date === null || rotation.end_date >= monthStart)
+}
+
+// One typeKey per month (1-12) for a doctor's rotations in the displayed
+// year, or null for a genuine gap — gaps are real (an intern can be
+// between their EC block and their next OT placement) and the Rotations
+// page's month cells (RotationSequenceRow.jsx) must show them empty
+// rather than filled or collapsed. A real data overlap (two rotations
+// touching the same month) is tie-broken by latest start_date; the same
+// cell this produces is what the panel's overlap warning is about, so
+// which one "wins" here is cosmetic, not a second source of truth.
+export function monthlyTypeKeys(doctorRotations, year) {
+  const keys = []
+  for (let month = 1; month <= 12; month++) {
+    const touching = (doctorRotations || []).filter(r => rotationTouchesMonth(r, year, month))
+    if (touching.length === 0) { keys.push(null); continue }
+    const winner = [...touching].sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
+    keys.push(rotationTypeKey(winner.rotation_type, winner.subtype))
+  }
+  return keys
 }
 
 // True if [dateFrom, dateTo] extends past the end of the rotation covering
@@ -307,4 +326,114 @@ export function endOfRotationFlag({ category, scheduledInactiveDate, rotations }
   if (somethingCoversWhatsNext) return null
 
   return lastRotation
+}
+
+// ── Rotation sequence rows (the Rotations page's Active/Upcoming/
+// Completed tabs — see RotationSequenceRow.jsx) ────────────────────────
+//
+// A "block" is a run of a doctor's rotations with no gap between them —
+// each one starts the very next day after the previous one ends. A block
+// never continues past an open-ended (null end_date) rotation: nothing can
+// start "the day after" a date that doesn't exist, so an open-ended
+// rotation is always the last entry of its block. Returns blocks in
+// start-date order, each `{ rotations, startDate, endDate }` (`endDate` is
+// the block's own last rotation's end_date, so null means the block itself
+// is still open).
+export function groupRotationsIntoBlocks(rotations) {
+  const sorted = [...(rotations || [])].sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const blocks = []
+  for (const rotation of sorted) {
+    const current = blocks[blocks.length - 1]
+    const last = current?.rotations[current.rotations.length - 1]
+    if (current && last.end_date !== null && rotation.start_date === addDays(last.end_date, 1)) {
+      current.rotations.push(rotation)
+    } else {
+      blocks.push({ rotations: [rotation] })
+    }
+  }
+  return blocks.map(b => ({
+    rotations: b.rotations,
+    startDate: b.rotations[0].start_date,
+    endDate: b.rotations[b.rotations.length - 1].end_date,
+  }))
+}
+
+// Inclusive count of distinct calendar months a [startDate, endDate] range
+// touches — "1 Nov to 31 Jan" is 3 (Nov, Dec, Jan), not a day count. Used
+// for both "month 2 of 3" (a single-rotation block's position) and a
+// completed doctor's total months on record.
+export function monthSpan(startDate, endDate) {
+  const [sy, sm] = startDate.slice(0, 7).split('-').map(Number)
+  const [ey, em] = endDate.slice(0, 7).split('-').map(Number)
+  return (ey * 12 + em) - (sy * 12 + sm) + 1
+}
+
+// The rotation covering `date`, tie-broken by latest start_date when two
+// rows overlap — the same tie-break InternRotationsMatrix.jsx's own
+// monthlyTypeKeys already uses for which colour a month cell shows, kept
+// consistent here for which rotation a position line is built from.
+// Deliberately separate from rotationForDate above (first-match, no
+// tie-break) — that one feeds leave-capacity resolution, a different
+// question this doesn't touch.
+function currentRotation(rotations, date) {
+  return rotations
+    .filter(r => r.start_date <= date && (r.end_date === null || date <= r.end_date))
+    .sort((a, b) => b.start_date.localeCompare(a.start_date))[0] ?? null
+}
+
+// The Active tab's per-doctor position, as the raw rotations/dates it's
+// built from — RotationSequenceRow.jsx turns this into the chip + position
+// line text (label/code lookups and date formatting are display concerns,
+// kept out of this module). One of:
+//   { situation: 'none' }                                     — nothing current, nothing scheduled
+//   { situation: 'between-blocks', next }                     — nothing current, one scheduled later
+//   { situation: 'ongoing', current }                         — current rotation has no end date
+//   { situation: 'last-in-block', current }                   — current is the last rotation of a multi-rotation block
+//   { situation: 'single', current, blockStart }              — current's block is just that one rotation
+//   { situation: 'mid-block', current, next, blockEnd }       — current is followed by another rotation in the same block
+export function activeRotationStatus(rotations, today = todayStr()) {
+  const list = rotations || []
+  const current = currentRotation(list, today)
+  if (!current) {
+    const next = list
+      .filter(r => r.start_date > today)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]
+    return next ? { situation: 'between-blocks', next } : { situation: 'none' }
+  }
+  if (current.end_date === null) return { situation: 'ongoing', current }
+
+  const block = groupRotationsIntoBlocks(list).find(b => b.rotations.some(r => r.id === current.id))
+  const index = block.rotations.findIndex(r => r.id === current.id)
+  if (block.rotations.length === 1) return { situation: 'single', current, blockStart: block.startDate }
+  if (index === block.rotations.length - 1) return { situation: 'last-in-block', current }
+  return { situation: 'mid-block', current, next: block.rotations[index + 1], blockEnd: block.endDate }
+}
+
+// The Upcoming tab's per-doctor position — the doctor's first (earliest)
+// block, since they haven't started yet. One of:
+//   { situation: 'none' }
+//   { situation: 'single', rotation }           — the first block is just one rotation
+//   { situation: 'multi', rotations, blockEnd } — the first block has several, in order
+export function upcomingRotationStatus(rotations) {
+  const blocks = groupRotationsIntoBlocks(rotations || [])
+  if (blocks.length === 0) return { situation: 'none' }
+  const first = blocks[0]
+  if (first.rotations.length === 1) return { situation: 'single', rotation: first.rotations[0] }
+  return { situation: 'multi', rotations: first.rotations, blockEnd: first.endDate }
+}
+
+// The Completed tab's per-doctor position — totalled across every
+// rotation on record, not just the displayed year. One of:
+//   { situation: 'none' }
+//   { situation: 'single-type', rotation, totalMonths } — exactly one block, itself a single rotation
+//   { situation: 'multi-block', totalMonths, blockCount } — everything else (several blocks, or one block of several rotations)
+export function completedRotationStatus(rotations) {
+  const list = rotations || []
+  const blocks = groupRotationsIntoBlocks(list)
+  if (blocks.length === 0) return { situation: 'none' }
+  const totalMonths = list.reduce((sum, r) => sum + monthSpan(r.start_date, r.end_date ?? r.start_date), 0)
+  if (blocks.length === 1 && blocks[0].rotations.length === 1) {
+    return { situation: 'single-type', rotation: blocks[0].rotations[0], totalMonths }
+  }
+  return { situation: 'multi-block', totalMonths, blockCount: blocks.length }
 }

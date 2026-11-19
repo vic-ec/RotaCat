@@ -67,7 +67,7 @@ describe('AddStaffModal', () => {
     await fillIdentity(user)
     await pickFromSelect(user, /Select…/, 'Intern')
     await pickFromSelect(user, /EC — full hours/, /OT — Junior Doctor Overtime/)
-    await pickFromSelect(user, /Not yet assigned…/, 'LRCHC')
+    await pickFromSelect(user, /Not yet assigned…/, 'Day Hospital')
     setDate('Active from', '2026-09-01')
     setDate('Active until', '2027-08-31')
 

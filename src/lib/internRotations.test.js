@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   resolveLeaveCapacityColumn, rotationForDate, straddlesRotationBoundary, rotationBoundaryNote, groupRotationsByDoctorId,
-  endOfRotationFlag,
+  endOfRotationFlag, groupRotationsIntoBlocks, monthSpan, activeRotationStatus, upcomingRotationStatus, completedRotationStatus,
 } from './internRotations'
 
 const EC_ROTATION = { doctor_id: 'intern-1', rotation_type: 'EC', start_date: '2027-01-01', end_date: '2027-02-28' }
@@ -152,5 +152,150 @@ describe('endOfRotationFlag', () => {
   it('resolves off the block with the latest start_date, not array order', () => {
     const earlier = { start_date: '2026-10-01', end_date: '2026-12-31' }
     expect(endOfRotationFlag({ category: 'Intern', rotations: [ENDED_ROTATION, earlier] }, '2027-06-15')).toEqual(ENDED_ROTATION)
+  })
+})
+
+describe('groupRotationsIntoBlocks', () => {
+  it('joins rotations with no gap into one block', () => {
+    const ec = { id: 'a', start_date: '2027-01-01', end_date: '2027-03-31' }
+    const ot = { id: 'b', start_date: '2027-04-01', end_date: '2027-06-30' }
+    const blocks = groupRotationsIntoBlocks([ot, ec]) // deliberately out of order
+    expect(blocks).toEqual([{ rotations: [ec, ot], startDate: '2027-01-01', endDate: '2027-06-30' }])
+  })
+
+  it('splits into separate blocks when there is a real gap', () => {
+    const first = { id: 'a', start_date: '2027-01-01', end_date: '2027-03-31' }
+    const second = { id: 'b', start_date: '2027-05-01', end_date: '2027-07-31' } // gap: Apr is unassigned
+    const blocks = groupRotationsIntoBlocks([first, second])
+    expect(blocks).toEqual([
+      { rotations: [first], startDate: '2027-01-01', endDate: '2027-03-31' },
+      { rotations: [second], startDate: '2027-05-01', endDate: '2027-07-31' },
+    ])
+  })
+
+  it('never continues a block past an open-ended rotation', () => {
+    const open = { id: 'a', start_date: '2027-01-01', end_date: null }
+    const later = { id: 'b', start_date: '2027-06-01', end_date: '2027-08-31' }
+    const blocks = groupRotationsIntoBlocks([open, later])
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]).toEqual({ rotations: [open], startDate: '2027-01-01', endDate: null })
+  })
+
+  it('returns an empty list for no rotations', () => {
+    expect(groupRotationsIntoBlocks([])).toEqual([])
+    expect(groupRotationsIntoBlocks(undefined)).toEqual([])
+  })
+})
+
+describe('monthSpan', () => {
+  it('counts a single month as 1', () => {
+    expect(monthSpan('2027-03-05', '2027-03-28')).toBe(1)
+  })
+
+  it('counts inclusively across months within a year', () => {
+    expect(monthSpan('2027-01-01', '2027-03-31')).toBe(3)
+  })
+
+  it('counts across a year boundary', () => {
+    expect(monthSpan('2027-11-01', '2028-01-31')).toBe(3)
+  })
+})
+
+describe('activeRotationStatus', () => {
+  it('mid-block: current rotation ends, another follows in the same block', () => {
+    const current = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-09-01', end_date: '2027-11-30' }
+    const next = { id: 'b', rotation_type: 'OT', subtype: 'DPM_BCH', start_date: '2027-12-01', end_date: '2028-02-29' }
+    expect(activeRotationStatus([current, next], '2027-11-15')).toEqual({
+      situation: 'mid-block', current, next, blockEnd: '2028-02-29',
+    })
+  })
+
+  it('last rotation in a multi-rotation block', () => {
+    const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-09-01', end_date: '2027-11-30' }
+    const current = { id: 'b', rotation_type: 'OT', subtype: 'DPM_BCH', start_date: '2027-12-01', end_date: '2028-02-29' }
+    expect(activeRotationStatus([first, current], '2028-01-15')).toEqual({ situation: 'last-in-block', current })
+  })
+
+  it('a single-rotation block (typical registrar)', () => {
+    const current = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-11-01', end_date: '2028-01-31' }
+    expect(activeRotationStatus([current], '2027-12-15')).toEqual({
+      situation: 'single', current, blockStart: '2027-11-01',
+    })
+  })
+
+  it('a block crossing a year end still resolves blockEnd correctly', () => {
+    const current = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-10-01', end_date: '2027-12-31' }
+    const next = { id: 'b', rotation_type: 'OT', subtype: 'LRCHC', start_date: '2028-01-01', end_date: '2028-02-28' }
+    const status = activeRotationStatus([current, next], '2027-11-01')
+    expect(status.situation).toBe('mid-block')
+    expect(status.blockEnd).toBe('2028-02-28')
+  })
+
+  it('an open-ended current rotation is "ongoing", even mid-block', () => {
+    const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-03-31' }
+    const current = { id: 'b', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2027-04-01', end_date: null }
+    expect(activeRotationStatus([first, current], '2027-06-01')).toEqual({ situation: 'ongoing', current })
+  })
+
+  it('between blocks: nothing current, one scheduled later', () => {
+    const next = { id: 'a', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2028-03-01', end_date: null }
+    expect(activeRotationStatus([next], '2028-01-15')).toEqual({ situation: 'between-blocks', next })
+  })
+
+  it('nothing scheduled at all', () => {
+    expect(activeRotationStatus([], '2027-01-01')).toEqual({ situation: 'none' })
+  })
+
+  it('overlap: the rotation with the latest start_date wins, not array order', () => {
+    const earlier = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-06-30' }
+    const later = { id: 'b', rotation_type: 'OT', subtype: 'PSYCH', start_date: '2027-06-01', end_date: '2027-08-31' }
+    // Overlapping rotations aren't "adjacent", so they form two separate
+    // one-rotation blocks here, not one two-rotation block — the point of
+    // this test is just that `later` (not `earlier`) is the one picked.
+    expect(activeRotationStatus([earlier, later], '2027-06-15')).toEqual({
+      situation: 'single', current: later, blockStart: '2027-06-01',
+    })
+  })
+})
+
+describe('upcomingRotationStatus', () => {
+  it('no rotations on file yet', () => {
+    expect(upcomingRotationStatus([])).toEqual({ situation: 'none' })
+  })
+
+  it('a single-rotation first block', () => {
+    const rotation = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-03-31' }
+    expect(upcomingRotationStatus([rotation])).toEqual({ situation: 'single', rotation })
+  })
+
+  it('a multi-rotation first block, in order', () => {
+    const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-02-28' }
+    const second = { id: 'b', rotation_type: 'OT', subtype: 'DPM_BCH', start_date: '2027-03-01', end_date: '2027-04-30' }
+    expect(upcomingRotationStatus([second, first])).toEqual({
+      situation: 'multi', rotations: [first, second], blockEnd: '2027-04-30',
+    })
+  })
+})
+
+describe('completedRotationStatus', () => {
+  it('no rotations on file', () => {
+    expect(completedRotationStatus([])).toEqual({ situation: 'none' })
+  })
+
+  it('a single block that is itself a single rotation', () => {
+    const rotation = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-03-31' }
+    expect(completedRotationStatus([rotation])).toEqual({ situation: 'single-type', rotation, totalMonths: 3 })
+  })
+
+  it('several blocks total their months across all of them, not just one', () => {
+    const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-02-28' }
+    const second = { id: 'b', rotation_type: 'OT', subtype: 'LRCHC', start_date: '2027-06-01', end_date: '2027-07-31' }
+    expect(completedRotationStatus([first, second])).toEqual({ situation: 'multi-block', totalMonths: 4, blockCount: 2 })
+  })
+
+  it('a single block of several rotations is also multi-block', () => {
+    const first = { id: 'a', rotation_type: 'EC', subtype: null, start_date: '2027-01-01', end_date: '2027-02-28' }
+    const second = { id: 'b', rotation_type: 'OT', subtype: 'LRCHC', start_date: '2027-03-01', end_date: '2027-03-31' }
+    expect(completedRotationStatus([first, second])).toEqual({ situation: 'multi-block', totalMonths: 3, blockCount: 1 })
   })
 })

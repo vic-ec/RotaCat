@@ -1242,9 +1242,11 @@ export default function StaffListPage() {
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
-                          className={`flex items-center gap-3 px-4 py-1 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''} ${
-                            person.is_active ? '' : 'opacity-60'
-                          }`}
+                          // No fade on an inactive account — the red
+                          // "Inactive" chip below is the signal. Dimming
+                          // the whole row made the name and contact
+                          // details harder to read for no extra meaning.
+                          className={`flex items-center gap-3 px-4 py-1 transition-colors hover:bg-canvas-sunken ${canContact ? 'cursor-pointer no-callout active:bg-slate-line' : ''}`}
                         >
                           <div className="relative flex-shrink-0">
                             <ProfileAvatar profile={person} size={40} />
@@ -1370,7 +1372,11 @@ export default function StaffListPage() {
                             // AccountSlideOverPanel/App.jsx.
                             onClick={() => isAdmin && navigate(`/account/${person.id}`, { state: { backgroundLocation: location } })}
                             title={isAdmin ? `Open ${person.name || ''} ${person.surname}'s account settings` : undefined}
-                            className={`border-b border-slate-line last:border-0 transition-colors hover:bg-canvas-sunken ${!person.is_active ? 'opacity-50' : ''} ${
+                            // No fade on an inactive account — the Status
+                            // column (toggle off + red "Inactive") is the
+                            // signal. Dimming the whole row also washed
+                            // that red label out to grey.
+                            className={`border-b border-slate-line last:border-0 transition-colors hover:bg-canvas-sunken ${
                               isAdmin ? 'cursor-pointer active:bg-slate-line' : ''
                             }`}
                           >

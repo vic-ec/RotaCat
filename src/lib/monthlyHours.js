@@ -50,7 +50,10 @@ export async function getMonthlyHoursByProfile(year, month) {
   return hoursByProfile
 }
 
-// Pure: which profiles are already at/over their contract-type's ceiling.
+// Pure: which profiles are OVER their contract-type's ceiling. Strictly
+// over — a doctor exactly at their contracted hours is the roster doing its
+// job, not something for an admin to chase (it used to count them too, so
+// the dashboard flagged the intended outcome as a problem).
 // Profiles with an unrecognised/missing contract_type ceiling are skipped,
 // not errored.
 export function findHoursWarnings({ profiles, hoursByProfile, ceilings }) {
@@ -59,7 +62,7 @@ export function findHoursWarnings({ profiles, hoursByProfile, ceilings }) {
     const ceiling = ceilings[p.contract_type]
     if (ceiling === undefined || ceiling === null || Number.isNaN(ceiling)) continue
     const hours = hoursByProfile.get(p.id) || 0
-    if (hours >= ceiling) warnings.push({ profileId: p.id, name: p.name, surname: p.surname, hours, ceiling, contractType: p.contract_type })
+    if (hours > ceiling) warnings.push({ profileId: p.id, name: p.name, surname: p.surname, hours, ceiling, contractType: p.contract_type })
   }
   return warnings
 }

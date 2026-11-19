@@ -315,7 +315,14 @@ export default function StaffListPage() {
   // in or still on a temporary password. 'accounts' is the whole book,
   // inactive and finished accounts included. The two share the toolbar
   // and list below; only the predicate differs (see isListTab/tabAccounts).
-  const [tab, setTab] = useState('active') // 'active' | 'accounts' | 'pending' | 'requests'
+  // A link can open a specific tab (?tab=pending) — the admin dashboard's
+  // Needs attention rows land on the queue they are about.
+  const [tab, setTab] = useState(() => {
+    const requested = new URLSearchParams(location.search).get('tab')
+    // The two queues are admin-only; anyone else asking for one gets the list.
+    const allowed = isAdmin ? ['active', 'accounts', 'pending', 'requests'] : ['active', 'accounts']
+    return allowed.includes(requested) ? requested : 'active'
+  }) // 'active' | 'accounts' | 'pending' | 'requests'
   const isListTab = tab === 'active' || tab === 'accounts'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])

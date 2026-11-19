@@ -15,6 +15,11 @@ vi.mock('../lib/monthlyHours', () => ({
 }))
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
 
+vi.mock('../lib/adminAttention', () => ({
+  fetchAdminAttention: vi.fn().mockResolvedValue([]),
+}))
+import { fetchAdminAttention } from '../lib/adminAttention'
+
 // `select(cols, { head: true, count: 'exact' })` is keyed separately from a
 // plain select — the admin view issues both against leave_requests (one for
 // the pending *count*, one for the approved rows), so a single
@@ -238,9 +243,26 @@ describe('DashboardPage', () => {
     expect(pendingRow).toHaveAttribute('href', '/leave?tab=requests')
     expect(within(pendingRow).getByText('3')).toBeInTheDocument()
 
-    const hoursRow = screen.getByRole('link', { name: /at or over the hours ceiling this month/ })
+    const hoursRow = screen.getByRole('link', { name: /over their contracted hours this month/ })
     expect(hoursRow).toHaveAttribute('href', '/roster?view=summary')
     expect(within(hoursRow).getByText('1')).toBeInTheDocument()
+  })
+
+  it('admin: lists the other attention rows, each a link, with a dot where a row has no count', async () => {
+    mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
+    getDashboardHoursWarnings.mockResolvedValue([])
+    fetchAdminAttention.mockResolvedValueOnce([
+      { key: 'signups', count: 2, to: '/staff?tab=pending', label: 'sign-ups awaiting approval' },
+      { key: 'next-roster-draft', to: '/roster/dec', label: "December's roster is still a draft" },
+    ])
+
+    renderDashboard()
+
+    const signups = await screen.findByRole('link', { name: /sign-ups awaiting approval/ })
+    expect(signups).toHaveAttribute('href', '/staff?tab=pending')
+    expect(within(signups).getByText('2')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /December's roster is still a draft/ })).toHaveAttribute('href', '/roster/dec')
+    expect(screen.queryByText('Nothing needs your attention')).not.toBeInTheDocument()
   })
 
   it('admin: summarises team leave now and in the next 7 days, ignoring leave further out', async () => {
@@ -288,7 +310,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Nobody away today')).toBeInTheDocument()
     expect(screen.getByText('Nobody starting leave')).toBeInTheDocument()
     expect(screen.getByText('Needs attention')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View requests/ })).toHaveAttribute('href', '/leave?tab=requests')
+    // rows carry their own links; the heading has none to point the wrong way
+    expect(screen.queryByRole('link', { name: /View requests/ })).not.toBeInTheDocument()
   })
 
   it('locum: shows own upcoming shifts, no leave widget', async () => {

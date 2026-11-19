@@ -4,12 +4,18 @@ import { findHoursWarnings } from './monthlyHours'
 const CEILINGS = { full: 246, five_eighths: 118, psych_overtime: 72 }
 
 describe('findHoursWarnings', () => {
-  it('flags a doctor already at/over their contract ceiling', () => {
+  it('flags a doctor over their contract ceiling', () => {
     const profiles = [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }]
     const hoursByProfile = new Map([['p1', 122]])
     const warnings = findHoursWarnings({ profiles, hoursByProfile, ceilings: CEILINGS })
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toMatchObject({ profileId: 'p1', hours: 122, ceiling: 118 })
+  })
+
+  it('does not flag a doctor exactly at their ceiling — that is the roster working as intended', () => {
+    const profiles = [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }]
+    const warnings = findHoursWarnings({ profiles, hoursByProfile: new Map([['p1', 118]]), ceilings: CEILINGS })
+    expect(warnings).toHaveLength(0)
   })
 
   it('does not flag a doctor under their ceiling', () => {

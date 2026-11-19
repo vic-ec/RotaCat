@@ -679,9 +679,11 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
     <div className="mb-6">
       {/* min-h reserves the bulk-action buttons' height, so ticking a box
           swaps the label row's content without pushing the cards down. */}
-      {/* pl-[17px]: the card's 1px border + its rows' px-4, so this tick box
-          sits directly above the rows' own. gap-3 matches theirs too. */}
-      <div className="mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 pl-[17px]">
+      {/* The left inset puts this tick box directly above the ones it
+          governs, which sit differently in each view: List rows are inside a
+          bordered card (1px border + px-4 = 17px); Grid cards have no frame
+          around them, just their own p-3 (12px). gap-3 matches the rows'. */}
+      <div className={`mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 ${view === 'grid' ? 'pl-3' : 'pl-[17px]'}`}>
         <label className="flex items-center gap-3">
           <input
             type="checkbox"

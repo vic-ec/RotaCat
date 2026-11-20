@@ -55,4 +55,60 @@ describe('TempPasswordIndicator', () => {
     await user.hover(trigger())
     expect(screen.getByRole('tooltip')).toBeInTheDocument()
   })
+
+  // The shield sits inside a Staff list row that opens a detail sheet on
+  // click and a quick-actions menu on a long press. The pill is portalled
+  // to <body>, but React still bubbles its events to that row.
+  function renderInRow() {
+    const onRowClick = vi.fn()
+    const onRowPointerDown = vi.fn()
+    render(
+      <div onClick={onRowClick} onPointerDown={onRowPointerDown}>
+        <TempPasswordIndicator notSignedIn person={{ must_change_password: true, temp_password_issued_at: ISSUED }} />
+      </div>
+    )
+    return { onRowClick, onRowPointerDown }
+  }
+  const tap = (user, target) => user.pointer({ keys: '[TouchA]', target })
+
+  // Regression: tapping the pill did nothing, and the tap went through to
+  // the row — opening that person's detail sheet instead.
+  it('closes when the pill itself is tapped, without reaching the row', async () => {
+    const user = userEvent.setup()
+    const { onRowClick, onRowPointerDown } = renderInRow()
+    await tap(user, trigger())
+    await tap(user, screen.getByRole('tooltip'))
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    expect(onRowClick).not.toHaveBeenCalled()
+    expect(onRowPointerDown).not.toHaveBeenCalled()
+  })
+
+  it('closes when the shield is tapped again on a touch screen', async () => {
+    const user = userEvent.setup()
+    renderInRow()
+    await tap(user, trigger())
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    await tap(user, trigger())
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+
+  // A mouse click lands after the hover has already opened it — toggling
+  // there would close it the instant it appeared.
+  it('stays open on a mouse click', async () => {
+    const user = userEvent.setup()
+    renderInRow()
+    await user.click(trigger())
+    await user.click(trigger())
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+  })
+
+  // Regression: pressing the shield started the row's long-press timer,
+  // so holding it opened the quick-actions menu as well.
+  it('keeps presses on the shield off the row', async () => {
+    const user = userEvent.setup()
+    const { onRowClick, onRowPointerDown } = renderInRow()
+    await tap(user, trigger())
+    expect(onRowClick).not.toHaveBeenCalled()
+    expect(onRowPointerDown).not.toHaveBeenCalled()
+  })
 })

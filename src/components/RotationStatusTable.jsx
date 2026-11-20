@@ -1,90 +1,154 @@
-import { Fragment, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ListFilter } from 'lucide-react'
 import ExpandAllButton from './ExpandAllButton'
 import Modal from './Modal'
 import Tag from './Tag'
 import DateFieldButton from './DateFieldButton'
-import { rotationForDate } from '../lib/internRotations'
-import { rotationTypeKey, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
-import { todayStr, formatDayMonthYear } from '../lib/dateRange'
+import Toolbar from './Toolbar'
+import LegendSheet from './LegendSheet'
+import { LegendIcon } from './PlannerIcons'
+import FloatingActionMenu from './FloatingActionMenu'
+import DateStepper from './DateStepper'
+import RotationSequenceRow, { MonthLetterHeader } from './RotationSequenceRow'
+import {
+  groupRotationsByDoctorId, upcomingRotationStatus, completedRotationStatus, monthSpan,
+} from '../lib/internRotations'
+import { rotationTypeKey, rotationTypeShortName, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
+import { todayStr, MONTH_ABBR, parseLocalDate } from '../lib/dateRange'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { useFillToViewport } from '../lib/useFillToViewport'
 
-// The Rotations page's Upcoming and Completed tabs: one table + side panel,
-// the same shape as the Active tab's matrix (table on the page ground,
-// foldable category sections, whole-row selection, a sticky panel on the
-// right that describes the selected doctor and carries their actions).
-// They were two flat lists with the actions inline on every row.
-//
-// `variant`:
-//   'upcoming'  — inactive doctors with a scheduled start. Columns: Due to
-//                 start, Upcoming rotation. Actions: Edit rotation, Change
-//                 start date, Activate now.
-//   'completed' — inactive doctors with no start scheduled. Columns: Last
-//                 active, Last rotation. Actions: Reactivate, View account.
-const SECTIONS = [
-  { key: 'Registrar', label: 'Registrar' },
-  { key: 'Intern', label: 'Intern' },
+const MIN_MONTH_COL_WIDTH = 56 // px — same floor as InternRotationsMatrix's own grid
+const LABEL_COL_WIDTH = 200 // px
+
+const CATEGORY_GROUP_ORDER = ['Intern', 'Registrar']
+const CATEGORY_GROUP_LABEL = { Intern: 'Interns', Registrar: 'Registrars' }
+const CATEGORY_FILTER_OPTIONS = [
+  { value: 'all', label: 'All categories' },
+  { value: 'Intern', label: 'Intern' },
+  { value: 'Registrar', label: 'Registrar' },
 ]
+const NO_ROTATIONS_GROUP_KEY = 'no-rotations'
+
+function categoryGroupKey(doctor) {
+  return CATEGORY_GROUP_ORDER.includes(doctor.category) ? doctor.category : 'Intern'
+}
+
+function matchesSearch(doctor, search) {
+  if (!search.trim()) return true
+  const q = search.trim().toLowerCase()
+  return `${doctor.name || ''} ${doctor.surname || ''}`.toLowerCase().includes(q)
+}
+
+// formatDayMonthYear's style, minus the year when it already matches the
+// year the grid is showing — same rule InternRotationsMatrix's own
+// position lines use.
+function formatPositionDate(dateStr, displayYear) {
+  const d = parseLocalDate(dateStr)
+  const base = `${d.getDate()} ${MONTH_ABBR[d.getMonth()]}`
+  return d.getFullYear() === displayYear ? base : `${base} ${d.getFullYear()}`
+}
 
 const COPY = {
   upcoming: {
-    dateHeading: 'Due to start',
-    rotationHeading: 'Upcoming rotation',
     status: 'Scheduled',
     tone: 'warning',
     empty: 'No doctors with a scheduled start date.',
   },
   completed: {
-    dateHeading: 'Last active',
-    rotationHeading: 'Last rotation',
     status: 'Inactive',
     tone: 'danger',
     empty: 'No completed doctors.',
   },
 }
 
-function typeLabel(key) {
-  return ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === key)?.label ?? key
-}
-
-function rotationPeriod(rotation) {
-  const from = formatDayMonthYear(rotation.start_date)
-  return rotation.end_date ? `${from} – ${formatDayMonthYear(rotation.end_date)}` : `from ${from}`
-}
-
-// The rotation each tab is about: for Upcoming, the one they will start on
-// (the first not yet over); for Completed, the last one they held.
-function relevantRotation(variant, rotations, today) {
-  const sorted = [...rotations].sort((a, b) => a.start_date.localeCompare(b.start_date))
-  if (sorted.length === 0) return null
-  if (variant === 'upcoming') {
-    return sorted.find(r => r.start_date >= today) || rotationForDate(sorted, today) || sorted[sorted.length - 1]
+// The Upcoming tab's chip + position line for one doctor — see
+// upcomingRotationStatus in internRotations.js for the underlying
+// situation this formats.
+function upcomingChipAndLine(doctor, doctorRotations, year) {
+  const chip = { tone: 'neutral', text: `Starts ${formatPositionDate(doctor.scheduled_active_date, year)}` }
+  const status = upcomingRotationStatus(doctorRotations)
+  if (status.situation === 'none') return { chip, line: 'No rotations added yet' }
+  if (status.situation === 'single') {
+    const key = rotationTypeKey(status.rotation.rotation_type, status.rotation.subtype)
+    const months = monthSpan(status.rotation.start_date, status.rotation.end_date)
+    return {
+      chip,
+      line: `${rotationTypeShortName(key)} for ${months} month${months === 1 ? '' : 's'} · ends ${formatPositionDate(status.rotation.end_date, year)}`,
+    }
   }
-  return sorted[sorted.length - 1]
+  const names = status.rotations.map(r => rotationTypeShortName(rotationTypeKey(r.rotation_type, r.subtype)))
+  return {
+    chip,
+    line: `${names[0]}, then ${names.slice(1).join(', ')} · block ends ${formatPositionDate(status.blockEnd, year)}`,
+  }
 }
 
-function RotationLabel({ rotation }) {
-  if (!rotation) return <span className="text-ink-muted">None set</span>
-  const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="h-2 w-2 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }} />
-      <span>{typeLabel(key)} · {rotationPeriod(rotation)}</span>
-    </span>
-  )
+// The Completed tab's chip + position line for one doctor — totalled
+// across every rotation on record, not just the displayed year (see
+// completedRotationStatus).
+function completedChipAndLine(doctor, doctorRotations, year) {
+  const sorted = [...doctorRotations].sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const lastEnd = sorted[sorted.length - 1]?.end_date || doctor.scheduled_inactive_date || null
+  const chip = { tone: 'neutral', text: lastEnd ? `Finished ${formatPositionDate(lastEnd, year)}` : 'No rotations recorded' }
+  const status = completedRotationStatus(doctorRotations)
+  if (status.situation === 'none') return { chip, line: '' } // chip already says "No rotations recorded"
+  const suffix = status.totalMonths === 1 ? '' : 's'
+  if (status.situation === 'single-type') {
+    const key = rotationTypeKey(status.rotation.rotation_type, status.rotation.subtype)
+    return { chip, line: `${status.totalMonths} month${suffix} in ${rotationTypeShortName(key)}` }
+  }
+  return { chip, line: `${status.totalMonths} month${suffix} in ${status.blockCount} block${status.blockCount === 1 ? '' : 's'}` }
 }
 
+function lastRotationEndYear(doctorRotations) {
+  if (doctorRotations.length === 0) return null
+  const sorted = [...doctorRotations].sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const end = sorted[sorted.length - 1].end_date
+  return end ? Number(end.slice(0, 4)) : null
+}
+
+// The Rotations page's Upcoming and Completed tabs — built on the same
+// grid/row shell as the Active tab's matrix (InternRotationsMatrix.jsx):
+// toolbar, legend, month header, fixed category sections, RotationSequenceRow
+// rows, and the same sticky-panel/bottom-sheet selection pattern. Every
+// existing action and its handler stays exactly as it was — they live in
+// the panel, not on the row.
+//
+// `variant`:
+//   'upcoming'  — inactive doctors with a scheduled start. Lists everyone
+//                 regardless of the displayed year; the year only decides
+//                 which twelve months the cells show. Actions: Edit
+//                 rotation, Change start date, Activate now.
+//   'completed' — inactive doctors with no start scheduled. Scoped to the
+//                 displayed year (whoever's last rotation ended in it); a
+//                 doctor with no rotation rows at all can't be year-scoped,
+//                 so they sit in their own trailing section every year.
+//                 Actions: Reactivate, View account.
 export default function RotationStatusTable({
-  variant, doctors, rotations, displayNames,
+  variant, doctors, rotations, displayNames, year, onYearChange,
   onUpdateDate, onActivateNow, onReactivate, onEditRotation,
 }) {
   const copy = COPY[variant]
   const today = todayStr()
+  const currentYear = Number(today.slice(0, 4))
   const navigate = useNavigate()
   const isDesktop = useIsDesktop()
-  const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
+  const [gridRef, fillStyle] = useFillToViewport(32, { fit: true })
+  const [gridNode, setGridNodeState] = useState(null)
+  const [gridWidth, setGridWidth] = useState(0)
+  useEffect(() => {
+    if (!gridNode || typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(() => setGridWidth(gridNode.clientWidth))
+    observer.observe(gridNode)
+    setGridWidth(gridNode.clientWidth)
+    return () => observer.disconnect()
+  }, [gridNode])
+  const setGridNode = el => { setGridNodeState(el); gridRef(el) }
+
+  const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [selectedId, setSelectedId] = useState(null)
   const [collapsed, setCollapsed] = useState({})
   // Panel-local editing: the start date (Upcoming) or active-from date
@@ -94,36 +158,50 @@ export default function RotationStatusTable({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const rotationsByDoctor = new Map()
-  for (const r of rotations) {
-    if (!rotationsByDoctor.has(r.doctor_id)) rotationsByDoctor.set(r.doctor_id, [])
-    rotationsByDoctor.get(r.doctor_id).push(r)
-  }
+  const rotationsByDoctor = groupRotationsByDoctorId(rotations)
 
-  const rows = doctors.map(doctor => {
-    const rotation = relevantRotation(variant, rotationsByDoctor.get(doctor.id) || [], today)
-    const date = variant === 'upcoming'
-      ? doctor.scheduled_active_date
-      : (rotation?.end_date || doctor.scheduled_inactive_date || null)
-    return { doctor, rotation, date, name: displayNames?.get(doctor.id) ?? doctor.surname }
-  })
+  const filteredDoctors = doctors.filter(d => matchesSearch(d, search) && (categoryFilter === 'all' || categoryGroupKey(d) === categoryFilter))
 
-  const groups = SECTIONS
-    .map(section => ({
-      ...section,
-      rows: rows
-        .filter(r => (r.doctor.category === 'Registrar' ? 'Registrar' : 'Intern') === section.key)
-        .sort((a, b) => variant === 'upcoming'
-          ? (a.date || '').localeCompare(b.date || '') || (a.doctor.surname || '').localeCompare(b.doctor.surname || '')
-          : (a.doctor.surname || '').localeCompare(b.doctor.surname || '')),
-    }))
-    .filter(g => g.rows.length > 0)
+  const groups = variant === 'upcoming'
+    ? CATEGORY_GROUP_ORDER
+      .map(key => ({
+        key,
+        label: CATEGORY_GROUP_LABEL[key],
+        items: filteredDoctors
+          .filter(d => categoryGroupKey(d) === key)
+          .sort((a, b) => (a.scheduled_active_date || '').localeCompare(b.scheduled_active_date || '') || (a.surname || '').localeCompare(b.surname || '')),
+      }))
+      .filter(g => g.items.length > 0)
+    : [
+      ...CATEGORY_GROUP_ORDER.map(key => ({
+        key,
+        label: CATEGORY_GROUP_LABEL[key],
+        items: filteredDoctors
+          .filter(d => categoryGroupKey(d) === key && lastRotationEndYear(rotationsByDoctor.get(d.id) || []) === year)
+          .sort((a, b) => {
+            const aEnd = [...(rotationsByDoctor.get(a.id) || [])].sort((x, y) => x.start_date.localeCompare(y.start_date)).pop()?.end_date || ''
+            const bEnd = [...(rotationsByDoctor.get(b.id) || [])].sort((x, y) => x.start_date.localeCompare(y.start_date)).pop()?.end_date || ''
+            return bEnd.localeCompare(aEnd) // most recently finished first
+          }),
+      })),
+      {
+        key: NO_ROTATIONS_GROUP_KEY,
+        label: 'No rotations recorded',
+        items: filteredDoctors
+          .filter(d => (rotationsByDoctor.get(d.id) || []).length === 0)
+          .sort((a, b) => (a.surname || '').localeCompare(b.surname || '')),
+      },
+    ].filter(g => g.items.length > 0)
 
-  if (rows.length === 0) {
+  if (doctors.length === 0) {
     return <p className="mt-4 text-sm text-ink-muted">{copy.empty}</p>
   }
 
-  const selected = rows.find(r => r.doctor.id === selectedId) || null
+  function toggleGroupCollapsed(key) {
+    setCollapsed(c => ({ ...c, [key]: !c[key] }))
+  }
+
+  const selectedDoctor = doctors.find(d => d.id === selectedId) || null
 
   function select(id) {
     setSelectedId(current => (current === id ? null : id))
@@ -152,22 +230,26 @@ export default function RotationStatusTable({
   }
 
   function renderPanel(showHeader = true) {
-    if (!selected) {
+    if (!selectedDoctor) {
       return (
         <>
           <p className="text-section-label uppercase text-ink-muted">{variant === 'upcoming' ? 'Upcoming' : 'Completed'}</p>
-          <p className="mt-1 font-display text-lg font-semibold text-ink">{rows.length} doctor{rows.length === 1 ? '' : 's'}</p>
+          <p className="mt-1 font-display text-lg font-semibold text-ink">{doctors.length} doctor{doctors.length === 1 ? '' : 's'}</p>
           <p className="mt-2 text-sm text-ink-light">Select a doctor to see their details and actions.</p>
         </>
       )
     }
-    const { doctor, rotation, date } = selected
-    const fullName = `${doctor.name || ''} ${doctor.surname}`.trim()
+    const doctorRotations = rotationsByDoctor.get(selectedDoctor.id) || []
+    const { chip, line } = variant === 'upcoming'
+      ? upcomingChipAndLine(selectedDoctor, doctorRotations, year)
+      : completedChipAndLine(selectedDoctor, doctorRotations, year)
+    const fullName = `${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()
+    const sortedRotations = [...doctorRotations].sort((a, b) => a.start_date.localeCompare(b.start_date))
     return (
       <>
         {showHeader && (
           <>
-            <p className="text-section-label uppercase text-ink-muted">{doctor.category}</p>
+            <p className="text-section-label uppercase text-ink-muted">{selectedDoctor.category}</p>
             <p className="mt-1 truncate font-display text-lg font-semibold text-ink" title={fullName}>{fullName}</p>
           </>
         )}
@@ -177,26 +259,43 @@ export default function RotationStatusTable({
             <dd><Tag variant="status" tone={copy.tone}>{copy.status}</Tag></dd>
           </div>
           <div className="flex items-center justify-between gap-3 py-2">
-            <dt className="text-ink-muted">{copy.dateHeading}</dt>
-            <dd className="text-ink">{date ? formatDayMonthYear(date) : '—'}</dd>
-          </div>
-          <div className="flex items-start justify-between gap-3 py-2">
-            <dt className="flex-shrink-0 text-ink-muted">{copy.rotationHeading}</dt>
-            <dd className="text-right text-ink"><RotationLabel rotation={rotation} /></dd>
+            <dt className="text-ink-muted">{chip.text}</dt>
+            <dd className="text-right text-ink">{line}</dd>
           </div>
         </dl>
+
+        {sortedRotations.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            {sortedRotations.map(rotation => {
+              const key = rotationTypeKey(rotation.rotation_type, rotation.subtype)
+              return (
+                <div key={rotation.id} className="flex items-center gap-2 text-xs">
+                  <span
+                    className="flex-shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 font-medium text-white"
+                    style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}
+                  >
+                    {ROTATION_TYPE_KEY_OPTIONS.find(o => o.key === key)?.label || key}
+                  </span>
+                  <span className="text-ink-light">
+                    {rotation.start_date} – {rotation.end_date || 'ongoing'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {error && <p className="mt-2 text-xs text-flagRed">{error}</p>}
 
         {dateOpen ? (
           <div className="mt-3 space-y-2">
             <div className="flex items-center gap-2 text-xs text-ink-muted">
-              <label htmlFor={`rotation-date-${doctor.id}`} className="flex-shrink-0">
+              <label htmlFor={`rotation-date-${selectedDoctor.id}`} className="flex-shrink-0">
                 {variant === 'upcoming' ? 'Starts' : 'Active from'}
               </label>
               <div className="min-w-0 flex-1">
                 <DateFieldButton
-                  id={`rotation-date-${doctor.id}`}
+                  id={`rotation-date-${selectedDoctor.id}`}
                   label={variant === 'upcoming' ? 'Starts' : 'Active from'}
                   labelledExternally
                   value={draftDate}
@@ -209,8 +308,8 @@ export default function RotationStatusTable({
               type="button"
               disabled={saving || !draftDate}
               onClick={() => run(() => (variant === 'upcoming'
-                ? onUpdateDate(doctor.id, draftDate)
-                : onReactivate(doctor.id, draftDate)))}
+                ? onUpdateDate(selectedDoctor.id, draftDate)
+                : onReactivate(selectedDoctor.id, draftDate)))}
               className="btn-primary w-full disabled:opacity-50"
             >
               {saving ? 'Saving…' : variant === 'upcoming' ? 'Save start date' : (draftDate <= today ? 'Activate now' : 'Schedule')}
@@ -222,13 +321,13 @@ export default function RotationStatusTable({
         ) : variant === 'upcoming' ? (
           <div className="mt-3 space-y-2">
             {/* Opens the Active tab's own rotation editor on this doctor. */}
-            <button type="button" disabled={saving} onClick={() => onEditRotation(doctor.id)} className="btn-primary w-full disabled:opacity-50">
+            <button type="button" disabled={saving} onClick={() => onEditRotation(selectedDoctor.id)} className="btn-primary w-full disabled:opacity-50">
               Edit rotation
             </button>
-            <button type="button" disabled={saving} onClick={() => openDate(doctor.scheduled_active_date || today)} className="btn-secondary w-full disabled:opacity-50">
+            <button type="button" disabled={saving} onClick={() => openDate(selectedDoctor.scheduled_active_date || today)} className="btn-secondary w-full disabled:opacity-50">
               Change start date
             </button>
-            <button type="button" disabled={saving} onClick={() => run(() => onActivateNow(doctor.id))} className="btn-secondary w-full disabled:opacity-50">
+            <button type="button" disabled={saving} onClick={() => run(() => onActivateNow(selectedDoctor.id))} className="btn-secondary w-full disabled:opacity-50">
               {saving ? 'Activating…' : 'Activate now'}
             </button>
           </div>
@@ -237,7 +336,7 @@ export default function RotationStatusTable({
             <button type="button" disabled={saving} onClick={() => openDate(today)} className="btn-primary w-full disabled:opacity-50">
               Reactivate
             </button>
-            <button type="button" onClick={() => navigate(`/account/${doctor.id}`)} className="btn-secondary w-full">
+            <button type="button" onClick={() => navigate(`/account/${selectedDoctor.id}`)} className="btn-secondary w-full">
               View account
             </button>
           </div>
@@ -246,100 +345,215 @@ export default function RotationStatusTable({
     )
   }
 
-  // Every section shut leaves nothing but headers, and reopening them one
-  // by one is a chore — see ExpandAllButton.
   const allCollapsed = groups.length > 0 && groups.every(g => collapsed[g.key])
-  const headCell = 'border-b border-slate-line bg-canvas-sunken px-3 py-2'
-  const cell = 'border-b border-slate-hairline px-3 py-2.5'
-  // Doctor stays put during horizontal scroll, as on Hours Summary — the
-  // name is what every other column is about, and scrolling to the rotation
-  // used to leave the rows anonymous. A sticky cell can't inherit its row's
-  // background while it repositions, so each one paints its own: z-20 on the
-  // header's corner cell keeps it above both the sticky header row and the
-  // sticky column it sits atop.
-  // A fixed width, not one measured off the names: with an auto-width
-  // column, collapsing a section removes the rows that were setting it and
-  // every column to the right jumps sideways. A longer name truncates (the
-  // full one stays in the cell's title and in the side panel) rather than
-  // moving the table.
-  const doctorColumn = 'w-52 max-w-52'
-  const stickyHead = `sticky left-0 z-20 border-r border-slate-line ${doctorColumn} ${headCell}`
-  const stickyCell = isSelected => `sticky left-0 z-[1] border-r border-slate-line ${doctorColumn} ${cell} ${
-    isSelected ? 'bg-accent-tint' : 'bg-canvas group-hover:bg-canvas-cool'
-  }`
 
-  return (
-    <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
-        {/* Ends at its last row when the list is short; stops at the window's
-            edge and scrolls inside when long — the same frame as Hours
-            Summary and Team Leave. */}
-        <div ref={tableRef} style={tableFill} className="overflow-auto rounded-lg border border-slate-line bg-canvas">
-          <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
-                <th className={stickyHead}>Doctor</th>
-                <th className={headCell}>Category</th>
-                <th className={headCell}>Status</th>
-                <th className={headCell}>{copy.dateHeading}</th>
-                <th className={headCell}>{copy.rotationHeading}</th>
-              </tr>
-            </thead>
-            <tbody className="[&>tr:last-child>td]:border-b-0">
+  const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
+  const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
+  const currentMonthIndex = Number(today.slice(5, 7)) - 1
+
+  const filterFacets = [{
+    key: 'category', icon: <ListFilter className="h-4 w-4" />, label: 'Category',
+    value: categoryFilter, onChange: setCategoryFilter,
+    options: CATEGORY_FILTER_OPTIONS,
+    isActive: categoryFilter !== 'all',
+  }]
+  const clearActive = Boolean(search) || categoryFilter !== 'all'
+  const onClearAll = () => { setSearch(''); setCategoryFilter('all') }
+
+  const legendSwatches = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+      {ROTATION_TYPE_KEY_OPTIONS.map(o => (
+        <span key={o.key} className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: ROTATION_TYPE_COLOR[o.key] }} />
+          {o.label}
+        </span>
+      ))}
+    </div>
+  )
+
+  const dateNav = <DateStepper unit="year" year={year} onChange={onYearChange} nowrap todayLabel showToday={year !== currentYear} />
+
+  const panelAside = (
+    <aside className="sticky top-4 w-72 flex-shrink-0">
+      <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{renderPanel()}</div>
+    </aside>
+  )
+
+  // ── Desktop ──────────────────────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <div className="mt-4">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="min-w-0 max-w-[480px] flex-1">
+            <Toolbar
+              className=""
+              stretch
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search name…"
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
+          </div>
+          <div className="ml-auto flex flex-shrink-0 items-center gap-2">{dateNav}</div>
+        </div>
+
+        <div className="mb-3">{legendSwatches}</div>
+
+        <div className="flex items-start gap-4">
+          <div className="min-w-0 flex-1">
+            <div ref={setGridNode} style={fillStyle} className="overflow-auto rounded-lg border border-slate-line bg-canvas">
+              <div className="sticky top-0 z-20 grid border-b border-slate-line bg-canvas-sunken text-[11px] font-semibold uppercase tracking-wide text-ink-muted" style={{ gridTemplateColumns }}>
+                <div className="sticky left-0 z-10 bg-canvas-sunken px-3 py-2">Doctor</div>
+                {MONTH_ABBR.map((label, i) => (
+                  <div key={label} className={`px-1 py-2 text-center ${i === currentMonthIndex && year === currentYear ? 'text-accent' : ''}`}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              {groups.length === 0 && (
+                <p className="p-4 text-center text-sm text-ink-muted">No doctors match this filter.</p>
+              )}
+
               {groups.map(group => (
-                <Fragment key={group.key}>
-                  <tr
-                    onClick={() => setCollapsed(c => ({ ...c, [group.key]: !c[group.key] }))}
-                    className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
+                <div key={group.key}>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupCollapsed(group.key)}
+                    className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
                   >
-                    <td colSpan={5} className="border-b border-slate-hairline p-1">
-                      <button type="button" aria-expanded={!collapsed[group.key]} className="sheen-divider text-left">
-                        <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.rows.length}</span></span>
-                        <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsed[group.key] ? 'rotate-180' : ''}`} />
-                      </button>
-                    </td>
-                  </tr>
-                  {!collapsed[group.key] && group.rows.map(({ doctor, rotation, date, name }) => {
-                    const isSelected = selectedId === doctor.id
+                    <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
+                    <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsed[group.key] ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {!collapsed[group.key] && group.items.map(doctor => {
+                    const doctorRotations = rotationsByDoctor.get(doctor.id) || []
+                    const label = displayNames?.get(doctor.id) ?? doctor.surname
+                    const { chip, line } = variant === 'upcoming'
+                      ? upcomingChipAndLine(doctor, doctorRotations, year)
+                      : completedChipAndLine(doctor, doctorRotations, year)
                     return (
-                      <tr
+                      <RotationSequenceRow
                         key={doctor.id}
-                        onClick={() => select(doctor.id)}
-                        aria-selected={isSelected}
-                        className={`group cursor-pointer transition-colors ${isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'}`}
-                      >
-                        <td className={`${stickyCell(isSelected)} ${isSelected ? 'shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)]' : ''}`}>
-                          <button
-                            type="button"
-                            title={`${doctor.name || ''} ${doctor.surname}`.trim()}
-                            className={`block w-full truncate text-left font-medium ${isSelected ? 'text-accent' : 'text-ink'}`}
-                          >
-                            {name}
-                          </button>
-                        </td>
-                        <td className={`${cell} text-ink-light`}>{doctor.category}</td>
-                        <td className={cell}><Tag variant="status" tone={copy.tone}>{copy.status}</Tag></td>
-                        <td className={`${cell} whitespace-nowrap text-ink-light`}>{date ? formatDayMonthYear(date) : '—'}</td>
-                        <td className={`${cell} text-ink-light`}><RotationLabel rotation={rotation} /></td>
-                      </tr>
+                        layout="desktop"
+                        doctor={doctor}
+                        label={label}
+                        rotations={doctorRotations}
+                        year={year}
+                        currentYear={currentYear}
+                        chip={chip}
+                        positionLine={line}
+                        isSelected={selectedId === doctor.id}
+                        onSelect={() => select(doctor.id)}
+                        gridTemplateColumns={gridTemplateColumns}
+                      />
                     )
                   })}
-                </Fragment>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {allCollapsed && <ExpandAllButton onExpandAll={() => setCollapsed({})} />}
+          </div>
+
+          {panelAside}
         </div>
+      </div>
+    )
+  }
+
+  // ── Mobile ───────────────────────────────────────────────────────────
+  return (
+    <div className="mt-4">
+      <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="hidden min-w-0 flex-1 md:block">
+            <Toolbar
+              className=""
+              stretch
+              searchValue={search}
+              onSearchChange={setSearch}
+              searchPlaceholder="Search name…"
+              filterFacets={filterFacets}
+              mobileMode="inline"
+              active={clearActive}
+              onClearAll={onClearAll}
+            />
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {dateNav}
+            <div className="hidden items-center gap-2 md:flex">
+              <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+              <LegendSheet
+                title="Legend"
+                trigger={onClick => (
+                  <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
+                )}
+              >
+                {legendSwatches}
+              </LegendSheet>
+            </div>
+          </div>
+        </div>
+        <MonthLetterHeader year={year} currentYear={currentYear} />
+      </div>
+
+      <div className="mt-3 space-y-4 pb-20">
+        {groups.length === 0 && (
+          <p className="p-4 text-center text-sm text-ink-muted">No doctors match this filter.</p>
+        )}
+        {groups.map(group => (
+          <div key={group.key}>
+            <button
+              type="button"
+              onClick={() => toggleGroupCollapsed(group.key)}
+              className="sheen-divider text-left transition-[filter] hover:brightness-110 active:brightness-110"
+            >
+              <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
+              <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsed[group.key] ? 'rotate-180' : ''}`} />
+            </button>
+
+            {!collapsed[group.key] && (
+              <div className="mt-2 overflow-hidden rounded-lg border border-slate-line">
+                {group.items.map(doctor => {
+                  const doctorRotations = rotationsByDoctor.get(doctor.id) || []
+                  const label = displayNames?.get(doctor.id) ?? doctor.surname
+                  const { chip, line } = variant === 'upcoming'
+                    ? upcomingChipAndLine(doctor, doctorRotations, year)
+                    : completedChipAndLine(doctor, doctorRotations, year)
+                  return (
+                    <RotationSequenceRow
+                      key={doctor.id}
+                      layout="mobile"
+                      doctor={doctor}
+                      label={label}
+                      rotations={doctorRotations}
+                      year={year}
+                      currentYear={currentYear}
+                      chip={chip}
+                      positionLine={line}
+                      isSelected={selectedId === doctor.id}
+                      onSelect={() => select(doctor.id)}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
         {allCollapsed && <ExpandAllButton onExpandAll={() => setCollapsed({})} />}
       </div>
 
-      {/* Desktop: the sticky side panel, same width as the Active tab's.
-          Below lg a selection opens the same content as a sheet instead. */}
-      {isDesktop ? (
-        <aside className="sticky top-4 w-72 flex-shrink-0">
-          <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{renderPanel()}</div>
-        </aside>
-      ) : selected && (
-        <Modal title={`${selected.doctor.name || ''} ${selected.doctor.surname}`.trim()} onClose={() => setSelectedId(null)}>
+      <FloatingActionMenu
+        search={{ value: search, onChange: setSearch, placeholder: 'Search name…' }}
+        filter={{ facets: filterFacets, active: clearActive, onClearAll, sheetTitle: 'Filters' }}
+        legend={{ title: 'Legend', children: legendSwatches }}
+      />
+
+      {selectedDoctor && (
+        <Modal title={`${selectedDoctor.name || ''} ${selectedDoctor.surname}`.trim()} onClose={() => setSelectedId(null)}>
           {renderPanel(false)}
         </Modal>
       )}

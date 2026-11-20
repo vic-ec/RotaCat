@@ -677,12 +677,14 @@
      counts and chevrons in `on-sheen-2`. Nothing that holds a number
      someone reads takes either. */
   .sheen {
-    background: var(--bg-sheen), rgb(var(--color-sheen));
+    background-color: rgb(var(--color-sheen));
+    background-image: var(--bg-sheen);
     color: rgb(var(--color-on-sheen));
   }
   .sheen-divider {
     @apply flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em];
-    background: var(--bg-sheen), rgb(var(--color-sheen));
+    background-color: rgb(var(--color-sheen));
+    background-image: var(--bg-sheen);
     color: rgb(var(--color-on-sheen));
   }
   .sheen-divider .divider-meta { color: rgb(var(--color-on-sheen-2)); }

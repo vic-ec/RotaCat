@@ -933,7 +933,7 @@ export default function InternRotationsMatrix({
           share one row with it: find on the left, year + Legend + kebab on
           the right — the desktop toolbar's shape, nothing wrapping. */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           <div className="hidden min-w-0 flex-1 md:block">
             <Toolbar
               className=""
@@ -963,22 +963,25 @@ export default function InternRotationsMatrix({
             </div>
           </div>
         </div>
+
+        {/* The "right now" panel, folded to one line — a 288px side panel
+            would squeeze the grid at this width. Opens the full list. Sits
+            above the month-letter header, inside the same sticky block, so
+            it stays reachable alongside it rather than scrolling away. */}
+        <button
+          type="button"
+          onClick={() => setShowNowSheet(true)}
+          className="card mb-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+        >
+          <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
+          <span className="truncate text-xs text-ink-muted">{nowCount} active</span>
+          <span className="ml-auto flex flex-shrink-0 items-center text-xs font-medium text-accent">
+            View <ChevronRight className="h-3.5 w-3.5" />
+          </span>
+        </button>
+
         <MonthLetterHeader year={year} currentYear={currentYear} />
       </div>
-
-      {/* The "right now" panel, folded to one line — a 288px side panel
-          would squeeze the grid at this width. Opens the full list. */}
-      <button
-        type="button"
-        onClick={() => setShowNowSheet(true)}
-        className="card mt-3 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-      >
-        <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
-        <span className="truncate text-xs text-ink-muted">{nowCount} active</span>
-        <span className="ml-auto flex flex-shrink-0 items-center text-xs font-medium text-accent">
-          View <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-      </button>
 
       <div className="mt-3 space-y-4 pb-20">
         {groups.length === 0 && (

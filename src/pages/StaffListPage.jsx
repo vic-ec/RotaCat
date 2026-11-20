@@ -1285,10 +1285,10 @@ export default function StaffListPage() {
                               on every row an admin sees (only admins ever
                               get the shield), which also keeps the chips
                               themselves lined up down the list. An inactive
-                              admin's two chips stack rather than sit side
-                              by side, so they don't squeeze the name. */}
+                              admin's two chips sit side by side on one line
+                              (the name truncates to make room). */}
                           <div className="flex flex-shrink-0 items-center gap-1.5">
-                            <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1">
                               {isAdmin && person.is_admin && (
                                 <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
                                   person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'

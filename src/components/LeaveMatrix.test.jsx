@@ -39,6 +39,19 @@ describe('LeaveMatrix', () => {
     expect(screen.getAllByText('Pending review').length).toBeGreaterThan(0)
   })
 
+  it('offers Expand all once every category section is folded', () => {
+    render(<LeaveMatrix requests={requests} />)
+    const sections = [...document.querySelectorAll('[data-section]')]
+    expect(sections.length).toBe(2)
+    fireEvent.click(within(sections[0]).getByRole('button', { expanded: true }))
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+    fireEvent.click(within(sections[1]).getByRole('button', { expanded: true }))
+    expect(screen.queryByText('Di Evans')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getByText('Di Evans')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+  })
+
   it('shows who is on leave right now by default', () => {
     render(<LeaveMatrix requests={requests} />)
     expect(screen.getAllByText('On leave now').length).toBeGreaterThan(0)

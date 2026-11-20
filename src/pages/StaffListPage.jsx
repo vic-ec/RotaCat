@@ -11,6 +11,7 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import ExpandAllButton from '../components/ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -939,8 +940,8 @@ export default function StaffListPage() {
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
   // Only ever true once a viewer has shut every section themselves — an
   // ungrouped list (no labels) never counts as collapsed.
-  const allGroupsCollapsed = groups.length > 0 &&
-    groups.every(g => g.label && collapsedGroups[g.key])
+  const allGroupsCollapsed = groups.every(g => g.label) &&
+    allSectionsCollapsed(groups, collapsedGroups)
 
   // ── Approvals/User Requests: search + role filter, same substring-match
   // and role-equality rules as the accounts tab's own filter. ──

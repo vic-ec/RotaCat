@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { Search, X } from 'lucide-react'
 import Modal from './Modal'
 import DateStepper from './DateStepper'
@@ -398,6 +400,9 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
             ))
           )}
         </div>
+        {allSectionsCollapsed(groups, collapsedGroups) && (
+          <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+        )}
       </div>
 
       {/* Desktop sticky side panel */}

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import {
   ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
   TriangleAlert, X, Plus, ListFilter, ChevronLeft, ChevronRight,
@@ -504,6 +506,7 @@ export default function InternRotationsMatrix({
 
   // ── Shared panel content (desktop's sticky aside / mobile's bottom sheet) ──
   function renderNoSelectionPanel(showHeader = true) {
+    const visibleNowSections = NOW_SECTIONS.filter(sec => nowBySection.get(sec.key).length > 0)
     return (
       <>
         {showHeader && (
@@ -515,7 +518,8 @@ export default function InternRotationsMatrix({
         {nowCount === 0 ? (
           <p className="mt-3 text-xs text-ink-muted">No active rotations this month.</p>
         ) : (
-          NOW_SECTIONS.filter(sec => nowBySection.get(sec.key).length > 0).map(sec => {
+          <>
+          {visibleNowSections.map(sec => {
             const rows = nowBySection.get(sec.key)
             const collapsed = collapsedNowSections[sec.key]
             return (
@@ -562,7 +566,11 @@ export default function InternRotationsMatrix({
                 )}
               </div>
             )
-          })
+          })}
+          {allSectionsCollapsed(visibleNowSections, collapsedNowSections) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedNowSections({})} />
+          )}
+          </>
         )}
       </>
     )
@@ -896,8 +904,10 @@ export default function InternRotationsMatrix({
               </div>
             ))}
           </div>
+          {allSectionsCollapsed(groups, collapsedGroups) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+          )}
         </div>
-
 
         {/* Scrolls on its own once the list outgrows the screen; the grid
             stays put. */}
@@ -1012,6 +1022,9 @@ export default function InternRotationsMatrix({
             )}
           </div>
         ))}
+        {allSectionsCollapsed(groups, collapsedGroups) && (
+          <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+        )}
       </div>
 
       {/* Add doctor was its own bottom-right FAB, which put two FABs in one

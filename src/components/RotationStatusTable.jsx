@@ -3,6 +3,7 @@ import SectionBar from './SectionBar'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ListFilter } from 'lucide-react'
 import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import Modal from './Modal'
 import Tag from './Tag'
 import DateFieldButton from './DateFieldButton'
@@ -346,7 +347,7 @@ export default function RotationStatusTable({
     )
   }
 
-  const allCollapsed = groups.length > 0 && groups.every(g => collapsed[g.key])
+  const allCollapsed = allSectionsCollapsed(groups, collapsed)
 
   const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`

@@ -10,6 +10,7 @@ import { TodayIcon } from '../components/PlannerIcons'
 import Toolbar from '../components/Toolbar'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import ExpandAllButton from '../components/ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import Tag from '../components/Tag'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { labelForLeaveCategory, columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
@@ -61,7 +62,7 @@ function hoursFilterFromParam(param) {
 export default function RosterSummaryPage() {
   // The table runs to the bottom of the window with many rows, and to its
   // last row with few — see the hook.
-  const [tableRef, tableFill] = useFillToViewport()
+  const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const { profile } = useAuth()
   const swatch = useSwatch()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -217,7 +218,7 @@ export default function RosterSummaryPage() {
     .filter(g => g.rows.length > 0)
   // With every section shut the table is nothing but headers, and opening
   // five of them one by one to get back is a chore — see ExpandAllButton.
-  const allCollapsed = groups.length > 0 && groups.every(g => collapsedGroups[g.key])
+  const allCollapsed = allSectionsCollapsed(groups, collapsedGroups)
   const columnCount = 1 + 3 + WEEKDAY_COLUMNS.length + WEEKEND_COLUMNS.length + PH_WEEKDAY_COLUMNS.length + PH_WEEKEND_COLUMNS.length + 2 + (leaveOpen ? 2 : 0)
 
   return (

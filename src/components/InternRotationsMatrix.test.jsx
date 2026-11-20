@@ -94,6 +94,31 @@ describe('InternRotationsMatrix', () => {
     expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
   })
 
+  it('right now panel: Expand all appears once both its sections are folded', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const panel = screen.getByText('Right now').closest('div')
+    await user.click(within(panel).getByRole('button', { name: /OT interns 1/ }))
+    expect(within(panel).queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: /Registrars 1/ }))
+    await user.click(within(panel).getByRole('button', { name: 'Expand all' }))
+    expect(within(panel).getByText('Day Hospital')).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+  })
+
+  it('grid: Expand all appears once every category section is folded', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const sections = [...document.querySelectorAll('[data-section]')]
+    expect(sections.length).toBeGreaterThan(0)
+    for (const section of sections) {
+      await user.click(within(section).getAllByRole('button', { expanded: true })[0])
+    }
+    expect(screen.queryByTitle('Ivy Intern')).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Expand all' })[0])
+    expect(screen.getAllByTitle('Ivy Intern').length).toBeGreaterThan(0)
+  })
+
   it('selecting a doctor shows their block list with type + date range', async () => {
     const onSelectDoctor = vi.fn()
     renderMatrix({ onSelectDoctor })

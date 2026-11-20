@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
 import { ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -136,7 +138,7 @@ function BucketCell({ bucket }) {
 // permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
-  const [tableRef, tableFill] = useFillToViewport()
+  const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
@@ -502,6 +504,9 @@ export default function LeaveAuditReport() {
               </tbody>
             </table>
           </div>
+          {allSectionsCollapsed(sections, collapsedSections) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedSections({})} />
+          )}
 
           {selectedDoctorId && (
             <div className="mt-4 card p-4">

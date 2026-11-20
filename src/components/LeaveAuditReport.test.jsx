@@ -154,6 +154,20 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     expect(screen.getByText('Adams')).toBeInTheDocument()
   })
 
+  it('offers Expand all only once every section is folded, and it reopens them all', async () => {
+    const user = userEvent.setup()
+    render(<LeaveAuditReport />)
+    await screen.findByText('Zephyr')
+    const headers = screen.getAllByRole('button', { expanded: true })
+    expect(headers.length).toBeGreaterThan(1)
+    for (const header of headers.slice(0, -1)) await user.click(header)
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+    await user.click(headers[headers.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getByText('Zephyr')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+  })
+
   it('filter options are not shown until the Filter button is opened', async () => {
     render(<LeaveAuditReport />)
     await screen.findByText('Zephyr')

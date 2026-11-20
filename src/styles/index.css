@@ -683,6 +683,28 @@
      headers read as the section breaks they are against the darker cards. */
   :root[data-theme="neutral-dark"] .sheen-divider { box-shadow: inset 3px 0 0 rgb(var(--color-accent)); }
 
+  /* SectionBar's pinned label redraws the bar's rounded left end, which
+     scrolls away with the bar in a wide table: the rounded corner and the
+     4px gap around it in the surround colour (a wide outer shadow fills the
+     corners outside the curve), clipped so nothing paints to its right.
+     Solid colours only — see SectionBar for why. */
+  .section-bar-cap::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 12px;
+    border-radius: 10px 0 0 10px;
+    box-shadow: 0 0 0 12px var(--section-bar-surround, rgb(var(--color-canvas)));
+    -webkit-clip-path: inset(-4px 0 -4px -4px);
+    clip-path: inset(-4px 0 -4px -4px);
+    pointer-events: none;
+  }
+  :root[data-theme="neutral-dark"] .section-bar-cap::before {
+    box-shadow: inset 3px 0 0 rgb(var(--color-accent)), 0 0 0 12px var(--section-bar-surround, rgb(var(--color-canvas)));
+  }
+
   /* Chips: fill + ink pairs, themed. */
   .chip-mint    { background-color: var(--chip-mint-bg);    color: var(--chip-mint-ink); }
   .chip-night   { background-color: var(--chip-night-bg);   color: var(--chip-night-ink); }

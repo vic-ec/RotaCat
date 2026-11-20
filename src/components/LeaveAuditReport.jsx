@@ -1,6 +1,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
-import { ArrowUpDown, ChevronDown } from 'lucide-react'
+import { ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -135,7 +138,7 @@ function BucketCell({ bucket }) {
 // permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
-  const [tableRef, tableFill] = useFillToViewport()
+  const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
@@ -453,14 +456,7 @@ export default function LeaveAuditReport() {
                       className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
                     >
                       <td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="border-b border-slate-hairline bg-canvas p-1">
-                        <button
-                          type="button"
-                          aria-expanded={!collapsedSections[section.key]}
-                          className="sheen-divider sticky left-1 !w-72 max-w-[calc(100vw-3rem)] text-left"
-                        >
-                          <span>{section.label} <span className="divider-meta ml-1 normal-case font-normal">{section.rows.length}</span></span>
-                          <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedSections[section.key] ? 'rotate-180' : ''}`} />
-                        </button>
+                        <SectionBar label={section.label} count={section.rows.length} collapsed={collapsedSections[section.key]} />
                       </td>
                     </tr>
                     {!collapsedSections[section.key] && section.rows.map(row => {
@@ -508,6 +504,9 @@ export default function LeaveAuditReport() {
               </tbody>
             </table>
           </div>
+          {allSectionsCollapsed(sections, collapsedSections) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedSections({})} />
+          )}
 
           {selectedDoctorId && (
             <div className="mt-4 card p-4">

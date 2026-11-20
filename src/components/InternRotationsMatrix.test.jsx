@@ -76,7 +76,7 @@ describe('InternRotationsMatrix', () => {
     // intern-1 is on OT today, but Interns is one fixed section — no more
     // splitting by current EC/OT the way the old sections used to.
     renderMatrix()
-    const internsGroup = screen.getByRole('button', { name: /Interns 2/ }).parentElement
+    const internsGroup = screen.getByRole('button', { name: /Interns 2/ }).closest('[data-section]')
     expect(within(internsGroup).getByTitle('Ivy Intern')).toBeInTheDocument()
     expect(within(internsGroup).getByTitle('Cara Cosmo')).toBeInTheDocument()
   })
@@ -92,6 +92,31 @@ describe('InternRotationsMatrix', () => {
     expect(within(panel).queryByRole('button', { name: /EC interns/ })).not.toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: /Registrars 1/ })).toBeInTheDocument()
     expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
+  })
+
+  it('right now panel: Expand all appears once both its sections are folded', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const panel = screen.getByText('Right now').closest('div')
+    await user.click(within(panel).getByRole('button', { name: /OT interns 1/ }))
+    expect(within(panel).queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: /Registrars 1/ }))
+    await user.click(within(panel).getByRole('button', { name: 'Expand all' }))
+    expect(within(panel).getByText('Day Hospital')).toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+  })
+
+  it('grid: Expand all appears once every category section is folded', async () => {
+    const user = userEvent.setup()
+    renderMatrix()
+    const sections = [...document.querySelectorAll('[data-section]')]
+    expect(sections.length).toBeGreaterThan(0)
+    for (const section of sections) {
+      await user.click(within(section).getAllByRole('button', { expanded: true })[0])
+    }
+    expect(screen.queryByTitle('Ivy Intern')).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Expand all' })[0])
+    expect(screen.getAllByTitle('Ivy Intern').length).toBeGreaterThan(0)
   })
 
   it('selecting a doctor shows their block list with type + date range', async () => {
@@ -222,7 +247,7 @@ describe('InternRotationsMatrix', () => {
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
     const internsHeading = screen.getAllByRole('button', { name: /Interns 2/ })[0]
-    await user.click(within(internsHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    await user.click(within(internsHeading.closest('[data-section]')).getByRole('button', { name: '+ Add doctor' }))
     const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({

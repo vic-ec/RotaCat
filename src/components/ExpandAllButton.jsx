@@ -9,6 +9,9 @@ import { ChevronDown } from 'lucide-react'
 //
 // Full width and quiet (btn-utility, not a filled button): it is a way back
 // to the list, not an action on the data in it.
+//
+// Pair it with allSectionsCollapsed (lib/collapsibleSections) so every
+// grouped table decides "show it?" the same way.
 export default function ExpandAllButton({ onExpandAll, label = 'Expand all', className = '' }) {
   return (
     <button

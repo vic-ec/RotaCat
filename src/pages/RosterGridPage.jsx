@@ -208,7 +208,9 @@ export default function RosterGridPage() {
         // assignableProfiles below.
         supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type, contract_type, is_active')
           .eq('is_approved', true).eq('role', 'doctor').neq('category', 'Consultant'),
-        supabase.from('profiles').select('id, name, surname, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
+        // category is needed by the Lanes view's section header — without it
+        // consultants grouped under a generic "Other".
+        supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
         supabase.from('shift_types').select('id, code').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
       ])

@@ -76,7 +76,7 @@ describe('InternRotationsMatrix', () => {
     // intern-1 is on OT today, but Interns is one fixed section — no more
     // splitting by current EC/OT the way the old sections used to.
     renderMatrix()
-    const internsGroup = screen.getByRole('button', { name: /Interns 2/ }).parentElement
+    const internsGroup = screen.getByRole('button', { name: /Interns 2/ }).closest('[data-section]')
     expect(within(internsGroup).getByTitle('Ivy Intern')).toBeInTheDocument()
     expect(within(internsGroup).getByTitle('Cara Cosmo')).toBeInTheDocument()
   })
@@ -222,7 +222,7 @@ describe('InternRotationsMatrix', () => {
     const user = userEvent.setup()
     renderMatrix({ onCreateRotation, onSelectDoctor })
     const internsHeading = screen.getAllByRole('button', { name: /Interns 2/ })[0]
-    await user.click(within(internsHeading.parentElement).getByRole('button', { name: '+ Add doctor' }))
+    await user.click(within(internsHeading.closest('[data-section]')).getByRole('button', { name: '+ Add doctor' }))
     const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     await user.click(within(picker).getByRole('button', { name: /Cosmo/ }))
     expect(onCreateRotation).toHaveBeenCalledWith(expect.objectContaining({

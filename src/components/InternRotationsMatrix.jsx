@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import SectionBar from './SectionBar'
 import {
   ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
   TriangleAlert, X, Plus, ListFilter, ChevronLeft, ChevronRight,
@@ -855,16 +856,8 @@ export default function InternRotationsMatrix({
             )}
 
             {groups.map(group => (
-              <div key={group.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroupCollapsed(group.key)}
-                  className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
-                >
-                  <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
-                </button>
-
+              <div key={group.key} data-section={group.key} className="w-max min-w-full">
+                <SectionBar label={group.label} count={group.items.length} collapsed={collapsedGroups[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} className="m-1" />
                 {!collapsedGroups[group.key] && group.items.map(doctor => {
                   const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
                   const label = displayNames?.get(doctor.id) ?? doctor.surname

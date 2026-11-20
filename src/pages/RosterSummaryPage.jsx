@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
+import SectionBar from '../components/SectionBar'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -407,14 +408,7 @@ export default function RosterSummaryPage() {
                         sticky, so the label and chevron stay on screen
                         however far the twenty columns have been scrolled. */}
                     <td colSpan={columnCount} className="border-b border-slate-hairline bg-canvas p-1">
-                      <button
-                        type="button"
-                        aria-expanded={!collapsedGroups[group.key]}
-                        className="sheen-divider sticky left-1 !w-[calc(100%-0.5rem)] text-left"
-                      >
-                        <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.rows.length}</span></span>
-                        <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
-                      </button>
+                      <SectionBar label={group.label} count={group.rows.length} collapsed={collapsedGroups[group.key]} />
                     </td>
                   </tr>
                   {!collapsedGroups[group.key] && group.rows.map(row => {

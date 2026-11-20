@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import SectionBar from './SectionBar'
 import { createPortal } from 'react-dom'
-import { ArrowUpDown, ChevronDown } from 'lucide-react'
+import { ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -453,14 +454,7 @@ export default function LeaveAuditReport() {
                       className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
                     >
                       <td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="border-b border-slate-hairline bg-canvas p-1">
-                        <button
-                          type="button"
-                          aria-expanded={!collapsedSections[section.key]}
-                          className="sheen-divider sticky left-1 !w-72 max-w-[calc(100vw-3rem)] text-left"
-                        >
-                          <span>{section.label} <span className="divider-meta ml-1 normal-case font-normal">{section.rows.length}</span></span>
-                          <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedSections[section.key] ? 'rotate-180' : ''}`} />
-                        </button>
+                        <SectionBar label={section.label} count={section.rows.length} collapsed={collapsedSections[section.key]} />
                       </td>
                     </tr>
                     {!collapsedSections[section.key] && section.rows.map(row => {

@@ -1290,14 +1290,14 @@ export default function StaffListPage() {
                           <div className="flex flex-shrink-0 items-center gap-1.5">
                             <div className="flex items-center gap-1">
                               {isAdmin && person.is_admin && (
-                                <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
+                                <span className={`flex items-center whitespace-nowrap rounded-md border px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal ${
                                   person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
                                 }`}>
                                   {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
                                 </span>
                               )}
                               {!person.is_active && (
-                                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
+                                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal text-flagRed">
                                   Inactive
                                 </span>
                               )}

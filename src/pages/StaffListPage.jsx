@@ -1276,23 +1276,35 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
-                          {/* One row, wrapping only if all three land on the
-                              same person: the admin chip and the temp-password
-                              shield are both small markers on the same account,
-                              and stacking them pushed the shield onto a line of
-                              its own under a chip it belongs beside. */}
-                          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-1">
-                            {isAdmin && person.is_admin && (
-                              <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
-                                person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
-                              }`}>
-                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                              </span>
-                            )}
-                            {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
-                            {!person.is_active && (
-                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
-                                Inactive
+                          {/* Chips, then the temp-password shield in a slot
+                              of its own just left of the kebab. The shield
+                              used to sit between the Admin and Inactive
+                              chips in one right-aligned run, so it landed
+                              beside the kebab on one row and a chip's width
+                              further left on the next. The slot is reserved
+                              on every row an admin sees (only admins ever
+                              get the shield), which also keeps the chips
+                              themselves lined up down the list. An inactive
+                              admin's two chips sit side by side on one line
+                              (the name truncates to make room). */}
+                          <div className="flex flex-shrink-0 items-center gap-1.5">
+                            <div className="flex items-center gap-1">
+                              {isAdmin && person.is_admin && (
+                                <span className={`flex items-center whitespace-nowrap rounded-md border px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal ${
+                                  person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
+                                }`}>
+                                  {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                </span>
+                              )}
+                              {!person.is_active && (
+                                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal text-flagRed">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                            {isAdmin && (
+                              <span className="flex w-5 flex-shrink-0 justify-center">
+                                {person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
                               </span>
                             )}
                           </div>
@@ -1493,7 +1505,12 @@ export default function StaffListPage() {
                                     Edit
                                   </button>
                                 )}
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
+                                {/* Pinned to the cell's right edge (ml-auto)
+                                    rather than trailing the status text,
+                                    which varies in length row to row
+                                    ("Active" vs "Active until 31 Dec Edit")
+                                    and carried the shield with it. */}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator className="ml-auto pl-2" notSignedIn={!person.is_active} person={person} />}
                               </div>
                             </td>
                             {isAdmin && (

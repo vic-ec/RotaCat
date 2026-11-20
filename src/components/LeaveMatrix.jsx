@@ -382,7 +382,7 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
           ) : (
             groups.map(group => (
               <div key={group.key} data-section={group.key} className="w-max min-w-full">
-                <SectionBar label={group.label} count={group.items.length} collapsed={collapsedGroups[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} className="m-1" />
+                <SectionBar label={group.label} count={group.items.length} collapsed={collapsedGroups[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} surround="card" className="m-1" />
                 {!collapsedGroups[group.key] && group.items.map((row, rowIndex) => (
                   <DoctorRows
                     key={row.doctor.id}

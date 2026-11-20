@@ -468,7 +468,7 @@ export default function RotationStatusTable({
   return (
     <div className="mt-4">
       <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           <div className="hidden min-w-0 flex-1 md:block">
             <Toolbar
               className=""

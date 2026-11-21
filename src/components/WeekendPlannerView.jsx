@@ -1616,7 +1616,12 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                 month panels) — this stays the literal next weekend only,
                 informational, fill following coverage health
                 (weekendHealthScheme, matching the year overview's legend). */}
-            {!nextWeekendDismissed && (
+            {/* Only in the month that holds it: the card describes one
+                specific weekend, and this view only loads the month on
+                screen — shown elsewhere it sat above January's weekends
+                reading "0 of 4 groups staffed" for a November weekend
+                whose entries were never fetched. */}
+            {!nextWeekendDismissed && monthSaturdays.includes(nextWeekend) && (
             <div className={`card relative mt-4 p-4 pr-12 ${nextWeekendScheme.bg}`}>
               <button
                 type="button"

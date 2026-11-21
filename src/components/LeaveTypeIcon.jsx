@@ -2,7 +2,7 @@ import {
   TreePalm, Thermometer, BoneFracture, HeartHandshake, Sparkles, BookOpen, GraduationCap,
   Presentation, HeartPulse, Baby, TimerReset, Calendar1, Coffee,
 } from 'lucide-react'
-import { LEAVE_GROUP_COLOR, leaveTypeGroupKey } from '../lib/leaveMatrix'
+import { leaveGroupInk, leaveTypeGroupKey } from '../lib/leaveMatrix'
 
 // One icon per leave type, in its group's colour (LEAVE_GROUP_COLOR). The
 // icon says which type, the colour which family — and it is what tells a
@@ -42,14 +42,14 @@ const GLYPH = { sm: 'h-3 w-3', md: 'h-[15px] w-[15px]' }
 
 // `leaveType` for one type, or `groupKey` for a legend's group.
 // variant: 'box' — the icon in a tinted, outlined box (lists, legends,
-//          panels); the tint is the colour at low alpha, so it sits on a
-//          light or a night surface alike.
+//          panels); ink from --leave-ink-* (lifted at night), the tint
+//          and outline mixed from that same ink.
 //          'bare' — the glyph alone, in `color` (default the group colour);
 //          for inside a solid bar or beside a label.
 export default function LeaveTypeIcon({ leaveType, groupKey, variant = 'box', size = 'md', color, className = '' }) {
   const group = groupKey ?? leaveTypeGroupKey(leaveType)
   const Icon = (leaveType && TYPE_ICON[leaveType]) || GROUP_ICON[group] || Coffee
-  const tone = color ?? LEAVE_GROUP_COLOR[group]
+  const tone = color ?? leaveGroupInk(group)
   if (variant === 'bare') {
     return <Icon aria-hidden="true" data-leave-icon={leaveType ?? group} className={`flex-shrink-0 ${GLYPH[size]} ${className}`} style={{ color: tone }} />
   }
@@ -58,7 +58,11 @@ export default function LeaveTypeIcon({ leaveType, groupKey, variant = 'box', si
       aria-hidden="true"
       data-leave-icon={leaveType ?? group}
       className={`inline-flex flex-shrink-0 items-center justify-center border ${BOX[size]} ${className}`}
-      style={{ backgroundColor: `${tone}1F`, borderColor: `${tone}66`, color: tone }}
+      style={{
+        backgroundColor: `color-mix(in srgb, ${tone} 14%, transparent)`,
+        borderColor: `color-mix(in srgb, ${tone} 45%, transparent)`,
+        color: tone,
+      }}
     >
       <Icon className={GLYPH[size]} />
     </span>

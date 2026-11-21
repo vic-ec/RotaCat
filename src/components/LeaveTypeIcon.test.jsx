@@ -20,7 +20,7 @@ describe('LeaveTypeIcon', () => {
 
   it('takes its group colour, or the colour it is given when bare', () => {
     const { container } = render(<LeaveTypeIcon leaveType="sick" />)
-    expect(container.firstChild.style.color).toBe('rgb(220, 38, 38)')
+    expect(container.firstChild.style.color).toBe('var(--leave-ink-sick)')
     expect(leaveTypeColor('sick')).toBe('#DC2626')
     const bare = render(<LeaveTypeIcon leaveType="annual" variant="bare" color="#FFFFFF" />)
     expect(bare.container.querySelector('svg').style.color).toBe('rgb(255, 255, 255)')

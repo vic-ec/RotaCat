@@ -38,6 +38,18 @@
   --color-rose-light: 248 227 234;            /* #F8E3EA */
   --color-rose-tint: 252 240 243;             /* #FCF0F3 */
   --color-rose-night: 240 207 219;            /* #F0CFDB */
+  /* Leave-type ink: the colour a leave icon or leave date is drawn in. The
+     group colours themselves (LEAVE_GROUP_COLOR) on a light surface; the
+     night theme lifts each a few steps, since the mid blues and violets
+     that read on white sink into a dark card. Solid fills (matrix bars)
+     keep the base colours in both themes. */
+  --leave-ink-annual: #2563EB;
+  --leave-ink-sick: #DC2626;
+  --leave-ink-family: #D97706;
+  --leave-ink-study: #7C3AED;
+  --leave-ink-parental: #DB2777;
+  --leave-ink-lieu: #0891B2;
+  --leave-ink-weekend: #64748B;
   /* flagRed */
   --color-flagRed: 192 54 44;                 /* #C0362C */
   --color-flagRed-bg: 251 234 232;            /* #FBEAE8 */
@@ -351,6 +363,13 @@
   --color-rose-light: 58 37 44;                 /* #3A252C */
   --color-rose-tint: 43 29 34;                  /* #2B1D22 */
   --color-rose-night: 51 32 39;                 /* #332027 */
+  --leave-ink-annual: #8AB4FF;
+  --leave-ink-sick: #FF8A80;
+  --leave-ink-family: #FBBF24;
+  --leave-ink-study: #C4B0FF;
+  --leave-ink-parental: #FF8CC6;
+  --leave-ink-lieu: #4FD8EE;
+  --leave-ink-weekend: #B4C0CE;
   /* flagRed */
   --color-flagRed: 220 132 119;                 /* #DC8477 */
   --color-flagRed-bg: 48 21 18;                 /* #301512 */

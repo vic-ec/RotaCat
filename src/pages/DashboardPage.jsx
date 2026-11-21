@@ -13,6 +13,7 @@ import UpcomingBirthdays from '../components/UpcomingBirthdays'
 import DateCard, { LeaveDateRange } from '../components/DateCard'
 import LeaveCard from '../components/LeaveCard'
 import ProfileAvatar from '../components/ProfileAvatar'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 
 // Destinations the dashboard links out to. `MY_LEAVE` is the "My leave" tab
 // of the Leave page (reachable from the Planners nav item too) — the
@@ -158,6 +159,17 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAdminWidgets/loadClerkWidgets/loadLocumWidgets/loadDoctorWidgets are redefined every render; including them would refetch in a loop
   }, [profile?.id, isAdmin, isClerk, isLocum])
 
+  // The same load again, quietly, whenever the page comes back into view
+  // and once a minute while it stays there — so leave captured or a shift
+  // changed elsewhere shows up without a reload. `silent` skips the loading
+  // state: this runs under a dashboard someone is reading.
+  useLiveRefresh(() => {
+    if (isAdmin) loadAdminWidgets({ silent: true })
+    else if (isClerk) loadClerkWidgets({ silent: true })
+    else if (isLocum) loadLocumWidgets({ silent: true })
+    else loadDoctorWidgets({ silent: true })
+  }, { enabled: Boolean(profile?.id) })
+
   // roster_entries RLS restricts non-admins to published-roster rows only
   // (roster_entries_select: rm.status = 'published' OR is_admin()), so this
   // own-shifts query is published-only by construction, not just by app
@@ -269,8 +281,8 @@ export default function DashboardPage() {
   // per-role view. This dashboard widget always self-filters on top of it.
   // Upcoming only (date_to >= today): leave already taken is history, and
   // the "My leave" tracker is where it's accounted for.
-  async function loadDoctorWidgets() {
-    setLoading(true)
+  async function loadDoctorWidgets({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     const today = todayStr()
     const [leaveRes, shifts, coworkers, ph, swaps, annualUsed] = await Promise.all([
       supabase
@@ -299,8 +311,8 @@ export default function DashboardPage() {
   // Locums can't submit leave (leave_requests RLS excludes them entirely),
   // so there's no leave widget for this role -- just their own upcoming
   // shifts on the published roster (plus swaps, which locums can do too).
-  async function loadLocumWidgets() {
-    setLoading(true)
+  async function loadLocumWidgets({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     const [shifts, coworkers, ph, swaps] = await Promise.all([
       loadOwnUpcomingShifts(),
       loadCoworkersThisWeek(),
@@ -322,8 +334,8 @@ export default function DashboardPage() {
   // leave_requests RLS restricts a clerk to approved leave that's active
   // today — both queries below are just being explicit about the same
   // windows on top of that.
-  async function loadClerkWidgets() {
-    setLoading(true)
+  async function loadClerkWidgets({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     const now = new Date()
     const today = todayStr()
     const yesterday = addDays(today, -1)
@@ -356,8 +368,8 @@ export default function DashboardPage() {
   // The hours count reads the same live roster_entries figures the Hours
   // Summary shows (monthlyHours.js) — monthly_stats has no rows yet, so
   // nothing here reads it.
-  async function loadAdminWidgets() {
-    setLoading(true)
+  async function loadAdminWidgets({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     const today = todayStr()
 
     const [pendingRes, leaveRes, profilesRes, sickRes] = await Promise.all([

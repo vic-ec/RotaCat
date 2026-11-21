@@ -236,3 +236,20 @@ describe('RosterGridPage flagged slots and locum placeholders', () => {
     expect(other).toHaveClass('opacity-25')
   })
 })
+
+describe('RosterGridPage month switch', () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
+    setViewport(true)
+  })
+
+  it('the title is a month stepper; a month with no roster says so and stays on this one', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent('August 2026')
+    await user.click(within(heading).getByRole('button', { name: /next/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('No roster for September 2026 yet.')
+    expect(heading).toHaveTextContent('August 2026')
+  })
+})

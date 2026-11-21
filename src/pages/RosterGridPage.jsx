@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList, TriangleAlert } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
-import { StepperShell } from '../components/DateStepper'
+import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
@@ -182,6 +182,25 @@ export default function RosterGridPage() {
   // Roster text size (S/M/L), per device. The grids are the densest thing in
   // the app and 12px cell text does not suit every pair of eyes.
   const [textSize, setTextSize] = useState(readRosterTextSize)
+  // Shown under the title when the month switch lands on a month with no
+  // roster this viewer can open; cleared by the next successful switch.
+  const [noRosterNote, setNoRosterNote] = useState('')
+
+  // The title's month switch. Looks the month's roster up (RLS decides
+  // which ones this viewer may see — a doctor only gets published ones)
+  // and opens it in place; a month without one says so and stays put.
+  async function goToRosterMonth(year, month) {
+    const { data } = await supabase.from('roster_months').select('id').eq('year', year).eq('month', month)
+    const target = (data || [])[0]
+    if (!target) {
+      setNoRosterNote(`No roster for ${MONTH_NAMES[month]} ${year} yet.`)
+      return
+    }
+    setNoRosterNote('')
+    setJump(null)
+    setCurrentWeek(0)
+    navigate(`/roster/${target.id}${editing ? '?mode=edit' : ''}`)
+  }
 
   // Scroll a jumped-to entry into the middle of the screen once it is on
   // it — after a switch to Rows or to another week has rendered — and let
@@ -844,10 +863,16 @@ export default function RosterGridPage() {
           </button>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="min-w-0 font-display text-2xl font-bold text-ink">
-            {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}
+          {/* The title is the month switch: ‹ › step a month, the label
+              opens the month/year jump — straight to that month's roster
+              without a trip back to the Rosters list. */}
+          <h1 className="min-w-0 text-ink [&_.font-display]:text-xl">
+            <DateStepper unit="month" year={rosterMonth.year} month={rosterMonth.month} onChange={goToRosterMonth} showToday={false} />
           </h1>
         </div>
+        {noRosterNote && (
+          <p role="status" className="mt-1 text-sm text-ink-muted">{noRosterNote}</p>
+        )}
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
             rosterMonth.status === 'published'

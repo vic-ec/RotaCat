@@ -14,6 +14,7 @@ import ViewToggle from '../components/ViewToggle'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterSummaryPage from './RosterSummaryPage'
+import RowActionIcon from '../components/RowActionIcon'
 
 const ROSTER_VIEW_OPTIONS = [
   { key: 'list', label: 'List', icon: List },
@@ -681,8 +682,9 @@ function EmptyState({ isAdmin, onCreate }) {
 // up column for column. On a phone there is no room for columns, and the
 // rows stay the stacked ListRowRecord they were.
 function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false, columns = [] }) {
-  // View / Edit / Publish for one roster — the same three on a list row
-  // (text on a desktop, icons on a phone) and in a card's kebab.
+  // View / Edit / Publish for one roster — the same three as icon buttons
+  // on a list row (RowActionIcon, on every screen size) and in a card's
+  // kebab.
   function rosterActions(roster) {
     const items = [
       { key: 'view', icon: <Eye className="h-4 w-4" />, label: 'View', onClick: () => navigate(`/roster/${roster.id}`) },
@@ -776,7 +778,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               <col />
               <col className="w-28" />
               {columns.map(c => <col key={c.header} className="w-40" />)}
-              {isAdmin && <col className="w-64" />}
+              {isAdmin && <col className="w-28" />}
             </colgroup>
             <thead>
               <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
@@ -820,18 +822,16 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                     })}
                     {isAdmin && (
                       <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-0.5">
                           {rosterActions(roster).map(a => (
-                            <button
+                            <RowActionIcon
                               key={a.key}
-                              type="button"
+                              icon={a.icon}
+                              title={a.label}
+                              label={`${a.label} ${name}`}
                               onClick={a.onClick}
-                              aria-label={`${a.label} ${name}`}
-                              className={`${a.key === 'publish' ? 'btn-primary' : 'btn-secondary'} h-8 px-2.5 text-xs`}
-                            >
-                              {a.icon}
-                              {a.label}
-                            </button>
+                              tone={a.key === 'publish' ? 'primary' : 'default'}
+                            />
                           ))}
                         </div>
                       </td>
@@ -854,17 +854,14 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
               onClick={() => navigate(`/roster/${roster.id}`)}
               actions={isAdmin ? rosterActions(roster).map(a => (
-                <button
+                <RowActionIcon
                   key={a.key}
-                  type="button"
-                  onClick={a.onClick}
-                  aria-label={a.label}
+                  icon={a.icon}
                   title={a.label}
-                  className={`${a.key === 'publish' ? 'btn-primary' : 'btn-secondary'} h-8 px-2 text-xs md:px-2.5`}
-                >
-                  {a.icon}
-                  <span className="hidden md:inline">{a.label}</span>
-                </button>
+                  label={`${a.label} ${MONTH_NAMES[roster.month]} ${roster.year}`}
+                  onClick={a.onClick}
+                  tone={a.key === 'publish' ? 'primary' : 'default'}
+                />
               )) : undefined}
             />
           ))}

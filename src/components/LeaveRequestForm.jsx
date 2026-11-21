@@ -3,16 +3,54 @@ import { TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import SelectMenu from './SelectMenu'
 import LeaveCapacityBanner from './LeaveCapacityBanner'
-import { datesInRange, formatShortDateRange } from '../lib/dateRange'
+import { addDays, datesInRange, formatShortDateRange, rangesOverlap, todayStr } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
-  fetchWeekendExceptionPreview, fetchLeaveCaptureCandidates, fetchRosterOverlapDates, leaveYearStart,
+  fetchWeekendExceptionPreview, fetchLeaveCaptureCandidates, fetchRosterOverlapShifts, rosterShiftLink,
+  fetchActiveLeaveForProfile, LEAVE_TYPE_LABELS, leaveYearStart,
 } from '../lib/leaveRequests'
 import {
   INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote, resolveLeaveCapacityColumn,
 } from '../lib/internRotations'
 import DateFieldButton from './DateFieldButton'
+
+// How many flagged roster days get their own link before the rest are
+// summed up — a fortnight of sick leave should not print fourteen links.
+const MAX_ROSTER_LINKS = 6
+// How far back "already on record" looks once a doctor is chosen: far
+// enough to catch sick leave another admin captured earlier this week.
+const RECENT_LEAVE_DAYS = 14
+const MAX_LEAVE_ON_RECORD = 5
+
+function describeLeave(lr) {
+  return `${LEAVE_TYPE_LABELS[lr.leave_type] || 'Leave'}, ${formatShortDateRange(lr.date_from, lr.date_to)} (${lr.status})`
+}
+
+// "Go to roster" links for the days a doctor is still rostered on. Each
+// opens the roster in a new tab — the form behind it is usually half
+// filled — on that day, with the doctor's shift lit up.
+function RosterLinks({ shifts, profileId }) {
+  const links = shifts
+    .map(s => ({ date: s.date, href: rosterShiftLink({ rosterMonthId: s.rosterMonthId, date: s.date, profileId }) }))
+    .filter(l => l.href)
+  if (links.length === 0) return null
+  const shown = links.slice(0, MAX_ROSTER_LINKS)
+  return (
+    <span data-testid="roster-links">
+      Go to roster:{' '}
+      {shown.map((l, i) => (
+        <span key={l.date}>
+          {i > 0 && ' · '}
+          <a href={l.href} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:no-underline">
+            {formatShortDateRange(l.date, l.date)}
+          </a>
+        </span>
+      ))}
+      {links.length > shown.length && ` · +${links.length - shown.length} more`}
+    </span>
+  )
+}
 
 const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automatically. Must be a single weekend.'
 
@@ -37,7 +75,9 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   const canFileForSelf = !captureOnly && (!isAdmin || canSubmitLeave !== false)
   const [subjectId, setSubjectId] = useState(canFileForSelf ? (ownProfile?.id ?? null) : null)
   const [candidates, setCandidates] = useState([])
-  const [rosterOverlapDates, setRosterOverlapDates] = useState([])
+  const [rosterOverlaps, setRosterOverlaps] = useState([]) // [{ date, rosterMonthId }]
+  const [subjectLeave, setSubjectLeave] = useState(null)   // null until read
+  const [subjectLeaveVersion, setSubjectLeaveVersion] = useState(0)
   const [oldDateConfirmed, setOldDateConfirmed] = useState(false)
   useEffect(() => {
     if (!isAdmin) return
@@ -184,13 +224,32 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   // Capture only: shifts the doctor already holds in the range. A warning,
   // not a block — the roster is left as it is.
   useEffect(() => {
-    if (!isCapture || !hasValidRange || !profile?.id) { setRosterOverlapDates([]); return }
+    if (!isCapture || !hasValidRange || !profile?.id) { setRosterOverlaps([]); return }
     let cancelled = false
-    fetchRosterOverlapDates({ profileId: profile.id, dateFrom, dateTo }).then(dates => {
-      if (!cancelled) setRosterOverlapDates(dates)
+    fetchRosterOverlapShifts({ profileId: profile.id, dateFrom, dateTo }).then(shifts => {
+      if (!cancelled) setRosterOverlaps(shifts)
     })
     return () => { cancelled = true }
   }, [isCapture, hasValidRange, profile?.id, dateFrom, dateTo])
+  const rosterOverlapDates = rosterOverlaps.map(s => s.date)
+
+  // Capture only: the leave this doctor already has on record, read as soon
+  // as they are chosen (and again after each capture). Submission rejects a
+  // range that overlaps existing leave; reading it here says so before the
+  // admin fills the form in — and shows two admins logging the same sick
+  // day that the first one already did.
+  useEffect(() => {
+    if (!isCapture || !profile?.id) { setSubjectLeave(null); return }
+    let cancelled = false
+    setSubjectLeave(null)
+    fetchActiveLeaveForProfile(profile.id).then(rows => { if (!cancelled) setSubjectLeave(rows) })
+    return () => { cancelled = true }
+  }, [isCapture, profile?.id, subjectLeaveVersion])
+  const leaveOnRecord = (subjectLeave || []).filter(lr => lr.date_to >= addDays(todayStr(), -RECENT_LEAVE_DAYS))
+  const overlappingLeave = isCapture && hasValidRange
+    ? (subjectLeave || []).filter(lr => rangesOverlap(dateFrom, dateTo, lr.date_from, lr.date_to))
+    : []
+  const alreadyOnLeave = overlappingLeave.length > 0
 
   // Capture only: leave dated before the current leave year needs an
   // explicit tick, so a mistyped year can't slip through unnoticed.
@@ -230,6 +289,10 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
       const overlapCount = result?.rosterOverlapDates?.length || 0
       setMsg({
         type: 'success',
+        // The links outlive the form reset below, so the admin can still
+        // jump to the shifts that now need replacing.
+        rosterShifts: isCapture && overlapCount ? rosterOverlaps : [],
+        rosterProfileId: profile.id,
         text: isCapture
           ? `Leave captured for ${subjectName} and approved.${result?.overCapacity ? ' Recorded as overbooked.' : ''}${overlapCount ? ` ${overlapCount} rostered day${overlapCount === 1 ? '' : 's'} in this range still show${overlapCount === 1 ? 's' : ''} on the roster.` : ''}`
           : isAnnual
@@ -240,6 +303,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
       setDateTo('')
       setAnnualLeaveDays('')
       setNotes('')
+      if (isCapture) setSubjectLeaveVersion(v => v + 1)
       onSubmitted?.()
     } catch (err) {
       setMsg({ type: 'error', text: err.message })
@@ -258,11 +322,30 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
             onChange={setSubjectId}
             options={subjectOptions}
             placeholder="Choose a doctor…"
+            searchable
+            searchPlaceholder="Type a name…"
           />
           {isCapture && (
             <p className="mt-1 text-xs text-ink-muted">
               Captured on {subjectName}&rsquo;s behalf: approved straight away, recorded under your name, and they are notified.
             </p>
+          )}
+          {isCapture && subjectLeave && (
+            <div className="mt-2 rounded-lg bg-canvas-sunken p-3 text-xs text-ink-light" data-testid="leave-on-record">
+              {leaveOnRecord.length === 0 ? (
+                <p>No recent or upcoming leave on record for {subjectName}.</p>
+              ) : (
+                <>
+                  <p className="font-semibold text-ink">Already on record for {subjectName}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {leaveOnRecord.slice(0, MAX_LEAVE_ON_RECORD).map(lr => <li key={lr.id}>{describeLeave(lr)}</li>)}
+                  </ul>
+                  {leaveOnRecord.length > MAX_LEAVE_ON_RECORD && (
+                    <p className="mt-1 text-ink-muted">+{leaveOnRecord.length - MAX_LEAVE_ON_RECORD} more in Team Leave</p>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -410,7 +493,18 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           <p>
             {subjectName} is on the roster for {rosterOverlapDates.length} day{rosterOverlapDates.length === 1 ? '' : 's'} in this range
             ({formatShortDateRange(rosterOverlapDates[0], rosterOverlapDates[rosterOverlapDates.length - 1])}).
-            Capturing this leave does not change the roster; replace those shifts there.
+            Capturing this leave does not change the roster; replace those shifts there.{' '}
+            <RosterLinks shifts={rosterOverlaps} profileId={profile?.id} />
+          </p>
+        </div>
+      )}
+
+      {alreadyOnLeave && (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber" role="alert" data-testid="leave-overlap-note">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <p>
+            {subjectName} already has leave on record for these dates: {overlappingLeave.map(describeLeave).join('; ')}.
+            Nothing more needs capturing for those days. Pick different dates if this is a separate period.
           </p>
         </div>
       )}
@@ -450,6 +544,9 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
       {msg && (
         <p className={`text-sm ${msg.type === 'error' ? 'text-flagRed' : 'text-success'}`} role="status">
           {msg.text}
+          {msg.rosterShifts?.length > 0 && (
+            <>{' '}<RosterLinks shifts={msg.rosterShifts} profileId={msg.rosterProfileId} /></>
+          )}
         </p>
       )}
 
@@ -466,7 +563,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         </label>
       )}
 
-      <button type="submit" disabled={submitting || (isAdmin && !profile)} className="btn-primary">
+      <button type="submit" disabled={submitting || (isAdmin && !profile) || alreadyOnLeave} className="btn-primary">
         {isCapture
           ? (submitting ? 'Capturing…' : 'Capture leave')
           : (submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request')}

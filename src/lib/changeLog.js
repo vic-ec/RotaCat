@@ -20,6 +20,9 @@ export async function logRosterEntryChange({
   // are left out of the row entirely when unset, so every other edit writes
   // exactly the row it always did.
   reason = null, note = null, leaveRequestId = null,
+  // The locum put on the shift when they have no account, and so no
+  // profileIdAfter to name them by.
+  locumName = null,
 }) {
   const { error } = await supabase.from('roster_entry_changes').insert({
     roster_month_id: rosterMonthId,
@@ -36,6 +39,7 @@ export async function logRosterEntryChange({
     ...(reason ? { reason } : {}),
     ...(note ? { note } : {}),
     ...(leaveRequestId ? { leave_request_id: leaveRequestId } : {}),
+    ...(locumName ? { locum_name: locumName } : {}),
   })
   if (error) console.error('Failed to log roster entry change:', error.message)
 }
@@ -224,7 +228,7 @@ export function rosterChangeDetail(change, nameById) {
 function rosterChangeAction(change, nameById) {
   const dateFmt = formatDisplayDate(change.entry_date)
   const before = nameById.get(change.profile_id_before) || null
-  const after = nameById.get(change.profile_id_after) || null
+  const after = nameById.get(change.profile_id_after) || (change.locum_name ? `${change.locum_name} (locum, no account)` : null)
 
   if (change.action === 'move') {
     return `moved ${after ?? '(unassigned)'} from ${formatDisplayDate(change.date_before)} ${labelForShiftCode(change.shift_code_before)} to ${dateFmt} ${labelForShiftCode(change.shift_code)}`

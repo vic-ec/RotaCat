@@ -181,7 +181,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
       profile_id: null, is_locum: true, locum_name: '[Temp]', locum_contact_id: 'ph-1', counts_toward_contract_hours: false,
     })
     expect(calls.find(c => c.table === 'roster_entry_changes').payload)
-      .toMatchObject({ profile_id_after: null, note: 'covered by locum Tom Temp (no account yet)' })
+      .toMatchObject({ profile_id_after: null, locum_name: 'Tom Temp', reason: 'no_show' })
   })
 
   it('"Open & advertise" for a no-show vacates the entry, advertises it, and logs the reason', async () => {

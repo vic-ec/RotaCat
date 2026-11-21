@@ -160,9 +160,18 @@ export async function linkLocumContact({ contactId, profileId }) {
 }
 
 // The message an admin sends from their own WhatsApp — the app sends
-// nothing itself. Asks the locum to register with the SAME mobile number,
+// nothing itself. Asks the locum to sign up with the SAME mobile number,
 // which is what lets their approval find the shifts already on the roster.
-export function locumInviteText({ name, signupUrl }) {
-  return `Hi ${name}, you have been added to the VHW Emergency Centre roster on RotaCat. `
-    + `Please register as a locum using this mobile number so your shifts link to your account: ${signupUrl}`
+// The link sits on a line of its own at the end, where WhatsApp turns it
+// into a preview card.
+export function locumInviteText({ name, signupUrl, shiftCount = 1 }) {
+  const many = shiftCount > 1
+  return [
+    `Hi ${name}.`,
+    `You've been rostered for ${many ? 'shifts' : 'a shift'} at Victoria Hospital Emergency Centre. `
+      + 'Please can you create a locum doctor account on our roster scheduling platform, RotaCat. '
+      + `Use this mobile number when signing up so your ${many ? 'shifts link' : 'shift links'} to your account.`,
+    'Thank you!',
+    signupUrl,
+  ].join('\n\n')
 }

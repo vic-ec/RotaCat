@@ -11,12 +11,14 @@ import {
 // can't sign in or see their shifts until an account exists. Three ways to
 // close it, per row:
 //
-//   Invite on WhatsApp   opens WhatsApp with a ready message asking them to
-//                        register; their approval then matches on mobile.
-//   Create account       the ordinary Add staff form, prefilled (needs
-//                        their email).
-//   Link to account      they already have one: move the shifts onto it.
-//                        An account with the same mobile is suggested.
+//   Invite on WhatsApp               opens WhatsApp with a ready message
+//                                    asking them to sign up; their approval
+//                                    then matches on mobile.
+//   Finish creating [name]'s account the ordinary Add staff form, prefilled
+//                                    (needs their email).
+//   Link to an existing account      they already have one: move the shifts
+//                                    onto it. An account with the same
+//                                    mobile is suggested.
 //
 // Renders nothing when there are none, so the Staff page is unchanged on
 // an ordinary day.
@@ -80,30 +82,34 @@ export default function LocumContactsPanel({ onLinked }) {
           const count = shiftCounts.get(row.id) || 0
           const fullName = `${row.name} ${row.surname}`.trim()
           const match = findByPhone(accounts, row.phone)
-          const inviteHref = phoneWhatsAppMessageHref(row.phone, locumInviteText({ name: row.name, signupUrl }))
+          const inviteHref = phoneWhatsAppMessageHref(row.phone, locumInviteText({ name: row.name, signupUrl, shiftCount: count }))
           return (
             <li key={row.id} className="py-2">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="text-sm font-medium text-ink">{fullName}</span>
                 <a href={phoneTelHref(row.phone)} className="text-xs text-accent underline">{formatPhoneDisplay(row.phone)}</a>
                 <span className="text-xs text-ink-muted">{count} shift{count === 1 ? '' : 's'}</span>
-                <span className="ml-auto flex flex-wrap gap-2">
-                  {inviteHref && (
-                    <a href={inviteHref} target="_blank" rel="noopener noreferrer" className="btn-secondary px-3 py-1.5 text-xs">
-                      Invite on WhatsApp
-                    </a>
-                  )}
-                  <button type="button" onClick={() => setCreatingFor(row)} className="btn-secondary px-3 py-1.5 text-xs">
-                    Create account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
-                    className="btn-secondary px-3 py-1.5 text-xs"
-                  >
-                    Link to account
-                  </button>
-                </span>
+              </div>
+              {/* The three ways to close this out, in the order they are
+                  usually tried. One per line on a phone, where three
+                  buttons of different lengths wrapped raggedly; a single
+                  row from sm up. */}
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {inviteHref && (
+                  <a href={inviteHref} target="_blank" rel="noopener noreferrer" className="btn-secondary justify-center px-3 py-1.5 text-xs">
+                    Invite on WhatsApp
+                  </a>
+                )}
+                <button type="button" onClick={() => setCreatingFor(row)} className="btn-secondary justify-center px-3 py-1.5 text-xs">
+                  Finish creating {row.name}&rsquo;s account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
+                  className="btn-secondary justify-center px-3 py-1.5 text-xs"
+                >
+                  Link to an existing account
+                </button>
               </div>
               {match && linkingFor !== row.id && (
                 <p className="mt-1 text-xs text-ink-light" data-testid="contact-match">

@@ -37,7 +37,7 @@ function ChevronDownIcon(props) {
 // `options` is an array of `{ value, label }`. `onChange` receives the
 // plain new value (not an event), matching how every caller here already
 // treats these as plain string state, not native <select> change handlers.
-export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '', triggerClassName = '', alwaysDown = false, id, ariaDescribedBy }) {
+export default function SelectMenu({ value, onChange, options, placeholder = 'Select…', disabled = false, className = '', triggerClassName = '', alwaysDown = false, id, ariaDescribedBy, showCodes = false }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -88,13 +88,19 @@ export default function SelectMenu({ value, onChange, options, placeholder = 'Se
               role="option"
               aria-selected={opt.value === value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
-              className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+              className={`${showCodes ? 'flex items-baseline justify-between gap-3' : 'block'} w-full px-3 py-2 text-left text-sm transition-colors ${
                 opt.value === value
                   ? 'bg-accent font-semibold text-on-fill hover:bg-accent-dark active:bg-accent-dark'
                   : 'text-ink hover:bg-canvas-sunken active:bg-canvas-sunken'
               }`}
             >
               {opt.label}
+              {/* showCodes: an option's short code, set to the right. Hidden
+                  from assistive tech — the option is still named by its label,
+                  the code is a visual aid for learning the abbreviations. */}
+              {showCodes && opt.code && (
+                <span aria-hidden="true" className={`flex-shrink-0 text-xs font-semibold ${opt.value === value ? '' : 'text-ink-muted'}`}>{opt.code}</span>
+              )}
             </button>
           ))}
         </div>,

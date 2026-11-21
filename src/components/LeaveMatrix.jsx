@@ -18,6 +18,7 @@ import {
   LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
   blockPixelSpan, buildDoctorLeaveRows, leaveActiveOn, formatDMY,
 } from '../lib/leaveMatrix'
+import { leaveTypeCode, leaveTypeLabelWithCode } from '../lib/leaveRequests'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Literal pixel widths, not 1fr/minmax — the header and every track row share
@@ -34,6 +35,8 @@ const MIN_MONTH_COL_WIDTH = 44 // px
 const LABEL_COL_WIDTH = 150 // px
 const TRACK_HEIGHT = 38 // px — the Table view's row height, near enough
 const BAR_HEIGHT = 22 // px
+// A bar narrower than this cannot hold a code legibly (IOD is the widest).
+const CODE_MIN_BAR_WIDTH = 24 // px
 
 // Category groups reuse the same MO / Registrar / EC Intern / OT Intern /
 // Consultant buckets the rest of the leave feature groups by; a doctor whose
@@ -65,8 +68,8 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
     <button
       type="button"
       onClick={() => onSelect(request)}
-      title={`${LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type}: ${formatDMY(request.date_from)} – ${formatDMY(request.date_to)}`}
-      className="absolute top-1/2 -translate-y-1/2 rounded-sm transition-shadow"
+      title={`${leaveTypeLabelWithCode(request.leave_type)}: ${formatDMY(request.date_from)} – ${formatDMY(request.date_to)}`}
+      className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center overflow-hidden rounded-sm transition-shadow"
       style={{
         left: span.left,
         width: span.width,
@@ -75,7 +78,19 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
         border: pending ? `1.5px dashed ${color}` : 'none',
         boxShadow: selected ? '0 0 0 1px #FFFFFF, 0 0 0 3px #0F172A' : 'none',
       }}
-    />
+    >
+      {/* The type's short code, when the bar is wide enough to hold it —
+          the colour says which family, the code says which type. */}
+      {span.width >= CODE_MIN_BAR_WIDTH && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none select-none px-0.5 font-semibold leading-none"
+          style={{ fontSize: 10, color: pending ? color : '#FFFFFF' }}
+        >
+          {leaveTypeCode(request.leave_type)}
+        </span>
+      )}
+    </button>
   )
 }
 

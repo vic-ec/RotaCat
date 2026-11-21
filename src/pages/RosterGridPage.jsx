@@ -20,7 +20,6 @@ import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
-import HoverHint from '../components/HoverHint'
 import RosterJumpButton from '../components/RosterJumpButton'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
@@ -35,8 +34,8 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
 // are the same data and the same filters — only the axis changes.
 const ROSTER_LAYOUTS = [
-  { key: 'rows', label: 'Rows', icon: Rows3, hint: 'Rows' },
-  { key: 'lanes', label: 'Lanes', icon: Columns3, hint: 'Lanes' },
+  { key: 'rows', label: 'Rows', icon: Rows3, title: 'Rows' },
+  { key: 'lanes', label: 'Lanes', icon: Columns3, title: 'Lanes' },
 ]
 
 // How much of the month is on screen. One letter each, not the words and
@@ -717,17 +716,16 @@ export default function RosterGridPage() {
   )
 
   const kebabTrigger = (onClick, open) => (
-    <HoverHint label="More actions">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-expanded={open}
-        aria-label="More actions"
-        className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
-      >
-        <EllipsisVertical className="h-4 w-4" />
-      </button>
-    </HoverHint>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label="More actions"
+      title="More actions"
+      className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+    >
+      <EllipsisVertical className="h-4 w-4" />
+    </button>
   )
 
   // Publish — always labelled, since it's the one action here with real
@@ -970,7 +968,7 @@ export default function RosterGridPage() {
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
           <div className="hidden md:block">
-          <HoverHint label="Font size">
+          <span title="Font size" className="inline-flex">
           <ToolbarFacet
             icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
             label="Font size"
@@ -979,7 +977,7 @@ export default function RosterGridPage() {
             onChange={setTextSize}
             options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
           />
-          </HoverHint>
+          </span>
           </div>
 
           <div className="hidden h-5 w-px bg-slate-line xl:block" aria-hidden="true" />
@@ -1180,15 +1178,16 @@ export default function RosterGridPage() {
                           } ${shown ? '' : 'opacity-25'}`}
                         >
                           {hasShortfall && (
-                            <HoverHint label={flagReason} className="-mx-1 -mt-1 mb-1 flex">
+                            <span className="-mx-1 -mt-1 mb-1 flex">
                               <span
                                 data-testid="flag-tab"
+                                title={flagReason}
                                 className="flex w-full items-center gap-1 rounded-t bg-flagRed px-1.5 py-0.5 text-[0.75em] font-bold text-on-fill"
                               >
                                 <TriangleAlert className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
                                 {flagTab}
                               </span>
-                            </HoverHint>
+                            </span>
                           )}
                           {cellEntries.map(entry => (
                             <DoctorChip

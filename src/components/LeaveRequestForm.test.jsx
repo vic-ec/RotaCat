@@ -74,9 +74,9 @@ describe('LeaveRequestForm', () => {
 
     await user.type(screen.getByLabelText('From'), '2026-11-20')
     await user.type(screen.getByLabelText('To'), '2026-11-20')
-    expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Sam Rivers is on the roster for 1 day in this range')
+    expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Rostered on 20 Nov — capturing leave will not remove the shift.')
     // The warning links to that day on the roster, in a new tab.
-    const rosterLink = screen.getByRole('link', { name: '20 Nov' })
+    const rosterLink = screen.getByRole('link', { name: 'Go to roster: 20 Nov' })
     expect(rosterLink).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
     expect(rosterLink).toHaveAttribute('target', '_blank')
 
@@ -86,7 +86,7 @@ describe('LeaveRequestForm', () => {
     })))
     expect(await screen.findByText(/Leave captured for Sam Rivers and approved\./)).toBeInTheDocument()
     // The link survives the form reset, so the shift can still be reached.
-    expect(screen.getByRole('link', { name: '20 Nov' })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
+    expect(screen.getByRole('link', { name: 'Go to roster: 20 Nov' })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
   })
 
   it('the doctor picker filters as the admin types a name, and Enter picks the first match', async () => {
@@ -123,7 +123,7 @@ describe('LeaveRequestForm', () => {
 
     await user.type(screen.getByLabelText('From'), '2099-11-20')
     await user.type(screen.getByLabelText('To'), '2099-11-21')
-    expect(await screen.findByTestId('leave-overlap-note')).toHaveTextContent('Sam Rivers already has leave on record for these dates')
+    expect(await screen.findByTestId('leave-overlap-note')).toHaveTextContent('Already captured: Sick leave, 20 Nov (approved).')
     expect(screen.getByRole('button', { name: 'Capture leave' })).toBeDisabled()
     expect(submitLeaveRequest).not.toHaveBeenCalled()
   })

@@ -302,8 +302,8 @@ export default function LeavePlannerPage() {
             )}
             {isAdmin && (
               <span className="flex items-center border-b border-slate-line pb-2 pl-2">
-                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary flex items-center gap-1.5 whitespace-nowrap px-3 py-1 text-xs">
-                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary whitespace-nowrap text-sm">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
                   Capture leave
                 </button>
               </span>

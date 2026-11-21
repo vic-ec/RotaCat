@@ -1480,12 +1480,13 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
     <>
     {vacatedLine}
     <div
+      data-entry-id={entry.id}
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
       className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium ${onLeave ? 'text-ink-muted' : 'text-ink'} ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
-      } ${dimmed ? 'opacity-30' : ''}`}
+      } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >

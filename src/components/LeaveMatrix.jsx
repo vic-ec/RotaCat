@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Search, X } from 'lucide-react'
+import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
+import { Search, X } from 'lucide-react'
 import Modal from './Modal'
 import DateStepper from './DateStepper'
 import ClearableInput from './ClearableInput'
@@ -378,15 +381,8 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
             </p>
           ) : (
             groups.map(group => (
-              <div key={group.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroupCollapsed(group.key)}
-                  className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
-                >
-                  <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
-                </button>
+              <div key={group.key} data-section={group.key} className="w-max min-w-full">
+                <SectionBar label={group.label} count={group.items.length} collapsed={collapsedGroups[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} surround="card" className="m-1" />
                 {!collapsedGroups[group.key] && group.items.map((row, rowIndex) => (
                   <DoctorRows
                     key={row.doctor.id}
@@ -404,6 +400,9 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
             ))
           )}
         </div>
+        {allSectionsCollapsed(groups, collapsedGroups) && (
+          <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+        )}
       </div>
 
       {/* Desktop sticky side panel */}

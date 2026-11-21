@@ -52,6 +52,9 @@ export default function TempPasswordIndicator({ className = '', notSignedIn = fa
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
   const popRef = useRef(null)
+  // Pointer type of the last press on the shield — a touch/pen tap on an
+  // open shield closes it again, a mouse click doesn't (see onClick).
+  const lastPointerTypeRef = useRef('mouse')
   useDismissablePopover(open, () => setOpen(false), popRef, [triggerRef])
 
   function show() {
@@ -71,12 +74,21 @@ export default function TempPasswordIndicator({ className = '', notSignedIn = fa
         type="button"
         onPointerEnter={e => { if (e.pointerType === 'mouse') show() }}
         onPointerLeave={e => { if (e.pointerType === 'mouse') setOpen(false) }}
+        // Kept off the row: a Staff list row starts its long-press timer
+        // (the quick-actions menu) on pointerdown, so holding the shield
+        // opened that menu too.
+        onPointerDown={e => { lastPointerTypeRef.current = e.pointerType; e.stopPropagation() }}
         // Hover alone left this silent on a touch screen, which is where
-        // the staff list mostly gets read. Click opens rather than toggles:
-        // on a mouse the pointer-enter has already opened it, and a toggle
-        // would close what the hover just opened. Tapping anywhere else
-        // dismisses it (useDismissablePopover above).
-        onClick={e => { e.stopPropagation(); show() }}
+        // the staff list mostly gets read. A tap toggles, so tapping the
+        // shield again closes it. A mouse click only opens: the
+        // pointer-enter has already opened it, and toggling would close
+        // what the hover just opened. Tapping anywhere else dismisses it
+        // too (useDismissablePopover above).
+        onClick={e => {
+          e.stopPropagation()
+          if (open && lastPointerTypeRef.current !== 'mouse') setOpen(false)
+          else show()
+        }}
         aria-label={label}
         aria-expanded={open}
         className={`flex h-5 w-5 items-center justify-center rounded-full ${notSignedIn || expired ? 'text-rose hover:text-rose-dark' : 'text-ink-muted hover:text-ink'}`}
@@ -84,9 +96,17 @@ export default function TempPasswordIndicator({ className = '', notSignedIn = fa
         <ShieldAlert className="h-3.5 w-3.5" />
       </button>
       {open && positionStyle && createPortal(
+        // Tapping the pill itself closes it — the obvious place to tap,
+        // which used to do nothing. Both handlers stop propagation because
+        // React bubbles events through a portal to its React ancestors, not
+        // its DOM ones: the pill is drawn on <body>, but a tap on it still
+        // reached the Staff list row this shield sits in, opening that
+        // person's detail sheet (or, held, the row's quick-actions menu).
         <div
           ref={popRef}
           role="tooltip"
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); setOpen(false) }}
           style={{ ...positionStyle, width: 'max-content' }}
           className="fixed z-50 whitespace-nowrap rounded-full border border-edge bg-canvas-raised px-3 py-1.5 text-xs font-medium text-ink shadow-raised"
         >

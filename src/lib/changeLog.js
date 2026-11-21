@@ -105,8 +105,10 @@ export const ROLE_FILTER_OPTIONS = [
 
 export const ROSTER_ACTION_OPTIONS = [
   { value: '', label: 'All change types' },
-  { value: 'assign', label: 'Assigned' },
-  { value: 'unassign', label: 'Unassigned' },
+  // A replacement is stored as an 'assign' over someone else, so the one
+  // filter value covers both of the log's Assigned and Replaced types.
+  { value: 'assign', label: 'Assigned or replaced' },
+  { value: 'unassign', label: 'Vacated' },
   { value: 'remove', label: 'Removed' },
   { value: 'move', label: 'Moved' },
 ]
@@ -131,38 +133,57 @@ export const WEEKEND_CATEGORY_FILTER_OPTIONS = [
 // (e.g. no locums on staff), instead of falling through to "no filter".
 const NO_MATCH_ID = '00000000-0000-0000-0000-000000000000'
 
+// Review-log filters are tick-several (FilterPanel): each dimension is a
+// Set, empty meaning "all". Both queries below match ANY ticked value
+// within a dimension and ALL ticked dimensions together.
+const list = set => [...(set ?? [])].filter(Boolean)
+
+// The doctor ids a roster-log query should match, or null for "any".
+// Ticked doctors, narrowed to the ticked roles when both are set; ticked
+// roles alone match every doctor holding one of them. An empty result
+// (e.g. a role nobody holds) returns NO_MATCH_ID so the query comes back
+// empty rather than falling through to "no filter".
+export function rosterDoctorMatchIds({ doctorIds, roles, doctorOptions = [] }) {
+  const ticked = list(doctorIds)
+  const roleSet = new Set(list(roles))
+  if (ticked.length === 0 && roleSet.size === 0) return null
+  const roleOf = new Map(doctorOptions.map(o => [o.value, o.role]))
+  const ids = ticked.length > 0
+    ? ticked.filter(id => roleSet.size === 0 || roleSet.has(roleOf.get(id)))
+    : doctorOptions.filter(o => roleSet.has(o.role)).map(o => o.value)
+  return ids.length > 0 ? ids : [NO_MATCH_ID]
+}
+
 // Builds a filtered, server-side query against roster_entry_changes.
-// doctorId takes precedence over role — filtering to one specific doctor
-// already answers whether a locum is involved.
-export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminId, doctorId, action, role, roleIds = [] }) {
+// `doctorMatchIds` (see rosterDoctorMatchIds) matches a change whichever
+// side of it the doctor is on — taken off or put on.
+export function queryRosterChanges({ rosterMonthId, dateFrom, dateTo, adminIds, actions, doctorMatchIds = null }) {
   let query = supabase.from('roster_entry_changes').select('*').eq('roster_month_id', rosterMonthId)
   if (dateFrom) query = query.gte('entry_date', dateFrom)
   if (dateTo) query = query.lte('entry_date', dateTo)
-  if (adminId) query = query.eq('changed_by', adminId)
-  if (action) query = query.eq('action', action)
-  if (doctorId) {
-    query = query.or(`profile_id_before.eq.${doctorId},profile_id_after.eq.${doctorId}`)
-  } else if (role) {
-    const list = (roleIds.length > 0 ? roleIds : [NO_MATCH_ID]).join(',')
-    query = query.or(`profile_id_before.in.(${list}),profile_id_after.in.(${list})`)
+  if (list(adminIds).length) query = query.in('changed_by', list(adminIds))
+  if (list(actions).length) query = query.in('action', list(actions))
+  if (doctorMatchIds) {
+    const ids = doctorMatchIds.join(',')
+    query = query.or(`profile_id_before.in.(${ids}),profile_id_after.in.(${ids})`)
   }
   return query.order('changed_at', { ascending: false }).limit(500)
 }
 
 // Builds a filtered, server-side query against weekend_planner_changes.
-// categoryGroup is one of CATEGORY_GROUPS' keys (MO/Registrar/COSMO/
-// COSMOPsych) — matched against every underlying staff_category value that
-// group covers, not just the literal enum value.
-export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminId, doctorId, action, categoryGroup, limit = 300 }) {
+// categoryGroups are CATEGORY_GROUPS' keys (MO/Registrar/COSMO/
+// COSMOPsych) — each matched against every underlying staff_category value
+// that group covers, not just the literal enum value.
+export function queryWeekendPlannerChanges({ dateFrom, dateTo, adminIds, doctorIds, actions, categoryGroups, limit = 300 }) {
   let query = supabase.from('weekend_planner_changes').select('*')
   if (dateFrom) query = query.gte('weekend_saturday', dateFrom)
   if (dateTo) query = query.lte('weekend_saturday', dateTo)
-  if (adminId) query = query.eq('changed_by', adminId)
-  if (action) query = query.eq('action', action)
-  if (doctorId) query = query.eq('profile_id', doctorId)
-  if (categoryGroup) {
-    const group = CATEGORY_GROUPS.find(g => g.key === categoryGroup)
-    query = query.in('category', group ? group.categories : [categoryGroup])
+  if (list(adminIds).length) query = query.in('changed_by', list(adminIds))
+  if (list(actions).length) query = query.in('action', list(actions))
+  if (list(doctorIds).length) query = query.in('profile_id', list(doctorIds))
+  if (list(categoryGroups).length) {
+    const categories = list(categoryGroups).flatMap(key => CATEGORY_GROUPS.find(g => g.key === key)?.categories ?? [key])
+    query = query.in('category', categories)
   }
   return query.order('changed_at', { ascending: false }).limit(limit)
 }

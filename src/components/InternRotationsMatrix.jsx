@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import {
   ChevronDown, EllipsisVertical, CircleQuestionMark, ScrollText,
   TriangleAlert, X, Plus, ListFilter, ChevronLeft, ChevronRight,
@@ -503,6 +506,7 @@ export default function InternRotationsMatrix({
 
   // ── Shared panel content (desktop's sticky aside / mobile's bottom sheet) ──
   function renderNoSelectionPanel(showHeader = true) {
+    const visibleNowSections = NOW_SECTIONS.filter(sec => nowBySection.get(sec.key).length > 0)
     return (
       <>
         {showHeader && (
@@ -514,7 +518,8 @@ export default function InternRotationsMatrix({
         {nowCount === 0 ? (
           <p className="mt-3 text-xs text-ink-muted">No active rotations this month.</p>
         ) : (
-          NOW_SECTIONS.filter(sec => nowBySection.get(sec.key).length > 0).map(sec => {
+          <>
+          {visibleNowSections.map(sec => {
             const rows = nowBySection.get(sec.key)
             const collapsed = collapsedNowSections[sec.key]
             return (
@@ -561,7 +566,11 @@ export default function InternRotationsMatrix({
                 )}
               </div>
             )
-          })
+          })}
+          {allSectionsCollapsed(visibleNowSections, collapsedNowSections) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedNowSections({})} />
+          )}
+          </>
         )}
       </>
     )
@@ -855,16 +864,8 @@ export default function InternRotationsMatrix({
             )}
 
             {groups.map(group => (
-              <div key={group.key}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroupCollapsed(group.key)}
-                  className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
-                >
-                  <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
-                  <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsedGroups[group.key] ? 'rotate-180' : ''}`} />
-                </button>
-
+              <div key={group.key} data-section={group.key} className="w-max min-w-full">
+                <SectionBar label={group.label} count={group.items.length} collapsed={collapsedGroups[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} className="m-1" />
                 {!collapsedGroups[group.key] && group.items.map(doctor => {
                   const doctorRotations = rotationsByDoctorId.get(doctor.id) || []
                   const label = displayNames?.get(doctor.id) ?? doctor.surname
@@ -903,8 +904,10 @@ export default function InternRotationsMatrix({
               </div>
             ))}
           </div>
+          {allSectionsCollapsed(groups, collapsedGroups) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+          )}
         </div>
-
 
         {/* Scrolls on its own once the list outgrows the screen; the grid
             stays put. */}
@@ -930,7 +933,7 @@ export default function InternRotationsMatrix({
           share one row with it: find on the left, year + Legend + kebab on
           the right — the desktop toolbar's shape, nothing wrapping. */}
       <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           <div className="hidden min-w-0 flex-1 md:block">
             <Toolbar
               className=""
@@ -960,22 +963,25 @@ export default function InternRotationsMatrix({
             </div>
           </div>
         </div>
+
+        {/* The "right now" panel, folded to one line — a 288px side panel
+            would squeeze the grid at this width. Opens the full list. Sits
+            above the month-letter header, inside the same sticky block, so
+            it stays reachable alongside it rather than scrolling away. */}
+        <button
+          type="button"
+          onClick={() => setShowNowSheet(true)}
+          className="card mb-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+        >
+          <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
+          <span className="truncate text-xs text-ink-muted">{nowCount} active</span>
+          <span className="ml-auto flex flex-shrink-0 items-center text-xs font-medium text-accent">
+            View <ChevronRight className="h-3.5 w-3.5" />
+          </span>
+        </button>
+
         <MonthLetterHeader year={year} currentYear={currentYear} />
       </div>
-
-      {/* The "right now" panel, folded to one line — a 288px side panel
-          would squeeze the grid at this width. Opens the full list. */}
-      <button
-        type="button"
-        onClick={() => setShowNowSheet(true)}
-        className="card mt-3 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
-      >
-        <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
-        <span className="truncate text-xs text-ink-muted">{nowCount} active</span>
-        <span className="ml-auto flex flex-shrink-0 items-center text-xs font-medium text-accent">
-          View <ChevronRight className="h-3.5 w-3.5" />
-        </span>
-      </button>
 
       <div className="mt-3 space-y-4 pb-20">
         {groups.length === 0 && (
@@ -1019,6 +1025,9 @@ export default function InternRotationsMatrix({
             )}
           </div>
         ))}
+        {allSectionsCollapsed(groups, collapsedGroups) && (
+          <ExpandAllButton onExpandAll={() => setCollapsedGroups({})} />
+        )}
       </div>
 
       {/* Add doctor was its own bottom-right FAB, which put two FABs in one

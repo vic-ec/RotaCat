@@ -11,6 +11,7 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import ExpandAllButton from '../components/ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
 import AccountRequestReviewDrawer from '../components/AccountRequestReviewDrawer'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -480,8 +481,17 @@ export default function StaffListPage() {
     longPressFiredRef.current = false
     longPressTimerRef.current = setTimeout(() => {
       longPressFiredRef.current = true
-      toggleQuickActions(person, target)
+      // Anchored to the row for positioning only — not exempted from the
+      // menu's outside-tap mute the way the kebab is (see openQuickActions).
+      toggleQuickActions(person, target, { anchorIsTrigger: false })
     }, 550)
+  }
+  // Lifting the finger after a long-press can be followed by a click on the
+  // row. With the row no longer exempt from the menu's outside-tap mute,
+  // that click would close the menu the instant it opened — cancelling the
+  // touchend is what stops the browser synthesizing it.
+  function handleRowTouchEnd(e) {
+    if (longPressFiredRef.current) e.preventDefault()
   }
   function cancelLongPress() {
     if (longPressTimerRef.current) {
@@ -839,12 +849,18 @@ export default function StaffListPage() {
   }
 
   // ── Quick-action popover handlers ────────────────────
-  function openQuickActions(person, anchorEl) {
+  // `anchorIsTrigger`: the kebab is exempt from the menu's outside-tap mute
+  // (useDismissablePopover's excludeRefs) so pressing it again toggles the
+  // menu shut through its own handler. A long-press anchors to the whole
+  // row instead, and exempting *that* let the next tap anywhere on the row
+  // slip past the mute and open the detail sheet — the menu needed two
+  // taps to close. A long-press menu treats the row like any outside tap.
+  function openQuickActions(person, anchorEl, { anchorIsTrigger = true } = {}) {
     setQuickActionPerson(person)
     setQuickActionAnchor(anchorEl.getBoundingClientRect())
     setSecondaryFor(null)
     setSecondaryAnchor(null)
-    quickActionTriggerRef.current = anchorEl
+    quickActionTriggerRef.current = anchorIsTrigger ? anchorEl : null
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
@@ -855,9 +871,9 @@ export default function StaffListPage() {
   }
   // Pressing the kebab (or long-pressing the row) for the person whose menu
   // is already open closes it, rather than just re-anchoring the same menu.
-  function toggleQuickActions(person, anchorEl) {
+  function toggleQuickActions(person, anchorEl, options) {
     if (quickActionPerson?.id === person.id) closeQuickActions()
-    else openQuickActions(person, anchorEl)
+    else openQuickActions(person, anchorEl, options)
   }
   // Message/Call open a flyout cascading below that specific row; tapping
   // the same one again closes it, tapping the other swaps to it.
@@ -939,8 +955,8 @@ export default function StaffListPage() {
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
   // Only ever true once a viewer has shut every section themselves — an
   // ungrouped list (no labels) never counts as collapsed.
-  const allGroupsCollapsed = groups.length > 0 &&
-    groups.every(g => g.label && collapsedGroups[g.key])
+  const allGroupsCollapsed = groups.every(g => g.label) &&
+    allSectionsCollapsed(groups, collapsedGroups)
 
   // ── Approvals/User Requests: search + role filter, same substring-match
   // and role-equality rules as the accounts tab's own filter. ──
@@ -1239,6 +1255,7 @@ export default function StaffListPage() {
                           onClick={() => handleRowClick(person)}
                           onPointerDown={e => handleRowPointerDown(e, person)}
                           onPointerUp={cancelLongPress}
+                          onTouchEnd={handleRowTouchEnd}
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}
@@ -1276,23 +1293,35 @@ export default function StaffListPage() {
                               )}
                             </div>
                           </div>
-                          {/* One row, wrapping only if all three land on the
-                              same person: the admin chip and the temp-password
-                              shield are both small markers on the same account,
-                              and stacking them pushed the shield onto a line of
-                              its own under a chip it belongs beside. */}
-                          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-1">
-                            {isAdmin && person.is_admin && (
-                              <span className={`flex items-center whitespace-nowrap rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide ${
-                                person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
-                              }`}>
-                                {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
-                              </span>
-                            )}
-                            {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
-                            {!person.is_active && (
-                              <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-flagRed">
-                                Inactive
+                          {/* Chips, then the temp-password shield in a slot
+                              of its own just left of the kebab. The shield
+                              used to sit between the Admin and Inactive
+                              chips in one right-aligned run, so it landed
+                              beside the kebab on one row and a chip's width
+                              further left on the next. The slot is reserved
+                              on every row an admin sees (only admins ever
+                              get the shield), which also keeps the chips
+                              themselves lined up down the list. An inactive
+                              admin's two chips sit side by side on one line
+                              (the name truncates to make room). */}
+                          <div className="flex flex-shrink-0 items-center gap-1.5">
+                            <div className="flex items-center gap-1">
+                              {isAdmin && person.is_admin && (
+                                <span className={`flex items-center whitespace-nowrap rounded-md border px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal ${
+                                  person.is_super_admin ? 'border-flagBlue text-flagBlue' : 'border-accent text-accent'
+                                }`}>
+                                  {person.is_super_admin ? PERMISSION_LABELS.super_admin : PERMISSION_LABELS.admin}
+                                </span>
+                              )}
+                              {!person.is_active && (
+                                <span className="flex items-center whitespace-nowrap rounded-md border border-flagRed/40 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-normal text-flagRed">
+                                  Inactive
+                                </span>
+                              )}
+                            </div>
+                            {isAdmin && (
+                              <span className="flex w-5 flex-shrink-0 justify-center">
+                                {person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
                               </span>
                             )}
                           </div>
@@ -1493,7 +1522,12 @@ export default function StaffListPage() {
                                     Edit
                                   </button>
                                 )}
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
+                                {/* Pinned to the cell's right edge (ml-auto)
+                                    rather than trailing the status text,
+                                    which varies in length row to row
+                                    ("Active" vs "Active until 31 Dec Edit")
+                                    and carried the shield with it. */}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator className="ml-auto pl-2" notSignedIn={!person.is_active} person={person} />}
                               </div>
                             </td>
                             {isAdmin && (

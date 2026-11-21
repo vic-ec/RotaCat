@@ -57,17 +57,20 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
   it('lists every leave-eligible doctor, including one with zero leave in range', async () => {
     render(<LeaveAuditReport />)
 
-    const rows = await screen.findAllByRole('row')
-    // header + 3 doctor rows
-    expect(rows).toHaveLength(4)
-    // MO, then Registrar, then everything else — Hours Summary's own default
-    // sort, which this table now shares (see src/lib/doctorSort.js).
+    await screen.findByText('Zephyr')
+    // Doctor rows only — the section header rows hold a button, not a name
+    const rows = screen.getAllByRole('row').filter(r => r.querySelector('td[title]'))
+    expect(rows).toHaveLength(3)
+    // Sectioned Consultants, MOs, Registrars, Interns — each a header row
+    for (const label of ['Consultants', 'MOs', 'Registrars']) {
+      expect(screen.getByRole('button', { name: new RegExp(`^${label} 1`) })).toBeInTheDocument()
+    }
+    expect(within(rows[0]).getByText('Consult')).toBeInTheDocument() // Consultant
     expect(within(rows[1]).getByText('Zephyr')).toBeInTheDocument() // MO
     expect(within(rows[2]).getByText('Adams')).toBeInTheDocument() // Registrar
-    expect(within(rows[3]).getByText('Consult')).toBeInTheDocument() // Consultant
     // Consultant has no leave requests at all — still shown, with a zero in
     // every leave column plus the total.
-    expect(within(rows[3]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
+    expect(within(rows[0]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
   })
 
   it('sizes every leave column identically, via a fixed-layout colgroup', async () => {
@@ -135,10 +138,34 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
 
   it('shows Consultant (not "Other") as the category label for the Other column', async () => {
     render(<LeaveAuditReport />)
-    const rows = await screen.findAllByRole('row')
-    // Consultant sorts last under the default category-priority sort.
-    expect(within(rows[3]).getByText('Consultant')).toBeInTheDocument()
-    expect(within(rows[3]).queryByText('Other')).not.toBeInTheDocument()
+    const consultant = (await screen.findByText('Consult')).closest('tr')
+    expect(within(consultant).getByText('Consultant')).toBeInTheDocument()
+    expect(within(consultant).queryByText('Other')).not.toBeInTheDocument()
+  })
+
+  it('folds a section from its header', async () => {
+    const user = userEvent.setup()
+    render(<LeaveAuditReport />)
+    await screen.findByText('Zephyr')
+    const header = screen.getByRole('button', { name: /^MOs 1/ })
+    await user.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Zephyr')).not.toBeInTheDocument()
+    expect(screen.getByText('Adams')).toBeInTheDocument()
+  })
+
+  it('offers Expand all only once every section is folded, and it reopens them all', async () => {
+    const user = userEvent.setup()
+    render(<LeaveAuditReport />)
+    await screen.findByText('Zephyr')
+    const headers = screen.getAllByRole('button', { expanded: true })
+    expect(headers.length).toBeGreaterThan(1)
+    for (const header of headers.slice(0, -1)) await user.click(header)
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
+    await user.click(headers[headers.length - 1])
+    await user.click(screen.getByRole('button', { name: 'Expand all' }))
+    expect(screen.getByText('Zephyr')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
   })
 
   it('filter options are not shown until the Filter button is opened', async () => {

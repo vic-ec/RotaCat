@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import SectionBar from './SectionBar'
+import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
 import { ArrowUpDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -36,6 +39,17 @@ const CATEGORY_OPTIONS = [
   { value: LEAVE_OTHER_COLUMN.key, label: LEAVE_OTHER_COLUMN.label },
 ]
 const COLUMN_LABEL_BY_KEY = Object.fromEntries(CATEGORY_OPTIONS.map(o => [o.value, o.label]))
+// The table's sections, in the order the team reads them. Each takes one or
+// more capacity columns (the same key a doctor's Category filter and the
+// line under their name use); EC and OT interns share one section and keep
+// telling themselves apart on that line.
+const TABLE_SECTIONS = [
+  { key: 'consultants', label: 'Consultants', columns: [LEAVE_OTHER_COLUMN.key] },
+  { key: 'mos', label: 'MOs', columns: ['MO'] },
+  { key: 'registrars', label: 'Registrars', columns: ['Registrar'] },
+  { key: 'interns', label: 'Interns', columns: ['EC_Intern', 'OT_Intern'] },
+]
+
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
@@ -124,7 +138,7 @@ function BucketCell({ bucket }) {
 // permanently-visible selects, since most visits don't need them.
 export default function LeaveAuditReport() {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
-  const [tableRef, tableFill] = useFillToViewport()
+  const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
   const [dateFrom, setDateFrom] = useState(yearStartStr())
   const [dateTo, setDateTo] = useState(todayStr())
@@ -138,6 +152,8 @@ export default function LeaveAuditReport() {
   // useSelectedRow.
   const { rowProps } = useSelectedRow()
   const [categoryFilter, setCategoryFilter] = useState(new Set())
+  // Folded sections, by TABLE_SECTIONS key.
+  const [collapsedSections, setCollapsedSections] = useState({})
   const [doctorFilter, setDoctorFilter] = useState(new Set())
   const [statusFilter, setStatusFilter] = useState(new Set())
   const [leaveTypeFilter, setLeaveTypeFilter] = useState(new Set())
@@ -233,6 +249,17 @@ export default function LeaveAuditReport() {
     // buildAuditRows returns them by surname; this is the admin's own
     // choice on top, from the same four options Hours Summary offers.
     .sort(DOCTOR_SORT_COMPARATORS[sortMode])
+
+  // Rows under their section; the sort above holds within each. A column
+  // no section names (none today) falls in with Consultants, as it does in
+  // the Category filter.
+  const sectionOf = profileId => {
+    const column = columnByProfileId.get(profileId)
+    return (TABLE_SECTIONS.find(s => s.columns.includes(column)) ?? TABLE_SECTIONS[0]).key
+  }
+  const sections = TABLE_SECTIONS
+    .map(section => ({ ...section, rows: filteredRows.filter(r => sectionOf(r.profileId) === section.key) }))
+    .filter(section => section.rows.length > 0)
 
   // Drill-down only makes sense for exactly one doctor — a multi-doctor
   // selection just narrows the table above, same as every other dimension.
@@ -419,7 +446,20 @@ export default function LeaveAuditReport() {
               <tbody className="[&>tr:last-child>td]:border-b-0">
                 {filteredRows.length === 0 ? (
                   <tr><td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="px-2 py-4 text-center text-ink-muted">No doctors match these filters.</td></tr>
-                ) : filteredRows.map(row => {
+                ) : sections.map(section => (
+                  <Fragment key={section.key}>
+                    {/* Section header — folds its rows. The bar is sticky to
+                        the left edge so its label stays on screen however
+                        far the day counts have been scrolled. */}
+                    <tr
+                      onClick={() => setCollapsedSections(c => ({ ...c, [section.key]: !c[section.key] }))}
+                      className="cursor-pointer transition-[filter] hover:brightness-110 active:brightness-110"
+                    >
+                      <td colSpan={AUDIT_LEAVE_COLUMNS.length + 3} className="border-b border-slate-hairline bg-canvas p-1">
+                        <SectionBar label={section.label} count={section.rows.length} collapsed={collapsedSections[section.key]} />
+                      </td>
+                    </tr>
+                    {!collapsedSections[section.key] && section.rows.map(row => {
                   const { isSelected, ...selection } = rowProps(row.profileId)
                   return (
                   <tr key={row.profileId} {...selection}>
@@ -459,9 +499,14 @@ export default function LeaveAuditReport() {
                   </tr>
                   )
                 })}
+                  </Fragment>
+                ))}
               </tbody>
             </table>
           </div>
+          {allSectionsCollapsed(sections, collapsedSections) && (
+            <ExpandAllButton onExpandAll={() => setCollapsedSections({})} />
+          )}
 
           {selectedDoctorId && (
             <div className="mt-4 card p-4">

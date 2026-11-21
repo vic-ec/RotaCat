@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
+import { ChevronDown, RotateCcw } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
-  nameMapFromProfiles, queryWeekendPlannerChanges, weekendChangeDetail, WEEKEND_ACTION_OPTIONS, WEEKEND_CATEGORY_FILTER_OPTIONS,
-  fetchWeekendPlannerBatches, summarizeWeekendPlannerBatch, formatRelativeTime, restoreWeekendPlannerBatch,
+  queryWeekendPlannerChanges, WEEKEND_ACTION_OPTIONS, WEEKEND_CATEGORY_FILTER_OPTIONS,
+  fetchWeekendPlannerBatches, summarizeWeekendPlannerBatch, restoreWeekendPlannerBatch,
 } from '../lib/changeLog'
+import {
+  adminInitialsMap, shortDate, weekendBatchParts, weekendChangeLine, weekendLogEntries, WEEKEND_TYPES,
+} from '../lib/reviewLog'
+import ReviewLogList, { OffName } from './ReviewLogList'
 import DateFieldButton from './DateFieldButton'
-import ChangeLogFilterMenu from './ChangeLogFilterMenu'
-import { changeLogFilterFacets } from './changeLogFilterFacets'
+import FilterPanel from './FilterPanel'
+import { changeLogFilterGroups, EMPTY_LOG_FILTERS, logFiltersActive } from '../lib/changeLogFilters'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
-import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
 const RECENT_LIMIT = 300
-const RECENT_BATCH_DISPLAY_LIMIT = 15
-const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', categoryGroup: '' }
 
-function formatTimestampParts(iso) {
-  const d = new Date(iso)
-  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return { date, time }
+function Person({ profile, struck = false }) {
+  const name = profile ? `${profile.name} ${profile.surname}` : 'Unknown'
+  const badge = profile?.role === 'locum' && <LocumBadge />
+  return struck ? <><OffName>{name}</OffName>{badge}</> : <span className="text-ink">{name}{badge}</span>
 }
 
 // Searchable, filterable audit trail of add/remove edits to
@@ -35,7 +36,7 @@ function formatTimestampParts(iso) {
 // reload with nothing else mounted).
 export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged }) {
   const { profile } = useAuth()
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [filters, setFilters] = useState(EMPTY_LOG_FILTERS)
   // Client-side, unlike the rest of `filters` (which go to the server as
   // query params): this narrows the already-fetched page of rows by the
   // names the table actually shows, rather than re-querying. Admin/Doctor
@@ -49,11 +50,11 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [batches, setBatches] = useState([])
-  const [batchesLoading, setBatchesLoading] = useState(true)
-  const [batchNameById, setBatchNameById] = useState(new Map())
+  const [batchProfilesById, setBatchProfilesById] = useState(new Map())
+  const [openBatchIds, setOpenBatchIds] = useState(() => new Set())
   const [restoringBatchId, setRestoringBatchId] = useState(null)
   const [restoreMessage, setRestoreMessage] = useState(null) // { type: 'error' | 'success', text }
-  const [confirmBatch, setConfirmBatch] = useState(null) // the batch object pending a "restore?" confirmation, or null
+  const [confirmBatch, setConfirmBatch] = useState(null) // { batchId, changes } pending a "restore?" confirmation, or null
 
   useEffect(() => {
     fetchAdminOptions().then(setAdminOptions)
@@ -69,7 +70,10 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   async function load() {
     setLoading(true)
     setError('')
-    const { data, error: err } = await queryWeekendPlannerChanges({ ...filters, limit: RECENT_LIMIT })
+    const { data, error: err } = await queryWeekendPlannerChanges({
+      dateFrom: filters.dateFrom, dateTo: filters.dateTo, adminIds: filters.adminIds,
+      doctorIds: filters.doctorIds, actions: filters.actions, categoryGroups: filters.extra, limit: RECENT_LIMIT,
+    })
     if (err) { setError(err.message); setLoading(false); return }
 
     const ids = (data || []).flatMap(c => [c.changed_by, c.profile_id])
@@ -78,13 +82,14 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     setLoading(false)
   }
 
+  // Full batches (every row of each recent paste/clear/edit), so a batch's
+  // summary and its Restore describe the whole action even when a filter
+  // hides some of its rows from the log.
   async function loadBatches() {
-    setBatchesLoading(true)
     const { batches: fetched } = await fetchWeekendPlannerBatches()
     const ids = fetched.flatMap(b => b.changes.flatMap(c => [c.changed_by, c.profile_id]))
-    setBatchNameById(nameMapFromProfiles(await fetchProfilesById(ids)))
+    setBatchProfilesById(await fetchProfilesById(ids))
     setBatches(fetched)
-    setBatchesLoading(false)
   }
 
   async function handleRestore(batchId) {
@@ -100,7 +105,8 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     if (result.skipped > 0) parts.push(`${result.skipped} skipped (since changed elsewhere)`)
     setRestoreMessage({ type: 'success', text: parts.length ? parts.join(', ') : 'Nothing left to restore.' })
 
-    await loadBatches()
+    // Both lists: the restore is itself logged as a new batch.
+    await Promise.all([loadBatches(), load()])
     onDataChanged?.()
   }
 
@@ -111,11 +117,11 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     await handleRestore(batchId)
   }
 
-  const filtersActive = Object.values(filters).some(Boolean) || Boolean(q)
-  const nameById = nameMapFromProfiles(profilesById)
+  const filtersActive = logFiltersActive(filters, q)
 
+  const profileOf = id => profilesById.get(id) ?? batchProfilesById.get(id) ?? null
   function fullName(id) {
-    const p = profilesById.get(id)
+    const p = profileOf(id)
     return p ? `${p.name} ${p.surname}` : ''
   }
   const searchTerm = q.trim().toLowerCase()
@@ -123,24 +129,115 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id)}`.toLowerCase().includes(searchTerm))
     : changes
 
-  const filterFacets = changeLogFilterFacets({
-    adminOptions,
-    doctorOptions,
-    actionOptions: WEEKEND_ACTION_OPTIONS,
-    adminId: filters.adminId,
-    doctorId: filters.doctorId,
-    action: filters.action,
-    onAdminChange: v => setFilters(f => ({ ...f, adminId: v })),
-    onDoctorChange: v => setFilters(f => ({ ...f, doctorId: v })),
-    onActionChange: v => setFilters(f => ({ ...f, action: v })),
-    extraFilter: {
-      label: 'Category',
-      options: WEEKEND_CATEGORY_FILTER_OPTIONS,
-      value: filters.categoryGroup,
-      onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
-    },
+  const batchesById = new Map(batches.map(b => [b.batchId, b]))
+  const entries = weekendLogEntries(visibleChanges, batchesById)
+  const adminShort = adminInitialsMap(new Map([...batchProfilesById, ...profilesById]), entries.map(e => e.changedBy))
+  const restoreBusy = restoringBatchId !== null
+
+  function toggleBatchOpen(batchId) {
+    setOpenBatchIds(prev => {
+      const next = new Set(prev)
+      if (next.has(batchId)) next.delete(batchId)
+      else next.add(batchId)
+      return next
+    })
+  }
+
+  function askRestore(entry) {
+    setConfirmBatch({ batchId: entry.batchId, changes: entry.batch?.changes ?? entry.visible })
+  }
+
+  function restoreLabel(entry) {
+    return restoringBatchId === entry.batchId ? 'Restoring…' : 'Restore this'
+  }
+
+  // One manual add/remove: the weekend and category, then the doctor —
+  // struck through when they came off it. A small ↺ restores it.
+  function singleChange(entry) {
+    const c = entry.change
+    return (
+      <>
+        <p className="font-semibold text-ink">{weekendChangeLine(c)}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2">
+          <span><Person profile={profileOf(c.profile_id)} struck={c.action === 'remove'} /></span>
+          {entry.batchId && (
+            <button
+              type="button"
+              onClick={() => askRestore(entry)}
+              disabled={restoreBusy}
+              aria-label={restoreLabel(entry)}
+              title="Restore this"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </p>
+      </>
+    )
+  }
+
+  // A paste/clear touching several rows: one summary (weekends, every
+  // category, counts), its own Restore, and the individual changes folded
+  // underneath.
+  function batchChange(entry, parts) {
+    const all = entry.batch?.changes ?? entry.visible
+    const open = openBatchIds.has(entry.batchId)
+    return (
+      <>
+        <p className="font-semibold text-ink">{parts.weekends} · {parts.categories.join(', ')}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-3">
+          <span>{parts.counts}</span>
+          <button
+            type="button"
+            onClick={() => toggleBatchOpen(entry.batchId)}
+            aria-expanded={open}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+          >
+            {open ? 'Hide' : 'Show'} {all.length} changes
+            <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
+        </p>
+        <button
+          type="button"
+          onClick={() => askRestore(entry)}
+          disabled={restoreBusy}
+          className="btn-secondary mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <RotateCcw className="h-3 w-3" aria-hidden="true" />
+          {restoreLabel(entry)}
+        </button>
+        {open && (
+          <ul className="mt-2 space-y-0.5 border-t border-slate-hairline pt-2 text-[13px]">
+            {all.map(c => (
+              <li key={c.id}>
+                <span className="mr-1.5 inline-block w-3 text-center text-ink-muted" aria-label={c.action === 'add' ? 'Added' : 'Removed'}>{c.action === 'add' ? '+' : '−'}</span>
+                <Person profile={profileOf(c.profile_id)} struck={c.action === 'remove'} />
+                <span className="text-ink-muted"> · {shortDate(c.weekend_saturday, new Date(c.changed_at).getFullYear())} · {c.category}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </>
+    )
+  }
+
+  const logItems = entries.map(entry => {
+    const admin = { short: adminShort.get(entry.changedBy) ?? '?', fullName: fullName(entry.changedBy) || 'Unknown' }
+    if (entry.kind === 'batch') {
+      const parts = weekendBatchParts(entry.batch?.changes ?? entry.visible)
+      return { id: entry.id, at: entry.at, type: parts.type, typeLabel: WEEKEND_TYPES[parts.type], admin, change: batchChange(entry, parts), framed: true }
+    }
+    const type = entry.change.action === 'add' ? 'added' : 'removed'
+    return { id: entry.id, at: entry.at, type, typeLabel: WEEKEND_TYPES[type], admin, change: singleChange(entry) }
   })
-  const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
+
+  const filterGroups = changeLogFilterGroups({
+    filters, setFilters, doctorOptions, adminOptions,
+    actionOptions: WEEKEND_ACTION_OPTIONS,
+    extra: { label: 'Category', options: WEEKEND_CATEGORY_FILTER_OPTIONS },
+  })
+  const clearAll = () => { setFilters(EMPTY_LOG_FILTERS); setQ('') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
@@ -153,58 +250,19 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
         </div>
         <p className="mt-1 text-xs text-ink-muted">Most recent {RECENT_LIMIT} matching edits.</p>
 
-        {/* Recent actions (restorable) — grouped by batch_id, newest first.
-            Sits above the searchable per-row table below since this is the
-            actionable "undo" surface; the table remains the full audit
-            detail for anything not covered by a recent batch. */}
-        <div className="mt-4 border-t border-slate-line pt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Recent actions</p>
-          {restoreMessage && (
-            <p className={`mt-1 text-xs ${restoreMessage.type === 'error' ? 'text-flagRed' : 'text-success'}`} role="status">
-              {restoreMessage.text}
-            </p>
-          )}
-          {batchesLoading ? (
-            <p className="mt-1 text-sm text-ink-muted">Loading…</p>
-          ) : batches.length === 0 ? (
-            <p className="mt-1 text-sm text-ink-muted">No recent actions to restore.</p>
-          ) : (
-            // Scrolls both ways: the edit summary is never clipped behind
-            // the Restore button on a phone — the row runs to its full
-            // width and the list pans sideways, like the table below.
-            <ul className="mt-2 max-h-40 space-y-1.5 overflow-auto">
-              {batches.slice(0, RECENT_BATCH_DISPLAY_LIMIT).map(batch => (
-                <li key={batch.batchId} className="flex min-w-max items-center justify-between gap-3 text-sm">
-                  <span className="whitespace-nowrap text-ink">
-                    {summarizeWeekendPlannerBatch(batch)}
-                    <span className="ml-1.5 text-xs text-ink-muted">
-                      — {batchNameById.get(batch.changedBy) || 'Unknown'}, {formatRelativeTime(batch.changedAt)}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmBatch(batch)}
-                    disabled={restoringBatchId !== null}
-                    className="btn-secondary flex-shrink-0 px-2 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {restoringBatchId === batch.batchId ? 'Restoring…' : 'Restore this'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* From/To stay on the row at every width — they set which slice of
-            the log is being looked at, the way Audit's own range does, and
-            they're the one control here the FAB has no slot for. Search and
-            the four facets fold into the FAB below `md`. */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
-            onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
-          <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
-            onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
+        {/* One row from md up: From/To, Search, then one Filter button whose
+            panel holds Doctor, Admin, Change type and the log's fourth
+            dimension — the Staff list / All Leave pattern. Below md the
+            dates stay on the row (the FAB has no slot for a range) and
+            Search and Filter fold into the FAB. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="flex w-full gap-2 md:w-80">
+            <DateFieldButton label="From" fullWidth value={filters.dateFrom} max={filters.dateTo || undefined}
+              onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
+            <DateFieldButton label="To" fullWidth value={filters.dateTo} min={filters.dateFrom || undefined}
+              onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
+          </div>
+          <div className="hidden items-center gap-2 md:flex">
             <div className="w-56">
               <ClearableInput
                 type="text"
@@ -215,30 +273,20 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
                 clearLabel="Clear search"
               />
             </div>
-            <ChangeLogFilterMenu
-              adminOptions={adminOptions}
-              doctorOptions={doctorOptions}
-              actionOptions={WEEKEND_ACTION_OPTIONS}
-              adminId={filters.adminId}
-              doctorId={filters.doctorId}
-              action={filters.action}
-              onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
-              onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
-              onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-              extraFilter={{
-                label: 'Category',
-                options: WEEKEND_CATEGORY_FILTER_OPTIONS,
-                value: filters.categoryGroup,
-                onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
-              }}
-            />
+            <FilterPanel groups={filterGroups} />
             {filtersActive && (
-              <button type="button" className="text-sm text-accent hover:underline" onClick={clearAll}>
+              <button type="button" className="text-sm font-medium text-accent hover:underline" onClick={clearAll}>
                 Clear
               </button>
             )}
           </div>
         </div>
+
+        {restoreMessage && (
+          <p className={`mt-2 text-sm ${restoreMessage.type === 'error' ? 'text-flagRed' : 'text-success'}`} role="status">
+            {restoreMessage.text}
+          </p>
+        )}
 
         {/* Inside the card, not the backdrop: the backdrop's own onClick is
             what closes this modal, so a FAB rendered as its sibling would
@@ -246,7 +294,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
         <FloatingActionMenu
           search={{ value: q, onChange: setQ, placeholder: 'Search by name…' }}
           filter={{
-            facets: filterFacets,
+            groups: filterGroups,
             active: filtersActive,
             onClearAll: clearAll,
             sheetTitle: 'Filters',
@@ -261,46 +309,8 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
           </p>
         )}
         {!loading && !error && visibleChanges.length > 0 && (
-          <div className="mt-4 flex-1 overflow-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-canvas-raised text-xs uppercase text-ink-muted">
-                <tr>
-                  <th className="whitespace-nowrap py-2 pr-4">Weekend</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Time</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Admin</th>
-                  <th className="py-2 pr-4">Doctor</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Category</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Type</th>
-                  <th className="py-2">Details</th>
-                </tr>
-              </thead>
-              <tbody className="text-ink-light">
-                {changes.map(c => {
-                  const { date, time } = formatTimestampParts(c.changed_at)
-                  const admin = profilesById.get(c.changed_by)
-                  const doctor = profilesById.get(c.profile_id)
-                  const detail = weekendChangeDetail(c, nameById)
-                  return (
-                    <tr key={c.id} className="border-t border-slate-line">
-                      <td className="whitespace-nowrap py-2 pr-4 align-top">{date}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top text-ink-muted">{time}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top">{admin ? `${admin.name} ${admin.surname}` : 'Unknown'}</td>
-                      <td className="max-w-[10rem] py-2 pr-4 align-top">
-                        {doctor ? <>{doctor.name} {doctor.surname}{doctor.role === 'locum' && <LocumBadge />}</> : 'Unknown'}
-                      </td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top">{c.category}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top capitalize">{c.action}</td>
-                      <td className="max-w-[12rem] py-2 align-top">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="min-w-0 flex-1 truncate text-ink-muted">{detail}</span>
-                          <DetailInfoButton text={detail} />
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-4 flex-1 overflow-auto pb-16 md:pb-0">
+            <ReviewLogList items={logItems} />
           </div>
         )}
       </div>

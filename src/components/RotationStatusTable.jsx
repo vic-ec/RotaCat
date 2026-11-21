@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import SectionBar from './SectionBar'
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ListFilter } from 'lucide-react'
 import ExpandAllButton from './ExpandAllButton'
+import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import Modal from './Modal'
 import Tag from './Tag'
 import DateFieldButton from './DateFieldButton'
@@ -345,7 +347,7 @@ export default function RotationStatusTable({
     )
   }
 
-  const allCollapsed = groups.length > 0 && groups.every(g => collapsed[g.key])
+  const allCollapsed = allSectionsCollapsed(groups, collapsed)
 
   const monthColWidth = Math.max(MIN_MONTH_COL_WIDTH, Math.floor((gridWidth - LABEL_COL_WIDTH) / 12))
   const gridTemplateColumns = `${LABEL_COL_WIDTH}px repeat(12, ${monthColWidth}px)`
@@ -419,16 +421,8 @@ export default function RotationStatusTable({
               )}
 
               {groups.map(group => (
-                <div key={group.key}>
-                  <button
-                    type="button"
-                    onClick={() => toggleGroupCollapsed(group.key)}
-                    className="sheen-divider sticky left-1 mx-1 my-1 !w-[calc(100%-0.5rem)] text-left transition-[filter] hover:brightness-110 active:brightness-110"
-                  >
-                    <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>
-                    <ChevronDown className={`divider-meta h-3 w-3 flex-shrink-0 transition-transform ${collapsed[group.key] ? 'rotate-180' : ''}`} />
-                  </button>
-
+                <div key={group.key} data-section={group.key} className="w-max min-w-full">
+                  <SectionBar label={group.label} count={group.items.length} collapsed={collapsed[group.key]} onToggle={() => toggleGroupCollapsed(group.key)} className="m-1" />
                   {!collapsed[group.key] && group.items.map(doctor => {
                     const doctorRotations = rotationsByDoctor.get(doctor.id) || []
                     const label = displayNames?.get(doctor.id) ?? doctor.surname
@@ -468,7 +462,7 @@ export default function RotationStatusTable({
   return (
     <div className="mt-4">
       <div className="sticky top-0 z-20 -mx-4 border-b border-slate-line bg-canvas px-4 py-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           <div className="hidden min-w-0 flex-1 md:block">
             <Toolbar
               className=""

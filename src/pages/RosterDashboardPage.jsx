@@ -331,6 +331,14 @@ export default function RosterDashboardPage() {
     return publishedLine
   }
 
+  // The same "edited since it was published" fact as publishedMetaFn's
+  // second line, for the table's own Last updated column. Admins only, as
+  // there; empty when nothing has changed since publishing.
+  function publishedUpdatedCell(r) {
+    const lastEdit = lastEditByRosterId[r.id]
+    return isAdmin && lastEdit && lastEdit > r.published_at ? formatDateTime(lastEdit) : ''
+  }
+
   const years = [...new Set(archived.map(r => r.year))].sort((a, b) => b - a)
   const filteredArchived0 = archived.filter(r => {
     if (filterMonth.size > 0 && !filterMonth.has(String(r.month))) return false
@@ -384,7 +392,9 @@ export default function RosterDashboardPage() {
       <>
       <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
-      <div className="mx-auto mt-4 md:max-w-2xl">
+      {/* Wider than the app's usual reading column: the List view is a
+          table on a desktop, and its columns need the room. */}
+      <div className="mx-auto mt-4 md:max-w-4xl">
           {actionError && (
             <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
               <p className="text-sm text-flagRed">{actionError}</p>
@@ -435,6 +445,10 @@ export default function RosterDashboardPage() {
                 setSelected={setDraftSel}
                 navigate={navigate}
                 metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
+                columns={[
+                  { header: 'Created', cell: r => formatDate(r.created_at) },
+                  { header: 'Notes', cell: r => (r.carry_forward ? 'Carry-forward used' : '') },
+                ]}
                 actions={[{ label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
                 view={rosterView}
@@ -448,6 +462,10 @@ export default function RosterDashboardPage() {
               setSelected={setPubSel}
               navigate={navigate}
               metaFn={publishedMetaFn}
+              columns={[
+                { header: 'Published', cell: r => formatDate(r.published_at || r.updated_at) },
+                { header: 'Last updated', cell: publishedUpdatedCell },
+              ]}
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
               view={rosterView}
@@ -476,6 +494,10 @@ export default function RosterDashboardPage() {
               setSelected={setArchiveSel}
               navigate={navigate}
               metaFn={r => `Archived ${formatDate(r.archived_at || r.updated_at)}`}
+              columns={[
+                { header: 'Archived', cell: r => formatDate(r.archived_at || r.updated_at) },
+                { header: 'Published', cell: r => (r.published_at ? formatDate(r.published_at) : '') },
+              ]}
               actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
               emptyText="No archived rosters match these filters."
               view={rosterView}
@@ -502,6 +524,10 @@ export default function RosterDashboardPage() {
               setSelected={setBinSel}
               navigate={navigate}
               metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
+              columns={[
+                { header: 'Deleted', cell: r => formatDate(r.deleted_at) },
+                { header: 'Auto-deletes in', cell: r => `${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}` },
+              ]}
               actions={[
                 { label: 'Restore', onClick: (ids) => { restoreFromBin(ids); setBinSel(new Set()) } },
                 { label: 'Delete permanently', destructive: true, onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
@@ -644,7 +670,17 @@ function EmptyState({ isAdmin, onCreate }) {
 // group (Drafts/Published/Archived/Bin) selects independently, so this
 // stays a per-group inline swap rather than reusing Staff's `SelectAllRow`,
 // which assumes one list per tab, not two.
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false }) {
+//
+// List view is two renderings of the same rows. On a desktop it is a table
+// (the Staff list's own table styling): roster, status, the section's date
+// columns, and the actions, each in a column of its own so a year of months
+// reads down a line. `columns` supplies the date columns, since what is
+// worth dating differs per section (created / published / archived /
+// deleted). Every section passes exactly two, and the table's layout is
+// fixed, so the Drafts and Published tables stacked on the Active tab line
+// up column for column. On a phone there is no room for columns, and the
+// rows stay the stacked ListRowRecord they were.
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false, columns = [] }) {
   // View / Edit / Publish for one roster — the same three on a list row
   // (text on a desktop, icons on a phone) and in a card's kebab.
   function rosterActions(roster) {
@@ -683,7 +719,9 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
           governs, which sit differently in each view: List rows are inside a
           bordered card (1px border + px-4 = 17px); Grid cards have no frame
           around them, just their own p-3 (12px). gap-3 matches the rows'. */}
-      <div className={`mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 ${view === 'grid' ? 'pl-3' : 'pl-[17px]'}`}>
+      {/* On a desktop the List view is a table, whose cells pad by px-2.5:
+          1px border + 10px = 11px. */}
+      <div className={`mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 ${view === 'grid' ? 'pl-3' : 'pl-[17px] md:pl-[11px]'}`}>
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -730,7 +768,81 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
           ))}
         </div>
       ) : (
-        <div className="card divide-y divide-slate-line overflow-hidden">
+        <>
+        <div className="card hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[720px] table-fixed border-collapse text-xs" aria-label={title}>
+            <colgroup>
+              <col className="w-9" />
+              <col />
+              <col className="w-28" />
+              {columns.map(c => <col key={c.header} className="w-40" />)}
+              {isAdmin && <col className="w-64" />}
+            </colgroup>
+            <thead>
+              <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                <th className="px-2.5 py-2"><span className="sr-only">Select</span></th>
+                <th className="px-2.5 py-2">Roster</th>
+                <th className="px-2.5 py-2">Status</th>
+                {columns.map(c => <th key={c.header} className="px-2.5 py-2">{c.header}</th>)}
+                {isAdmin && <th className="px-2.5 py-2 text-right">Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rosters.map(roster => {
+                const name = `${MONTH_NAMES[roster.month]} ${roster.year}`
+                return (
+                  <tr
+                    key={roster.id}
+                    onClick={() => navigate(`/roster/${roster.id}`)}
+                    title={`Open ${name}`}
+                    className="cursor-pointer border-b border-slate-line transition-colors last:border-0 hover:bg-canvas-sunken active:bg-slate-line"
+                  >
+                    <td className="px-2.5 py-2.5" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(roster.id)}
+                        onChange={() => toggleOne(roster.id)}
+                        aria-label={`Select ${name}`}
+                        className="block h-4 w-4 rounded border-slate-line accent-accent"
+                      />
+                    </td>
+                    <td className="truncate px-2.5 py-2.5 text-sm font-medium text-ink">{name}</td>
+                    <td className="px-2.5 py-2.5">
+                      <Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>
+                    </td>
+                    {columns.map(c => {
+                      const value = c.cell(roster)
+                      return (
+                        <td key={c.header} className="truncate px-2.5 py-2.5 text-ink-light" title={value || undefined}>
+                          {value || <span className="text-ink-muted">—</span>}
+                        </td>
+                      )
+                    })}
+                    {isAdmin && (
+                      <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-end gap-1.5">
+                          {rosterActions(roster).map(a => (
+                            <button
+                              key={a.key}
+                              type="button"
+                              onClick={a.onClick}
+                              aria-label={`${a.label} ${name}`}
+                              className={`${a.key === 'publish' ? 'btn-primary' : 'btn-secondary'} h-8 px-2.5 text-xs`}
+                            >
+                              {a.icon}
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="card divide-y divide-slate-line overflow-hidden md:hidden">
           {rosters.map(roster => (
             <ListRowRecord
               key={roster.id}
@@ -757,6 +869,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
             />
           ))}
         </div>
+        </>
       )}
     </div>
   )

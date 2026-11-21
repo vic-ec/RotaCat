@@ -699,7 +699,7 @@ export async function submitLeaveRequest({
   const includesPublicHoliday = computeIncludesPublicHoliday(dateFrom, dateTo, (phRes.data || []).map(p => p.date?.slice(0, 10)))
   const overlapsWeekend = overlapsPlannedWeekend(plannerRes.data || [], dateFrom, dateTo)
 
-  const { error } = await supabase.from('leave_requests').insert({
+  const insert = supabase.from('leave_requests').insert({
     profile_id: profileId,
     leave_type: leaveType,
     date_from: dateFrom,
@@ -717,6 +717,10 @@ export async function submitLeaveRequest({
       submitted_by: capturedBy,
     } : {}),
   })
+  // A capture reads its own id back so the caller can link to it (the roster
+  // ties a vacated shift to the leave that caused it). A doctor's own
+  // request stays a plain insert, as it always was.
+  const { data: inserted, error } = await (isCapture ? insert.select('id').single() : insert)
   if (error) throw new Error(error.message)
 
   if (isCapture) {
@@ -734,5 +738,5 @@ export async function submitLeaveRequest({
   }
 
   if (!isCapture) return { overCapacity: capacity.overCapacity }
-  return { overCapacity: capacity.overCapacity, captured: true, rosterOverlapDates: rosterConflicts }
+  return { overCapacity: capacity.overCapacity, captured: true, rosterOverlapDates: rosterConflicts, leaveRequestId: inserted?.id ?? null }
 }

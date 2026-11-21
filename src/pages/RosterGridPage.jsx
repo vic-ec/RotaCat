@@ -18,6 +18,9 @@ import PublicHolidayBadge from '../components/PublicHolidayBadge'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
+import { fetchApprovedLeaveByProfile } from '../lib/approvedLeave'
+import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
+import RosterAbsenceNote from '../components/RosterAbsenceNote'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import ViewToggle from '../components/ViewToggle'
@@ -100,7 +103,7 @@ export default function RosterGridPage() {
   const [profiles, setProfiles] = useState([])   // all schedulable doctors
   const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
-  const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo], ...] approved leave
+  const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('month') // 'month' | 'week'
@@ -258,21 +261,12 @@ export default function RosterGridPage() {
 
       // Approved leave overlapping this month (§1.2) — a doctor on leave
       // for a given date shouldn't appear in that date's assignment
-      // dropdowns. Fetched separately since it needs the month bounds from
-      // rosterRes, which only resolves once the Promise.all above lands.
+      // dropdowns, and one who still holds a shift over it is struck
+      // through on the grid. Fetched separately since it needs the month
+      // bounds from rosterRes, which only resolves once the Promise.all
+      // above lands.
       const { start: monthStart, end: monthEnd } = monthBounds(rosterRes.data.year, rosterRes.data.month)
-      const { data: leaveData } = await supabase
-        .from('leave_requests')
-        .select('profile_id, date_from, date_to')
-        .eq('status', 'approved')
-        .lte('date_from', monthEnd)
-        .gte('date_to', monthStart)
-      const leaveMap = {}
-      for (const lr of (leaveData || [])) {
-        const list = leaveMap[lr.profile_id] || (leaveMap[lr.profile_id] = [])
-        list.push([lr.date_from?.slice(0, 10), lr.date_to?.slice(0, 10)])
-      }
-      setLeaveByProfile(leaveMap)
+      setLeaveByProfile(await fetchApprovedLeaveByProfile(monthStart, monthEnd))
     } catch (err) {
       setError(err.message)
     }
@@ -364,6 +358,38 @@ export default function RosterGridPage() {
   }
 
   const canEdit = isAdmin && editing
+
+  // Re-read after the vacancy dialog files or links leave, so the strike-
+  // through and its popup are right without a full reload.
+  async function refreshLeave() {
+    if (!rosterMonth) return
+    const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
+    setLeaveByProfile(await fetchApprovedLeaveByProfile(start, end))
+  }
+
+  // Everything the struck-through name's popup says, for one entry — or
+  // null when the entry shows nothing unusual.
+  const nameById = id => {
+    const p = profileMap[id] || consultantProfiles.find(c => c.id === id)
+    return p ? `${p.name} ${p.surname}` : null
+  }
+  function absenceFor(entry) {
+    const absence = entryAbsence(entry, leaveByProfile)
+    if (!absence) return null
+    const doctor = profileMap[absence.profileId]
+    return {
+      ...absence,
+      shortName: doctor ? (displayNames?.get(doctor.id) ?? doctor.surname) : 'Doctor',
+      summary: absenceSummary({
+        absence,
+        leaveByProfile,
+        doctorName: nameById(absence.profileId),
+        coverName: absence.kind === 'vacated' ? (entry.is_locum ? (entry.locum_name || null) : nameById(entry.profile_id)) : null,
+        byName: nameById(absence.byId),
+        canSeeNote: isAdmin,
+      }),
+    }
+  }
 
   async function handleCellClick(date, shiftCode, existingEntry) {
     if (!canEdit) return
@@ -939,6 +965,7 @@ export default function RosterGridPage() {
             shiftTypes={shiftTypes}
             displayNames={displayNames}
             entryMap={entryMap}
+            leaveByProfile={leaveByProfile}
             padToWeek={viewMode === 'week'}
           />
           <LanesLegend textSize={textSize} />
@@ -1086,6 +1113,7 @@ export default function RosterGridPage() {
                               profile={profileMap[entry.profile_id]}
                               dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
                               displayNames={displayNames}
+                              absence={absenceFor(entry)}
                               onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
                               isAdmin={canEdit}
@@ -1151,7 +1179,8 @@ export default function RosterGridPage() {
           profiles={assignableProfiles}
           displayNames={displayNames}
           rosterMonthId={id}
-          onDone={() => { setActiveVacancy(null); refreshEntries() }}
+          leaveByProfile={leaveByProfile}
+          onDone={info => { setActiveVacancy(null); refreshEntries(); if (info?.leaveChanged) refreshLeave() }}
         />
       )}
 
@@ -1185,11 +1214,46 @@ export default function RosterGridPage() {
 // The shift is not named here — the column heading above says which shift
 // this is, so a code in the cell would be the third statement of it and is
 // most of the width back.
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false }) {
+//
+// `absence` (see absenceFor): a doctor who is not working this shift. Either
+// the doctor taken off it — their name sits struck through above whoever
+// covers it, or above an "Open" slot when nobody does yet — or the doctor
+// still on it who has approved leave over its date, whose own name is the
+// one struck through. Tapping a struck name says why; while editing it is
+// plain text, since a tap there already means "edit this shift".
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, absence = null }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
+  const vacated = absence?.kind === 'vacated' ? absence : null
+  const vacatedLine = vacated && (
+    <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
+      <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} />
+    </div>
+  )
+
+  // Vacated and not yet covered: the slot stays visible, and while editing
+  // it is the thing to click to fill this same entry (so the struck name
+  // stays with whoever ends up covering it).
+  if (vacated?.open) {
+    return (
+      <>
+        {vacatedLine}
+        <div
+          onClick={isAdmin ? onClick : undefined}
+          className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
+            isAdmin ? 'cursor-pointer hover:opacity-80' : ''
+          } ${dimmed ? 'opacity-30' : ''}`}
+        >
+          Open
+        </div>
+      </>
+    )
+  }
+
   if (entry.is_locum) {
     return (
+      <>
+      {vacatedLine}
       <div
         onClick={isAdmin ? onClick : undefined}
         className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
@@ -1198,29 +1262,36 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       >
         {entry.locum_name || '[ ]'}
       </div>
+      </>
     )
   }
 
   if (!profile) return null
 
+  const onLeave = absence?.kind === 'on_leave' ? absence : null
+  const chipName = `${displayNames?.get(profile.id) ?? profile.surname}${entry.display_tag ? ` ${entry.display_tag}` : ''}`
+
   const railColor = profile.color_code || '#4A90D9'
   const draggableNow = isAdmin && canDrag
 
   return (
+    <>
+    {vacatedLine}
     <div
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
-      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${
+      className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium ${onLeave ? 'text-ink-muted' : 'text-ink'} ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
-      <span className="truncate">
-        {displayNames?.get(profile.id) ?? profile.surname}{entry.display_tag ? ` ${entry.display_tag}` : ''}
-      </span>
+      {onLeave
+        ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} />
+        : <span className="truncate">{chipName}</span>}
     </div>
+    </>
   )
 }
 

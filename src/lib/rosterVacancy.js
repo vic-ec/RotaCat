@@ -3,6 +3,7 @@ import { datesInRange, formatShortDateRange } from './dateRange'
 import { submitLeaveRequest, LEAVE_TYPE_LABELS, LEAVE_TYPE_OPTIONS } from './leaveRequests'
 import { logRosterEntryChange } from './changeLog'
 import { leaveRangeOn } from './approvedLeave'
+import { coverPatch, coverProfileId } from './locumCover'
 
 // Detects whether a doctor being swapped into a vacated published-roster
 // slot already has a different shift that same day — the trigger for the
@@ -49,17 +50,22 @@ export const VACATE_PATCH = {
 // user-facing message.
 //
 //   reason   one of VACANCY_REASON_OPTIONS' values
-//   cover    'replace' (replacementId required) | 'advertise' | 'open'
+//   cover    'replace' | 'advertise' | 'open'
+//   replacement  who takes the shift over, for 'replace': a cover object
+//                (see lib/locumCover.js) — a doctor, a locum with an
+//                account, or a locum with none yet. `replacementId` is the
+//                shorthand for a doctor.
 //   existingLeaveId  the doctor's approved leave already covering this
 //                    date, if any: linked, and no second row is filed
 export async function resolveVacancy({
   rosterMonthId, vacancy, reason, leaveType = 'sick', dateFrom, dateTo, note = '', cover, replacementId = null,
-  existingLeaveId = null, adminId,
+  replacement = null, existingLeaveId = null, adminId,
 }) {
+  const taker = replacement ?? (replacementId ? { kind: 'doctor', id: replacementId } : null)
   const storedReason = VACATED_REASON[reason]
   if (!storedReason) throw new Error('Choose why this doctor is coming off the shift.')
   if (!['replace', 'advertise', 'open'].includes(cover)) throw new Error('Choose what happens to the shift.')
-  if (cover === 'replace' && !replacementId) throw new Error('Choose the doctor taking over the shift.')
+  if (cover === 'replace' && !taker) throw new Error('Choose who is taking over the shift.')
   const trimmedNote = (note || '').trim()
   if (reason === 'other' && !trimmedNote) throw new Error('Add a note explaining the reason.')
 
@@ -83,9 +89,7 @@ export async function resolveVacancy({
   }
 
   const patch = {
-    ...(cover === 'replace'
-      ? { ...VACATE_PATCH, profile_id: replacementId, is_manual_override: true }
-      : VACATE_PATCH),
+    ...(cover === 'replace' ? coverPatch(taker) : VACATE_PATCH),
     vacated_profile_id: vacancy.currentProfileId,
     vacated_reason: storedReason,
     // A leave note lives on the leave request, under that table's own
@@ -116,13 +120,18 @@ export async function resolveVacancy({
     shiftCode: vacancy.shiftCode,
     action: cover === 'replace' ? 'assign' : 'unassign',
     profileIdBefore: vacancy.currentProfileId,
-    profileIdAfter: cover === 'replace' ? replacementId : null,
+    profileIdAfter: cover === 'replace' ? coverProfileId(taker) : null,
     advertised: cover === 'advertise',
     changedBy: adminId,
     reason: storedReason,
     // The log is admin-only, so it can name the leave type the roster row
     // does not.
-    note: isLeave ? (existingLeaveId ? 'Leave already on record' : leaveLabel) : (trimmedNote || null),
+    note: [
+      isLeave ? (existingLeaveId ? 'Leave already on record' : leaveLabel) : trimmedNote,
+      // A locum with no account has no profile to log against, so the log
+      // names them here instead.
+      cover === 'replace' && taker.kind === 'placeholder' ? `covered by locum ${taker.name} (no account yet)` : '',
+    ].filter(Boolean).join('; ') || null,
     leaveRequestId,
   })
 

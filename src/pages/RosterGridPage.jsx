@@ -20,6 +20,8 @@ import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { fetchApprovedLeaveByProfile } from '../lib/approvedLeave'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
+import { coverPatch, coverProfileId, fetchLocumProfiles, fetchOpenLocumPlaceholders } from '../lib/locumCover'
+import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
@@ -137,6 +139,11 @@ export default function RosterGridPage() {
   // roster is clicked. RosterVacancyManager owns the recursive swap-conflict
   // chain from here; onDone() just closes it and reloads.
   const [activeVacancy, setActiveVacancy] = useState(null)
+  // Locums the roster can assign: those with an account, and those added
+  // from here with only a name and mobile (placeholders — admin-only).
+  const [locumProfiles, setLocumProfiles] = useState([])
+  const [locumPlaceholders, setLocumPlaceholders] = useState([])
+  const [newLocumFor, setNewLocumFor] = useState(null) // the slot a "New locum" is being added to
 
   // Drag state
   const [dragSource, setDragSource] = useState(null) // {entryId, profileId, date, shiftCode}
@@ -361,6 +368,17 @@ export default function RosterGridPage() {
 
   const canEdit = isAdmin && editing
 
+  async function refreshLocums() {
+    const [accounts, open] = await Promise.all([fetchLocumProfiles(), fetchOpenLocumPlaceholders()])
+    setLocumProfiles(accounts)
+    setLocumPlaceholders(open)
+  }
+  // Only an admin can assign anyone, and the placeholder list is theirs
+  // alone to read.
+  useEffect(() => {
+    if (isAdmin) refreshLocums()
+  }, [isAdmin])
+
   // Re-read after the vacancy dialog files or links leave, so the strike-
   // through and its popup are right without a full reload.
   async function refreshLeave() {
@@ -399,7 +417,9 @@ export default function RosterGridPage() {
     // reassignment workflow instead of the plain assign-or-remove dropdown —
     // an empty slot, a locum placeholder, or anything on a draft roster
     // stays freely editable via the dropdown as before.
-    if (existingEntry?.profile_id && rosterMonth.status === 'published') {
+    // (A locum's slot is not a doctor coming off a shift: no leave to
+    // capture, no reason to ask for.)
+    if (existingEntry?.profile_id && !existingEntry.is_locum && rosterMonth.status === 'published') {
       setActiveVacancy({
         entryId: existingEntry.id,
         date,
@@ -412,34 +432,34 @@ export default function RosterGridPage() {
     setDropdownSearch('')
   }
 
-  async function assignDoctor(profileId, date, shiftCode, entryId) {
+  // Puts a cover on a slot: a doctor, a locum with an account, or a locum
+  // with none yet (see lib/locumCover.js). Updates the entry already in the
+  // slot when there is one — so a shift a doctor was taken off keeps its
+  // struck-through name beside whoever fills it — and inserts otherwise.
+  async function assignCover(cover, date, shiftCode, entryId) {
     setOpenDropdown(null)
+    setNewLocumFor(null)
 
     // Find the shift_type_id
     const stId = Object.entries(shiftTypes).find(([, code]) => code === shiftCode)?.[0]
     if (!stId) return
 
     const priorEntry = entryId ? entries.find(e => e.id === entryId) : null
+    const patch = {
+      ...coverPatch(cover),
+      // A doctor taking over what was a locum's slot works it on contract
+      // hours again; a locum's slot never counted.
+      ...(cover.kind === 'doctor' && priorEntry?.is_locum ? { counts_toward_contract_hours: true } : {}),
+    }
 
     if (entryId) {
-      // Update existing entry
-      await supabase.from('roster_entries').update({
-        profile_id: profileId,
-        is_locum: false,
-        locum_name: null,
-        is_manual_override: true,
-        is_flagged: false,
-        flag_type: null,
-        flag_reason: null,
-      }).eq('id', entryId)
+      await supabase.from('roster_entries').update(patch).eq('id', entryId)
     } else {
-      // Insert new entry
       await supabase.from('roster_entries').insert({
         roster_month_id: id,
         date: date,
         shift_type_id: stId,
-        profile_id: profileId,
-        is_manual_override: true,
+        ...patch,
         position: 99,
       })
     }
@@ -450,10 +470,12 @@ export default function RosterGridPage() {
       shiftCode,
       action: 'assign',
       profileIdBefore: priorEntry?.profile_id ?? null,
-      profileIdAfter: profileId,
+      profileIdAfter: coverProfileId(cover),
       changedBy: user.id,
+      ...(cover.kind === 'placeholder' ? { note: `locum ${cover.name} (no account yet)` } : {}),
     })
     await refreshEntries()
+    if (cover.kind === 'placeholder') refreshLocums()
   }
 
   async function removeEntry(entryId) {
@@ -1163,11 +1185,27 @@ export default function RosterGridPage() {
           )}
           search={dropdownSearch}
           onSearchChange={setDropdownSearch}
-          onSelect={profileId => assignDoctor(profileId, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
+          onSelect={profileId => assignCover({ kind: 'doctor', id: profileId }, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
+          // A locum already on another shift that day is left out, as a
+          // doctor is.
+          locums={locumProfiles.filter(l => l.is_active !== false && !findSameDayConflict({
+            entries, date: openDropdown.date, profileId: l.id, excludeEntryId: openDropdown.entryId,
+          }))}
+          placeholders={locumPlaceholders}
+          onSelectCover={cover => assignCover(cover, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
+          onNewLocum={() => { setNewLocumFor(openDropdown); setOpenDropdown(null) }}
           onRemove={openDropdown.entryId ? () => removeEntry(openDropdown.entryId) : null}
           onClose={() => setOpenDropdown(null)}
           date={openDropdown.date}
           shiftCode={labelForShiftCode(openDropdown.shiftCode)}
+        />
+      )}
+
+      {newLocumFor && (
+        <NewLocumModal
+          adminId={user.id}
+          onDone={cover => assignCover(cover, newLocumFor.date, newLocumFor.shiftCode, newLocumFor.entryId)}
+          onClose={() => setNewLocumFor(null)}
         />
       )}
 
@@ -1182,7 +1220,9 @@ export default function RosterGridPage() {
           displayNames={displayNames}
           rosterMonthId={id}
           leaveByProfile={leaveByProfile}
-          onDone={info => { setActiveVacancy(null); refreshEntries(); if (info?.leaveChanged) refreshLeave() }}
+          locums={locumProfiles}
+          placeholders={locumPlaceholders}
+          onDone={info => { setActiveVacancy(null); refreshEntries(); refreshLocums(); if (info?.leaveChanged) refreshLeave() }}
         />
       )}
 

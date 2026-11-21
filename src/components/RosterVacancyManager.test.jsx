@@ -134,6 +134,56 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     expect(screen.queryByText('Brown')).not.toBeInTheDocument()
   })
 
+  it('a locum with an account can take the shift: written as a locum row that does not count towards contract hours', async () => {
+    const onDone = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <RosterVacancyManager
+        vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone}
+        locums={[{ id: 'loc-1', name: 'Zinhle', surname: 'Cebani', is_active: true }]}
+        placeholders={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
+      />
+    )
+    await screen.findByText(/Alice Anderson —/)
+    await pick(user, 'Reason', 'Sick leave')
+    await user.click(screen.getByRole('radio', { name: /Replace with a doctor or locum/ }))
+    expect(await screen.findByText('Tom Temp')).toBeInTheDocument()
+    expect(screen.getByText('Locum · no account yet')).toBeInTheDocument()
+    await user.click(screen.getByText('Zinhle Cebani'))
+    expect(await screen.findByRole('button', { name: /Zinhle Cebani \(locum\) · change/ })).toBeInTheDocument()
+    await save(user)
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(calls.find(c => c.table === 'roster_entries').payload).toMatchObject({
+      profile_id: 'loc-1', is_locum: true, locum_name: 'Zinhle Cebani', counts_toward_contract_hours: false,
+      vacated_profile_id: 'doc-a', vacated_reason: 'leave',
+    })
+    expect(calls.find(c => c.table === 'roster_entry_changes').payload).toMatchObject({ profile_id_after: 'loc-1' })
+  })
+
+  it('a locum with no account yet is assigned by name, and the log names them', async () => {
+    const onDone = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <RosterVacancyManager
+        vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone}
+        placeholders={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
+      />
+    )
+    await screen.findByText(/Alice Anderson —/)
+    await pick(user, 'Reason', 'No-show')
+    await user.click(screen.getByRole('radio', { name: /Replace with a doctor or locum/ }))
+    await user.click(await screen.findByText('Tom Temp'))
+    await save(user)
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
+    expect(calls.find(c => c.table === 'roster_entries').payload).toMatchObject({
+      profile_id: null, is_locum: true, locum_name: 'Tom Temp', locum_placeholder_id: 'ph-1', counts_toward_contract_hours: false,
+    })
+    expect(calls.find(c => c.table === 'roster_entry_changes').payload)
+      .toMatchObject({ profile_id_after: null, note: 'covered by locum Tom Temp (no account yet)' })
+  })
+
   it('"Open & advertise" for a no-show vacates the entry, advertises it, and logs the reason', async () => {
     const onDone = vi.fn()
     const user = userEvent.setup()

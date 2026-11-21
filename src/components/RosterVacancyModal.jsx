@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from './DoctorDropdown'
+import NewLocumModal from './NewLocumModal'
 import SelectMenu from './SelectMenu'
 import DateFieldButton from './DateFieldButton'
 import {
@@ -17,7 +18,7 @@ function applyEntryPatch(entries, entryId, patch) {
 }
 
 const COVER_OPTIONS = [
-  { value: 'replace', label: 'Replace with a doctor' },
+  { value: 'replace', label: 'Replace with a doctor or locum' },
   { value: 'advertise', label: 'Open & advertise' },
   { value: 'open', label: "Open, don't advertise" },
 ]
@@ -34,7 +35,7 @@ const COVER_OPTIONS = [
 // writes all happen in resolveVacancy, so a half-finished state — leave on
 // record but the doctor still rostered, or the reverse — isn't something an
 // admin can leave behind by closing the dialog between steps.
-export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile = {}, onResolved, onClose }) {
+export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile = {}, locums = [], placeholders = [], onResolved, onClose }) {
   const { user } = useAuth()
   const [reason, setReason] = useState(vacancy.suggestedReason || '')
   const [otherLeaveType, setOtherLeaveType] = useState('family_responsibility')
@@ -42,15 +43,21 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
   const [dateTo, setDateTo] = useState(vacancy.date)
   const [note, setNote] = useState('')
   const [cover, setCover] = useState('')
-  const [replacementId, setReplacementId] = useState(null)
+  // Who takes the shift over: a cover object (see lib/locumCover.js).
+  const [replacement, setReplacement] = useState(null)
+  const replacementId = replacement?.kind === 'doctor' ? replacement.id : null
   const [picking, setPicking] = useState(false)
+  const [addingLocum, setAddingLocum] = useState(false)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const doctor = profiles.find(p => p.id === vacancy.currentProfileId)
   const doctorName = doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'
-  const replacement = profiles.find(p => p.id === replacementId)
+  const replacementDoctor = profiles.find(p => p.id === replacementId)
+  const replacementName = replacement
+    ? (replacement.kind === 'doctor' ? (replacementDoctor ? `${replacementDoctor.name} ${replacementDoctor.surname}` : 'Doctor') : `${replacement.name} (locum)`)
+    : null
   const isLeave = reason === 'sick' || reason === 'leave'
   const leaveType = reason === 'sick' ? 'sick' : otherLeaveType
   // Leave already on record over this shift's date (captured from Team
@@ -62,6 +69,10 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
   const candidates = profiles.filter(p =>
     p.id !== vacancy.currentProfileId
     && !isOnApprovedLeave({ leaveByProfile, profileId: p.id, date: vacancy.date }))
+  // A locum already on another shift that day is simply not offered: unlike
+  // a rostered doctor, there is no second shift of theirs to re-home.
+  const freeLocums = locums.filter(l => l.is_active !== false
+    && !findSameDayConflict({ entries, date: vacancy.date, profileId: l.id, excludeEntryId: vacancy.entryId }))
 
   async function handleSave(e) {
     e.preventDefault()
@@ -69,14 +80,14 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     setError('')
     try {
       const { patch } = await resolveVacancy({
-        rosterMonthId, vacancy, reason, leaveType, dateFrom, dateTo, note, cover, replacementId,
+        rosterMonthId, vacancy, reason, leaveType, dateFrom, dateTo, note, cover, replacement,
         existingLeaveId: isLeave && existingLeave ? (existingLeave[3] || null) : null,
         adminId: user.id,
       })
       const updatedEntries = applyEntryPatch(entries, vacancy.entryId, patch)
       // A replacement who already holds another shift that day leaves THAT
       // shift needing the same decision — hand it back as the next vacancy.
-      const conflict = cover === 'replace'
+      const conflict = cover === 'replace' && replacementId
         ? findSameDayConflict({ entries: updatedEntries, date: vacancy.date, profileId: replacementId, excludeEntryId: vacancy.entryId })
         : null
       if (conflict) {
@@ -96,6 +107,16 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     }
   }
 
+  if (addingLocum) {
+    return (
+      <NewLocumModal
+        adminId={user.id}
+        onDone={cover_ => { setReplacement(cover_); setCover('replace'); setAddingLocum(false) }}
+        onClose={() => setAddingLocum(false)}
+      />
+    )
+  }
+
   if (picking) {
     return (
       <DoctorDropdown
@@ -103,7 +124,11 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
         displayNames={displayNames}
         search={search}
         onSearchChange={setSearch}
-        onSelect={id => { setReplacementId(id); setCover('replace'); setPicking(false) }}
+        onSelect={id => { setReplacement({ kind: 'doctor', id }); setCover('replace'); setPicking(false) }}
+        locums={freeLocums}
+        placeholders={placeholders}
+        onSelectCover={cover_ => { setReplacement(cover_); setCover('replace'); setPicking(false) }}
+        onNewLocum={() => { setPicking(false); setAddingLocum(true) }}
         onRemove={null}
         onClose={() => setPicking(false)}
         date={vacancy.date}
@@ -112,7 +137,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
     )
   }
 
-  const canSave = Boolean(reason) && Boolean(cover) && (cover !== 'replace' || Boolean(replacementId))
+  const canSave = Boolean(reason) && Boolean(cover) && (cover !== 'replace' || Boolean(replacement))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={saving ? undefined : onClose}>
@@ -188,12 +213,12 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
                   name="vacancy-cover"
                   value={opt.value}
                   checked={cover === opt.value}
-                  onChange={() => { setCover(opt.value); if (opt.value === 'replace' && !replacementId) setPicking(true) }}
+                  onChange={() => { setCover(opt.value); if (opt.value === 'replace' && !replacement) setPicking(true) }}
                 />
                 <span>{opt.label}</span>
                 {opt.value === 'replace' && replacement && (
                   <button type="button" onClick={() => setPicking(true)} className="ml-auto truncate text-xs font-medium text-accent underline hover:text-accent-dark">
-                    {replacement.name} {replacement.surname} · change
+                    {replacementName} · change
                   </button>
                 )}
               </label>

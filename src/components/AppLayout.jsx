@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useSwipeNavigation } from '../lib/swipeNavigation'
 import { UsersRound, NotebookTabs, UserCog } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -171,6 +172,7 @@ export default function AppLayout() {
                  : isLocum  ? locumNav
                  : isClerk  ? clerkNav
                  : doctorNav
+  const swipe = useSwipeNavigation(navItems)
   const isDashboard = location.pathname === '/'
 
   // Subtitle under the name in the sidebar
@@ -249,7 +251,12 @@ export default function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
+      {/* The swipe surface: on a phone, a flat sideways swipe anywhere on
+          the page moves to the neighbouring bottom-bar screen (see
+          lib/swipeNavigation). overflow-x-clip (not hidden — clip makes no
+          scroll container, so the sticky header keeps working) contains the
+          few pixels the incoming screen slides in from. */}
+      <div ref={swipe.ref} className="flex min-w-0 flex-1 flex-col overflow-x-clip pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
         {/* Top bar — mobile only, and Dashboard-only: every other mobile
             page starts straight into its own content/nav instead, the same
             way a native app only brands its home tab. Sign-out lives on the
@@ -276,7 +283,15 @@ export default function AppLayout() {
         {/* Content padding follows the spec's 32/24/16px desktop/tablet/
             mobile scale (§15) — md (768-1023px, tablet) sits at 24px,
             lg (>=1024px, desktop) at the original 32px. */}
-        <main className="min-w-0 flex-1 px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5 lg:px-8">
+        {/* Keyed on the swipe count so a screen reached by swiping replays
+            the slide-in from the side it came from; a tap on the bar leaves
+            the count alone and arrives without one, as it always has. */}
+        <main
+          key={swipe.arrival.count}
+          className={`min-w-0 flex-1 px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5 lg:px-8 ${
+            swipe.arrival.direction ? `swipe-arrive-${swipe.arrival.direction}` : ''
+          }`}
+        >
           <Outlet />
         </main>
       </div>

@@ -44,3 +44,11 @@ export function phoneWhatsAppHref(phone) {
   const intl = digits.startsWith('0') ? `27${digits.slice(1)}` : digits
   return `https://wa.me/${intl}`
 }
+
+// The same chat link with a message already typed in, ready to send — the
+// app never sends anything itself; the person taps Send in WhatsApp.
+export function phoneWhatsAppMessageHref(phone, text) {
+  const href = phoneWhatsAppHref(phone)
+  if (!href) return null
+  return text ? `${href}?text=${encodeURIComponent(text)}` : href
+}

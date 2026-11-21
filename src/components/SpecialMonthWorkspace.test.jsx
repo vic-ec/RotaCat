@@ -187,7 +187,7 @@ describe('SpecialMonthWorkspace', () => {
     })
 
     it('hides every request action from a viewer who cannot submit leave', async () => {
-      mockAuth = { isAdmin: true, canSubmitLeave: false }
+      mockAuth = { isAdmin: false, canSubmitLeave: false }
       const user = userEvent.setup()
       renderWorkspace()
       expect(screen.queryByRole('button', { name: 'Request special leave' })).not.toBeInTheDocument()

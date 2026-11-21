@@ -299,10 +299,20 @@ const WEEKEND_DAY_CODES = new Set(['WE_08', 'WE_13', 'WE_20', 'PH_08', 'PH_13', 
 // (RotaCatScheduler, solver.py _uses_weekend_planner). Their weekend
 // shifts are never a difference from the plan, because the plan holds
 // nothing for them. The caller decides who that is.
-export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes, outsidePlannerIds = new Set()) {
+//
+// `monthStart`/`monthEnd` (the roster's own month, YYYY-MM-DD): a weekend
+// split across two months (Sat 31 Jan / Sun 1 Feb) has only one of its
+// days in this roster, while the planner names everyone working either
+// day. So for such a weekend only "removed" counts — someone this roster
+// has on its day who the planner lacks; a planner name missing here may
+// simply be working the other month's day. Without the bounds every
+// weekend is compared whole, as before.
+export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftTypeCodes, outsidePlannerIds = new Set(), { monthStart, monthEnd } = {}) {
   const actualBySaturday = new Map()
   for (const entry of rosterEntries) {
-    if (!entry.profile_id || outsidePlannerIds.has(entry.profile_id)) continue
+    // A locum — placeholder or one with an account — is never in the
+    // planner, which only holds the team's own doctors.
+    if (!entry.profile_id || entry.is_locum || outsidePlannerIds.has(entry.profile_id)) continue
     const code = shiftTypeCodes[entry.shift_type_id]
     if (!WEEKEND_DAY_CODES.has(code)) continue
     const saturday = dayOfWeek(entry.date) === 0 ? addDays(entry.date, -1) : entry.date
@@ -322,7 +332,8 @@ export function computeWeekendPlannerDrift(rosterEntries, plannerEntries, shiftT
   for (const saturday of allSaturdays) {
     const actual = actualBySaturday.get(saturday) || new Set()
     const planned = plannedBySaturday.get(saturday) || new Set()
-    const added = [...planned].filter(id => !actual.has(id))
+    const splitWeekend = Boolean(monthStart && monthEnd) && (saturday < monthStart || addDays(saturday, 1) > monthEnd)
+    const added = splitWeekend ? [] : [...planned].filter(id => !actual.has(id))
     const removed = [...actual].filter(id => !planned.has(id))
     if (added.length > 0 || removed.length > 0) {
       drifted.push({ saturday, added, removed })

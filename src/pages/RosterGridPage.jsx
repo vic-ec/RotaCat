@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from '../components/DoctorDropdown'
 import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
-import { monthBounds } from '../lib/dateRange'
+import { monthBounds, addDays } from '../lib/dateRange'
 import { computeWeekendPlannerDrift, weekendPlannerChangedSince } from '../lib/weekendPlanner'
 import { logRosterEntryChange } from '../lib/changeLog'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
@@ -38,15 +38,15 @@ const ROSTER_LAYOUTS = [
   { key: 'lanes', label: 'Lanes', icon: Columns3, title: 'Lanes' },
 ]
 
-// How much of the month is on screen. One letter each, not the words and
-// not a calendar glyph: two calendars differing only in how many rows they
-// draw are indistinguishable at 14px, and at that size M and W are the two
-// most different letters in the alphabet. `ariaLabel` carries the word for
-// a screen reader and `title` for a hover, so nothing is lost but width —
-// which is what keeps this header on one line on a phone.
+// How much of the month is on screen: "Month"/"Week" in full from lg (the
+// desktop), one letter each below it, not a calendar glyph — two calendars
+// differing only in how many rows they draw are indistinguishable at 14px,
+// and at that size M and W are the two most different letters in the
+// alphabet. The letter keeps the toolbar on one line on a phone; `title`
+// gives the word on a tap.
 const ROSTER_RANGES = [
-  { key: 'month', label: 'M', ariaLabel: 'Month', title: 'Month' },
-  { key: 'week', label: 'W', ariaLabel: 'Week', title: 'Week' },
+  { key: 'month', label: 'Month', shortLabel: 'M', title: 'Month' },
+  { key: 'week', label: 'Week', shortLabel: 'W', title: 'Week' },
 ]
 
 // A ⅝-contract doctor the Weekend Planner doesn't name at all this month is
@@ -262,12 +262,15 @@ export default function RosterGridPage() {
       // something to compare forward against the planner's current state.
       if (rosterRes.data.status === 'draft') {
         const { start, end } = monthBounds(rosterRes.data.year, rosterRes.data.month)
+        // From the day before the 1st: a month that starts on a Sunday
+        // shares that weekend with the month before, and the planner files
+        // it under the Saturday.
         const { data: plannerData } = await supabase
           .from('weekend_planner_entries')
           .select('weekend_saturday, profile_id, created_at, updated_at')
-          .gte('weekend_saturday', start)
+          .gte('weekend_saturday', addDays(start, -1))
           .lte('weekend_saturday', end)
-        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data, plannerData))
+        const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], stMap, outsidePlannerIds(profilesRes.data, plannerData), { monthStart: start, monthEnd: end })
         setPlannerDrift(newDrift)
         setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
         setDismissedDrift(isDriftMuted(id, newDrift))
@@ -324,9 +327,9 @@ export default function RosterGridPage() {
       const { data: plannerData } = await supabase
         .from('weekend_planner_entries')
         .select('weekend_saturday, profile_id, created_at, updated_at')
-        .gte('weekend_saturday', start)
+        .gte('weekend_saturday', addDays(start, -1))
         .lte('weekend_saturday', end)
-      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles, plannerData))
+      const newDrift = computeWeekendPlannerDrift(normalisedEntries, plannerData || [], shiftTypes, outsidePlannerIds(profiles, plannerData), { monthStart: start, monthEnd: end })
       setPlannerDrift(newDrift)
       setPlannerChangedSince(weekendPlannerChangedSince(normalisedEntries, plannerData || []))
       setDismissedDrift(isDriftMuted(id, newDrift))
@@ -914,7 +917,7 @@ export default function RosterGridPage() {
           menus, sheets and modals (z-40+). */}
       <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:top-3">
         <div className="flex flex-shrink-0 items-center gap-2">
-          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight labelFrom="lg" />
           {/* Stays in place, greyed out, in month view — so switching
               M ↔ W moves nothing on the row. */}
           <div className={weekView ? '' : 'pointer-events-none opacity-40'} aria-disabled={!weekView}>

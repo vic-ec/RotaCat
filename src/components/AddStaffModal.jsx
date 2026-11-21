@@ -87,8 +87,13 @@ const EMPTY_FORM = {
   activeUntil: '',
 }
 
-export default function AddStaffModal({ onClose, onCreated }) {
-  const [form, setForm] = useState(EMPTY_FORM)
+// `initialValues`: fields already known, for a caller that isn't starting
+// from nothing (a locum put on the roster with only a name and mobile —
+// see LocumContactsPanel). `onAccountCreated(response)` fires the
+// moment the account exists, before the confirmation screen is dismissed,
+// for a caller that has follow-up work tied to the new profile id.
+export default function AddStaffModal({ onClose, onCreated, initialValues = null, onAccountCreated = null }) {
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, ...(initialValues || {}) }))
   const [blocks, setBlocks] = useState([])
 
   const [submitting, setSubmitting] = useState(false)
@@ -233,6 +238,7 @@ export default function AddStaffModal({ onClose, onCreated }) {
       setError(response.error)
       return
     }
+    await onAccountCreated?.(response)
     setResult(response)
   }
 

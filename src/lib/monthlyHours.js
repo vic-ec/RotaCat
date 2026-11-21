@@ -3,6 +3,8 @@
 // (v2.1 numbers) rather than hardcoding any figure here.
 import { supabase } from './supabase'
 import { monthBounds } from './dateRange'
+import { fetchApprovedLeaveByProfile } from './approvedLeave'
+import { isEntryOnLeave } from './rosterVacancy'
 
 // CONTRACT_CEILING_KEYS is keyed by the *current* contract_type enum value
 // (what doc.contract_type actually equals), mapped to the constraints-table
@@ -35,14 +37,18 @@ export async function getMonthlyHoursByProfile(year, month) {
   const { start, end } = monthBounds(year, month)
   const { data } = await supabase
     .from('roster_entries')
-    .select('profile_id, counts_toward_contract_hours, extra_hours, shift_types(duration_hours)')
+    .select('profile_id, date, counts_toward_contract_hours, extra_hours, shift_types(duration_hours)')
     .gte('date', start)
     .lte('date', end)
     .not('profile_id', 'is', null)
+  // A shift the doctor still holds but was on approved leave for (leave
+  // captured without the roster being changed) is hours they did not work.
+  const leaveByProfile = await fetchApprovedLeaveByProfile(start, end)
 
   const hoursByProfile = new Map()
   for (const entry of data || []) {
     if (!entry.counts_toward_contract_hours) continue
+    if (isEntryOnLeave(entry, leaveByProfile)) continue
     const prev = hoursByProfile.get(entry.profile_id) || 0
     const entryHours = Number(entry.shift_types?.duration_hours || 0) + Number(entry.extra_hours || 0)
     hoursByProfile.set(entry.profile_id, prev + entryHours)

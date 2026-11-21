@@ -40,7 +40,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname)')
+      .select('*, reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname), submitter:profiles!leave_requests_submitted_by_fkey(name, surname)')
       .eq('profile_id', profile.id)
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
@@ -119,6 +119,9 @@ function decisionLine(lr) {
     return `Cancelled by ${who} on ${formatTimestampDate(lr.cancelled_at)}${lr.cancel_reason ? ` — "${lr.cancel_reason}"` : ''}`
   }
   if (lr.status === 'pending' || !lr.reviewed_at) return null
+  if (lr.status === 'approved' && lr.submitted_by && lr.submitted_by !== lr.profile_id) {
+    return `Captured on your behalf by ${lr.submitter ? `${lr.submitter.name} ${lr.submitter.surname}` : 'an admin'} on ${formatTimestampDate(lr.reviewed_at)}`
+  }
   return `${lr.status === 'approved' ? 'Approved' : 'Rejected'} by ${lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on ${formatTimestampDate(lr.reviewed_at)}${lr.admin_notes ? ` — "${lr.admin_notes}"` : ''}`
 }
 

@@ -14,7 +14,8 @@ export default {
       sm: '640px',
       md: '768px',   // spec's mobile/tablet boundary
       lg: '1024px',  // spec's tablet/desktop boundary
-      xl: '1280px'
+      xl: '1280px',
+      '2xl': '1900px' // very wide desktop: the roster bar spells its chips out and keeps Hours and Log on the row
     },
     extend: {
       // ── docs/design/layout-spec.md §1 typography tokens ──────────────

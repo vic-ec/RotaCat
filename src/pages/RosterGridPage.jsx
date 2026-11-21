@@ -837,7 +837,6 @@ export default function RosterGridPage() {
       className="inline-flex h-[30px] flex-shrink-0 animate-[pulse_1.2s_ease-in-out_3] items-center gap-1.5 rounded-lg border border-flagAmber/50 bg-flagAmber-bg px-2 text-xs font-semibold text-flagAmber-text"
     >
       <RefreshCw className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
-      <span className="hidden 2xl:inline">{plannerChangedSince ? 'Planner updated' : 'Differs from planner'}</span>
     </button>
   )
 
@@ -1002,15 +1001,16 @@ export default function RosterGridPage() {
           above it. In order: ← back to Rosters, the month switch (which is
           also the page's heading, and in Week view steps weeks, rolling
           into the neighbouring month's roster at either end), the status
-          pill, then Month/Week, Find (search + Filter), the flagged /
-          locum jump chips, the planner chip, Rows/Lanes, Aa, Hours, Log, ⋮.
+          pill and the planner chip · Find (search + Filter) · the flagged /
+          locum jump chips · then, at the far right, Month/Week, Rows/Lanes,
+          Aa, Hours, Log, ⋮.
           On a phone only ← · month · chips · ⋮ stay on the row: Month/Week
           and Rows/Lanes move into ⋮, Find into the ⊕, and the status shows
           as a dot on ⋮. Sticks to the top of the window (clear of an
           iPhone's notch) while the grid scrolls under it; z above the
           Lanes grid's own sticky header (z-30), below menus, sheets and
           modals (z-40+). */}
-      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:top-3 lg:flex-nowrap">
+      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] -mx-3 mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:mx-0 md:top-3 lg:flex-nowrap">
         <button
           type="button"
           onClick={() => navigate('/roster')}
@@ -1044,13 +1044,14 @@ export default function RosterGridPage() {
         <span className={`hidden rounded-full px-2 py-0.5 text-xs font-medium md:inline ${statusPillTone}`}>
           {statusLabel}
         </span>
+        {/* Beside the status from md, where it belongs with "when and
+            status"; on a phone it follows the jump chips (below). */}
+        {plannerChip && <span className="hidden md:inline-flex">{plannerChip}</span>}
 
-        <div className="hidden md:block">
-          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
-        </div>
+        <div className="hidden h-5 w-px flex-shrink-0 bg-slate-line md:block" aria-hidden="true" />
 
         {/* Find — on the row from md; in the ⊕ below it. */}
-        <div className="hidden min-w-0 flex-1 md:block">
+        <div className="hidden min-w-0 flex-1 md:block md:max-w-[340px] 2xl:min-w-[220px]">
           <div>
             <Toolbar
               className=""
@@ -1066,10 +1067,15 @@ export default function RosterGridPage() {
           </div>
         </div>
 
+        <div className="hidden h-5 w-px flex-shrink-0 bg-slate-line md:block" aria-hidden="true" />
+
         {jumpButtons}
-        {plannerChip}
+        {plannerChip && <span className="inline-flex md:hidden">{plannerChip}</span>}
 
         <div className="flex flex-shrink-0 items-center gap-2 md:ml-auto">
+          <div className="hidden md:block">
+            <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
+          </div>
           <div className="hidden md:block">
             <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="2xl" />
           </div>

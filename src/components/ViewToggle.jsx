@@ -1,3 +1,5 @@
+import HoverHint from './HoverHint'
+
 // Two-way (or more) segmented view switch — sized to match the 30px
 // controls in a Search/Sort/Filter toolbar row rather than a header's own
 // line-height. `options`: [{ key, label, icon? }] — `icon` (a component,
@@ -26,7 +28,7 @@ export default function ViewToggle({ view, onChange, options, tight = false, lab
     <div className="seg-track h-[30px] flex-shrink-0">
       {options.map(o => {
         const Icon = o.icon
-        return (
+        const button = (
           <button
             key={o.key}
             type="button"
@@ -45,6 +47,9 @@ export default function ViewToggle({ view, onChange, options, tight = false, lab
             <span className={Icon ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
           </button>
         )
+        // `hint`: a hover/tap label (HoverHint) for options that show only
+        // an icon at some widths.
+        return o.hint ? <HoverHint key={o.key} label={o.hint}>{button}</HoverHint> : button
       })}
     </div>
   )

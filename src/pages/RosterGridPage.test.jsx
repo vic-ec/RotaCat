@@ -25,6 +25,9 @@ const ENTRIES = [
   { id: 'e2', date: '2026-08-27', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e3', date: '2026-08-28', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e4', date: '2026-08-03', shift_type_id: st('WD_08'), profile_id: null, consultant_profile_id: 'c1', position: 0 },
+  // A named locum placeholder, and a scheduler gap it couldn't fill.
+  { id: 'e5', date: '2026-08-12', shift_type_id: st('WD_15'), profile_id: null, is_locum: true, locum_name: '[Nel]', position: 0 },
+  { id: 'e6', date: '2026-08-13', shift_type_id: st('WD_08'), profile_id: null, is_locum: true, locum_name: '[ ]', is_flagged: true, flag_type: 'psych_coverage', flag_reason: 'No COSMO Psych or EC COSMO available', position: 0 },
 ]
 
 vi.mock('../lib/supabase', () => ({
@@ -116,9 +119,10 @@ describe('RosterGridPage day blocks', () => {
       const row = rowFor(date)
       const tds = [...row.querySelectorAll('td')]
       expect(tds.some(td => td.className.includes('flagRed'))).toBe(false)
-      const flagged = [...row.querySelectorAll('[data-testid="shift-cell"]')].filter(el => el.className.includes('bg-flagRed-bg'))
+      const flagged = [...row.querySelectorAll('[data-testid="shift-cell"]')].filter(el => el.className.includes('ring-flagRed'))
       expect(flagged).toHaveLength(1)
-      expect(flagged[0]).toHaveClass('m-[3px]', 'rounded')
+      expect(flagged[0]).toHaveClass('m-[3px]', 'rounded', 'ring-2')
+      expect(within(flagged[0]).getByTestId('flag-tab')).toHaveTextContent('Short by 1')
     }
     // Mon 24 opens the weekday block, so its header band sits above; it is
     // not tinted by the flags lower in the same column.
@@ -152,5 +156,56 @@ describe('RosterGridPage day blocks', () => {
     await user.click(screen.getByRole('button', { name: 'Edit' }))
     await user.click(within(rail).getByText('De Haan'))
     expect(await screen.findByRole('dialog', { name: /Assign doctor — Consultant on 2026-08-03/ })).toBeInTheDocument()
+  })
+})
+
+describe('RosterGridPage flagged slots and locum placeholders', () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
+    setViewport(true)
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  it('shows a scheduler gap as a red "Unfilled" chip under a tab naming why, and a locum cell without a fill', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    const gapCell = within(rowFor('2026-08-13')).getAllByTestId('shift-cell').find(c => c.className.includes('ring-flagRed'))
+    expect(within(gapCell).getByText('Unfilled')).toBeInTheDocument()
+    expect(within(gapCell).getByTestId('flag-tab')).toHaveTextContent('No psych cover')
+    const locumCell = within(rowFor('2026-08-12')).getByText('[Nel]').closest('[data-testid="shift-cell"]')
+    expect(locumCell.className).not.toMatch(/flagAmber|flagRed/)
+  })
+
+  it('counts flagged slots and locum placeholders separately, as jump buttons in the toolbar', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    expect(screen.getByRole('button', { name: 'Go to next flagged slot (4 in total)' })).toHaveTextContent('4 flagged')
+    expect(screen.getByRole('button', { name: 'Go to next locum placeholder (1 in total)' })).toHaveTextContent('1 locum')
+    expect(screen.queryByText(/flagged slots?$/)).not.toBeInTheDocument()
+  })
+
+  it('jumping steps through flagged slots in roster order, scrolls to each, and shows the position', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    await user.click(screen.getByRole('button', { name: /Go to next flagged slot/ }))
+    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 1/4')
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(document.querySelector('[data-entry-id="e6"]').className).toMatch(/ring-flagRed/)
+    await user.click(screen.getByRole('button', { name: 'Previous flagged slot' }))
+    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 4/4')
+  })
+
+  it('"Show only" in the Filter dims every cell without a match', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    await user.click(screen.getAllByRole('button', { name: 'Filter' })[0])
+    await user.click(screen.getByRole('button', { name: /^Show only/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'Locum placeholders (1)' }))
+    const locumCell = within(rowFor('2026-08-12')).getByText('[Nel]').closest('[data-testid="shift-cell"]')
+    expect(locumCell).not.toHaveClass('opacity-25')
+    const other = within(rowFor('2026-08-26')).getAllByTestId('shift-cell')[0]
+    expect(other).toHaveClass('opacity-25')
   })
 })

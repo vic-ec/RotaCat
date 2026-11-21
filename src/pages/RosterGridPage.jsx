@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList, TriangleAlert } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -20,6 +20,8 @@ import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
+import HoverHint from '../components/HoverHint'
+import RosterJumpButton from '../components/RosterJumpButton'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -33,8 +35,8 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
 // are the same data and the same filters — only the axis changes.
 const ROSTER_LAYOUTS = [
-  { key: 'rows', label: 'Rows', icon: Rows3 },
-  { key: 'lanes', label: 'Lanes', icon: Columns3 },
+  { key: 'rows', label: 'Rows', icon: Rows3, hint: 'Rows' },
+  { key: 'lanes', label: 'Lanes', icon: Columns3, hint: 'Lanes' },
 ]
 
 // How much of the month is on screen. One letter each, not the words and
@@ -107,6 +109,16 @@ export default function RosterGridPage() {
   const [layout, setLayout] = useState('rows')       // 'rows' | 'lanes'
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState(new Set())
+  // "Show only" in the Filter: 'flagged' and/or 'locum'. Rows view dims
+  // every cell holding neither; Lanes has no slots to show, so ticking one
+  // switches to Rows.
+  const [showOnly, setShowOnly] = useState(new Set())
+  // Where the toolbar's jump buttons last landed: { kind, index }. The
+  // entry being jumped to waits in pendingJumpId until the grid (Rows,
+  // and the right week) has rendered it; glowEntryId lights it briefly.
+  const [jump, setJump] = useState(null)
+  const [pendingJumpId, setPendingJumpId] = useState(null)
+  const [glowEntryId, setGlowEntryId] = useState(null)
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
@@ -160,6 +172,20 @@ export default function RosterGridPage() {
   // Roster text size (S/M/L), per device. The grids are the densest thing in
   // the app and 12px cell text does not suit every pair of eyes.
   const [textSize, setTextSize] = useState(readRosterTextSize)
+
+  // Scroll a jumped-to entry into the middle of the screen once it is on
+  // it — after a switch to Rows or to another week has rendered — and let
+  // it glow for a moment so the eye lands on it.
+  useEffect(() => {
+    if (!pendingJumpId) return undefined
+    const el = document.querySelector(`[data-entry-id="${pendingJumpId}"]`)
+    if (!el) return undefined
+    el.scrollIntoView?.({ block: 'center', inline: 'center', behavior: 'smooth' })
+    setGlowEntryId(pendingJumpId)
+    setPendingJumpId(null)
+    const t = setTimeout(() => setGlowEntryId(null), 2200)
+    return () => clearTimeout(t)
+  }, [pendingJumpId, layout, currentWeek, viewMode])
   useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
   const { base: rosterBase } = rosterTextSize(textSize)
   const rosterScale = rosterTextScale(textSize)
@@ -345,7 +371,10 @@ export default function RosterGridPage() {
     [...profiles, ...consultantProfiles].map(p => p.category).filter(Boolean)
   )].sort().map(c => ({ value: c, label: labelForLeaveCategory(c) || c }))
 
-  const filtersActive = Boolean(search.trim()) || filterCategory.size > 0
+  // Search and Category dim the chips that don't match; "Show only" dims
+  // whole cells. Either counts as the Filter being in use.
+  const chipFilterActive = Boolean(search.trim()) || filterCategory.size > 0
+  const filtersActive = chipFilterActive || showOnly.size > 0
 
   function matchesFilter(profile) {
     if (!profile) return false
@@ -363,6 +392,7 @@ export default function RosterGridPage() {
   function clearFilters() {
     setSearch('')
     setFilterCategory(new Set())
+    setShowOnly(new Set())
   }
 
   const canEdit = isAdmin && editing
@@ -555,8 +585,33 @@ export default function RosterGridPage() {
     )
   }
 
-  const totalLocums = entries.filter(e => e.is_locum).length
-  const totalFlags = entries.filter(e => e.is_flagged).length
+  // A flagged entry is the scheduler's "[ ]" — a place it couldn't fill —
+  // so it is counted once, as flagged, and not again as a locum
+  // placeholder. Both lists run in roster order (date, then shift start),
+  // which is the order the jump buttons step through them.
+  const startOf = entry => Number((shiftTypes[entry.shift_type_id] || '').split('_')[1]) || 0
+  const byRosterOrder = (a, b) => a.date.localeCompare(b.date) || startOf(a) - startOf(b)
+  const flaggedEntries = entries.filter(e => e.is_flagged).sort(byRosterOrder)
+  const locumEntries = entries.filter(e => e.is_locum && !e.is_flagged).sort(byRosterOrder)
+  const totalFlags = flaggedEntries.length
+  const totalLocums = locumEntries.length
+
+  function jumpTo(kind, direction) {
+    const list = kind === 'flagged' ? flaggedEntries : locumEntries
+    if (list.length === 0) return
+    const current = jump?.kind === kind ? jump.index : -1
+    const index = direction === 'prev'
+      ? (current <= 0 ? list.length - 1 : current - 1)
+      : (current + 1) % list.length
+    const target = list[index]
+    setJump({ kind, index })
+    if (layout !== 'rows') setLayout('rows')
+    if (viewMode === 'week') {
+      const week = weeks.findIndex(w => w.some(d => d.dateStr === target.date))
+      if (week >= 0) setCurrentWeek(week)
+    }
+    setPendingJumpId(target.id)
+  }
 
   // The phone header's More actions sheet. Font size leads it — it is the
   // one entry that changes what you are looking at, and the one with no
@@ -629,22 +684,50 @@ export default function RosterGridPage() {
   const midMenuItems = rosterMenuItems.slice(2)
 
   const weekView = viewMode === 'week'
-  const filterGroups = categoryOptions.length > 0 ? [{
-    key: 'category', label: 'Category',
-    options: categoryOptions,
-    selected: filterCategory, onChange: setFilterCategory,
-  }] : []
+  const showOnlyOptions = [
+    totalFlags > 0 && { value: 'flagged', label: `Flagged slots (${totalFlags})` },
+    totalLocums > 0 && { value: 'locum', label: `Locum placeholders (${totalLocums})` },
+  ].filter(Boolean)
+  const filterGroups = [
+    showOnlyOptions.length > 0 && {
+      key: 'showOnly', label: 'Show only',
+      options: showOnlyOptions,
+      selected: showOnly,
+      onChange: next => {
+        setShowOnly(next)
+        if (next.size > 0 && layout !== 'rows') setLayout('rows')
+      },
+    },
+    categoryOptions.length > 0 && {
+      key: 'category', label: 'Category',
+      options: categoryOptions,
+      selected: filterCategory, onChange: setFilterCategory,
+    },
+  ].filter(Boolean)
+
+  const jumpButtons = (totalFlags > 0 || totalLocums > 0) && (
+    <div className="order-last flex w-full items-center gap-2 2xl:order-none 2xl:w-auto">
+      {totalFlags > 0 && (
+        <RosterJumpButton kind="flagged" count={totalFlags} position={jump?.kind === 'flagged' ? jump.index : null} onStep={dir => jumpTo('flagged', dir)} />
+      )}
+      {totalLocums > 0 && (
+        <RosterJumpButton kind="locum" count={totalLocums} position={jump?.kind === 'locum' ? jump.index : null} onStep={dir => jumpTo('locum', dir)} />
+      )}
+    </div>
+  )
 
   const kebabTrigger = (onClick, open) => (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={open}
-      aria-label="More actions"
-      className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
-    >
-      <EllipsisVertical className="h-4 w-4" />
-    </button>
+    <HoverHint label="More actions">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={open}
+        aria-label="More actions"
+        className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+      >
+        <EllipsisVertical className="h-4 w-4" />
+      </button>
+    </HoverHint>
   )
 
   // Publish — always labelled, since it's the one action here with real
@@ -692,12 +775,6 @@ export default function RosterGridPage() {
           }`}>
             {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
           </span>
-          {totalFlags > 0 && (
-            <span className="text-xs text-flagRed">{totalFlags} flagged slot{totalFlags !== 1 ? 's' : ''}</span>
-          )}
-          {totalLocums > 0 && (
-            <span className="text-xs text-flagAmber">{totalLocums} locum placeholder{totalLocums !== 1 ? 's' : ''}</span>
-          )}
         </div>
       </div>
 
@@ -831,7 +908,13 @@ export default function RosterGridPage() {
           fold away: Hours and Log into ⋮ below xl, Aa into ⋮ and Find into
           the quick-actions ⊕ below md. ⋮ is always last. The title area
           above carries no controls on any screen. */}
-      <div className="mb-3 flex items-center gap-1.5 sm:gap-2">
+      {/* Floats: sticks to the top of the window (clear of an iPhone's
+          notch) while the grid scrolls under it, so search,
+          Filter and the jump buttons are always in reach. The jump buttons
+          sit on the row from 2xl and wrap onto a line of their own below
+          it. z above the Lanes grid's own sticky header (z-30), below
+          menus, sheets and modals (z-40+). */}
+      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:top-3">
         <div className="flex flex-shrink-0 items-center gap-2">
           <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
           {/* Stays in place, greyed out, in month view — so switching
@@ -879,12 +962,15 @@ export default function RosterGridPage() {
           </div>
         </div>
 
+        {jumpButtons}
+
         <div className="ml-auto flex flex-shrink-0 items-center gap-2">
           <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="lg" />
 
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
           <div className="hidden md:block">
+          <HoverHint label="Font size">
           <ToolbarFacet
             icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
             label="Font size"
@@ -893,6 +979,7 @@ export default function RosterGridPage() {
             onChange={setTextSize}
             options={ROSTER_TEXT_SIZES.map(size => ({ value: size.key, label: size.name }))}
           />
+          </HoverHint>
           </div>
 
           <div className="hidden h-5 w-px bg-slate-line xl:block" aria-hidden="true" />
@@ -1058,8 +1145,13 @@ export default function RosterGridPage() {
                   {/* Shift columns */}
                   {shifts.map(({ code, label }, colIdx) => {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
-                    const hasShortfall = cellEntries.some(e => e.is_flagged)
-                    const hasLocum = cellEntries.some(e => e.is_locum)
+                    const flags = cellEntries.filter(e => e.is_flagged)
+                    const hasShortfall = flags.length > 0
+                    const shortBy = flags.filter(e => e.flag_type !== 'psych_coverage').length
+                    const flagTab = shortBy > 0 ? `Short by ${shortBy}` : 'No psych cover'
+                    const flagReason = [...new Set(flags.map(e => e.flag_reason).filter(Boolean))].join(' · ') || flagTab
+                    const shown = showOnly.size === 0 || cellEntries.some(e =>
+                      (showOnly.has('flagged') && e.is_flagged) || (showOnly.has('locum') && e.is_locum && !e.is_flagged))
                     const last = colIdx === shifts.length - 1
 
                     return (
@@ -1075,18 +1167,36 @@ export default function RosterGridPage() {
                             from the cell edges, so flagged cells on
                             consecutive days stay two separate marks and
                             the header above is never tinted. */}
+                        {/* A flagged slot — one the scheduler couldn't fill —
+                            gets a solid red frame and a tab saying why
+                            (full reason on hover/tap). A cell with locum
+                            placeholders takes no fill: its dashed amber
+                            chips already say "locum", which leaves red the
+                            only framed cell on the page. */}
                         <div
                           data-testid="shift-cell"
-                          className={`m-[3px] min-h-[36px] rounded p-1 space-y-0.5 ${
-                            hasShortfall ? 'bg-flagRed-bg ring-1 ring-inset ring-flagRed/45' : hasLocum ? 'bg-flagAmber-bg ring-1 ring-inset ring-flagAmber/45' : ''
-                          }`}
+                          className={`m-[3px] min-h-[36px] rounded p-1 space-y-0.5 transition-opacity ${
+                            hasShortfall ? 'bg-canvas-raised ring-2 ring-inset ring-flagRed' : ''
+                          } ${shown ? '' : 'opacity-25'}`}
                         >
+                          {hasShortfall && (
+                            <HoverHint label={flagReason} className="-mx-1 -mt-1 mb-1 flex">
+                              <span
+                                data-testid="flag-tab"
+                                className="flex w-full items-center gap-1 rounded-t bg-flagRed px-1.5 py-0.5 text-[0.75em] font-bold text-on-fill"
+                              >
+                                <TriangleAlert className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                                {flagTab}
+                              </span>
+                            </HoverHint>
+                          )}
                           {cellEntries.map(entry => (
                             <DoctorChip
                               key={entry.id}
                               entry={entry}
                               profile={profileMap[entry.profile_id]}
-                              dimmed={filtersActive && !matchesFilter(profileMap[entry.profile_id])}
+                              dimmed={chipFilterActive && !matchesFilter(profileMap[entry.profile_id])}
+                              glow={glowEntryId === entry.id}
                               displayNames={displayNames}
                               onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
                               onDragStart={() => handleDragStart(entry, code)}
@@ -1187,16 +1297,33 @@ export default function RosterGridPage() {
 // The shift is not named here — the column heading above says which shift
 // this is, so a code in the cell would be the third statement of it and is
 // most of the width back.
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false }) {
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
+  // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
+  const glowRing = glow ? `ring-2 ring-offset-1 ring-offset-canvas-raised ${entry.is_flagged ? 'ring-flagRed' : 'ring-flagAmber'}` : ''
+  // The scheduler's "[ ]" for a place it couldn't fill reads as what it is.
+  if (entry.is_flagged && entry.is_locum) {
+    return (
+      <div
+        data-entry-id={entry.id}
+        onClick={isAdmin ? onClick : undefined}
+        className={`rounded border border-dashed border-flagRed bg-canvas-raised px-1.5 py-0.5 text-center text-[0.834em] font-semibold text-flagRed ${
+          isAdmin ? 'cursor-pointer hover:opacity-80' : ''
+        } ${glowRing}`}
+      >
+        Unfilled
+      </div>
+    )
+  }
   if (entry.is_locum) {
     return (
       <div
+        data-entry-id={entry.id}
         onClick={isAdmin ? onClick : undefined}
         className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
-        } ${dimmed ? 'opacity-30' : ''}`}
+        } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       >
         {entry.locum_name || '[ ]'}
       </div>

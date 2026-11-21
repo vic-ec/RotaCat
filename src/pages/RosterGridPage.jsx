@@ -20,7 +20,7 @@ import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { fetchApprovedLeaveByProfile } from '../lib/approvedLeave'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
-import { coverPatch, coverProfileId, fetchLocumProfiles, fetchOpenLocumPlaceholders } from '../lib/locumCover'
+import { coverPatch, coverProfileId, fetchLocumProfiles, fetchOpenLocumContacts, isOpenLocumSlot, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
@@ -140,9 +140,9 @@ export default function RosterGridPage() {
   // chain from here; onDone() just closes it and reloads.
   const [activeVacancy, setActiveVacancy] = useState(null)
   // Locums the roster can assign: those with an account, and those added
-  // from here with only a name and mobile (placeholders — admin-only).
+  // from here with only a name and mobile (locum contacts — admin-only).
   const [locumProfiles, setLocumProfiles] = useState([])
-  const [locumPlaceholders, setLocumPlaceholders] = useState([])
+  const [locumContacts, setLocumContacts] = useState([])
   const [newLocumFor, setNewLocumFor] = useState(null) // the slot a "New locum" is being added to
 
   // Drag state
@@ -369,11 +369,11 @@ export default function RosterGridPage() {
   const canEdit = isAdmin && editing
 
   async function refreshLocums() {
-    const [accounts, open] = await Promise.all([fetchLocumProfiles(), fetchOpenLocumPlaceholders()])
+    const [accounts, open] = await Promise.all([fetchLocumProfiles(), fetchOpenLocumContacts()])
     setLocumProfiles(accounts)
-    setLocumPlaceholders(open)
+    setLocumContacts(open)
   }
-  // Only an admin can assign anyone, and the placeholder list is theirs
+  // Only an admin can assign anyone, and the contact list is theirs
   // alone to read.
   useEffect(() => {
     if (isAdmin) refreshLocums()
@@ -404,7 +404,7 @@ export default function RosterGridPage() {
         absence,
         leaveByProfile,
         doctorName: nameById(absence.profileId),
-        coverName: absence.kind === 'vacated' ? (entry.is_locum ? (entry.locum_name || null) : nameById(entry.profile_id)) : null,
+        coverName: absence.kind === 'vacated' ? (entry.is_locum ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : null) : nameById(entry.profile_id)) : null,
         byName: nameById(absence.byId),
         canSeeNote: isAdmin,
       }),
@@ -472,10 +472,10 @@ export default function RosterGridPage() {
       profileIdBefore: priorEntry?.profile_id ?? null,
       profileIdAfter: coverProfileId(cover),
       changedBy: user.id,
-      ...(cover.kind === 'placeholder' ? { note: `locum ${cover.name} (no account yet)` } : {}),
+      ...(cover.kind === 'contact' ? { note: `locum ${cover.name} (no account yet)` } : {}),
     })
     await refreshEntries()
-    if (cover.kind === 'placeholder') refreshLocums()
+    if (cover.kind === 'contact') refreshLocums()
   }
 
   async function removeEntry(entryId) {
@@ -603,7 +603,8 @@ export default function RosterGridPage() {
     )
   }
 
-  const totalLocums = entries.filter(e => e.is_locum).length
+  // Open locum slots only ("[ ]"): a slot with a locum on it is filled.
+  const totalLocums = entries.filter(isOpenLocumSlot).length
   const totalFlags = entries.filter(e => e.is_flagged).length
 
   // The phone header's More actions sheet. Font size leads it — it is the
@@ -1191,7 +1192,7 @@ export default function RosterGridPage() {
           locums={locumProfiles.filter(l => l.is_active !== false && !findSameDayConflict({
             entries, date: openDropdown.date, profileId: l.id, excludeEntryId: openDropdown.entryId,
           }))}
-          placeholders={locumPlaceholders}
+          contacts={locumContacts}
           onSelectCover={cover => assignCover(cover, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
           onNewLocum={() => { setNewLocumFor(openDropdown); setOpenDropdown(null) }}
           onRemove={openDropdown.entryId ? () => removeEntry(openDropdown.entryId) : null}
@@ -1221,7 +1222,7 @@ export default function RosterGridPage() {
           rosterMonthId={id}
           leaveByProfile={leaveByProfile}
           locums={locumProfiles}
-          placeholders={locumPlaceholders}
+          contacts={locumContacts}
           onDone={info => { setActiveVacancy(null); refreshEntries(); refreshLocums(); if (info?.leaveChanged) refreshLeave() }}
         />
       )}
@@ -1286,7 +1287,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
             isAdmin ? 'cursor-pointer hover:opacity-80' : ''
           } ${dimmed ? 'opacity-30' : ''}`}
         >
-          Open
+          {OPEN_LOCUM_LABEL}
         </div>
       </>
     )
@@ -1302,7 +1303,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
         } ${dimmed ? 'opacity-30' : ''}`}
       >
-        {entry.locum_name || '[ ]'}
+        {entry.locum_name || OPEN_LOCUM_LABEL}
       </div>
       </>
     )

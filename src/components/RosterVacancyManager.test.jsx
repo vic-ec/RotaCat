@@ -140,8 +140,8 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     render(
       <RosterVacancyManager
         vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone}
-        locums={[{ id: 'loc-1', name: 'Zinhle', surname: 'Cebani', is_active: true }]}
-        placeholders={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
+        locums={[{ id: 'loc-1', name: 'Jo', surname: 'Marsh', is_active: true }]}
+        contacts={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
       />
     )
     await screen.findByText(/Alice Anderson —/)
@@ -149,13 +149,13 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     await user.click(screen.getByRole('radio', { name: /Replace with a doctor or locum/ }))
     expect(await screen.findByText('Tom Temp')).toBeInTheDocument()
     expect(screen.getByText('Locum · no account yet')).toBeInTheDocument()
-    await user.click(screen.getByText('Zinhle Cebani'))
-    expect(await screen.findByRole('button', { name: /Zinhle Cebani \(locum\) · change/ })).toBeInTheDocument()
+    await user.click(screen.getByText('Jo Marsh'))
+    expect(await screen.findByRole('button', { name: /Jo Marsh \(locum\) · change/ })).toBeInTheDocument()
     await save(user)
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     expect(calls.find(c => c.table === 'roster_entries').payload).toMatchObject({
-      profile_id: 'loc-1', is_locum: true, locum_name: 'Zinhle Cebani', counts_toward_contract_hours: false,
+      profile_id: 'loc-1', is_locum: true, locum_name: '[Marsh]', counts_toward_contract_hours: false,
       vacated_profile_id: 'doc-a', vacated_reason: 'leave',
     })
     expect(calls.find(c => c.table === 'roster_entry_changes').payload).toMatchObject({ profile_id_after: 'loc-1' })
@@ -167,7 +167,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     render(
       <RosterVacancyManager
         vacancy={VACANCY} entries={freshEntries()} shiftTypes={SHIFT_TYPES} profiles={PROFILES} onDone={onDone}
-        placeholders={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
+        contacts={[{ id: 'ph-1', name: 'Tom', surname: 'Temp', phone: '0821234567' }]}
       />
     )
     await screen.findByText(/Alice Anderson —/)
@@ -178,7 +178,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
 
     await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1))
     expect(calls.find(c => c.table === 'roster_entries').payload).toMatchObject({
-      profile_id: null, is_locum: true, locum_name: 'Tom Temp', locum_placeholder_id: 'ph-1', counts_toward_contract_hours: false,
+      profile_id: null, is_locum: true, locum_name: '[Temp]', locum_contact_id: 'ph-1', counts_toward_contract_hours: false,
     })
     expect(calls.find(c => c.table === 'roster_entry_changes').payload)
       .toMatchObject({ profile_id_after: null, note: 'covered by locum Tom Temp (no account yet)' })
@@ -199,7 +199,7 @@ describe('RosterVacancyManager — replace or open a published shift', () => {
     expect(calls.find(c => c.table === 'shift_advertisements').payload)
       .toMatchObject({ roster_entry_id: 'e1', advertised_by: 'admin-1', status: 'open' })
     expect(calls.find(c => c.table === 'roster_entries').payload)
-      .toMatchObject({ profile_id: null, vacated_profile_id: 'doc-a', vacated_reason: 'no_show', vacated_note: 'Did not answer' })
+      .toMatchObject({ profile_id: null, is_locum: true, locum_name: '[ ]', vacated_profile_id: 'doc-a', vacated_reason: 'no_show', vacated_note: 'Did not answer' })
     expect(calls.find(c => c.table === 'roster_entry_changes').payload)
       .toMatchObject({ action: 'unassign', advertised: true, reason: 'no_show', note: 'Did not answer', profile_id_before: 'doc-a' })
   })

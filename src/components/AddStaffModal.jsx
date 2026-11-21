@@ -89,7 +89,7 @@ const EMPTY_FORM = {
 
 // `initialValues`: fields already known, for a caller that isn't starting
 // from nothing (a locum put on the roster with only a name and mobile —
-// see LocumPlaceholdersPanel). `onAccountCreated(response)` fires the
+// see LocumContactsPanel). `onAccountCreated(response)` fires the
 // moment the account exists, before the confirmation screen is dismissed,
 // for a caller that has follow-up work tied to the new profile id.
 export default function AddStaffModal({ onClose, onCreated, initialValues = null, onAccountCreated = null }) {

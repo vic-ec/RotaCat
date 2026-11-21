@@ -4,13 +4,13 @@ import GeneratedPasswordNotice from './GeneratedPasswordNotice'
 import { formatPhoneProgressive } from '../lib/phone'
 import { isValidEmail } from '../lib/validateEmail'
 import { createStaffAccount } from '../lib/staffCredentials'
-import { createLocumPlaceholder } from '../lib/locumCover'
+import { createLocumContact } from '../lib/locumCover'
 
 // A locum the roster doesn't know yet, added from the roster itself.
 //
 // Name and mobile are all it needs: a locum confirmed over the phone has to
 // go on the roster at once, and waiting on an email address would hold the
-// roster up. Without an email the locum is saved as a placeholder (admin-
+// roster up. Without an email the locum is saved as a contact (admin-
 // only) and the account is made later from the Staff page. With one, the
 // account is created here and now, exactly as "Add staff" creates it —
 // already approved, with a temporary password emailed to them.
@@ -47,10 +47,10 @@ export default function NewLocumModal({ adminId, onDone, onClose }) {
           activeFrom: null, activeUntil: null, rotations: [],
         })
         if (!response.ok) { setError(response.error); setSubmitting(false); return }
-        setCreated({ response, cover: { kind: 'locum', id: response.profileId, name: fullName } })
+        setCreated({ response, cover: { kind: 'locum', id: response.profileId, name: fullName, surname: surname.trim() } })
       } else {
-        const row = await createLocumPlaceholder({ name, surname, phone, createdBy: adminId })
-        onDone({ kind: 'placeholder', id: row.id, name: fullName })
+        const row = await createLocumContact({ name, surname, phone, createdBy: adminId })
+        onDone({ kind: 'contact', id: row.id, name: fullName, surname: surname.trim() })
         return
       }
     } catch (err) {

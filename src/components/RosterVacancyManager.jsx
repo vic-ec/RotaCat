@@ -6,7 +6,7 @@ import RosterVacancyModal from './RosterVacancyModal'
 // (stack empties -> onDone) or, if a "swap" creates a same-day conflict for
 // the swapped-in doctor's own shift, pushes that shift as the next vacancy
 // to resolve — re-entrant until the whole chain is cleared.
-export default function RosterVacancyManager({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile, locums, placeholders, onDone }) {
+export default function RosterVacancyManager({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile, locums, contacts, onDone }) {
   const [stack, setStack] = useState([vacancy])
   const [workingEntries, setWorkingEntries] = useState(entries)
   // Whether any step filed or linked leave, so the page knows to re-read it.
@@ -40,7 +40,7 @@ export default function RosterVacancyManager({ vacancy, entries, shiftTypes, pro
       rosterMonthId={rosterMonthId}
       leaveByProfile={leaveByProfile}
       locums={locums}
-      placeholders={placeholders}
+      contacts={contacts}
       onResolved={handleResolved}
       onClose={() => onDone({ leaveChanged })}
     />

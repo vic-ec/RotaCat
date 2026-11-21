@@ -26,7 +26,10 @@ vi.mock('./supabase', () => ({
   },
 }))
 
-import { coverPatch, coverProfileId, linkLocumPlaceholder, fetchPlaceholderShiftCounts, fetchOpenLocumPlaceholders } from './locumCover'
+import {
+  coverPatch, coverProfileId, linkLocumContact, fetchContactShiftCounts, fetchOpenLocumContacts,
+  locumLabel, locumDisplayName, isOpenLocumSlot, OPEN_SLOT_PATCH, phoneKey, findByPhone, locumInviteText,
+} from './locumCover'
 
 beforeEach(() => {
   calls.length = 0
@@ -36,55 +39,105 @@ beforeEach(() => {
 describe('coverPatch', () => {
   it('a doctor: a plain assignment, clearing any locum fields left on the slot', () => {
     expect(coverPatch({ kind: 'doctor', id: 'doc-1' })).toMatchObject({
-      profile_id: 'doc-1', is_locum: false, locum_name: null, locum_placeholder_id: null, is_manual_override: true,
+      profile_id: 'doc-1', is_locum: false, locum_name: null, locum_contact_id: null, is_manual_override: true,
     })
     expect(coverPatch({ kind: 'doctor', id: 'doc-1' })).not.toHaveProperty('counts_toward_contract_hours')
   })
 
   it('a locum with an account: linked to it, named, and off contract hours', () => {
-    expect(coverPatch({ kind: 'locum', id: 'loc-1', name: 'Zinhle Cebani' })).toMatchObject({
-      profile_id: 'loc-1', is_locum: true, locum_name: 'Zinhle Cebani', locum_placeholder_id: null, counts_toward_contract_hours: false,
+    expect(coverPatch({ kind: 'locum', id: 'loc-1', name: 'Jo Marsh', surname: 'Marsh' })).toMatchObject({
+      profile_id: 'loc-1', is_locum: true, locum_name: '[Marsh]', locum_contact_id: null, counts_toward_contract_hours: false,
     })
   })
 
-  it('a locum with no account: named, tied to the placeholder, no profile', () => {
-    const cover = { kind: 'placeholder', id: 'ph-1', name: 'Tom Temp' }
+  it('a locum with no account: named, tied to the contact, no profile', () => {
+    const cover = { kind: 'contact', id: 'ph-1', name: 'Tom Temp', surname: 'Temp' }
     expect(coverPatch(cover)).toMatchObject({
-      profile_id: null, is_locum: true, locum_name: 'Tom Temp', locum_placeholder_id: 'ph-1', counts_toward_contract_hours: false,
+      profile_id: null, is_locum: true, locum_name: '[Temp]', locum_contact_id: 'ph-1', counts_toward_contract_hours: false,
     })
     expect(coverProfileId(cover)).toBeNull()
     expect(coverProfileId({ kind: 'locum', id: 'loc-1' })).toBe('loc-1')
   })
 })
 
-describe('linkLocumPlaceholder', () => {
-  it('moves the placeholder\'s shifts onto the new account, then marks it linked', async () => {
-    await linkLocumPlaceholder({ placeholderId: 'ph-1', profileId: 'loc-9' })
+describe('linkLocumContact', () => {
+  it('moves the contact\'s shifts onto the new account, then marks it linked', async () => {
+    await linkLocumContact({ contactId: 'ph-1', profileId: 'loc-9' })
     expect(calls[0]).toMatchObject({
       table: 'roster_entries', method: 'update',
-      payload: { profile_id: 'loc-9', locum_placeholder_id: null }, filters: [['locum_placeholder_id', 'ph-1']],
+      payload: { profile_id: 'loc-9', locum_contact_id: null }, filters: [['locum_contact_id', 'ph-1']],
     })
-    expect(calls[1]).toMatchObject({ table: 'locum_placeholders', method: 'update', filters: [['id', 'ph-1']] })
+    expect(calls[1]).toMatchObject({ table: 'locum_contacts', method: 'update', filters: [['id', 'ph-1']] })
     expect(calls[1].payload.linked_profile_id).toBe('loc-9')
   })
 
-  it('leaves the placeholder unlinked when the shifts could not be moved', async () => {
+  it('leaves the contact unlinked when the shifts could not be moved', async () => {
     responses['roster_entries:update'] = { data: null, error: { message: 'denied' } }
-    await expect(linkLocumPlaceholder({ placeholderId: 'ph-1', profileId: 'loc-9' })).rejects.toThrow('denied')
-    expect(calls.some(c => c.table === 'locum_placeholders')).toBe(false)
+    await expect(linkLocumContact({ contactId: 'ph-1', profileId: 'loc-9' })).rejects.toThrow('denied')
+    expect(calls.some(c => c.table === 'locum_contacts')).toBe(false)
   })
 })
 
-describe('placeholder reads', () => {
-  it('counts shifts per placeholder', async () => {
-    responses['roster_entries:select'] = { data: [{ locum_placeholder_id: 'ph-1' }, { locum_placeholder_id: 'ph-1' }, { locum_placeholder_id: 'ph-2' }], error: null }
-    const counts = await fetchPlaceholderShiftCounts(['ph-1', 'ph-2'])
+describe('contact reads', () => {
+  it('counts shifts per contact', async () => {
+    responses['roster_entries:select'] = { data: [{ locum_contact_id: 'ph-1' }, { locum_contact_id: 'ph-1' }, { locum_contact_id: 'ph-2' }], error: null }
+    const counts = await fetchContactShiftCounts(['ph-1', 'ph-2'])
     expect(counts.get('ph-1')).toBe(2)
     expect(counts.get('ph-2')).toBe(1)
   })
 
-  it('an unreadable placeholder list is just empty (a non-admin viewer)', async () => {
-    responses['locum_placeholders:select'] = { data: null, error: { message: 'rls' } }
-    expect(await fetchOpenLocumPlaceholders()).toEqual([])
+  it('an unreadable contact list is just empty (a non-admin viewer)', async () => {
+    responses['locum_contacts:select'] = { data: null, error: { message: 'rls' } }
+    expect(await fetchOpenLocumContacts()).toEqual([])
+  })
+})
+
+describe('locum slot labels', () => {
+  it('a filled slot is "[Surname]", an open one "[ ]"', () => {
+    expect(locumLabel({ name: 'Jo Marsh', surname: 'Marsh' })).toBe('[Marsh]')
+    // No separate surname: the last word of the full name.
+    expect(locumLabel({ name: 'Jo van Marsh' })).toBe('[Marsh]')
+    expect(locumLabel({})).toBe('[ ]')
+    expect(locumDisplayName('[Marsh]')).toBe('Marsh')
+    expect(locumDisplayName('[ ]')).toBe('')
+    expect(locumDisplayName(null)).toBe('')
+  })
+
+  it('only a locum slot with nobody in the brackets is open', () => {
+    expect(isOpenLocumSlot({ is_locum: true, profile_id: null, locum_name: '[ ]' })).toBe(true)
+    expect(isOpenLocumSlot({ is_locum: true, profile_id: null, locum_name: null })).toBe(true)
+    expect(isOpenLocumSlot({ is_locum: true, profile_id: null, locum_name: '[Marsh]' })).toBe(false)
+    expect(isOpenLocumSlot({ is_locum: true, profile_id: 'loc-1', locum_name: '[Marsh]' })).toBe(false)
+    expect(isOpenLocumSlot({ is_locum: false, profile_id: null })).toBe(false)
+  })
+
+  it('opening a shift leaves an open locum slot', () => {
+    expect(OPEN_SLOT_PATCH).toMatchObject({ profile_id: null, is_locum: true, locum_name: '[ ]', locum_contact_id: null })
+    expect(isOpenLocumSlot(OPEN_SLOT_PATCH)).toBe(true)
+  })
+})
+
+describe('matching on mobile number', () => {
+  it('treats local, spaced and international forms of one number as equal', () => {
+    expect(phoneKey('0821234567')).toBe('821234567')
+    expect(phoneKey('082 123 4567')).toBe('821234567')
+    expect(phoneKey('+27 82 123 4567')).toBe('821234567')
+    expect(phoneKey('12345')).toBeNull()
+    expect(phoneKey(null)).toBeNull()
+  })
+
+  it('finds the row with the same number, and nothing for a missing or different one', () => {
+    const rows = [{ id: 'a', phone: '0821234567' }, { id: 'b', phone: '0839998888' }]
+    expect(findByPhone(rows, '+27821234567')).toEqual(rows[0])
+    expect(findByPhone(rows, '0820000000')).toBeNull()
+    expect(findByPhone(rows, '')).toBeNull()
+    expect(findByPhone([{ id: 'c', phone: null }], null)).toBeNull()
+  })
+
+  it('the invite asks them to register with this mobile number', () => {
+    const text = locumInviteText({ name: 'Jo', signupUrl: 'https://app.example/signup' })
+    expect(text).toContain('Hi Jo')
+    expect(text).toContain('using this mobile number')
+    expect(text).toContain('https://app.example/signup')
   })
 })

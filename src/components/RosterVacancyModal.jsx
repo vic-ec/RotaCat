@@ -35,7 +35,7 @@ const COVER_OPTIONS = [
 // writes all happen in resolveVacancy, so a half-finished state — leave on
 // record but the doctor still rostered, or the reverse — isn't something an
 // admin can leave behind by closing the dialog between steps.
-export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile = {}, locums = [], placeholders = [], onResolved, onClose }) {
+export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile = {}, locums = [], contacts = [], onResolved, onClose }) {
   const { user } = useAuth()
   const [reason, setReason] = useState(vacancy.suggestedReason || '')
   const [otherLeaveType, setOtherLeaveType] = useState('family_responsibility')
@@ -126,7 +126,7 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
         onSearchChange={setSearch}
         onSelect={id => { setReplacement({ kind: 'doctor', id }); setCover('replace'); setPicking(false) }}
         locums={freeLocums}
-        placeholders={placeholders}
+        contacts={contacts}
         onSelectCover={cover_ => { setReplacement(cover_); setCover('replace'); setPicking(false) }}
         onNewLocum={() => { setPicking(false); setAddingLocum(true) }}
         onRemove={null}

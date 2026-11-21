@@ -11,19 +11,19 @@ import { useSwatch } from '../lib/useSwatch'
 // label disambiguates ("J. Nolan") instead of the bare surname.
 //
 // Locums are opt-in, for the roster only: pass `onSelectCover` and the list
-// gains a Locums section (`locums` with an account, `placeholders` without
+// gains a Locums section (`locums` with an account, `contacts` without
 // one yet) and, with `onNewLocum`, a "New locum" action. onSelectCover
 // receives a cover object (see lib/locumCover.js) for a locum pick; a
 // doctor pick still goes to onSelect(profileId), so every other caller is
 // untouched.
-export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode, locums = [], placeholders = [], onSelectCover = null, onNewLocum = null }) {
+export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode, locums = [], contacts = [], onSelectCover = null, onNewLocum = null }) {
   const swatch = useSwatch()
   const matches = p => `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   const filtered = profiles.filter(matches)
   const locumRows = onSelectCover
     ? [
-      ...locums.filter(matches).map(p => ({ key: p.id, cover: { kind: 'locum', id: p.id, name: `${p.name} ${p.surname}`.trim() }, hint: 'Locum' })),
-      ...placeholders.filter(matches).map(p => ({ key: p.id, cover: { kind: 'placeholder', id: p.id, name: `${p.name} ${p.surname}`.trim() }, hint: 'Locum · no account yet' })),
+      ...locums.filter(matches).map(p => ({ key: p.id, cover: { kind: 'locum', id: p.id, name: `${p.name} ${p.surname}`.trim(), surname: p.surname }, hint: 'Locum' })),
+      ...contacts.filter(matches).map(p => ({ key: p.id, cover: { kind: 'contact', id: p.id, name: `${p.name} ${p.surname}`.trim(), surname: p.surname }, hint: 'Locum · no account yet' })),
     ]
     : []
 

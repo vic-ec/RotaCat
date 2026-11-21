@@ -35,7 +35,7 @@ describe('LeaveRequestForm', () => {
     fetchSpecialLeavePressure.mockReset().mockResolvedValue(null)
     fetchWeekendExceptionPreview.mockReset().mockResolvedValue(null)
     fetchLeaveCaptureCandidates.mockReset().mockResolvedValue([
-      { id: 'doctor-2', name: 'Musa', surname: 'Omar', category: 'MO', is_active: true, scheduled_active_date: null },
+      { id: 'doctor-2', name: 'Sam', surname: 'Rivers', category: 'MO', is_active: true, scheduled_active_date: null },
     ])
     fetchRosterOverlapDates.mockReset().mockResolvedValue([])
   })
@@ -67,17 +67,17 @@ describe('LeaveRequestForm', () => {
 
     await user.click(picker)
     expect(screen.queryByRole('option', { name: 'Myself' })).not.toBeInTheDocument()
-    await user.click(await screen.findByText('Omar, Musa'))
+    await user.click(await screen.findByText('Rivers, Sam'))
 
     await user.type(screen.getByLabelText('From'), '2026-11-20')
     await user.type(screen.getByLabelText('To'), '2026-11-20')
-    expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Musa Omar is on the roster for 1 day in this range')
+    expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Sam Rivers is on the roster for 1 day in this range')
 
     await user.click(screen.getByRole('button', { name: 'Capture leave' }))
     await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(expect.objectContaining({
       profileId: 'doctor-2', capturedBy: 'admin-1', leaveType: 'sick', dateFrom: '2026-11-20', dateTo: '2026-11-20',
     })))
-    expect(await screen.findByText(/Leave captured for Musa Omar and approved\./)).toBeInTheDocument()
+    expect(await screen.findByText(/Leave captured for Sam Rivers and approved\./)).toBeInTheDocument()
   })
 
   it('a capture dated before the current leave year needs an explicit tick', async () => {
@@ -85,7 +85,7 @@ describe('LeaveRequestForm', () => {
     const user = userEvent.setup()
     render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
     await user.click(await screen.findByLabelText('Leave for'))
-    await user.click(await screen.findByText('Omar, Musa'))
+    await user.click(await screen.findByText('Rivers, Sam'))
     await user.type(screen.getByLabelText('From'), '2020-03-02')
     expect(await screen.findByRole('checkbox', { name: /before the current leave year/ })).toBeRequired()
   })

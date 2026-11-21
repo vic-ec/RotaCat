@@ -53,7 +53,10 @@ describe('entryAbsence', () => {
     expect(covered).toMatchObject({ kind: 'vacated', profileId: 'doc-a', reason: 'leave', open: false, byId: 'admin-1' })
     const open = entryAbsence({ profile_id: null, is_locum: false, date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'no_show' }, LEAVE)
     expect(open).toMatchObject({ kind: 'vacated', reason: 'no_show', open: true })
-    const locum = entryAbsence({ profile_id: null, is_locum: true, locum_name: 'Cebani', date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'leave' }, LEAVE)
+    // An opened shift is an open locum slot ("[ ]"), still open.
+    const openSlot = entryAbsence({ profile_id: null, is_locum: true, locum_name: '[ ]', date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'leave' }, LEAVE)
+    expect(openSlot.open).toBe(true)
+    const locum = entryAbsence({ profile_id: null, is_locum: true, locum_name: '[Marsh]', date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'leave' }, LEAVE)
     expect(locum.open).toBe(false)
   })
 
@@ -71,14 +74,14 @@ describe('absenceSummary', () => {
   const vacated = { kind: 'vacated', profileId: 'doc-a', reason: 'leave', leaveRequestId: 'leave-1', note: null, open: false }
 
   it('names the leave type and dates when this viewer can see the leave', () => {
-    const s = absenceSummary({ absence: vacated, leaveByProfile: LEAVE, doctorName: 'Musa Omar', coverName: 'Dr Cebani', byName: 'Paul Xafis' })
-    expect(s).toEqual({ doctorName: 'Musa Omar', headline: 'Sick leave', lines: ['20–21 Nov', 'Covered by Dr Cebani', 'Recorded by Paul Xafis'] })
+    const s = absenceSummary({ absence: vacated, leaveByProfile: LEAVE, doctorName: 'Sam Rivers', coverName: 'Dr Marsh', byName: 'Pat Admin' })
+    expect(s).toEqual({ doctorName: 'Sam Rivers', headline: 'Sick leave', lines: ['20–21 Nov', 'Covered by Dr Marsh', 'Recorded by Pat Admin'] })
   })
 
   it('says only "On leave" when the leave row is hidden from this viewer', () => {
-    const s = absenceSummary({ absence: vacated, leaveByProfile: {}, doctorName: 'Musa Omar', coverName: 'Dr Cebani' })
+    const s = absenceSummary({ absence: vacated, leaveByProfile: {}, doctorName: 'Sam Rivers', coverName: 'Dr Marsh' })
     expect(s.headline).toBe('On leave')
-    expect(s.lines).toEqual(['Covered by Dr Cebani'])
+    expect(s.lines).toEqual(['Covered by Dr Marsh'])
     // Known to be on leave (the RPC says so) but with no type to show.
     const onLeave = entryAbsence({ profile_id: 'doc-c', date: '2026-11-20' }, LEAVE)
     expect(absenceSummary({ absence: onLeave, leaveByProfile: LEAVE }).headline).toBe('On leave')
@@ -118,12 +121,12 @@ describe('mergeLeaveRanges', () => {
 })
 
 describe('rosterChangeDetail — reason', () => {
-  const names = new Map([['doc-a', 'Musa Omar'], ['doc-b', 'Bob Brown']])
+  const names = new Map([['doc-a', 'Sam Rivers'], ['doc-b', 'Bob Brown']])
   const base = { entry_date: '2026-11-20', shift_code: 'WD_08', profile_id_before: 'doc-a' }
 
   it('appends why a doctor came off a shift, and nothing for an ordinary edit', () => {
     expect(rosterChangeDetail({ ...base, action: 'assign', profile_id_after: 'doc-b', reason: 'leave', note: 'Sick leave' }, names))
-      .toMatch(/Musa Omar → Bob Brown — reason: Sick leave$/)
+      .toMatch(/Sam Rivers → Bob Brown — reason: Sick leave$/)
     expect(rosterChangeDetail({ ...base, action: 'unassign', reason: 'no_show', note: 'Did not answer' }, names))
       .toMatch(/— reason: no-show \(Did not answer\)$/)
     expect(rosterChangeDetail({ ...base, action: 'unassign', reason: 'swap' }, names)).toMatch(/— reason: swap$/)

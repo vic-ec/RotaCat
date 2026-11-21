@@ -11,6 +11,7 @@ import { monthBounds, todayStr } from './dateRange'
 import { saturdaysInMonth } from './weekendPlanner'
 import { endOfRotationFlag } from './internRotations'
 import { getMonthlyHoursByProfile } from './monthlyHours'
+import { OPEN_LOCUM_LABEL } from './locumCover'
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -159,7 +160,7 @@ export async function fetchAdminAttention(now = new Date()) {
   // Locum placeholders, one count per published roster from this month on.
   const published = rosters.filter(r => r.status === 'published' && (r.year > year || r.month >= month))
   const locumCounts = await Promise.all(published.map(r =>
-    safe(supabase.from('roster_entries').select('id', { count: 'exact', head: true }).eq('roster_month_id', r.id).eq('is_locum', true), empty)
+    safe(supabase.from('roster_entries').select('id', { count: 'exact', head: true }).eq('roster_month_id', r.id).eq('is_locum', true).is('profile_id', null).eq('locum_name', OPEN_LOCUM_LABEL), empty)
   ))
   const locumCountByRosterId = Object.fromEntries(published.map((r, i) => [r.id, locumCounts[i].count || 0]))
 

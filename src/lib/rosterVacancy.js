@@ -3,7 +3,7 @@ import { datesInRange, formatShortDateRange } from './dateRange'
 import { submitLeaveRequest, LEAVE_TYPE_LABELS, LEAVE_TYPE_OPTIONS } from './leaveRequests'
 import { logRosterEntryChange } from './changeLog'
 import { leaveRangeOn } from './approvedLeave'
-import { coverPatch, coverProfileId } from './locumCover'
+import { coverPatch, coverProfileId, isOpenLocumSlot, OPEN_SLOT_PATCH } from './locumCover'
 
 // Detects whether a doctor being swapped into a vacated published-roster
 // slot already has a different shift that same day — the trigger for the
@@ -29,15 +29,8 @@ const VACATED_REASON = { sick: 'leave', leave: 'leave', swap: 'swap', no_show: '
 // weekend off (a planner arrangement, not a reason to come off one shift).
 export const VACANCY_LEAVE_TYPE_OPTIONS = LEAVE_TYPE_OPTIONS.filter(o => o.value !== 'sick' && o.value !== 'weekend_exception')
 
-export const VACATE_PATCH = {
-  profile_id: null,
-  is_locum: false,
-  locum_name: null,
-  is_manual_override: false,
-  is_flagged: false,
-  flag_type: null,
-  flag_reason: null,
-}
+// Opening a shift leaves an open locum slot ("[ ]") — see OPEN_SLOT_PATCH.
+export const VACATE_PATCH = OPEN_SLOT_PATCH
 
 // One save for the whole "a doctor comes off a published shift" action:
 // capture their leave (when that is the reason and none is on record yet),
@@ -130,7 +123,7 @@ export async function resolveVacancy({
       isLeave ? (existingLeaveId ? 'Leave already on record' : leaveLabel) : trimmedNote,
       // A locum with no account has no profile to log against, so the log
       // names them here instead.
-      cover === 'replace' && taker.kind === 'placeholder' ? `covered by locum ${taker.name} (no account yet)` : '',
+      cover === 'replace' && taker.kind === 'contact' ? `covered by locum ${taker.name} (no account yet)` : '',
     ].filter(Boolean).join('; ') || null,
     leaveRequestId,
   })
@@ -159,7 +152,7 @@ export function entryAbsence(entry, leaveByProfile) {
       leaveRequestId: entry.vacated_leave_request_id || null,
       note: entry.vacated_note || null,
       byId: entry.vacated_by || null,
-      open: !entry.profile_id && !entry.is_locum,
+      open: !entry.profile_id && (!entry.is_locum || isOpenLocumSlot(entry)),
     }
   }
   const range = leaveRangeOn(leaveByProfile, entry.profile_id, entry.date)

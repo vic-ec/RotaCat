@@ -481,8 +481,17 @@ export default function StaffListPage() {
     longPressFiredRef.current = false
     longPressTimerRef.current = setTimeout(() => {
       longPressFiredRef.current = true
-      toggleQuickActions(person, target)
+      // Anchored to the row for positioning only — not exempted from the
+      // menu's outside-tap mute the way the kebab is (see openQuickActions).
+      toggleQuickActions(person, target, { anchorIsTrigger: false })
     }, 550)
+  }
+  // Lifting the finger after a long-press can be followed by a click on the
+  // row. With the row no longer exempt from the menu's outside-tap mute,
+  // that click would close the menu the instant it opened — cancelling the
+  // touchend is what stops the browser synthesizing it.
+  function handleRowTouchEnd(e) {
+    if (longPressFiredRef.current) e.preventDefault()
   }
   function cancelLongPress() {
     if (longPressTimerRef.current) {
@@ -840,12 +849,18 @@ export default function StaffListPage() {
   }
 
   // ── Quick-action popover handlers ────────────────────
-  function openQuickActions(person, anchorEl) {
+  // `anchorIsTrigger`: the kebab is exempt from the menu's outside-tap mute
+  // (useDismissablePopover's excludeRefs) so pressing it again toggles the
+  // menu shut through its own handler. A long-press anchors to the whole
+  // row instead, and exempting *that* let the next tap anywhere on the row
+  // slip past the mute and open the detail sheet — the menu needed two
+  // taps to close. A long-press menu treats the row like any outside tap.
+  function openQuickActions(person, anchorEl, { anchorIsTrigger = true } = {}) {
     setQuickActionPerson(person)
     setQuickActionAnchor(anchorEl.getBoundingClientRect())
     setSecondaryFor(null)
     setSecondaryAnchor(null)
-    quickActionTriggerRef.current = anchorEl
+    quickActionTriggerRef.current = anchorIsTrigger ? anchorEl : null
   }
   function closeQuickActions() {
     setQuickActionPerson(null)
@@ -856,9 +871,9 @@ export default function StaffListPage() {
   }
   // Pressing the kebab (or long-pressing the row) for the person whose menu
   // is already open closes it, rather than just re-anchoring the same menu.
-  function toggleQuickActions(person, anchorEl) {
+  function toggleQuickActions(person, anchorEl, options) {
     if (quickActionPerson?.id === person.id) closeQuickActions()
-    else openQuickActions(person, anchorEl)
+    else openQuickActions(person, anchorEl, options)
   }
   // Message/Call open a flyout cascading below that specific row; tapping
   // the same one again closes it, tapping the other swaps to it.
@@ -1240,6 +1255,7 @@ export default function StaffListPage() {
                           onClick={() => handleRowClick(person)}
                           onPointerDown={e => handleRowPointerDown(e, person)}
                           onPointerUp={cancelLongPress}
+                          onTouchEnd={handleRowTouchEnd}
                           onPointerLeave={cancelLongPress}
                           onPointerCancel={cancelLongPress}
                           onContextMenu={e => { if (canContact) e.preventDefault() }}

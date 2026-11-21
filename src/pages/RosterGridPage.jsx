@@ -123,6 +123,7 @@ export default function RosterGridPage() {
   const [jump, setJump] = useState(null)
   const [pendingJumpId, setPendingJumpId] = useState(null)
   const [glowEntryId, setGlowEntryId] = useState(null)
+  const [pendingJumpDate, setPendingJumpDate] = useState(null) // a day to scroll to, with no entry to light
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
@@ -195,6 +196,14 @@ export default function RosterGridPage() {
     const t = setTimeout(() => setGlowEntryId(null), 2200)
     return () => clearTimeout(t)
   }, [pendingJumpId, layout, currentWeek, viewMode])
+
+  useEffect(() => {
+    if (!pendingJumpDate) return
+    const el = document.querySelector(`[data-testid="day-row"][data-date="${pendingJumpDate}"]`)
+    if (!el) return
+    el.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+    setPendingJumpDate(null)
+  }, [pendingJumpDate, layout, currentWeek, viewMode])
   useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
   const { base: rosterBase } = rosterTextSize(textSize)
   const rosterScale = rosterTextScale(textSize)
@@ -224,6 +233,29 @@ export default function RosterGridPage() {
     setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('report'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id])
+
+  // Linked from a leave capture ("Go to roster"): ?date=YYYY-MM-DD, plus
+  // &doctor=<profile id> for whose shift it is. Lands on that day in Rows,
+  // on the right week, with the doctor's shift lit up — or just the day if
+  // they hold no shift there any more. Dropped from the URL afterwards so a
+  // reload doesn't jump again.
+  useEffect(() => {
+    const date = searchParams.get('date')
+    if (!rosterMonth || loading || !date) return
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      const doctor = searchParams.get('doctor')
+      const target = doctor ? entries.find(e => e.date === date && e.profile_id === doctor) : null
+      if (layout !== 'rows') setLayout('rows')
+      if (viewMode === 'week') {
+        const week = weeks.findIndex(w => w.some(d => d.dateStr === date))
+        if (week >= 0) setCurrentWeek(week)
+      }
+      if (target) setPendingJumpId(target.id)
+      else setPendingJumpDate(date)
+    }
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id, loading])
 
   async function loadAll() {
     setLoading(true)
@@ -1448,12 +1480,13 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
     <>
     {vacatedLine}
     <div
+      data-entry-id={entry.id}
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
       onClick={isAdmin ? onClick : undefined}
       className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium ${onLeave ? 'text-ink-muted' : 'text-ink'} ${
         isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
-      } ${dimmed ? 'opacity-30' : ''}`}
+      } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >

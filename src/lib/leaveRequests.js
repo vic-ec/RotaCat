@@ -606,6 +606,53 @@ export async function fetchRosterOverlapDates({ profileId, dateFrom, dateTo }) {
   }
 }
 
+// The same shifts, with the roster each one sits on, so the capture form can
+// link straight to the flagged day: [{ date, rosterMonthId }], one per date,
+// in date order. Never throws.
+export async function fetchRosterOverlapShifts({ profileId, dateFrom, dateTo }) {
+  try {
+    const { data, error } = await supabase
+      .from('roster_entries').select('date, roster_month_id').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo)
+    if (error) return []
+    const byDate = new Map()
+    for (const e of data || []) {
+      const date = e.date?.slice(0, 10)
+      if (date && !byDate.has(date)) byDate.set(date, { date, rosterMonthId: e.roster_month_id ?? null })
+    }
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+  } catch {
+    return []
+  }
+}
+
+// Where the roster link for one of those shifts goes: the month's grid,
+// scrolled to that day with the doctor's shift lit up (see RosterGridPage).
+export function rosterShiftLink({ rosterMonthId, date, profileId }) {
+  if (!rosterMonthId || !date) return null
+  const params = new URLSearchParams({ date })
+  if (profileId) params.set('doctor', profileId)
+  return `/roster/${rosterMonthId}?${params.toString()}`
+}
+
+// Every pending or approved leave record a doctor holds, oldest first. The
+// capture form reads it the moment a doctor is chosen, so an admin sees what
+// is already on record (and whether the dates they are about to enter are
+// taken) before submitting rather than after. Never throws.
+export async function fetchActiveLeaveForProfile(profileId) {
+  try {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('id, leave_type, date_from, date_to, status, submitted_by')
+      .eq('profile_id', profileId)
+      .in('status', ['pending', 'approved'])
+      .order('date_from', { ascending: true })
+    if (error) return []
+    return (data || []).map(r => ({ ...r, date_from: r.date_from?.slice(0, 10), date_to: r.date_to?.slice(0, 10) }))
+  } catch {
+    return []
+  }
+}
+
 // First day of the current leave year (the calendar year). Leave captured
 // for a date before this needs the admin's explicit confirmation.
 export function leaveYearStart(today = todayStr()) {

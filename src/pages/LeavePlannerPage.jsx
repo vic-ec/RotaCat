@@ -288,7 +288,11 @@ export default function LeavePlannerPage() {
           {/* On a phone the Week/Month/People explainer sits at the end of
               this line — its own row (TeamLeaveMobile) has no room for it. */}
           <div className="flex items-stretch">
-            <div className="min-w-0 flex-1">
+            {/* The tabs fill the row's full height, so their underline meets
+                the one under the buttons beside them — a taller neighbour
+                (Capture leave) otherwise left the two lines at different
+                heights, with the button hanging below the tabs' own. */}
+            <div className="flex min-w-0 flex-1 [&>nav]:min-w-0 [&>nav]:flex-1">
               <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
             </div>
             {teamTab === 'current' && (
@@ -297,9 +301,9 @@ export default function LeavePlannerPage() {
               </span>
             )}
             {isAdmin && (
-              <span className="flex items-center border-b border-slate-line pb-1 pl-2">
-                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs">
-                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex items-center border-b border-slate-line pb-2 pl-2">
+                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary whitespace-nowrap text-sm">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
                   Capture leave
                 </button>
               </span>

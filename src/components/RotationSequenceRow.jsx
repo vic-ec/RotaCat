@@ -4,15 +4,29 @@ import { MONTH_ABBR } from '../lib/dateRange'
 
 const MONTH_LETTERS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
+// Blend a rotation colour toward white for the current-month spotlight —
+// a lighter fill reads more clearly than a thicker ring, and unlike a
+// fixed accent tint it works for every rotation colour. Dark text (set
+// alongside it below) stays theme-independent too, since the blended
+// colour is a fixed hex either way, not a theme token.
+function lightenHex(hex, amount) {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  const mix = c => Math.round(c + (255 - c) * amount)
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`
+}
+
 // Mobile's compact month header — single letters, not the full "Jan Feb…"
 // abbreviations desktop's own grid header keeps. Rendered as a plain row;
 // the caller nests it inside its own already-sticky toolbar/year header
 // (so it inherits that positioning instead of guessing a pixel offset to
-// stick itself at). Aligned to the row cells below by sharing their exact
-// gap/flex-1 shape.
+// stick itself at). `px-4` matches the row buttons' own internal padding
+// below (RotationSequenceRow's mobile layout), on top of whatever ambient
+// page padding the sticky wrapper already restores — without it the
+// letters sit a row-padding's width off from the cells they label.
 export function MonthLetterHeader({ year, currentYear }) {
   return (
-    <div className="flex gap-[2px] border-t border-slate-line pt-1.5">
+    <div className="flex gap-[2px] border-t border-slate-line px-4 pt-1.5">
       {MONTH_LETTERS.map((letter, i) => (
         <span
           key={i}
@@ -51,21 +65,24 @@ function Chip({ tone, color, children }) {
 function MonthCells({ doctorRotations, year, showCurrentMonthHalo, heightClassName }) {
   const keys = monthlyTypeKeys(doctorRotations, year)
   const currentMonthIndex = showCurrentMonthHalo ? new Date().getMonth() : -1
-  return keys.map((key, i) => (
-    <div
-      key={i}
-      title={key ? `${MONTH_ABBR[i]}: ${rotationTypeLabel(key)}` : `${MONTH_ABBR[i]}: no rotation`}
-      className={`relative flex flex-1 items-center justify-center rounded text-[11px] font-semibold text-white ${heightClassName} ${
-        key ? '' : 'bg-canvas-sunken'
-      } ${i === currentMonthIndex ? 'z-10' : ''}`}
-      style={{
-        backgroundColor: key ? ROTATION_TYPE_COLOR[key] : undefined,
-        boxShadow: i === currentMonthIndex ? '0 0 0 0.5px white, 0 0 0 2px #0f172a, 0 0 0 2.5px white' : undefined,
-      }}
-    >
-      {key ? rotationTypeCode(key) : ''}
-    </div>
-  ))
+  return keys.map((key, i) => {
+    const isCurrent = i === currentMonthIndex
+    return (
+      <div
+        key={i}
+        title={key ? `${MONTH_ABBR[i]}: ${rotationTypeLabel(key)}` : `${MONTH_ABBR[i]}: no rotation`}
+        className={`flex flex-1 items-center justify-center rounded text-[11px] font-semibold ${heightClassName} ${
+          key ? (isCurrent ? '' : 'text-white') : 'bg-canvas-sunken'
+        } ${isCurrent ? 'ring-2 ring-inset ring-accent' : ''}`}
+        style={{
+          backgroundColor: key ? (isCurrent ? lightenHex(ROTATION_TYPE_COLOR[key], 0.35) : ROTATION_TYPE_COLOR[key]) : undefined,
+          color: key && isCurrent ? '#1F2937' : undefined,
+        }}
+      >
+        {key ? rotationTypeCode(key) : ''}
+      </div>
+    )
+  })
 }
 
 // The one row every tab (Active/Upcoming/Completed) and both breakpoints

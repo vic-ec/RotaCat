@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { ArrowRight } from 'lucide-react'
 import Tag from './Tag'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -27,7 +28,7 @@ export default function LeaveCard({ request, className = '', bare = false }) {
   return (
     <div className={`${bare ? '' : 'card p-4'} ${className}`}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold text-ink">{LEAVE_TYPE_LABELS[leaveType] || 'Leave'}</h3>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><LeaveTypeIcon leaveType={leaveType} size="sm" />{LEAVE_TYPE_LABELS[leaveType] || 'Leave'}</h3>
         {status && (
           <Tag variant="status" tone={STATUS_TONE[status] || 'neutral'}>
             {reviewStatusLabel(status)}

@@ -38,6 +38,18 @@
   --color-rose-light: 248 227 234;            /* #F8E3EA */
   --color-rose-tint: 252 240 243;             /* #FCF0F3 */
   --color-rose-night: 240 207 219;            /* #F0CFDB */
+  /* Leave-type ink: the colour a leave icon or leave date is drawn in. The
+     group colours themselves (LEAVE_GROUP_COLOR) on a light surface; the
+     night theme lifts each a few steps, since the mid blues and violets
+     that read on white sink into a dark card. Solid fills (matrix bars)
+     keep the base colours in both themes. */
+  --leave-ink-annual: #2563EB;
+  --leave-ink-sick: #DC2626;
+  --leave-ink-family: #D97706;
+  --leave-ink-study: #7C3AED;
+  --leave-ink-parental: #DB2777;
+  --leave-ink-lieu: #0891B2;
+  --leave-ink-weekend: #64748B;
   /* flagRed */
   --color-flagRed: 192 54 44;                 /* #C0362C */
   --color-flagRed-bg: 251 234 232;            /* #FBEAE8 */
@@ -351,6 +363,13 @@
   --color-rose-light: 58 37 44;                 /* #3A252C */
   --color-rose-tint: 43 29 34;                  /* #2B1D22 */
   --color-rose-night: 51 32 39;                 /* #332027 */
+  --leave-ink-annual: #8AB4FF;
+  --leave-ink-sick: #FF8A80;
+  --leave-ink-family: #FBBF24;
+  --leave-ink-study: #C4B0FF;
+  --leave-ink-parental: #FF8CC6;
+  --leave-ink-lieu: #4FD8EE;
+  --leave-ink-weekend: #B4C0CE;
   /* flagRed */
   --color-flagRed: 220 132 119;                 /* #DC8477 */
   --color-flagRed-bg: 48 21 18;                 /* #301512 */
@@ -1098,4 +1117,17 @@
     opacity: 1;
     filter: var(--pill-pulse-peak);
   }
+}
+
+/* A screen reached by swiping (lib/swipeNavigation) slides in from the side
+   it came from: swipe left, the next screen arrives from the right. `left`
+   on a relatively-positioned element, not a transform — a transformed
+   ancestor becomes the containing block for every position:fixed descendant
+   (the FAB, sheets), which would jump for the length of the animation.
+   Short and small: it says which way you moved, it is not a page-turn. */
+@media (prefers-reduced-motion: no-preference) {
+  .swipe-arrive-left { position: relative; animation: swipe-arrive-left 180ms ease-out; }
+  .swipe-arrive-right { position: relative; animation: swipe-arrive-right 180ms ease-out; }
+  @keyframes swipe-arrive-left { from { left: 28px; opacity: 0.4; } to { left: 0; opacity: 1; } }
+  @keyframes swipe-arrive-right { from { left: -28px; opacity: 0.4; } to { left: 0; opacity: 1; } }
 }

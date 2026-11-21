@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import RosterGridPage from './RosterGridPage'
@@ -65,9 +65,9 @@ function setViewport(matches) {
   window.matchMedia = vi.fn().mockReturnValue({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() })
 }
 
-function renderPage() {
+function renderPage(path = '/roster/rm1') {
   return render(
-    <MemoryRouter initialEntries={['/roster/rm1']}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes><Route path="/roster/:id" element={<RosterGridPage />} /></Routes>
     </MemoryRouter>
   )
@@ -79,6 +79,33 @@ describe('RosterGridPage day blocks', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
     setViewport(true)
+  })
+
+  it('a "Go to roster" link (?date=) scrolls to that day once the roster has loaded', async () => {
+    const scrolled = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-date')) }
+    try {
+      renderPage('/roster/rm1?date=2026-08-20&doctor=nobody')
+      await screen.findByText('August 2026')
+      await waitFor(() => expect(scrolled).toContain('2026-08-20'))
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('a "Go to roster" link with a doctor scrolls to and lights that doctor\'s shift', async () => {
+    const scrolled = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-entry-id')) }
+    try {
+      renderPage('/roster/rm1?date=2026-08-27&doctor=p1')
+      await screen.findByText('August 2026')
+      await waitFor(() => expect(scrolled).toContain('e2'))
+      expect(document.querySelector('[data-entry-id="e2"]').className).toMatch(/ring-2/)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
   })
 
   it('separates days with a page-background gap: 6px between days, 14px before a Monday, none above the first', async () => {
@@ -207,5 +234,22 @@ describe('RosterGridPage flagged slots and locum placeholders', () => {
     expect(locumCell).not.toHaveClass('opacity-25')
     const other = within(rowFor('2026-08-26')).getAllByTestId('shift-cell')[0]
     expect(other).toHaveClass('opacity-25')
+  })
+})
+
+describe('RosterGridPage month switch', () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
+    setViewport(true)
+  })
+
+  it('the title is a month stepper; a month with no roster says so and stays on this one', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent('August 2026')
+    await user.click(within(heading).getByRole('button', { name: /next/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent('No roster for September 2026 yet.')
+    expect(heading).toHaveTextContent('August 2026')
   })
 })

@@ -1,3 +1,4 @@
+import { leaveTypeInk } from '../lib/leaveMatrix'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -328,6 +329,27 @@ export default function StaffListPage() {
   const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
+  // profile id -> [dateFrom, dateTo] of the approved leave covering today,
+  // for the dates under "On leave" in the details sheet, drawn in
+  // that leave type's colour. Read straight
+  // from leave_requests, so (like the RPC above) it holds only what this
+  // viewer's own access lets them see; a miss just shows no dates.
+  const [leaveDatesById, setLeaveDatesById] = useState({})
+  useEffect(() => {
+    let live = true
+    const today = todayStr()
+    Promise.resolve()
+      .then(() => supabase.from('leave_requests').select('profile_id, date_from, date_to, leave_type')
+        .eq('status', 'approved').lte('date_from', today).gte('date_to', today))
+      .then(res => {
+        if (!live || !Array.isArray(res?.data)) return
+        const map = {}
+        for (const r of res.data) map[r.profile_id] = [r.date_from.slice(0, 10), r.date_to.slice(0, 10), r.leave_type]
+        setLeaveDatesById(map)
+      })
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
   // profile id -> the date a doctor's rotation timeline runs out, for
   // "Active until" on anyone without an explicit scheduled_inactive_date.
   const [rotationEndById, setRotationEndById] = useState({})
@@ -1008,7 +1030,13 @@ export default function StaffListPage() {
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
       {isAdmin && <LocumContactsPanel onLinked={() => loadAll({ silent: true })} />}
-      <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
+      {/* -mt-2 cancels the pt-2 at rest, so the tabs start at the same
+          height as every other page's (Rosters, Team Leave) — the padding
+          used to push this page's row 8px lower than theirs. It stays as
+          padding rather than going altogether because the bar is sticky:
+          once stuck to the top of the screen, those 8px are what keep the
+          tab labels off the very edge. */}
+      <div ref={stickyHeaderRef} className="sticky top-0 z-20 -mt-2 bg-canvas pb-3 pt-2 md:mt-0 md:pb-4 md:pt-0">
         {/* Every viewer gets Active Staff / All Staff; the two admin queues
             follow for admins only. */}
         <PageTabs
@@ -1924,6 +1952,9 @@ export default function StaffListPage() {
                 </div>
                 <div className="flex flex-shrink-0 flex-col items-end gap-1">
                   <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                  {person.is_active && onLeave && leaveDatesById[person.id] && (
+                    <span className="whitespace-nowrap text-xs font-medium" style={{ color: leaveTypeInk(leaveDatesById[person.id][2]) }}>{formatShortDateRange(leaveDatesById[person.id][0], leaveDatesById[person.id][1])}</span>
+                  )}
                   {isAdmin && person.must_change_password && (
                     <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
                       <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />

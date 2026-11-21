@@ -1,11 +1,12 @@
 import Tag from './Tag'
-import { LEAVE_TYPE_LABELS, LEAVE_GROUP_COLOR, leaveTypeGroupKey } from '../lib/leaveMatrix'
+import LeaveTypeIcon from './LeaveTypeIcon'
+import { LEAVE_TYPE_LABELS } from '../lib/leaveMatrix'
 import { naturalLeavePeriodLabel } from '../lib/leaveRequests'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { reviewStatusLabel } from '../lib/statusLabels'
 
 // One leave, as a tappable row: name (primary), category (supporting text —
-// not a pill), the leave type with a colour dot, the date range, and a status
+// not a pill), the leave type with its icon, the date range, and a status
 // Tag only when the leave isn't approved (status never conveyed by colour
 // alone). Shared by the Week view, the Month day-sheet, and the People person-
 // sheet. `showName={false}` drops the name when the surrounding sheet is
@@ -14,7 +15,6 @@ export default function TeamLeavePersonRow({ request, onSelect, showName = true 
   const doctor = request.profiles || {}
   const name = `${doctor.name || ''} ${doctor.surname || ''}`.trim() || 'Unknown'
   const category = doctor.category ? labelForLeaveCategory(doctor.category, doctor.contract_type) : null
-  const color = LEAVE_GROUP_COLOR[leaveTypeGroupKey(request.leave_type)]
   const typeLabel = LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type
 
   return (
@@ -24,7 +24,7 @@ export default function TeamLeavePersonRow({ request, onSelect, showName = true 
       className="flex w-full items-center gap-3 rounded-lg border border-slate-line bg-canvas-raised px-3 py-2 text-left transition-colors hover:bg-canvas-sunken"
       style={{ minHeight: 44 }}
     >
-      <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+      <LeaveTypeIcon leaveType={request.leave_type} />
       <span className="min-w-0 flex-1">
         {showName && <span className="block truncate text-sm font-medium text-ink">{name}</span>}
         <span className="block truncate text-xs text-ink-muted">{category ? `${category} · ` : ''}{typeLabel}</span>

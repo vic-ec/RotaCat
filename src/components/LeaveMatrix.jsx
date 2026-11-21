@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
+import LeaveTypeIcon from './LeaveTypeIcon'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { Search, X } from 'lucide-react'
@@ -18,6 +19,7 @@ import {
   LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
   blockPixelSpan, buildDoctorLeaveRows, leaveActiveOn, formatDMY,
 } from '../lib/leaveMatrix'
+import { leaveTypeCode, leaveTypeLabelWithCode } from '../lib/leaveRequests'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 
 // Literal pixel widths, not 1fr/minmax — the header and every track row share
@@ -34,6 +36,8 @@ const MIN_MONTH_COL_WIDTH = 44 // px
 const LABEL_COL_WIDTH = 150 // px
 const TRACK_HEIGHT = 38 // px — the Table view's row height, near enough
 const BAR_HEIGHT = 22 // px
+// A bar narrower than this cannot hold a code legibly (IOD is the widest).
+const CODE_MIN_BAR_WIDTH = 24 // px
 
 // Category groups reuse the same MO / Registrar / EC Intern / OT Intern /
 // Consultant buckets the rest of the leave feature groups by; a doctor whose
@@ -50,7 +54,7 @@ function fullName(doctor) {
 }
 
 function GroupSwatch({ groupKey }) {
-  return <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: LEAVE_GROUP_COLOR[groupKey] }} />
+  return <LeaveTypeIcon groupKey={groupKey} size="sm" />
 }
 
 // One leave bar. Approved = solid family colour; pending = a light tint with a
@@ -65,8 +69,8 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
     <button
       type="button"
       onClick={() => onSelect(request)}
-      title={`${LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type}: ${formatDMY(request.date_from)} – ${formatDMY(request.date_to)}`}
-      className="absolute top-1/2 -translate-y-1/2 rounded-sm transition-shadow"
+      title={`${leaveTypeLabelWithCode(request.leave_type)}: ${formatDMY(request.date_from)} – ${formatDMY(request.date_to)}`}
+      className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center overflow-hidden rounded-sm transition-shadow"
       style={{
         left: span.left,
         width: span.width,
@@ -75,7 +79,23 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
         border: pending ? `1.5px dashed ${color}` : 'none',
         boxShadow: selected ? '0 0 0 1px #FFFFFF, 0 0 0 3px #0F172A' : 'none',
       }}
-    />
+    >
+      {/* The type's short code, when the bar is wide enough to hold it —
+          the colour says which family, the code says which type. */}
+      {/* …and its icon in front, when there is room for both. */}
+      {span.width >= CODE_MIN_BAR_WIDTH + 16 && (
+        <LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" color={pending ? color : '#FFFFFF'} className="pointer-events-none" />
+      )}
+      {span.width >= CODE_MIN_BAR_WIDTH && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none select-none px-0.5 font-semibold leading-none"
+          style={{ fontSize: 10, color: pending ? color : '#FFFFFF' }}
+        >
+          {leaveTypeCode(request.leave_type)}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -185,14 +205,13 @@ function OnLeaveNow({ activeByGroup }) {
 // A single leave request rendered as a clickable mini-row (used in the
 // per-doctor block list).
 function BlockListItem({ request, onSelect }) {
-  const groupKey = leaveTypeGroupKey(request.leave_type)
   return (
     <button
       type="button"
       onClick={() => onSelect(request)}
       className="flex w-full items-center gap-2 rounded border border-slate-line px-2 py-1.5 text-left transition-colors hover:bg-canvas-sunken"
     >
-      <GroupSwatch groupKey={groupKey} />
+      <LeaveTypeIcon leaveType={request.leave_type} size="sm" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium text-ink">{LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type}</span>
         <span className="block truncate text-[11px] text-ink-muted">{formatDMY(request.date_from)} – {formatDMY(request.date_to)}</span>

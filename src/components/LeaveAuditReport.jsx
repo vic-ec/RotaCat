@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
 import ExpandAllButton from './ExpandAllButton'
@@ -518,7 +519,7 @@ export default function LeaveAuditReport() {
                   {drillDownRequests.map(lr => (
                     <div key={lr.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                       <div>
-                        <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
+                        <p className="flex items-center gap-2 text-ink"><LeaveTypeIcon leaveType={lr.leave_type} size="sm" />{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
                         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>

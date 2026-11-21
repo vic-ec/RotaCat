@@ -11,8 +11,6 @@ import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import MyRequestHistory from '../components/MyRequestHistory'
 import LeaveListView from '../components/LeaveListView'
-import DetailInfoButton from '../components/DetailInfoButton'
-import { VIEW_HINT_TEXT } from '../components/TeamLeaveMobile'
 import AnnualLeavePlanner from '../components/AnnualLeavePlanner'
 import SpecialLeavePlanner from '../components/SpecialLeavePlanner'
 import WeekendPlanner from '../components/WeekendPlanner'
@@ -285,21 +283,22 @@ export default function LeavePlannerPage() {
           }`}
         >
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Team Leave</h2>
-          {/* On a phone the Week/Month/People explainer sits at the end of
-              this line — its own row (TeamLeaveMobile) has no room for it. */}
+          {/* No Week/Month/People explainer on a phone: beside Capture leave
+              it overlapped the "All Leave" tab, and each of W / M / People
+              names itself on a tap (HintLayer). It shows from sm up, on
+              TeamLeaveMobile's own row. */}
           <div className="flex items-stretch">
-            <div className="min-w-0 flex-1">
+            {/* The tabs fill the row's full height, so their underline meets
+                the one under the buttons beside them — a taller neighbour
+                (Capture leave) otherwise left the two lines at different
+                heights, with the button hanging below the tabs' own. */}
+            <div className="flex min-w-0 flex-1 [&>nav]:min-w-0 [&>nav]:flex-1">
               <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
             </div>
-            {teamTab === 'current' && (
-              <span className="flex items-center border-b border-slate-line pl-2 sm:hidden">
-                <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
-              </span>
-            )}
             {isAdmin && (
-              <span className="flex items-center border-b border-slate-line pb-1 pl-2">
-                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-xs">
-                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="flex items-center border-b border-slate-line pb-2 pl-2">
+                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary whitespace-nowrap text-sm">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
                   Capture leave
                 </button>
               </span>

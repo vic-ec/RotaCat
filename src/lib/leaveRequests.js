@@ -15,26 +15,35 @@ import { createNotification } from './notifications'
 // that list: single_day (a generic day off) and weekend_exception (tied to
 // the weekend planner's exception flow, with its own Sat/Sun validation
 // below). Every value here must exist in the `leave_type` Postgres enum.
+//
+// `code` is the short form for rosters, planners and anything printed — the
+// one agreed set, so the app and the paper roster say the same thing. The
+// hand-kept rosters marked leave "(S)" and "(SL)", which meant special,
+// study or sick depending on who wrote it and which column it sat in. So:
+// two letters (IOD, the standard abbreviation, is the one exception), never
+// a bare S or SL, and sick / study / special each get their own (SK / ST /
+// SP). Workshop, course and conference deliberately share CW: on a roster
+// they are the same thing, "away at an attended event".
 export const LEAVE_TYPE_OPTIONS = [
-  { value: 'annual', label: 'Annual leave' },
-  { value: 'sick', label: 'Sick leave' },
-  { value: 'family_responsibility', label: 'Family responsibility leave' },
-  { value: 'study', label: 'Study leave' },
-  { value: 'special_leave', label: 'Special leave' },
-  { value: 'prenatal', label: 'Prenatal leave' },
-  { value: 'maternity', label: 'Maternity leave' },
-  { value: 'paternity', label: 'Paternity leave' },
-  { value: 'workshop', label: 'Workshop' },
-  { value: 'course', label: 'Course / CPD' },
-  { value: 'conference', label: 'Conference' },
-  { value: 'time_off_in_lieu', label: 'Time off in lieu' },
-  { value: 'statutory_public', label: 'Statutory / public holiday' },
-  { value: 'injury_on_duty', label: 'Injury on duty' },
-  { value: 'single_day', label: 'Single day' },
+  { value: 'annual', code: 'AL', label: 'Annual leave' },
+  { value: 'sick', code: 'SK', label: 'Sick leave' },
+  { value: 'family_responsibility', code: 'FR', label: 'Family responsibility leave' },
+  { value: 'study', code: 'ST', label: 'Study leave' },
+  { value: 'special_leave', code: 'SP', label: 'Special leave' },
+  { value: 'prenatal', code: 'PN', label: 'Prenatal leave' },
+  { value: 'maternity', code: 'ML', label: 'Maternity leave' },
+  { value: 'paternity', code: 'PL', label: 'Paternity leave' },
+  { value: 'workshop', code: 'CW', label: 'Workshop' },
+  { value: 'course', code: 'CW', label: 'Course / CPD' },
+  { value: 'conference', code: 'CW', label: 'Conference' },
+  { value: 'time_off_in_lieu', code: 'TL', label: 'Time off in lieu' },
+  { value: 'statutory_public', code: 'PH', label: 'Statutory / public holiday' },
+  { value: 'injury_on_duty', code: 'IOD', label: 'Injury on duty' },
+  { value: 'single_day', code: 'SD', label: 'Single day' },
   // Stored value stays `weekend_exception` (it's a Postgres enum member and
   // the name the weekend planner's flow is built around); only what staff
   // read was renamed to "Weekend off".
-  { value: 'weekend_exception', label: 'Weekend off' },
+  { value: 'weekend_exception', code: 'WO', label: 'Weekend off' },
 ]
 
 // Every leave type but annual, sick, and weekend_exception, grouped into one
@@ -53,6 +62,23 @@ export const LEAVE_TYPE_OPTIONS = [
 // components built this same map inline; this is the one copy worth
 // importing.
 export const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
+
+// value -> short code ("sick" -> "SK"). See the note on LEAVE_TYPE_OPTIONS.
+export const LEAVE_TYPE_CODES = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.code]))
+
+// The code for a leave type, or '' for one not in the picklist — a missing
+// code must never be guessed at, which is how "(S)" became ambiguous.
+export function leaveTypeCode(value) {
+  return LEAVE_TYPE_CODES[value] ?? ''
+}
+
+// "Sick leave (SK)" — the full label with its code, for the places that
+// teach the codes: the request picklist and the leave list.
+export function leaveTypeLabelWithCode(value) {
+  const label = LEAVE_TYPE_LABELS[value] ?? value ?? ''
+  const code = leaveTypeCode(value)
+  return code ? `${label} (${code})` : label
+}
 
 // The compact label for places that already say "leave" in their own
 // surrounding copy, or that are too narrow to spend words on it — a leave
@@ -601,6 +627,53 @@ export async function fetchRosterOverlapDates({ profileId, dateFrom, dateTo }) {
       .from('roster_entries').select('date').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo)
     if (error) return []
     return [...new Set((data || []).map(e => e.date?.slice(0, 10)).filter(Boolean))].sort()
+  } catch {
+    return []
+  }
+}
+
+// The same shifts, with the roster each one sits on, so the capture form can
+// link straight to the flagged day: [{ date, rosterMonthId }], one per date,
+// in date order. Never throws.
+export async function fetchRosterOverlapShifts({ profileId, dateFrom, dateTo }) {
+  try {
+    const { data, error } = await supabase
+      .from('roster_entries').select('date, roster_month_id').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo)
+    if (error) return []
+    const byDate = new Map()
+    for (const e of data || []) {
+      const date = e.date?.slice(0, 10)
+      if (date && !byDate.has(date)) byDate.set(date, { date, rosterMonthId: e.roster_month_id ?? null })
+    }
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+  } catch {
+    return []
+  }
+}
+
+// Where the roster link for one of those shifts goes: the month's grid,
+// scrolled to that day with the doctor's shift lit up (see RosterGridPage).
+export function rosterShiftLink({ rosterMonthId, date, profileId }) {
+  if (!rosterMonthId || !date) return null
+  const params = new URLSearchParams({ date })
+  if (profileId) params.set('doctor', profileId)
+  return `/roster/${rosterMonthId}?${params.toString()}`
+}
+
+// Every pending or approved leave record a doctor holds, oldest first. The
+// capture form reads it the moment a doctor is chosen, so an admin sees what
+// is already on record (and whether the dates they are about to enter are
+// taken) before submitting rather than after. Never throws.
+export async function fetchActiveLeaveForProfile(profileId) {
+  try {
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('id, leave_type, date_from, date_to, status, submitted_by')
+      .eq('profile_id', profileId)
+      .in('status', ['pending', 'approved'])
+      .order('date_from', { ascending: true })
+    if (error) return []
+    return (data || []).map(r => ({ ...r, date_from: r.date_from?.slice(0, 10), date_to: r.date_to?.slice(0, 10) }))
   } catch {
     return []
   }

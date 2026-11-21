@@ -1,4 +1,4 @@
-import { leaveTypeColor } from '../lib/leaveMatrix'
+import { leaveTypeInk } from '../lib/leaveMatrix'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1953,7 +1953,7 @@ export default function StaffListPage() {
                 <div className="flex flex-shrink-0 flex-col items-end gap-1">
                   <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
                   {person.is_active && onLeave && leaveDatesById[person.id] && (
-                    <span className="whitespace-nowrap text-xs font-medium" style={{ color: leaveTypeColor(leaveDatesById[person.id][2]) }}>{formatShortDateRange(leaveDatesById[person.id][0], leaveDatesById[person.id][1])}</span>
+                    <span className="whitespace-nowrap text-xs font-medium" style={{ color: leaveTypeInk(leaveDatesById[person.id][2]) }}>{formatShortDateRange(leaveDatesById[person.id][0], leaveDatesById[person.id][1])}</span>
                   )}
                   {isAdmin && person.must_change_password && (
                     <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>

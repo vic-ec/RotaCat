@@ -61,6 +61,16 @@ export function leaveTypeColor(leaveType) {
   return LEAVE_GROUP_COLOR[leaveTypeGroupKey(leaveType)]
 }
 
+// The same colour as *ink* — for an icon or text on a surface rather than a
+// solid fill. A CSS variable (index.css, --leave-ink-*), so the night theme
+// can lift it to something readable on a dark card.
+export function leaveGroupInk(groupKey) {
+  return `var(--leave-ink-${groupKey})`
+}
+export function leaveTypeInk(leaveType) {
+  return leaveGroupInk(leaveTypeGroupKey(leaveType))
+}
+
 // "DD-MM-YYYY" from a YYYY-MM-DD date string (moved here from LeaveListView
 // so both views share it).
 export function formatDMY(dateStr) {

@@ -1,3 +1,4 @@
+import LeaveTypeIcon from '../components/LeaveTypeIcon'
 import { Fragment, useEffect, useState } from 'react'
 import SectionBar from '../components/SectionBar'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
@@ -493,7 +494,7 @@ export default function RosterSummaryPage() {
                         <td className="border-b border-slate-hairline px-2 py-1.5">
                           <div className="flex flex-wrap gap-1">
                             {Object.entries(row.leaveByType).map(([type, days]) => (
-                              <Tag key={type} className="text-[10px]">{LEAVE_TYPE_LABELS[type] || type}: {days}</Tag>
+                              <Tag key={type} className="inline-flex items-center gap-1 text-[10px]"><LeaveTypeIcon leaveType={type} variant="bare" size="sm" />{LEAVE_TYPE_LABELS[type] || type}: {days}</Tag>
                             ))}
                             {/* Booked for this month, then cancelled — struck
                                 through so it reads as a record, not as leave. */}

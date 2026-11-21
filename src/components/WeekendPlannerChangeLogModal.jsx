@@ -11,14 +11,13 @@ import {
 } from '../lib/reviewLog'
 import ReviewLogList, { OffName } from './ReviewLogList'
 import DateFieldButton from './DateFieldButton'
-import ChangeLogFilterMenu from './ChangeLogFilterMenu'
-import { changeLogFilterFacets } from './changeLogFilterFacets'
+import FilterPanel from './FilterPanel'
+import { changeLogFilterGroups, EMPTY_LOG_FILTERS, logFiltersActive } from '../lib/changeLogFilters'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
 import LocumBadge from './LocumBadge'
 
 const RECENT_LIMIT = 300
-const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', categoryGroup: '' }
 
 function Person({ profile, struck = false }) {
   const name = profile ? `${profile.name} ${profile.surname}` : 'Unknown'
@@ -37,7 +36,7 @@ function Person({ profile, struck = false }) {
 // reload with nothing else mounted).
 export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged }) {
   const { profile } = useAuth()
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [filters, setFilters] = useState(EMPTY_LOG_FILTERS)
   // Client-side, unlike the rest of `filters` (which go to the server as
   // query params): this narrows the already-fetched page of rows by the
   // names the table actually shows, rather than re-querying. Admin/Doctor
@@ -71,7 +70,10 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
   async function load() {
     setLoading(true)
     setError('')
-    const { data, error: err } = await queryWeekendPlannerChanges({ ...filters, limit: RECENT_LIMIT })
+    const { data, error: err } = await queryWeekendPlannerChanges({
+      dateFrom: filters.dateFrom, dateTo: filters.dateTo, adminIds: filters.adminIds,
+      doctorIds: filters.doctorIds, actions: filters.actions, categoryGroups: filters.extra, limit: RECENT_LIMIT,
+    })
     if (err) { setError(err.message); setLoading(false); return }
 
     const ids = (data || []).flatMap(c => [c.changed_by, c.profile_id])
@@ -115,7 +117,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     await handleRestore(batchId)
   }
 
-  const filtersActive = Object.values(filters).some(Boolean) || Boolean(q)
+  const filtersActive = logFiltersActive(filters, q)
 
   const profileOf = id => profilesById.get(id) ?? batchProfilesById.get(id) ?? null
   function fullName(id) {
@@ -230,24 +232,12 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
     return { id: entry.id, at: entry.at, type, typeLabel: WEEKEND_TYPES[type], admin, change: singleChange(entry) }
   })
 
-  const filterFacets = changeLogFilterFacets({
-    adminOptions,
-    doctorOptions,
+  const filterGroups = changeLogFilterGroups({
+    filters, setFilters, doctorOptions, adminOptions,
     actionOptions: WEEKEND_ACTION_OPTIONS,
-    adminId: filters.adminId,
-    doctorId: filters.doctorId,
-    action: filters.action,
-    onAdminChange: v => setFilters(f => ({ ...f, adminId: v })),
-    onDoctorChange: v => setFilters(f => ({ ...f, doctorId: v })),
-    onActionChange: v => setFilters(f => ({ ...f, action: v })),
-    extraFilter: {
-      label: 'Category',
-      options: WEEKEND_CATEGORY_FILTER_OPTIONS,
-      value: filters.categoryGroup,
-      onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
-    },
+    extra: { label: 'Category', options: WEEKEND_CATEGORY_FILTER_OPTIONS },
   })
-  const clearAll = () => { setFilters(EMPTY_FILTERS); setQ('') }
+  const clearAll = () => { setFilters(EMPTY_LOG_FILTERS); setQ('') }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
@@ -260,16 +250,19 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
         </div>
         <p className="mt-1 text-xs text-ink-muted">Most recent {RECENT_LIMIT} matching edits.</p>
 
-        {/* From/To stay on the row at every width — they set which slice of
-            the log is being looked at, the way Audit's own range does, and
-            they're the one control here the FAB has no slot for. Search and
-            the four facets fold into the FAB below `md`. */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <DateFieldButton label="From" value={filters.dateFrom} max={filters.dateTo || undefined}
-            onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
-          <DateFieldButton label="To" value={filters.dateTo} min={filters.dateFrom || undefined}
-            onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
+        {/* One row from md up: From/To, Search, then one Filter button whose
+            panel holds Doctor, Admin, Change type and the log's fourth
+            dimension — the Staff list / All Leave pattern. Below md the
+            dates stay on the row (the FAB has no slot for a range) and
+            Search and Filter fold into the FAB. */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="flex w-full gap-2 md:w-80">
+            <DateFieldButton label="From" fullWidth value={filters.dateFrom} max={filters.dateTo || undefined}
+              onChange={v => setFilters(f => ({ ...f, dateFrom: v }))} />
+            <DateFieldButton label="To" fullWidth value={filters.dateTo} min={filters.dateFrom || undefined}
+              onChange={v => setFilters(f => ({ ...f, dateTo: v }))} />
+          </div>
+          <div className="hidden items-center gap-2 md:flex">
             <div className="w-56">
               <ClearableInput
                 type="text"
@@ -280,25 +273,9 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
                 clearLabel="Clear search"
               />
             </div>
-            <ChangeLogFilterMenu
-              adminOptions={adminOptions}
-              doctorOptions={doctorOptions}
-              actionOptions={WEEKEND_ACTION_OPTIONS}
-              adminId={filters.adminId}
-              doctorId={filters.doctorId}
-              action={filters.action}
-              onAdminChange={v => setFilters(f => ({ ...f, adminId: v }))}
-              onDoctorChange={v => setFilters(f => ({ ...f, doctorId: v }))}
-              onActionChange={v => setFilters(f => ({ ...f, action: v }))}
-              extraFilter={{
-                label: 'Category',
-                options: WEEKEND_CATEGORY_FILTER_OPTIONS,
-                value: filters.categoryGroup,
-                onChange: v => setFilters(f => ({ ...f, categoryGroup: v })),
-              }}
-            />
+            <FilterPanel groups={filterGroups} />
             {filtersActive && (
-              <button type="button" className="text-sm text-accent hover:underline" onClick={clearAll}>
+              <button type="button" className="text-sm font-medium text-accent hover:underline" onClick={clearAll}>
                 Clear
               </button>
             )}
@@ -317,7 +294,7 @@ export default function WeekendPlannerChangeLogModal({ onClose, onDataChanged })
         <FloatingActionMenu
           search={{ value: q, onChange: setQ, placeholder: 'Search by name…' }}
           filter={{
-            facets: filterFacets,
+            groups: filterGroups,
             active: filtersActive,
             onClearAll: clearAll,
             sheetTitle: 'Filters',

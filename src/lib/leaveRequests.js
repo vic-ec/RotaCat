@@ -8,6 +8,7 @@ import {
 } from './leaveYearGrid'
 import { slotsForColumnOnDate } from './monthWorkspace'
 import { resolveLeaveCapacityColumn } from './internRotations'
+import { createNotification } from './notifications'
 
 // Mirrors the official leave-type picklist (screenshot from the employer's
 // leave system) plus a few RotaCat-specific extras that don't come from
@@ -596,17 +597,68 @@ function todayStr() {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
 }
 
+// Who an admin can capture leave for: every approved doctor, active or not
+// (leave is often captured after the fact, for someone who has since left).
+// Locums and clerks hold no leave at all, so they are never offered. Never
+// throws — a failed read leaves the picker empty rather than breaking the
+// form around it.
+export async function fetchLeaveCaptureCandidates() {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, surname, category, contract_type, is_active, scheduled_active_date')
+      .eq('role', 'doctor')
+      .eq('is_approved', true)
+      .order('surname', { ascending: true })
+    if (error) return []
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+// The dates in a range on which a doctor already holds a roster shift. An
+// admin capturing leave is warned about these rather than blocked: sick leave
+// logged after the fact nearly always lands on a shift the doctor was meant
+// to work. Never throws.
+export async function fetchRosterOverlapDates({ profileId, dateFrom, dateTo }) {
+  try {
+    const { data, error } = await supabase
+      .from('roster_entries').select('date').eq('profile_id', profileId).gte('date', dateFrom).lte('date', dateTo)
+    if (error) return []
+    return [...new Set((data || []).map(e => e.date?.slice(0, 10)).filter(Boolean))].sort()
+  } catch {
+    return []
+  }
+}
+
+// First day of the current leave year (the calendar year). Leave captured
+// for a date before this needs the admin's explicit confirmation.
+export function leaveYearStart(today = todayStr()) {
+  return `${today.slice(0, 4)}-01-01`
+}
+
 // Full submission flow: fetches what's needed to validate, blocks on
 // Tier-1 conflicts, computes the two derived flags, and inserts the row.
 // Throws with a user-facing message on any Tier-1 rejection.
+//
+// `capturedBy`: an admin's profile id when they are filing this on the
+// doctor's behalf (profileId is then the doctor, not the signed-in user).
+// A captured row differs from a doctor's own request in four ways: it is
+// approved on the spot, with the admin recorded as both reviewer and
+// submitter; the doctor's active/inactive state doesn't gate it; a shift
+// already on the roster doesn't block it (the roster is left as it is); and
+// the doctor is notified that it was logged for them.
 export async function submitLeaveRequest({
   profileId, isAdmin, leaveType, dateFrom, dateTo, annualLeaveDays, notes, isActive, scheduledActiveDate,
+  capturedBy = null,
 }) {
+  const isCapture = Boolean(capturedBy)
   if (!dateFrom || !dateTo || dateFrom > dateTo) {
     throw new Error('Please choose a valid date range.')
   }
 
-  if (!isEligibleToSubmitForDateRange({ isActive, scheduledActiveDate, dateFrom })) {
+  if (!isCapture && !isEligibleToSubmitForDateRange({ isActive, scheduledActiveDate, dateFrom })) {
     throw new Error(scheduledActiveDate
       ? `You're marked inactive until ${formatShortDateRange(scheduledActiveDate, scheduledActiveDate)}. Choose a date on or after then.`
       : "You're marked inactive with no scheduled return date. Contact an admin to submit this request.")
@@ -639,7 +691,9 @@ export async function submitLeaveRequest({
   if (leaveType === 'annual') {
     capacity = await checkAnnualLeaveCapacity({ profileId, dateFrom, dateTo })
     if (capacity.overCapacity && !(notes || '').trim()) {
-      throw new Error(`No slot is free on ${formatShortDateRange(capacity.reading.breachDate, capacity.reading.breachDate)}. Add a motivation to submit this as an emergency for admin approval.`)
+      throw new Error(isCapture
+        ? `No slot is free on ${formatShortDateRange(capacity.reading.breachDate, capacity.reading.breachDate)}. Add a note explaining why this overbooked leave is being captured.`
+        : `No slot is free on ${formatShortDateRange(capacity.reading.breachDate, capacity.reading.breachDate)}. Add a motivation to submit this as an emergency for admin approval.`)
     }
   }
 
@@ -659,17 +713,19 @@ export async function submitLeaveRequest({
     existingLeaveRequests: leaveRes.data || [],
     rosterEntryDates: (entriesRes.data || []).map(e => e.date?.slice(0, 10)),
   })
-  if (hasConflict) {
+  // A captured row only blocks on the doctor's own existing leave; a roster
+  // shift in the range is expected (see capturedBy above).
+  if (isCapture ? leaveConflicts.length > 0 : hasConflict) {
     const parts = []
     if (leaveConflicts.length) parts.push('an existing leave request')
-    if (rosterConflicts.length) parts.push('a shift already on the roster')
+    if (rosterConflicts.length && !isCapture) parts.push('a shift already on the roster')
     throw new Error(`This date range overlaps ${parts.join(' and ')}. Adjust the dates and try again.`)
   }
 
   const includesPublicHoliday = computeIncludesPublicHoliday(dateFrom, dateTo, (phRes.data || []).map(p => p.date?.slice(0, 10)))
   const overlapsWeekend = overlapsPlannedWeekend(plannerRes.data || [], dateFrom, dateTo)
 
-  const { error } = await supabase.from('leave_requests').insert({
+  const insert = supabase.from('leave_requests').insert({
     profile_id: profileId,
     leave_type: leaveType,
     date_from: dateFrom,
@@ -680,7 +736,33 @@ export async function submitLeaveRequest({
     overlaps_rostered_weekend: overlapsWeekend,
     over_capacity: capacity.overCapacity,
     capacity_breach: capacity.capacityBreach,
+    ...(isCapture ? {
+      status: 'approved',
+      reviewed_by: capturedBy,
+      reviewed_at: new Date().toISOString(),
+      submitted_by: capturedBy,
+    } : {}),
   })
+  // A capture reads its own id back so the caller can link to it (the roster
+  // ties a vacated shift to the leave that caused it). A doctor's own
+  // request stays a plain insert, as it always was.
+  const { data: inserted, error } = await (isCapture ? insert.select('id').single() : insert)
   if (error) throw new Error(error.message)
-  return { overCapacity: capacity.overCapacity }
+
+  if (isCapture) {
+    // Best-effort: the leave is already on record, so a failed notification
+    // must not read as a failed capture.
+    try {
+      await createNotification({
+        profileId,
+        type: 'leave_approved',
+        title: 'Leave captured on your behalf',
+        body: `An admin logged ${LEAVE_TYPE_LABELS[leaveType] || 'leave'} for you (${dateFrom} to ${dateTo}). Contact an admin if this is wrong.`,
+        link: '/leave',
+      })
+    } catch { /* ignore */ }
+  }
+
+  if (!isCapture) return { overCapacity: capacity.overCapacity }
+  return { overCapacity: capacity.overCapacity, captured: true, rosterOverlapDates: rosterConflicts, leaveRequestId: inserted?.id ?? null }
 }

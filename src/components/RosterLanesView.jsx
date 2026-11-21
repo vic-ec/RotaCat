@@ -3,6 +3,7 @@ import { bandForCode, SHIFT_STARTS, SHIFT_BAND } from '../lib/shiftBands'
 import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
+import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
 import { todayStr } from '../lib/dateRange'
 import PublicHolidayBadge from './PublicHolidayBadge'
 
@@ -181,7 +182,7 @@ function buildDayColumns(days, padToWeek) {
 // already belongs to one person, so spending colour on identity would say
 // something the row label already says. See src/lib/shiftBands.js.
 export default function RosterLanesView({
-  days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false, textSize = 'md',
+  days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false, textSize = 'md', leaveByProfile = {},
 }) {
   const { base } = rosterTextSize(textSize)
   const scale = rosterTextScale(textSize)
@@ -210,6 +211,22 @@ export default function RosterLanesView({
     if (!code) return
     if (!byProfileDate.has(entry.profile_id)) byProfileDate.set(entry.profile_id, new Map())
     byProfileDate.get(entry.profile_id).set(entry.date, code)
+  })
+
+  // profileId -> date -> { code, headline }: a shift the doctor is NOT
+  // working — taken off it, or still on it with approved leave over the
+  // date (see entryAbsence). Drawn struck through in their lane. A shift
+  // they still hold wins over one they were taken off the same day.
+  const absentOn = new Map()
+  entries.forEach(entry => {
+    const absence = entryAbsence(entry, leaveByProfile)
+    const code = shiftTypes[entry.shift_type_id]
+    if (!absence || !code) return
+    if (!absentOn.has(absence.profileId)) absentOn.set(absence.profileId, new Map())
+    absentOn.get(absence.profileId).set(entry.date, {
+      code,
+      headline: absenceSummary({ absence, leaveByProfile }).headline,
+    })
   })
 
   const lanes = [...profiles].sort((a, b) => {
@@ -408,7 +425,26 @@ export default function RosterLanesView({
                   if (!day) {
                     return <td key={key} data-pad="true" className="border-r border-slate-hairline bg-canvas-raised" />
                   }
-                  const code = worked?.get(day.dateStr)
+                  const absent = absentOn.get(profile.id)?.get(day.dateStr)
+                  const stillHolds = worked?.get(day.dateStr)
+                  // On leave over a shift they still hold, or taken off one
+                  // with nothing else that day: the shift shows, struck out.
+                  const struck = absent && (!stillHolds || stillHolds === absent.code) ? absent : null
+                  if (struck) {
+                    const struckBand = bandForCode(struck.code)
+                    return (
+                      <td key={key} className="border-r border-slate-hairline p-0">
+                        <span
+                          data-testid="lane-absent"
+                          className="block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums text-ink-muted line-through"
+                          title={`${day.dateStr} — ${labelForShiftCode(struck.code)} — ${struck.headline}`}
+                        >
+                          {struckBand ? struckBand.label : '·'}
+                        </span>
+                      </td>
+                    )
+                  }
+                  const code = stillHolds
                   const band = code ? bandForCode(code) : null
                   const isConsultant = consultantOn.get(day.dateStr) === profile.id
                   const off = day.dayType !== 'weekday'

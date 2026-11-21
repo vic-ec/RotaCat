@@ -320,10 +320,16 @@ describe('MonthWorkspace', () => {
     })
 
     it('no action for a viewer who cannot submit leave', () => {
-      mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false, profile: { category: 'MO' } }
+      mockAuth = { user: { id: 'clerk-auth-1' }, isAdmin: false, canSubmitLeave: false, profile: { category: 'MO' } }
       renderWorkspace()
       expect(screen.getByText(/of 31 days have room/)).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Request annual leave' })).not.toBeInTheDocument()
+    })
+
+    it('an admin gets the action even without leave of their own, to capture for a doctor', () => {
+      mockAuth = { user: { id: 'admin-auth-1' }, isAdmin: true, canSubmitLeave: false, profile: { category: 'MO' } }
+      renderWorkspace()
+      expect(screen.getByRole('button', { name: 'Request annual leave' })).toBeInTheDocument()
     })
 
     it('the panel\'s Request annual leave opens the form on today when today is in the month', async () => {

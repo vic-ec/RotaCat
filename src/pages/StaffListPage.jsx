@@ -10,6 +10,7 @@ import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } 
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
+import LocumContactsPanel from '../components/LocumContactsPanel'
 import ExpandAllButton from '../components/ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
@@ -1024,6 +1025,7 @@ export default function StaffListPage() {
           measured, not hand-picked, so it can never drift out of sync with
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
+      {isAdmin && <LocumContactsPanel onLinked={() => loadAll({ silent: true })} />}
       <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
         {/* Every viewer gets Active Staff / All Staff; the two admin queues
             follow for admins only. */}

@@ -45,6 +45,25 @@ export default function PendingApprovalReviewBody({ review }) {
         activeUntil={review.activeUntil} onActiveUntilChange={review.onActiveUntilChange}
       />
 
+      {review.locumMatch && (
+        <section className="rounded-lg border border-slate-line bg-canvas-sunken p-3" data-testid="locum-match">
+          <p className="text-sm font-medium text-ink">Already on the roster</p>
+          <p className="mt-0.5 text-xs text-ink-light">
+            This mobile number matches {review.locumMatch.name}, a locum added to the roster without an account
+            ({review.locumMatch.shiftCount} shift{review.locumMatch.shiftCount === 1 ? '' : 's'}).
+          </p>
+          <label className="mt-2 flex items-start gap-2 text-xs text-ink">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={review.locumMatch.link}
+              onChange={e => review.locumMatch.onLinkChange(e.target.checked)}
+            />
+            <span>Same person: move those shifts onto this account when I approve.</span>
+          </label>
+        </section>
+      )}
+
       <AccountChecks checks={review.accountChecks} />
     </div>
   )

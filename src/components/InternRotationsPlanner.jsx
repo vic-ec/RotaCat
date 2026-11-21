@@ -203,19 +203,22 @@ export default function InternRotationsPlanner() {
     }
   }
 
-  // "Edit rotation" on an Upcoming doctor opens the Active tab's own
-  // rotation editor on them: they join the matrix as a row for as long as
-  // the admin stays on that tab, selected and already in edit mode.
-  const [editingUpcomingId, setEditingUpcomingId] = useState(null)
-  function editUpcomingRotation(doctorId) {
-    setEditingUpcomingId(doctorId)
+  // "Edit rotation" on an Upcoming or Completed doctor opens the Active
+  // tab's own rotation editor on them: they join the matrix as a row for
+  // as long as the admin stays on that tab, selected and already in edit
+  // mode. Same mechanism either way — a Completed doctor with no
+  // rotations on file, or one whose history just needs a correction,
+  // shouldn't have to be reactivated first to add or fix a block.
+  const [editingGuestId, setEditingGuestId] = useState(null)
+  function editGuestRotation(doctorId) {
+    setEditingGuestId(doctorId)
     setTab('active')
     setFocusDoctorId(doctorId)
   }
   useEffect(() => {
-    if (tab !== 'active') setEditingUpcomingId(null)
+    if (tab !== 'active') setEditingGuestId(null)
   }, [tab])
-  const guestDoctor = editingUpcomingId ? interns.find(d => d.id === editingUpcomingId && !d.is_active) : null
+  const guestDoctor = editingGuestId ? interns.find(d => d.id === editingGuestId && !d.is_active) : null
   const matrixDoctors = guestDoctor ? [...activeInterns, guestDoctor] : activeInterns
 
   const tabsWithBadges = TABS.map(t => {
@@ -279,7 +282,7 @@ export default function InternRotationsPlanner() {
           onYearChange={setUpcomingYear}
           onUpdateDate={updateScheduledActiveDate}
           onActivateNow={activateNow}
-          onEditRotation={editUpcomingRotation}
+          onEditRotation={editGuestRotation}
         />
       )}
 
@@ -292,6 +295,7 @@ export default function InternRotationsPlanner() {
           year={completedYear}
           onYearChange={setCompletedYear}
           onReactivate={reactivate}
+          onEditRotation={editGuestRotation}
         />
       )}
     </div>

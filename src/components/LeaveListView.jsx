@@ -186,7 +186,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname), submitter:profiles!leave_requests_submitted_by_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])
@@ -386,7 +386,10 @@ export default function LeaveListView() {
                   <td className="border-b border-slate-hairline px-3 py-2">
                     <DateTimePopoverButton iso={lr.reviewed_at} Icon={CalendarCheck} label="View date and time approved" />
                   </td>
-                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">
+                    {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}
+                    {lr.submitted_by && lr.submitted_by !== lr.profile_id && <span className="block text-[11px]">Captured on behalf</span>}
+                  </td>
                   {isAdmin && (
                     <td className="border-b border-slate-hairline px-3 py-2">
                       {CANCELLABLE_STATUSES.includes(lr.status) && (

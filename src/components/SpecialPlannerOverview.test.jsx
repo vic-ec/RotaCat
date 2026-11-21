@@ -109,8 +109,9 @@ describe('SpecialPlannerOverview', () => {
     expect(card.getByText('3/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
     expect(card.getByRole('button', { name: /Open month/ })).toHaveClass('btn-secondary')
     expect(card.getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/leave?tab=requests&from=special')
-    // Exactly one filled button on the page: the panel's own action.
-    expect(document.querySelectorAll('.btn-primary')).toHaveLength(0) // mockAuth has no canSubmitLeave
+    // Exactly one filled button on the page: the panel's own action, which
+    // an admin always gets (it opens the form they capture leave with).
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1)
   })
 
   it('a doctor sees "My requests", and the one filled button is Request special leave', () => {

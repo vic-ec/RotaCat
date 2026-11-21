@@ -12,6 +12,8 @@ const submitLeaveRequest = vi.fn()
 const fetchAnnualCapacityPreview = vi.fn()
 const fetchSpecialLeavePressure = vi.fn()
 const fetchWeekendExceptionPreview = vi.fn()
+const fetchLeaveCaptureCandidates = vi.fn()
+const fetchRosterOverlapDates = vi.fn()
 vi.mock('../lib/leaveRequests', async () => {
   const actual = await vi.importActual('../lib/leaveRequests')
   return {
@@ -20,6 +22,8 @@ vi.mock('../lib/leaveRequests', async () => {
     fetchAnnualCapacityPreview: (...args) => fetchAnnualCapacityPreview(...args),
     fetchSpecialLeavePressure: (...args) => fetchSpecialLeavePressure(...args),
     fetchWeekendExceptionPreview: (...args) => fetchWeekendExceptionPreview(...args),
+    fetchLeaveCaptureCandidates: (...args) => fetchLeaveCaptureCandidates(...args),
+    fetchRosterOverlapDates: (...args) => fetchRosterOverlapDates(...args),
   }
 })
 
@@ -30,6 +34,60 @@ describe('LeaveRequestForm', () => {
     fetchAnnualCapacityPreview.mockReset().mockResolvedValue(null)
     fetchSpecialLeavePressure.mockReset().mockResolvedValue(null)
     fetchWeekendExceptionPreview.mockReset().mockResolvedValue(null)
+    fetchLeaveCaptureCandidates.mockReset().mockResolvedValue([
+      { id: 'doctor-2', name: 'Musa', surname: 'Omar', category: 'MO', is_active: true, scheduled_active_date: null },
+    ])
+    fetchRosterOverlapDates.mockReset().mockResolvedValue([])
+  })
+
+  it('a doctor gets no "Leave for" picker', () => {
+    render(<LeaveRequestForm />)
+    expect(screen.queryByLabelText('Leave for')).not.toBeInTheDocument()
+    expect(fetchLeaveCaptureCandidates).not.toHaveBeenCalled()
+  })
+
+  it('an admin defaults to themself and files an ordinary request', async () => {
+    mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
+    render(<LeaveRequestForm />)
+    expect(await screen.findByLabelText('Leave for')).toHaveTextContent('Myself')
+    expect(screen.getByRole('button', { name: 'Submit request' })).toBeInTheDocument()
+  })
+
+  it('an admin captures sick leave for another doctor: warned about the roster, filed under the doctor with capturedBy', async () => {
+    mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
+    fetchRosterOverlapDates.mockResolvedValue(['2026-11-20'])
+    submitLeaveRequest.mockResolvedValue({ overCapacity: false, captured: true, rosterOverlapDates: ['2026-11-20'] })
+    const user = userEvent.setup()
+    render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
+
+    // Opened as a capture: nobody chosen yet, so nothing can be filed.
+    const picker = await screen.findByLabelText('Leave for')
+    expect(picker).toHaveTextContent('Choose a doctor…')
+    expect(screen.getByRole('button', { name: 'Submit request' })).toBeDisabled()
+
+    await user.click(picker)
+    expect(screen.queryByRole('option', { name: 'Myself' })).not.toBeInTheDocument()
+    await user.click(await screen.findByText('Omar, Musa'))
+
+    await user.type(screen.getByLabelText('From'), '2026-11-20')
+    await user.type(screen.getByLabelText('To'), '2026-11-20')
+    expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Musa Omar is on the roster for 1 day in this range')
+
+    await user.click(screen.getByRole('button', { name: 'Capture leave' }))
+    await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'doctor-2', capturedBy: 'admin-1', leaveType: 'sick', dateFrom: '2026-11-20', dateTo: '2026-11-20',
+    })))
+    expect(await screen.findByText(/Leave captured for Musa Omar and approved\./)).toBeInTheDocument()
+  })
+
+  it('a capture dated before the current leave year needs an explicit tick', async () => {
+    mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
+    const user = userEvent.setup()
+    render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
+    await user.click(await screen.findByLabelText('Leave for'))
+    await user.click(await screen.findByText('Omar, Musa'))
+    await user.type(screen.getByLabelText('From'), '2020-03-02')
+    expect(await screen.findByRole('checkbox', { name: /before the current leave year/ })).toBeRequired()
   })
 
   it('submits a normal annual leave request with the entered date range', async () => {

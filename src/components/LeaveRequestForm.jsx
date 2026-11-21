@@ -7,7 +7,7 @@ import { datesInRange, formatShortDateRange } from '../lib/dateRange'
 import { LEAVE_CAPACITY_COLUMNS } from '../lib/leaveYearGrid'
 import {
   LEAVE_TYPE_OPTIONS, SPECIAL_LEAVE_TYPES, submitLeaveRequest, fetchAnnualCapacityPreview, fetchSpecialLeavePressure,
-  fetchWeekendExceptionPreview,
+  fetchWeekendExceptionPreview, fetchLeaveCaptureCandidates, fetchRosterOverlapDates, leaveYearStart,
 } from '../lib/leaveRequests'
 import {
   INTERN_ROTATION_CATEGORY, fetchInternRotationsForDoctorIds, rotationBoundaryNote, resolveLeaveCapacityColumn,
@@ -21,11 +21,44 @@ const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automa
 // this form from a day they clicked, rather than starting from a blank
 // date field. initialLeaveType does the same for the type: the Special
 // planner opens this form from a special-leave day, where landing on
-// "Annual leave" would be the one type that tab isn't about. Submission
-// itself is unaffected: still always files under the signed-in user's own
-// profile via useAuth(), same as before.
-export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual' }) {
-  const { profile, isAdmin } = useAuth()
+// "Annual leave" would be the one type that tab isn't about.
+//
+// Who the leave is for: a doctor always files under their own profile. An
+// admin also gets a "Leave for" picker and can choose any doctor — that is
+// a CAPTURE, not a request: approved on the spot, recorded as filed by the
+// admin, and exempt from the checks that only make sense for a doctor asking
+// in advance (see submitLeaveRequest's capturedBy). Every preview below reads
+// `subject` (the doctor the leave is for), never the signed-in profile.
+// `captureOnly`: opened from an admin-only "Capture leave" action, so the
+// picker starts empty instead of on the admin themself.
+export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual', captureOnly = false }) {
+  const { profile: ownProfile, isAdmin, canSubmitLeave } = useAuth()
+  // An admin who isn't a doctor themself has nobody to default to either.
+  const canFileForSelf = !captureOnly && (!isAdmin || canSubmitLeave !== false)
+  const [subjectId, setSubjectId] = useState(canFileForSelf ? (ownProfile?.id ?? null) : null)
+  const [candidates, setCandidates] = useState([])
+  const [rosterOverlapDates, setRosterOverlapDates] = useState([])
+  const [oldDateConfirmed, setOldDateConfirmed] = useState(false)
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    fetchLeaveCaptureCandidates().then(rows => { if (!cancelled) setCandidates(rows) })
+    return () => { cancelled = true }
+  }, [isAdmin])
+  const isCapture = Boolean(isAdmin && subjectId && subjectId !== ownProfile?.id)
+  const profile = !isAdmin
+    ? ownProfile
+    : isCapture
+      ? (candidates.find(c => c.id === subjectId) ?? null)
+      : (subjectId ? ownProfile : null)
+  const subjectName = isCapture && profile ? `${profile.name || ''} ${profile.surname || ''}`.trim() : null
+  const subjectOptions = [
+    ...(canFileForSelf && ownProfile?.id ? [{ value: ownProfile.id, label: 'Myself' }] : []),
+    ...candidates.filter(c => c.id !== ownProfile?.id).map(c => ({
+      value: c.id,
+      label: `${c.surname || ''}, ${c.name || ''}${c.is_active === false ? ' (inactive)' : ''}`,
+    })),
+  ]
   const [leaveType, setLeaveType] = useState(initialLeaveType)
   const [dateFrom, setDateFrom] = useState(initialDateFrom)
   const [dateTo, setDateTo] = useState(initialDateTo)
@@ -148,6 +181,22 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
     return () => { cancelled = true }
   }, [isWeekendException, dateFrom])
 
+  // Capture only: shifts the doctor already holds in the range. A warning,
+  // not a block — the roster is left as it is.
+  useEffect(() => {
+    if (!isCapture || !hasValidRange || !profile?.id) { setRosterOverlapDates([]); return }
+    let cancelled = false
+    fetchRosterOverlapDates({ profileId: profile.id, dateFrom, dateTo }).then(dates => {
+      if (!cancelled) setRosterOverlapDates(dates)
+    })
+    return () => { cancelled = true }
+  }, [isCapture, hasValidRange, profile?.id, dateFrom, dateTo])
+
+  // Capture only: leave dated before the current leave year needs an
+  // explicit tick, so a mistyped year can't slip through unnoticed.
+  const needsOldDateConfirm = isCapture && Boolean(dateFrom) && dateFrom < leaveYearStart()
+  useEffect(() => { setOldDateConfirmed(false) }, [dateFrom, subjectId])
+
   function handleWeekendSaturdayChange(value) {
     setDateFrom(value)
     if (!value) { setDateTo(''); return }
@@ -162,6 +211,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
   async function handleSubmit(e) {
     e.preventDefault()
     setMsg(null)
+    if (!profile) { setMsg({ type: 'error', text: 'Choose who this leave is for.' }); return }
     setSubmitting(true)
     try {
       const result = await submitLeaveRequest({
@@ -174,13 +224,17 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         notes,
         isActive: profile.is_active,
         scheduledActiveDate: profile.scheduled_active_date,
+        ...(isCapture ? { capturedBy: ownProfile.id } : {}),
       })
       const flagged = result?.overCapacity ? ' Flagged as overbooked for the admin to decide.' : ''
+      const overlapCount = result?.rosterOverlapDates?.length || 0
       setMsg({
         type: 'success',
-        text: isAnnual
-          ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.${flagged}`
-          : 'Leave request submitted — pending admin approval.',
+        text: isCapture
+          ? `Leave captured for ${subjectName} and approved.${result?.overCapacity ? ' Recorded as overbooked.' : ''}${overlapCount ? ` ${overlapCount} rostered day${overlapCount === 1 ? '' : 's'} in this range still show${overlapCount === 1 ? 's' : ''} on the roster.` : ''}`
+          : isAnnual
+            ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.${flagged}`
+            : 'Leave request submitted — pending admin approval.',
       })
       setDateFrom('')
       setDateTo('')
@@ -195,6 +249,24 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
 
   return (
     <form onSubmit={handleSubmit} className="card space-y-4 p-5">
+      {isAdmin && (
+        <div>
+          <label htmlFor="leave-subject" className="label-text">Leave for</label>
+          <SelectMenu
+            id="leave-subject"
+            value={subjectId}
+            onChange={setSubjectId}
+            options={subjectOptions}
+            placeholder="Choose a doctor…"
+          />
+          {isCapture && (
+            <p className="mt-1 text-xs text-ink-muted">
+              Captured on {subjectName}&rsquo;s behalf: approved straight away, recorded under your name, and they are notified.
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <label className="label-text">Leave type</label>
         <SelectMenu
@@ -230,7 +302,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           <div className="space-y-1">
             {isAdmin ? (
               <p>
-                Approving this takes the doctor out of the alternating weekend pattern. The weekend is not made up
+                {isCapture ? 'Capturing' : 'Approving'} this takes the doctor out of the alternating weekend pattern. The weekend is not made up
                 automatically; schedule it elsewhere or ask for annual leave instead.
               </p>
             ) : (
@@ -257,8 +329,8 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           />
           {isColumnOverridden && (
             <p className="mt-1 text-xs text-ink-muted">
-              Your own category resolves to {resolvedColumnDef.label} for these dates — this previews {LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnOverride)?.label}&rsquo;s room only.
-              Submitting still checks against your real category.
+              {isCapture ? `${subjectName}’s` : 'Your own'} category resolves to {resolvedColumnDef.label} for these dates — this previews {LEAVE_CAPACITY_COLUMNS.find(c => c.key === columnOverride)?.label}&rsquo;s room only.
+              Submitting still checks against {isCapture ? 'their' : 'your'} real category.
             </p>
           )}
         </div>
@@ -276,8 +348,10 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
             />
             {overCapacity && (
               <p className="-mt-1 text-xs text-ink-light" data-testid="over-capacity-note">
-                No slot is free on {formatShortDateRange(annualPreview.breachDate ?? annualPreview.date, annualPreview.breachDate ?? annualPreview.date)}.
-                You can still submit for an emergency; an admin must approve it as overbooked leave.
+                No slot is free on {formatShortDateRange(annualPreview.breachDate ?? annualPreview.date, annualPreview.breachDate ?? annualPreview.date)}.{' '}
+                {isCapture
+                  ? 'You can still capture it; add a note below and it is recorded as overbooked leave.'
+                  : 'You can still submit for an emergency; an admin must approve it as overbooked leave.'}
               </p>
             )}
           </div>
@@ -286,7 +360,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
 
       {noRotationAssigned && (
         <p className="text-xs text-ink-muted">
-          No EC/OT rotation is assigned to you yet for this date — showing the default pool until an admin sets one.
+          No EC/OT rotation is assigned to {isCapture ? subjectName : 'you'} yet for this date — showing the default pool until an admin sets one.
         </p>
       )}
 
@@ -302,7 +376,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <p>
             {specialPressure.count} doctor{specialPressure.count === 1 ? '' : 's'} already {specialPressure.count === 1 ? 'has' : 'have'} special
-            leave requests over this period — above the informal guideline of {specialPressure.softCap}, but you can still submit; admin will review.
+            leave requests over this period — above the informal guideline of {specialPressure.softCap}{isCapture ? '.' : ', but you can still submit; admin will review.'}
           </p>
         </div>
       )}
@@ -329,7 +403,18 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         </div>
       )}
 
-      {leaveType === 'sick' && (
+      {isCapture && rosterOverlapDates.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber" data-testid="roster-overlap-note">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <p>
+            {subjectName} is on the roster for {rosterOverlapDates.length} day{rosterOverlapDates.length === 1 ? '' : 's'} in this range
+            ({formatShortDateRange(rosterOverlapDates[0], rosterOverlapDates[rosterOverlapDates.length - 1])}).
+            Capturing this leave does not change the roster; replace those shifts there.
+          </p>
+        </div>
+      )}
+
+      {leaveType === 'sick' && !isCapture && (
         <p className="text-xs text-ink-muted">
           Sick leave can be backdated within the admin-configured window. Older dates need an admin to log them.
         </p>
@@ -337,7 +422,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
 
       <div>
         <label htmlFor="leave-notes" className="label-text">
-          Motivations{overCapacity ? ' (required for an overbooked request)' : ''} — see{' '}
+          {isCapture ? 'Notes' : 'Motivations'}{overCapacity ? ' (required for an overbooked request)' : ''} — see{' '}
           {/* Opens in a new tab rather than navigating: this form is often
               half-filled by the time someone goes looking for the rule, and
               leaving the page would lose what they typed. A plain anchor
@@ -355,7 +440,9 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           rows={3}
           required={overCapacity}
           className="input-field w-full"
-          placeholder={overCapacity ? 'Required — explain the emergency for the admin reviewing this overbooked request…' : 'Explain your reasoning for the admin reviewing this request…'}
+          placeholder={isCapture
+            ? (overCapacity ? 'Required — why this overbooked leave is being captured…' : 'Optional — e.g. phoned in sick, certificate received…')
+            : (overCapacity ? 'Required — explain the emergency for the admin reviewing this overbooked request…' : 'Explain your reasoning for the admin reviewing this request…')}
         />
       </div>
 
@@ -365,8 +452,23 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         </p>
       )}
 
-      <button type="submit" disabled={submitting} className="btn-primary">
-        {submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request'}
+      {needsOldDateConfirm && (
+        <label className="flex items-start gap-2 text-xs text-ink">
+          <input
+            type="checkbox"
+            required
+            checked={oldDateConfirmed}
+            onChange={e => setOldDateConfirmed(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>These dates are before the current leave year ({leaveYearStart().slice(0, 4)}). I confirm they are correct.</span>
+        </label>
+      )}
+
+      <button type="submit" disabled={submitting || (isAdmin && !profile)} className="btn-primary">
+        {isCapture
+          ? (submitting ? 'Capturing…' : 'Capture leave')
+          : (submitting ? 'Submitting…' : overCapacity ? 'Submit for admin approval' : 'Submit request')}
       </button>
     </form>
   )

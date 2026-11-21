@@ -19,15 +19,17 @@ import { useAuth } from '../context/AuthContext'
 //   action       a full-width primary button, the only filled button on
 //                the page
 //
-// The action is gated on canSubmitLeave here rather than at each call site,
-// so an admin or clerk reads the same panel without a button they'd be
-// refused at submission. Everything else renders for everyone.
+// The action is gated here rather than at each call site, so a clerk reads
+// the same panel without a button they'd be refused at submission. An admin
+// always gets it: the form it opens lets them capture leave for any doctor,
+// whether or not they can file leave themself. Everything else renders for
+// everyone.
 //
 // Placement is the same on every planner page, overview and month view
 // alike: on a desktop (lg+) it leads the sticky right-hand rail beside the
 // grid (see PANEL_RAIL); below that it sits above the grid, full width.
 export default function PlannerRequestPanel({ eyebrow, aside, stepper, children, headline, capacityBar, actionLabel, onAction, className = '' }) {
-  const { canSubmitLeave } = useAuth()
+  const { canSubmitLeave, isAdmin } = useAuth()
 
   return (
     <div data-testid="planner-request-panel" className={`rounded-xl border border-slate-line bg-gradient-to-br from-accent-tint to-canvas p-3 ${className}`}>
@@ -39,7 +41,7 @@ export default function PlannerRequestPanel({ eyebrow, aside, stepper, children,
       {children}
       {headline}
       {capacityBar && <div className="mt-3">{capacityBar}</div>}
-      {canSubmitLeave && actionLabel && (
+      {(canSubmitLeave || isAdmin) && actionLabel && (
         <button type="button" onClick={onAction} className="btn-primary mt-2 block w-full text-center">
           {actionLabel}
         </button>

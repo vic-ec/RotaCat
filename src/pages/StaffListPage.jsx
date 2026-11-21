@@ -1030,7 +1030,13 @@ export default function StaffListPage() {
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
       {isAdmin && <LocumContactsPanel onLinked={() => loadAll({ silent: true })} />}
-      <div ref={stickyHeaderRef} className="sticky top-0 z-20 bg-canvas pb-3 pt-2 md:pb-4 md:pt-0">
+      {/* -mt-2 cancels the pt-2 at rest, so the tabs start at the same
+          height as every other page's (Rosters, Team Leave) — the padding
+          used to push this page's row 8px lower than theirs. It stays as
+          padding rather than going altogether because the bar is sticky:
+          once stuck to the top of the screen, those 8px are what keep the
+          tab labels off the very edge. */}
+      <div ref={stickyHeaderRef} className="sticky top-0 z-20 -mt-2 bg-canvas pb-3 pt-2 md:mt-0 md:pb-4 md:pt-0">
         {/* Every viewer gets Active Staff / All Staff; the two admin queues
             follow for admins only. */}
         <PageTabs

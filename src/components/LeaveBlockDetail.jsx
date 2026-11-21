@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import Tag from './Tag'
@@ -7,7 +8,7 @@ import SectionLabel from './SectionLabel'
 import LeaveRequestSummary from './LeaveRequestSummary'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import {
-  LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
+  LEAVE_TYPE_LABELS,
   formatDMY, formatDateTime, totalCalendarDays, totalLeaveDays,
 } from '../lib/leaveMatrix'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -74,7 +75,7 @@ export default function LeaveBlockDetail({ request, onClose, showClose, canCance
 
       <div className="mt-4 border-t border-slate-line pt-3">
         <div className="mb-1 flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: LEAVE_GROUP_COLOR[leaveTypeGroupKey(request.leave_type)] }} />
+          <LeaveTypeIcon leaveType={request.leave_type} size="sm" />
           <span className="text-sm font-medium text-ink">{LEAVE_TYPE_LABELS[request.leave_type] || request.leave_type}</span>
           <Tag variant="status" tone={STATUS_TONE[request.status] || 'warning'} className="ml-auto">
             {reviewStatusLabel(request.status)}

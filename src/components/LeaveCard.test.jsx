@@ -33,6 +33,6 @@ describe('LeaveCard', () => {
 
     expect(screen.getByText('Tue 1 Sep')).toBeInTheDocument()
     expect(screen.getByText('1 calendar day')).toBeInTheDocument()
-    expect(container.querySelector('svg')).toBeNull()
+    expect(container.querySelector('svg:not([data-leave-icon] svg)')).toBeNull()
   })
 })

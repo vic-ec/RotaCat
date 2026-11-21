@@ -56,6 +56,11 @@ export function leaveTypeGroupKey(leaveType) {
   return LEAVE_TYPE_TO_GROUP[leaveType] || 'weekend'
 }
 
+// The colour a leave type is drawn in everywhere: its group's.
+export function leaveTypeColor(leaveType) {
+  return LEAVE_GROUP_COLOR[leaveTypeGroupKey(leaveType)]
+}
+
 // "DD-MM-YYYY" from a YYYY-MM-DD date string (moved here from LeaveListView
 // so both views share it).
 export function formatDMY(dateStr) {

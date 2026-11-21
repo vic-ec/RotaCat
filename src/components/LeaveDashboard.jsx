@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
@@ -165,7 +166,7 @@ function OtherLeaveRow({ tracker }) {
   const { leaveType, approvedRequests, pendingRequests } = tracker
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3">
-      <span className="text-sm font-semibold text-ink">{LEAVE_TYPE_LABELS[leaveType] || leaveType}</span>
+      <span className="flex items-center gap-2 text-sm font-semibold text-ink"><LeaveTypeIcon leaveType={leaveType} size="sm" />{LEAVE_TYPE_LABELS[leaveType] || leaveType}</span>
       <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
         <span>{approvedRequests} request{approvedRequests === 1 ? '' : 's'} booked</span>
         <span aria-hidden="true">·</span>

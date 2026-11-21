@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { List, LayoutGrid, Eye, Pencil, BookUp, EllipsisVertical, Plus } from 'lucide-react'
+import { Eye, Pencil, BookUp, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -10,32 +10,9 @@ import Tag from '../components/Tag'
 import { ListRowRecord, ListEmptyState } from '../components/ListRow'
 import CreateRosterModal from '../components/CreateRosterModal'
 import GenerationRunsPanel from '../components/GenerationRunsPanel'
-import ViewToggle from '../components/ViewToggle'
 import FloatingActionMenu from '../components/FloatingActionMenu'
-import PageActionsMenu from '../components/PageActionsMenu'
 import RosterSummaryPage from './RosterSummaryPage'
 import RowActionIcon from '../components/RowActionIcon'
-
-const ROSTER_VIEW_OPTIONS = [
-  { key: 'list', label: 'List', icon: List },
-  { key: 'grid', label: 'Grid', icon: LayoutGrid },
-]
-
-const ROSTER_VIEW_KEY = 'rotacat:rosterView'
-
-// Reuses the exact same status tokens as the small Tag variant="status"
-// pill below (STATUS_TONE/Tag.jsx's STATUS_TONE_CLASS) rather than picking
-// new colors — draft's flagAmber-bg, published's success-bg, archived's
-// canvas-sunken. Verified (real numbers, not eyeballed): text-ink clears
-// 12-13:1 and text-ink-light clears 6.2-6.8:1 against all three at this
-// larger full-card-wash size; text-ink-muted (the usual small-meta-text
-// choice) only clears 4.0-4.3:1 — under 4.5:1 — so the card's meta line
-// uses text-ink-light instead, not the smaller text's usual color.
-const STATUS_CARD_BG = {
-  draft:     'bg-flagAmber-bg',
-  published: 'bg-success-bg',
-  archived:  'bg-canvas-sunken',
-}
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -90,8 +67,8 @@ function daysRemaining(deletedAt) {
 // ListRowRecord's subtitle is a single truncating line (by design, for
 // every other page that uses it) — join a multi-line meta (see
 // publishedMetaFn) into one line rather than changing that shared
-// component's contract for this one case. RosterCard (grid view, fully
-// local to this file) renders the array as two real stacked lines instead.
+// component's contract for this one case. Only a phone's rows use it; the
+// desktop table gives each date a column of its own.
 function metaAsLine(meta) {
   return Array.isArray(meta) ? meta.join(' · ') : meta
 }
@@ -168,17 +145,6 @@ export default function RosterDashboardPage() {
   const [binFilterYear, setBinFilterYear] = useState(new Set())
   const [binSortDir, setBinSortDir] = useState('desc')
   const [showCreateModal, setShowCreateModal] = useState(false)
-  // Shared across Active/Archive/Bin — switching once holds across tabs,
-  // same as Toolbar's own search/sort/filter state being per-tab but this
-  // display-mode choice being page-wide. Persisted so it survives a tab
-  // switch, a page reload, and logout/login. Defaults to 'list' so nothing
-  // changes for anyone until they switch it.
-  const [rosterView, setRosterView] = useState(() => {
-    try { return localStorage.getItem(ROSTER_VIEW_KEY) || 'list' } catch { return 'list' }
-  })
-  useEffect(() => {
-    try { localStorage.setItem(ROSTER_VIEW_KEY, rosterView) } catch { /* ignore */ }
-  }, [rosterView])
 
   useEffect(() => {
     loadRosters()
@@ -393,7 +359,7 @@ export default function RosterDashboardPage() {
       <>
       <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
-      {/* Wider than the app's usual reading column: the List view is a
+      {/* Wider than the app's usual reading column: the list is a
           table on a desktop, and its columns need the room. */}
       <div className="mx-auto mt-4 md:max-w-4xl">
           {actionError && (
@@ -432,7 +398,6 @@ export default function RosterDashboardPage() {
                     filterYear={activeFilterYear} onFilterYearChange={setActiveFilterYear}
                     years={activeYears}
                     sortDir={activeSortDir} onSortDirChange={setActiveSortDir}
-                    view={rosterView} onViewChange={setRosterView}
                     onCreate={isAdmin ? () => setShowCreateModal(true) : undefined}
                   />
                 </div>
@@ -452,7 +417,6 @@ export default function RosterDashboardPage() {
                 ]}
                 actions={[{ label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
-                view={rosterView}
                 isAdmin={isAdmin}
               />
             )}
@@ -469,7 +433,6 @@ export default function RosterDashboardPage() {
               ]}
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
-              view={rosterView}
               isAdmin={isAdmin}
             />
             {(!isAdmin || drafts.length === 0) && published.length === 0 && (
@@ -486,7 +449,6 @@ export default function RosterDashboardPage() {
               filterYear={filterYear} onFilterYearChange={setFilterYear}
               years={years}
               sortDir={archiveSortDir} onSortDirChange={setArchiveSortDir}
-              view={rosterView} onViewChange={setRosterView}
             />
             <RosterSection
               title="Archived"
@@ -501,7 +463,6 @@ export default function RosterDashboardPage() {
               ]}
               actions={[{ label: 'Unarchive', onClick: (ids) => { unarchiveRosters(ids); setArchiveSel(new Set()) } }]}
               emptyText="No archived rosters match these filters."
-              view={rosterView}
               isAdmin={isAdmin}
             />
           </>
@@ -516,7 +477,6 @@ export default function RosterDashboardPage() {
               years={binYears}
               sortDir={binSortDir} onSortDirChange={setBinSortDir}
               sortLabels={{ asc: 'Oldest deleted first', desc: 'Newest deleted first' }}
-              view={rosterView} onViewChange={setRosterView}
             />
             <RosterSection
               title="Bin"
@@ -534,7 +494,6 @@ export default function RosterDashboardPage() {
                 { label: 'Delete permanently', destructive: true, onClick: (ids) => { deletePermanently(ids); setBinSel(new Set()) } },
               ]}
               emptyText={binned.length === 0 ? 'Bin is empty.' : 'No deleted rosters match these filters.'}
-              view={rosterView}
               isAdmin={isAdmin}
             />
           </>
@@ -569,7 +528,6 @@ function RosterToolbar({
   filterMonth, onFilterMonthChange, filterYear, onFilterYearChange, years,
   sortDir, onSortDirChange,
   sortLabels = { asc: 'Oldest first', desc: 'Newest first' },
-  view, onViewChange,
   // Phone only: the Create roster action, nearest the ⊕. The desktop row
   // has its own Create button beside the search.
   onCreate,
@@ -615,14 +573,12 @@ function RosterToolbar({
           sortFacets={sortFacets}
           filterGroups={filterGroups}
           mobileMode="inline"
-          trailing={<ViewToggle view={view} onChange={onViewChange} options={ROSTER_VIEW_OPTIONS} />}
           active={Boolean(search) || filtersActive}
           onClearAll={clearAll}
         />
       </div>
       {/* The Month/Year multi-selects move into the FAB's Filters sheet —
-          the FAB has no inline row left to hang FilterPanel off. List/Grid
-          becomes a single cycling icon (see cycleView). */}
+          the FAB has no inline row left to hang FilterPanel off. */}
       <FloatingActionMenu
         primaryAction={onCreate ? { icon: Plus, label: 'Create roster', onClick: onCreate } : undefined}
         search={{ value: search, onChange: onSearchChange, placeholder: 'Search by month or year…' }}
@@ -632,11 +588,6 @@ function RosterToolbar({
           active: Boolean(search) || filtersActive,
           onClearAll: clearAll,
           sheetTitle: 'Filters',
-        }}
-        cycleView={{
-          value: view,
-          onChange: onViewChange,
-          options: ROSTER_VIEW_OPTIONS.map(o => ({ value: o.key, label: o.label, icon: o.icon })),
         }}
       />
     </>
@@ -672,7 +623,7 @@ function EmptyState({ isAdmin, onCreate }) {
 // stays a per-group inline swap rather than reusing Staff's `SelectAllRow`,
 // which assumes one list per tab, not two.
 //
-// List view is two renderings of the same rows. On a desktop it is a table
+// The list is two renderings of the same rows. On a desktop it is a table
 // (the Staff list's own table styling): roster, status, the section's date
 // columns, and the actions, each in a column of its own so a year of months
 // reads down a line. `columns` supplies the date columns, since what is
@@ -681,10 +632,9 @@ function EmptyState({ isAdmin, onCreate }) {
 // fixed, so the Drafts and Published tables stacked on the Active tab line
 // up column for column. On a phone there is no room for columns, and the
 // rows stay the stacked ListRowRecord they were.
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, view = 'list', isAdmin = false, columns = [] }) {
-  // View / Edit / Publish for one roster — the same three as icon buttons
-  // on a list row (RowActionIcon, on every screen size) and in a card's
-  // kebab.
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, isAdmin = false, columns = [] }) {
+  // View / Edit / Publish for one roster — icon buttons on its row
+  // (RowActionIcon), the same on every screen size.
   function rosterActions(roster) {
     const items = [
       { key: 'view', icon: <Eye className="h-4 w-4" />, label: 'View', onClick: () => navigate(`/roster/${roster.id}`) },
@@ -718,12 +668,10 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
       {/* min-h reserves the bulk-action buttons' height, so ticking a box
           swaps the label row's content without pushing the cards down. */}
       {/* The left inset puts this tick box directly above the ones it
-          governs, which sit differently in each view: List rows are inside a
-          bordered card (1px border + px-4 = 17px); Grid cards have no frame
-          around them, just their own p-3 (12px). gap-3 matches the rows'. */}
-      {/* On a desktop the List view is a table, whose cells pad by px-2.5:
-          1px border + 10px = 11px. */}
-      <div className={`mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 ${view === 'grid' ? 'pl-3' : 'pl-[17px] md:pl-[11px]'}`}>
+          governs. A phone's rows sit inside a bordered card (1px border +
+          px-4 = 17px); the desktop table's cells pad by px-2.5 (1px + 10px
+          = 11px). */}
+      <div className="mb-2 flex min-h-[38px] flex-wrap items-center justify-between gap-2 pl-[17px] md:pl-[11px]">
         <label className="flex items-center gap-3">
           <input
             type="checkbox"
@@ -750,27 +698,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
           </div>
         )}
       </div>
-      {view === 'grid' ? (
-        /* Cards wrap as a grid, but the panel stops at two rows: beyond
-           that it scrolls vertically rather than growing down the page. */
-        <div className="grid max-h-[19.75rem] grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3 overflow-y-auto pr-1 [scrollbar-width:thin]">
-          {rosters.map(roster => (
-            <RosterCard
-              key={roster.id}
-              checked={selected.has(roster.id)}
-              onToggleCheck={() => toggleOne(roster.id)}
-              selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
-              month={MONTH_NAMES[roster.month]}
-              year={roster.year}
-              meta={metaFn(roster)}
-              status={roster.status}
-              onClick={() => navigate(`/roster/${roster.id}`)}
-              menuItems={isAdmin ? rosterActions(roster) : null}
-            />
-          ))}
-        </div>
-      ) : (
-        <>
+      <>
         <div className="card hidden overflow-x-auto md:block">
           <table className="w-full min-w-[720px] table-fixed border-collapse text-xs" aria-label={title}>
             <colgroup>
@@ -866,70 +794,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
             />
           ))}
         </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// Status-tinted card for the grid view — checkbox top-left (bulk-select
-// works identically to list view, same selected/toggleOne wiring from
-// RosterSection above), Month+Year bold and centered in the space above
-// the meta line, meta text (whatever RosterSection's own metaFn produces
-// for this tab — "Created …", "Archived …", "Deleted … auto-deletes …",
-// or Published's own array-of-lines, rendered here as two real stacked
-// lines rather than metaAsLine's joined single line) in small text at the
-// bottom. Sized to MonthCard's own scale (AnnualPlannerOverview.jsx) —
-// same p-3 padding — rather than a forced 1:1 square: MonthCard has no
-// single fixed height either (its own content, a title/summary/day-grid,
-// drives it), so min-h-36 here is a same-scale estimate for this card's
-// checkbox+month/year+meta content, not a literal copy of one pixel
-// value. Worth a live look in case it reads cramped or too tall — nothing
-// here forces it to stay at that height if that turns out wrong.
-function RosterCard({ checked, onToggleCheck, selectLabel, month, year, meta, status, onClick, menuItems }) {
-  const metaLines = Array.isArray(meta) ? meta : [meta]
-  return (
-    <div
-      onClick={onClick}
-      className={`flex min-h-36 cursor-pointer flex-col rounded-lg p-3 transition-colors hover:brightness-95 active:brightness-95 ${STATUS_CARD_BG[status] || STATUS_CARD_BG.archived}`}
-    >
-      <div className="flex items-start justify-between">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onToggleCheck}
-          onClick={e => e.stopPropagation()}
-          aria-label={selectLabel}
-          className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-        />
-        {menuItems && (
-          <div onClick={e => e.stopPropagation()}>
-            <PageActionsMenu
-              title={`${month} ${year}`}
-              items={menuItems}
-              trigger={onOpen => (
-                <button
-                  type="button"
-                  onClick={onOpen}
-                  aria-label={`Actions for ${month} ${year}`}
-                  className="-mr-1.5 -mt-1.5 flex h-7 w-7 items-center justify-center rounded text-ink-muted hover:bg-canvas-sunken hover:text-ink"
-                >
-                  <EllipsisVertical className="h-4 w-4" />
-                </button>
-              )}
-            />
-          </div>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <p className="truncate font-display text-lg font-bold leading-tight text-ink">{month}</p>
-        <p className="font-display text-lg font-bold leading-tight text-ink">{year}</p>
-      </div>
-      <div className="min-w-0">
-        {metaLines.map((line, i) => (
-          <p key={i} className="truncate text-xs text-ink-light" title={line}>{line}</p>
-        ))}
-      </div>
+      </>
     </div>
   )
 }

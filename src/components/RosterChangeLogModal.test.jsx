@@ -14,8 +14,11 @@ vi.mock('../lib/changeLog', async () => {
       ['jenna', { id: 'jenna', name: 'Jenna', surname: 'Smith', role: 'doctor' }],
       ['musa', { id: 'musa', name: 'Musa', surname: 'Omar', role: 'doctor' }],
     ]),
-    fetchAdminOptions: async () => [],
-    fetchDoctorOptions: async () => [],
+    fetchAdminOptions: async () => [{ value: 'admin', label: 'Paul Xafis' }],
+    fetchDoctorOptions: async () => [
+      { value: 'jenna', label: 'Jenna Smith', role: 'doctor' },
+      { value: 'musa', label: 'Musa Omar', role: 'doctor' },
+    ],
   }
 })
 
@@ -54,5 +57,22 @@ describe('RosterChangeLogModal', () => {
     expect(badges[0]).toHaveTextContent('PX')
     await user.click(badges[0])
     expect(screen.getByRole('tooltip')).toHaveTextContent('Paul Xafis')
+  })
+
+  it('one Filter button, Doctor first; ticking two doctors queries changes involving either', async () => {
+    const user = userEvent.setup()
+    render(<RosterChangeLogModal rosterMonthId="m" monthLabel="November 2026" onClose={vi.fn()} />)
+    await screen.findByText('Vacated')
+    expect(screen.queryByRole('button', { name: /^Admin$/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getAllByRole('button', { name: 'Filter' })[0])
+    const sections = screen.getAllByRole('button', { name: /^(Doctor|Admin|Change type|Role)/ })
+    expect(sections.map(b => b.textContent.trim())).toEqual(['Doctor', 'Admin', 'Change type', 'Role'])
+
+    await user.click(sections[0])
+    await user.click(screen.getByRole('checkbox', { name: 'Jenna Smith' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Musa Omar' }))
+    const last = queryRosterChanges.mock.calls.at(-1)[0]
+    expect(last.doctorMatchIds).toEqual(['jenna', 'musa'])
   })
 })

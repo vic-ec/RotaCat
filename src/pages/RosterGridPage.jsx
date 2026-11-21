@@ -65,6 +65,17 @@ function outsidePlannerIds(profiles, plannerEntries) {
   return new Set((profiles || []).filter(p => p.contract_type === 'five_eighths' && !named.has(p.id)).map(p => p.id))
 }
 
+// A shift nobody holds yet: one the scheduler flagged, or a locum
+// placeholder with no name and no account behind it ("[ ]"). The second
+// matters because a roster that didn't come from the scheduler carries no
+// flags at all — its empty placeholders were being counted, and drawn, as
+// if they were filled locum shifts.
+function isUnfilled(entry) {
+  if (entry.is_flagged) return true
+  if (!entry.is_locum || entry.profile_id) return false
+  return !entry.locum_name || /^\[\s*\]$/.test(entry.locum_name.trim())
+}
+
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -705,8 +716,8 @@ export default function RosterGridPage() {
   // which is the order the jump buttons step through them.
   const startOf = entry => Number((shiftTypes[entry.shift_type_id] || '').split('_')[1]) || 0
   const byRosterOrder = (a, b) => a.date.localeCompare(b.date) || startOf(a) - startOf(b)
-  const flaggedEntries = entries.filter(e => e.is_flagged).sort(byRosterOrder)
-  const locumEntries = entries.filter(e => e.is_locum && !e.is_flagged).sort(byRosterOrder)
+  const flaggedEntries = entries.filter(isUnfilled).sort(byRosterOrder)
+  const locumEntries = entries.filter(e => e.is_locum && !isUnfilled(e)).sort(byRosterOrder)
   const totalFlags = flaggedEntries.length
   const totalLocums = locumEntries.length
 
@@ -1266,13 +1277,13 @@ export default function RosterGridPage() {
                   {/* Shift columns */}
                   {shifts.map(({ code, label }, colIdx) => {
                     const cellEntries = entryMap[`${day.dateStr}|${code}`] || []
-                    const flags = cellEntries.filter(e => e.is_flagged)
+                    const flags = cellEntries.filter(isUnfilled)
                     const hasShortfall = flags.length > 0
                     const shortBy = flags.filter(e => e.flag_type !== 'psych_coverage').length
                     const flagTab = shortBy > 0 ? `Short by ${shortBy}` : 'No psych cover'
                     const flagReason = [...new Set(flags.map(e => e.flag_reason).filter(Boolean))].join(' · ') || flagTab
                     const shown = showOnly.size === 0 || cellEntries.some(e =>
-                      (showOnly.has('flagged') && e.is_flagged) || (showOnly.has('locum') && e.is_locum && !e.is_flagged))
+                      (showOnly.has('flagged') && isUnfilled(e)) || (showOnly.has('locum') && e.is_locum && !isUnfilled(e)))
                     const last = colIdx === shifts.length - 1
 
                     return (
@@ -1450,9 +1461,9 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
-  const glowRing = glow ? `ring-2 ring-offset-1 ring-offset-canvas-raised ${entry.is_flagged ? 'ring-flagRed' : 'ring-flagAmber'}` : ''
+  const glowRing = glow ? `ring-2 ring-offset-1 ring-offset-canvas-raised ${isUnfilled(entry) ? 'ring-flagRed' : 'ring-flagAmber'}` : ''
   // The scheduler's "[ ]" for a place it couldn't fill reads as what it is.
-  if (entry.is_flagged && entry.is_locum) {
+  if (entry.is_locum && isUnfilled(entry)) {
     return (
       <div
         data-entry-id={entry.id}

@@ -25,6 +25,8 @@ const ENTRIES = [
   { id: 'e2', date: '2026-08-27', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e3', date: '2026-08-28', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e4', date: '2026-08-03', shift_type_id: st('WD_08'), profile_id: null, consultant_profile_id: 'c1', position: 0 },
+  // An empty placeholder with no flag, as a roster loaded from elsewhere has.
+  { id: 'e7', date: '2026-08-14', shift_type_id: st('WD_08'), profile_id: null, is_locum: true, locum_name: '[ ]', position: 0 },
   // A named locum placeholder, and a scheduler gap it couldn't fill.
   { id: 'e5', date: '2026-08-12', shift_type_id: st('WD_15'), profile_id: null, is_locum: true, locum_name: '[Nel]', position: 0 },
   { id: 'e6', date: '2026-08-13', shift_type_id: st('WD_08'), profile_id: null, is_locum: true, locum_name: '[ ]', is_flagged: true, flag_type: 'psych_coverage', flag_reason: 'No COSMO Psych or EC COSMO available', position: 0 },
@@ -206,7 +208,7 @@ describe('RosterGridPage flagged slots and locum placeholders', () => {
   it('counts flagged slots and locum placeholders separately, as jump buttons in the toolbar', async () => {
     renderPage()
     await screen.findByText('August 2026')
-    expect(screen.getByRole('button', { name: 'Go to next flagged slot (4 in total)' })).toHaveTextContent('4 flagged')
+    expect(screen.getByRole('button', { name: 'Go to next flagged slot (5 in total)' })).toHaveTextContent('5 flagged')
     expect(screen.getByRole('button', { name: 'Go to next locum placeholder (1 in total)' })).toHaveTextContent('1 locum')
     expect(screen.queryByText(/flagged slots?$/)).not.toBeInTheDocument()
   })
@@ -216,11 +218,11 @@ describe('RosterGridPage flagged slots and locum placeholders', () => {
     renderPage()
     await screen.findByText('August 2026')
     await user.click(screen.getByRole('button', { name: /Go to next flagged slot/ }))
-    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 1/4')
+    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 1/5')
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     expect(document.querySelector('[data-entry-id="e6"]').className).toMatch(/ring-flagRed/)
     await user.click(screen.getByRole('button', { name: 'Previous flagged slot' }))
-    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 4/4')
+    expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 5/5')
   })
 
   it('"Show only" in the Filter dims every cell without a match', async () => {
@@ -251,5 +253,22 @@ describe('RosterGridPage month switch', () => {
     await user.click(within(heading).getByRole('button', { name: /next/i }))
     expect(await screen.findByRole('status')).toHaveTextContent('No roster for September 2026 yet.')
     expect(heading).toHaveTextContent('August 2026')
+  })
+})
+
+describe('RosterGridPage unflagged empty placeholders', () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
+    setViewport(true)
+  })
+
+  it('an unnamed locum placeholder with no flag is still shown and counted as unfilled, not as a locum', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    const cell = document.querySelector('[data-entry-id="e7"]').closest('[data-testid="shift-cell"]')
+    expect(cell.className).toMatch(/ring-flagRed/)
+    expect(within(cell).getByText('Unfilled')).toBeInTheDocument()
+    expect(within(cell).getByTestId('flag-tab')).toHaveTextContent('Short by 1')
+    expect(screen.getByRole('button', { name: 'Go to next locum placeholder (1 in total)' })).toBeInTheDocument()
   })
 })

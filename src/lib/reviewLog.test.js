@@ -41,6 +41,20 @@ describe('rosterLogParts', () => {
     expect(rosterLogParts({ ...base, action: 'assign', profile_id_before: 'jenna', profile_id_after: 'musa' }))
       .toEqual({ type: 'replaced', shift: 'Sun 1 Nov · WE 08h-20h', before: 'jenna', after: 'musa' })
   })
+  it('a locum with no account is named from the row, not shown as unassigned', () => {
+    expect(rosterLogParts({ ...base, action: 'assign', locum_name: 'Jo Marsh' }))
+      .toEqual({ type: 'assigned', shift: 'Sun 1 Nov · WE 08h-20h', person: null, personName: 'Jo Marsh' })
+    // Taking over from a doctor: a replacement, and never the doctor who
+    // came off shown as the one assigned.
+    expect(rosterLogParts({ ...base, action: 'assign', profile_id_before: 'jenna', locum_name: 'Jo Marsh' }))
+      .toEqual({ type: 'replaced', shift: 'Sun 1 Nov · WE 08h-20h', before: 'jenna', after: null, afterName: 'Jo Marsh' })
+  })
+  it('carries why a doctor came off the shift, as one phrase', () => {
+    expect(rosterLogParts({ ...base, action: 'assign', profile_id_before: 'jenna', profile_id_after: 'musa', reason: 'leave', note: 'Sick leave' }).reason).toBe('Sick leave')
+    expect(rosterLogParts({ ...base, action: 'unassign', profile_id_before: 'musa', reason: 'no_show', note: 'Did not answer' }).reason).toBe('No-show: Did not answer')
+    expect(rosterLogParts({ ...base, action: 'unassign', profile_id_before: 'musa', reason: 'swap' }).reason).toBe('Swap')
+    expect(rosterLogParts({ ...base, action: 'assign', profile_id_after: 'musa' })).not.toHaveProperty('reason')
+  })
   it('an assign into an empty slot is Assigned', () => {
     expect(rosterLogParts({ ...base, action: 'assign', profile_id_after: 'musa' }).type).toBe('assigned')
   })

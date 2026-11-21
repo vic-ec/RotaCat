@@ -134,10 +134,20 @@ describe('matching on mobile number', () => {
     expect(findByPhone([{ id: 'c', phone: null }], null)).toBeNull()
   })
 
-  it('the invite asks them to register with this mobile number', () => {
-    const text = locumInviteText({ name: 'Jo', signupUrl: 'https://app.example/signup' })
-    expect(text).toContain('Hi Jo')
-    expect(text).toContain('using this mobile number')
-    expect(text).toContain('https://app.example/signup')
+  it('the invite is short, asks them to sign up with this mobile number, and ends on the link', () => {
+    expect(locumInviteText({ name: 'Jo', signupUrl: 'https://app.example/signup' })).toBe(
+      'Hi Jo.\n\n'
+      + "You've been rostered for a shift at Victoria Hospital Emergency Centre. "
+      + 'Please can you create a locum doctor account on our roster scheduling platform, RotaCat. '
+      + 'Use this mobile number when signing up so your shift links to your account.\n\n'
+      + 'Thank you!\n\n'
+      + 'https://app.example/signup'
+    )
+  })
+
+  it('more than one shift is worded in the plural', () => {
+    const text = locumInviteText({ name: 'Jo', signupUrl: 'https://app.example/signup', shiftCount: 3 })
+    expect(text).toContain('rostered for shifts at')
+    expect(text).toContain('so your shifts link to your account')
   })
 })

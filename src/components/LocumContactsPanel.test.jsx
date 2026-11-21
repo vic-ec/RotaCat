@@ -42,13 +42,17 @@ describe('LocumContactsPanel', () => {
     expect(screen.getByText('3 shifts')).toBeInTheDocument()
     const invite = screen.getByRole('link', { name: 'Invite on WhatsApp' })
     expect(invite.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/27821234567\?text=/)
-    expect(decodeURIComponent(invite.getAttribute('href'))).toContain('/signup')
+    const text = decodeURIComponent(invite.getAttribute('href').split('?text=')[1])
+    expect(text).toContain('Hi Jo.')
+    // Three shifts under this contact, so the message says so.
+    expect(text).toContain("You've been rostered for shifts at Victoria Hospital Emergency Centre.")
+    expect(text.endsWith('/signup')).toBe(true)
   })
 
-  it('Create account opens Add staff prefilled as a locum', async () => {
+  it('"Finish creating [name]\'s account" opens Add staff prefilled as a locum', async () => {
     const user = userEvent.setup()
     render(<LocumContactsPanel />)
-    await user.click(await screen.findByRole('button', { name: 'Create account' }))
+    await user.click(await screen.findByRole('button', { name: 'Finish creating Jo’s account' }))
     expect(screen.getByText('AddStaffStub: Jo locum')).toBeInTheDocument()
   })
 
@@ -69,7 +73,7 @@ describe('LocumContactsPanel', () => {
     render(<LocumContactsPanel />)
     await screen.findByText('Jo Marsh')
     expect(screen.queryByTestId('contact-match')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Link to account' }))
+    await user.click(screen.getByRole('button', { name: 'Link to an existing account' }))
     expect(screen.getByRole('button', { name: 'Move 3 shifts' })).toBeDisabled()
     await user.click(screen.getByText('Choose their locum account…'))
     await user.click(await screen.findByText('Marsh-Lee, Jo'))

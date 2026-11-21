@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter } from 'lucide-react'
@@ -68,7 +69,7 @@ function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, che
               has to weigh, not a routine request. */}
           {request.over_capacity && <Tag variant="status" tone="danger">Overbooked</Tag>}
         </div>
-        <p className="mt-0.5 truncate text-xs text-ink-muted">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</p>
+        <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-muted"><LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" /><span className="truncate">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</span></p>
       </div>
       {/* The app's standard row button — a rounded square with just the
           icon on a phone, icon + words from md — the same recipe as the

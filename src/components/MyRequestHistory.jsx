@@ -1,3 +1,4 @@
+import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -134,7 +135,7 @@ function RequestRow({ request: lr, onCancel }) {
             same leave-period wording Team leave rows and the approval
             queue's summary already use, and it keeps the year visible,
             which this history (unlike the upcoming-only lists) spans. */}
-        <p className="text-ink">{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
+        <p className="flex items-center gap-2 text-ink"><LeaveTypeIcon leaveType={lr.leave_type} size="sm" />{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
         {line && <p className="text-xs text-ink-muted">{line}</p>}
       </div>

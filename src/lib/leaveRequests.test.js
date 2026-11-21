@@ -405,3 +405,33 @@ describe('sameCapacityPool', () => {
     expect(sameCapacityPool('MO', 'OT_Intern')).toBe(false)
   })
 })
+
+describe('leave type codes', () => {
+  it('gives every leave type a code', async () => {
+    const { LEAVE_TYPE_OPTIONS, leaveTypeCode } = await import('./leaveRequests')
+    for (const o of LEAVE_TYPE_OPTIONS) expect(leaveTypeCode(o.value), o.value).toMatch(/^[A-Z]{2,3}$/)
+  })
+
+  it('never uses the ambiguous S or SL, and keeps sick, study and special apart', async () => {
+    const { LEAVE_TYPE_CODES } = await import('./leaveRequests')
+    const codes = Object.values(LEAVE_TYPE_CODES)
+    expect(codes).not.toContain('S')
+    expect(codes).not.toContain('SL')
+    expect(LEAVE_TYPE_CODES).toMatchObject({ sick: 'SK', study: 'ST', special_leave: 'SP', annual: 'AL', injury_on_duty: 'IOD' })
+  })
+
+  it('shares a code only between workshop, course and conference', async () => {
+    const { LEAVE_TYPE_CODES } = await import('./leaveRequests')
+    const byCode = {}
+    for (const [type, code] of Object.entries(LEAVE_TYPE_CODES)) (byCode[code] ||= []).push(type)
+    const shared = Object.entries(byCode).filter(([, types]) => types.length > 1)
+    expect(shared).toEqual([['CW', ['workshop', 'course', 'conference']]])
+  })
+
+  it('labels a type with its code, and leaves an unknown type alone', async () => {
+    const { leaveTypeLabelWithCode, leaveTypeCode } = await import('./leaveRequests')
+    expect(leaveTypeLabelWithCode('sick')).toBe('Sick leave (SK)')
+    expect(leaveTypeLabelWithCode('not_a_type')).toBe('not_a_type')
+    expect(leaveTypeCode('not_a_type')).toBe('')
+  })
+})

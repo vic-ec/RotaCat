@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import RosterLanesView from './RosterLanesView'
 import { startForCode, bandForCode, SHIFT_START } from '../lib/shiftBands'
@@ -343,5 +343,25 @@ describe('RosterLanesView — a short week padded to seven columns', () => {
     renderLanes({ days: SHORT_WEEK, padToWeek: true })
     const heading = screen.getAllByRole('columnheader').find(th => th.getAttribute('scope') === 'colgroup')
     expect(heading).toHaveAttribute('colspan', '8')
+  })
+})
+
+describe('RosterLanesView today', () => {
+  it("marks today's day header as the current date, boxed in the ink colour", () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(`${DAYS[1].dateStr}T09:00:00`))
+    renderLanes()
+    const heads = document.querySelectorAll('th[aria-current="date"]')
+    expect(heads).toHaveLength(1)
+    expect(heads[0].style.boxShadow).toContain('--color-ink')
+    vi.useRealTimers()
+  })
+
+  it('draws no box when today is not in the days shown', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2030-01-15T09:00:00'))
+    renderLanes()
+    expect(document.querySelector('th[aria-current="date"]')).toBeNull()
+    vi.useRealTimers()
   })
 })

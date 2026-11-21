@@ -4,6 +4,7 @@ import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
+import { todayStr } from '../lib/dateRange'
 import PublicHolidayBadge from './PublicHolidayBadge'
 
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -106,6 +107,41 @@ function useNameColumnWidth(probeRef, longestName, base, scale) {
   return measured
 }
 
+// Today's column, boxed top to bottom like the current-month box on the
+// Rotations and Team Leave planners. Two pieces, so the box stays whole
+// while both the header and the name column are pinned: the sticky day
+// header draws its own top and sides (it scrolls with nothing), and an
+// overlay inside the scroll box draws the sides and bottom down the full
+// height of the table. The overlay sits above the day cells (z-5) but
+// under the pinned name column (z-10) and header (z-20), so it slides
+// beneath them like the cells do. In the ink colour, so it reads on both
+// the light and the night theme.
+const TODAY_EDGE = 'rgb(var(--color-ink))'
+const TODAY_HEAD_SHADOW = `inset 2px 0 0 ${TODAY_EDGE}, inset -2px 0 0 ${TODAY_EDGE}, inset 0 2px 0 ${TODAY_EDGE}`
+const TODAY_BODY_SHADOW = `inset 2px 0 0 ${TODAY_EDGE}, inset -2px 0 0 ${TODAY_EDGE}, inset 0 -2px 0 ${TODAY_EDGE}`
+
+function useTodayBox(scrollRef, todayHeadRef, deps) {
+  const [box, setBox] = useState(null)
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    const head = todayHeadRef.current
+    const table = scroller?.querySelector('table')
+    if (!scroller || !head || !table) { setBox(null); return undefined }
+    function measure() {
+      const s = scroller.getBoundingClientRect()
+      const h = head.getBoundingClientRect()
+      if (h.width <= 0) { setBox(null); return }
+      setBox({ left: h.left - s.left + scroller.scrollLeft, width: h.width, height: table.offsetHeight })
+    }
+    measure()
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(table)
+    return () => observer?.disconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-measure whenever the grid's shape changes
+  }, deps)
+  return box
+}
+
 function categoryRank(category) {
   const i = CATEGORY_ORDER.indexOf(category)
   return i === -1 ? CATEGORY_ORDER.length : i
@@ -160,6 +196,10 @@ export default function RosterLanesView({
     return name.length > longest.length ? name : longest
   }, '')
   const measuredNameCol = useNameColumnWidth(nameProbeRef, longestName, base, scale)
+  const today = todayStr()
+  const scrollRef = useRef(null)
+  const todayHeadRef = useRef(null)
+  const todayBox = useTodayBox(scrollRef, todayHeadRef, [days, profiles.length, base, padToWeek, measuredNameCol])
 
   // date -> profileId -> the shift code they hold that day. A doctor works
   // at most one shift a day (findSameDayConflict enforces it), so this is a
@@ -229,9 +269,18 @@ export default function RosterLanesView({
        whatever else is on screen. Capped and scrolling inside its own box is
        what the app's other wide grids already do. */
     <div
-      className="max-h-[70vh] overflow-auto rounded-lg border border-slate-line"
+      ref={scrollRef}
+      className="relative max-h-[70vh] overflow-auto rounded-lg border border-slate-line"
       style={{ fontSize: `${base}px` }}
     >
+      {todayBox && (
+        <div
+          aria-hidden="true"
+          data-testid="today-box"
+          className="pointer-events-none absolute top-0 z-[5]"
+          style={{ left: todayBox.left, width: todayBox.width, height: todayBox.height, boxShadow: TODAY_BODY_SHADOW }}
+        />
+      )}
       {/* The off-screen copy the name column is sized from. Zero-sized and
           overflow-hidden so it can never widen the scroll box it sits in —
           clipping hides the paint, the span inside still lays out at its
@@ -303,10 +352,14 @@ export default function RosterLanesView({
                   <span className="block text-[0.75em] font-normal">{DAY_INITIALS[dayOfWeek(day.dateStr)]}</span>
                 </>
               )
+              const isToday = day.dateStr === today
               return (
                 <th
                   key={key}
+                  ref={isToday ? todayHeadRef : undefined}
                   scope="col"
+                  aria-current={isToday ? 'date' : undefined}
+                  style={isToday ? { boxShadow: TODAY_HEAD_SHADOW } : undefined}
                   className={`sticky top-0 z-20 border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
                     off ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head text-ink-muted'
                   }`}

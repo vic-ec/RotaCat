@@ -357,6 +357,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
           value={leaveType}
           onChange={v => { setLeaveType(v); setDateFrom(''); setDateTo(''); setAnnualLeaveDays('') }}
           options={LEAVE_TYPE_OPTIONS}
+          showCodes
         />
       </div>
 

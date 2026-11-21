@@ -4,7 +4,7 @@ import { ArrowUpDown, CalendarClock, CalendarCheck, CalendarX2, LayoutGrid, Tabl
 import RowActionIcon from './RowActionIcon'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, leaveTypeLabelWithCode } from '../lib/leaveRequests'
 import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
 import CancelLeaveModal from './CancelLeaveModal'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, columnForLeaveCategory, labelForLeaveCategory } from '../lib/leaveYearGrid'
@@ -371,7 +371,7 @@ export default function LeaveListView() {
                     {lr.profiles?.name} {lr.profiles?.surname}
                   </td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{categoryLabel(lr)}</td>
-                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{LEAVE_TYPE_LABELS[lr.leave_type] || lr.leave_type}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{leaveTypeLabelWithCode(lr.leave_type)}</td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{formatDMY(lr.date_from)}</td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{formatDMY(lr.date_to)}</td>
                   <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{totalCalendarDays(lr)}</td>

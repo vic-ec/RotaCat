@@ -1,41 +1,50 @@
 import { useEffect, useState } from 'react'
 import {
   fetchProfilesById, fetchAdminOptions, fetchDoctorOptions,
-  nameMapFromProfiles, queryRosterChanges, rosterChangeDetail, ROSTER_ACTION_OPTIONS, ROLE_FILTER_OPTIONS,
+  queryRosterChanges, ROSTER_ACTION_OPTIONS, ROLE_FILTER_OPTIONS,
 } from '../lib/changeLog'
+import { adminInitialsMap, rosterLogParts, ROSTER_TYPES } from '../lib/reviewLog'
+import ReviewLogList, { Joiner, OffName } from './ReviewLogList'
 import DateFieldButton from './DateFieldButton'
 import ChangeLogFilterMenu from './ChangeLogFilterMenu'
 import { changeLogFilterFacets } from './changeLogFilterFacets'
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
-import DetailInfoButton from './DetailInfoButton'
 import LocumBadge from './LocumBadge'
 
 const EMPTY_FILTERS = { dateFrom: '', dateTo: '', adminId: '', doctorId: '', action: '', role: '' }
 
-function formatTimestampParts(iso) {
-  const d = new Date(iso)
-  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return { date, time }
+function Person({ id, profilesById }) {
+  const person = id ? profilesById.get(id) : null
+  if (!person) return <span className="text-ink-muted">{id ? 'Unknown' : '(unassigned)'}</span>
+  return <span className="text-ink">{person.name} {person.surname}{person.role === 'locum' && <LocumBadge />}</span>
 }
 
-function DoctorCell({ change, profilesById }) {
-  const before = change.profile_id_before ? profilesById.get(change.profile_id_before) : null
-  const after = change.profile_id_after ? profilesById.get(change.profile_id_after) : null
-
-  if (before && after && before.id !== after.id) {
-    return (
-      <span>
-        {before.name} {before.surname}{before.role === 'locum' && <LocumBadge />}
-        {' → '}
-        {after.name} {after.surname}{after.role === 'locum' && <LocumBadge />}
-      </span>
-    )
-  }
-  const person = after || before
-  if (!person) return <span className="text-ink-muted">—</span>
-  return <span>{person.name} {person.surname}{person.role === 'locum' && <LocumBadge />}</span>
+// The Change column: the shift on line 1, the people on line 2. For a
+// replacement the first name is the doctor taken off and the second the
+// one put on ("Jenna Smith with Musa Omar") — read with the Replaced chip
+// in front, it says exactly what happened, which an arrow didn't.
+function RosterChange({ parts, profilesById }) {
+  const { type, shift, moveFrom } = parts
+  return (
+    <>
+      <p className="font-semibold text-ink">
+        {moveFrom ? <>{moveFrom}<Joiner>to</Joiner>{shift}</> : shift}
+      </p>
+      <p className="mt-0.5">
+        {type === 'replaced' && (
+          <><Person id={parts.before} profilesById={profilesById} /><Joiner>with</Joiner><Person id={parts.after} profilesById={profilesById} /></>
+        )}
+        {(type === 'vacated' || type === 'removed') && (
+          <OffName><Person id={parts.person} profilesById={profilesById} /></OffName>
+        )}
+        {(type === 'assigned' || type === 'moved') && <Person id={parts.person} profilesById={profilesById} />}
+        {parts.advertised && (
+          <span className="ml-1.5 whitespace-nowrap rounded border border-dashed border-slate-line px-1.5 text-xs text-ink-light">Opened for locum cover</span>
+        )}
+      </p>
+    </>
+  )
 }
 
 // Searchable, filterable audit trail for one roster_month_id — every manual
@@ -82,7 +91,6 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   }
 
   const filtersActive = Object.values(filters).some(Boolean) || Boolean(q)
-  const nameById = nameMapFromProfiles(profilesById)
 
   function fullName(id) {
     const p = profilesById.get(id)
@@ -92,6 +100,19 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   const visibleChanges = searchTerm
     ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id_before)} ${fullName(c.profile_id_after)}`.toLowerCase().includes(searchTerm))
     : changes
+
+  const adminShort = adminInitialsMap(profilesById, visibleChanges.map(c => c.changed_by))
+  const logItems = visibleChanges.map(c => {
+    const parts = rosterLogParts(c)
+    return {
+      id: c.id,
+      at: c.changed_at,
+      type: parts.type,
+      typeLabel: ROSTER_TYPES[parts.type],
+      admin: { short: adminShort.get(c.changed_by) ?? '?', fullName: fullName(c.changed_by) || 'Unknown' },
+      change: <RosterChange parts={parts} profilesById={profilesById} />,
+    }
+  })
 
   const filterFacets = changeLogFilterFacets({
     adminOptions,
@@ -189,41 +210,8 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
           </p>
         )}
         {!loading && !error && visibleChanges.length > 0 && (
-          <div className="mt-4 flex-1 overflow-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-canvas-raised text-xs uppercase text-ink-muted">
-                <tr>
-                  <th className="whitespace-nowrap py-2 pr-4">Date</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Time</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Admin</th>
-                  <th className="py-2 pr-4">Doctor</th>
-                  <th className="whitespace-nowrap py-2 pr-4">Type</th>
-                  <th className="py-2">Details</th>
-                </tr>
-              </thead>
-              <tbody className="text-ink-light">
-                {visibleChanges.map(c => {
-                  const { date, time } = formatTimestampParts(c.changed_at)
-                  const admin = profilesById.get(c.changed_by)
-                  const detail = rosterChangeDetail(c, nameById)
-                  return (
-                    <tr key={c.id} className="border-t border-slate-line">
-                      <td className="whitespace-nowrap py-2 pr-4 align-top">{date}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top text-ink-muted">{time}</td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top">{admin ? `${admin.name} ${admin.surname}` : 'Unknown'}</td>
-                      <td className="max-w-[10rem] py-2 pr-4 align-top"><DoctorCell change={c} profilesById={profilesById} /></td>
-                      <td className="whitespace-nowrap py-2 pr-4 align-top capitalize">{c.action}</td>
-                      <td className="max-w-[12rem] py-2 align-top">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="min-w-0 flex-1 truncate text-ink-muted">{detail}</span>
-                          <DetailInfoButton text={detail} />
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <div className="mt-4 flex-1 overflow-auto pb-16 md:pb-0">
+            <ReviewLogList items={logItems} />
           </div>
         )}
       </div>

@@ -98,8 +98,10 @@ export const ROLE_FILTER_OPTIONS = [
 
 export const ROSTER_ACTION_OPTIONS = [
   { value: '', label: 'All change types' },
-  { value: 'assign', label: 'Assigned' },
-  { value: 'unassign', label: 'Unassigned' },
+  // A replacement is stored as an 'assign' over someone else, so the one
+  // filter value covers both of the log's Assigned and Replaced types.
+  { value: 'assign', label: 'Assigned or replaced' },
+  { value: 'unassign', label: 'Vacated' },
   { value: 'remove', label: 'Removed' },
   { value: 'move', label: 'Moved' },
 ]

@@ -20,6 +20,7 @@
 // word comes back ('sm' by default; 'lg' for a row that is still crowded on
 // a tablet).
 const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline' }
+const SHORT_UNTIL = { sm: 'sm:hidden', lg: 'lg:hidden' }
 
 export default function ViewToggle({ view, onChange, options, tight = false, labelFrom = 'sm' }) {
   return (
@@ -41,8 +42,11 @@ export default function ViewToggle({ view, onChange, options, tight = false, lab
                 that letter instead of its icon — two calendar glyphs side by
                 side are indistinguishable at this size, two letters aren't. */}
             {Icon && <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${o.shortLabel ? 'hidden sm:block' : ''}`} />}
-            {o.shortLabel && <span className="sm:hidden" aria-hidden="true">{o.shortLabel}</span>}
-            <span className={Icon ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
+            {/* Without an icon, a `shortLabel` stands in for the word itself
+                until `labelFrom` (the roster's "M"/"W" become "Month"/"Week"
+                from lg). */}
+            {o.shortLabel && <span className={Icon ? 'sm:hidden' : SHORT_UNTIL[labelFrom]} aria-hidden="true">{o.shortLabel}</span>}
+            <span className={Icon || o.shortLabel ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
           </button>
         )
       })}

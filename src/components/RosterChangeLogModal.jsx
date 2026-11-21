@@ -13,8 +13,13 @@ import FloatingActionMenu from './FloatingActionMenu'
 import LocumBadge from './LocumBadge'
 
 
-function Person({ id, profilesById }) {
+// `name`: someone with no profile to look up — a locum put on the roster by
+// name and mobile only.
+function Person({ id, profilesById, name = null }) {
   const person = id ? profilesById.get(id) : null
+  if (!person && name) {
+    return <span className="text-ink">{name}<LocumBadge /><span className="ml-1 text-xs text-ink-muted">no account</span></span>
+  }
   if (!person) return <span className="text-ink-muted">{id ? 'Unknown' : '(unassigned)'}</span>
   return <span className="text-ink">{person.name} {person.surname}{person.role === 'locum' && <LocumBadge />}</span>
 }
@@ -32,16 +37,17 @@ function RosterChange({ parts, profilesById }) {
       </p>
       <p className="mt-0.5">
         {type === 'replaced' && (
-          <><Person id={parts.before} profilesById={profilesById} /><Joiner>with</Joiner><Person id={parts.after} profilesById={profilesById} /></>
+          <><Person id={parts.before} profilesById={profilesById} /><Joiner>with</Joiner><Person id={parts.after} name={parts.afterName} profilesById={profilesById} /></>
         )}
         {(type === 'vacated' || type === 'removed') && (
           <OffName><Person id={parts.person} profilesById={profilesById} /></OffName>
         )}
-        {(type === 'assigned' || type === 'moved') && <Person id={parts.person} profilesById={profilesById} />}
+        {(type === 'assigned' || type === 'moved') && <Person id={parts.person} name={parts.personName} profilesById={profilesById} />}
         {parts.advertised && (
           <span className="ml-1.5 whitespace-nowrap rounded border border-dashed border-slate-line px-1.5 text-xs text-ink-light">Opened for locum cover</span>
         )}
       </p>
+      {parts.reason && <p className="mt-0.5 text-xs text-ink-light">Reason: {parts.reason}</p>}
     </>
   )
 }
@@ -100,7 +106,7 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   }
   const searchTerm = q.trim().toLowerCase()
   const visibleChanges = searchTerm
-    ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id_before)} ${fullName(c.profile_id_after)}`.toLowerCase().includes(searchTerm))
+    ? changes.filter(c => `${fullName(c.changed_by)} ${fullName(c.profile_id_before)} ${fullName(c.profile_id_after)} ${c.locum_name || ''}`.toLowerCase().includes(searchTerm))
     : changes
 
   const adminShort = adminInitialsMap(profilesById, visibleChanges.map(c => c.changed_by))

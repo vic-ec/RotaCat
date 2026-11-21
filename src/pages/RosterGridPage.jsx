@@ -501,7 +501,7 @@ export default function RosterGridPage() {
       profileIdBefore: priorEntry?.profile_id ?? null,
       profileIdAfter: coverProfileId(cover),
       changedBy: user.id,
-      ...(cover.kind === 'contact' ? { note: `locum ${cover.name} (no account yet)` } : {}),
+      locumName: cover.kind === 'contact' ? cover.name : null,
     })
     await refreshEntries()
     if (cover.kind === 'contact') refreshLocums()

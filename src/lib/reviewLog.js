@@ -69,8 +69,13 @@ export function adminInitialsMap(profilesById, adminIds) {
 
 // ── Roster log ──────────────────────────────────────────────────────────
 // One roster_entry_changes row → { type, shift, moveFrom, before, after,
-// advertised }. `type` names what actually happened rather than echoing
-// the stored action: an 'assign' over someone else is a replacement.
+// advertised, afterName, personName, reason }. `type` names what actually
+// happened rather than echoing the stored action: an 'assign' over someone
+// else is a replacement.
+//
+// afterName / personName: a locum put on the shift who has no account, and
+// so no profile id to look a name up by (roster_entry_changes.locum_name).
+// reason: why a doctor came off a published shift, as one short phrase.
 export const ROSTER_TYPES = {
   assigned: 'Assigned',
   replaced: 'Replaced',
@@ -79,11 +84,33 @@ export const ROSTER_TYPES = {
   moved: 'Moved',
 }
 
+const REASON_LABELS = { leave: 'Leave', swap: 'Swap', no_show: 'No-show', other: 'Other' }
+
+// "Sick leave", "No-show: did not answer", "Swap". The note carries the
+// detail: for leave it is the leave type, since `reason` only says 'leave'.
+export function rosterReasonLabel(change) {
+  if (!change.reason) return null
+  const label = REASON_LABELS[change.reason] || change.reason
+  const note = (change.note || '').trim()
+  if (!note) return label
+  return change.reason === 'leave' || change.reason === 'other' ? note : `${label}: ${note}`
+}
+
 export function rosterLogParts(change) {
+  return withReason(rosterLogCore(change), change)
+}
+
+function withReason(parts, change) {
+  const reason = rosterReasonLabel(change)
+  return reason ? { ...parts, reason } : parts
+}
+
+function rosterLogCore(change) {
   const contextYear = new Date(change.changed_at).getFullYear()
   const shift = `${shortDate(change.entry_date, contextYear)} · ${labelForShiftCode(change.shift_code)}`
   const before = change.profile_id_before || null
   const after = change.profile_id_after || null
+  const afterName = !after && change.locum_name ? change.locum_name : null
 
   if (change.action === 'move') {
     return {
@@ -96,6 +123,13 @@ export function rosterLogParts(change) {
   if (change.action === 'remove') return { type: 'removed', shift, person: before }
   if (change.action === 'unassign') return { type: 'vacated', shift, person: before, advertised: Boolean(change.advertised) }
   if (before && after && before !== after) return { type: 'replaced', shift, before, after }
+  // A locum with no account taking over, or filling an empty slot: named
+  // from the row, never mistaken for the doctor who came off.
+  if (afterName) {
+    return before
+      ? { type: 'replaced', shift, before, after: null, afterName }
+      : { type: 'assigned', shift, person: null, personName: afterName }
+  }
   return { type: 'assigned', shift, person: after ?? before }
 }
 

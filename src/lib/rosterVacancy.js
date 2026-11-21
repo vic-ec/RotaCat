@@ -119,12 +119,10 @@ export async function resolveVacancy({
     reason: storedReason,
     // The log is admin-only, so it can name the leave type the roster row
     // does not.
-    note: [
-      isLeave ? (existingLeaveId ? 'Leave already on record' : leaveLabel) : trimmedNote,
-      // A locum with no account has no profile to log against, so the log
-      // names them here instead.
-      cover === 'replace' && taker.kind === 'contact' ? `covered by locum ${taker.name} (no account yet)` : '',
-    ].filter(Boolean).join('; ') || null,
+    note: (isLeave ? (existingLeaveId ? 'Leave already on record' : leaveLabel) : trimmedNote) || null,
+    // A locum with no account has no profile to log against, so the log
+    // carries their name.
+    locumName: cover === 'replace' && taker.kind === 'contact' ? taker.name : null,
     leaveRequestId,
   })
 

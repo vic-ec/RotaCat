@@ -73,9 +73,9 @@ function MonthCells({ doctorRotations, year, showCurrentMonthHalo, heightClassNa
         title={key ? `${MONTH_ABBR[i]}: ${rotationTypeLabel(key)}` : `${MONTH_ABBR[i]}: no rotation`}
         className={`flex flex-1 items-center justify-center rounded text-[11px] font-semibold ${heightClassName} ${
           key ? (isCurrent ? '' : 'text-white') : 'bg-canvas-sunken'
-        } ${isCurrent ? 'ring-2 ring-inset ring-accent' : ''}`}
+        } ${isCurrent ? 'border-2 border-accent' : ''}`}
         style={{
-          backgroundColor: key ? (isCurrent ? lightenHex(ROTATION_TYPE_COLOR[key], 0.35) : ROTATION_TYPE_COLOR[key]) : undefined,
+          backgroundColor: key ? (isCurrent ? lightenHex(ROTATION_TYPE_COLOR[key], 0.5) : ROTATION_TYPE_COLOR[key]) : undefined,
           color: key && isCurrent ? '#1F2937' : undefined,
         }}
       >

@@ -188,4 +188,13 @@ describe('RotationStatusTable — completed', () => {
     await user.click(screen.getByTitle('Sipho Dlamini').closest('[aria-selected]'))
     expect(screen.getByRole('button', { name: 'View account' })).toBeInTheDocument()
   })
+
+  it('Edit rotation is available without reactivating', async () => {
+    const user = userEvent.setup()
+    const handlers = renderCompleted()
+    await user.click(screen.getByTitle('Sipho Dlamini').closest('[aria-selected]'))
+    await user.click(screen.getByRole('button', { name: 'Edit rotation' }))
+    expect(handlers.onEditRotation).toHaveBeenCalledWith('int-1')
+    expect(handlers.onReactivate).not.toHaveBeenCalled()
+  })
 })

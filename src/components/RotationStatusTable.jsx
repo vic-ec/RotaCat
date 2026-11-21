@@ -127,7 +127,7 @@ function lastRotationEndYear(doctorRotations) {
 //                 displayed year (whoever's last rotation ended in it); a
 //                 doctor with no rotation rows at all can't be year-scoped,
 //                 so they sit in their own trailing section every year.
-//                 Actions: Reactivate, View account.
+//                 Actions: Reactivate, Edit rotation, View account.
 export default function RotationStatusTable({
   variant, doctors, rotations, displayNames, year, onYearChange,
   onUpdateDate, onActivateNow, onReactivate, onEditRotation,
@@ -337,6 +337,12 @@ export default function RotationStatusTable({
           <div className="mt-3 space-y-2">
             <button type="button" disabled={saving} onClick={() => openDate(today)} className="btn-primary w-full disabled:opacity-50">
               Reactivate
+            </button>
+            {/* Opens the Active tab's own rotation editor on this doctor,
+                without reactivating them — for back-filling or correcting
+                rotation history on someone who stays inactive. */}
+            <button type="button" disabled={saving} onClick={() => onEditRotation(selectedDoctor.id)} className="btn-secondary w-full disabled:opacity-50">
+              Edit rotation
             </button>
             <button type="button" onClick={() => navigate(`/account/${selectedDoctor.id}`)} className="btn-secondary w-full">
               View account

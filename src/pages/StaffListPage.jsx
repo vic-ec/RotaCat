@@ -328,6 +328,26 @@ export default function StaffListPage() {
   const [statusConfirmSaving, setStatusConfirmSaving] = useState(false)
   const [emailById, setEmailById] = useState({})
   const [leaveProfileIds, setLeaveProfileIds] = useState(new Set())
+  // profile id -> [dateFrom, dateTo] of the approved leave covering today,
+  // for the dates under "On leave" in the details sheet. Read straight
+  // from leave_requests, so (like the RPC above) it holds only what this
+  // viewer's own access lets them see; a miss just shows no dates.
+  const [leaveDatesById, setLeaveDatesById] = useState({})
+  useEffect(() => {
+    let live = true
+    const today = todayStr()
+    Promise.resolve()
+      .then(() => supabase.from('leave_requests').select('profile_id, date_from, date_to')
+        .eq('status', 'approved').lte('date_from', today).gte('date_to', today))
+      .then(res => {
+        if (!live || !Array.isArray(res?.data)) return
+        const map = {}
+        for (const r of res.data) map[r.profile_id] = [r.date_from.slice(0, 10), r.date_to.slice(0, 10)]
+        setLeaveDatesById(map)
+      })
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
   // profile id -> the date a doctor's rotation timeline runs out, for
   // "Active until" on anyone without an explicit scheduled_inactive_date.
   const [rotationEndById, setRotationEndById] = useState({})
@@ -1924,6 +1944,9 @@ export default function StaffListPage() {
                 </div>
                 <div className="flex flex-shrink-0 flex-col items-end gap-1">
                   <span className={`text-sm font-medium ${statusColor}`}>{statusLabel}</span>
+                  {person.is_active && onLeave && leaveDatesById[person.id] && (
+                    <span className="whitespace-nowrap text-xs text-ink-muted">{formatShortDateRange(...leaveDatesById[person.id])}</span>
+                  )}
                   {isAdmin && person.must_change_password && (
                     <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
                       <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />

@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList, TriangleAlert } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -26,6 +26,7 @@ import RosterAbsenceNote from '../components/RosterAbsenceNote'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import RosterJumpButton from '../components/RosterJumpButton'
+import Modal from '../components/Modal'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -185,11 +186,16 @@ export default function RosterGridPage() {
   // Shown under the title when the month switch lands on a month with no
   // roster this viewer can open; cleared by the next successful switch.
   const [noRosterNote, setNoRosterNote] = useState('')
+  const [showPlannerNotice, setShowPlannerNotice] = useState(false)
+  // Set by Week view's stepper when it rolls back into the previous month:
+  // that roster should open on its last week, which isn't known until it
+  // has loaded.
+  const openOnLastWeek = useRef(false)
 
   // The title's month switch. Looks the month's roster up (RLS decides
   // which ones this viewer may see — a doctor only gets published ones)
   // and opens it in place; a month without one says so and stays put.
-  async function goToRosterMonth(year, month) {
+  async function goToRosterMonth(year, month, week = 'first') {
     const { data } = await supabase.from('roster_months').select('id').eq('year', year).eq('month', month)
     const target = (data || [])[0]
     if (!target) {
@@ -199,6 +205,7 @@ export default function RosterGridPage() {
     setNoRosterNote('')
     setJump(null)
     setCurrentWeek(0)
+    openOnLastWeek.current = week === 'last'
     navigate(`/roster/${target.id}${editing ? '?mode=edit' : ''}`)
   }
 
@@ -392,6 +399,12 @@ export default function RosterGridPage() {
   const calendarDays = rosterMonth ? buildCalendarDays(rosterMonth.year, rosterMonth.month, publicHolidays) : []
   const weeks = buildWeeks(calendarDays)
   const visibleDays = viewMode === 'week' ? (weeks[currentWeek] || []) : calendarDays
+  const weekCount = weeks.length
+  useEffect(() => {
+    if (!openOnLastWeek.current || weekCount === 0) return
+    openOnLastWeek.current = false
+    setCurrentWeek(weekCount - 1)
+  }, [rosterMonth?.id, weekCount])
 
   // Group entries by date + shift code for fast lookup
   const entryMap = buildEntryMap(entries, shiftTypes)
@@ -783,6 +796,50 @@ export default function RosterGridPage() {
     ...dangerItems,
   ]
   const midMenuItems = rosterMenuItems.slice(2)
+  // The phone's ⋮ leads with the two view switches the bar has no room
+  // for there: how much of the month, and which way round it is drawn.
+  const phoneMenuItems = [
+    {
+      key: 'range', icon: <CalendarRange className="h-4 w-4" />, label: 'Show',
+      value: viewMode, options: [{ key: 'month', label: 'Whole month' }, { key: 'week', label: 'One week' }],
+      onSelect: setViewMode,
+    },
+    {
+      key: 'layout', icon: <Rows3 className="h-4 w-4" />, label: 'Layout',
+      value: layout, options: ROSTER_LAYOUTS.map(o => ({ key: o.key, label: o.label })),
+      onSelect: setLayout,
+    },
+    ...rosterMenuItems,
+  ]
+
+  const statusLabel = rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)
+  const statusPillTone = rosterMonth.status === 'published'
+    ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
+    : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
+
+  // Week view's stepper. Inside the month it moves a week; off either end
+  // it opens the neighbouring month's roster, at its first or last week.
+  function stepWeek(delta) {
+    const next = currentWeek + delta
+    if (next >= 0 && next < weeks.length) { setCurrentWeek(next); return }
+    const d = new Date(rosterMonth.year, rosterMonth.month - 1 + delta, 1)
+    goToRosterMonth(d.getFullYear(), d.getMonth() + 1, delta < 0 ? 'last' : 'first')
+  }
+
+  // The planner notice, folded to a chip: amber, pulsing a few times when
+  // it first appears so it isn't missed, and opening the full message.
+  const plannerChip = plannerDrift.length > 0 && !dismissedDrift && (
+    <button
+      type="button"
+      onClick={() => setShowPlannerNotice(true)}
+      aria-label={plannerChangedSince ? 'Weekend Planner updated — view' : 'Draft differs from the Weekend Planner — view'}
+      title={plannerChangedSince ? 'Weekend Planner updated' : 'Draft differs from the Weekend Planner'}
+      className="inline-flex h-[30px] flex-shrink-0 animate-[pulse_1.2s_ease-in-out_3] items-center gap-1.5 rounded-lg border border-flagAmber/50 bg-flagAmber-bg px-2 text-xs font-semibold text-flagAmber-text"
+    >
+      <RefreshCw className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+      <span className="hidden 2xl:inline">{plannerChangedSince ? 'Planner updated' : 'Differs from planner'}</span>
+    </button>
+  )
 
   const weekView = viewMode === 'week'
   const showOnlyOptions = [
@@ -807,7 +864,7 @@ export default function RosterGridPage() {
   ].filter(Boolean)
 
   const jumpButtons = (totalFlags > 0 || totalLocums > 0) && (
-    <div className="order-last flex w-full items-center gap-2 2xl:order-none 2xl:w-auto">
+    <div className="flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
       {totalFlags > 0 && (
         <RosterJumpButton kind="flagged" count={totalFlags} position={jump?.kind === 'flagged' ? jump.index : null} onStep={dir => jumpTo('flagged', dir)} />
       )}
@@ -846,44 +903,6 @@ export default function RosterGridPage() {
 
   return (
     <div className="mx-auto max-w-full">
-      {/* Header — back link, then the title line, then status.
-          On a phone the back-link line also carries the view switches +
-          kebab (the desktop toolbar row below is hidden there), leaving the
-          title room for Publish beside it. Only Publish ever sits beside
-          the title. Nothing wraps or moves as the window narrows. Undo Publish is never here: next to
-          the title it was too easy to hit by mistake, so it lives in the
-          kebab on both breakpoints. */}
-      <div className="mb-4">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <button
-            onClick={() => navigate('/roster')}
-            className="flex items-center gap-1.5 rounded px-2 py-1.5 -ml-2 text-sm text-ink-muted hover:text-ink"
-          >
-            <ChevronLeftIcon className="h-4 w-4" /> Rosters
-          </button>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          {/* The title is the month switch: ‹ › step a month, the label
-              opens the month/year jump — straight to that month's roster
-              without a trip back to the Rosters list. */}
-          <h1 className="min-w-0 text-ink [&_.font-display]:text-xl">
-            <DateStepper unit="month" year={rosterMonth.year} month={rosterMonth.month} onChange={goToRosterMonth} showToday={false} />
-          </h1>
-        </div>
-        {noRosterNote && (
-          <p role="status" className="mt-1 text-sm text-ink-muted">{noRosterNote}</p>
-        )}
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            rosterMonth.status === 'published'
-              ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
-              : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
-          }`}>
-            {rosterMonth.status.charAt(0).toUpperCase() + rosterMonth.status.slice(1)}
-          </span>
-        </div>
-      </div>
-
       {/* Edit / Publish float at the bottom-right so they stay in reach
           however far the grid has been scrolled. On a phone they fold into
           the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
@@ -925,68 +944,40 @@ export default function RosterGridPage() {
         </div>
       )}
 
-      {/* Weekend Planner drift warning (§2.6) — the planner changed after
-          this draft was generated. A compact inline alert: a subdued
-          amber-on-white surface (not a filled amber block) with one
-          primary decision (Regenerate roster, the only filled button) and
-          "View changes" as an equally-shaped secondary button opening the
-          full per-weekend breakdown in a modal. Dismiss is a low-emphasis
-          × in the corner rather than competing visually with resolving the
-          stale draft. "Don't show this message again" lives inside the
-          View changes modal, not beside the primary action. */}
-      {plannerDrift.length > 0 && !dismissedDrift && (
-        <div className="relative mb-4 rounded-lg border border-flagAmber/40 bg-canvas-raised p-4 shadow-card">
-          <button
-            onClick={() => setDismissedDrift(true)}
-            aria-label="Dismiss"
-            className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:bg-canvas-sunken hover:text-ink"
-          >
-            ×
-          </button>
-          <div className="flex items-start gap-2 pr-6">
-            <WarningIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-flagAmber" />
-            <div>
-              {/* Two different facts, two different messages. Only a planner
-                  edit made after generation is "updated"; otherwise the draft
-                  simply doesn't match the plan (the scheduling engine can't
-                  always honour it, and drafts get hand-edited), and saying
-                  the planner changed would be untrue. */}
-              {plannerChangedSince ? (
-                <>
-                  <p className="text-sm font-semibold text-ink">Weekend Planner updated</p>
-                  <p className="mt-0.5 text-sm text-ink-light">
-                    Changed since this draft was generated — regenerate to apply the latest plan.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold text-ink">Draft differs from the Weekend Planner</p>
-                  <p className="mt-0.5 text-sm text-ink-light">
-                    {plannerDrift.length} weekend{plannerDrift.length === 1 ? '' : 's'} in this draft {plannerDrift.length === 1 ? "doesn't" : "don't"} match the plan. The planner hasn&apos;t changed since this draft was generated.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
-            {/* Regenerate only when there is a newer plan to apply — against
-                an unchanged plan it would just run the same inputs again. */}
+      {/* Weekend Planner notice (§2.6) — the planner and this draft
+          disagree. It used to be a block above the grid; it is now the
+          amber chip in the bar (plannerChip), and this is what the chip
+          opens. Two different facts, two different messages: only a
+          planner edit made after generation is "updated"; otherwise the
+          draft simply doesn't match the plan (the engine can't always
+          honour it, and drafts get hand-edited). Regenerate is offered
+          only when there is a newer plan to apply. */}
+      {showPlannerNotice && plannerDrift.length > 0 && (
+        <Modal
+          title={plannerChangedSince ? 'Weekend Planner updated' : 'Draft differs from the Weekend Planner'}
+          onClose={() => setShowPlannerNotice(false)}
+          centered
+          maxWidthClassName="md:max-w-md"
+        >
+          <p className="text-sm text-ink-light">
+            {plannerChangedSince
+              ? 'Changed since this draft was generated — regenerate to apply the latest plan.'
+              : `${plannerDrift.length} weekend${plannerDrift.length === 1 ? '' : 's'} in this draft ${plannerDrift.length === 1 ? "doesn't" : "don't"} match the plan. The planner hasn't changed since this draft was generated.`}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {isAdmin && plannerChangedSince && (
-              <button
-                onClick={() => navigate('/roster/generate')}
-                className="btn-primary text-sm"
-              >
+              <button onClick={() => navigate('/roster/generate')} className="btn-primary text-sm">
                 Regenerate roster
               </button>
             )}
             <button
-              onClick={() => setShowDriftDetails(true)}
+              onClick={() => { setShowPlannerNotice(false); setShowDriftDetails(true) }}
               className="btn-secondary text-sm"
             >
               {plannerChangedSince ? 'View changes' : 'View differences'}
             </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {showDriftDetails && (
@@ -1007,51 +998,58 @@ export default function RosterGridPage() {
         />
       )}
 
-      {/* One toolbar row, the same order at every width, in three zones:
-          When (Month/Week + the week stepper) · Find (search + Filter) ·
-          View and more (Rows/Lanes, Aa, Hours, Log, ⋮). Nothing changes
-          zone as the window narrows — controls shorten, then the least-used
-          fold away: Hours and Log into ⋮ below xl, Aa into ⋮ and Find into
-          the quick-actions ⊕ below md. ⋮ is always last. The title area
-          above carries no controls on any screen. */}
-      {/* Floats: sticks to the top of the window (clear of an iPhone's
-          notch) while the grid scrolls under it, so search,
-          Filter and the jump buttons are always in reach. The jump buttons
-          sit on the row from 2xl and wrap onto a line of their own below
-          it. z above the Lanes grid's own sticky header (z-30), below
-          menus, sheets and modals (z-40+). */}
-      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:top-3">
-        <div className="flex flex-shrink-0 items-center gap-2">
-          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight labelFrom="lg" />
-          {/* Stays in place, greyed out, in month view — so switching
-              M ↔ W moves nothing on the row. */}
-          <div className={weekView ? '' : 'pointer-events-none opacity-40'} aria-disabled={!weekView}>
+      {/* One floating bar holds the whole header — there is no title block
+          above it. In order: ← back to Rosters, the month switch (which is
+          also the page's heading, and in Week view steps weeks, rolling
+          into the neighbouring month's roster at either end), the status
+          pill, then Month/Week, Find (search + Filter), the flagged /
+          locum jump chips, the planner chip, Rows/Lanes, Aa, Hours, Log, ⋮.
+          On a phone only ← · month · chips · ⋮ stay on the row: Month/Week
+          and Rows/Lanes move into ⋮, Find into the ⊕, and the status shows
+          as a dot on ⋮. Sticks to the top of the window (clear of an
+          iPhone's notch) while the grid scrolls under it; z above the
+          Lanes grid's own sticky header (z-30), below menus, sheets and
+          modals (z-40+). */}
+      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:top-3 lg:flex-nowrap">
+        <button
+          type="button"
+          onClick={() => navigate('/roster')}
+          aria-label="Back to Rosters"
+          title="Rosters"
+          className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+
+        <h1 className="min-w-0 flex-1 md:flex-none">
+          {weekView ? (
             <StepperShell
-              label={weekView ? (
+              centered
+              label={(
                 <>
-                  <span className="-mx-1 text-sm sm:mx-0 sm:text-base xl:hidden">Wk {currentWeek + 1}/{weeks.length}</span>
-                  <span className="hidden xl:inline">Week {currentWeek + 1} of {weeks.length}</span>
-                </>
-              ) : (
-                <>
-                  <span className="-mx-1 text-sm sm:mx-0 sm:text-base xl:hidden">Month</span>
-                  <span className="hidden xl:inline">Whole month</span>
+                  <span className="sm:hidden">Wk {currentWeek + 1}/{weeks.length} · {MONTH_NAMES[rosterMonth.month].slice(0, 3)}</span>
+                  <span className="hidden sm:inline">Week {currentWeek + 1} of {weeks.length} · {MONTH_NAMES[rosterMonth.month]} {rosterMonth.year}</span>
                 </>
               )}
-              onPrev={() => setCurrentWeek(w => Math.max(0, w - 1))}
-              onNext={() => setCurrentWeek(w => Math.min(weeks.length - 1, w + 1))}
+              onPrev={() => stepWeek(-1)}
+              onNext={() => stepWeek(1)}
               prevLabel="Previous week"
               nextLabel="Next week"
-              canGoPrev={weekView && currentWeek > 0}
-              canGoNext={weekView && currentWeek < weeks.length - 1}
             />
-          </div>
+          ) : (
+            <DateStepper unit="month" year={rosterMonth.year} month={rosterMonth.month} onChange={goToRosterMonth} showToday={false} centered compactBelowSm />
+          )}
+        </h1>
+
+        <span className={`hidden rounded-full px-2 py-0.5 text-xs font-medium md:inline ${statusPillTone}`}>
+          {statusLabel}
+        </span>
+
+        <div className="hidden md:block">
+          <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
         </div>
 
-        <div className="hidden h-5 w-px flex-shrink-0 bg-slate-line md:block" aria-hidden="true" />
-
-        {/* Find — on the row from md; in the ⊕ below it, where the View zone's
-            ml-auto keeps it against the right edge. */}
+        {/* Find — on the row from md; in the ⊕ below it. */}
         <div className="hidden min-w-0 flex-1 md:block">
           <div>
             <Toolbar
@@ -1069,9 +1067,12 @@ export default function RosterGridPage() {
         </div>
 
         {jumpButtons}
+        {plannerChip}
 
-        <div className="ml-auto flex flex-shrink-0 items-center gap-2">
-          <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="lg" />
+        <div className="flex flex-shrink-0 items-center gap-2 md:ml-auto">
+          <div className="hidden md:block">
+            <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="2xl" />
+          </div>
 
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
@@ -1088,8 +1089,6 @@ export default function RosterGridPage() {
           </span>
           </div>
 
-          <div className="hidden h-5 w-px bg-slate-line xl:block" aria-hidden="true" />
-
           {/* Hours Summary — every role except locum (matches Roster Hours
               Summary's own visibility rule). */}
           {!isLocum && (
@@ -1097,7 +1096,7 @@ export default function RosterGridPage() {
               onClick={goToHoursSummary}
               aria-label="Hours Summary"
               title="Hours Summary"
-              className="hidden btn-secondary text-sm xl:inline-flex"
+              className="hidden btn-secondary text-sm 2xl:inline-flex"
             >
               <ClipboardClock className="h-4 w-4" />
               <span>Hours</span>
@@ -1109,7 +1108,7 @@ export default function RosterGridPage() {
               onClick={() => setShowChangeLog(true)}
               aria-label="Review log"
               title="Review log"
-              className="hidden btn-secondary text-sm xl:inline-flex"
+              className="hidden btn-secondary text-sm 2xl:inline-flex"
             >
               <ScrollText className="h-4 w-4" />
               <span>Log</span>
@@ -1117,12 +1116,21 @@ export default function RosterGridPage() {
           )}
 
           {/* ⋮ — always last, holding whatever isn't on the row at this
-              width. Renders nothing when it would be empty. */}
-          <div className="md:hidden"><PageActionsMenu items={rosterMenuItems} trigger={kebabTrigger} /></div>
-          <div className="hidden md:block xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
-          <div className="hidden xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
+              width. On a phone it also wears the status as a dot (amber
+              for a draft), since the pill has no room there. */}
+          <div className="relative md:hidden">
+            <PageActionsMenu items={phoneMenuItems} trigger={kebabTrigger} />
+            {rosterMonth.status === 'draft' && (
+              <span title="Draft" aria-label="Draft" className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-canvas-raised bg-flagAmber" />
+            )}
+          </div>
+          <div className="hidden md:block 2xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
+          <div className="hidden 2xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
         </div>
       </div>
+      {noRosterNote && (
+        <p role="status" className="-mt-1 mb-3 text-sm text-ink-muted">{noRosterNote}</p>
+      )}
 
       {layout === 'lanes' ? (
         <>
@@ -1678,17 +1686,3 @@ function buildEntryMap(entries, shiftTypes) {
   return map
 }
 
-function WarningIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A2 2 0 004.18 21h15.64a2 2 0 001.87-2.96L13.71 3.86a2 2 0 00-3.42 0z" />
-    </svg>
-  )
-}
-function ChevronLeftIcon(props) {
-  return (
-    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-    </svg>
-  )
-}

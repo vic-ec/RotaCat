@@ -41,6 +41,10 @@ export default function LeaveBlockDetail({ request, onClose, showClose, canCance
   const annualLeaveDays = request.leave_type === 'annual' && request.annual_leave_days != null ? request.annual_leave_days : null
   const reviewerName = request.reviewer ? `${request.reviewer.name || ''} ${request.reviewer.surname || ''}`.trim() : null
   const cancellerName = request.canceller ? `${request.canceller.name || ''} ${request.canceller.surname || ''}`.trim() : null
+  // Filed by an admin on the doctor's behalf (see submitLeaveRequest's
+  // capturedBy) — stays on record whatever happens to the row afterwards.
+  const capturedOnBehalf = Boolean(request.submitted_by) && request.submitted_by !== request.profile_id
+  const submitterName = request.submitter ? `${request.submitter.name || ''} ${request.submitter.surname || ''}`.trim() : null
   const cancelledBySelf = request.cancelled_by && request.cancelled_by === request.profile_id
   const showCancelAction = canCancel && CANCELLABLE_STATUSES.includes(request.status)
   const calDays = totalCalendarDays(request)
@@ -81,6 +85,7 @@ export default function LeaveBlockDetail({ request, onClose, showClose, canCance
         <DetailLine label="Calendar days">{calDays}</DetailLine>
         <DetailLine label="Leave days">{leaveDays}</DetailLine>
         <DetailLine label="Submitted">{formatDateTime(request.created_at) || '—'}</DetailLine>
+        {capturedOnBehalf && <DetailLine label="Captured by">{submitterName || 'an admin'}, on the doctor&rsquo;s behalf</DetailLine>}
 
         {request.status === 'approved' && (
           <>

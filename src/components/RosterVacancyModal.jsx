@@ -1,150 +1,240 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import DoctorDropdown from './DoctorDropdown'
-import { findSameDayConflict } from '../lib/rosterVacancy'
+import NewLocumModal from './NewLocumModal'
+import SelectMenu from './SelectMenu'
+import DateFieldButton from './DateFieldButton'
+import {
+  findSameDayConflict, resolveVacancy, VACANCY_REASON_OPTIONS, VACANCY_LEAVE_TYPE_OPTIONS,
+} from '../lib/rosterVacancy'
+import { leaveRangeOn } from '../lib/approvedLeave'
+import { isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
+import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
+import { formatShortDateRange } from '../lib/dateRange'
 import { labelForShiftCode } from '../lib/shiftLabels'
-import { logRosterEntryChange } from '../lib/changeLog'
 
 function applyEntryPatch(entries, entryId, patch) {
   return entries.map(e => (e.id === entryId ? { ...e, ...patch } : e))
 }
 
-const VACATE_PATCH = {
-  profile_id: null,
-  is_locum: false,
-  locum_name: null,
-  is_manual_override: false,
-  is_flagged: false,
-  flag_type: null,
-  flag_reason: null,
-}
+const COVER_OPTIONS = [
+  { value: 'replace', label: 'Replace with a doctor or locum' },
+  { value: 'advertise', label: 'Open & advertise' },
+  { value: 'open', label: "Open, don't advertise" },
+]
 
 // One step of the recursive removal/reassignment workflow for a single
 // vacancy on a PUBLISHED roster (see RosterVacancyManager for the stack that
 // drives the recursion). `vacancy` = { entryId, date, shiftCode,
-// currentProfileId }. `entries` is the manager's current working copy of
-// the roster month's entries, used only for the same-day conflict check —
-// this component doesn't own or refetch that list.
-export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, onResolved, onClose }) {
+// currentProfileId, suggestedReason? }. `entries` is the manager's current
+// working copy of the roster month's entries, used only for the same-day
+// conflict check — this component doesn't own or refetch that list.
+//
+// One form, one Save: WHY the doctor is coming off the shift (and, when the
+// reason is leave, the leave itself), and WHAT happens to the shift. The
+// writes all happen in resolveVacancy, so a half-finished state — leave on
+// record but the doctor still rostered, or the reverse — isn't something an
+// admin can leave behind by closing the dialog between steps.
+export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile = {}, locums = [], contacts = [], onResolved, onClose }) {
   const { user } = useAuth()
-  const [step, setStep] = useState('choose') // 'choose' | 'swap'
+  const [reason, setReason] = useState(vacancy.suggestedReason || '')
+  const [otherLeaveType, setOtherLeaveType] = useState('family_responsibility')
+  const [dateFrom, setDateFrom] = useState(vacancy.date)
+  const [dateTo, setDateTo] = useState(vacancy.date)
+  const [note, setNote] = useState('')
+  const [cover, setCover] = useState('')
+  // Who takes the shift over: a cover object (see lib/locumCover.js).
+  const [replacement, setReplacement] = useState(null)
+  const replacementId = replacement?.kind === 'doctor' ? replacement.id : null
+  const [picking, setPicking] = useState(false)
+  const [addingLocum, setAddingLocum] = useState(false)
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const doctor = profiles.find(p => p.id === vacancy.currentProfileId)
+  const doctorName = doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'
+  const replacementDoctor = profiles.find(p => p.id === replacementId)
+  const replacementName = replacement
+    ? (replacement.kind === 'doctor' ? (replacementDoctor ? `${replacementDoctor.name} ${replacementDoctor.surname}` : 'Doctor') : `${replacement.name} (locum)`)
+    : null
+  const isLeave = reason === 'sick' || reason === 'leave'
+  const leaveType = reason === 'sick' ? 'sick' : otherLeaveType
+  // Leave already on record over this shift's date (captured from Team
+  // Leave, say): it is linked as it stands, not filed a second time.
+  const existingLeave = leaveRangeOn(leaveByProfile, vacancy.currentProfileId, vacancy.date)
 
-  async function handleOpenAdvertise() {
+  // Nobody who is themself on leave that day; the doctor coming off the
+  // shift is never their own replacement.
+  const candidates = profiles.filter(p =>
+    p.id !== vacancy.currentProfileId
+    && !isOnApprovedLeave({ leaveByProfile, profileId: p.id, date: vacancy.date }))
+  // A locum already on another shift that day is simply not offered: unlike
+  // a rostered doctor, there is no second shift of theirs to re-home.
+  const freeLocums = locums.filter(l => l.is_active !== false
+    && !findSameDayConflict({ entries, date: vacancy.date, profileId: l.id, excludeEntryId: vacancy.entryId }))
+
+  async function handleSave(e) {
+    e.preventDefault()
     setSaving(true)
     setError('')
-    const { error: updateErr } = await supabase.from('roster_entries').update(VACATE_PATCH).eq('id', vacancy.entryId)
-    if (updateErr) { setError(updateErr.message); setSaving(false); return }
-
-    const { error: adErr } = await supabase.from('shift_advertisements').insert({
-      roster_entry_id: vacancy.entryId,
-      advertised_by: user.id,
-      status: 'open',
-    })
-    if (adErr) { setError(adErr.message); setSaving(false); return }
-
-    await logRosterEntryChange({
-      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
-      action: 'unassign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: null,
-      advertised: true, changedBy: user.id,
-    })
-    onResolved(null, applyEntryPatch(entries, vacancy.entryId, VACATE_PATCH))
-  }
-
-  async function handleOpenNoAdvertise() {
-    setSaving(true)
-    setError('')
-    const { error: updateErr } = await supabase.from('roster_entries').update(VACATE_PATCH).eq('id', vacancy.entryId)
-    if (updateErr) { setError(updateErr.message); setSaving(false); return }
-
-    await logRosterEntryChange({
-      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
-      action: 'unassign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: null,
-      advertised: false, changedBy: user.id,
-    })
-    onResolved(null, applyEntryPatch(entries, vacancy.entryId, VACATE_PATCH))
-  }
-
-  async function handleSwapSelect(newProfileId) {
-    setSaving(true)
-    setError('')
-    const patch = { profile_id: newProfileId, is_locum: false, locum_name: null, is_manual_override: true, is_flagged: false, flag_type: null, flag_reason: null }
-    const { error: updateErr } = await supabase.from('roster_entries').update(patch).eq('id', vacancy.entryId)
-    if (updateErr) { setError(updateErr.message); setSaving(false); return }
-
-    await logRosterEntryChange({
-      rosterMonthId, rosterEntryId: vacancy.entryId, entryDate: vacancy.date, shiftCode: vacancy.shiftCode,
-      action: 'assign', profileIdBefore: vacancy.currentProfileId, profileIdAfter: newProfileId,
-      changedBy: user.id,
-    })
-
-    const updatedEntries = applyEntryPatch(entries, vacancy.entryId, patch)
-    const conflict = findSameDayConflict({
-      entries: updatedEntries,
-      date: vacancy.date,
-      profileId: newProfileId,
-      excludeEntryId: vacancy.entryId,
-    })
-
-    if (conflict) {
-      onResolved({
-        entryId: conflict.id,
-        date: conflict.date,
-        shiftCode: shiftTypes[conflict.shift_type_id] || 'UNKNOWN',
-        currentProfileId: newProfileId,
-      }, updatedEntries)
-    } else {
-      onResolved(null, updatedEntries)
+    try {
+      const { patch } = await resolveVacancy({
+        rosterMonthId, vacancy, reason, leaveType, dateFrom, dateTo, note, cover, replacement,
+        existingLeaveId: isLeave && existingLeave ? (existingLeave[3] || null) : null,
+        adminId: user.id,
+      })
+      const updatedEntries = applyEntryPatch(entries, vacancy.entryId, patch)
+      // A replacement who already holds another shift that day leaves THAT
+      // shift needing the same decision — hand it back as the next vacancy.
+      const conflict = cover === 'replace' && replacementId
+        ? findSameDayConflict({ entries: updatedEntries, date: vacancy.date, profileId: replacementId, excludeEntryId: vacancy.entryId })
+        : null
+      if (conflict) {
+        onResolved({
+          entryId: conflict.id,
+          date: conflict.date,
+          shiftCode: shiftTypes[conflict.shift_type_id] || 'UNKNOWN',
+          currentProfileId: replacementId,
+          suggestedReason: 'swap',
+        }, updatedEntries, { leaveChanged: isLeave })
+      } else {
+        onResolved(null, updatedEntries, { leaveChanged: isLeave })
+      }
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
     }
   }
 
-  if (step === 'swap') {
+  if (addingLocum) {
+    return (
+      <NewLocumModal
+        adminId={user.id}
+        onDone={cover_ => { setReplacement(cover_); setCover('replace'); setAddingLocum(false) }}
+        onClose={() => setAddingLocum(false)}
+      />
+    )
+  }
+
+  if (picking) {
     return (
       <DoctorDropdown
-        profiles={profiles.filter(p => p.id !== vacancy.currentProfileId)}
+        profiles={candidates}
         displayNames={displayNames}
         search={search}
         onSearchChange={setSearch}
-        onSelect={handleSwapSelect}
+        onSelect={id => { setReplacement({ kind: 'doctor', id }); setCover('replace'); setPicking(false) }}
+        locums={freeLocums}
+        contacts={contacts}
+        onSelectCover={cover_ => { setReplacement(cover_); setCover('replace'); setPicking(false) }}
+        onNewLocum={() => { setPicking(false); setAddingLocum(true) }}
         onRemove={null}
-        onClose={onClose}
+        onClose={() => setPicking(false)}
         date={vacancy.date}
         shiftCode={labelForShiftCode(vacancy.shiftCode)}
       />
     )
   }
 
+  const canSave = Boolean(reason) && Boolean(cover) && (cover !== 'replace' || Boolean(replacement))
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={onClose}>
-      <div className="card w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
-        <p className="text-sm font-medium text-ink">
-          {doctor ? `${doctor.name} ${doctor.surname}` : 'This doctor'} is on a published shift — {labelForShiftCode(vacancy.shiftCode)} on {vacancy.date}
-        </p>
-        <p className="mt-1 text-xs text-ink-muted">This roster is published — what should happen to this shift?</p>
-
-        {error && <p className="mt-2 text-xs text-flagRed">{error}</p>}
-
-        <div className="mt-4 space-y-2">
-          <button onClick={handleOpenAdvertise} disabled={saving} className="btn-primary w-full">
-            Open & advertise
-          </button>
-          <button onClick={handleOpenNoAdvertise} disabled={saving} className="btn-secondary w-full">
-            Open, don&apos;t advertise
-          </button>
-          <button onClick={() => setStep('swap')} disabled={saving} className="btn-secondary w-full">
-            Swap with another doctor
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center scrim px-4" onClick={saving ? undefined : onClose}>
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-label="Replace or open shift"
+        onSubmit={handleSave}
+        className="card max-h-[90vh] w-full max-w-sm space-y-4 overflow-y-auto p-5"
+        onClick={e => e.stopPropagation()}
+      >
+        <div>
+          <p className="text-sm font-medium text-ink">
+            {doctorName} — {labelForShiftCode(vacancy.shiftCode)} on {vacancy.date}
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">
+            This roster is published. Say why {doctor ? doctor.name : 'this doctor'} is coming off the shift and what happens to it.
+          </p>
         </div>
 
-        <button onClick={onClose} disabled={saving} className="btn-ghost mt-3 w-full text-xs">
-          Cancel
-        </button>
-      </div>
+        <div>
+          <label htmlFor="vacancy-reason" className="label-text">Reason</label>
+          <SelectMenu id="vacancy-reason" value={reason} onChange={setReason} options={VACANCY_REASON_OPTIONS} placeholder="Choose a reason…" />
+        </div>
+
+        {isLeave && existingLeave && (
+          <p className="rounded-lg bg-canvas-sunken p-3 text-xs text-ink-light" data-testid="existing-leave-note">
+            {doctorName} already has approved {existingLeave[2] ? (LEAVE_TYPE_LABELS[existingLeave[2]] || 'leave').toLowerCase() : 'leave'} for{' '}
+            {formatShortDateRange(existingLeave[0], existingLeave[1])}. This shift is linked to it; no new leave is captured.
+          </p>
+        )}
+
+        {isLeave && !existingLeave && (
+          <>
+            {reason === 'leave' && (
+              <div>
+                <label htmlFor="vacancy-leave-type" className="label-text">Leave type</label>
+                <SelectMenu id="vacancy-leave-type" value={otherLeaveType} onChange={setOtherLeaveType} options={VACANCY_LEAVE_TYPE_OPTIONS} />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <DateFieldButton id="vacancy-leave-from" label="Leave from" required fullWidth max={vacancy.date} value={dateFrom} onChange={setDateFrom} />
+              <DateFieldButton id="vacancy-leave-to" label="Leave to" required fullWidth min={vacancy.date} value={dateTo} onChange={setDateTo} />
+            </div>
+            <p className="-mt-2 text-xs text-ink-muted">
+              Captured for {doctorName} and approved straight away. Extend the dates if they are off for longer than this shift.
+            </p>
+          </>
+        )}
+
+        <div>
+          <label htmlFor="vacancy-note" className="label-text">
+            Note{reason === 'other' ? ' (required)' : ''}
+          </label>
+          <textarea
+            id="vacancy-note"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={2}
+            required={reason === 'other'}
+            className="input-field w-full"
+            placeholder={isLeave ? 'Optional — saved with the leave…' : 'Optional — admins only…'}
+          />
+        </div>
+
+        <fieldset>
+          <legend className="label-text">The shift</legend>
+          <div className="mt-1 space-y-2">
+            {COVER_OPTIONS.map(opt => (
+              <label key={opt.value} className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="radio"
+                  name="vacancy-cover"
+                  value={opt.value}
+                  checked={cover === opt.value}
+                  onChange={() => { setCover(opt.value); if (opt.value === 'replace' && !replacement) setPicking(true) }}
+                />
+                <span>{opt.label}</span>
+                {opt.value === 'replace' && replacement && (
+                  <button type="button" onClick={() => setPicking(true)} className="ml-auto truncate text-xs font-medium text-accent underline hover:text-accent-dark">
+                    {replacementName} · change
+                  </button>
+                )}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {error && <p className="text-xs text-flagRed" role="alert">{error}</p>}
+
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} disabled={saving} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" disabled={saving || !canSave} className="btn-primary flex-1">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

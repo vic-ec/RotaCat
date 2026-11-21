@@ -5,6 +5,8 @@
 import { supabase } from './supabase'
 import { monthBounds, datesInRange } from './dateRange'
 import { annualDaysInRange } from './leaveDashboard'
+import { fetchApprovedLeaveByProfile } from './approvedLeave'
+import { isEntryOnLeave } from './rosterVacancy'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
 // set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
@@ -78,7 +80,7 @@ export async function fetchRosterSummary({ month, year }) {
   const rosterMonthIds = (rosterMonthsRes.data || []).map(r => r.id)
   const entriesRes = rosterMonthIds.length > 0
     ? await supabase.from('roster_entries')
-        .select('profile_id, is_locum, counts_toward_contract_hours, extra_hours, shift_types(code, duration_hours, day_type, is_night_shift, counts_as_we_night)')
+        .select('profile_id, date, is_locum, counts_toward_contract_hours, extra_hours, shift_types(code, duration_hours, day_type, is_night_shift, counts_as_we_night)')
         .in('roster_month_id', rosterMonthIds)
         .not('profile_id', 'is', null)
     : { data: [], error: null }
@@ -87,10 +89,15 @@ export async function fetchRosterSummary({ month, year }) {
   const rows = (profilesRes.data || []).map(emptyRow)
   const rowByProfileId = Object.fromEntries(rows.map(r => [r.profileId, r]))
 
+  // A shift a doctor still holds but was on approved leave for is not a
+  // shift they worked: it adds no hours and no shift, night or PH count.
+  const leaveByProfile = await fetchApprovedLeaveByProfile(monthStart, monthEnd)
+
   for (const entry of entriesRes.data || []) {
     const row = rowByProfileId[entry.profile_id]
     const st = entry.shift_types
     if (!row || !st) continue
+    if (isEntryOnLeave(entry, leaveByProfile)) continue
     const hours = Number(st.duration_hours || 0) + Number(entry.extra_hours || 0)
 
     if (!entry.counts_toward_contract_hours) {

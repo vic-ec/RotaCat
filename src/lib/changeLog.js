@@ -16,6 +16,10 @@ export async function logRosterEntryChange({
   profileIdBefore = null, profileIdAfter = null,
   dateBefore = null, shiftCodeBefore = null, advertised = false,
   changedBy,
+  // Why a doctor came off a published shift (see resolveVacancy). All three
+  // are left out of the row entirely when unset, so every other edit writes
+  // exactly the row it always did.
+  reason = null, note = null, leaveRequestId = null,
 }) {
   const { error } = await supabase.from('roster_entry_changes').insert({
     roster_month_id: rosterMonthId,
@@ -29,6 +33,9 @@ export async function logRosterEntryChange({
     shift_code_before: shiftCodeBefore,
     advertised,
     changed_by: changedBy,
+    ...(reason ? { reason } : {}),
+    ...(note ? { note } : {}),
+    ...(leaveRequestId ? { leave_request_id: leaveRequestId } : {}),
   })
   if (error) console.error('Failed to log roster entry change:', error.message)
 }
@@ -199,7 +206,22 @@ function formatDisplayDate(dateStr) {
 // The detail phrase for one roster_entry_changes row (no actor/timestamp
 // prefix) — shared by the full-line formatter below and by the "Details"
 // column of the searchable review-log table.
+const CHANGE_REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other' }
+
+// " — reason: no-show (did not answer phone)". The note carries the detail:
+// for leave it names the type ("Sick leave"), since `reason` itself only
+// ever says 'leave'.
+function reasonSuffix(change) {
+  if (!change.reason) return ''
+  const label = CHANGE_REASON_LABELS[change.reason] || change.reason
+  return ` — reason: ${change.note ? (change.reason === 'leave' || change.reason === 'other' ? change.note : `${label} (${change.note})`) : label}`
+}
+
 export function rosterChangeDetail(change, nameById) {
+  return `${rosterChangeAction(change, nameById)}${reasonSuffix(change)}`
+}
+
+function rosterChangeAction(change, nameById) {
   const dateFmt = formatDisplayDate(change.entry_date)
   const before = nameById.get(change.profile_id_before) || null
   const after = nameById.get(change.profile_id_after) || null

@@ -3,7 +3,10 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { useScrollReveal } from '../lib/useScrollReveal'
+import { UserPlus } from 'lucide-react'
 import PageTabs from '../components/PageTabs'
+import Modal from '../components/Modal'
+import LeaveRequestForm from '../components/LeaveRequestForm'
 import LeaveDashboard from '../components/LeaveDashboard'
 import LeaveApprovalQueue from '../components/LeaveApprovalQueue'
 import MyRequestHistory from '../components/MyRequestHistory'
@@ -120,6 +123,12 @@ export default function LeavePlannerPage() {
       })
     return () => { cancelled = true }
   }, [isAdmin])
+  // Admin-only "Capture leave" on Team Leave: files leave for any doctor,
+  // approved on the spot (see LeaveRequestForm's captureOnly). The Team
+  // Leave views fetch their own rows, so a capture remounts them via this
+  // counter rather than reaching into their state.
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const [teamLeaveVersion, setTeamLeaveVersion] = useState(0)
   // Clerks get read-only "all" visibility into Annual/Special too — same
   // grid every other year-planner viewer sees, they just can't submit.
   const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
@@ -279,12 +288,24 @@ export default function LeavePlannerPage() {
           {/* On a phone the Week/Month/People explainer sits at the end of
               this line — its own row (TeamLeaveMobile) has no room for it. */}
           <div className="flex items-stretch">
-            <div className="min-w-0 flex-1">
+            {/* The tabs fill the row's full height, so their underline meets
+                the one under the buttons beside them — a taller neighbour
+                (Capture leave) otherwise left the two lines at different
+                heights, with the button hanging below the tabs' own. */}
+            <div className="flex min-w-0 flex-1 [&>nav]:min-w-0 [&>nav]:flex-1">
               <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
             </div>
             {teamTab === 'current' && (
               <span className="flex items-center border-b border-slate-line pl-2 sm:hidden">
                 <DetailInfoButton text={VIEW_HINT_TEXT} label="What these views show" />
+              </span>
+            )}
+            {isAdmin && (
+              <span className="flex items-center border-b border-slate-line pb-2 pl-2">
+                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary whitespace-nowrap text-sm">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Capture leave
+                </button>
               </span>
             )}
           </div>
@@ -295,8 +316,8 @@ export default function LeavePlannerPage() {
         {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
         {tab === 'team' && (
           <>
-            {teamTab === 'current' && <LeaveListView />}
-            {teamTab === 'all' && isAdmin && <LeaveAuditReport />}
+            {teamTab === 'current' && <LeaveListView key={teamLeaveVersion} />}
+            {teamTab === 'all' && isAdmin && <LeaveAuditReport key={teamLeaveVersion} />}
           </>
         )}
         {tab === 'requests' && (
@@ -328,6 +349,14 @@ export default function LeavePlannerPage() {
           </>
         )}
       </div>
+
+      {captureOpen && (
+        <Modal title="Capture leave for a doctor" onClose={() => setCaptureOpen(false)} centered>
+          {/* Stays open after a capture, so several can be logged in one
+              sitting; the views behind refresh each time. */}
+          <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => setTeamLeaveVersion(v => v + 1)} />
+        </Modal>
+      )}
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 // Shared bottom-sheet action-list shell — fixed inset-0, scrim,
 // items-end on mobile / items-center on desktop, rounded-b-none
 // sm:rounded-b-lg — for short action lists (per-card ⋮ menus, page-level
@@ -18,9 +19,16 @@
 // the same shape DateStepper's jump sheet uses to swap months for years)
 // rather than stacking a second sheet on top of the first, which on a phone
 // buries the one underneath.
+//
+// Rendered through a portal onto <body>, not in place: `position: fixed`
+// only means "the viewport" while no ancestor has a transform or a filter.
+// A sheet opened from inside something that gains one on hover (a roster
+// card's hover:brightness-95 is a filter) was being positioned against that
+// card instead, and jumped between the card and the middle of the screen as
+// the pointer moved on and off it.
 export function ActionSheet({ title, onBack, onClose, children }) {
-  return (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={onClose}>
+  return createPortal(
+    <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={e => { e.stopPropagation(); onClose?.(e) }}>
       <div
         role="dialog"
         aria-modal="true"
@@ -53,7 +61,8 @@ export function ActionSheet({ title, onBack, onClose, children }) {
         )}
         <div className="min-h-0 divide-y divide-slate-line overflow-y-auto pb-[max(env(safe-area-inset-bottom),8px)]">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

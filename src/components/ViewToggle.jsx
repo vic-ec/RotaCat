@@ -1,5 +1,3 @@
-import HoverHint from './HoverHint'
-
 // Two-way (or more) segmented view switch — sized to match the 30px
 // controls in a Search/Sort/Filter toolbar row rather than a header's own
 // line-height. `options`: [{ key, label, icon? }] — `icon` (a component,
@@ -22,13 +20,14 @@ import HoverHint from './HoverHint'
 // word comes back ('sm' by default; 'lg' for a row that is still crowded on
 // a tablet).
 const LABEL_FROM = { sm: 'hidden sm:inline', lg: 'hidden lg:inline' }
+const SHORT_UNTIL = { sm: 'sm:hidden', lg: 'lg:hidden' }
 
 export default function ViewToggle({ view, onChange, options, tight = false, labelFrom = 'sm' }) {
   return (
     <div className="seg-track h-[30px] flex-shrink-0">
       {options.map(o => {
         const Icon = o.icon
-        const button = (
+        return (
           <button
             key={o.key}
             type="button"
@@ -43,13 +42,13 @@ export default function ViewToggle({ view, onChange, options, tight = false, lab
                 that letter instead of its icon — two calendar glyphs side by
                 side are indistinguishable at this size, two letters aren't. */}
             {Icon && <Icon className={`h-3.5 w-3.5 flex-shrink-0 ${o.shortLabel ? 'hidden sm:block' : ''}`} />}
-            {o.shortLabel && <span className="sm:hidden" aria-hidden="true">{o.shortLabel}</span>}
-            <span className={Icon ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
+            {/* Without an icon, a `shortLabel` stands in for the word itself
+                until `labelFrom` (the roster's "M"/"W" become "Month"/"Week"
+                from lg). */}
+            {o.shortLabel && <span className={Icon ? 'sm:hidden' : SHORT_UNTIL[labelFrom]} aria-hidden="true">{o.shortLabel}</span>}
+            <span className={Icon || o.shortLabel ? LABEL_FROM[labelFrom] : ''}>{o.label}</span>
           </button>
         )
-        // `hint`: a hover/tap label (HoverHint) for options that show only
-        // an icon at some widths.
-        return o.hint ? <HoverHint key={o.key} label={o.hint}>{button}</HoverHint> : button
       })}
     </div>
   )

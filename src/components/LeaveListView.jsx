@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpDown, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
+import { ArrowUpDown, CalendarClock, CalendarCheck, CalendarX2, LayoutGrid, Table2 } from 'lucide-react'
+import RowActionIcon from './RowActionIcon'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LEAVE_TYPE_OPTIONS, leaveTypeLabelWithCode } from '../lib/leaveRequests'
@@ -186,7 +187,7 @@ export default function LeaveListView() {
     setError('')
     const { data, error: err } = await supabase
       .from('leave_requests')
-      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname)')
+      .select('*, profiles!leave_requests_profile_id_fkey(name, surname, category, contract_type, color_code, avatar_url, pattern_type), reviewer:profiles!leave_requests_reviewed_by_fkey(name, surname), canceller:profiles!leave_requests_cancelled_by_fkey(name, surname), submitter:profiles!leave_requests_submitted_by_fkey(name, surname)')
       .order('date_from', { ascending: false })
     if (err) { setError(err.message); setLoading(false); return }
     setRequests(data || [])
@@ -386,18 +387,22 @@ export default function LeaveListView() {
                   <td className="border-b border-slate-hairline px-3 py-2">
                     <DateTimePopoverButton iso={lr.reviewed_at} Icon={CalendarCheck} label="View date and time approved" />
                   </td>
-                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">{lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}</td>
+                  <td className="border-b border-slate-hairline px-3 py-2 text-ink-muted">
+                    {lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : '—'}
+                    {lr.submitted_by && lr.submitted_by !== lr.profile_id && <span className="block text-[11px]">Captured on behalf</span>}
+                  </td>
                   {isAdmin && (
                     <td className="border-b border-slate-hairline px-3 py-2">
                       {CANCELLABLE_STATUSES.includes(lr.status) && (
-                        <button
-                          type="button"
-                          onClick={() => setCancelTarget(lr)}
-                          className="text-xs font-medium text-danger underline-offset-2 hover:underline"
-                          aria-label={`Cancel ${lr.profiles?.name || ''} ${lr.profiles?.surname || ''}'s leave`}
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex justify-end">
+                          <RowActionIcon
+                            icon={<CalendarX2 className="h-4 w-4" />}
+                            title="Cancel leave"
+                            label={`Cancel ${lr.profiles?.name || ''} ${lr.profiles?.surname || ''}'s leave`}
+                            onClick={() => setCancelTarget(lr)}
+                            tone="danger"
+                          />
+                        </div>
                       )}
                     </td>
                   )}

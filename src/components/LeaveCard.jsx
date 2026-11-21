@@ -44,6 +44,9 @@ export default function LeaveCard({ request, className = '', bare = false }) {
         )}
       </p>
       <p className="mt-1 text-xs text-ink-muted">{leaveDayCountLabel(request)}</p>
+      {request.submitted_by && request.submitted_by !== request.profile_id && (
+        <p className="mt-1 text-xs text-ink-muted">Captured on your behalf by an admin</p>
+      )}
     </div>
   )
 }

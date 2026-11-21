@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { createNotification } from './notifications'
+import { fetchOpenLocumContacts, fetchContactShiftCounts, findByPhone, linkLocumContact } from './locumCover'
 import { todayStr } from './dateRange'
 import {
   defaultHoursForCategory, defaultSwapGroupForCategory, annualLeaveDaysForCategory,
@@ -52,6 +53,22 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
   // sitting-there-by-default risk of typing over what the registrant
   // actually submitted.
   const [editingDetails, setEditingDetails] = useState(false)
+  // Locums already on the roster under a name and mobile only (see
+  // lib/locumCover.js). A registrant whose mobile matches one is very
+  // likely the same person, so approving them can move those shifts onto
+  // the new account. Offered, never done silently: a mistyped number must
+  // not hand one person's shifts to another.
+  const [locumContacts, setLocumContacts] = useState([])
+  const [contactShiftCounts, setContactShiftCounts] = useState(new Map())
+  const [linkLocumMatch, setLinkLocumMatch] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    fetchOpenLocumContacts().then(async rows => {
+      const counts = await fetchContactShiftCounts(rows.map(r => r.id))
+      if (!cancelled) { setLocumContacts(rows); setContactShiftCounts(counts) }
+    })
+    return () => { cancelled = true }
+  }, [])
   const [firstName, setFirstName] = useState('')
   const [surname, setSurname] = useState('')
   const [phone, setPhone] = useState('')
@@ -127,6 +144,10 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     setContractType(value)
     if (value !== 'Junior_Doctor_Overtime') setSubtype(null)
   }
+
+  // Only a locum registration can be a roster locum; follows the DRAFT
+  // role and mobile, so correcting either re-runs the match.
+  const matchedContact = role === 'locum' ? findByPhone(locumContacts, phone) : null
 
   async function approve() {
     if (approveDisabledReason) return // defensive; the button is already disabled for this
@@ -209,6 +230,14 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
         } catch (rotationError) {
           alert('The account was approved, but their rotation could not be added: ' + rotationError.message + '. Add it in the Rotations planner.')
         }
+      }
+    }
+
+    if (matchedContact && linkLocumMatch) {
+      try {
+        await linkLocumContact({ contactId: matchedContact.id, profileId: id })
+      } catch (linkError) {
+        alert('The account was approved, but their roster shifts could not be moved onto it: ' + linkError.message + '. Link them from the Staff page.')
       }
     }
 
@@ -346,6 +375,14 @@ export function usePendingApprovalReview(id, { onDone } = {}) {
     showCategory, showContractType, showSubtype, adminAvailable, showActiveFrom, showActiveUntil,
     approveDisabledReason, needsAdminConfirmation,
     accountChecks,
+    locumMatch: matchedContact
+      ? {
+        name: `${matchedContact.name} ${matchedContact.surname}`.trim(),
+        shiftCount: contactShiftCounts.get(matchedContact.id) || 0,
+        link: linkLocumMatch,
+        onLinkChange: setLinkLocumMatch,
+      }
+      : null,
     approve, reject, actioning,
   }
 }

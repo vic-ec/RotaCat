@@ -13,6 +13,19 @@ vi.mock('../lib/notifications', () => ({
   createNotification: (...args) => createNotification(...args),
 }))
 
+// Locums already on the roster under a name and mobile only.
+const fetchOpenLocumContacts = vi.fn().mockResolvedValue([])
+const linkLocumContact = vi.fn().mockResolvedValue(undefined)
+vi.mock('../lib/locumCover', async () => {
+  const actual = await vi.importActual('../lib/locumCover')
+  return {
+    ...actual,
+    fetchOpenLocumContacts: (...a) => fetchOpenLocumContacts(...a),
+    fetchContactShiftCounts: () => Promise.resolve(new Map([['c-1', 3]])),
+    linkLocumContact: (...a) => linkLocumContact(...a),
+  }
+})
+
 const { mockResponses, updateCalls } = vi.hoisted(() => ({ mockResponses: {}, updateCalls: [] }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -88,6 +101,48 @@ describe('PendingApprovalReviewPage', () => {
     mockResponses['profiles:select'] = { data: PENDING_PROFILE, error: null }
     mockResponses['rpc:get_staff_emails'] = { data: [{ id: 'reg-1', email: 'jordan.reyes@rotacat-test.local' }], error: null }
     mockResponses['profiles:update'] = { data: null, error: null }
+    fetchOpenLocumContacts.mockReset().mockResolvedValue([])
+    linkLocumContact.mockReset().mockResolvedValue(undefined)
+  })
+
+  describe('a locum registering who is already on the roster by name and mobile', () => {
+    const CONTACT = { id: 'c-1', name: 'Jordan', surname: 'Reyes', phone: '+27 82 123 4567' }
+    beforeEach(() => {
+      mockResponses['profiles:select'] = { data: { ...PENDING_PROFILE, role: 'locum' }, error: null }
+      fetchOpenLocumContacts.mockResolvedValue([CONTACT])
+    })
+
+    it('the match on mobile is shown, and approving moves their shifts onto the account', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      expect(await screen.findByTestId('locum-match')).toHaveTextContent('matches Jordan Reyes')
+      expect(screen.getByTestId('locum-match')).toHaveTextContent('3 shifts')
+      await user.click(screen.getByRole('button', { name: 'Approve account' }))
+      await waitFor(() => expect(linkLocumContact).toHaveBeenCalledWith({ contactId: 'c-1', profileId: 'reg-1' }))
+    })
+
+    it('unticking "same person" approves without touching the roster', async () => {
+      const user = userEvent.setup()
+      renderPage()
+      await user.click(await screen.findByRole('checkbox', { name: /Same person/ }))
+      await user.click(screen.getByRole('button', { name: 'Approve account' }))
+      await waitFor(() => expect(updateCalls.some(c => c.table === 'profiles' && c.patch.is_approved === true)).toBe(true))
+      expect(linkLocumContact).not.toHaveBeenCalled()
+    })
+
+    it('a different mobile number is no match', async () => {
+      fetchOpenLocumContacts.mockResolvedValue([{ ...CONTACT, phone: '0839998888' }])
+      renderPage()
+      await screen.findByRole('button', { name: 'Approve account' })
+      expect(screen.queryByTestId('locum-match')).not.toBeInTheDocument()
+    })
+  })
+
+  it('a doctor registration is never matched to a roster locum, even on the same mobile', async () => {
+    fetchOpenLocumContacts.mockResolvedValue([{ id: 'c-1', name: 'Jordan', surname: 'Reyes', phone: '0821234567' }])
+    renderPage()
+    await screen.findByRole('button', { name: 'Approve account' })
+    expect(screen.queryByTestId('locum-match')).not.toBeInTheDocument()
   })
 
   it('shows a status-led header, identity, and read-only submitted details by default', async () => {

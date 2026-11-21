@@ -767,3 +767,36 @@ describe('weekendPlannerChangedSince', () => {
     expect(weekendPlannerChangedSince([], [{ created_at: '2026-11-16T08:00:00Z' }])).toBe(false)
   })
 })
+
+describe('computeWeekendPlannerDrift — weekends split across two months', () => {
+  const codes = { we: 'WE_08' }
+  const planner = [
+    { weekend_saturday: '2026-01-31', profile_id: 'sat-only' },
+    { weekend_saturday: '2026-01-31', profile_id: 'sun-only' },
+  ]
+
+  it('compares only what this month holds: the other month\'s day is not drift', () => {
+    const febRoster = [{ date: '2026-02-01', shift_type_id: 'we', profile_id: 'sun-only' }]
+    expect(computeWeekendPlannerDrift(febRoster, planner, codes, new Set(), { monthStart: '2026-02-01', monthEnd: '2026-02-28' })).toEqual([])
+    const janRoster = [{ date: '2026-01-31', shift_type_id: 'we', profile_id: 'sat-only' }]
+    expect(computeWeekendPlannerDrift(janRoster, planner, codes, new Set(), { monthStart: '2026-01-01', monthEnd: '2026-01-31' })).toEqual([])
+  })
+
+  it('still flags someone this month has on its day who the planner lacks', () => {
+    const febRoster = [{ date: '2026-02-01', shift_type_id: 'we', profile_id: 'stranger' }]
+    expect(computeWeekendPlannerDrift(febRoster, planner, codes, new Set(), { monthStart: '2026-02-01', monthEnd: '2026-02-28' }))
+      .toEqual([{ saturday: '2026-01-31', added: [], removed: ['stranger'] }])
+  })
+
+  it('without month bounds the whole weekend is compared, as before', () => {
+    const febRoster = [{ date: '2026-02-01', shift_type_id: 'we', profile_id: 'sun-only' }]
+    expect(computeWeekendPlannerDrift(febRoster, planner, codes)).toEqual([{ saturday: '2026-01-31', added: ['sat-only'], removed: [] }])
+  })
+})
+
+describe('computeWeekendPlannerDrift — locums', () => {
+  it('ignores a locum on a weekend shift, even one with an account', () => {
+    const roster = [{ date: '2026-03-07', shift_type_id: 'we', profile_id: 'locum-1', is_locum: true }]
+    expect(computeWeekendPlannerDrift(roster, [], { we: 'WE_08' })).toEqual([])
+  })
+})

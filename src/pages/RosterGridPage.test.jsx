@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import RosterGridPage from './RosterGridPage'
@@ -65,9 +65,9 @@ function setViewport(matches) {
   window.matchMedia = vi.fn().mockReturnValue({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() })
 }
 
-function renderPage() {
+function renderPage(path = '/roster/rm1') {
   return render(
-    <MemoryRouter initialEntries={['/roster/rm1']}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes><Route path="/roster/:id" element={<RosterGridPage />} /></Routes>
     </MemoryRouter>
   )
@@ -79,6 +79,19 @@ describe('RosterGridPage day blocks', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
     setViewport(true)
+  })
+
+  it('a "Go to roster" link (?date=) scrolls to that day once the roster has loaded', async () => {
+    const scrolled = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-date')) }
+    try {
+      renderPage('/roster/rm1?date=2026-08-20&doctor=nobody')
+      await screen.findByText('August 2026')
+      await waitFor(() => expect(scrolled).toContain('2026-08-20'))
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
   })
 
   it('separates days with a page-background gap: 6px between days, 14px before a Monday, none above the first', async () => {

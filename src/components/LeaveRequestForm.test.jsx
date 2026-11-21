@@ -13,7 +13,8 @@ const fetchAnnualCapacityPreview = vi.fn()
 const fetchSpecialLeavePressure = vi.fn()
 const fetchWeekendExceptionPreview = vi.fn()
 const fetchLeaveCaptureCandidates = vi.fn()
-const fetchRosterOverlapDates = vi.fn()
+const fetchRosterOverlapShifts = vi.fn()
+const fetchActiveLeaveForProfile = vi.fn()
 vi.mock('../lib/leaveRequests', async () => {
   const actual = await vi.importActual('../lib/leaveRequests')
   return {
@@ -23,7 +24,8 @@ vi.mock('../lib/leaveRequests', async () => {
     fetchSpecialLeavePressure: (...args) => fetchSpecialLeavePressure(...args),
     fetchWeekendExceptionPreview: (...args) => fetchWeekendExceptionPreview(...args),
     fetchLeaveCaptureCandidates: (...args) => fetchLeaveCaptureCandidates(...args),
-    fetchRosterOverlapDates: (...args) => fetchRosterOverlapDates(...args),
+    fetchRosterOverlapShifts: (...args) => fetchRosterOverlapShifts(...args),
+    fetchActiveLeaveForProfile: (...args) => fetchActiveLeaveForProfile(...args),
   }
 })
 
@@ -37,7 +39,8 @@ describe('LeaveRequestForm', () => {
     fetchLeaveCaptureCandidates.mockReset().mockResolvedValue([
       { id: 'doctor-2', name: 'Sam', surname: 'Rivers', category: 'MO', is_active: true, scheduled_active_date: null },
     ])
-    fetchRosterOverlapDates.mockReset().mockResolvedValue([])
+    fetchRosterOverlapShifts.mockReset().mockResolvedValue([])
+    fetchActiveLeaveForProfile.mockReset().mockResolvedValue([])
   })
 
   it('a doctor gets no "Leave for" picker', () => {
@@ -55,7 +58,7 @@ describe('LeaveRequestForm', () => {
 
   it('an admin captures sick leave for another doctor: warned about the roster, filed under the doctor with capturedBy', async () => {
     mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
-    fetchRosterOverlapDates.mockResolvedValue(['2026-11-20'])
+    fetchRosterOverlapShifts.mockResolvedValue([{ date: '2026-11-20', rosterMonthId: 'rm-nov' }])
     submitLeaveRequest.mockResolvedValue({ overCapacity: false, captured: true, rosterOverlapDates: ['2026-11-20'] })
     const user = userEvent.setup()
     render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
@@ -72,12 +75,57 @@ describe('LeaveRequestForm', () => {
     await user.type(screen.getByLabelText('From'), '2026-11-20')
     await user.type(screen.getByLabelText('To'), '2026-11-20')
     expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Sam Rivers is on the roster for 1 day in this range')
+    // The warning links to that day on the roster, in a new tab.
+    const rosterLink = screen.getByRole('link', { name: '20 Nov' })
+    expect(rosterLink).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
+    expect(rosterLink).toHaveAttribute('target', '_blank')
 
     await user.click(screen.getByRole('button', { name: 'Capture leave' }))
     await waitFor(() => expect(submitLeaveRequest).toHaveBeenCalledWith(expect.objectContaining({
       profileId: 'doctor-2', capturedBy: 'admin-1', leaveType: 'sick', dateFrom: '2026-11-20', dateTo: '2026-11-20',
     })))
     expect(await screen.findByText(/Leave captured for Sam Rivers and approved\./)).toBeInTheDocument()
+    // The link survives the form reset, so the shift can still be reached.
+    expect(screen.getByRole('link', { name: '20 Nov' })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
+  })
+
+  it('the doctor picker filters as the admin types a name, and Enter picks the first match', async () => {
+    mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
+    fetchLeaveCaptureCandidates.mockResolvedValue([
+      { id: 'doctor-2', name: 'Sam', surname: 'Rivers', category: 'MO', is_active: true },
+      { id: 'doctor-3', name: 'Omar', surname: 'Khan', category: 'MO', is_active: true },
+    ])
+    const user = userEvent.setup()
+    render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
+    const picker = await screen.findByLabelText('Leave for')
+    await user.click(picker)
+    await user.type(await screen.findByPlaceholderText('Type a name…'), 'oma')
+    expect(screen.getByRole('option', { name: 'Khan, Omar' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Rivers, Sam' })).not.toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    expect(picker).toHaveTextContent('Khan, Omar')
+  })
+
+  it('a capture shows the leave already on record once the doctor is chosen, and stops a duplicate before it is submitted', async () => {
+    mockAuth = { profile: { id: 'admin-1' }, isAdmin: true, canSubmitLeave: true }
+    fetchActiveLeaveForProfile.mockResolvedValue([
+      { id: 'lr-1', leave_type: 'sick', date_from: '2099-11-20', date_to: '2099-11-20', status: 'approved', submitted_by: 'admin-2' },
+    ])
+    const user = userEvent.setup()
+    render(<LeaveRequestForm captureOnly initialLeaveType="sick" />)
+    await user.click(await screen.findByLabelText('Leave for'))
+    await user.click(await screen.findByText('Rivers, Sam'))
+
+    // Visible before any date is entered.
+    expect(await screen.findByTestId('leave-on-record')).toHaveTextContent('Sick leave, 20 Nov (approved)')
+    expect(fetchActiveLeaveForProfile).toHaveBeenCalledWith('doctor-2')
+    expect(screen.queryByTestId('leave-overlap-note')).not.toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('From'), '2099-11-20')
+    await user.type(screen.getByLabelText('To'), '2099-11-21')
+    expect(await screen.findByTestId('leave-overlap-note')).toHaveTextContent('Sam Rivers already has leave on record for these dates')
+    expect(screen.getByRole('button', { name: 'Capture leave' })).toBeDisabled()
+    expect(submitLeaveRequest).not.toHaveBeenCalled()
   })
 
   it('a capture dated before the current leave year needs an explicit tick', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowUpDown, CalendarClock, CalendarCheck, LayoutGrid, Table2 } from 'lucide-react'
+import { ArrowUpDown, CalendarClock, CalendarCheck, CalendarX2, LayoutGrid, Table2 } from 'lucide-react'
+import RowActionIcon from './RowActionIcon'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { LEAVE_TYPE_OPTIONS, leaveTypeLabelWithCode } from '../lib/leaveRequests'
@@ -393,14 +394,15 @@ export default function LeaveListView() {
                   {isAdmin && (
                     <td className="border-b border-slate-hairline px-3 py-2">
                       {CANCELLABLE_STATUSES.includes(lr.status) && (
-                        <button
-                          type="button"
-                          onClick={() => setCancelTarget(lr)}
-                          className="text-xs font-medium text-danger underline-offset-2 hover:underline"
-                          aria-label={`Cancel ${lr.profiles?.name || ''} ${lr.profiles?.surname || ''}'s leave`}
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex justify-end">
+                          <RowActionIcon
+                            icon={<CalendarX2 className="h-4 w-4" />}
+                            title="Cancel leave"
+                            label={`Cancel ${lr.profiles?.name || ''} ${lr.profiles?.surname || ''}'s leave`}
+                            onClick={() => setCancelTarget(lr)}
+                            tone="danger"
+                          />
+                        </div>
                       )}
                     </td>
                   )}

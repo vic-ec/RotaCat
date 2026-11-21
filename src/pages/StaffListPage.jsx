@@ -11,6 +11,7 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import LocumContactsPanel from '../components/LocumContactsPanel'
+import RowActionIcon from '../components/RowActionIcon'
 import ExpandAllButton from '../components/ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import RegeneratePasswordModal from '../components/RegeneratePasswordModal'
@@ -188,27 +189,8 @@ function QuickActionRow({ icon, label, href, external, muted, expandable, expand
 // that surfaces the existing missing-contact-detail toast otherwise. The
 // kebab is left fully intact alongside these for WhatsApp and Update status,
 // which don't have a natural single icon of their own.
-function RowActionIcon({ icon, href, title, onMissing }) {
-  const className = 'flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink'
-  if (href) {
-    return (
-      <a href={href} title={title} aria-label={title} onClick={e => e.stopPropagation()} className={className}>
-        {icon}
-      </a>
-    )
-  }
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={e => { e.stopPropagation(); onMissing() }}
-      className={className}
-    >
-      {icon}
-    </button>
-  )
-}
+// Now the shared RowActionIcon (src/components/RowActionIcon.jsx), so every
+// table in the app uses the same one.
 
 // One of the mobile detail sheet's four icon-only actions (Message/Call/
 // Email/View Account) — a generously-sized touch target (48px tall) with

@@ -36,14 +36,15 @@ function RosterLinks({ shifts, profileId }) {
     .filter(l => l.href)
   if (links.length === 0) return null
   const shown = links.slice(0, MAX_ROSTER_LINKS)
+  // The first link carries the "Go to roster" words too, so the whole
+  // phrase is the thing to click — not just a small date after it.
   return (
     <span data-testid="roster-links">
-      Go to roster:{' '}
       {shown.map((l, i) => (
         <span key={l.date}>
           {i > 0 && ' · '}
           <a href={l.href} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:no-underline">
-            {formatShortDateRange(l.date, l.date)}
+            {i === 0 && 'Go to roster: '}{formatShortDateRange(l.date, l.date)}
           </a>
         </span>
       ))}
@@ -294,7 +295,7 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         rosterShifts: isCapture && overlapCount ? rosterOverlaps : [],
         rosterProfileId: profile.id,
         text: isCapture
-          ? `Leave captured for ${subjectName} and approved.${result?.overCapacity ? ' Recorded as overbooked.' : ''}${overlapCount ? ` ${overlapCount} rostered day${overlapCount === 1 ? '' : 's'} in this range still show${overlapCount === 1 ? 's' : ''} on the roster.` : ''}`
+          ? `Leave captured for ${subjectName} and approved.${result?.overCapacity ? ' Recorded as overbooked.' : ''}${overlapCount ? ` ${overlapCount} shift${overlapCount === 1 ? '' : 's'} still need${overlapCount === 1 ? 's' : ''} cover.` : ''}`
           : isAnnual
             ? `Leave request submitted — ${totalDays} total day${totalDays === 1 ? '' : 's'} (${annualLeaveDays} annual leave) — pending admin approval.${flagged}`
             : 'Leave request submitted — pending admin approval.',
@@ -486,24 +487,30 @@ export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', in
         </div>
       )}
 
-      {isCapture && rosterOverlapDates.length > 0 && (
+      {/* One notice at a time. Leave already on record wins — nothing can
+          be captured then — and carries the roster line with it, so the
+          admin never has to read two amber boxes against each other. */}
+      {alreadyOnLeave ? (
+        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber" role="alert" data-testid="leave-overlap-note">
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <div className="space-y-1">
+            <p>
+              <span className="font-semibold">Already captured:</span> {overlappingLeave.map(describeLeave).join('; ')}.
+              Choose other dates to add a separate period.
+            </p>
+            {rosterOverlapDates.length > 0 && (
+              <p>Shift still needs cover. <RosterLinks shifts={rosterOverlaps} profileId={profile?.id} /></p>
+            )}
+          </div>
+        </div>
+      ) : isCapture && rosterOverlapDates.length > 0 && (
         <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber" data-testid="roster-overlap-note">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <p>
-            {subjectName} is on the roster for {rosterOverlapDates.length} day{rosterOverlapDates.length === 1 ? '' : 's'} in this range
-            ({formatShortDateRange(rosterOverlapDates[0], rosterOverlapDates[rosterOverlapDates.length - 1])}).
-            Capturing this leave does not change the roster; replace those shifts there.{' '}
+            Rostered on {rosterOverlapDates.length === 1
+              ? formatShortDateRange(rosterOverlapDates[0], rosterOverlapDates[0])
+              : `${rosterOverlapDates.length} of these days`} — capturing leave will not remove the shift.{' '}
             <RosterLinks shifts={rosterOverlaps} profileId={profile?.id} />
-          </p>
-        </div>
-      )}
-
-      {alreadyOnLeave && (
-        <div className="flex items-start gap-2 rounded-lg bg-flagAmber-bg p-3 text-xs text-flagAmber" role="alert" data-testid="leave-overlap-note">
-          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-          <p>
-            {subjectName} already has leave on record for these dates: {overlappingLeave.map(describeLeave).join('; ')}.
-            Nothing more needs capturing for those days. Pick different dates if this is a separate period.
           </p>
         </div>
       )}

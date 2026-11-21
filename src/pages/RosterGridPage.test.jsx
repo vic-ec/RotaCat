@@ -94,6 +94,20 @@ describe('RosterGridPage day blocks', () => {
     }
   })
 
+  it('a "Go to roster" link with a doctor scrolls to and lights that doctor\'s shift', async () => {
+    const scrolled = []
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-entry-id')) }
+    try {
+      renderPage('/roster/rm1?date=2026-08-27&doctor=p1')
+      await screen.findByText('August 2026')
+      await waitFor(() => expect(scrolled).toContain('e2'))
+      expect(document.querySelector('[data-entry-id="e2"]').className).toMatch(/ring-2/)
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it('separates days with a page-background gap: 6px between days, 14px before a Monday, none above the first', async () => {
     renderPage()
     await screen.findByText('August 2026')

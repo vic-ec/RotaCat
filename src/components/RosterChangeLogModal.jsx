@@ -11,6 +11,9 @@ import { changeLogFilterGroups, EMPTY_LOG_FILTERS, logFiltersActive } from '../l
 import ClearableInput from './ClearableInput'
 import FloatingActionMenu from './FloatingActionMenu'
 import LocumBadge from './LocumBadge'
+import { useAuth } from '../context/AuthContext'
+import { fetchRosterBatches, summarizeRosterBatch, undoRosterBatch } from '../lib/rosterUndo'
+import { formatRelativeTime, nameMapFromProfiles } from '../lib/changeLog'
 
 
 // `name`: someone with no profile to look up — a locum put on the roster by
@@ -42,12 +45,19 @@ function RosterChange({ parts, profilesById }) {
         {(type === 'vacated' || type === 'removed') && (
           <OffName><Person id={parts.person} profilesById={profilesById} /></OffName>
         )}
-        {(type === 'assigned' || type === 'moved') && <Person id={parts.person} name={parts.personName} profilesById={profilesById} />}
+        {(type === 'assigned' || type === 'moved' || type === 'reinstated' || type === 'undone') && <Person id={parts.person} name={parts.personName} profilesById={profilesById} />}
+        {type === 'slot_added' && (parts.covered
+          ? <><OffName><Person id={parts.before} profilesById={profilesById} /></OffName><Joiner>covered by</Joiner><Person id={parts.after} name={parts.afterName} profilesById={profilesById} /></>
+          : <><OffName><Person id={parts.person} profilesById={profilesById} /></OffName><Joiner>slot opened</Joiner></>)}
+        {(type === 'slot_removed' || type === 'advertised' || type === 'unadvertised') && (
+          <OffName><Person id={parts.person} profilesById={profilesById} /></OffName>
+        )}
         {parts.advertised && (
           <span className="ml-1.5 whitespace-nowrap rounded border border-dashed border-slate-line px-1.5 text-xs text-ink-light">Opened for locum cover</span>
         )}
       </p>
       {parts.reason && <p className="mt-0.5 text-xs text-ink-light">Reason: {parts.reason}</p>}
+      {parts.note && !parts.reason && <p className="mt-0.5 text-xs text-ink-light">{parts.note}</p>}
     </>
   )
 }
@@ -56,7 +66,8 @@ function RosterChange({ parts, profilesById }) {
 // edit (assign/unassign/remove/move) logged by RosterGridPage/
 // RosterVacancyModal. Scheduler-generated entries never appear here since
 // nothing in the generation flow writes to roster_entry_changes.
-export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClose }) {
+export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClose, onUndone = null }) {
+  const { user } = useAuth()
   const [filters, setFilters] = useState(EMPTY_LOG_FILTERS)
   // Client-side, unlike the rest of `filters` (which go to the server as
   // query params) — narrows the already-fetched rows by the names the
@@ -71,11 +82,36 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
   const [doctorOptions, setDoctorOptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // "Recent actions": the latest batches for this month, each with Undo
+  // behind a confirm step. Any admin may undo any admin's batch from here;
+  // the guard in undoRosterBatch still refuses one whose shift has changed
+  // since.
+  const [batches, setBatches] = useState([])
+  const [confirmBatch, setConfirmBatch] = useState(null)
+  const [undoingBatch, setUndoingBatch] = useState(null)
+  const [undoNotice, setUndoNotice] = useState('')
 
   useEffect(() => {
     fetchAdminOptions().then(setAdminOptions)
     fetchDoctorOptions().then(setDoctorOptions)
   }, [])
+
+  async function loadBatches() {
+    const { batches: b } = await fetchRosterBatches({ rosterMonthId })
+    setBatches(b.slice(0, 20))
+  }
+  useEffect(() => { loadBatches() }, [rosterMonthId]) // eslint-disable-line react-hooks/exhaustive-deps -- refetch per month
+
+  async function handleUndo(batch) {
+    setConfirmBatch(null)
+    setUndoingBatch(batch.batchId)
+    const result = await undoRosterBatch({ batchId: batch.batchId, changedBy: user?.id ?? null })
+    setUndoingBatch(null)
+    if (result.error) { setUndoNotice(result.error); return }
+    setUndoNotice(`Undone: ${summarizeRosterBatch(batch, nameMapFromProfiles(profilesById))}`)
+    await Promise.all([load(), loadBatches()])
+    onUndone?.(result)
+  }
 
   useEffect(() => {
     load()
@@ -184,6 +220,18 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
           }}
         />
 
+        {batches.length > 0 && (
+          <RecentActions
+            batches={batches}
+            nameById={nameMapFromProfiles(profilesById)}
+            confirmBatch={confirmBatch}
+            onConfirm={setConfirmBatch}
+            onUndo={handleUndo}
+            undoingBatch={undoingBatch}
+            notice={undoNotice}
+          />
+        )}
+
         {loading && <p className="mt-4 text-sm text-ink-muted">Loading…</p>}
         {error && <p className="mt-4 text-sm text-flagRed">{error}</p>}
         {!loading && !error && visibleChanges.length === 0 && (
@@ -198,5 +246,43 @@ export default function RosterChangeLogModal({ rosterMonthId, monthLabel, onClos
         )}
       </div>
     </div>
+  )
+}
+
+// The last few batches, newest first, one line each, with Undo behind a
+// confirm step — the Weekend Planner's "Recent actions" for the roster.
+function RecentActions({ batches, nameById, confirmBatch, onConfirm, onUndo, undoingBatch, notice }) {
+  return (
+    <details className="mt-3 rounded-lg border border-slate-line bg-canvas-sunken/50 p-3" open>
+      <summary className="cursor-pointer text-sm font-semibold text-ink">Recent actions</summary>
+      {notice && <p role="status" className="mt-2 text-xs text-ink-light">{notice}</p>}
+      <ul className="mt-2 max-h-48 divide-y divide-slate-line overflow-y-auto">
+        {batches.map(batch => (
+          <li key={batch.batchId} className="flex flex-wrap items-center gap-2 py-1.5 text-sm" data-testid="recent-action">
+            <span className="min-w-0 flex-1 text-ink">
+              {summarizeRosterBatch(batch, nameById)}
+              <span className="ml-1.5 text-xs text-ink-muted">{formatRelativeTime(batch.changedAt)} · {nameById.get(batch.changedBy) || 'Unknown'}</span>
+            </span>
+            {confirmBatch === batch.batchId ? (
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs text-ink-light">Undo this change?</span>
+                <button type="button" onClick={() => onUndo(batch)} className="btn-danger text-xs">Undo</button>
+                <button type="button" onClick={() => onConfirm(null)} className="btn-secondary text-xs">Keep</button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onConfirm(batch.batchId)}
+                disabled={!batch.undoable || undoingBatch === batch.batchId}
+                title={batch.undoable ? 'Undo this change' : 'Made before undo existed'}
+                className="btn-secondary text-xs"
+              >
+                {undoingBatch === batch.batchId ? 'Undoing…' : 'Undo'}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }

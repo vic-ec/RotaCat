@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, CircleCheck, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
+import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -10,17 +10,22 @@ import RosterVacancyManager from '../components/RosterVacancyManager'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 import { monthBounds, addDays } from '../lib/dateRange'
 import { computeWeekendPlannerDrift, weekendPlannerChangedSince } from '../lib/weekendPlanner'
-import { logRosterEntryChange } from '../lib/changeLog'
+import { setLogErrorListener } from '../lib/changeLog'
+import * as rosterEdits from '../lib/rosterEdits'
+import { undoRosterBatch } from '../lib/rosterUndo'
+import ShiftMenu from '../components/ShiftMenu'
+import RosterEditBar from '../components/RosterEditBar'
+import UndoToast from '../components/UndoToast'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
 import GenerationReportModal from '../components/GenerationReportModal'
 import { readGenerationReport, reportMatchesDraft } from '../lib/generationReport'
 import PublicHolidayBadge from '../components/PublicHolidayBadge'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
-import { findSameDayConflict } from '../lib/rosterVacancy'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
+import { findSameDayConflict } from '../lib/rosterVacancy'
 import { fetchApprovedLeaveByProfile } from '../lib/approvedLeave'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
-import { coverPatch, coverProfileId, fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
+import { fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
@@ -32,7 +37,7 @@ import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
 import { ROSTER_TEXT_SIZES, rosterTextSize, rosterTextScale, readRosterTextSize, storeRosterTextSize } from '../lib/rosterTextSize'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
-import { shiftColumns, labelForShiftCode } from '../lib/shiftLabels'
+import { shiftColumns } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 
@@ -154,9 +159,27 @@ export default function RosterGridPage() {
   const [dismissedDrift, setDismissedDrift] = useState(false)
   const [showDriftDetails, setShowDriftDetails] = useState(false)
 
-  // Dropdown state
-  const [openDropdown, setOpenDropdown] = useState(null) // {date, shiftCode, entryId}
-  const [dropdownSearch, setDropdownSearch] = useState('')
+  // The one shift menu (see components/ShiftMenu.jsx): what was tapped and
+  // where, so the md+ panel can sit beside the cell.
+  const [menu, setMenu] = useState(null) // { date, shiftCode, entry, anchorRect }
+  // Entry ids with an open advert this month, for the menu's Advertise /
+  // Stop advertising.
+  const [advertisedIds, setAdvertisedIds] = useState(new Set())
+  // The post-change Undo toast and "Undo last" — the Weekend Planner's
+  // model. Held in memory only, per signed-in user: reset on reload and
+  // whenever the account changes, so one admin's undo can never reverse
+  // another's change.
+  const [lastAction, setLastAction] = useState(null) // { batchId, label, byUserId }
+  const [toastVisible, setToastVisible] = useState(false)
+  const [undoing, setUndoing] = useState(false)
+  // A non-blocking notice under the edit bar: a refused edit or undo, or a
+  // log row that failed to land.
+  const [editNotice, setEditNotice] = useState('')
+  useEffect(() => { setLastAction(null); setToastVisible(false) }, [user?.id])
+  useEffect(() => {
+    setLogErrorListener(message => setEditNotice(`This change was saved, but could not be written to History (${message}).`))
+    return () => setLogErrorListener(null)
+  }, [])
 
   // Published-roster removal/reassignment workflow (§2.5) — set instead of
   // opening the plain dropdown whenever an occupied slot on a PUBLISHED
@@ -167,7 +190,7 @@ export default function RosterGridPage() {
   // from here with only a name and mobile (locum contacts — admin-only).
   const [locumProfiles, setLocumProfiles] = useState([])
   const [locumContacts, setLocumContacts] = useState([])
-  const [newLocumFor, setNewLocumFor] = useState(null) // the slot a "New locum" is being added to
+  const [newLocumFor, setNewLocumFor] = useState(null) // { date, shiftCode, entry, mode } a "New locum" is being added to
 
   // Drag state
   const [dragSource, setDragSource] = useState(null) // {entryId, profileId, date, shiftCode}
@@ -391,6 +414,7 @@ export default function RosterGridPage() {
       .order('date').order('position', { nullsFirst: true })
     const normalisedEntries = (data || []).map(e => ({ ...e, date: e.date?.slice(0, 10) }))
     setEntries(normalisedEntries)
+    refreshAdverts(normalisedEntries)
 
     if (rosterMonth?.status === 'draft') {
       const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
@@ -405,6 +429,19 @@ export default function RosterGridPage() {
       setDismissedDrift(isDriftMuted(id, newDrift))
     }
   }
+
+  // Which of this month's rows carry an open advert. Admin-only use (the
+  // menu); never throws.
+  async function refreshAdverts(rows) {
+    if (!isAdmin) return
+    const ids = (rows || []).map(e => e.id)
+    if (ids.length === 0) { setAdvertisedIds(new Set()); return }
+    try {
+      const { data } = await supabase.from('shift_advertisements').select('roster_entry_id').eq('status', 'open').in('roster_entry_id', ids)
+      setAdvertisedIds(new Set((data || []).map(a => a.roster_entry_id)))
+    } catch { /* leave as is */ }
+  }
+  useEffect(() => { if (!loading) refreshAdverts(entries) }, [loading, isAdmin]) // eslint-disable-line react-hooks/exhaustive-deps -- once the first load lands
 
   // Build calendar days for this month
   const calendarDays = rosterMonth ? buildCalendarDays(rosterMonth.year, rosterMonth.month, publicHolidays) : []
@@ -518,90 +555,54 @@ export default function RosterGridPage() {
     }
   }
 
-  async function handleCellClick(date, shiftCode, existingEntry) {
+  function handleCellClick(date, shiftCode, existingEntry, event = null) {
     if (!canEdit) return
-    // Occupied slot on a published roster: route through the removal/
-    // reassignment workflow instead of the plain assign-or-remove dropdown —
-    // an empty slot, a locum placeholder, or anything on a draft roster
-    // stays freely editable via the dropdown as before.
-    // (A locum's slot is not a doctor coming off a shift: no leave to
-    // capture, no reason to ask for.)
-    if (existingEntry?.profile_id && !existingEntry.is_locum && rosterMonth.status === 'published') {
-      setActiveVacancy({
-        entryId: existingEntry.id,
-        date,
-        shiftCode,
-        currentProfileId: existingEntry.profile_id,
-      })
-      return
-    }
-    setOpenDropdown({ date, shiftCode, entryId: existingEntry?.id || null })
-    setDropdownSearch('')
+    const anchorRect = event?.currentTarget?.getBoundingClientRect?.() ?? null
+    setMenu({ date, shiftCode, entry: existingEntry || null, anchorRect })
   }
 
-  // Puts a cover on a slot: a doctor, a locum with an account, or a locum
-  // with none yet (see lib/locumCover.js). Updates the entry already in the
-  // slot when there is one — so a shift a doctor was taken off keeps its
-  // struck-through name beside whoever fills it — and inserts otherwise.
-  async function assignCover(cover, date, shiftCode, entryId) {
-    setOpenDropdown(null)
-    setNewLocumFor(null)
+  const shiftTypeIdFor = code => Object.entries(shiftTypes).find(([, c]) => c === code)?.[0]
+  const nameOf = nameById
 
-    // Find the shift_type_id
-    const stId = Object.entries(shiftTypes).find(([, code]) => code === shiftCode)?.[0]
-    if (!stId) return
-
-    const priorEntry = entryId ? entries.find(e => e.id === entryId) : null
-    const patch = {
-      ...coverPatch(cover),
-      // A doctor taking over what was a locum's slot works it on contract
-      // hours again; a locum's slot never counted.
-      ...(cover.kind === 'doctor' && priorEntry?.is_locum ? { counts_toward_contract_hours: true } : {}),
+  // Every edit ends here: the toast for it, and a quiet re-read.
+  function pushUndo(result) {
+    if (!result) return
+    setLastAction({ batchId: result.batchId, label: `Saved — ${result.description}`, byUserId: user.id })
+    setToastVisible(true)
+    setEditNotice(result.logError ? `This change was saved, but could not be written to History (${result.logError}).` : '')
+  }
+  async function runEdit(fn) {
+    try {
+      const result = await fn()
+      pushUndo(result)
+    } catch (err) {
+      setEditNotice(err.message)
     }
-
-    if (entryId) {
-      await supabase.from('roster_entries').update(patch).eq('id', entryId)
-    } else {
-      await supabase.from('roster_entries').insert({
-        roster_month_id: id,
-        date: date,
-        shift_type_id: stId,
-        ...patch,
-        position: 99,
-      })
-    }
-    await logRosterEntryChange({
-      rosterMonthId: id,
-      rosterEntryId: entryId || null,
-      entryDate: date,
-      shiftCode,
-      action: 'assign',
-      profileIdBefore: priorEntry?.profile_id ?? null,
-      profileIdAfter: coverProfileId(cover),
-      changedBy: user.id,
-      locumName: cover.kind === 'contact' ? cover.name : null,
-    })
     await refreshEntries()
-    if (cover.kind === 'contact') refreshLocums()
+  }
+  const editArgs = entry => ({ rosterMonthId: id, entry, shiftCode: shiftTypes[entry.shift_type_id] || 'UNKNOWN', adminId: user.id, nameOf })
+
+  function assignCover(cover, date, shiftCode, entryBefore) {
+    const shiftTypeId = shiftTypeIdFor(shiftCode)
+    if (!shiftTypeId) return
+    runEdit(() => rosterEdits.assignCover({ rosterMonthId: id, cover, date, shiftCode, shiftTypeId, entryBefore, adminId: user.id, nameOf }))
+      .then(() => { if (cover.kind === 'contact') refreshLocums() })
   }
 
-  async function removeEntry(entryId) {
-    setOpenDropdown(null)
-    const priorEntry = entries.find(e => e.id === entryId)
-    await supabase.from('roster_entries').delete().eq('id', entryId)
-    if (priorEntry) {
-      await logRosterEntryChange({
-        rosterMonthId: id,
-        rosterEntryId: entryId,
-        entryDate: priorEntry.date,
-        shiftCode: shiftTypes[priorEntry.shift_type_id] || 'UNKNOWN',
-        action: 'remove',
-        profileIdBefore: priorEntry.profile_id,
-        profileIdAfter: null,
-        changedBy: user.id,
-      })
-    }
+  async function undoBatch(batchId) {
+    setUndoing(true)
+    const result = await undoRosterBatch({ batchId, changedBy: user.id })
+    setUndoing(false)
+    if (result.error) { setEditNotice(result.error); setToastVisible(false); return }
+    setLastAction(null)
+    setToastVisible(false)
+    setEditNotice('')
     await refreshEntries()
+    await refreshLeave()
+  }
+  function undoLastAction() {
+    if (!lastAction || lastAction.byUserId !== user.id) return
+    undoBatch(lastAction.batchId)
   }
 
   // Drag and drop
@@ -611,40 +612,14 @@ export default function RosterGridPage() {
 
   async function handleDrop(targetDate, targetShiftCode) {
     if (!dragSource) return
-    const stId = Object.entries(shiftTypes).find(([, code]) => code === targetShiftCode)?.[0]
-    if (!stId) return
-
-    // Refuse a move that would double-book this doctor elsewhere that same
-    // day — dropping onto a date where they already have a different entry.
-    if (findSameDayConflict({
-      entries, date: targetDate, profileId: dragSource.profileId, excludeEntryId: dragSource.entryId,
-    })) {
-      setDragSource(null)
-      return
-    }
-
-    // Move: update the entry's date and shift
-    await supabase.from('roster_entries').update({
-      date: targetDate,
-      shift_type_id: stId,
-      is_manual_override: true,
-    }).eq('id', dragSource.entryId)
-
-    await logRosterEntryChange({
-      rosterMonthId: id,
-      rosterEntryId: dragSource.entryId,
-      entryDate: targetDate,
-      shiftCode: targetShiftCode,
-      action: 'move',
-      profileIdBefore: dragSource.profileId,
-      profileIdAfter: dragSource.profileId,
-      dateBefore: dragSource.date,
-      shiftCodeBefore: dragSource.shiftCode,
-      changedBy: user.id,
-    })
-
+    const targetShiftTypeId = shiftTypeIdFor(targetShiftCode)
+    const entry = entries.find(e => e.id === dragSource.entryId)
     setDragSource(null)
-    await refreshEntries()
+    if (!targetShiftTypeId || !entry) return
+    if (entry.date === targetDate && (shiftTypes[entry.shift_type_id] === targetShiftCode)) return
+    await runEdit(() => rosterEdits.moveEntry({
+      rosterMonthId: id, entry, shiftCodeBefore: dragSource.shiftCode, targetDate, targetShiftCode, targetShiftTypeId, entries, adminId: user.id, nameOf,
+    }))
   }
 
   async function handlePublish() {
@@ -918,14 +893,16 @@ export default function RosterGridPage() {
           the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
       {isAdmin && (
           <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
-            <button
-              type="button"
-              onClick={() => setEditing(e => !e)}
-              aria-pressed={editing}
-              className={`${editing ? 'btn-primary' : 'btn-secondary'} text-sm shadow-raised`}
-            >
-              {editing ? <><CircleCheck className="h-4 w-4" /> Done editing</> : <><Pencil className="h-4 w-4" /> Edit</>}
-            </button>
+            {!editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-pressed={editing}
+                className="btn-secondary text-sm shadow-raised"
+              >
+                <Pencil className="h-4 w-4" /> Edit
+              </button>
+            )}
             {showPublish && publishButton}
           </div>
       )}
@@ -936,10 +913,34 @@ export default function RosterGridPage() {
         search={{ value: search, onChange: setSearch, placeholder: 'Search by surname…' }}
         filter={{ groups: filterGroups, active: filtersActive, onClearAll: clearFilters, sheetTitle: 'Filters' }}
         actions={isAdmin ? [
-          { key: 'edit', icon: editing ? CircleCheck : Pencil, label: editing ? 'Done editing' : 'Edit', active: editing, onClick: () => setEditing(e => !e) },
+          // While the edit bar is showing, Done lives there, not here.
+          !editing && { key: 'edit', icon: Pencil, label: 'Edit', active: false, onClick: () => setEditing(true) },
           showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
         ] : undefined}
+        raiseBy={canEdit ? 60 : 0}
       />
+
+      {canEdit && (
+        <RosterEditBar
+          canUndo={Boolean(lastAction) && lastAction.byUserId === user.id}
+          undoing={undoing}
+          onUndo={undoLastAction}
+          onHistory={() => setShowChangeLog(true)}
+          onDone={() => setEditing(false)}
+          notice={editNotice || null}
+        />
+      )}
+
+      {canEdit && toastVisible && lastAction && lastAction.byUserId === user.id && (
+        <UndoToast
+          label={lastAction.label}
+          onUndo={undoLastAction}
+          onDismiss={() => setToastVisible(false)}
+          undoing={undoing}
+          align="left"
+          bottomClassName="bottom-[calc(118px+env(safe-area-inset-bottom))] md:bottom-4"
+        />
+      )}
 
       {/* Publish confirmation */}
       {showPublishConfirm && (
@@ -1336,7 +1337,7 @@ export default function RosterGridPage() {
                               glow={glowEntryId === entry.id}
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
-                              onClick={() => canEdit && handleCellClick(day.dateStr, code, entry)}
+                              onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
                               onDragStart={() => handleDragStart(entry, code)}
                               isAdmin={canEdit}
                               canDrag={rosterMonth.status !== 'published'}
@@ -1345,7 +1346,7 @@ export default function RosterGridPage() {
                           {/* Add slot while editing */}
                           {canEdit && (
                             <button
-                              onClick={() => handleCellClick(day.dateStr, code, null)}
+                              onClick={e => handleCellClick(day.dateStr, code, null, e)}
                               className="flex w-full items-center justify-center rounded border border-dashed border-accent/70 bg-canvas-raised/70 py-0.5 text-[0.834em] font-bold text-accent-dark hover:border-accent hover:bg-accent-light"
                               title="Add doctor"
                             >
@@ -1365,44 +1366,57 @@ export default function RosterGridPage() {
       </div>
       )}
 
-      {/* Dropdown */}
-      {openDropdown && (
-        <DoctorDropdown
-          displayNames={displayNames}
+      {/* The one shift menu — every tap on a name, slot or "+" while editing */}
+      {menu && (
+        <ShiftMenu
+          entry={menu.entry}
+          date={menu.date}
+          shiftCode={menu.shiftCode}
+          rosterStatus={rosterMonth.status}
+          anchorRect={menu.anchorRect}
+          entries={entries}
           profiles={assignableProfiles.filter(p =>
             // Already working a different shift this same day (§1.3)
-            !findSameDayConflict({
-              entries, date: openDropdown.date, profileId: p.id, excludeEntryId: openDropdown.entryId,
-            })
+            !findSameDayConflict({ entries, date: menu.date, profileId: p.id, excludeEntryId: menu.entry?.id })
             // Worked a night shift the day before — needs post-call rest (§1.4)
-            && !workedNightShiftPreviousDay({
-              entries, shiftTypes, date: openDropdown.date, profileId: p.id,
-            })
+            && !workedNightShiftPreviousDay({ entries, shiftTypes, date: menu.date, profileId: p.id })
             // On approved leave this date (§1.2)
-            && !isOnApprovedLeave({ leaveByProfile, profileId: p.id, date: openDropdown.date }),
+            && !isOnApprovedLeave({ leaveByProfile, profileId: p.id, date: menu.date }),
           )}
-          search={dropdownSearch}
-          onSearchChange={setDropdownSearch}
-          onSelect={profileId => assignCover({ kind: 'doctor', id: profileId }, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
+          displayNames={displayNames}
+          leaveByProfile={leaveByProfile}
           // A locum already on another shift that day is left out, as a
           // doctor is.
           locums={locumProfiles.filter(l => l.is_active !== false && !findSameDayConflict({
-            entries, date: openDropdown.date, profileId: l.id, excludeEntryId: openDropdown.entryId,
+            entries, date: menu.date, profileId: l.id, excludeEntryId: menu.entry?.id,
           }))}
           contacts={locumContacts}
-          onSelectCover={cover => assignCover(cover, openDropdown.date, openDropdown.shiftCode, openDropdown.entryId)}
-          onNewLocum={() => { setNewLocumFor(openDropdown); setOpenDropdown(null) }}
-          onRemove={openDropdown.entryId ? () => removeEntry(openDropdown.entryId) : null}
-          onClose={() => setOpenDropdown(null)}
-          date={openDropdown.date}
-          shiftCode={labelForShiftCode(openDropdown.shiftCode)}
+          adminId={user.id}
+          nameOf={nameOf}
+          hasOpenAdvert={menu.entry ? advertisedIds.has(menu.entry.id) : false}
+          onVacancy={entry => setActiveVacancy({ entryId: entry.id, date: menu.date, shiftCode: menu.shiftCode, currentProfileId: entry.profile_id })}
+          onAssign={(cover, entry) => assignCover(cover, menu.date, menu.shiftCode, entry)}
+          onRemoveEntry={entry => runEdit(() => rosterEdits.removeEntry(editArgs(entry)))}
+          onRemoveLocum={entry => runEdit(() => rosterEdits.removeLocum(editArgs(entry)))}
+          onAddCover={(entry, mode, cover = null) => runEdit(() => rosterEdits.addCover({ ...editArgs(entry), mode, cover })).then(() => { if (cover?.kind === 'contact') refreshLocums() })}
+          onRemoveSlot={entry => runEdit(() => rosterEdits.removeSlot(editArgs(entry)))}
+          onAdvertise={entry => runEdit(() => rosterEdits.advertise(editArgs(entry)))}
+          onUnadvertise={entry => runEdit(() => rosterEdits.unadvertise(editArgs(entry)))}
+          onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
+          onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
+          onClose={() => setMenu(null)}
         />
       )}
 
       {newLocumFor && (
         <NewLocumModal
           adminId={user.id}
-          onDone={cover => assignCover(cover, newLocumFor.date, newLocumFor.shiftCode, newLocumFor.entryId)}
+          onDone={cover => {
+            const { date, shiftCode, entry, mode } = newLocumFor
+            setNewLocumFor(null)
+            if (mode === 'replace') runEdit(() => rosterEdits.addCover({ ...editArgs(entry), mode, cover })).then(refreshLocums)
+            else assignCover(cover, date, shiftCode, entry)
+          }}
           onClose={() => setNewLocumFor(null)}
         />
       )}
@@ -1420,7 +1434,20 @@ export default function RosterGridPage() {
           leaveByProfile={leaveByProfile}
           locums={locumProfiles}
           contacts={locumContacts}
-          onDone={info => { setActiveVacancy(null); refreshEntries(); refreshLocums(); if (info?.leaveChanged) refreshLeave() }}
+          onDone={info => {
+            setActiveVacancy(null)
+            if (info?.summary) {
+              const { cover, replacementName, vacancy } = info.summary
+              const who = nameOf(vacancy.currentProfileId) || 'Doctor'
+              const where = rosterEdits.shiftLabel(vacancy.date, vacancy.shiftCode)
+              const description = cover === 'replace' ? `${who} replaced with ${replacementName} on ${where}`
+                : cover === 'advertise' ? `${who} taken off ${where}; slot advertised`
+                : cover === 'open' ? `${who} taken off ${where}; slot left open`
+                : `${who} taken off ${where}, no cover`
+              pushUndo({ batchId: info.batchId, description })
+            }
+            refreshEntries(); refreshLocums(); if (info?.leaveChanged) refreshLeave()
+          }}
         />
       )}
 
@@ -1472,27 +1499,28 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   // shadow outside the chip's box, and the chip stacked just below was
   // painting over its bottom edge.
   const glowRing = glow ? 'relative z-10 ring-2 ring-ink ring-offset-2 ring-offset-canvas-raised' : ''
-  // The scheduler's "[ ]" for a place it couldn't fill reads as what it is.
-  if (entry.is_locum && isUnfilled(entry)) {
-    return (
-      <div
-        data-entry-id={entry.id}
-        onClick={isAdmin ? onClick : undefined}
-        className={`rounded border border-dashed border-flagRed bg-canvas-raised px-1.5 py-0.5 text-center text-[0.834em] font-semibold text-flagRed ${
-          isAdmin ? 'cursor-pointer hover:opacity-80' : ''
-        } ${glowRing}`}
-      >
-        Unfilled
-      </div>
-    )
-  }
-
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
     <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
       <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} />
     </div>
   )
+
+  // Vacated with no cover wanted: the struck-through name and nothing
+  // else. While editing, the name itself is what opens the menu (to add
+  // cover later, or put the doctor back).
+  if (vacated?.noCover) {
+    return (
+      <div
+        data-entry-id={entry.id}
+        data-testid="no-cover"
+        onClick={isAdmin ? onClick : undefined}
+        className={`rounded-sm ${isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''} ${glowRing}`}
+      >
+        {vacatedLine}
+      </div>
+    )
+  }
 
   // Vacated and not yet covered: the slot stays visible, and while editing
   // it is the thing to click to fill this same entry (so the struck name
@@ -1511,6 +1539,23 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
           {OPEN_LOCUM_LABEL}
         </div>
       </>
+    )
+  }
+
+  // The scheduler's "[ ]" for a place it couldn't fill reads as what it is.
+  // (A slot opened by taking a doctor off is drawn above, under their
+  // struck-through name, so the name is never lost behind the flag.)
+  if (entry.is_locum && isUnfilled(entry)) {
+    return (
+      <div
+        data-entry-id={entry.id}
+        onClick={isAdmin ? onClick : undefined}
+        className={`rounded border border-dashed border-flagRed bg-canvas-raised px-1.5 py-0.5 text-center text-[0.834em] font-semibold text-flagRed ${
+          isAdmin ? 'cursor-pointer hover:opacity-80' : ''
+        } ${glowRing}`}
+      >
+        Unfilled
+      </div>
     )
   }
 
@@ -1639,6 +1684,7 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
           onSearchChange={setSearch}
           onSelect={assign}
           onRemove={existing ? remove : null}
+          removeLabel={consultant ? `Remove ${displayNames?.get(consultant.id) ?? consultant.surname} as consultant` : 'Remove consultant'}
           onClose={() => setOpen(false)}
           date={date}
           shiftCode="Consultant"

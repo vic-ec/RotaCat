@@ -152,7 +152,7 @@ function DateTimePopoverButton({ iso, Icon, label }) {
 // the Staff page's All Staff tab. Filter groups mirror the grid's own
 // column headers (see filterGroups below) rather than an unrelated set of
 // dimensions.
-export default function LeaveListView({ leading = null }) {
+export default function LeaveListView({ leading = null, onCapture }) {
   // Admins may cancel any pending/approved leave from here (matrix detail,
   // mobile detail sheet, or the table's Actions column); everyone else
   // only reads. Doctors cancel their own from Planners → My Requests.
@@ -282,8 +282,11 @@ export default function LeaveListView({ leading = null }) {
           the dense matrix/table stay the wide-screen coordination views. Both
           render from the same fetched `requests` — no second fetch. */}
       <div className="lg:hidden">
-        {leading && <div className="mb-3 flex">{leading}</div>}
-        <TeamLeaveMobile requests={requests} canCancelLeave={isAdmin} onLeaveCancelled={load} />
+        {/* The inline button only from md: below that Capture leave is the
+            FAB's + action (TeamLeaveMobile), and the FAB itself stops at md,
+            so the md–lg band keeps the button. */}
+        {leading && <div className="mb-3 hidden md:flex">{leading}</div>}
+        <TeamLeaveMobile requests={requests} canCancelLeave={isAdmin} onLeaveCancelled={load} onCapture={onCapture} />
       </div>
 
       <div className="hidden lg:block">

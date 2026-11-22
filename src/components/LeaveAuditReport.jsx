@@ -4,7 +4,7 @@ import SectionBar from './SectionBar'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
-import { ArrowUpDown } from 'lucide-react'
+import { ArrowUpDown, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -137,7 +137,7 @@ function BucketCell({ bucket }) {
 // status, and leave type — all behind one Filter button (FilterPanel, same
 // multi-select grouped-facet pattern as the Staff list) rather than four
 // permanently-visible selects, since most visits don't need them.
-export default function LeaveAuditReport({ leading = null }) {
+export default function LeaveAuditReport({ leading = null, onCapture }) {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
   const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
@@ -317,9 +317,9 @@ export default function LeaveAuditReport({ leading = null }) {
           the narrowing controls, so below `md` they move into the FAB. */}
       <div className="flex flex-wrap items-center gap-2">
         {/* From md: Capture leave, search, Sort, Filter, then the dates.
-            On a phone only Capture leave and the dates stay on the row;
-            search and Filter are in the FAB. */}
-        {leading}
+            On a phone only the dates stay on the row; Capture leave,
+            search, Sort and Filter are in the FAB. */}
+        {leading && <div className="hidden flex-shrink-0 md:block">{leading}</div>}
         <div className="hidden items-center gap-2 md:flex">
           <div className="w-80">
             <ClearableInput
@@ -346,6 +346,7 @@ export default function LeaveAuditReport({ leading = null }) {
       </div>
 
       <FloatingActionMenu
+        primaryAction={onCapture ? { icon: Plus, label: 'Capture leave', onClick: onCapture } : undefined}
         search={{ value: q, onChange: setQ, placeholder: 'Search by surname or first name…' }}
         sort={{ facets: [sortFacet], active: sortMode !== DEFAULT_DOCTOR_SORT }}
         filter={{

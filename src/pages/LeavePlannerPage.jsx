@@ -129,6 +129,10 @@ export default function LeavePlannerPage() {
   const [teamLeaveVersion, setTeamLeaveVersion] = useState(0)
   // Leads each Team Leave view's toolbar row, where the Roster keeps its
   // Create and the Staff list its Add staff.
+  // Below md the same action lives in each view's FAB (its + slot, where
+  // the Roster keeps Create roster and the Staff list Add staff), so the
+  // views take the handler as well as the button.
+  const onCapture = isAdmin ? () => setCaptureOpen(true) : undefined
   const captureButton = isAdmin ? (
     <button type="button" onClick={() => setCaptureOpen(true)} className="btn-primary flex-shrink-0 whitespace-nowrap">
       <UserPlus className="h-4 w-4" aria-hidden="true" />
@@ -303,8 +307,8 @@ export default function LeavePlannerPage() {
         {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
         {tab === 'team' && (
           <>
-            {teamTab === 'current' && <LeaveListView key={teamLeaveVersion} leading={captureButton} />}
-            {teamTab === 'all' && isAdmin && <LeaveAuditReport key={teamLeaveVersion} leading={captureButton} />}
+            {teamTab === 'current' && <LeaveListView key={teamLeaveVersion} leading={captureButton} onCapture={onCapture} />}
+            {teamTab === 'all' && isAdmin && <LeaveAuditReport key={teamLeaveVersion} leading={captureButton} onCapture={onCapture} />}
           </>
         )}
         {tab === 'requests' && (

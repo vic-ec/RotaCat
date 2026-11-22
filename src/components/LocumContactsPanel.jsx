@@ -6,8 +6,12 @@ import AddStaffModal from './AddStaffModal'
 import SelectMenu from './SelectMenu'
 import { formatPhoneDisplay, phoneTelHref, phoneWhatsAppMessageHref } from '../lib/phone'
 import {
-  fetchOpenLocumContacts, fetchContactShiftCounts, fetchLocumProfiles, findByPhone, linkLocumContact, locumInviteText,
+  fetchOpenLocumContacts, fetchContactShiftCounts, fetchContactShifts, fetchLocumProfiles, findByPhone, linkLocumContact, locumInviteText,
 } from '../lib/locumCover'
+import { Link } from 'react-router-dom'
+import Modal from './Modal'
+import { formatDayMonthYear } from '../lib/dateRange'
+import { shiftTimeRange } from '../lib/shiftLabels'
 
 // Locums who were put on the roster with only a name and mobile (see
 // NewLocumModal) and still have no account. Each one is a loose end: they
@@ -34,6 +38,14 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
   const [linkTarget, setLinkTarget] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // Tapping a row: their rostered shifts, newest first, each linking to
+  // its cell on the roster.
+  const [shiftsFor, setShiftsFor] = useState(null) // { row, shifts } | null
+
+  async function openShifts(row) {
+    setShiftsFor({ row, shifts: null })
+    setShiftsFor({ row, shifts: await fetchContactShifts(row.id) })
+  }
 
   async function load() {
     const [open, locums] = await Promise.all([fetchOpenLocumContacts(), fetchLocumProfiles()])
@@ -134,7 +146,7 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
       <ul className="divide-y divide-slate-line md:hidden">
         {prepared.map(({ row, count, fullName, match, inviteHref }) => (
           <li key={row.id} className="px-4 py-1">
-            <div className="flex items-center gap-3 py-1">
+            <div className="flex cursor-pointer items-center gap-3 py-1" onClick={() => openShifts(row)} data-testid="locum-contact-row">
               <ProfileAvatar profile={row} size={40} className="flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">{fullName}</span>
@@ -160,7 +172,7 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
         <tbody>
           {prepared.map(({ row, count, fullName, match, inviteHref }) => (
             <Fragment key={row.id}>
-              <tr className="border-b border-slate-line last:border-0 transition-colors hover:bg-canvas-sunken">
+              <tr className="cursor-pointer border-b border-slate-line last:border-0 transition-colors hover:bg-canvas-sunken" onClick={() => openShifts(row)}>
                 <td className="px-2.5 py-1.5">
                   <div className="flex items-center gap-2.5">
                     <ProfileAvatar profile={row} size={30} className="flex-shrink-0" />
@@ -183,6 +195,31 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
           ))}
         </tbody>
       </table>
+
+      {shiftsFor && (
+        <Modal title={`${shiftsFor.row.name} ${shiftsFor.row.surname} — rostered shifts`} onClose={() => setShiftsFor(null)}>
+          {shiftsFor.shifts === null ? (
+            <p className="text-sm text-ink-muted">Loading…</p>
+          ) : shiftsFor.shifts.length === 0 ? (
+            <p className="text-sm text-ink-muted">No shifts on the roster.</p>
+          ) : (
+            <ul className="divide-y divide-slate-line" data-testid="contact-shifts">
+              {shiftsFor.shifts.map(s => (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-ink">{formatDayMonthYear(s.date)} · {shiftTimeRange(s.code)}</span>
+                  <Link
+                    to={`/roster/${s.rosterMonthId}?date=${s.date}&entry=${s.id}`}
+                    onClick={() => setShiftsFor(null)}
+                    className="flex-shrink-0 text-xs font-medium text-accent hover:underline"
+                  >
+                    View on roster ›
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Modal>
+      )}
 
       {creatingFor && (
         <AddStaffModal

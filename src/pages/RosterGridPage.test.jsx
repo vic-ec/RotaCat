@@ -107,6 +107,19 @@ describe('RosterGridPage day blocks', () => {
     }
   })
 
+  it('a link naming an entry (&entry=) scrolls to and lights that row — a locum contact\'s shift has no doctor to match', async () => {
+    const original = Element.prototype.scrollIntoView
+    const scrolled = []
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-entry-id')) }
+    try {
+      renderPage('/roster/rm1?date=2026-08-12&entry=e5')
+      await screen.findByText('August 2026')
+      await waitFor(() => expect(scrolled).toContain('e5'))
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it('a "Go to roster" link with a doctor scrolls to and lights that doctor\'s shift', async () => {
     const scrolled = []
     const original = Element.prototype.scrollIntoView

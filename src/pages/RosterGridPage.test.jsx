@@ -220,7 +220,7 @@ describe('RosterGridPage flagged slots and locum placeholders', () => {
     await user.click(screen.getByRole('button', { name: /Go to next flagged slot/ }))
     expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 1/5')
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
-    expect(document.querySelector('[data-entry-id="e6"]').className).toMatch(/ring-flagRed/)
+    expect(document.querySelector('[data-entry-id="e6"]').className).toMatch(/ring-ink/)
     await user.click(screen.getByRole('button', { name: 'Previous flagged slot' }))
     expect(screen.getByRole('button', { name: /Go to next flagged slot/ })).toHaveTextContent('Flagged 5/5')
   })

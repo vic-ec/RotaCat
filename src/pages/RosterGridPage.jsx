@@ -1465,7 +1465,13 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
-  const glowRing = glow ? `ring-2 ring-offset-1 ring-offset-canvas-raised ${isUnfilled(entry) ? 'ring-flagRed' : 'ring-flagAmber'}` : ''
+  // The spotlight on a jumped-to chip: a ring in the ink colour (near-black
+  // on the light theme, near-white at night) with a gap inside it, so it
+  // stands clear of the red and amber the chips themselves are drawn in.
+  // `relative z-10` lifts the chip above its neighbours — the ring is a
+  // shadow outside the chip's box, and the chip stacked just below was
+  // painting over its bottom edge.
+  const glowRing = glow ? 'relative z-10 ring-2 ring-ink ring-offset-2 ring-offset-canvas-raised' : ''
   // The scheduler's "[ ]" for a place it couldn't fill reads as what it is.
   if (entry.is_locum && isUnfilled(entry)) {
     return (

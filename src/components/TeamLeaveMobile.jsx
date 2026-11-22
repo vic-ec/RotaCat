@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarRange, CalendarDays, Users, Search } from 'lucide-react'
+import { CalendarRange, CalendarDays, Users, Search, Plus } from 'lucide-react'
 import ViewToggle from './ViewToggle'
 import FilterPanel from './FilterPanel'
 import ClearableInput from './ClearableInput'
@@ -77,7 +77,7 @@ const VIEW_KEYS = ['week', 'month', 'people']
 // People switch over an awareness-and-lookup experience, with on-demand
 // filters that apply across all three views. Read-only — renders from the same
 // `requests` the desktop views use, so there's no second fetch.
-export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLeaveCancelled }) {
+export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLeaveCancelled, onCapture }) {
   const today = todayStr()
   const [view, setView] = useState(() => {
     try {
@@ -187,6 +187,7 @@ export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLe
       </div>
 
       <FloatingActionMenu
+        primaryAction={onCapture ? { icon: Plus, label: 'Capture leave', onClick: onCapture } : undefined}
         search={{ value: q, onChange: setQ, placeholder: 'Search name' }}
         filter={{
           groups: filterGroups,

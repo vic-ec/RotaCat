@@ -3,9 +3,15 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WeekendYearOverview from './WeekendYearOverview'
 
-// The request panel reads canSubmitLeave; an admin has no weekend-off
-// request to make, so the panel is the year stepper alone.
-vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ isAdmin: true, canSubmitLeave: false }) }))
+// The request panel shows its action to admins and anyone who can submit
+// leave; the form it opens talks to Supabase, so it is stubbed.
+let mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
+vi.mock('./LeaveRequestForm', () => ({
+  default: ({ initialLeaveType, initialDateFrom, initialDateTo }) => (
+    <p>LeaveRequestFormStub: {initialLeaveType} {initialDateFrom} to {initialDateTo}</p>
+  ),
+}))
 import { groupEntriesByWeekend, saturdaysInMonth } from '../lib/weekendPlanner'
 
 // The clock is pinned to 1 Aug 2026 (see beforeEach), so August 2026 is
@@ -61,7 +67,7 @@ describe('WeekendYearOverview', () => {
     expect(inspector.getByText('No staff').closest('div')).toHaveTextContent('3')
   })
 
-  it('the panel holds the year stepper, the one period control, with no Today and no request action for an admin', async () => {
+  it('the panel holds the year stepper, the one period control, with no Today, then Request weekend off', async () => {
     const user = userEvent.setup()
     const onYearChange = vi.fn()
     renderOverview({ onYearChange })
@@ -71,7 +77,13 @@ describe('WeekendYearOverview', () => {
     expect(panel).toHaveTextContent('Weekends · Overview')
     expect(within(panel).getByRole('button', { name: `${YEAR}, jump to year` })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
-    expect(panel.querySelector('.btn-primary')).toBeNull()
+    // Under the stepper, in the same panel — as on the Annual and Special
+    // overviews. It opens the weekend-off form on a Saturday and its Sunday.
+    const request = within(panel).getByRole('button', { name: 'Request weekend off' })
+    expect(request).toHaveClass('btn-primary')
+    await user.click(request)
+    expect(screen.getByText(/LeaveRequestFormStub: weekend_exception \d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close' }))
     await user.click(within(panel).getByRole('button', { name: 'Next year' }))
     expect(onYearChange).toHaveBeenCalledWith(YEAR + 1)
     // The card has no stepper of its own.
@@ -113,7 +125,14 @@ describe('WeekendYearOverview', () => {
     expect(onOpenMonth).toHaveBeenCalledWith(8)
   })
 
-  it('the card\'s outlined "Open month" opens the selected month, leaving Plan now the one filled button', async () => {
+  it('a read-only viewer (a clerk) gets no request action', () => {
+    mockAuth = { isAdmin: false, canSubmitLeave: false, profile: { id: 'clerk-1' } }
+    renderOverview()
+    expect(screen.queryByRole('button', { name: 'Request weekend off' })).not.toBeInTheDocument()
+    mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
+  })
+
+  it('the card\'s outlined "Open month" opens the selected month; the filled buttons are the request and Plan now', async () => {
     const user = userEvent.setup()
     const onOpenMonth = vi.fn()
     renderOverview({ onOpenMonth })
@@ -123,7 +142,7 @@ describe('WeekendYearOverview', () => {
     await user.click(open)
     expect(onOpenMonth).toHaveBeenCalledWith(8)
     const filled = [...document.querySelectorAll('.btn-primary')]
-    expect(filled.map(b => b.textContent.trim())).toEqual(['Plan now'])
+    expect(filled.map(b => b.textContent.trim())).toEqual(['Request weekend off', 'Plan now'])
   })
 
   it('the year stepper\'s label opens a jump-to-year sheet', async () => {

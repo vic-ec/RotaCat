@@ -26,6 +26,7 @@ export default function SectionBar({ label, count, collapsed, onToggle, surround
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
+        title={collapsed ? 'Expand' : 'Collapse'}
         style={{ '--section-bar-surround': SURROUND[surround] ?? SURROUND.canvas }}
         className="section-bar-cap sticky left-1 inline-flex items-center gap-2 py-1.5 pl-3 pr-2 text-left uppercase"
       >

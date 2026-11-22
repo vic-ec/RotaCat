@@ -1154,7 +1154,7 @@ export default function StaffListPage() {
           const onClearAll = () => { setPendingSearchQuery(''); setPendingRoleFilter('all') }
           return (
             <>
-              <div className="hidden md:block">
+              <div className="mx-auto hidden md:block md:max-w-2xl">
                 <Toolbar
                   className={isAdmin ? 'mt-2' : ''}
                   searchValue={pendingSearchQuery}
@@ -1201,7 +1201,7 @@ export default function StaffListPage() {
           const onClearAll = () => { setRequestsSearchQuery(''); setRequestsRoleFilter('all') }
           return (
             <>
-              <div className="hidden md:block">
+              <div className="mx-auto hidden md:block md:max-w-2xl">
                 <Toolbar
                   className={isAdmin ? 'mt-2' : ''}
                   searchValue={requestsSearchQuery}
@@ -1255,7 +1255,7 @@ export default function StaffListPage() {
           )
           return (
             <>
-              <div className="hidden md:block">
+              <div className="mx-auto hidden md:block md:max-w-2xl">
                 <Toolbar
                   className="mt-2"
                   searchValue={historySearch}

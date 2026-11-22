@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+
+// The panel draws a phone list and a desktop table; jsdom shows both, so
+// the tests read the phone list.
+const phone = () => within(document.querySelector('[data-testid="locum-contacts-panel"] ul'))
 import userEvent from '@testing-library/user-event'
 import LocumContactsPanel from './LocumContactsPanel'
 
@@ -38,9 +42,9 @@ describe('LocumContactsPanel', () => {
 
   it('lists a contact with their shifts and a WhatsApp invite that carries the sign-up link', async () => {
     render(<LocumContactsPanel />)
-    expect(await screen.findByText('Jo Marsh')).toBeInTheDocument()
-    expect(screen.getByText('3 shifts')).toBeInTheDocument()
-    const invite = screen.getByRole('link', { name: 'WhatsApp' })
+    expect((await screen.findAllByText('Jo Marsh')).length).toBeGreaterThan(0)
+    expect(phone().getByText(/3 shifts/)).toBeInTheDocument()
+    const invite = phone().getByRole('link', { name: 'WhatsApp Jo' })
     expect(invite.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/27821234567\?text=/)
     const text = decodeURIComponent(invite.getAttribute('href').split('?text=')[1])
     expect(text).toContain('Hi Jo.')
@@ -52,7 +56,8 @@ describe('LocumContactsPanel', () => {
   it('"Create account" opens Add staff prefilled as a locum', async () => {
     const user = userEvent.setup()
     render(<LocumContactsPanel />)
-    await user.click(await screen.findByRole('button', { name: 'Create account' }))
+    await screen.findAllByText('Jo Marsh')
+    await user.click(phone().getByRole('button', { name: "Create Jo's account" }))
     expect(screen.getByText('AddStaffStub: Jo locum')).toBeInTheDocument()
   })
 
@@ -61,8 +66,8 @@ describe('LocumContactsPanel', () => {
     const onLinked = vi.fn()
     const user = userEvent.setup()
     render(<LocumContactsPanel onLinked={onLinked} />)
-    expect(await screen.findByTestId('contact-match')).toHaveTextContent('Same mobile as Jo Marsh’s account.')
-    await user.click(screen.getByRole('button', { name: 'Move the shifts onto it' }))
+    expect((await screen.findAllByTestId('contact-match'))[0]).toHaveTextContent('Same mobile as Jo Marsh’s account.')
+    await user.click(phone().getByRole('button', { name: 'Move the shifts onto it' }))
     await waitFor(() => expect(linkLocumContact).toHaveBeenCalledWith({ contactId: 'c-1', profileId: 'loc-9' }))
     await waitFor(() => expect(onLinked).toHaveBeenCalled())
   })
@@ -71,13 +76,13 @@ describe('LocumContactsPanel', () => {
     fetchLocumProfiles.mockResolvedValue([{ id: 'loc-5', name: 'Jo', surname: 'Marsh-Lee', phone: '0830000000' }])
     const user = userEvent.setup()
     render(<LocumContactsPanel />)
-    await screen.findByText('Jo Marsh')
+    await screen.findAllByText('Jo Marsh')
     expect(screen.queryByTestId('contact-match')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Link to account' }))
-    expect(screen.getByRole('button', { name: 'Move 3 shifts' })).toBeDisabled()
-    await user.click(screen.getByText('Choose their locum account…'))
+    await user.click(phone().getByRole('button', { name: 'Link Jo to an existing account' }))
+    expect(phone().getByRole('button', { name: 'Move 3 shifts' })).toBeDisabled()
+    await user.click(phone().getByText('Choose their locum account…'))
     await user.click(await screen.findByText('Marsh-Lee, Jo'))
-    await user.click(screen.getByRole('button', { name: 'Move 3 shifts' }))
+    await user.click(phone().getByRole('button', { name: 'Move 3 shifts' }))
     await waitFor(() => expect(linkLocumContact).toHaveBeenCalledWith({ contactId: 'c-1', profileId: 'loc-5' }))
   })
 

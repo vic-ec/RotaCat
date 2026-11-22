@@ -14,7 +14,7 @@ import { setLogErrorListener } from '../lib/changeLog'
 import * as rosterEdits from '../lib/rosterEdits'
 import { undoRosterBatch } from '../lib/rosterUndo'
 import ShiftMenu from '../components/ShiftMenu'
-import RosterEditBar from '../components/RosterEditBar'
+import RosterEditBar, { EDIT_BAR_HEIGHT } from '../components/RosterEditBar'
 import UndoToast from '../components/UndoToast'
 import RosterChangeLogModal from '../components/RosterChangeLogModal'
 import GenerationReportModal from '../components/GenerationReportModal'
@@ -921,7 +921,7 @@ export default function RosterGridPage() {
           !editing && { key: 'edit', icon: Pencil, label: 'Edit', active: false, onClick: () => setEditing(true) },
           showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
         ] : undefined}
-        raiseBy={canEdit ? 60 : 0}
+        raiseBy={canEdit ? EDIT_BAR_HEIGHT + 8 : 0}
       />
 
       {canEdit && (
@@ -942,7 +942,7 @@ export default function RosterGridPage() {
           onDismiss={() => setToastVisible(false)}
           undoing={undoing}
           align="left"
-          bottomClassName="bottom-[calc(118px+env(safe-area-inset-bottom))] md:bottom-4"
+          bottomClassName="bottom-[calc(116px+env(safe-area-inset-bottom))] md:bottom-4"
         />
       )}
 

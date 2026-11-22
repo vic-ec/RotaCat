@@ -131,7 +131,10 @@ function useTodayBox(scrollRef, todayHeadRef, deps) {
       const s = scroller.getBoundingClientRect()
       const h = head.getBoundingClientRect()
       if (h.width <= 0) { setBox(null); return }
-      setBox({ left: h.left - s.left + scroller.scrollLeft, width: h.width, height: table.offsetHeight })
+      // The overlay is positioned from the scroll box's padding edge, the
+      // rects from its border edge — so its own border (clientLeft) comes
+      // off, or the body of the box sits a pixel right of the header's.
+      setBox({ left: h.left - s.left - scroller.clientLeft + scroller.scrollLeft, width: h.width, height: table.offsetHeight })
     }
     measure()
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null

@@ -42,6 +42,7 @@ export function StepperShell({
         disabled={!canGoPrev}
         className="btn-ghost h-[28px] w-[28px] flex-shrink-0 rounded-md p-0 disabled:opacity-40"
         aria-label={prevLabel}
+        title={prevLabel}
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -64,6 +65,7 @@ export function StepperShell({
         disabled={!canGoNext}
         className="btn-ghost h-[28px] w-[28px] flex-shrink-0 rounded-md p-0 disabled:opacity-40"
         aria-label={nextLabel}
+        title={nextLabel}
       >
         <ChevronRight className="h-4 w-4" />
       </button>

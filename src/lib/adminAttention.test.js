@@ -64,8 +64,8 @@ describe('buildAttentionItems', () => {
     const items = buildAttentionItems({ ...quiet, pendingSignups: 1, accountRequests: 2, rotationsEnding: 3, neverSignedIn: 1, underMinimum: 1 })
     expect(keys(items)).toEqual(['signups', 'account-requests', 'rotations-ending', 'never-signed-in', 'under-minimum'])
     expect(Object.fromEntries(items.map(i => [i.key, i.to]))).toEqual({
-      signups: '/staff?tab=pending',
-      'account-requests': '/staff?tab=requests',
+      signups: '/staff?tab=requests&sub=new-users',
+      'account-requests': '/staff?tab=requests&sub=user-requests',
       'rotations-ending': '/leave?tab=planners&sub=interns',
       'never-signed-in': '/staff?tab=accounts',
       'under-minimum': '/roster?view=summary&hours=under',
@@ -89,7 +89,7 @@ describe('countUnderMinimum', () => {
 
   it('counts rostered locums without an account, linking to Account Requests', () => {
     const one = buildAttentionItems({ ...quiet, locumContacts: 1 })
-    expect(one.find(i => i.key === 'locum-contacts')).toMatchObject({ count: 1, to: '/staff?tab=pending', label: 'rostered locum needing an account' })
+    expect(one.find(i => i.key === 'locum-contacts')).toMatchObject({ count: 1, to: '/staff?tab=requests&sub=new-users', label: 'rostered locum needing an account' })
     const three = buildAttentionItems({ ...quiet, locumContacts: 3 })
     expect(three.find(i => i.key === 'locum-contacts').label).toBe('rostered locums needing accounts')
   })

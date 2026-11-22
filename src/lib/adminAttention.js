@@ -77,6 +77,12 @@ export function buildAttentionItems(data) {
       label: `${plural(data.pendingSignups, 'sign-up', 'sign-ups')} awaiting approval`,
     })
   }
+  if (data.locumContacts > 0) {
+    items.push({
+      key: 'locum-contacts', count: data.locumContacts, to: '/staff?tab=pending',
+      label: `rostered ${plural(data.locumContacts, 'locum', 'locums')} needing ${data.locumContacts === 1 ? 'an account' : 'accounts'}`,
+    })
+  }
   if (data.accountRequests > 0) {
     items.push({
       key: 'account-requests', count: data.accountRequests, to: '/staff?tab=requests',
@@ -141,7 +147,7 @@ export async function fetchAdminAttention(now = new Date()) {
   const nextSaturdays = saturdaysInMonth(next.year, next.month)
   const empty = { data: [], count: 0 }
 
-  const [rostersRes, plannerRes, signupsRes, requestsRes, neverRes, doctorsRes, leaveRes, rotatingRes] = await Promise.all([
+  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, doctorsRes, leaveRes, rotatingRes] = await Promise.all([
     safe(supabase.from('roster_months').select('id, year, month, status').is('deleted_at', null).gte('year', year), empty),
     nextSaturdays.length > 0
       ? safe(supabase.from('weekend_planner_entries').select('weekend_saturday')
@@ -149,6 +155,7 @@ export async function fetchAdminAttention(now = new Date()) {
       : empty,
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', false).eq('is_rejected', false), empty),
     safe(supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'), empty),
+    safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
     safe(supabase.from('profiles').select('id, min_hours').eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant'), empty),
     safe(supabase.from('leave_requests').select('profile_id').eq('status', 'approved').lte('date_from', monthEnd).gte('date_to', monthStart), empty),
@@ -198,6 +205,7 @@ export async function fetchAdminAttention(now = new Date()) {
     plannedSaturdays: new Set((plannerRes.data || []).map(e => e.weekend_saturday)),
     pendingSignups: signupsRes.count || 0,
     accountRequests: requestsRes.count || 0,
+    locumContacts: locumContactsRes.count || 0,
     neverSignedIn: neverRes.count || 0,
     rotationsEnding,
     underMinimum,

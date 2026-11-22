@@ -86,4 +86,11 @@ describe('countUnderMinimum', () => {
     const hoursByProfile = new Map([['a', 200], ['b', 220], ['c', 100], ['d', 0]])
     expect(countUnderMinimum({ profiles, hoursByProfile, onLeaveIds: new Set(['c']) })).toBe(1)
   })
+
+  it('counts rostered locums without an account, linking to Account Requests', () => {
+    const one = buildAttentionItems({ ...quiet, locumContacts: 1 })
+    expect(one.find(i => i.key === 'locum-contacts')).toMatchObject({ count: 1, to: '/staff?tab=pending', label: 'rostered locum needing an account' })
+    const three = buildAttentionItems({ ...quiet, locumContacts: 3 })
+    expect(three.find(i => i.key === 'locum-contacts').label).toBe('rostered locums needing accounts')
+  })
 })

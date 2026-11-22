@@ -12,6 +12,8 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import LocumContactsPanel from '../components/LocumContactsPanel'
+import SectionBar from '../components/SectionBar'
+import { fetchOpenLocumContacts } from '../lib/locumCover'
 import RowActionIcon from '../components/RowActionIcon'
 import ExpandAllButton from '../components/ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
@@ -311,6 +313,10 @@ export default function StaffListPage() {
   const isListTab = tab === 'active' || tab === 'accounts'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
+  // Locums on the roster with no account (admin-only read; see
+  // LocumContactsPanel). Counted here for the tab badge and the notice.
+  const [locumContactCount, setLocumContactCount] = useState(0)
+  const [requestSectionsCollapsed, setRequestSectionsCollapsed] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState(new Set())
@@ -573,6 +579,7 @@ export default function StaffListPage() {
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
     setAccountRequests(requestsRes.data || [])
+    if (isAdmin) fetchOpenLocumContacts().then(rows => setLocumContactCount(rows.length))
     setLeaveProfileIds(new Set((leaveRes.data || []).map(r => r.profile_id)))
     setDeletionLog(deletionLogRes.data || [])
 
@@ -1029,7 +1036,21 @@ export default function StaffListPage() {
           measured, not hand-picked, so it can never drift out of sync with
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
-      {isAdmin && <LocumContactsPanel onLinked={() => loadAll({ silent: true })} />}
+      {/* Rostered locums needing accounts live under Account Requests; the
+          other tabs carry one line pointing there. */}
+      {isAdmin && locumContactCount > 0 && tab !== 'pending' && (
+        <button
+          type="button"
+          onClick={() => setTab('pending')}
+          data-testid="locum-contacts-notice"
+          className="card mb-3 flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-flagAmber px-3 py-2 text-left text-sm text-ink hover:bg-canvas-sunken"
+        >
+          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-flagAmber-bg px-1.5 text-[11px] font-bold text-flagAmber">{locumContactCount}</span>
+          <span className="min-w-0 flex-1">{locumContactCount === 1 ? 'Rostered locum needing an account' : 'Rostered locums needing accounts'}</span>
+          {/* On its own line on a phone, where it does not fit beside the text. */}
+          <span className="basis-full pl-[30px] text-xs font-semibold text-accent sm:basis-auto sm:pl-0">Go to Account Requests ›</span>
+        </button>
+      )}
       {/* -mt-2 cancels the pt-2 at rest, so the tabs start at the same
           height as every other page's (Rosters, Team Leave) — the padding
           used to push this page's row 8px lower than theirs. It stays as
@@ -1044,7 +1065,11 @@ export default function StaffListPage() {
             { key: 'active', label: 'Active Staff' },
             { key: 'accounts', label: 'All Staff' },
             ...(isAdmin ? [
-              { key: 'pending', label: 'Pending Approvals', badge: pending.length, badgeColor: 'red' },
+              // Red while someone is waiting on an approval; the amber
+              // count of locums without an account otherwise.
+              pending.length > 0
+                ? { key: 'pending', label: 'Account Requests', badge: pending.length, badgeColor: 'red' }
+                : { key: 'pending', label: 'Account Requests', badge: locumContactCount },
               { key: 'requests', label: 'User Requests', badge: accountRequests.length },
             ] : []),
           ]}
@@ -1649,50 +1674,73 @@ export default function StaffListPage() {
           "Pending Approvals" tab above it (docs/design/layout-spec.md §4). */}
       {!loading && isAdmin && tab === 'pending' && (
         <div className="mx-auto md:max-w-2xl">
-          {pending.length === 0 ? (
+          {pending.length === 0 && locumContactCount === 0 ? (
             <div className="card p-10 text-center">
-              <p className="text-sm text-ink-muted">No accounts pending approval.</p>
-            </div>
-          ) : filteredPending.length === 0 ? (
-            <div className="card p-10 text-center">
-              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
+              <p className="text-sm text-ink-muted">No account requests. Sign-ups awaiting approval and rostered locums without an account appear here.</p>
             </div>
           ) : (
-            <>
-              {/* One card for the header and every row, rows joined by a
-                  hairline — same shape as the leave-request queue and User
-                  Requests. The header used to be its own `mb-3` card above
-                  a `space-y-3` stack of one-card-per-row, which left the
-                  select-all row floating detached from the rows it governs
-                  (and its selected tint attached to nothing). */}
-              <div className="card overflow-hidden">
-                <SelectAllRow
-                  checked={selectedPendingIds.size === pending.length}
-                  onToggleCheck={toggleSelectAllPending}
-                  selectLabel="Select all pending accounts"
-                  active={selectedPendingIds.size > 0}
-                  count={selectedPendingIds.size}
-                  actions={[
-                    { label: 'Approve selected', onClick: bulkApprovePending },
-                    { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
-                  ]}
-                  onCancel={() => setSelectedPendingIds(new Set())}
-                />
-                <div className="divide-y divide-slate-line">
-                  {orderedPending.map((person) => (
-                    <PendingApprovalRow
-                      key={person.id}
-                      person={person}
-                      checked={selectedPendingIds.has(person.id)}
-                      onToggleCheck={() => togglePendingSelected(person.id)}
-                      approveAccount={approveAccount}
-                      rejectAccount={rejectAccount}
-                      onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
-                    />
+            /* One table, two collapsible sections, each shown only while it
+               has rows: sign-ups waiting on an approval, then locums put on
+               the roster by name and mobile who still need an account. */
+            <div className="card overflow-hidden">
+              {pending.length > 0 && (
+                <>
+                  <SectionBar
+                    label="Pending approvals"
+                    count={pending.length}
+                    surround="card"
+                    collapsed={requestSectionsCollapsed.pending}
+                    onToggle={() => setRequestSectionsCollapsed(c => ({ ...c, pending: !c.pending }))}
+                  />
+                  {!requestSectionsCollapsed.pending && (filteredPending.length === 0 ? (
+                    <p className="px-5 py-4 text-sm text-ink-muted">No accounts match these filters.</p>
+                  ) : (
+                    <>
+                      <SelectAllRow
+                        checked={selectedPendingIds.size === pending.length}
+                        onToggleCheck={toggleSelectAllPending}
+                        selectLabel="Select all pending accounts"
+                        active={selectedPendingIds.size > 0}
+                        count={selectedPendingIds.size}
+                        actions={[
+                          { label: 'Approve selected', onClick: bulkApprovePending },
+                          { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
+                        ]}
+                        onCancel={() => setSelectedPendingIds(new Set())}
+                      />
+                      <div className="divide-y divide-slate-line">
+                        {orderedPending.map((person) => (
+                          <PendingApprovalRow
+                            key={person.id}
+                            person={person}
+                            checked={selectedPendingIds.has(person.id)}
+                            onToggleCheck={() => togglePendingSelected(person.id)}
+                            approveAccount={approveAccount}
+                            rejectAccount={rejectAccount}
+                            onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                          />
+                        ))}
+                      </div>
+                    </>
                   ))}
-                </div>
-              </div>
-            </>
+                </>
+              )}
+              {locumContactCount > 0 && (
+                <>
+                  <SectionBar
+                    label="Rostered locums needing accounts"
+                    count={locumContactCount}
+                    surround="card"
+                    collapsed={requestSectionsCollapsed.locums}
+                    onToggle={() => setRequestSectionsCollapsed(c => ({ ...c, locums: !c.locums }))}
+                    className={pending.length > 0 ? 'mt-1' : ''}
+                  />
+                  {!requestSectionsCollapsed.locums && (
+                    <LocumContactsPanel onLinked={() => loadAll({ silent: true })} onCount={setLocumContactCount} />
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
       )}

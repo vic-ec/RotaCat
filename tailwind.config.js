@@ -15,6 +15,7 @@ export default {
       md: '768px',   // spec's mobile/tablet boundary
       lg: '1024px',  // spec's tablet/desktop boundary
       xl: '1280px',
+      desk: '1440px', // the roster bar has room for its view switches (Month/Week, Rows/Lanes, Aa)
       '2xl': '1900px' // very wide desktop: the roster bar spells its chips out and keeps Hours and Log on the row
     },
     extend: {

@@ -11,6 +11,7 @@
 //   default  quiet grey, for the ordinary actions
 //   primary  filled accent, for the row's one forward action (Publish)
 //   danger   red, for one that removes or cancels something
+//   success  green, for an approve
 //
 // Renders a real `<a>` when given an `href` (so middle-click and "open in
 // new tab" work), a button otherwise. With neither an href nor an onClick,
@@ -20,6 +21,7 @@ const TONE_CLASS = {
   default: 'text-ink-muted hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink',
   primary: 'bg-accent text-white hover:bg-accent-dark active:bg-accent-dark',
   danger: 'text-danger hover:bg-flagRed-bg active:bg-flagRed-bg',
+  success: 'text-success hover:bg-success-bg active:bg-success-bg',
 }
 
 export default function RowActionIcon({ icon, href, title, label, onClick, onMissing, tone = 'default' }) {

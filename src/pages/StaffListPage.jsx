@@ -12,7 +12,6 @@ import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import LocumContactsPanel from '../components/LocumContactsPanel'
-import SectionBar from '../components/SectionBar'
 import { fetchOpenLocumContacts } from '../lib/locumCover'
 import RowActionIcon from '../components/RowActionIcon'
 import ExpandAllButton from '../components/ExpandAllButton'
@@ -1679,66 +1678,76 @@ export default function StaffListPage() {
               <p className="text-sm text-ink-muted">No account requests. Sign-ups awaiting approval and rostered locums without an account appear here.</p>
             </div>
           ) : (
-            /* One table, two collapsible sections, each shown only while it
-               has rows: sign-ups waiting on an approval, then locums put on
-               the roster by name and mobile who still need an account. */
-            <div className="card overflow-hidden">
+            /* Two sections, each a sheen header bar over its own card — the
+               Staff list's own shape — and each shown only while it has
+               rows: sign-ups waiting on an approval, then locums put on the
+               roster by name and mobile who still need an account. */
+            <div className="space-y-4">
               {pending.length > 0 && (
-                <>
-                  <SectionBar
-                    label="Pending approvals"
-                    count={pending.length}
-                    surround="card"
-                    collapsed={requestSectionsCollapsed.pending}
-                    onToggle={() => setRequestSectionsCollapsed(c => ({ ...c, pending: !c.pending }))}
-                  />
-                  {!requestSectionsCollapsed.pending && (filteredPending.length === 0 ? (
-                    <p className="px-5 py-4 text-sm text-ink-muted">No accounts match these filters.</p>
-                  ) : (
-                    <>
-                      <SelectAllRow
-                        checked={selectedPendingIds.size === pending.length}
-                        onToggleCheck={toggleSelectAllPending}
-                        selectLabel="Select all pending accounts"
-                        active={selectedPendingIds.size > 0}
-                        count={selectedPendingIds.size}
-                        actions={[
-                          { label: 'Approve selected', onClick: bulkApprovePending },
-                          { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
-                        ]}
-                        onCancel={() => setSelectedPendingIds(new Set())}
-                      />
-                      <div className="divide-y divide-slate-line">
-                        {orderedPending.map((person) => (
-                          <PendingApprovalRow
-                            key={person.id}
-                            person={person}
-                            checked={selectedPendingIds.has(person.id)}
-                            onToggleCheck={() => togglePendingSelected(person.id)}
-                            approveAccount={approveAccount}
-                            rejectAccount={rejectAccount}
-                            onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setRequestSectionsCollapsed(c => ({ ...c, pending: !c.pending }))}
+                    aria-expanded={!requestSectionsCollapsed.pending}
+                    className="sheen-divider mb-2 w-full transition-[filter] hover:brightness-110 active:brightness-110"
+                  >
+                    <span>Pending approvals <span className="divider-meta ml-2 normal-case font-normal">{pending.length}</span></span>
+                    <ChevronDownIcon className={`divider-meta h-3.5 w-3.5 flex-shrink-0 transition-transform ${requestSectionsCollapsed.pending ? 'rotate-180' : ''}`} />
+                  </button>
+                  {!requestSectionsCollapsed.pending && (
+                    <div className="card overflow-hidden">
+                      {filteredPending.length === 0 ? (
+                        <p className="px-5 py-4 text-sm text-ink-muted">No accounts match these filters.</p>
+                      ) : (
+                        <>
+                          <SelectAllRow
+                            checked={selectedPendingIds.size === pending.length}
+                            onToggleCheck={toggleSelectAllPending}
+                            selectLabel="Select all pending accounts"
+                            active={selectedPendingIds.size > 0}
+                            count={selectedPendingIds.size}
+                            actions={[
+                              { label: 'Approve selected', onClick: bulkApprovePending },
+                              { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
+                            ]}
+                            onCancel={() => setSelectedPendingIds(new Set())}
                           />
-                        ))}
-                      </div>
-                    </>
-                  ))}
-                </>
+                          <div className="divide-y divide-slate-line">
+                            {orderedPending.map((person) => (
+                              <PendingApprovalRow
+                                key={person.id}
+                                person={person}
+                                checked={selectedPendingIds.has(person.id)}
+                                onToggleCheck={() => togglePendingSelected(person.id)}
+                                approveAccount={approveAccount}
+                                rejectAccount={rejectAccount}
+                                onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               {locumContactCount > 0 && (
-                <>
-                  <SectionBar
-                    label="Rostered locums needing accounts"
-                    count={locumContactCount}
-                    surround="card"
-                    collapsed={requestSectionsCollapsed.locums}
-                    onToggle={() => setRequestSectionsCollapsed(c => ({ ...c, locums: !c.locums }))}
-                    className={pending.length > 0 ? 'mt-1' : ''}
-                  />
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setRequestSectionsCollapsed(c => ({ ...c, locums: !c.locums }))}
+                    aria-expanded={!requestSectionsCollapsed.locums}
+                    className="sheen-divider mb-2 w-full transition-[filter] hover:brightness-110 active:brightness-110"
+                  >
+                    <span>Rostered locums needing accounts <span className="divider-meta ml-2 normal-case font-normal">{locumContactCount}</span></span>
+                    <ChevronDownIcon className={`divider-meta h-3.5 w-3.5 flex-shrink-0 transition-transform ${requestSectionsCollapsed.locums ? 'rotate-180' : ''}`} />
+                  </button>
                   {!requestSectionsCollapsed.locums && (
-                    <LocumContactsPanel onLinked={() => loadAll({ silent: true })} onCount={setLocumContactCount} />
+                    <div className="card overflow-hidden">
+                      <LocumContactsPanel onLinked={() => loadAll({ silent: true })} onCount={setLocumContactCount} />
+                    </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           )}

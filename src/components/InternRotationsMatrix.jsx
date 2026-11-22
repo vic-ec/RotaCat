@@ -183,6 +183,11 @@ export default function InternRotationsMatrix({
 }) {
   const isDesktop = useIsDesktop()
   const [fillRef, fillStyle] = useFillToViewport(32, { fit: true })
+  // "Right now"/doctor aside panel — measured the same way as the grid
+  // (rather than a fixed `max-h-[calc(100dvh-2rem)]`) so the two land at
+  // the same height instead of the panel always having more room than the
+  // grid actually has to give.
+  const [panelFillRef, panelFillStyle] = useFillToViewport(32, { fit: true })
   // The table's own width, so the twelve month columns can share it.
   const [gridNode, setGridNodeState] = useState(null)
   const [gridWidth, setGridWidth] = useState(0)
@@ -534,6 +539,7 @@ export default function InternRotationsMatrix({
                   type="button"
                   onClick={() => setCollapsedNowSections(c => ({ ...c, [sec.key]: !c[sec.key] }))}
                   aria-expanded={!collapsed}
+                  title={collapsed ? 'Expand' : 'Collapse'}
                   className="sheen-divider text-left transition-[filter] hover:brightness-110 active:brightness-110"
                 >
                   <span>{sec.label} <span className="divider-meta ml-1 normal-case font-normal">{rows.length}</span></span>
@@ -841,11 +847,17 @@ export default function InternRotationsMatrix({
           <div className="ml-auto flex flex-shrink-0 items-center gap-2">
             {dateNav}
             <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+            <LegendSheet
+              title="Legend"
+              trigger={onClick => (
+                <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><LegendIcon className="h-4 w-4" /></button>
+              )}
+            >
+              {legendSwatches}
+            </LegendSheet>
             {overflowMenu}
           </div>
         </div>
-
-        <div className="mb-3">{legendSwatches}</div>
 
         {/* Grid and panel start on the same line, below the toolbar. */}
         <div className="flex items-start gap-4">
@@ -918,7 +930,7 @@ export default function InternRotationsMatrix({
         {/* Scrolls on its own once the list outgrows the screen; the grid
             stays put. */}
         <aside className="sticky top-4 w-72 flex-shrink-0">
-          <div className="card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
+          <div ref={panelFillRef} style={panelFillStyle} className="card overflow-y-auto p-4">{!selectedDoctor ? renderNoSelectionPanel() : renderDoctorPanel()}</div>
         </aside>
         </div>
 
@@ -998,6 +1010,7 @@ export default function InternRotationsMatrix({
             <button
               type="button"
               onClick={() => toggleGroupCollapsed(group.key)}
+              title={collapsedGroups[group.key] ? 'Expand' : 'Collapse'}
               className="sheen-divider text-left transition-[filter] hover:brightness-110 active:brightness-110"
             >
               <span>{group.label} <span className="divider-meta ml-1 normal-case font-normal">{group.items.length}</span></span>

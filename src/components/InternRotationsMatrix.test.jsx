@@ -63,8 +63,11 @@ describe('InternRotationsMatrix', () => {
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
   })
 
-  it('shows the 4-state legend, with no standalone "OT" option', () => {
+  it('shows the 4-state legend, with no standalone "OT" option', async () => {
+    const user = userEvent.setup()
     renderMatrix()
+    // Desktop now folds the legend behind its own icon, next to More actions.
+    await user.click(screen.getByRole('button', { name: 'Legend' }))
     expect(screen.getAllByText('EC').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OT · Day Hospital').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OT · TB Hospital').length).toBeGreaterThan(0)

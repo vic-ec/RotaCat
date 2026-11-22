@@ -211,6 +211,7 @@ export default function WeekendPlanner() {
             displayNames={displayNames}
             onOpenMonth={openMonth}
             onPlanWeekend={planWeekend}
+            onDataChanged={load}
           />
         ) : (
           <MyWeekendYearOverview

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import TeamLeaveMobile from './TeamLeaveMobile'
 import { todayStr, addDays, formatWeekdayDate, formatWeekdayDateShort } from '../lib/dateRange'
@@ -145,5 +145,20 @@ describe('TeamLeaveMobile', () => {
       expect(within(sheet).getByText('MO · Sick leave')).toBeInTheDocument()
       expect(within(sheet).queryByText('MO · Annual leave')).toBeNull()
     })
+  })
+
+  // On a phone Capture leave is the FAB's + action, where the Roster keeps
+  // Create roster and the Staff list Add staff — not a button above the list.
+  it('offers Capture leave from the FAB when given a handler, and not otherwise', () => {
+    const onCapture = vi.fn()
+    const { unmount } = render(<TeamLeaveMobile requests={requests} onCapture={onCapture} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Quick actions' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Capture leave' }))
+    expect(onCapture).toHaveBeenCalled()
+    unmount()
+
+    render(<TeamLeaveMobile requests={requests} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Quick actions' }))
+    expect(screen.queryByRole('button', { name: 'Capture leave' })).not.toBeInTheDocument()
   })
 })

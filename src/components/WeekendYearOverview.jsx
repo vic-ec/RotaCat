@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react'
 import { fullDoctorName } from '../lib/doctorNames'
 import { ExternalLink, Check } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
-import { todayStr, parseLocalDate } from '../lib/dateRange'
-import { weekendCoverageSummary, formatWeekendRange, weekendExceptionsForMonth } from '../lib/weekendPlanner'
+import { todayStr, parseLocalDate, addDays } from '../lib/dateRange'
+import { weekendCoverageSummary, formatWeekendRange, weekendExceptionsForMonth, nextSaturdayToRequestOff } from '../lib/weekendPlanner'
+import { useAuth } from '../context/AuthContext'
+import LeaveRequestForm from './LeaveRequestForm'
+import Modal from './Modal'
 import { monthWeekendMarkers, nextOpenWeekendInYear } from '../lib/weekendYearOverview'
 import DateStepper from './DateStepper'
 import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
@@ -32,7 +35,9 @@ function formatShortDate(dateStr) {
 // Leave planner. byWeekend is the { [saturday]: { [groupKey]: [entry,...] } }
 // Map from groupEntriesByWeekend — the same shape WeekendPlannerView itself
 // already works with.
-export default function WeekendYearOverview({ year, onYearChange, byWeekend, weekendExceptions = [], displayNames = new Map(), onOpenMonth, onPlanWeekend }) {
+export default function WeekendYearOverview({ year, onYearChange, byWeekend, weekendExceptions = [], displayNames = new Map(), onOpenMonth, onPlanWeekend, onDataChanged }) {
+  const { profile } = useAuth()
+  const [requestOpen, setRequestOpen] = useState(false)
   const today = todayStr()
   const todayYear = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(5, 7))
@@ -102,15 +107,18 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
         </div>
 
         {/* The same rail every planner overview hangs beside its grid: the
-            request panel on top (here the year stepper alone — an admin has
-            no weekend-off request to make, and the eyebrow names the view)
-            and the SELECTED MONTH card under it, titled by the month the
-            grid has selected. The year stepper is this view's only period
-            control. */}
+            request panel on top (the year stepper, then Request weekend
+            off — an admin who also works weekends asks from here like
+            anyone else; the panel itself hides the button from a viewer
+            who cannot submit leave, a clerk say) and the SELECTED MONTH
+            card under it, titled by the month the grid has selected. The
+            year stepper is this view's only period control. */}
         <div className={`order-first ${PANEL_RAIL}`}>
           <PlannerRequestPanel
             eyebrow="Weekends · Overview"
             stepper={<DateStepper unit="year" year={year} onChange={onYearChange} showToday={false} centered />}
+            actionLabel="Request weekend off"
+            onAction={() => setRequestOpen(true)}
           />
           <div data-testid="weekend-year-inspector" className="mt-3">
           <PlannerDetailsCard eyebrow="Selected month" title={`${selected.label} ${year}`}>
@@ -196,6 +204,28 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
           )}
         </div>
       </div>
+
+      {/* Opens on the next weekend this viewer is actually rostered on —
+          the one they would be asking about — searched across the whole
+          browsed year, as on the doctor's own overview. */}
+      {requestOpen && (() => {
+        const saturday = nextSaturdayToRequestOff({
+          saturdays: monthCards.flatMap(m => m.markers.map(mk => mk.saturday)),
+          byWeekend,
+          profileId: profile?.id,
+          today,
+        })
+        return (
+          <Modal title="Request weekend off" onClose={() => setRequestOpen(false)} centered>
+            <LeaveRequestForm
+              initialLeaveType="weekend_exception"
+              initialDateFrom={saturday}
+              initialDateTo={addDays(saturday, 1)}
+              onSubmitted={() => { setRequestOpen(false); onDataChanged?.() }}
+            />
+          </Modal>
+        )
+      })()}
     </div>
   )
 }

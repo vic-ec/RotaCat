@@ -980,16 +980,31 @@ export default function InternRotationsMatrix({
               {overflowMenu}
             </div>
           </div>
+          {/* On a phone the year stepper is alone on this row, so the
+              "right now" summary rides beside it rather than taking a
+              line of its own under it. The label gives way first: the
+              count and the chevron are what make it read as a button. */}
+          <button
+            type="button"
+            onClick={() => setShowNowSheet(true)}
+            aria-label={`Now, ${MONTH_ABBR[currentMonthIndex]} ${currentYear}: ${nowCount} active. View`}
+            className="card flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm md:hidden"
+          >
+            <span className="truncate font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]}</span>
+            <span className="flex-shrink-0 text-xs text-ink-muted">{nowCount} active</span>
+            <ChevronRight className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-accent" aria-hidden="true" />
+          </button>
         </div>
 
         {/* The "right now" panel, folded to one line — a 288px side panel
             would squeeze the grid at this width. Opens the full list. Sits
             above the month-letter header, inside the same sticky block, so
-            it stays reachable alongside it rather than scrolling away. */}
+            it stays reachable alongside it rather than scrolling away.
+            From md only: below that it is on the stepper's row above. */}
         <button
           type="button"
           onClick={() => setShowNowSheet(true)}
-          className="card mb-2 flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+          className="card mb-2 hidden w-full items-center gap-2 px-3 py-2 text-left text-sm md:flex"
         >
           <span className="font-semibold text-ink">Now · {MONTH_ABBR[currentMonthIndex]} {currentYear}</span>
           <span className="truncate text-xs text-ink-muted">{nowCount} active</span>

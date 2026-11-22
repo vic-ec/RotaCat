@@ -165,23 +165,16 @@ export default function RosterVacancyModal({ vacancy, entries, shiftTypes, profi
           </p>
         </div>
 
-        <fieldset>
-          <legend className="label-text">Reason</legend>
-          <div className="mt-1 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Reason">
-            {VACANCY_REASON_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={reason === opt.value}
-                onClick={() => { setReason(opt.value); if (opt.value === 'swap' && cover === 'none') setCover('') }}
-                className={`${reason === opt.value ? 'btn-primary' : 'btn-secondary'} min-h-[44px] px-3 text-sm md:min-h-0`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <div>
+          <label htmlFor="vacancy-reason" className="label-text">Reason</label>
+          <SelectMenu
+            id="vacancy-reason"
+            value={reason}
+            onChange={value => { setReason(value); if (value === 'swap' && cover === 'none') setCover('') }}
+            options={VACANCY_REASON_OPTIONS}
+            placeholder="Choose a reason…"
+          />
+        </div>
 
         {isLeave && existingLeave && (
           <p className="rounded-lg bg-canvas-sunken p-3 text-xs text-ink-light" data-testid="existing-leave-note">

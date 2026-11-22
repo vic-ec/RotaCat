@@ -19,7 +19,7 @@ import {
   DOCTOR_SORT_OPTIONS, DOCTOR_SORT_COMPARATORS, DEFAULT_DOCTOR_SORT,
   CONTRACT_TYPE_ORDER, CONTRACT_TYPE_LABEL,
 } from '../lib/doctorSort'
-import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { buildDoctorDisplayNames, fullDoctorName } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
 import { useSwatch } from '../lib/useSwatch'
 import { useFillToViewport } from '../lib/useFillToViewport'
@@ -455,7 +455,7 @@ export default function RosterSummaryPage() {
                           className="truncate whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                         >
-                          {displayNames.get(row.profileId) ?? row.surname}
+                          {fullDoctorName(row, displayNames.get(row.profileId) ?? row.surname)}
                         </span>
                       </div>
                       {/* EC Intern / OT Intern, not a bare "Intern" — which

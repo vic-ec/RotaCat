@@ -372,7 +372,7 @@ describe('WeekendPlannerView', () => {
       expect(within(aug15Card).getByText('P. Nolan')).toBeInTheDocument()
       expect(within(aug15Card).queryByText('Nolan')).not.toBeInTheDocument()
       const aug8Card = view.getByText('Sat 8 - Sun 9 Aug 2026').closest('.card')
-      expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
+      expect(within(aug8Card).getByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('"Needs planning" filter (admin-only) hides fully-covered weekends', async () => {
@@ -497,7 +497,7 @@ describe('WeekendPlannerView', () => {
       await view.findByText('August 2026')
       await showAll(view, user)
       const aug8Card = (await view.findByText('Sat 8 - Sun 9 Aug 2026')).closest('.card')
-      expect(within(aug8Card).getByText('Anderson')).toBeInTheDocument()
+      expect(within(aug8Card).getByText(/\bAnderson\b/)).toBeInTheDocument()
       expect(within(aug8Card).queryByText('Alice Anderson')).not.toBeInTheDocument()
     })
 
@@ -532,7 +532,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(sheet).getByRole('checkbox', { name: /Alice Anderson/ }))
       await user.click(within(sheet).getByRole('button', { name: /Add 1 doctor/ }))
 
-      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+      expect(await within(aug15Card).findByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('admin: can add a doctor to a specific open role by tapping its Open pill', async () => {
@@ -550,7 +550,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(sheet).getByRole('checkbox', { name: /Bob Botha/ }))
       await user.click(within(sheet).getByRole('button', { name: /Add 1 doctor/ }))
 
-      expect(await within(aug15Card).findByText('Botha')).toBeInTheDocument()
+      expect(await within(aug15Card).findByText(/\bBotha\b/)).toBeInTheDocument()
     })
 
     it('admin: can select several doctors at once and add them in a single submit', async () => {
@@ -568,8 +568,8 @@ describe('WeekendPlannerView', () => {
       await user.click(within(sheet).getByRole('checkbox', { name: /Erin Eaton/ }))
       await user.click(within(sheet).getByRole('button', { name: /Add 2 doctors/ }))
 
-      expect(await within(aug15Card).findByText('Botha')).toBeInTheDocument()
-      expect(within(aug15Card).getByText('Eaton')).toBeInTheDocument()
+      expect(await within(aug15Card).findByText(/\bBotha\b/)).toBeInTheDocument()
+      expect(within(aug15Card).getByText(/\bEaton\b/)).toBeInTheDocument()
     })
 
     it('the doctor-add sheet lets the admin switch category, refreshing the candidate list', async () => {
@@ -641,10 +641,10 @@ describe('WeekendPlannerView', () => {
       // not a specific "Wknd N" number.
       expect(within(sheet).getByText(new RegExp(`Wknd \\d+ · ${isEvenWeekend('2026-08-08') ? 'Even' : 'Odd'}`))).toBeInTheDocument()
       expect(within(sheet).getByText('4 of 4 groups planned')).toBeInTheDocument()
-      expect(within(sheet).getByText('Anderson')).toBeInTheDocument()
-      expect(within(sheet).getByText('Botha')).toBeInTheDocument()
-      expect(within(sheet).getByText('Cosmo')).toBeInTheDocument()
-      expect(within(sheet).getByText('Della')).toBeInTheDocument()
+      expect(within(sheet).getByText(/\bAnderson\b/)).toBeInTheDocument()
+      expect(within(sheet).getByText(/\bBotha\b/)).toBeInTheDocument()
+      expect(within(sheet).getByText(/\bCosmo\b/)).toBeInTheDocument()
+      expect(within(sheet).getByText(/\bDella\b/)).toBeInTheDocument()
       // Read-only even for an admin — no remove (x) controls in the sheet,
       // unlike the card's own always-editable inline breakdown below it.
       expect(within(sheet).queryByLabelText(/Remove/)).not.toBeInTheDocument()
@@ -751,13 +751,13 @@ describe('WeekendPlannerView', () => {
       expect(within(inspector).getByText('3 roles open')).toBeInTheDocument()
       // No assignment summary in the card — the row beside it carries the
       // names — and no inline edit controls in view mode.
-      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(inspector).queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
       expect(within(inspector).queryByText('Assignments')).not.toBeInTheDocument()
       expect(within(inspector).queryByText('Open')).not.toBeInTheDocument()
       expect(within(inspector).queryByRole('button', { name: 'Add doctor' })).not.toBeInTheDocument()
       // The table row still reads the names and the open roles.
       const row = within(view.getByRole('table')).getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
-      expect(within(row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(row).getByText(/\bAnderson\b/)).toBeInTheDocument()
       expect(within(row).getAllByText('Open')).toHaveLength(3)
     })
 
@@ -908,15 +908,15 @@ describe('WeekendPlannerView', () => {
       await user.click(aug8Cell.closest('tr'))
 
       const inspector = screen.getByTestId('weekend-inspector')
-      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(inspector).queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
       const buttons = within(inspector).getAllByRole('button').map(b => b.textContent.trim())
       expect(buttons).toEqual(['Edit assignments', 'Copy weekend', 'Clear weekend'])
       expect(within(inspector).getByRole('link', { name: /View requests/ })).toBeInTheDocument()
 
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
-      expect(within(inspector).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(inspector).queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
       // The names stay on the row, where they are edited.
-      expect(within(aug8Cell.closest('tr')).getByText('Anderson')).toBeInTheDocument()
+      expect(within(aug8Cell.closest('tr')).getByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('admin: the row\'s + opens the roster\'s doctor picker scoped to that category, and picking a name fills the cell', async () => {
@@ -941,7 +941,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(picker).getByRole('button', { name: /Anderson/ }))
 
       const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
-      expect(await within(aug15Row).findByText('Anderson')).toBeInTheDocument()
+      expect(await within(aug15Row).findByText(/\bAnderson\b/)).toBeInTheDocument()
       expect(screen.queryByRole('dialog', { name: /Assign doctor/ })).not.toBeInTheDocument()
     })
 
@@ -962,14 +962,14 @@ describe('WeekendPlannerView', () => {
       await user.click(screen.getByRole('button', { name: 'Add a doctor to Registrar on 2026-08-15' }))
       let picker = await screen.findByRole('dialog', { name: /Assign doctor — Registrar on/ })
       await user.click(within(picker).getByRole('button', { name: /Botha/ }))
-      expect(await within(aug15Row).findByText('Botha')).toBeInTheDocument()
+      expect(await within(aug15Row).findByText(/\bBotha\b/)).toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: 'Add a doctor to Registrar on 2026-08-15' }))
       picker = await screen.findByRole('dialog', { name: /Assign doctor — Registrar on/ })
       expect(within(picker).queryByRole('button', { name: /Botha/ })).not.toBeInTheDocument()
       await user.click(within(picker).getByRole('button', { name: /Eaton/ }))
-      expect(await within(aug15Row).findByText('Eaton')).toBeInTheDocument()
-      expect(within(aug15Row).getByText('Botha')).toBeInTheDocument()
+      expect(await within(aug15Row).findByText(/\bEaton\b/)).toBeInTheDocument()
+      expect(within(aug15Row).getByText(/\bBotha\b/)).toBeInTheDocument()
     })
 
     it('admin: an assigned pill opens the same picker in swap mode, with a named Remove at its foot', async () => {
@@ -1013,7 +1013,7 @@ describe('WeekendPlannerView', () => {
 
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Edit Anderson on 2026-08-01' })).not.toBeInTheDocument())
       const row = within(view.getByRole('table')).getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')
-      expect(within(row).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(row).queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
     })
 
     it('desktop: Review log lives inside the More Actions kebab too, same as mobile', async () => {
@@ -1151,13 +1151,13 @@ describe('WeekendPlannerView', () => {
       // (the same parity), while August 8's group (shared with Aug 22)
       // lands on Sept 5 — see planWeekendPaste's own comment for why.
       const sep5Row = within(view.getByRole('table')).getByText('Sat 5 - Sun 6 Sept 2026').closest('tr')
-      expect(within(sep5Row).getByText('Anderson')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Botha')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Cosmo')).toBeInTheDocument()
-      expect(within(sep5Row).getByText('Della')).toBeInTheDocument()
+      expect(within(sep5Row).getByText(/\bAnderson\b/)).toBeInTheDocument()
+      expect(within(sep5Row).getByText(/\bBotha\b/)).toBeInTheDocument()
+      expect(within(sep5Row).getByText(/\bCosmo\b/)).toBeInTheDocument()
+      expect(within(sep5Row).getByText(/\bDella\b/)).toBeInTheDocument()
 
       const sep12Row = within(view.getByRole('table')).getByText('Sat 12 - Sun 13 Sept 2026').closest('tr')
-      expect(within(sep12Row).getByText('Anderson')).toBeInTheDocument()
+      expect(within(sep12Row).getByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('admin: pasting a 4-weekend month into a 5-weekend one names the spare weekend and offers to fill it, off by default', async () => {
@@ -1313,7 +1313,7 @@ describe('WeekendPlannerView', () => {
       await screen.findByRole('heading', { name: /Paste Sat 8 - Sun 9 Aug 2026 into/ })
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
 
-      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+      expect(await within(aug15Card).findByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('admin (phone): a copied weekend pastes into the tapped card from the ⊕, which stays disabled until a target is chosen', async () => {
@@ -1343,7 +1343,7 @@ describe('WeekendPlannerView', () => {
 
       await screen.findByRole('heading', { name: /Paste Sat 8 - Sun 9 Aug 2026 into Sat 15 - Sun 16 Aug 2026/ })
       await user.click(screen.getByRole('button', { name: 'Confirm paste' }))
-      expect(await within(aug15Card).findByText('Anderson')).toBeInTheDocument()
+      expect(await within(aug15Card).findByText(/\bAnderson\b/)).toBeInTheDocument()
     })
 
     it('admin (phone): a copied month offers Paste into the viewed month from the ⊕ and the More menu', async () => {
@@ -1407,8 +1407,8 @@ describe('WeekendPlannerView', () => {
       await waitFor(() => expect(screen.queryByRole('heading', { name: /Paste Sat 8/ })).not.toBeInTheDocument())
 
       const aug15Row = within(view.getByRole('table')).getByText('Sat 15 - Sun 16 Aug 2026').closest('tr')
-      expect(within(aug15Row).getByText('Anderson')).toBeInTheDocument()
-      expect(within(aug15Row).getByText('Botha')).toBeInTheDocument()
+      expect(within(aug15Row).getByText(/\bAnderson\b/)).toBeInTheDocument()
+      expect(within(aug15Row).getByText(/\bBotha\b/)).toBeInTheDocument()
     })
 
     it('admin: Copy quarter builds a clipboard pill labelled with the quarter (current month + next 2)', async () => {
@@ -1555,7 +1555,7 @@ describe('WeekendPlannerView', () => {
       // fetch), not "Bell" from the request's own joined row — the resolver
       // wins so a name reads identically here and on the weekend cards, and
       // so surname collisions stay disambiguated.
-      expect(panel.getByText('Botha')).toBeInTheDocument()
+      expect(panel.getByText(/\bBotha\b/)).toBeInTheDocument()
       // Name, category and the weekend — no "Weekend exception" per row, since
       // the panel heading already says that of every row under it. Compact
       // date format here (no "Sat "/"Sun " prefixes) — this row already
@@ -1563,8 +1563,8 @@ describe('WeekendPlannerView', () => {
       expect(panel.getByText('Registrar')).toBeInTheDocument()
       expect(panel.getByText('Pending review')).toBeInTheDocument()
       // September's exception belongs to another weekend, not this one.
-      expect(panel.queryByText('Ash')).not.toBeInTheDocument()
-      expect(panel.queryByText('Anderson')).not.toBeInTheDocument()
+      expect(panel.queryByText(/\bAsh\b/)).not.toBeInTheDocument()
+      expect(panel.queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
     })
 
     it('admin: flags only the weekends that actually have an exception', async () => {
@@ -1589,10 +1589,10 @@ describe('WeekendPlannerView', () => {
       await userEvent.click(view.getByLabelText('Weekend off requests for 2026-08-22'))
 
       const sheet = (await screen.findByRole('heading', { name: 'Weekend off requests' })).closest('.card')
-      expect(within(sheet).getByText('Botha')).toBeInTheDocument()
+      expect(within(sheet).getByText(/\bBotha\b/)).toBeInTheDocument()
       expect(within(sheet).getByText('Pending review')).toBeInTheDocument()
       // Scoped to the tapped weekend, not the whole month.
-      expect(within(sheet).queryByText('Anderson')).not.toBeInTheDocument()
+      expect(within(sheet).queryByText(/\bAnderson\b/)).not.toBeInTheDocument()
     })
 
     // An approved exception means an admin has already decided this doctor

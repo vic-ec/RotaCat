@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { fullDoctorName } from '../lib/doctorNames'
 import { TriangleAlert } from 'lucide-react'
 import { groupRotationsByDoctorId, endOfRotationFlag } from '../lib/internRotations'
 import { rotationTypeKey, ROTATION_TYPE_KEY_OPTIONS, ROTATION_TYPE_COLOR } from '../lib/staffDefaults'
@@ -117,7 +118,7 @@ export default function EndOfRotationQueue({ doctors, rotations, displayNames, o
             <div key={doctor.id} className="py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="font-medium text-ink">{displayNames?.get(doctor.id) ?? doctor.surname}</span>
+                  <span className="font-medium text-ink">{fullDoctorName(doctor, displayNames?.get(doctor.id) ?? doctor.surname)}</span>
                   <span
                     className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
                     style={{ backgroundColor: ROTATION_TYPE_COLOR[key] }}

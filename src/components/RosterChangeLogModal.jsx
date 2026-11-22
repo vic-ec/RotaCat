@@ -45,7 +45,7 @@ function RosterChange({ parts, profilesById }) {
         {(type === 'vacated' || type === 'removed') && (
           <OffName><Person id={parts.person} profilesById={profilesById} /></OffName>
         )}
-        {(type === 'assigned' || type === 'moved' || type === 'reinstated' || type === 'undone') && <Person id={parts.person} name={parts.personName} profilesById={profilesById} />}
+        {(type === 'assigned' || type === 'moved' || type === 'reinstated' || type === 'undone' || type === 'times') && <Person id={parts.person} name={parts.personName} profilesById={profilesById} />}
         {type === 'slot_added' && (parts.covered
           ? <><OffName><Person id={parts.before} profilesById={profilesById} /></OffName><Joiner>covered by</Joiner><Person id={parts.after} name={parts.afterName} profilesById={profilesById} /></>
           : <><OffName><Person id={parts.person} profilesById={profilesById} /></OffName><Joiner>slot opened</Joiner></>)}

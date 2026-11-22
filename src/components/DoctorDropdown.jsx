@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import ClearableInput from './ClearableInput'
 import { useSwatch } from '../lib/useSwatch'
 
@@ -17,7 +17,11 @@ import { useSwatch } from '../lib/useSwatch'
 // receives a cover object (see lib/locumCover.js) for a locum pick; a
 // doctor pick still goes to onSelect(profileId), so every other caller is
 // untouched.
-export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, removeLabel = 'Remove', onClose, date, shiftCode, locums = [], contacts = [], onSelectCover = null, onNewLocum = null }) {
+// `onBack` puts a "‹ Back" before the title and `cancelLabel` a Cancel
+// button at the foot, both returning to whatever opened the picker without
+// closing it — the roster's shift menu, where the ✕ closes everything and
+// used to be the only way out.
+export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, removeLabel = 'Remove', onClose, onBack = null, cancelLabel = null, date, shiftCode, locums = [], contacts = [], onSelectCover = null, onNewLocum = null }) {
   const swatch = useSwatch()
   const matches = p => `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   const filtered = profiles.filter(matches)
@@ -52,15 +56,21 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
               the backdrop either side of a max-w-xs card is a thin strip,
               and there is nothing on screen that says tapping it does
               anything. */}
-          <div className="mb-1.5 flex items-start justify-between gap-2">
-            <p className="text-xs font-medium text-ink-muted">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            {onBack && (
+              <button type="button" onClick={onBack} className="-ml-1 flex min-h-[32px] items-center gap-0.5 text-xs font-semibold text-accent hover:underline">
+                <ChevronLeft className="h-4 w-4" /> Back
+              </button>
+            )}
+            <p className="min-w-0 flex-1 truncate text-xs font-medium text-ink-muted">
               Assign doctor — {shiftCode} on {date}
             </p>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="-mr-1 -mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
+              title={onBack ? 'Close, no change' : 'Close'}
+              className="-mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink"
             >
               <X className="h-4 w-4" />
             </button>
@@ -88,7 +98,7 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
                 className="h-3 w-3 flex-shrink-0 rounded-full"
                 style={swatch.fill(p.color_code)}
               />
-              <span className="font-medium text-ink">{displayNames?.get(p.id) ?? p.surname}</span>
+              <span className="font-medium text-ink">{`${p.name || ''} ${p.surname || ''}`.trim() || displayNames?.get(p.id)}</span>
               <span className="text-xs text-ink-muted capitalize">{p.category}</span>
             </button>
           ))}
@@ -114,6 +124,13 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
               className="w-full rounded py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent-light active:bg-accent-light"
             >
               + New locum
+            </button>
+          </div>
+        )}
+        {cancelLabel && (
+          <div className="border-t border-slate-line px-3 py-2">
+            <button type="button" onClick={onBack || onClose} className="btn-secondary min-h-[44px] w-full text-sm md:min-h-0">
+              {cancelLabel}
             </button>
           </div>
         )}

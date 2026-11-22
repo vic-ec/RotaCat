@@ -5,6 +5,7 @@ import { supabase } from './supabase'
 import { monthBounds } from './dateRange'
 import { fetchApprovedLeaveByProfile } from './approvedLeave'
 import { isEntryOnLeave } from './rosterVacancy'
+import { entryDurationHours } from './shiftTimes'
 
 // CONTRACT_CEILING_KEYS is keyed by the *current* contract_type enum value
 // (what doc.contract_type actually equals), mapped to the constraints-table
@@ -37,7 +38,7 @@ export async function getMonthlyHoursByProfile(year, month) {
   const { start, end } = monthBounds(year, month)
   const { data } = await supabase
     .from('roster_entries')
-    .select('profile_id, date, counts_toward_contract_hours, extra_hours, shift_types(duration_hours)')
+    .select('profile_id, date, counts_toward_contract_hours, extra_hours, start_time_override, end_time_override, shift_types(duration_hours)')
     .gte('date', start)
     .lte('date', end)
     .not('profile_id', 'is', null)
@@ -50,7 +51,8 @@ export async function getMonthlyHoursByProfile(year, month) {
     if (!entry.counts_toward_contract_hours) continue
     if (isEntryOnLeave(entry, leaveByProfile)) continue
     const prev = hoursByProfile.get(entry.profile_id) || 0
-    const entryHours = Number(entry.shift_types?.duration_hours || 0) + Number(entry.extra_hours || 0)
+    // An adjusted shift counts its own length (see lib/shiftTimes.js).
+    const entryHours = entryDurationHours(entry, entry.shift_types) + Number(entry.extra_hours || 0)
     hoursByProfile.set(entry.profile_id, prev + entryHours)
   }
   return hoursByProfile

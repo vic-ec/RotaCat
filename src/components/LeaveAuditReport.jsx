@@ -11,7 +11,7 @@ import { reviewStatusLabel } from '../lib/statusLabels'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows, AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
-import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { buildDoctorDisplayNames, fullDoctorName } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
 import { useSwatch } from '../lib/useSwatch'
 import {
@@ -486,7 +486,7 @@ export default function LeaveAuditReport() {
                         className="inline-block max-w-full truncate whitespace-nowrap rounded px-1.5 py-0.5 align-bottom text-[10px] font-medium"
                         style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                       >
-                        {displayNames.get(row.profileId) ?? row.surname}
+                        {fullDoctorName(row, displayNames.get(row.profileId) ?? row.surname)}
                       </span>
                       <p className="mt-0.5 truncate text-[10px] text-ink-muted">{COLUMN_LABEL_BY_KEY[columnByProfileId.get(row.profileId)]}</p>
                     </td>

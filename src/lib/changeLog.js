@@ -144,6 +144,7 @@ export const ROSTER_ACTION_OPTIONS = [
   { value: 'advertise', label: 'Advertised' },
   { value: 'unadvertise', label: 'Advert stopped' },
   { value: 'undo', label: 'Undone' },
+  { value: 'times', label: 'Times changed' },
 ]
 
 export const WEEKEND_ACTION_OPTIONS = [
@@ -270,6 +271,7 @@ function rosterChangeAction(change, nameById) {
   if (change.action === 'reinstate') return `put ${after ?? '(unassigned)'} back on ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   if (change.action === 'advertise') return `advertised ${dateFmt} ${labelForShiftCode(change.shift_code)} to locums`
   if (change.action === 'unadvertise') return `stopped advertising ${dateFmt} ${labelForShiftCode(change.shift_code)}`
+  if (change.action === 'times') return `changed times on ${dateFmt} ${labelForShiftCode(change.shift_code)} for ${after ?? before ?? '(unassigned)'}${change.note ? ` (${change.note})` : ''}`
   if (change.action === 'undo') return `undid a change to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   if (change.action === 'unassign') {
     return `vacated ${dateFmt} ${labelForShiftCode(change.shift_code)} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`

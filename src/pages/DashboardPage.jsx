@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { applyTimeOverrides } from '../lib/shiftTimes'
 import { Link } from 'react-router-dom'
 import { ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -46,6 +47,8 @@ function SectionHeading({ children, to, linkLabel }) {
   )
 }
 
+// Adjusted shifts arrive with their own start/end in place of the shift
+// type's (see lib/shiftTimes.js), so every row below shows real hours.
 function hourOnly(time) {
   return time ? time.slice(0, 2) : ''
 }
@@ -183,12 +186,12 @@ export default function DashboardPage() {
   async function loadOwnUpcomingShifts() {
     const { data } = await supabase
       .from('roster_entries')
-      .select('date, shift_type:shift_types(code, label, start_time, end_time, day_type, is_night_shift)')
+      .select('date, profile_id, start_time_override, end_time_override, shift_type:shift_types(code, label, start_time, end_time, day_type, is_night_shift)')
       .eq('profile_id', profile.id)
       .gte('date', todayStr())
       .lte('date', addDays(todayStr(), 6))
       .order('date', { ascending: true })
-    return (data || []).filter(e => !e.profile_id || e.profile_id === profile.id)
+    return applyTimeOverrides((data || []).filter(e => !e.profile_id || e.profile_id === profile.id))
   }
 
   // Everyone else on the published roster in the same window, keyed by
@@ -344,7 +347,7 @@ export default function DashboardPage() {
     const [entriesRes, leaveRes] = await Promise.all([
       supabase
         .from('roster_entries')
-        .select('date, profile_id, shift_type:shift_types(code, label, start_time, end_time), profile:profiles!roster_entries_profile_id_fkey(name, surname)')
+        .select('date, profile_id, start_time_override, end_time_override, shift_type:shift_types(code, label, start_time, end_time), profile:profiles!roster_entries_profile_id_fkey(name, surname)')
         .gte('date', yesterday)
         .lte('date', tomorrow)
         .not('profile_id', 'is', null),
@@ -356,7 +359,7 @@ export default function DashboardPage() {
         .gte('date_to', today),
     ])
 
-    const { active, upcoming } = splitByShiftStatus(entriesRes.data || [], now, 24)
+    const { active, upcoming } = splitByShiftStatus(applyTimeOverrides(entriesRes.data || []), now, 24)
     setOnShiftNow(active)
     setStartingSoon(upcoming)
     setOnLeaveNow(leaveRes.data || [])

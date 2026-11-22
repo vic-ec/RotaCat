@@ -187,7 +187,7 @@ export async function fetchRosterBatches({ rosterMonthId, limit = 300 }) {
 const ACTION_VERBS = {
   assign: 'Assigned', unassign: 'Vacated', remove: 'Removed', move: 'Moved',
   slot_add: 'Cover added', slot_remove: 'Locum slot removed', reinstate: 'Put back',
-  advertise: 'Advertised', unadvertise: 'Advert stopped', undo: 'Undone',
+  advertise: 'Advertised', unadvertise: 'Advert stopped', undo: 'Undone', times: 'Times changed',
 }
 
 // One line per batch: "Vacated · Mon 10 Aug · WD 08h-18h · Sam Rivers",

@@ -40,6 +40,7 @@ import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { shiftColumns } from '../lib/shiftLabels'
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { adjustedTimesLabel } from '../lib/shiftTimes'
 
 // Two ways to read the same month. Rows is the day-by-day grid the roster
 // has always been; Lanes turns it ninety degrees, a row per doctor. Both
@@ -123,6 +124,7 @@ export default function RosterGridPage() {
   const [profiles, setProfiles] = useState([])   // all schedulable doctors
   const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
+  const [shiftTypeRows, setShiftTypeRows] = useState({}) // keyed by id -> { code, start_time, end_time }
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -338,7 +340,7 @@ export default function RosterGridPage() {
         // category is needed by the Lanes view's section header — without it
         // consultants grouped under a generic "Other".
         supabase.from('profiles').select('id, name, surname, category, color_code, pattern_type').eq('is_approved', true).eq('category', 'Consultant'),
-        supabase.from('shift_types').select('id, code').eq('is_active', true),
+        supabase.from('shift_types').select('id, code, start_time, end_time, duration_hours').eq('is_active', true),
         supabase.from('public_holidays').select('date, name'),
       ])
 
@@ -356,8 +358,10 @@ export default function RosterGridPage() {
       setConsultantProfiles(consultantProfilesRes.data || [])
 
       const stMap = {}
-      for (const st of (shiftTypesRes.data || [])) stMap[st.id] = st.code
+      const stRows = {}
+      for (const st of (shiftTypesRes.data || [])) { stMap[st.id] = st.code; stRows[st.id] = st }
       setShiftTypes(stMap)
+      setShiftTypeRows(stRows)
 
       // Draft-reopen check (§2.6): only meaningful for a still-editable
       // draft — a published roster is the historical record, not
@@ -1394,6 +1398,7 @@ export default function RosterGridPage() {
           adminId={user.id}
           nameOf={nameOf}
           hasOpenAdvert={menu.entry ? advertisedIds.has(menu.entry.id) : false}
+          shiftType={menu.entry ? shiftTypeRows[menu.entry.shift_type_id] ?? null : null}
           onVacancy={entry => setActiveVacancy({ entryId: entry.id, date: menu.date, shiftCode: menu.shiftCode, currentProfileId: entry.profile_id })}
           onAssign={(cover, entry) => assignCover(cover, menu.date, menu.shiftCode, entry)}
           onRemoveEntry={entry => runEdit(() => rosterEdits.removeEntry(editArgs(entry)))}
@@ -1402,6 +1407,7 @@ export default function RosterGridPage() {
           onRemoveSlot={entry => runEdit(() => rosterEdits.removeSlot(editArgs(entry)))}
           onAdvertise={entry => runEdit(() => rosterEdits.advertise(editArgs(entry)))}
           onUnadvertise={entry => runEdit(() => rosterEdits.unadvertise(editArgs(entry)))}
+          onChangeTimes={(entry, { start, end }) => runEdit(() => rosterEdits.changeTimes({ ...editArgs(entry), start, end }))}
           onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           onClose={() => setMenu(null)}
@@ -1570,7 +1576,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
           isAdmin ? 'cursor-pointer hover:opacity-80' : ''
         } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       >
-        {entry.locum_name || OPEN_LOCUM_LABEL}
+        {entry.locum_name || OPEN_LOCUM_LABEL}{adjustedTimesLabel(entry) && <span className="ml-1 font-normal" data-testid="adjusted-times">{adjustedTimesLabel(entry)}</span>}
       </div>
       </>
     )
@@ -1580,6 +1586,8 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
 
   const onLeave = absence?.kind === 'on_leave' ? absence : null
   const chipName = `${displayNames?.get(profile.id) ?? profile.surname}${entry.display_tag ? ` ${entry.display_tag}` : ''}`
+  // Adjusted times sit after the name, lighter, so the hours read at a glance.
+  const times = adjustedTimesLabel(entry)
 
   const railColor = profile.color_code || '#4A90D9'
   const draggableNow = isAdmin && canDrag
@@ -1600,7 +1608,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
     >
       {onLeave
         ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} />
-        : <span className="truncate">{chipName}</span>}
+        : <span className="truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
     </div>
     </>
   )

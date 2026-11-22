@@ -972,7 +972,7 @@ describe('WeekendPlannerView', () => {
       expect(within(aug15Row).getByText('Botha')).toBeInTheDocument()
     })
 
-    it('admin: an assigned pill opens the same picker in swap mode, with Remove from this slot at its foot', async () => {
+    it('admin: an assigned pill opens the same picker in swap mode, with a named Remove at its foot', async () => {
       mockAuth = { isAdmin: true, canSubmitLeave: false, profile: { id: 'admin-1' } }
       const user = userEvent.setup()
       renderView()
@@ -991,7 +991,7 @@ describe('WeekendPlannerView', () => {
 
       await user.click(screen.getByRole('button', { name: 'Edit Anderson on 2026-08-08' }))
       const picker = await screen.findByRole('dialog', { name: /Assign doctor — Anderson \(MO\) on/ })
-      expect(within(picker).getByRole('button', { name: 'Remove from this slot' })).toBeInTheDocument()
+      expect(within(picker).getByRole('button', { name: /^Remove .* from this weekend$/ })).toBeInTheDocument()
     })
 
     it('admin: can remove an assigned doctor from the swap picker', async () => {
@@ -1009,7 +1009,7 @@ describe('WeekendPlannerView', () => {
       await user.click(within(inspector).getByRole('button', { name: /Edit assignments/ }))
       await user.click(await screen.findByRole('button', { name: 'Edit Anderson on 2026-08-01' }))
       const picker = await screen.findByRole('dialog', { name: /Assign doctor — Anderson/ })
-      await user.click(within(picker).getByRole('button', { name: 'Remove from this slot' }))
+      await user.click(within(picker).getByRole('button', { name: /^Remove .* from this weekend$/ }))
 
       await waitFor(() => expect(screen.queryByRole('button', { name: 'Edit Anderson on 2026-08-01' })).not.toBeInTheDocument())
       const row = within(view.getByRole('table')).getByText('Sat 1 - Sun 2 Aug 2026').closest('tr')

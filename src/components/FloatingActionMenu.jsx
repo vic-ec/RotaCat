@@ -60,6 +60,9 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 //   at the list.
 // - hideFrom: 'md' (default) | 'lg' — the breakpoint this menu stops
 //   rendering at; match it to the page's own mobile block.
+// - raiseBy — extra px to lift the whole menu by, for a page with its own
+//   bar fixed along the bottom edge (the roster's edit bar) that the ⊕
+//   must clear rather than cover.
 // - hidden — pass `true` while a page renders its own element fixed to the
 //   same bottom edge, so the two floating elements never overlap; this menu
 //   renders nothing while hidden. (No page needs it today — the bulk
@@ -69,7 +72,7 @@ import { useDismissablePopover } from '../lib/useDismissablePopover'
 // Spelled out in full so Tailwind's scanner sees both class names.
 const HIDE_FROM = { md: 'md:hidden', lg: 'lg:hidden' }
 
-export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, actions, hideFrom = 'md', hidden = false }) {
+export default function FloatingActionMenu({ search, sort, filter, legend, moreMenu, cycleView, primaryAction, actions, hideFrom = 'md', hidden = false, raiseBy = 0 }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [sheet, setSheet] = useState(null) // 'sort' | 'filter' | null
@@ -112,7 +115,7 @@ export default function FloatingActionMenu({ search, sort, filter, legend, moreM
   return (
     <div
       className={`fixed z-30 ${HIDE_FROM[hideFrom] ?? HIDE_FROM.md}`}
-      style={{ bottom: 'calc(70px + env(safe-area-inset-bottom))', right: 'max(1rem, env(safe-area-inset-right))' }}
+      style={{ bottom: `calc(${70 + raiseBy}px + env(safe-area-inset-bottom))`, right: 'max(1rem, env(safe-area-inset-right))' }}
     >
       {searchOpen && hasSearch ? (
         <div className="flex w-[calc(100vw-2rem)] max-w-sm items-center gap-1 rounded-full border border-edge bg-canvas-raised py-1 pl-3 pr-1 shadow-raised">

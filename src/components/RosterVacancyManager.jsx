@@ -7,19 +7,24 @@ import RosterVacancyModal from './RosterVacancyModal'
 // the swapped-in doctor's own shift, pushes that shift as the next vacancy
 // to resolve — re-entrant until the whole chain is cleared.
 export default function RosterVacancyManager({ vacancy, entries, shiftTypes, profiles, displayNames, rosterMonthId, leaveByProfile, locums, contacts, onDone }) {
+  // One undo batch for the whole chain: a replacement that vacates the
+  // replacement's own shift is one action and undoes as one.
+  const [batchId] = useState(() => crypto.randomUUID())
+  const [summary, setSummary] = useState(null)
   const [stack, setStack] = useState([vacancy])
   const [workingEntries, setWorkingEntries] = useState(entries)
   // Whether any step filed or linked leave, so the page knows to re-read it.
   const [leaveChanged, setLeaveChanged] = useState(false)
 
   useEffect(() => {
-    if (stack.length === 0) onDone({ leaveChanged })
+    if (stack.length === 0) onDone({ leaveChanged, batchId, summary })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stack])
 
   function handleResolved(nextVacancy, updatedEntries, info) {
     setWorkingEntries(updatedEntries)
     if (info?.leaveChanged) setLeaveChanged(true)
+    if (info?.cover) setSummary(s => s ?? { cover: info.cover, replacementName: info.replacementName, vacancy: stack[0] })
     setStack(s => {
       const rest = s.slice(1)
       return nextVacancy ? [nextVacancy, ...rest] : rest
@@ -41,8 +46,9 @@ export default function RosterVacancyManager({ vacancy, entries, shiftTypes, pro
       leaveByProfile={leaveByProfile}
       locums={locums}
       contacts={contacts}
+      batchId={batchId}
       onResolved={handleResolved}
-      onClose={() => onDone({ leaveChanged })}
+      onClose={() => onDone({ leaveChanged, batchId, summary })}
     />
   )
 }

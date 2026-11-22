@@ -23,6 +23,11 @@ export async function logRosterEntryChange({
   // The locum put on the shift when they have no account, and so no
   // profileIdAfter to name them by.
   locumName = null,
+  // Undo (see lib/rosterUndo.js): the batch this row belongs to, the whole
+  // roster_entries row before and after, and anything the action touched
+  // elsewhere. Left out when unset so a caller that predates them writes
+  // the row it always did.
+  batchId = null, entryBefore = undefined, entryAfter = undefined, sideEffects = null,
 }) {
   const { error } = await supabase.from('roster_entry_changes').insert({
     roster_month_id: rosterMonthId,
@@ -40,9 +45,27 @@ export async function logRosterEntryChange({
     ...(note ? { note } : {}),
     ...(leaveRequestId ? { leave_request_id: leaveRequestId } : {}),
     ...(locumName ? { locum_name: locumName } : {}),
+    ...(batchId ? { batch_id: batchId } : {}),
+    ...(entryBefore !== undefined ? { entry_before: entryBefore } : {}),
+    ...(entryAfter !== undefined ? { entry_after: entryAfter } : {}),
+    ...(sideEffects ? { side_effects: sideEffects } : {}),
   })
-  if (error) console.error('Failed to log roster entry change:', error.message)
+  if (error) {
+    // Fire-and-forget for the edit itself, but never silent: the console
+    // for the developer, and the listener (the roster page's notice) for
+    // the admin, who otherwise has no way of knowing History is missing a
+    // line.
+    console.error('Failed to log roster entry change:', error.message)
+    notifyLogError(error.message)
+  }
+  return { error: error?.message ?? null }
 }
+
+// Where a failed log insert is reported to the person editing. One
+// listener at a time — the page that owns the edit bar.
+let logErrorListener = null
+export function setLogErrorListener(fn) { logErrorListener = fn }
+function notifyLogError(message) { if (logErrorListener) logErrorListener(message) }
 
 // batchId groups every row written by one user action (a single manual
 // add/remove is a batch of one; a paste/clear covering many
@@ -115,6 +138,12 @@ export const ROSTER_ACTION_OPTIONS = [
   { value: 'unassign', label: 'Vacated' },
   { value: 'remove', label: 'Removed' },
   { value: 'move', label: 'Moved' },
+  { value: 'slot_add', label: 'Cover added' },
+  { value: 'slot_remove', label: 'Locum slot removed' },
+  { value: 'reinstate', label: 'Put back' },
+  { value: 'advertise', label: 'Advertised' },
+  { value: 'unadvertise', label: 'Advert stopped' },
+  { value: 'undo', label: 'Undone' },
 ]
 
 export const WEEKEND_ACTION_OPTIONS = [
@@ -236,6 +265,12 @@ function rosterChangeAction(change, nameById) {
   if (change.action === 'remove') {
     return `removed ${before ?? '(unassigned)'} from ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   }
+  if (change.action === 'slot_add') return `added cover to ${dateFmt} ${labelForShiftCode(change.shift_code)} (${before ?? 'doctor'} stays off it)`
+  if (change.action === 'slot_remove') return `removed the locum slot from ${dateFmt} ${labelForShiftCode(change.shift_code)} (${before ?? 'doctor'} stays off it)`
+  if (change.action === 'reinstate') return `put ${after ?? '(unassigned)'} back on ${dateFmt} ${labelForShiftCode(change.shift_code)}`
+  if (change.action === 'advertise') return `advertised ${dateFmt} ${labelForShiftCode(change.shift_code)} to locums`
+  if (change.action === 'unadvertise') return `stopped advertising ${dateFmt} ${labelForShiftCode(change.shift_code)}`
+  if (change.action === 'undo') return `undid a change to ${dateFmt} ${labelForShiftCode(change.shift_code)}`
   if (change.action === 'unassign') {
     return `vacated ${dateFmt} ${labelForShiftCode(change.shift_code)} (was ${before ?? '(unassigned)'})${change.advertised ? ' and opened it for locum cover' : ''}`
   }

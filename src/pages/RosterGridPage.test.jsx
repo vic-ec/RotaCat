@@ -8,8 +8,12 @@ import RosterGridPage from './RosterGridPage'
 // flag on Wed 26, Thu 27 and Fri 28 (the three consecutive red cells the
 // day-block layout exists to keep apart), and a consultant on Mon 3.
 let mockAuth = { isAdmin: true, isLocum: false, user: { id: 'admin-1' } }
+const mockEdits = vi.hoisted(() => ({ removeSlot: vi.fn(), addCover: vi.fn(), assignCover: vi.fn(), reinstate: vi.fn(), advertise: vi.fn(), unadvertise: vi.fn(), removeEntry: vi.fn(), removeLocum: vi.fn(), moveEntry: vi.fn() }))
+vi.mock('../lib/rosterEdits', async () => ({ ...(await vi.importActual('../lib/rosterEdits')), ...mockEdits }))
+const mockUndo = vi.hoisted(() => ({ undoRosterBatch: vi.fn() }))
+vi.mock('../lib/rosterUndo', async () => ({ ...(await vi.importActual('../lib/rosterUndo')), ...mockUndo }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
-vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue({ error: null }), setLogErrorListener: vi.fn() }))
 vi.mock('../lib/weekendPatternSync', () => ({ syncWeekendPatternsFromEntries: vi.fn() }))
 vi.mock('../components/RosterLanesView', () => ({ default: () => null, LanesLegend: () => null }))
 
@@ -20,6 +24,8 @@ const PROFILES = [
   { id: 'p1', name: 'Alice', surname: 'Anderson', category: 'MO', color_code: '#2563EB', is_active: true },
 ]
 const CONSULTANTS = [{ id: 'c1', name: 'Dee', surname: 'De Haan', color_code: '#0F766E' }]
+let mockRosterStatus = 'draft'
+let extraEntries = []
 const ENTRIES = [
   { id: 'e1', date: '2026-08-26', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e2', date: '2026-08-27', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
@@ -44,16 +50,21 @@ vi.mock('../lib/supabase', () => ({
         delete() { return builder },
         eq(col, val) { filters.push([col, val]); return builder },
         neq() { return builder },
+        in() { return builder },
+        is() { return builder },
+        not() { return builder },
+        maybeSingle() { single = true; return builder },
         gte() { return builder },
         lte() { return builder },
         order() { return builder },
         single() { single = true; return builder },
         then(resolve, reject) {
           let data = []
-          if (table === 'roster_months') data = { id: 'rm1', year: 2026, month: 8, status: 'draft' }
-          if (table === 'roster_entries') data = ENTRIES
+          if (table === 'roster_months') data = { id: 'rm1', year: 2026, month: 8, status: mockRosterStatus }
+          if (table === 'roster_entries') data = [...ENTRIES, ...extraEntries]
           if (table === 'profiles') data = filters.some(([c, v]) => c === 'category' && v === 'Consultant') ? CONSULTANTS : PROFILES
           if (table === 'shift_types') data = single ? SHIFT_TYPES[0] : SHIFT_TYPES
+          if (table === 'shift_advertisements') data = []
           if (table === 'public_holidays') data = [{ date: '2026-08-09', name: "Women's Day" }, { date: '2026-08-10', name: 'Public holiday' }]
           return Promise.resolve({ data, error: null }).then(resolve, reject)
         },
@@ -270,5 +281,133 @@ describe('RosterGridPage unflagged empty placeholders', () => {
     expect(within(cell).getByText('Unfilled')).toBeInTheDocument()
     expect(within(cell).getByTestId('flag-tab')).toHaveTextContent('Short by 1')
     expect(screen.getByRole('button', { name: 'Go to next locum placeholder (1 in total)' })).toBeInTheDocument()
+  })
+})
+
+// The vacated-no-cover state, the edit bar, the toast and own-actions-only.
+describe('RosterGridPage editing: no cover, edit bar, undo', () => {
+  const NO_COVER = { id: 'nc1', date: '2026-08-18', shift_type_id: st('WD_08'), profile_id: null, is_locum: false, locum_name: null, vacated_profile_id: 'p1', vacated_reason: 'leave', vacated_by: 'admin-1', position: 0 }
+  beforeEach(() => {
+    setViewport(true)
+    mockAuth = { isAdmin: true, isLocum: false, user: { id: 'admin-1' } }
+    mockRosterStatus = 'published'
+    extraEntries = [NO_COVER]
+    for (const fn of Object.values(mockEdits)) fn.mockReset()
+    mockUndo.undoRosterBatch.mockReset().mockResolvedValue({ error: null, batchId: 'undo-1', description: 'undone' })
+  })
+
+  it('a no-cover row shows the struck-through name only: no [ ] slot, no Unfilled flag, not counted as a gap', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    const chip = within(row).getByTestId('no-cover')
+    expect(within(chip).getByTestId('vacated-doctor')).toHaveTextContent('Anderson')
+    expect(within(row).queryByText('[ ]')).not.toBeInTheDocument()
+    expect(within(row).queryByTestId('flag-tab')).not.toBeInTheDocument()
+    expect(within(row).queryByText('Unfilled')).not.toBeInTheDocument()
+    // The same five flagged and one locum as without the no-cover row: it
+    // is neither a gap nor a placeholder.
+    expect(screen.getByRole('button', { name: 'Go to next flagged slot (5 in total)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Go to next locum placeholder (1 in total)' })).toBeInTheDocument()
+  })
+
+  it('tapping the struck-through name when not editing says "Shift not covered"', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    await user.click(within(row).getByRole('button', { name: /Anderson/ }))
+    expect(screen.getByText('Shift not covered')).toBeInTheDocument()
+  })
+
+  it('the edit bar is there the whole time editing is on, and Done ends it', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    expect(screen.queryByTestId('roster-edit-bar')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    const bar = screen.getByTestId('roster-edit-bar')
+    expect(bar).toHaveTextContent('Editing — each change saves straight away')
+    expect(within(bar).getByRole('button', { name: /Undo last/ })).toBeDisabled()
+    expect(within(bar).getByRole('button', { name: 'History' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Done editing' })).not.toBeInTheDocument()
+    await user.click(within(bar).getByRole('button', { name: 'Done' }))
+    expect(screen.queryByTestId('roster-edit-bar')).not.toBeInTheDocument()
+  })
+
+  it('tapping the struck-through name while editing opens the no-cover menu; Open slot calls addCover and shows the toast', async () => {
+    const user = userEvent.setup()
+    mockEdits.addCover.mockResolvedValue({ batchId: 'b1', description: 'Locum slot opened for Alice Anderson\'s Tue 18 Aug · WD 08h-18h', logError: null })
+    renderPage('/roster/rm1?mode=edit')
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    await user.click(within(row).getByTestId('no-cover'))
+    const menu = screen.getByRole('dialog', { name: /Alice Anderson — no cover/ })
+    await user.click(within(menu).getByRole('button', { name: /Open slot, don't advertise/ }))
+    expect(mockEdits.addCover).toHaveBeenCalledWith(expect.objectContaining({ entry: expect.objectContaining({ id: 'nc1' }), mode: 'open', adminId: 'admin-1' }))
+    const toast = await screen.findByTestId('undo-toast')
+    expect(toast).toHaveTextContent('Saved — Locum slot opened')
+    expect(within(screen.getByTestId('roster-edit-bar')).getByRole('button', { name: /Undo last/ })).toBeEnabled()
+  })
+
+  it('Undo on the toast reverses that batch; a refused undo shows the message under the bar', async () => {
+    const user = userEvent.setup()
+    mockEdits.addCover.mockResolvedValue({ batchId: 'b1', description: 'x', logError: null })
+    renderPage('/roster/rm1?mode=edit')
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    await user.click(within(row).getByTestId('no-cover'))
+    await user.click(screen.getByRole('button', { name: /Open slot, don't advertise/ }))
+    await user.click(within(await screen.findByTestId('undo-toast')).getByRole('button', { name: 'Undo' }))
+    expect(mockUndo.undoRosterBatch).toHaveBeenCalledWith({ batchId: 'b1', changedBy: 'admin-1' })
+    await waitFor(() => expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument())
+
+    mockUndo.undoRosterBatch.mockResolvedValue({ error: 'This shift has changed since. Open History to review.' })
+    await user.click(within(rowFor('2026-08-18')).getByTestId('no-cover'))
+    await user.click(screen.getByRole('button', { name: /Open slot, don't advertise/ }))
+    await user.click(within(await screen.findByTestId('undo-toast')).getByRole('button', { name: 'Undo' }))
+    expect(await screen.findByText('This shift has changed since. Open History to review.')).toBeInTheDocument()
+  })
+
+  it('the toast and "Undo last" are own-actions only: both clear when the signed-in account changes', async () => {
+    const user = userEvent.setup()
+    mockEdits.addCover.mockResolvedValue({ batchId: 'b1', description: 'x', logError: null })
+    const view = renderPage('/roster/rm1?mode=edit')
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    await user.click(within(row).getByTestId('no-cover'))
+    await user.click(screen.getByRole('button', { name: /Open slot, don't advertise/ }))
+    await screen.findByTestId('undo-toast')
+    mockAuth = { ...mockAuth, user: { id: 'admin-2' } }
+    view.rerender(
+      <MemoryRouter initialEntries={['/roster/rm1?mode=edit']}>
+        <Routes><Route path="/roster/:id" element={<RosterGridPage />} /></Routes>
+      </MemoryRouter>
+    )
+    await waitFor(() => expect(screen.queryByTestId('undo-toast')).not.toBeInTheDocument())
+    expect(within(screen.getByTestId('roster-edit-bar')).getByRole('button', { name: /Undo last/ })).toBeDisabled()
+    expect(mockUndo.undoRosterBatch).not.toHaveBeenCalled()
+  })
+
+  it('a failed log insert is reported under the bar, not swallowed', async () => {
+    const user = userEvent.setup()
+    mockEdits.addCover.mockResolvedValue({ batchId: 'b1', description: 'x', logError: 'permission denied' })
+    renderPage('/roster/rm1?mode=edit')
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-18')
+    await user.click(within(row).getByTestId('no-cover'))
+    await user.click(screen.getByRole('button', { name: /Open slot, don't advertise/ }))
+    expect(await screen.findByText(/could not be written to History \(permission denied\)/)).toBeInTheDocument()
+  })
+
+  it('nothing in the page says "Remove from this slot"', async () => {
+    const user = userEvent.setup()
+    mockRosterStatus = 'draft'
+    renderPage('/roster/rm1?mode=edit')
+    await screen.findByText('August 2026')
+    const row = rowFor('2026-08-26')
+    await user.click(within(row).getByText('Anderson'))
+    expect(document.body.textContent).not.toMatch(/Remove from this slot/)
+    expect(screen.getByRole('button', { name: /Remove Alice Anderson from this shift/ })).toBeInTheDocument()
   })
 })

@@ -40,7 +40,7 @@ describe('LocumContactsPanel', () => {
     render(<LocumContactsPanel />)
     expect(await screen.findByText('Jo Marsh')).toBeInTheDocument()
     expect(screen.getByText('3 shifts')).toBeInTheDocument()
-    const invite = screen.getByRole('link', { name: 'Invite on WhatsApp' })
+    const invite = screen.getByRole('link', { name: 'WhatsApp' })
     expect(invite.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/27821234567\?text=/)
     const text = decodeURIComponent(invite.getAttribute('href').split('?text=')[1])
     expect(text).toContain('Hi Jo.')
@@ -49,10 +49,10 @@ describe('LocumContactsPanel', () => {
     expect(text.endsWith('/signup')).toBe(true)
   })
 
-  it('"Finish creating [name]\'s account" opens Add staff prefilled as a locum', async () => {
+  it('"Create account" opens Add staff prefilled as a locum', async () => {
     const user = userEvent.setup()
     render(<LocumContactsPanel />)
-    await user.click(await screen.findByRole('button', { name: 'Finish creating Jo’s account' }))
+    await user.click(await screen.findByRole('button', { name: 'Create account' }))
     expect(screen.getByText('AddStaffStub: Jo locum')).toBeInTheDocument()
   })
 
@@ -73,11 +73,17 @@ describe('LocumContactsPanel', () => {
     render(<LocumContactsPanel />)
     await screen.findByText('Jo Marsh')
     expect(screen.queryByTestId('contact-match')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Link to an existing account' }))
+    await user.click(screen.getByRole('button', { name: 'Link to account' }))
     expect(screen.getByRole('button', { name: 'Move 3 shifts' })).toBeDisabled()
     await user.click(screen.getByText('Choose their locum account…'))
     await user.click(await screen.findByText('Marsh-Lee, Jo'))
     await user.click(screen.getByRole('button', { name: 'Move 3 shifts' }))
     await waitFor(() => expect(linkLocumContact).toHaveBeenCalledWith({ contactId: 'c-1', profileId: 'loc-5' }))
+  })
+
+  it('reports its count to the page, for the tab badge and the notice', async () => {
+    const onCount = vi.fn()
+    render(<LocumContactsPanel onCount={onCount} />)
+    await waitFor(() => expect(onCount).toHaveBeenCalledWith(1))
   })
 })

@@ -11,18 +11,18 @@ import {
 // can't sign in or see their shifts until an account exists. Three ways to
 // close it, per row:
 //
-//   Invite on WhatsApp               opens WhatsApp with a ready message
-//                                    asking them to sign up; their approval
-//                                    then matches on mobile.
-//   Finish creating [name]'s account the ordinary Add staff form, prefilled
-//                                    (needs their email).
-//   Link to an existing account      they already have one: move the shifts
-//                                    onto it. An account with the same
-//                                    mobile is suggested.
+//   WhatsApp          opens WhatsApp with a ready message asking them to
+//                     sign up; their approval then matches on mobile.
+//   Create account    the ordinary Add staff form, prefilled (needs their
+//                     email).
+//   Link to account   they already have one: move the shifts onto it. An
+//                     account with the same mobile is suggested.
 //
-// Renders nothing when there are none, so the Staff page is unchanged on
-// an ordinary day.
-export default function LocumContactsPanel({ onLinked }) {
+// Lives in the Staff page's Account Requests tab as one section of its
+// table (the heading is the tab's own section bar); the rows here are the
+// table's rows. `onCount` reports how many there are, for the badge and
+// the notice on the other tabs. Renders nothing when there are none.
+export default function LocumContactsPanel({ onLinked, onCount }) {
   const [rows, setRows] = useState([])
   const [shiftCounts, setShiftCounts] = useState(new Map())
   const [accounts, setAccounts] = useState([])
@@ -36,9 +36,10 @@ export default function LocumContactsPanel({ onLinked }) {
     const [open, locums] = await Promise.all([fetchOpenLocumContacts(), fetchLocumProfiles()])
     setRows(open)
     setAccounts(locums)
+    onCount?.(open.length)
     setShiftCounts(await fetchContactShiftCounts(open.map(r => r.id)))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once
 
   async function link(contact, profileId) {
     setBusy(true)
@@ -71,45 +72,45 @@ export default function LocumContactsPanel({ onLinked }) {
   const accountOptions = accounts.map(a => ({ value: a.id, label: `${a.surname}, ${a.name}` }))
 
   return (
-    <section className="card mb-4 p-4" aria-label="Locums without an account" data-testid="locum-contacts-panel">
-      <h2 className="text-sm font-semibold text-ink">Locums on the roster without an account ({rows.length})</h2>
-      <p className="mt-0.5 text-xs text-ink-muted">
-        Added from the roster with a name and mobile only. Once they have an account their shifts move onto it.
-      </p>
-      {error && <p className="mt-2 text-xs text-flagRed" role="alert">{error}</p>}
-      <ul className="mt-2 divide-y divide-slate-line">
+    <div data-testid="locum-contacts-panel">
+      {error && <p className="px-4 pt-3 text-xs text-flagRed" role="alert">{error}</p>}
+      {/* A compact table: name and mobile, shifts, then the three actions.
+          Grid from sm up; the columns stack on a phone with the actions as
+          one row of small buttons. */}
+      <div className="hidden grid-cols-[1.4fr_1fr_auto] gap-x-4 px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-muted sm:grid">
+        <span>Locum</span><span>Shifts</span><span className="text-right">Get them an account</span>
+      </div>
+      <ul className="divide-y divide-slate-line">
         {rows.map(row => {
           const count = shiftCounts.get(row.id) || 0
           const fullName = `${row.name} ${row.surname}`.trim()
           const match = findByPhone(accounts, row.phone)
           const inviteHref = phoneWhatsAppMessageHref(row.phone, locumInviteText({ name: row.name, signupUrl, shiftCount: count }))
           return (
-            <li key={row.id} className="py-2">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-sm font-medium text-ink">{fullName}</span>
-                <a href={phoneTelHref(row.phone)} className="text-xs text-accent underline">{formatPhoneDisplay(row.phone)}</a>
-                <span className="text-xs text-ink-muted">{count} shift{count === 1 ? '' : 's'}</span>
-              </div>
-              {/* The three ways to close this out, in the order they are
-                  usually tried. One per line on a phone, where three
-                  buttons of different lengths wrapped raggedly; a single
-                  row from sm up. */}
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                {inviteHref && (
-                  <a href={inviteHref} target="_blank" rel="noopener noreferrer" className="btn-secondary justify-center px-3 py-1.5 text-xs">
-                    Invite on WhatsApp
-                  </a>
-                )}
-                <button type="button" onClick={() => setCreatingFor(row)} className="btn-secondary justify-center px-3 py-1.5 text-xs">
-                  Finish creating {row.name}&rsquo;s account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
-                  className="btn-secondary justify-center px-3 py-1.5 text-xs"
-                >
-                  Link to an existing account
-                </button>
+            <li key={row.id} className="px-4 py-2.5">
+              <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[1.4fr_1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{fullName}</p>
+                  <a href={phoneTelHref(row.phone)} className="text-xs text-accent underline">{formatPhoneDisplay(row.phone)}</a>
+                </div>
+                <p className="text-xs text-ink-muted sm:text-sm">{count} shift{count === 1 ? '' : 's'}</p>
+                <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                  {inviteHref && (
+                    <a href={inviteHref} target="_blank" rel="noopener noreferrer" className="btn-secondary h-[30px] px-2.5 text-xs">
+                      WhatsApp
+                    </a>
+                  )}
+                  <button type="button" onClick={() => setCreatingFor(row)} className="btn-secondary h-[30px] px-2.5 text-xs">
+                    Create account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
+                    className="btn-secondary h-[30px] px-2.5 text-xs"
+                  >
+                    Link to account
+                  </button>
+                </div>
               </div>
               {match && linkingFor !== row.id && (
                 <p className="mt-1 text-xs text-ink-light" data-testid="contact-match">
@@ -142,6 +143,6 @@ export default function LocumContactsPanel({ onLinked }) {
           onClose={() => setCreatingFor(null)}
         />
       )}
-    </section>
+    </div>
   )
 }

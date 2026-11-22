@@ -140,7 +140,7 @@ export default function NewLocumModal({ adminId, onDone, onClose }) {
           <p className="mt-1 text-xs text-ink-muted">
             {wantsAccount
               ? 'An account is created now and their login details are emailed to this address.'
-              : 'Leave empty to put them on the roster now. Create their account later from the Staff page; their shifts move onto it.'}
+              : 'Leave empty to put them on the roster now. They are listed under Staff → Account Requests until they have an account; their shifts move onto it.'}
           </p>
         </div>
         {error && <p className="text-xs text-flagRed" role="alert">{error}</p>}

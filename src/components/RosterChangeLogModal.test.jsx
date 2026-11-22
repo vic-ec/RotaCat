@@ -3,6 +3,13 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import RosterChangeLogModal from './RosterChangeLogModal'
 
+vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'admin' } }) }))
+const fetchRosterBatches = vi.fn()
+const undoRosterBatch = vi.fn()
+vi.mock('../lib/rosterUndo', async () => {
+  const actual = await vi.importActual('../lib/rosterUndo')
+  return { ...actual, fetchRosterBatches: (...a) => fetchRosterBatches(...a), undoRosterBatch: (...a) => undoRosterBatch(...a) }
+})
 const queryRosterChanges = vi.fn()
 vi.mock('../lib/changeLog', async () => {
   const actual = await vi.importActual('../lib/changeLog')
@@ -32,6 +39,8 @@ const ROWS = [
 describe('RosterChangeLogModal', () => {
   beforeEach(() => {
     queryRosterChanges.mockReset().mockResolvedValue({ data: ROWS, error: null })
+    fetchRosterBatches.mockReset().mockResolvedValue({ batches: [], error: null })
+    undoRosterBatch.mockReset().mockResolvedValue({ error: null, batchId: 'undo-1', description: 'undone' })
   })
 
   it('groups by day, and spells out a replacement as "<taken off> with <put on>"', async () => {

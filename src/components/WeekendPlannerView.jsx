@@ -19,6 +19,7 @@ import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
+import UndoToast from './UndoToast'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
 import DateStepper from './DateStepper'
 import LegendSheet from './LegendSheet'
@@ -2000,6 +2001,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
             onSearchChange={setCellEditorSearch}
             date={formatWeekendRange(cellEditor.saturday)}
             shiftCode={current ? `${displayNames.get(current.id) ?? current.surname} (${group?.label})` : group?.label}
+            removeLabel={current ? `Remove ${displayNames.get(current.id) ?? current.surname} from this weekend` : 'Remove from this weekend'}
             onSelect={async profileId => {
               const { saturday, groupKey, entryId } = cellEditor
               setCellEditor(null)
@@ -2103,18 +2105,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           inset plus a gap, the same offset the FAB uses. From md up there is
           no bar, so it sits at the usual 16px. */}
       {toastVisible && lastAction && (
-        <div className="fixed bottom-[calc(70px+env(safe-area-inset-bottom))] left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-ink px-4 py-2.5 text-sm text-canvas shadow-lg md:bottom-4">
-          <span>{lastAction.label}</span>
-          <button
-            type="button"
-            onClick={undoLastAction}
-            disabled={undoing}
-            className="font-semibold text-accent-tint hover:text-white disabled:opacity-60"
-          >
-            {undoing ? 'Undoing…' : 'Undo'}
-          </button>
-          <button type="button" onClick={() => setToastVisible(false)} className="text-white/60 hover:text-white" aria-label="Dismiss">×</button>
-        </div>
+        <UndoToast label={lastAction.label} onUndo={undoLastAction} onDismiss={() => setToastVisible(false)} undoing={undoing} />
       )}
     </div>
   )

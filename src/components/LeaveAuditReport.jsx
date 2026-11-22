@@ -311,15 +311,11 @@ export default function LeaveAuditReport({ leading = null }) {
 
   return (
     <div>
-      <p className="text-sm text-ink-muted">
-        Cumulative leave for HR auditing — pick any date range; this never resets, unlike the per-doctor tracker on My leave.
-      </p>
-
       {/* The From/To range stays on the row at every width — it's what the
           report is *of*, not a way of narrowing it, same reasoning that
           keeps Weekend's month nav out of its FAB. Search and Filter are
           the narrowing controls, so below `md` they move into the FAB. */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* From md: Capture leave, search, Sort, Filter, then the dates.
             On a phone only Capture leave and the dates stay on the row;
             search and Filter are in the FAB. */}

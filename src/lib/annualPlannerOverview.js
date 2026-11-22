@@ -154,7 +154,9 @@ export function monthPublicHolidayCount(year, month, publicHolidaysByDate) {
 // is exactly the bug where a person with both showed only as "Approved"
 // with their pending request invisible. Sorted approved-first (approved
 // leave is what actually affects available capacity; pending is still
-// provisional) then by surname within each group.
+// provisional), then by surname, then by start date within each group —
+// surname first since that's what a reviewer scans for, start date as the
+// tie-break for two people sharing a surname.
 export function entriesInRange(from, to, { approvedByDate, pendingByDate }) {
   const byEntry = new Map()
   for (const date of datesInRange(from, to)) {
@@ -170,6 +172,8 @@ export function entriesInRange(from, to, { approvedByDate, pendingByDate }) {
   }
   return [...byEntry.values()].sort((a, b) => {
     if (a.status !== b.status) return a.status === 'approved' ? -1 : 1
-    return a.surname.localeCompare(b.surname)
+    const bySurname = a.surname.localeCompare(b.surname)
+    if (bySurname !== 0) return bySurname
+    return a.dateFrom.localeCompare(b.dateFrom)
   })
 }

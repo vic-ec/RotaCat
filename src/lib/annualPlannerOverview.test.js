@@ -212,6 +212,15 @@ describe('entriesInRange', () => {
   it('returns an empty array when nothing overlaps the range', () => {
     expect(entriesInRange('2026-09-01', '2026-09-05', { approvedByDate, pendingByDate })).toEqual([])
   })
+
+  it('breaks a surname tie by start date, earliest first', () => {
+    const twoNolans = new Map([
+      ['2026-08-11', [{ profileId: 'p6', surname: 'Nolan', category: 'MO', dateFrom: '2026-08-15', dateTo: '2026-08-15' }]],
+      ['2026-08-12', [{ profileId: 'p7', surname: 'Nolan', category: 'Registrar', dateFrom: '2026-08-11', dateTo: '2026-08-11' }]],
+    ])
+    const entries = entriesInRange('2026-08-11', '2026-08-15', { approvedByDate: twoNolans, pendingByDate: new Map() })
+    expect(entries.map(e => e.profileId)).toEqual(['p7', 'p6'])
+  })
 })
 
 describe('categoryDayCapacityState', () => {

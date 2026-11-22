@@ -83,9 +83,11 @@ export function specialMonthStats(year, month, byDate, countsByDate) {
   return { people: people.size, approved: approved.size, pending: pending.size, pressureDays }
 }
 
-// Every entry touching a month, one row per request rather than per day,
-// sorted by start date then surname — the inspector's "what is happening
-// this month" list.
+// Every entry touching a month, one row per request rather than per day —
+// the inspector's "what is happening this month" list. Sorted approved-
+// first (mirrors AnnualPlannerOverview's entriesInRange — approved leave is
+// what actually affects capacity, pending is still provisional), then by
+// surname, then by start date within each group.
 export function specialMonthEntries(year, month, byDate) {
   const seen = new Map()
   for (const date of datesInMonth(year, month)) {
@@ -94,8 +96,12 @@ export function specialMonthEntries(year, month, byDate) {
       if (!seen.has(key)) seen.set(key, entry)
     }
   }
-  return [...seen.values()].sort((a, b) =>
-    a.dateFrom.localeCompare(b.dateFrom) || (a.surname || '').localeCompare(b.surname || ''))
+  return [...seen.values()].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'approved' ? -1 : 1
+    const bySurname = (a.surname || '').localeCompare(b.surname || '')
+    if (bySurname !== 0) return bySurname
+    return a.dateFrom.localeCompare(b.dateFrom)
+  })
 }
 
 // ── The Showing picker both Special views share ──────────────────────────

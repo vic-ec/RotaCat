@@ -107,10 +107,23 @@ describe('specialMonthStats', () => {
 })
 
 describe('specialMonthEntries', () => {
-  it('returns one row per request, sorted by start date then surname', () => {
+  it('returns one row per request, approved before pending, surname then start date within each group', () => {
     const rows = specialMonthEntries(2026, 8, BY_DATE)
     expect(rows).toHaveLength(5)
+    // p1-p4 are approved, surnames default to profileId so already
+    // alphabetical; p5 is pending, sorting after every approved row
+    // regardless of surname.
     expect(rows.map(r => r.profileId)).toEqual(['p1', 'p2', 'p3', 'p4', 'p5'])
+  })
+
+  it('sorts by surname first, start date as the tie-break for a shared surname', () => {
+    const byDate = new Map([['2026-08-10', [
+      entry('p1', 'study', '2026-08-15', '2026-08-15', 'approved', 'Nolan'),
+      entry('p2', 'workshop', '2026-08-10', '2026-08-10', 'approved', 'Baker'),
+      entry('p3', 'course', '2026-08-11', '2026-08-11', 'approved', 'Nolan'),
+    ]]])
+    const rows = specialMonthEntries(2026, 8, byDate)
+    expect(rows.map(r => r.profileId)).toEqual(['p2', 'p3', 'p1']) // Baker, then Nolan (11th before 15th)
   })
 
   it('does not repeat a request that spans several days', () => {

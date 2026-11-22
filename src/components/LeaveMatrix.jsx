@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SectionBar from './SectionBar'
 import LeaveTypeIcon from './LeaveTypeIcon'
+import LegendSheet from './LegendSheet'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
-import { Search, X } from 'lucide-react'
+import { Search, X, List } from 'lucide-react'
 import Modal from './Modal'
 import DateStepper from './DateStepper'
 import ClearableInput from './ClearableInput'
@@ -16,7 +17,7 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 import { useFillToViewport } from '../lib/useFillToViewport'
 import { columnForLeaveCategory, LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import {
-  LEAVE_GROUP_OPTIONS, LEAVE_GROUP_COLOR, LEAVE_TYPE_LABELS, leaveTypeGroupKey,
+  LEAVE_GROUP_OPTIONS, LEAVE_TYPE_LABELS, leaveTypeGroupKey, leaveGroupInk,
   blockPixelSpan, buildDoctorLeaveRows, leaveActiveOn, formatDMY,
 } from '../lib/leaveMatrix'
 import { leaveTypeCode, leaveTypeLabelWithCode } from '../lib/leaveRequests'
@@ -63,7 +64,12 @@ function GroupSwatch({ groupKey }) {
 function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
   const span = blockPixelSpan(request.date_from, request.date_to, year, monthColWidth)
   if (!span) return null
-  const color = LEAVE_GROUP_COLOR[leaveTypeGroupKey(request.leave_type)]
+  // The legend's own treatment (LeaveTypeIcon's box): the family's ink
+  // colour as a light tint with a border in the same colour, so a bar and
+  // its legend swatch are the same colour on both themes. Pending keeps
+  // the dashed outline and a lighter tint.
+  const ink = leaveGroupInk(leaveTypeGroupKey(request.leave_type))
+  const color = ink
   const pending = request.status === 'pending'
   return (
     <button
@@ -75,8 +81,8 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
         left: span.left,
         width: span.width,
         height: BAR_HEIGHT,
-        backgroundColor: pending ? `${color}26` : color, // 26 = ~15% alpha
-        border: pending ? `1.5px dashed ${color}` : 'none',
+        backgroundColor: `color-mix(in srgb, ${ink} ${pending ? 8 : 22}%, transparent)`,
+        border: pending ? `1.5px dashed ${ink}` : `1px solid color-mix(in srgb, ${ink} 55%, transparent)`,
         boxShadow: selected ? '0 0 0 1px #FFFFFF, 0 0 0 3px #0F172A' : 'none',
       }}
     >
@@ -84,13 +90,13 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
           the colour says which family, the code says which type. */}
       {/* …and its icon in front, when there is room for both. */}
       {span.width >= CODE_MIN_BAR_WIDTH + 16 && (
-        <LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" color={pending ? color : '#FFFFFF'} className="pointer-events-none" />
+        <LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" color={color} className="pointer-events-none" />
       )}
       {span.width >= CODE_MIN_BAR_WIDTH && (
         <span
           aria-hidden="true"
           className="pointer-events-none select-none px-0.5 font-semibold leading-none"
-          style={{ fontSize: 10, color: pending ? color : '#FFFFFF' }}
+          style={{ fontSize: 10, color }}
         >
           {leaveTypeCode(request.leave_type)}
         </span>
@@ -285,7 +291,7 @@ function useElementWidth() {
 // `canCancelLeave` / `onLeaveCancelled` thread through to LeaveBlockDetail
 // (admin "Cancel leave"); a successful cancel clears the selection, since
 // the block it described is no longer on the matrix.
-export default function LeaveMatrix({ requests, controls, canCancelLeave = false, onLeaveCancelled }) {
+export default function LeaveMatrix({ requests, controls, leading = null, canCancelLeave = false, onLeaveCancelled }) {
   const [gridRef, gridWidth] = useElementWidth()
   // The grid runs to the bottom of the window like the Table view and
   // Hours Summary, scrolling inside itself past that.
@@ -349,8 +355,10 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
           the caller's Matrix/Table switch last — so the switch sits in the
           same spot in both views. The colour key gets the line below. */}
       <div className="flex items-center gap-2">
+        {leading}
         {/* The app's standard 320px search (Toolbar's own width), not a
-            stretched one; the year and the view switch keep the right. */}
+            stretched one; the year, the legend and the view switch keep
+            the right. */}
         <div className="w-80 flex-shrink-0">
           <ClearableInput
             type="text"
@@ -364,21 +372,32 @@ export default function LeaveMatrix({ requests, controls, canCancelLeave = false
         </div>
         <div className="ml-auto flex flex-shrink-0 items-center gap-2">
           <DateStepper unit="year" year={year} onChange={setYear} nowrap todayLabel />
+          <div className="h-5 w-px bg-slate-line" aria-hidden="true" />
+          {/* The colour key behind one icon, as the Rotations tables keep
+              theirs, rather than a line of swatches of its own. */}
+          <LegendSheet
+            title="Legend"
+            trigger={onClick => (
+              <button type="button" onClick={onClick} aria-label="Legend" title="Legend" className="btn-utility h-[30px] w-[30px] p-0"><List className="h-4 w-4" /></button>
+            )}
+          >
+            <div className="flex flex-col gap-2 text-sm text-ink">
+              {LEAVE_GROUP_OPTIONS.map(o => (
+                <span key={o.key} className="flex items-center gap-2">
+                  <GroupSwatch groupKey={o.key} /> {o.label}
+                </span>
+              ))}
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-6 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
+                {REVIEW_STATUS_LABELS.pending}
+              </span>
+            </div>
+          </LegendSheet>
           {controls && <div className="h-5 w-px bg-slate-line" aria-hidden="true" />}
           {controls}
         </div>
       </div>
-      <div className="mb-3 mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-        {LEAVE_GROUP_OPTIONS.map(o => (
-          <span key={o.key} className="flex items-center gap-1.5">
-            <GroupSwatch groupKey={o.key} /> {o.label}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-4 flex-shrink-0 rounded-sm border-[1.5px] border-dashed border-ink-muted" />
-          {REVIEW_STATUS_LABELS.pending}
-        </span>
-      </div>
+      <div className="mb-3" />
 
       {/* Grid and panel start on the same line, below the toolbar. */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">

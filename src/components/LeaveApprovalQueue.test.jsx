@@ -130,20 +130,41 @@ describe('LeaveApprovalQueue', () => {
     mockResponses['public_holidays:select'] = { data: [], error: null }
   })
 
-  it('row shows name, category, "<type> request, submitted <date>", and the standard View Calendar row button', async () => {
+  it('row shows name over category and the request line, with View Calendar / Approve / Reject as icon actions', async () => {
     getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
     renderQueue()
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument()
-    expect(screen.getByText('Medical Officer')).toBeInTheDocument()
-    expect(screen.getByText('Annual leave request, submitted 05-08-2026 · 14:32')).toBeInTheDocument()
+    expect(screen.getByText(/Medical Officer · Annual leave request, submitted 05-08-2026 · 14:32/)).toBeInTheDocument()
 
-    const viewCalendarBtn = screen.getByRole('button', { name: 'View Calendar' })
-    // The app's standard secondary row button (rounded square), not a
-    // one-off circle; its words are in the DOM for md+ (CSS hides them below).
-    expect(viewCalendarBtn).toHaveClass('btn-secondary', 'h-8')
-    expect(viewCalendarBtn).not.toHaveClass('rounded-full')
-    expect(viewCalendarBtn).toHaveTextContent('View Calendar')
+    // The Staff queues' row actions: icon-only, titled.
+    expect(screen.getByRole('button', { name: 'View Calendar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "Approve Jane Doe's request" })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: "Reject Jane Doe's request" })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('the row\'s Approve decides on the spot when there is nothing to weigh, and opens the drawer when there is', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+    await screen.findByText('Jane Doe')
+    await user.click(screen.getByRole('button', { name: "Approve Jane Doe's request" }))
+    // Approved on the spot: the row leaves the queue without a drawer.
+    await waitFor(() => expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('the row\'s Reject opens the drawer in its declining state, where a reason is required', async () => {
+    getApprovalWarnings.mockResolvedValue({ supervisionBreaches: [], balanceWarnings: [], hourCeilingWarning: null })
+    const user = userEvent.setup()
+    renderQueue()
+    await screen.findByText('Jane Doe')
+    await user.click(screen.getByRole('button', { name: "Reject Jane Doe's request" }))
+    const dialog = await screen.findByRole('dialog')
+    // Still in the queue: nothing is declined until a reason is given there.
+    expect(within(dialog).getByRole('button', { name: /Confirm/i })).toBeDisabled()
+    expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
   })
 
   it('clicking a row opens a review drawer with status-led identity, the natural-language period, and a wide primary Approve action', async () => {

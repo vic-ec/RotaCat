@@ -807,8 +807,8 @@ export default function RosterGridPage() {
     ...dangerItems,
   ]
   const midMenuItems = rosterMenuItems.slice(2)
-  // The phone's ⋮ leads with the two view switches the bar has no room
-  // for there: how much of the month, and which way round it is drawn.
+  // Below `desk` the ⋮ leads with the view switches the bar has no room for
+  // there (Font size follows, from rosterMenuItems): how much of the month, and which way round it is drawn.
   const phoneMenuItems = [
     {
       key: 'range', icon: <CalendarRange className="h-4 w-4" />, label: 'Show',
@@ -1021,7 +1021,7 @@ export default function RosterGridPage() {
           iPhone's notch) while the grid scrolls under it; z above the
           Lanes grid's own sticky header (z-30), below menus, sheets and
           modals (z-40+). */}
-      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] -mx-3 mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:mx-0 md:top-3 lg:flex-nowrap">
+      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] -mx-3 mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:mx-0 md:top-3 md:flex-nowrap">
         <button
           type="button"
           onClick={() => navigate('/roster')}
@@ -1048,11 +1048,11 @@ export default function RosterGridPage() {
               nextLabel="Next week"
             />
           ) : (
-            <DateStepper unit="month" year={rosterMonth.year} month={rosterMonth.month} onChange={goToRosterMonth} showToday={false} centered compactBelowSm />
+            <DateStepper unit="month" year={rosterMonth.year} month={rosterMonth.month} onChange={goToRosterMonth} showToday={false} centered compactBelowSm="lg" />
           )}
         </h1>
 
-        <span className={`hidden rounded-full px-2 py-0.5 text-xs font-medium md:inline ${statusPillTone}`}>
+        <span className={`hidden rounded-full px-2 py-0.5 text-xs font-medium lg:inline ${statusPillTone}`}>
           {statusLabel}
         </span>
         {/* Beside the status from md, where it belongs with "when and
@@ -1062,7 +1062,7 @@ export default function RosterGridPage() {
         <div className="hidden h-5 w-px flex-shrink-0 bg-slate-line md:block" aria-hidden="true" />
 
         {/* Find — on the row from md; in the ⊕ below it. */}
-        <div className="hidden min-w-0 flex-1 md:block md:max-w-[340px] 2xl:min-w-[220px]">
+        <div className="hidden min-w-[150px] flex-1 md:block md:max-w-[340px] 2xl:min-w-[220px]">
           <div>
             <Toolbar
               className=""
@@ -1084,16 +1084,20 @@ export default function RosterGridPage() {
         {plannerChip && <span className="inline-flex md:hidden">{plannerChip}</span>}
 
         <div className="flex flex-shrink-0 items-center gap-2 md:ml-auto">
-          <div className="hidden md:block">
+          {/* The three view switches sit on the row only from `desk` (1440px), where
+              there is width to spare; below it they live in ⋮, so the
+              search box and Filter are never squeezed or pushed onto a
+              second line. */}
+          <div className="hidden desk:block">
             <ViewToggle view={viewMode} onChange={setViewMode} options={ROSTER_RANGES} tight />
           </div>
-          <div className="hidden md:block">
+          <div className="hidden desk:block">
             <ViewToggle view={layout} onChange={setLayout} options={ROSTER_LAYOUTS} tight labelFrom="2xl" />
           </div>
 
           {/* Font size — "Aa" opening S/M/L, rather than four bare letters
               whose meaning wasn't obvious. */}
-          <div className="hidden md:block">
+          <div className="hidden desk:block">
           <span title="Font size" className="inline-flex">
           <ToolbarFacet
             icon={<span className="text-sm font-semibold leading-none" aria-hidden="true">Aa</span>}
@@ -1135,13 +1139,13 @@ export default function RosterGridPage() {
           {/* ⋮ — always last, holding whatever isn't on the row at this
               width. On a phone it also wears the status as a dot (amber
               for a draft), since the pill has no room there. */}
-          <div className="relative md:hidden">
+          <div className="relative desk:hidden">
             <PageActionsMenu items={phoneMenuItems} trigger={kebabTrigger} />
             {rosterMonth.status === 'draft' && (
-              <span title="Draft" aria-label="Draft" className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-canvas-raised bg-flagAmber" />
+              <span title="Draft" aria-label="Draft" className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-canvas-raised bg-flagAmber lg:hidden" />
             )}
           </div>
-          <div className="hidden md:block 2xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
+          <div className="hidden desk:block 2xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
           <div className="hidden 2xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
         </div>
       </div>

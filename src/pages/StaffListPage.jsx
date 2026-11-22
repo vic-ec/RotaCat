@@ -1247,6 +1247,12 @@ export default function StaffListPage() {
           }]
           const clearActive = historyFiltersActive(historyFilters, historySearch)
           const onClearAll = () => { setHistoryFilters(EMPTY_HISTORY_FILTERS); setHistorySearch('') }
+          const dateRange = fullWidth => (
+            <>
+              <DateFieldButton label="From" fullWidth={fullWidth} value={historyFilters.dateFrom} max={historyFilters.dateTo || undefined} onChange={setF('dateFrom')} />
+              <DateFieldButton label="To" fullWidth={fullWidth} value={historyFilters.dateTo} min={historyFilters.dateFrom || undefined} onChange={setF('dateTo')} />
+            </>
+          )
           return (
             <>
               <div className="hidden md:block">
@@ -1260,14 +1266,12 @@ export default function StaffListPage() {
                   mobileMode="inline"
                   active={clearActive}
                   onClearAll={onClearAll}
+                  desktopTrailing={dateRange(false)}
                 />
               </div>
-              {/* The date range stays on the row at every width: the FAB has
-                  no slot for one. */}
-              <div className="mt-2 flex w-full gap-2 md:w-80">
-                <DateFieldButton label="From" fullWidth value={historyFilters.dateFrom} max={historyFilters.dateTo || undefined} onChange={setF('dateFrom')} />
-                <DateFieldButton label="To" fullWidth value={historyFilters.dateTo} min={historyFilters.dateFrom || undefined} onChange={setF('dateTo')} />
-              </div>
+              {/* Below md the date range gets its own row: the FAB has no
+                  slot for one. From md it sits on the toolbar row. */}
+              <div className="mt-2 flex w-full gap-2 md:hidden">{dateRange(true)}</div>
               <FloatingActionMenu
                 search={{ value: historySearch, onChange: setHistorySearch, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: historySort !== 'desc' }}

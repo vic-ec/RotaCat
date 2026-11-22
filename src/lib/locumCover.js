@@ -127,6 +127,23 @@ export async function fetchContactShiftCounts(contactIds) {
   return counts
 }
 
+// A contact's rostered shifts, most recent first: [{ id, date,
+// rosterMonthId, code }]. Never throws.
+export async function fetchContactShifts(contactId) {
+  try {
+    const { data, error } = await supabase
+      .from('roster_entries')
+      .select('id, date, roster_month_id, shift_types(code)')
+      .eq('locum_contact_id', contactId)
+      .order('date', { ascending: false })
+    if (error) return []
+    return (data || []).map(r => ({ id: r.id, date: r.date?.slice(0, 10), rosterMonthId: r.roster_month_id, code: r.shift_types?.code || null }))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  } catch {
+    return []
+  }
+}
+
 // Two mobile numbers are the same person's when their last nine digits
 // match: "082 123 4567", "0821234567" and "+27 82 123 4567" all compare
 // equal. Null for anything too short to be a number.

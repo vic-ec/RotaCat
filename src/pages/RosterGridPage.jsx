@@ -306,7 +306,11 @@ export default function RosterGridPage() {
     if (!rosterMonth || loading || !date) return
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       const doctor = searchParams.get('doctor')
-      const target = doctor ? entries.find(e => e.date === date && e.profile_id === doctor) : null
+      // &entry=<roster entry id>: a particular row (a locum contact's shift,
+      // which has no profile to match on).
+      const entryId = searchParams.get('entry')
+      const target = (entryId && entries.find(e => e.id === entryId))
+        || (doctor ? entries.find(e => e.date === date && e.profile_id === doctor) : null)
       if (layout !== 'rows') setLayout('rows')
       if (viewMode === 'week') {
         const week = weeks.findIndex(w => w.some(d => d.dateStr === date))
@@ -315,7 +319,7 @@ export default function RosterGridPage() {
       if (target) setPendingJumpId(target.id)
       else setPendingJumpDate(date)
     }
-    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); return next }, { replace: true })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id, loading])
 

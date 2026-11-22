@@ -410,7 +410,13 @@ export default function InternRotationsMatrix({
     nowBySection.get(sectionKey).push({ doctor, rotation, typeKey })
   }
   for (const rows of nowBySection.values()) {
-    rows.sort((x, y) => (x.doctor.surname || '').localeCompare(y.doctor.surname || ''))
+    // Surname first (what a reviewer scans for), start date as the
+    // tie-break for two doctors sharing a surname.
+    rows.sort((x, y) => {
+      const bySurname = (x.doctor.surname || '').localeCompare(y.doctor.surname || '')
+      if (bySurname !== 0) return bySurname
+      return (x.rotation.start_date || '').localeCompare(y.rotation.start_date || '')
+    })
   }
   const nowCount = [...nowBySection.values()].reduce((n, rows) => n + rows.length, 0)
   const nowTitle = `${MONTH_NAMES[currentMonthIndex]} ${currentYear}`

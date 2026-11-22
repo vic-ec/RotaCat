@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./supabase', () => ({ supabase: {} }))
 
-import { findSameDayConflict, entryAbsence, absenceSummary, isEntryOnLeave, VACANCY_LEAVE_TYPE_OPTIONS } from './rosterVacancy'
+import { findSameDayConflict, entryAbsence, absenceSummary, isEntryOnLeave, VACANCY_LEAVE_TYPE_OPTIONS, isNoCoverRow, NO_COVER_PATCH, entrySnapshot } from './rosterVacancy'
 import { mergeLeaveRanges, leaveRangeOn } from './approvedLeave'
 import { rosterChangeDetail } from './changeLog'
 
@@ -51,8 +51,10 @@ describe('entryAbsence', () => {
   it('a doctor taken off a shift is kept as a vacated absence, whoever covers it now', () => {
     const covered = entryAbsence({ profile_id: 'doc-b', date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'leave', vacated_leave_request_id: 'leave-1', vacated_by: 'admin-1' }, LEAVE)
     expect(covered).toMatchObject({ kind: 'vacated', profileId: 'doc-a', reason: 'leave', open: false, byId: 'admin-1' })
-    const open = entryAbsence({ profile_id: null, is_locum: false, date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'no_show' }, LEAVE)
-    expect(open).toMatchObject({ kind: 'vacated', reason: 'no_show', open: true })
+    // No cover: the doctor is off and nobody is wanted in their place —
+    // not an open slot, so nothing to draw beside the struck name.
+    const noCover = entryAbsence({ profile_id: null, is_locum: false, date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'no_show' }, LEAVE)
+    expect(noCover).toMatchObject({ kind: 'vacated', reason: 'no_show', open: false, noCover: true })
     // An opened shift is an open locum slot ("[ ]"), still open.
     const openSlot = entryAbsence({ profile_id: null, is_locum: true, locum_name: '[ ]', date: '2026-11-20', vacated_profile_id: 'doc-a', vacated_reason: 'leave' }, LEAVE)
     expect(openSlot.open).toBe(true)
@@ -92,6 +94,8 @@ describe('absenceSummary', () => {
     expect(absenceSummary({ absence: noShow, leaveByProfile: {} }).lines).toEqual(['Shift open — no cover yet'])
     expect(absenceSummary({ absence: noShow, leaveByProfile: {}, canSeeNote: true }).lines).toContain('Note: Did not answer')
     expect(absenceSummary({ absence: noShow, leaveByProfile: {} }).headline).toBe('No-show')
+    const noCover = { ...noShow, open: false, noCover: true }
+    expect(absenceSummary({ absence: noCover, leaveByProfile: {} }).lines).toEqual(['Shift not covered'])
   })
 })
 
@@ -140,5 +144,23 @@ describe('VACANCY_LEAVE_TYPE_OPTIONS', () => {
     expect(values).not.toContain('sick')
     expect(values).not.toContain('weekend_exception')
     expect(values).toContain('family_responsibility')
+  })
+})
+
+describe('the no-cover row', () => {
+  it('is the vacated doctor with nobody in their place: not a locum, not an open slot', () => {
+    expect(isNoCoverRow({ vacated_profile_id: 'doc-a', profile_id: null, is_locum: false })).toBe(true)
+    expect(isNoCoverRow({ vacated_profile_id: 'doc-a', profile_id: null, is_locum: true, locum_name: '[ ]' })).toBe(false)
+    expect(isNoCoverRow({ vacated_profile_id: 'doc-a', profile_id: 'doc-b', is_locum: false })).toBe(false)
+    expect(isNoCoverRow({ vacated_profile_id: null, profile_id: null, is_locum: false })).toBe(false)
+  })
+
+  it('NO_COVER_PATCH writes exactly that state and clears every flag', () => {
+    expect(NO_COVER_PATCH).toMatchObject({ profile_id: null, is_locum: false, locum_name: null, locum_contact_id: null, is_flagged: false })
+  })
+
+  it('a snapshot drops updated_at so two reads of the same row compare equal', () => {
+    expect(entrySnapshot({ id: 'e1', profile_id: 'a', updated_at: 'x' })).toEqual({ id: 'e1', profile_id: 'a' })
+    expect(entrySnapshot(null)).toBeNull()
   })
 })

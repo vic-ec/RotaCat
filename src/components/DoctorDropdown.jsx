@@ -3,8 +3,9 @@ import { X } from 'lucide-react'
 import ClearableInput from './ClearableInput'
 import { useSwatch } from '../lib/useSwatch'
 
-// Doctor picker popover — search by name, pick to assign, optional "Remove
-// from this slot" footer. Extracted from RosterGridPage so the Phase 5
+// Doctor picker popover — search by name, pick to assign, optional remove
+// footer whose label names what is removed (`removeLabel`; the roster's
+// shift cells pass no onRemove at all — their removes live in ShiftMenu). Extracted from RosterGridPage so the Phase 5
 // removal-workflow modal's "swap" step can reuse it as-is. `displayNames`
 // (buildDoctorDisplayNames' Map<profileId, label>) is optional — pass it
 // whenever `profiles` might contain a same-surname collision, so the row
@@ -16,7 +17,7 @@ import { useSwatch } from '../lib/useSwatch'
 // receives a cover object (see lib/locumCover.js) for a locum pick; a
 // doctor pick still goes to onSelect(profileId), so every other caller is
 // untouched.
-export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, onClose, date, shiftCode, locums = [], contacts = [], onSelectCover = null, onNewLocum = null }) {
+export default function DoctorDropdown({ profiles, displayNames, search, onSearchChange, onSelect, onRemove, removeLabel = 'Remove', onClose, date, shiftCode, locums = [], contacts = [], onSelectCover = null, onNewLocum = null }) {
   const swatch = useSwatch()
   const matches = p => `${p.name} ${p.surname}`.toLowerCase().includes(search.toLowerCase())
   const filtered = profiles.filter(matches)
@@ -122,7 +123,7 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
               onClick={onRemove}
               className="w-full rounded py-1.5 text-sm text-flagRed transition-colors hover:bg-flagRed-bg active:bg-flagRed-bg"
             >
-              Remove from this slot
+              {removeLabel}
             </button>
           </div>
         )}

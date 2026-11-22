@@ -32,6 +32,35 @@ export const VACANCY_LEAVE_TYPE_OPTIONS = LEAVE_TYPE_OPTIONS.filter(o => o.value
 // Opening a shift leaves an open locum slot ("[ ]") — see OPEN_SLOT_PATCH.
 export const VACATE_PATCH = OPEN_SLOT_PATCH
 
+// "No cover": the doctor is off the shift and nobody is wanted in their
+// place. The row keeps vacated_* (so the struck-through name shows) and
+// holds no one: not a doctor, not a locum, not an open slot. It is not
+// unfilled, counts hours for nobody, and is not a gap to advertise.
+export const NO_COVER_PATCH = {
+  profile_id: null,
+  is_locum: false,
+  locum_name: null,
+  locum_contact_id: null,
+  counts_toward_contract_hours: true,
+  is_manual_override: false,
+  is_flagged: false,
+  flag_type: null,
+  flag_reason: null,
+}
+
+export function isNoCoverRow(entry) {
+  return Boolean(entry?.vacated_profile_id) && !entry.profile_id && !entry.is_locum
+}
+
+// The row as the change log stores it: every column, minus the one that
+// changes on every write and so can never be compared (updated_at).
+export function entrySnapshot(entry) {
+  if (!entry) return null
+  // eslint-disable-next-line no-unused-vars
+  const { updated_at, ...rest } = entry
+  return rest
+}
+
 // One save for the whole "a doctor comes off a published shift" action:
 // capture their leave (when that is the reason and none is on record yet),
 // hand the shift to a replacement or open it, and log who, what and why.
@@ -43,7 +72,11 @@ export const VACATE_PATCH = OPEN_SLOT_PATCH
 // user-facing message.
 //
 //   reason   one of VACANCY_REASON_OPTIONS' values
-//   cover    'replace' | 'advertise' | 'open'
+//   cover    'replace' | 'advertise' | 'open' | 'none'
+//   entryBefore  the roster_entries row as it is now, for the log's
+//                snapshot; fetched when not given
+//   batchId  the undo batch this save belongs to (a replacement that
+//            vacates the replacement's own shift shares one)
 //   replacement  who takes the shift over, for 'replace': a cover object
 //                (see lib/locumCover.js) — a doctor, a locum with an
 //                account, or a locum with none yet. `replacementId` is the
@@ -52,13 +85,18 @@ export const VACATE_PATCH = OPEN_SLOT_PATCH
 //                    date, if any: linked, and no second row is filed
 export async function resolveVacancy({
   rosterMonthId, vacancy, reason, leaveType = 'sick', dateFrom, dateTo, note = '', cover, replacementId = null,
-  replacement = null, existingLeaveId = null, adminId,
+  replacement = null, existingLeaveId = null, adminId, entryBefore = null, batchId = null,
 }) {
   const taker = replacement ?? (replacementId ? { kind: 'doctor', id: replacementId } : null)
   const storedReason = VACATED_REASON[reason]
   if (!storedReason) throw new Error('Choose why this doctor is coming off the shift.')
-  if (!['replace', 'advertise', 'open'].includes(cover)) throw new Error('Choose what happens to the shift.')
+  if (!['replace', 'advertise', 'open', 'none'].includes(cover)) throw new Error('Choose what happens to the shift.')
   if (cover === 'replace' && !taker) throw new Error('Choose who is taking over the shift.')
+  if (cover === 'none' && storedReason === 'swap') throw new Error('A swap needs someone to take the shift.')
+  if (!entryBefore) {
+    const { data } = await supabase.from('roster_entries').select('*').eq('id', vacancy.entryId).maybeSingle()
+    entryBefore = data || null
+  }
   const trimmedNote = (note || '').trim()
   if (reason === 'other' && !trimmedNote) throw new Error('Add a note explaining the reason.')
 
@@ -82,7 +120,7 @@ export async function resolveVacancy({
   }
 
   const patch = {
-    ...(cover === 'replace' ? coverPatch(taker) : VACATE_PATCH),
+    ...(cover === 'replace' ? coverPatch(taker) : cover === 'none' ? NO_COVER_PATCH : VACATE_PATCH),
     vacated_profile_id: vacancy.currentProfileId,
     vacated_reason: storedReason,
     // A leave note lives on the leave request, under that table's own
@@ -96,14 +134,17 @@ export async function resolveVacancy({
   const { error: updateErr } = await supabase.from('roster_entries').update(patch).eq('id', vacancy.entryId)
   if (updateErr) throw new Error(updateErr.message)
 
+  let advertId = null
   if (cover === 'advertise') {
-    const { error: adErr } = await supabase.from('shift_advertisements').insert({
+    const { data: ad, error: adErr } = await supabase.from('shift_advertisements').insert({
       roster_entry_id: vacancy.entryId,
       advertised_by: adminId,
       status: 'open',
-    })
+    }).select('id').maybeSingle()
     if (adErr) throw new Error(adErr.message)
+    advertId = ad?.id ?? null
   }
+  const entryAfter = entryBefore ? { ...entryBefore, ...patch } : null
 
   const leaveLabel = isLeave ? (LEAVE_TYPE_LABELS[leaveType] || 'Leave') : null
   await logRosterEntryChange({
@@ -124,9 +165,17 @@ export async function resolveVacancy({
     // carries their name.
     locumName: cover === 'replace' && taker.kind === 'contact' ? taker.name : null,
     leaveRequestId,
+    batchId,
+    entryBefore: entrySnapshot(entryBefore),
+    entryAfter: entrySnapshot(entryAfter),
+    sideEffects: {
+      leave_request_captured: isLeave && !existingLeaveId ? leaveRequestId : null,
+      advert_created: advertId,
+      advert_cancelled: null,
+    },
   })
 
-  return { patch, leaveRequestId }
+  return { patch, leaveRequestId, advertId, entryAfter }
 }
 
 // ── Reading an absence off the roster ─────────────────────────────────────
@@ -150,7 +199,10 @@ export function entryAbsence(entry, leaveByProfile) {
       leaveRequestId: entry.vacated_leave_request_id || null,
       note: entry.vacated_note || null,
       byId: entry.vacated_by || null,
-      open: !entry.profile_id && (!entry.is_locum || isOpenLocumSlot(entry)),
+      // Only a real open locum slot is "open"; a no-cover row shows the
+      // struck-through name and nothing else.
+      open: isOpenLocumSlot(entry),
+      noCover: isNoCoverRow(entry),
     }
   }
   const range = leaveRangeOn(leaveByProfile, entry.profile_id, entry.date)
@@ -181,7 +233,7 @@ export function absenceSummary({ absence, leaveByProfile, doctorName, coverName,
   const lines = []
   if (range) lines.push(formatShortDateRange(range[0], range[1]))
   if (absence.kind === 'vacated') {
-    lines.push(coverName ? `Covered by ${coverName}` : absence.open ? 'Shift open — no cover yet' : 'Covered by a locum')
+    lines.push(coverName ? `Covered by ${coverName}` : absence.noCover ? 'Shift not covered' : absence.open ? 'Shift open — no cover yet' : 'Covered by a locum')
     if (byName) lines.push(`Recorded by ${byName}`)
   } else {
     lines.push('Still on the roster for this shift')

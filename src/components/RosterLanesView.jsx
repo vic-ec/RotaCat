@@ -223,9 +223,14 @@ export default function RosterLanesView({
     const code = shiftTypes[entry.shift_type_id]
     if (!absence || !code) return
     if (!absentOn.has(absence.profileId)) absentOn.set(absence.profileId, new Map())
+    const summary = absenceSummary({ absence, leaveByProfile })
     absentOn.get(absence.profileId).set(entry.date, {
       code,
-      headline: absenceSummary({ absence, leaveByProfile }).headline,
+      headline: summary.headline,
+      // For a doctor taken off the shift, what became of it ("Shift not
+      // covered", "Covered by a locum"); nothing for one on leave who
+      // still holds it.
+      detail: absence.kind === 'vacated' ? summary.lines.find(l => /^(Shift|Covered)/.test(l)) ?? null : null,
     })
   })
 
@@ -437,7 +442,7 @@ export default function RosterLanesView({
                         <span
                           data-testid="lane-absent"
                           className="block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums text-ink-muted line-through"
-                          title={`${day.dateStr} — ${labelForShiftCode(struck.code)} — ${struck.headline}`}
+                          title={`${day.dateStr} — ${labelForShiftCode(struck.code)} — ${struck.headline}${struck.detail ? ` · ${struck.detail}` : ''}`}
                         >
                           {struckBand ? struckBand.label : '·'}
                         </span>

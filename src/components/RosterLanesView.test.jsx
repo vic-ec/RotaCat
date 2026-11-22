@@ -365,3 +365,16 @@ describe('RosterLanesView today', () => {
     vi.useRealTimers()
   })
 })
+
+describe('RosterLanesView — a vacated doctor with no cover', () => {
+  it('draws the shift struck through in their lane, titled "Shift not covered", with no lane for a slot', () => {
+    const days = [{ dateStr: '2026-08-10', dayType: 'weekday', phName: null }]
+    const profiles = [{ id: 'doc-a', name: 'Alice', surname: 'Anderson', category: 'MO' }]
+    const entries = [{ id: 'e1', date: '2026-08-10', shift_type_id: 'st1', profile_id: null, is_locum: false, locum_name: null, vacated_profile_id: 'doc-a', vacated_reason: 'leave' }]
+    render(<RosterLanesView days={days} profiles={profiles} entries={entries} shiftTypes={{ st1: 'WD_08' }} entryMap={{}} />)
+    const cell = screen.getByTestId('lane-absent')
+    expect(cell).toHaveTextContent('08')
+    expect(cell).toHaveAttribute('title', expect.stringContaining('Shift not covered'))
+    expect(screen.getAllByRole('row')).toHaveLength(3) // header, category, Anderson
+  })
+})

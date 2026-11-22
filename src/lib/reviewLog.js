@@ -82,6 +82,12 @@ export const ROSTER_TYPES = {
   vacated: 'Vacated',
   removed: 'Removed',
   moved: 'Moved',
+  slot_added: 'Cover added',
+  slot_removed: 'Slot removed',
+  reinstated: 'Put back',
+  advertised: 'Advertised',
+  unadvertised: 'Advert stopped',
+  undone: 'Undone',
 }
 
 const REASON_LABELS = { leave: 'Leave', swap: 'Swap', no_show: 'No-show', other: 'Other' }
@@ -120,8 +126,20 @@ function rosterLogCore(change) {
       person: after ?? before,
     }
   }
-  if (change.action === 'remove') return { type: 'removed', shift, person: before }
+  if (change.action === 'remove') return { type: 'removed', shift, person: before, personName: !before && change.locum_name ? change.locum_name : null }
   if (change.action === 'unassign') return { type: 'vacated', shift, person: before, advertised: Boolean(change.advertised) }
+  // The rows that act on a vacated doctor's slot name that doctor in
+  // profile_id_before, so History shows who the change affected.
+  if (change.action === 'slot_add') {
+    return after || afterName
+      ? { type: 'slot_added', shift, before, after, afterName, covered: true }
+      : { type: 'slot_added', shift, person: before, advertised: Boolean(change.advertised) }
+  }
+  if (change.action === 'slot_remove') return { type: 'slot_removed', shift, person: before }
+  if (change.action === 'reinstate') return { type: 'reinstated', shift, person: after ?? before, note: change.note || null }
+  if (change.action === 'advertise') return { type: 'advertised', shift, person: before, advertised: true }
+  if (change.action === 'unadvertise') return { type: 'unadvertised', shift, person: before }
+  if (change.action === 'undo') return { type: 'undone', shift, person: after ?? before, note: change.note || null }
   if (before && after && before !== after) return { type: 'replaced', shift, before, after }
   // A locum with no account taking over, or filling an empty slot: named
   // from the row, never mistaken for the doctor who came off.

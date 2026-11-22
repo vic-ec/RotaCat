@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, cleanup } from '@testing-library/react'
+import { render, screen, within, cleanup, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ShiftMenu from './ShiftMenu'
 
@@ -17,7 +17,7 @@ const locumVacated = { ...locum, vacated_profile_id: 'doc-a', vacated_reason: 'n
 function handlers() {
   return {
     onVacancy: vi.fn(), onAssign: vi.fn(), onRemoveEntry: vi.fn(), onRemoveLocum: vi.fn(), onAddCover: vi.fn(), onRemoveSlot: vi.fn(),
-    onAdvertise: vi.fn(), onUnadvertise: vi.fn(), onReinstate: vi.fn(), onClose: vi.fn(),
+    onAdvertise: vi.fn(), onUnadvertise: vi.fn(), onReinstate: vi.fn(), onChangeTimes: vi.fn(), onClose: vi.fn(),
   }
 }
 function open(entry, over = {}) {
@@ -32,24 +32,47 @@ function open(entry, over = {}) {
   return h
 }
 const dialog = () => screen.getByRole('dialog')
-const item = name => within(dialog()).getByRole('button', { name })
+const option = name => within(dialog()).getByRole('radio', { name })
+// Tick a choice and press Continue.
+async function choose(user, name) {
+  await user.click(option(name))
+  await user.click(within(dialog()).getByRole('button', { name: 'Continue' }))
+}
 
 beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }) })
 
 describe('ShiftMenu — which menu opens (the spec table)', () => {
-  it('a doctor on a published roster goes straight to the vacancy form', () => {
+  it('a doctor on a published roster: take them off (the vacancy form) or change their times', async () => {
+    const user = userEvent.setup()
     const h = open(row)
+    expect(within(dialog()).getByRole('button', { name: 'Continue' })).toBeDisabled()
+    option(/Change times/)
+    await choose(user, /Take Alice Anderson off this shift/)
     expect(h.onVacancy).toHaveBeenCalledWith(row)
     expect(h.onClose).toHaveBeenCalled()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('Change times saves a start and end through onChangeTimes, and validates both are given', async () => {
+    const user = userEvent.setup()
+    const h = open(row, { shiftType: { start_time: '12:00:00', end_time: '22:00:00' } })
+    await choose(user, /Change times/)
+    expect(screen.getByText(/Standard times are 12h–22h/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '10:00' } })
+    await user.click(screen.getByRole('button', { name: 'Save times' }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/both/)
+    fireEvent.change(screen.getByLabelText('End'), { target: { value: '20:00' } })
+    await user.click(screen.getByRole('button', { name: 'Save times' }))
+    expect(h.onChangeTimes).toHaveBeenCalledWith(row, { start: '10:00', end: '20:00' })
+    expect(h.onClose).toHaveBeenCalled()
   })
 
   it('a doctor on a draft roster: Replace with… / Remove {name} from this shift (confirm)', async () => {
     const user = userEvent.setup()
     const h = open(row, { rosterStatus: 'draft' })
     expect(dialog()).toHaveAccessibleName(/Alice Anderson · Mon 10 Aug · WD 08h-18h/)
-    item(/Replace with…/)
-    await user.click(item(/Remove Alice Anderson from this shift/))
+    option(/Replace with…/)
+    option(/Change times/)
+    await choose(user, /Remove Alice Anderson from this shift/)
     expect(h.onRemoveEntry).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Remove Alice Anderson' }))
     expect(h.onRemoveEntry).toHaveBeenCalledWith(row)
@@ -61,22 +84,22 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     expect(dialog()).toHaveAccessibleName(/Open locum slot · Mon 10 Aug · WD 08h-18h · covering Alice Anderson \(leave\)/)
     expect(within(dialog()).getByText('The locum slot')).toBeInTheDocument()
     expect(within(dialog()).getByText('The absent doctor')).toBeInTheDocument()
-    item(/Fill with a doctor or locum/)
-    await user.click(item(/Advertise to locums/))
+    option(/Fill with a doctor or locum/)
+    await choose(user, /Advertise to locums/)
     expect(h.onAdvertise).toHaveBeenCalledWith(slotVacated)
   })
 
   it('an advertised slot offers Stop advertising instead', async () => {
     const user = userEvent.setup()
     const h = open(slotVacated, { hasOpenAdvert: true })
-    await user.click(item(/Stop advertising/))
+    await choose(user, /Stop advertising/)
     expect(h.onUnadvertise).toHaveBeenCalledWith(slotVacated)
   })
 
   it('"Remove the locum slot" keeps the vacated doctor: it calls onRemoveSlot, never a row delete, after a confirm that says so', async () => {
     const user = userEvent.setup()
     const h = open(slotVacated)
-    await user.click(item(/Remove the locum slot/))
+    await choose(user, /Remove the locum slot/)
     expect(screen.getByText(/Alice Anderson stays struck through/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remove the locum slot' }))
     expect(h.onRemoveSlot).toHaveBeenCalledWith(slotVacated)
@@ -88,7 +111,7 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     const user = userEvent.setup()
     const h = open(slot)
     expect(within(dialog()).queryByText('The absent doctor')).not.toBeInTheDocument()
-    await user.click(item(/Remove this slot/))
+    await choose(user, /Remove this slot/)
     await user.click(screen.getByRole('button', { name: 'Remove slot' }))
     expect(h.onRemoveEntry).toHaveBeenCalledWith(slot)
   })
@@ -97,8 +120,9 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     const user = userEvent.setup()
     const h = open(locumVacated)
     expect(dialog()).toHaveAccessibleName(/Marsh \(locum\) · Mon 10 Aug · WD 08h-18h · covering Alice Anderson \(no-show\)/)
-    item(/Change cover/)
-    await user.click(item(/Remove Marsh/))
+    option(/Change cover/)
+    option(/Change times/)
+    await choose(user, /Remove Marsh/)
     expect(screen.getByText(/slot opens again as \[ \] and Alice Anderson stays struck through/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remove Marsh' }))
     expect(h.onRemoveLocum).toHaveBeenCalledWith(locumVacated)
@@ -108,7 +132,7 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
   it('a named locum covering nobody: Remove {locum} deletes the row', async () => {
     const user = userEvent.setup()
     const h = open(locum)
-    await user.click(item(/Remove Marsh/))
+    await choose(user, /Remove Marsh/)
     await user.click(screen.getByRole('button', { name: 'Remove Marsh' }))
     expect(h.onRemoveLocum).toHaveBeenCalledWith(locum)
   })
@@ -118,25 +142,37 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     const h = open(noCover)
     expect(dialog()).toHaveAccessibleName(/Alice Anderson — no cover · Mon 10 Aug · WD 08h-18h/)
     expect(within(dialog()).getByText('Add cover')).toBeInTheDocument()
-    await user.click(item(/Open slot, don't advertise/))
+    await choose(user, /Open slot, don't advertise/)
     expect(h.onAddCover).toHaveBeenCalledWith(noCover, 'open')
+  })
+
+  it('Back in the picker returns to the menu without closing it', async () => {
+    const user = userEvent.setup()
+    const h = open(noCover)
+    await choose(user, /Replace now/)
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    expect(h.onClose).not.toHaveBeenCalled()
+    expect(option(/Replace now/)).toBeInTheDocument()
   })
 
   it('"Replace now" on a no-cover row opens the picker with no remove and hands the pick to onAddCover', async () => {
     const user = userEvent.setup()
     const h = open(noCover)
-    await user.click(item(/Replace now/))
+    await choose(user, /Replace now/)
     const picker = screen.getByRole('dialog', { name: /Assign doctor/ })
     expect(within(picker).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
-    await user.click(within(picker).getByText('Brown'))
+    expect(within(picker).getByRole('button', { name: 'Back' })).toBeInTheDocument()
+    expect(within(picker).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    await user.click(within(picker).getByText('Bob Brown'))
     expect(h.onAddCover).toHaveBeenCalledWith(noCover, 'replace', { kind: 'doctor', id: 'doc-b' })
   })
 
-  it('every version ends with "Close — no change"', async () => {
+  it('every version ends with "Close — no change", and Continue stays off until a choice is ticked', async () => {
     const user = userEvent.setup()
-    for (const entry of [null, slotVacated, slot, locum, noCover]) {
+    for (const entry of [null, row, slotVacated, slot, locum, noCover]) {
       const h = open(entry, { rosterStatus: 'draft' })
-      await user.click(item('Close — no change'))
+      expect(within(dialog()).getByRole('button', { name: 'Continue' })).toBeDisabled()
+      await user.click(within(dialog()).getByRole('button', { name: 'Close — no change' }))
       expect(h.onClose).toHaveBeenCalled()
       expect(h.onAssign).not.toHaveBeenCalled()
       cleanup()
@@ -148,7 +184,7 @@ describe('ShiftMenu — Put back', () => {
   it('asks about the linked leave, with Cancel the leave / Keep the leave', async () => {
     const user = userEvent.setup()
     const h = open(noCover, { leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-11', 'sick', 'leave-1']] } })
-    await user.click(item(/Put Alice Anderson back on this shift/))
+    await choose(user, /Put Alice Anderson back on this shift/)
     expect(screen.getByText("Also cancel Alice Anderson's sick leave for Mon 10 Aug – Tue 11 Aug?")).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Keep the leave' }))
     expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: false })
@@ -157,7 +193,7 @@ describe('ShiftMenu — Put back', () => {
   it('cancels the leave when asked', async () => {
     const user = userEvent.setup()
     const h = open(noCover)
-    await user.click(item(/Put Alice Anderson back on this shift/))
+    await choose(user, /Put Alice Anderson back on this shift/)
     await user.click(screen.getByRole('button', { name: 'Cancel the leave' }))
     expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: true })
   })
@@ -166,18 +202,18 @@ describe('ShiftMenu — Put back', () => {
     const user = userEvent.setup()
     const entry = { ...slotVacated, vacated_leave_request_id: null }
     const h = open(entry)
-    await user.click(item(/Put Alice Anderson back on this shift/))
+    await choose(user, /Put Alice Anderson back on this shift/)
     expect(h.onReinstate).toHaveBeenCalledWith(entry, { cancelLeave: false })
   })
 
   it('is disabled, with the reason, when the doctor has another shift that day or the slot was filled', () => {
     open(slotVacated, { entries: [slotVacated, { id: 'e2', date: '2026-08-10', profile_id: 'doc-a' }] })
-    const put = item(/Put Alice Anderson back on this shift/)
+    const put = option(/Put Alice Anderson back on this shift/)
     expect(put).toBeDisabled()
-    expect(put).toHaveTextContent(/now has another shift on Mon 10 Aug/)
+    expect(put.closest('label')).toHaveTextContent(/now has another shift on Mon 10 Aug/)
     cleanup()
     open(locumVacated)
-    expect(item(/Put Alice Anderson back on this shift/)).toHaveTextContent(/since been filled by Marsh \(locum\)/)
+    expect(option(/Put Alice Anderson back on this shift/).closest('label')).toHaveTextContent(/since been filled by Marsh \(locum\)/)
   })
 })
 

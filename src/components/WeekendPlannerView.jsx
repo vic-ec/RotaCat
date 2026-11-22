@@ -17,7 +17,7 @@ import {
 import { fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { REVIEW_STATUS_LABELS } from '../lib/statusLabels'
-import { buildDoctorDisplayNames } from '../lib/doctorNames'
+import { buildDoctorDisplayNames, fullDoctorName } from '../lib/doctorNames'
 import { logWeekendPlannerChange, restoreWeekendPlannerBatch } from '../lib/changeLog'
 import UndoToast from './UndoToast'
 import WeekendPlannerChangeLogModal from './WeekendPlannerChangeLogModal'
@@ -198,7 +198,7 @@ function AssignmentSummaryRow({ group, groupEntries, doctorById, displayNames })
 // whenever the selected weekend changes, so switching weekends never leaves
 // a stale picker open.
 function WeekendInspector({
-  saturday, weekendIndex, bySaturday, displayNames, isAdmin, myRequest, myRequestName, canViewRequests,
+  saturday, weekendIndex, bySaturday, displayNames, doctorById, isAdmin, myRequest, myRequestName, canViewRequests,
   exceptions = [], editing = false, onToggleEditing, onClearWeekend, onCopyWeekend, onPasteWeekend, hasWeekendClipboard,
 }) {
 
@@ -231,7 +231,7 @@ function WeekendInspector({
         </p>
       )}
 
-      <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
+      <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} doctorById={doctorById} />
 
       {/* No assignments list here: the names are read off — and, while
           editing, changed on — the weekend's own row in the table beside
@@ -334,7 +334,7 @@ function WeekendDetailSheet({ saturday, weekendIndex, bySaturday, doctorById, di
             <AssignmentSummaryRow key={group.key} group={group} groupEntries={bySaturday[group.key] || []} doctorById={doctorById} displayNames={displayNames} />
           ))}
         </div>
-        <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} />
+        <WeekendRequestsList exceptions={exceptions} displayNames={displayNames} doctorById={doctorById} />
       </div>
     </ActionSheet>
   )
@@ -477,7 +477,10 @@ function WeekendClearConfirmModal({ title, entryCount, saving, onConfirm, onClos
 // has none. These are NOT special leave and carry no leave-capacity weight;
 // they are an exception to WHICH weekend a doctor works, still approved via
 // Planners -> Requests.
-function WeekendRequestsList({ exceptions, displayNames }) {
+// The name comes from the planner's own doctor list (doctorById) so it
+// reads the same here as on the cards; the request's joined row is only
+// a fallback.
+function WeekendRequestsList({ exceptions, displayNames, doctorById = new Map() }) {
   if (exceptions.length === 0) return null
   return (
     <div data-testid="weekend-requests" className="mt-3 border-t border-slate-line pt-3">
@@ -489,7 +492,7 @@ function WeekendRequestsList({ exceptions, displayNames }) {
             <li key={req.id} className="flex items-center justify-between gap-2 py-1.5 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="flex-shrink-0 font-medium text-ink">
-                  {displayNames.get(req.profile_id) ?? req.profiles?.surname ?? '(unknown)'}
+                  {fullDoctorName(doctorById.get(req.profile_id) ?? req.profiles, displayNames.get(req.profile_id) ?? '(unknown)')}
                 </span>
                 <span className="truncate text-xs text-ink-muted">
                   {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
@@ -511,7 +514,7 @@ function WeekendRequestsList({ exceptions, displayNames }) {
 // shape as the Annual/Special planners' day views (name, then category and
 // period muted beside it, status right-aligned) so a request row reads
 // identically wherever it appears.
-function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose }) {
+function WeekendExceptionsSheet({ saturday, exceptions, displayNames, doctorById, onClose }) {
   return (
     <ActionSheet title={formatWeekendRange(saturday)} onClose={onClose}>
       <div className="px-3 pb-3 pt-1">
@@ -523,7 +526,7 @@ function WeekendExceptionsSheet({ saturday, exceptions, displayNames, onClose })
               <li key={req.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="flex-shrink-0 text-sm font-medium text-ink">
-                    {displayNames.get(req.profile_id) ?? req.profiles?.surname ?? '(unknown)'}
+                    {fullDoctorName(doctorById.get(req.profile_id) ?? req.profiles, displayNames.get(req.profile_id) ?? '(unknown)')}
                   </span>
                   <span className="truncate text-xs text-ink-muted">
                     {labelForLeaveCategory(req.profiles?.category, req.profiles?.contract_type)}
@@ -1925,6 +1928,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
                     weekendIndex={monthSaturdays.indexOf(inspectorSaturday) + 1}
                     bySaturday={byWeekend.get(inspectorSaturday) || {}}
                     displayNames={displayNames}
+                    doctorById={doctorById}
                     isAdmin={isAdmin}
                     myRequest={myRequestsBySaturday.get(inspectorSaturday)}
                     exceptions={exceptionsBySaturday.get(inspectorSaturday) || []}
@@ -1963,6 +1967,7 @@ export default function WeekendPlannerView({ initialYear, initialMonth, onBackTo
           saturday={exceptionsSaturday}
           exceptions={exceptionsBySaturday.get(exceptionsSaturday) || []}
           displayNames={displayNames}
+          doctorById={doctorById}
           onClose={() => setExceptionsSaturday(null)}
         />
       )}

@@ -102,7 +102,7 @@ describe('WeekendPlanner', () => {
     renderPlanner()
     expect(await screen.findByText('Weekend Planner')).toBeInTheDocument()
     const panel = within(screen.getByTestId('weekend-exception-list'))
-    expect(panel.getByText('Nolan')).toBeInTheDocument()
+    expect(panel.getByText(/\bNolan\b/)).toBeInTheDocument()
     expect(panel.getByText('Pending')).toBeInTheDocument()
   })
 

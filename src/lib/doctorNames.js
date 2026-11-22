@@ -15,6 +15,14 @@
 // active roster, the roster grid's staff list, ...) — this function makes
 // no assumption about which subset of staff it's given, since "irrespective
 // of category" means the caller decides scope, not this utility.
+// "First Surname" for a list row, where there is room for it. Falls back
+// to the surname-only display name when the row carries no first name.
+export function fullDoctorName(person, fallback = '') {
+  if (!person) return fallback
+  const full = `${person.name || ''} ${person.surname || ''}`.trim()
+  return full || fallback
+}
+
 export function buildDoctorDisplayNames(doctors) {
   const bySurname = new Map()
   for (const doctor of doctors) {

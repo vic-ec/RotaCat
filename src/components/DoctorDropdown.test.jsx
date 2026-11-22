@@ -65,4 +65,20 @@ describe('DoctorDropdown', () => {
     expect(onSelect).toHaveBeenCalledWith('p1')
     expect(onClose).not.toHaveBeenCalled()  // the caller decides what happens next
   })
+
+  it('offers Back and a named Cancel when opened from a menu, both leaving the picker without closing everything', async () => {
+    const user = userEvent.setup()
+    const onBack = vi.fn()
+    const { onClose } = renderPicker({ onBack, cancelLabel: 'Cancel — keep Ada Landers' })
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel — keep Ada Landers' }))
+    expect(onBack).toHaveBeenCalledTimes(2)
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('lists doctors by first name and surname', () => {
+    renderPicker()
+    expect(screen.getByText('Ada Landers')).toBeInTheDocument()
+    expect(screen.getByText('Bo Venter')).toBeInTheDocument()
+  })
 })

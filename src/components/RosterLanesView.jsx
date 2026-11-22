@@ -6,6 +6,7 @@ import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
 import { todayStr } from '../lib/dateRange'
 import PublicHolidayBadge from './PublicHolidayBadge'
+import { adjustedTimesLabel } from '../lib/shiftTimes'
 
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -208,12 +209,19 @@ export default function RosterLanesView({
   // at most one shift a day (findSameDayConflict enforces it), so this is a
   // flat lookup rather than a list.
   const byProfileDate = new Map()
+  // profileId -> date -> "10h–20h" where the shift's hours were adjusted.
+  const adjustedOn = new Map()
   entries.forEach(entry => {
     if (!entry.profile_id || entry.is_locum) return
     const code = shiftTypes[entry.shift_type_id]
     if (!code) return
     if (!byProfileDate.has(entry.profile_id)) byProfileDate.set(entry.profile_id, new Map())
     byProfileDate.get(entry.profile_id).set(entry.date, code)
+    const times = adjustedTimesLabel(entry)
+    if (times) {
+      if (!adjustedOn.has(entry.profile_id)) adjustedOn.set(entry.profile_id, new Map())
+      adjustedOn.get(entry.profile_id).set(entry.date, times)
+    }
   })
 
   // profileId -> date -> { code, headline }: a shift the doctor is NOT
@@ -480,7 +488,7 @@ export default function RosterLanesView({
                     <td key={key} className="border-r border-slate-hairline p-0">
                       <span
                         className={`block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums ${fill} ${text}`}
-                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}`}
+                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}${adjustedOn.get(profile.id)?.get(day.dateStr) ? ` · worked ${adjustedOn.get(profile.id).get(day.dateStr)}` : ''}`}
                       >
                         {band ? label : 'C'}
                       </span>

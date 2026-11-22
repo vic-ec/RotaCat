@@ -112,6 +112,7 @@ export default function DateStepper({
   nowrap = false, todayLabel = false,
   // `compactBelowSm`: on a phone a month reads "Nov 2026" rather than
   // "November 2026", for a row the stepper shares with other controls.
+  // Pass 'lg' to keep the short form up to the lg breakpoint.
   compactBelowSm = false,
 }) {
   const [jumpOpen, setJumpOpen] = useState(false)
@@ -142,8 +143,8 @@ export default function DateStepper({
       <StepperShell
         label={compactBelowSm && unit === 'month' ? (
           <>
-            <span className="sm:hidden">{label.slice(0, 3)} {year}</span>
-            <span className="hidden sm:inline">{label}</span>
+            <span className={compactBelowSm === 'lg' ? 'lg:hidden' : 'sm:hidden'}>{label.slice(0, 3)} {year}</span>
+            <span className={compactBelowSm === 'lg' ? 'hidden lg:inline' : 'hidden sm:inline'}>{label}</span>
           </>
         ) : label}
         labelAriaLabel={unit === 'year' ? `${label}, jump to year` : `${label}, jump to month or year`}

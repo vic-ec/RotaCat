@@ -152,7 +152,7 @@ function DateTimePopoverButton({ iso, Icon, label }) {
 // the Staff page's All Staff tab. Filter groups mirror the grid's own
 // column headers (see filterGroups below) rather than an unrelated set of
 // dimensions.
-export default function LeaveListView() {
+export default function LeaveListView({ leading = null }) {
   // Admins may cancel any pending/approved leave from here (matrix detail,
   // mobile detail sheet, or the table's Actions column); everyone else
   // only reads. Doctors cancel their own from Planners → My Requests.
@@ -282,6 +282,7 @@ export default function LeaveListView() {
           the dense matrix/table stay the wide-screen coordination views. Both
           render from the same fetched `requests` — no second fetch. */}
       <div className="lg:hidden">
+        {leading && <div className="mb-3 flex">{leading}</div>}
         <TeamLeaveMobile requests={requests} canCancelLeave={isAdmin} onLeaveCancelled={load} />
       </div>
 
@@ -290,27 +291,33 @@ export default function LeaveListView() {
           It now rides the row each view already has — the Toolbar in Table,
           the year/legend row in Matrix — so it stays in the same place on
           screen while costing no vertical space of its own. */}
-      {view === 'matrix' && <LeaveMatrix requests={requests} controls={viewToggle} canCancelLeave={isAdmin} onLeaveCancelled={load} />}
+      {view === 'matrix' && <LeaveMatrix requests={requests} controls={viewToggle} leading={leading} canCancelLeave={isAdmin} onLeaveCancelled={load} />}
 
       {view === 'table' && (
       <>
-      <Toolbar
-        className=""
-        searchValue={filters.q}
-        onSearchChange={q => setFilters(f => ({ ...f, q }))}
-        searchPlaceholder="Search by surname or first name…"
-        sortFacets={[{
-          key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
-          value: sortMode, onChange: setSortMode,
-          options: SORT_OPTIONS, isActive: sortMode !== 'date_desc',
-        }]}
-        filterGroups={filterGroups}
-        mobileMode="inline"
-        active={filtersActive}
-        onClearAll={clearAllFilters}
-        stretch
-        trailing={viewToggle}
-      />
+      {/* Capture leave leads the row; the search is the app's standard
+          width, with Sort, Filter and the view switch after it. */}
+      <div className="flex items-start gap-2">
+        {leading}
+        <div className="min-w-0 flex-1">
+          <Toolbar
+            className=""
+            searchValue={filters.q}
+            onSearchChange={q => setFilters(f => ({ ...f, q }))}
+            searchPlaceholder="Search by surname or first name…"
+            sortFacets={[{
+              key: 'sort', icon: <ArrowUpDown className="h-4 w-4" />, label: 'Sort',
+              value: sortMode, onChange: setSortMode,
+              options: SORT_OPTIONS, isActive: sortMode !== 'date_desc',
+            }]}
+            filterGroups={filterGroups}
+            mobileMode="inline"
+            active={filtersActive}
+            onClearAll={clearAllFilters}
+            trailing={viewToggle}
+          />
+        </div>
+      </div>
 
       {displayedRequests.length === 0 ? (
         <div className="card mt-4 p-10 text-center">

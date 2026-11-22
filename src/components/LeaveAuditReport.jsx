@@ -137,7 +137,7 @@ function BucketCell({ bucket }) {
 // status, and leave type — all behind one Filter button (FilterPanel, same
 // multi-select grouped-facet pattern as the Staff list) rather than four
 // permanently-visible selects, since most visits don't need them.
-export default function LeaveAuditReport() {
+export default function LeaveAuditReport({ leading = null }) {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
   const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
@@ -320,14 +320,12 @@ export default function LeaveAuditReport() {
           keeps Weekend's month nav out of its FAB. Search and Filter are
           the narrowing controls, so below `md` they move into the FAB. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {/* Equal halves of the row on a phone (the only controls there),
-            a fixed pair beside Search/Filter from md up. */}
-        <div className="flex w-full gap-2 md:w-80">
-          <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-          <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-        </div>
+        {/* From md: Capture leave, search, Sort, Filter, then the dates.
+            On a phone only Capture leave and the dates stay on the row;
+            search and Filter are in the FAB. */}
+        {leading}
         <div className="hidden items-center gap-2 md:flex">
-          <div className="w-64">
+          <div className="w-80">
             <ClearableInput
               type="text"
               value={q}
@@ -344,6 +342,10 @@ export default function LeaveAuditReport() {
               Clear filters
             </button>
           )}
+        </div>
+        <div className="flex basis-full gap-2 md:basis-auto">
+          <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+          <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
         </div>
       </div>
 

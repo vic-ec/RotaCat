@@ -127,6 +127,14 @@ export default function LeavePlannerPage() {
   // counter rather than reaching into their state.
   const [captureOpen, setCaptureOpen] = useState(false)
   const [teamLeaveVersion, setTeamLeaveVersion] = useState(0)
+  // Leads each Team Leave view's toolbar row, where the Roster keeps its
+  // Create and the Staff list its Add staff.
+  const captureButton = isAdmin ? (
+    <button type="button" onClick={() => setCaptureOpen(true)} className="btn-primary flex-shrink-0 whitespace-nowrap">
+      <UserPlus className="h-4 w-4" aria-hidden="true" />
+      Capture leave
+    </button>
+  ) : null
   // Clerks get read-only "all" visibility into Annual/Special too — same
   // grid every other year-planner viewer sees, they just can't submit.
   const canViewYearPlanners = isAdmin || canSubmitLeave || isClerk
@@ -287,23 +295,7 @@ export default function LeavePlannerPage() {
               it overlapped the "All Leave" tab, and each of W / M / People
               names itself on a tap (HintLayer). It shows from sm up, on
               TeamLeaveMobile's own row. */}
-          <div className="flex items-stretch">
-            {/* The tabs fill the row's full height, so their underline meets
-                the one under the buttons beside them — a taller neighbour
-                (Capture leave) otherwise left the two lines at different
-                heights, with the button hanging below the tabs' own. */}
-            <div className="flex min-w-0 flex-1 [&>nav]:min-w-0 [&>nav]:flex-1">
-              <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
-            </div>
-            {isAdmin && (
-              <span className="flex items-center border-b border-slate-line pb-2 pl-2">
-                <button type="button" onClick={() => setCaptureOpen(true)} className="btn-secondary whitespace-nowrap text-sm">
-                  <UserPlus className="h-4 w-4" aria-hidden="true" />
-                  Capture leave
-                </button>
-              </span>
-            )}
-          </div>
+          <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
         </div>
       )}
 
@@ -311,8 +303,8 @@ export default function LeavePlannerPage() {
         {tab === 'my-leave' && canSubmitLeave && <div className="mx-auto md:max-w-2xl"><LeaveDashboard /></div>}
         {tab === 'team' && (
           <>
-            {teamTab === 'current' && <LeaveListView key={teamLeaveVersion} />}
-            {teamTab === 'all' && isAdmin && <LeaveAuditReport key={teamLeaveVersion} />}
+            {teamTab === 'current' && <LeaveListView key={teamLeaveVersion} leading={captureButton} />}
+            {teamTab === 'all' && isAdmin && <LeaveAuditReport key={teamLeaveVersion} leading={captureButton} />}
           </>
         )}
         {tab === 'requests' && (

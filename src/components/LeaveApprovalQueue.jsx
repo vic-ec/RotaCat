@@ -1,10 +1,10 @@
 import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, ListFilter } from 'lucide-react'
+import { ChevronLeft, CalendarArrowDown, CalendarArrowUp, CalendarSearch, Check, ListFilter, X } from 'lucide-react'
+import RequestRow from './RequestRow'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import ProfileAvatar from './ProfileAvatar'
 import Tag from './Tag'
 import Toolbar from './Toolbar'
 import RequestReviewDrawer from './RequestReviewDrawer'
@@ -12,7 +12,6 @@ import LeaveRequestSummary from './LeaveRequestSummary'
 import CapacityAssessment from './CapacityAssessment'
 import AffectedLeaveList from './AffectedLeaveList'
 import LeaveRequestDecisionFooter from './LeaveRequestDecisionFooter'
-import { SelectAllRow } from './ListRow'
 import FloatingActionMenu from './FloatingActionMenu'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../lib/leaveApprovals'
 import { LEAVE_TYPE_OPTIONS, fetchAffectedLeaveForRequest } from '../lib/leaveRequests'
@@ -35,56 +34,34 @@ function hasWarnings(w) {
   return Boolean(w) && (w.supervisionBreaches.length > 0 || w.balanceWarnings.length > 0 || Boolean(w.hourCeilingWarning) || Boolean(w.capacityWarning))
 }
 
-// One row of the pending-requests list — checkbox, avatar, name, category
-// tag, and a one-line "{type} request, submitted {date}" summary.
-// Approve/reject now live in the detail panel (LeaveRequestDetailPanel below) opened by tapping the
-// row, so the row itself only keeps the always-visible View Calendar
-// action, as the app's standard secondary row button (see the button
-// itself) — always visible, never collapsed behind a kebab.
-function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, checked, onToggleCheck, onOpen, onViewCalendar }) {
-  // Same "DD-MM-YYYY · HH:MM" template as the detail drawer's own
-  // "Submitted X" meta line, so the row and the drawer never disagree.
+// One row of the pending-requests list: the Staff queues' own row shape
+// (RequestRow) — avatar, name over category, icon actions. Tapping the
+// row opens the review drawer. The approve icon decides on the spot only
+// when there is nothing to weigh; an overbooked request, or one with
+// warnings, opens the drawer instead so the gate there still applies.
+// Reject always goes through the drawer, where a reason is required.
+function LeaveRequestRow({ request, categoryLabel, leaveTypeLabel, fullName, onOpen, onViewCalendar, onApprove, onReject, disabled }) {
   const submittedDate = request.created_at?.slice(0, 10).split('-').reverse().join('-')
   const submittedTime = request.created_at?.slice(11, 16)
+  const meta = [categoryLabel, `${leaveTypeLabel} request, submitted ${submittedDate} · ${submittedTime}`].filter(Boolean).join(' · ')
   return (
-    <div
+    <RequestRow
+      person={{ id: request.profile_id, ...request.profiles }}
+      name={fullName}
+      meta={(
+        <>
+          <LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" className="mr-1 inline-block align-[-2px]" />
+          {meta}
+          {request.over_capacity && <Tag variant="status" tone="danger" className="ml-1.5">Overbooked</Tag>}
+        </>
+      )}
       onClick={onOpen}
-      className="flex min-h-[56px] cursor-pointer items-center gap-3 px-4 py-2 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggleCheck}
-        onClick={e => e.stopPropagation()}
-        aria-label={`Select ${fullName}`}
-        className="h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-        style={{ minWidth: 16 }}
-      />
-      <ProfileAvatar profile={{ id: request.profile_id, ...request.profiles }} size={32} className="flex-shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-medium text-ink">{fullName}</p>
-          {categoryLabel && <Tag variant="role">{categoryLabel}</Tag>}
-          {/* Submitted knowing no slot was free — an emergency the admin
-              has to weigh, not a routine request. */}
-          {request.over_capacity && <Tag variant="status" tone="danger">Overbooked</Tag>}
-        </div>
-        <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-muted"><LeaveTypeIcon leaveType={request.leave_type} variant="bare" size="sm" /><span className="truncate">{leaveTypeLabel} request, submitted {submittedDate} · {submittedTime}</span></p>
-      </div>
-      {/* The app's standard row button — a rounded square with just the
-          icon on a phone, icon + words from md — the same recipe as the
-          Rosters list's View / Edit, rather than a one-off circle. */}
-      <button
-        type="button"
-        title="View Calendar"
-        aria-label="View Calendar"
-        onClick={e => { e.stopPropagation(); onViewCalendar() }}
-        className="btn-secondary h-8 flex-shrink-0 px-2 text-xs md:px-2.5"
-      >
-        <CalendarSearch className="h-4 w-4" />
-        <span className="hidden md:inline">View Calendar</span>
-      </button>
-    </div>
+      actions={[
+        { icon: <CalendarSearch className="h-4 w-4" />, title: 'View Calendar', label: 'View Calendar', onClick: onViewCalendar },
+        { icon: <Check className="h-4 w-4" />, title: 'Approve', label: `Approve ${fullName}'s request`, tone: 'success', onClick: onApprove, disabled },
+        { icon: <X className="h-4 w-4" />, title: 'Reject', label: `Reject ${fullName}'s request`, tone: 'danger', onClick: onReject, disabled },
+      ]}
+    />
   )
 }
 
@@ -205,10 +182,8 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
   const [rejectNotes, setRejectNotes] = useState('')
   const [actioningId, setActioningId] = useState(null)
   const [error, setError] = useState('')
-  const [selectedIds, setSelectedIds] = useState(new Set())
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [sortDirection, setSortDirection] = useState('asc')
-  const [bulkActioning, setBulkActioning] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [leaveTypeFilter, setLeaveTypeFilter] = useState('all')
   // The request whose review drawer is currently open, if any.
@@ -311,38 +286,6 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
     setRejectingId(null)
     setRejectNotes('')
     setConfirmingApproveId(null)
-  }
-
-  function toggleSelected(id) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function toggleSelectAll() {
-    setSelectedIds(prev =>
-      prev.size === displayedRequests.length ? new Set() : new Set(displayedRequests.map(r => r.id))
-    )
-  }
-
-  async function bulkApprove() {
-    const targets = requests.filter(r => selectedIds.has(r.id))
-    setBulkActioning(true)
-    setSelectedIds(new Set())
-    await Promise.all(targets.map(r => approveLeaveRequest(r, user.id).catch(err => setError(err.message))))
-    await loadQueue()
-    setBulkActioning(false)
-  }
-
-  async function bulkReject() {
-    const targets = requests.filter(r => selectedIds.has(r.id))
-    setBulkActioning(true)
-    setSelectedIds(new Set())
-    await Promise.all(targets.map(r => rejectLeaveRequest(r, user.id, '').catch(err => setError(err.message))))
-    await loadQueue()
-    setBulkActioning(false)
   }
 
   const filteredRequests = requests.filter(r => {
@@ -457,19 +400,6 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
         </div>
       ) : (
       <div className="card overflow-hidden">
-        <SelectAllRow
-          checked={selectedIds.size === displayedRequests.length}
-          onToggleCheck={toggleSelectAll}
-          selectLabel="Select all pending leave requests"
-          active={selectedIds.size > 0}
-          count={selectedIds.size}
-          disabled={bulkActioning}
-          actions={[
-            { label: 'Approve selected', onClick: bulkApprove },
-            { label: 'Reject selected', onClick: bulkReject, tone: 'danger' },
-          ]}
-          onCancel={() => setSelectedIds(new Set())}
-        />
         <div className="divide-y divide-slate-line">
           {displayedRequests.map(request => {
             const fullName = `${request.profiles?.name || ''} ${request.profiles?.surname || ''}`.trim()
@@ -481,10 +411,16 @@ export default function LeaveApprovalQueue({ onBack, backLabel = 'Planners' }) {
                 fullName={fullName}
                 categoryLabel={categoryLabel}
                 leaveTypeLabel={LEAVE_TYPE_LABELS[request.leave_type]}
-                checked={selectedIds.has(request.id)}
-                onToggleCheck={() => toggleSelected(request.id)}
                 onOpen={() => setExpandedId(request.id)}
                 onViewCalendar={() => openInCalendar(request)}
+                onApprove={() => {
+                  const w = warningsById[request.id]
+                  const needsReview = request.over_capacity || (w && (w.supervisionBreaches?.length || w.balanceWarnings?.length || w.hourCeilingWarning))
+                  if (needsReview) setExpandedId(request.id)
+                  else approve(request)
+                }}
+                onReject={() => { setExpandedId(request.id); setRejectingId(request.id) }}
+                disabled={actioningId === request.id}
               />
             )
           })}

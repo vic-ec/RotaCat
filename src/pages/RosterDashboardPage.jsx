@@ -359,9 +359,9 @@ export default function RosterDashboardPage() {
       <>
       <PageTabs tabs={isAdmin ? TABS_ADMIN : TABS_DOCTOR} active={tab} onChange={setTab} ariaLabel="Roster status" size="sub" />
 
-      {/* Wider than the app's usual reading column: the list is a
-          table on a desktop, and its columns need the room. */}
-      <div className="mx-auto mt-4 md:max-w-4xl">
+      {/* The app's reading column (Dashboard, Staff → Requests), so the
+          toolbar and the list share one width. */}
+      <div className="mx-auto mt-4 md:max-w-2xl">
           {actionError && (
             <div className="card mb-4 border-flagRed bg-flagRed-bg p-4">
               <p className="text-sm text-flagRed">{actionError}</p>
@@ -700,13 +700,13 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
       </div>
       <>
         <div className="card hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[720px] table-fixed border-collapse text-xs" aria-label={title}>
+          <table className="w-full min-w-[600px] table-fixed border-collapse text-xs" aria-label={title}>
             <colgroup>
               <col className="w-9" />
               <col />
-              <col className="w-28" />
-              {columns.map(c => <col key={c.header} className="w-40" />)}
-              {isAdmin && <col className="w-28" />}
+              <col className="w-24" />
+              {columns.map(c => <col key={c.header} className="w-32" />)}
+              {isAdmin && <col className="w-24" />}
             </colgroup>
             <thead>
               <tr className="border-b border-slate-line bg-canvas-cool text-left text-[11px] font-semibold uppercase tracking-wide text-ink-muted">

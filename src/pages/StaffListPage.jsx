@@ -32,7 +32,6 @@ import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
 import { Eye, Check, X, FileUser, MessageCircleQuestionMark, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
 import InfoPopover from '../components/InfoPopover'
-import DateFieldButton from '../components/DateFieldButton'
 import { fetchProfilesById } from '../lib/changeLog'
 import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_HISTORY_FILTERS, HISTORY_STATUS_OPTIONS, HISTORY_TYPE_OPTIONS } from '../lib/requestHistory'
 import RequestRow from '../components/RequestRow'
@@ -1101,23 +1100,27 @@ export default function StaffListPage() {
                   against this header's height, so they shrink by the row's
                   38px (30px control + mt-2) below `md` too — see their
                   `top-[…]` classes further down. */}
-              <div className="hidden md:block">
-                <Toolbar
-                  className="mt-2"
-                  searchValue={accountFilters.q}
-                  onSearchChange={onSearchChange}
-                  searchPlaceholder="Surname or first name…"
-                  sortFacets={sortFacets}
-                  filterGroups={filterGroups}
-                  mobileMode="inline"
-                  active={accountFiltersActive}
-                  onClearAll={clearAllFilters}
-                  desktopTrailing={isAdmin && (
-                    <button type="button" onClick={() => setAddStaffOpen(true)} className="btn-primary flex-shrink-0">
-                      <Plus className="h-4 w-4" /> Add staff
-                    </button>
-                  )}
-                />
+              {/* Add staff leads the row, beside the search, where the
+                  Roster page keeps its Create. */}
+              <div className="mt-2 hidden items-start gap-2 md:flex">
+                {isAdmin && (
+                  <button type="button" onClick={() => setAddStaffOpen(true)} className="btn-primary flex-shrink-0 whitespace-nowrap">
+                    <Plus className="h-4 w-4" /> Add staff
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <Toolbar
+                    className=""
+                    searchValue={accountFilters.q}
+                    onSearchChange={onSearchChange}
+                    searchPlaceholder="Surname or first name…"
+                    sortFacets={sortFacets}
+                    filterGroups={filterGroups}
+                    mobileMode="inline"
+                    active={accountFiltersActive}
+                    onClearAll={clearAllFilters}
+                  />
+                </div>
               </div>
               <FloatingActionMenu
                 search={{ value: accountFilters.q, onChange: onSearchChange, placeholder: 'Surname or first name…' }}
@@ -1247,12 +1250,6 @@ export default function StaffListPage() {
           }]
           const clearActive = historyFiltersActive(historyFilters, historySearch)
           const onClearAll = () => { setHistoryFilters(EMPTY_HISTORY_FILTERS); setHistorySearch('') }
-          const dateRange = fullWidth => (
-            <>
-              <DateFieldButton label="From" fullWidth={fullWidth} value={historyFilters.dateFrom} max={historyFilters.dateTo || undefined} onChange={setF('dateFrom')} />
-              <DateFieldButton label="To" fullWidth={fullWidth} value={historyFilters.dateTo} min={historyFilters.dateFrom || undefined} onChange={setF('dateTo')} />
-            </>
-          )
           return (
             <>
               <div className="mx-auto hidden md:block md:max-w-2xl">
@@ -1266,12 +1263,8 @@ export default function StaffListPage() {
                   mobileMode="inline"
                   active={clearActive}
                   onClearAll={onClearAll}
-                  desktopTrailing={dateRange(false)}
                 />
               </div>
-              {/* Below md the date range gets its own row: the FAB has no
-                  slot for one. From md it sits on the toolbar row. */}
-              <div className="mt-2 flex w-full gap-2 md:hidden">{dateRange(true)}</div>
               <FloatingActionMenu
                 search={{ value: historySearch, onChange: setHistorySearch, placeholder: 'Search by surname or first name…' }}
                 sort={{ facets: sortFacets, active: historySort !== 'desc' }}

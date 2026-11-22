@@ -26,8 +26,10 @@ const requests = [
 ]
 
 describe('LeaveMatrix', () => {
-  it('renders the legend, category groups and doctor rows', () => {
+  it('renders the legend behind its icon, category groups and doctor rows', () => {
     render(<LeaveMatrix requests={requests} />)
+    expect(screen.queryByText('Family / Special')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Legend' }))
     expect(screen.getByText('Family / Special')).toBeInTheDocument() // a legend-only label
     expect(screen.getByText('Bo Carter')).toBeInTheDocument()
     expect(screen.getByText('Di Evans')).toBeInTheDocument()

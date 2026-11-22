@@ -27,6 +27,7 @@ import { labelForShiftCode } from './shiftLabels'
 import { shortDate } from './reviewLog'
 import { cancelLeaveRequest } from './leaveCancellation'
 import { LEAVE_TYPE_LABELS } from './leaveRequests'
+import { adjustedTimesLabel, validateTimes } from './shiftTimes'
 
 // What a tapped roster cell is, and so which shift menu it gets (see
 // components/ShiftMenu.jsx).
@@ -428,6 +429,35 @@ export async function reinstate({ rosterMonthId, entry, shiftCode, entries, canc
   return {
     batchId,
     description: `${name} put back on ${shiftLabel(fresh.date, shiftCode)}${sideEffects.leave_request_cancelled ? '; their leave was cancelled' : ''}`,
+    logError,
+  }
+}
+
+// ── Adjusted times ───────────────────────────────────────────────────────
+// A doctor or locum works this shift at different hours to its standard
+// ones. "HH:MM" inputs; both empty returns the shift to standard times. The
+// row keeps its shift type. Logged as a move of nothing — the same row,
+// the same date and shift — so History reads "times changed".
+export async function changeTimes({ rosterMonthId, entry, shiftCode, start, end, adminId, nameOf, batchId = newBatchId() }) {
+  if (!entry.profile_id && !entry.is_locum) throw new Error('Nobody is on this shift to change times for.')
+  const problem = validateTimes(start, end)
+  if (problem) throw new Error(problem)
+  const toSql = t => (t ? (t.length === 5 ? `${t}:00` : t) : null)
+  const patch = { start_time_override: toSql(start), end_time_override: toSql(end), is_manual_override: true }
+  await updateEntry(entry.id, patch)
+  const entryAfter = { ...entry, ...patch }
+  const label = adjustedTimesLabel(entryAfter)
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: entry.id, entryDate: entry.date, shiftCode, action: 'times',
+    profileIdBefore: entry.profile_id, profileIdAfter: entry.profile_id, changedBy: adminId,
+    note: label ? `Times ${label}` : 'Standard times',
+    locumName: entry.is_locum && !entry.profile_id ? locumDisplayName(entry.locum_name) || null : null,
+    batchId, entryBefore: entrySnapshot(entry), entryAfter: entrySnapshot(entryAfter), sideEffects: emptySideEffects(),
+  })
+  const who = holderName(entry, nameOf) || 'This shift'
+  return {
+    batchId,
+    description: label ? `${who} now works ${label} on ${shiftLabel(entry.date, shiftCode)}` : `${who} back on standard times for ${shiftLabel(entry.date, shiftCode)}`,
     logError,
   }
 }

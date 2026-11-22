@@ -88,6 +88,7 @@ export const ROSTER_TYPES = {
   advertised: 'Advertised',
   unadvertised: 'Advert stopped',
   undone: 'Undone',
+  times: 'Times changed',
 }
 
 const REASON_LABELS = { leave: 'Leave', swap: 'Swap', no_show: 'No-show', other: 'Other' }
@@ -139,6 +140,7 @@ function rosterLogCore(change) {
   if (change.action === 'reinstate') return { type: 'reinstated', shift, person: after ?? before, note: change.note || null }
   if (change.action === 'advertise') return { type: 'advertised', shift, person: before, advertised: true }
   if (change.action === 'unadvertise') return { type: 'unadvertised', shift, person: before }
+  if (change.action === 'times') return { type: 'times', shift, person: after ?? before, personName: !after && change.locum_name ? change.locum_name : null, note: change.note || null }
   if (change.action === 'undo') return { type: 'undone', shift, person: after ?? before, note: change.note || null }
   if (before && after && before !== after) return { type: 'replaced', shift, before, after }
   // A locum with no account taking over, or filling an empty slot: named

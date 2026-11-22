@@ -1,11 +1,13 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { bandForCode, SHIFT_STARTS, SHIFT_BAND } from '../lib/shiftBands'
 import { rosterTextSize, rosterTextScale } from '../lib/rosterTextSize'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { labelForLeaveCategory } from '../lib/leaveYearGrid'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
 import { todayStr } from '../lib/dateRange'
+import { useFillToViewport } from '../lib/useFillToViewport'
 import PublicHolidayBadge from './PublicHolidayBadge'
+import { adjustedTimesLabel } from '../lib/shiftTimes'
 
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -201,6 +203,13 @@ export default function RosterLanesView({
   const measuredNameCol = useNameColumnWidth(nameProbeRef, longestName, base, scale)
   const today = todayStr()
   const scrollRef = useRef(null)
+  // As tall as the window allows, like Hours Summary and the planners'
+  // grids — it used to stop at 70% of the window and leave a band of empty
+  // page under a long roster. The gap leaves room for the legend below.
+  const [fillRef, fillStyle] = useFillToViewport(60, { fit: true })
+  // One stable ref for both: a new function every render would detach and
+  // re-attach, and fillRef sets state.
+  const setScrollNode = useCallback(node => { scrollRef.current = node; fillRef(node) }, [fillRef])
   const todayHeadRef = useRef(null)
   const todayBox = useTodayBox(scrollRef, todayHeadRef, [days, profiles.length, base, padToWeek, measuredNameCol])
 
@@ -208,12 +217,19 @@ export default function RosterLanesView({
   // at most one shift a day (findSameDayConflict enforces it), so this is a
   // flat lookup rather than a list.
   const byProfileDate = new Map()
+  // profileId -> date -> "10h–20h" where the shift's hours were adjusted.
+  const adjustedOn = new Map()
   entries.forEach(entry => {
     if (!entry.profile_id || entry.is_locum) return
     const code = shiftTypes[entry.shift_type_id]
     if (!code) return
     if (!byProfileDate.has(entry.profile_id)) byProfileDate.set(entry.profile_id, new Map())
     byProfileDate.get(entry.profile_id).set(entry.date, code)
+    const times = adjustedTimesLabel(entry)
+    if (times) {
+      if (!adjustedOn.has(entry.profile_id)) adjustedOn.set(entry.profile_id, new Map())
+      adjustedOn.get(entry.profile_id).set(entry.date, times)
+    }
   })
 
   // profileId -> date -> { code, headline }: a shift the doctor is NOT
@@ -277,9 +293,9 @@ export default function RosterLanesView({
        whatever else is on screen. Capped and scrolling inside its own box is
        what the app's other wide grids already do. */
     <div
-      ref={scrollRef}
+      ref={setScrollNode}
       className="relative max-h-[70vh] overflow-auto rounded-lg border border-slate-line"
-      style={{ fontSize: `${base}px` }}
+      style={{ fontSize: `${base}px`, ...fillStyle }}
     >
       {todayBox && (
         <div
@@ -480,7 +496,7 @@ export default function RosterLanesView({
                     <td key={key} className="border-r border-slate-hairline p-0">
                       <span
                         className={`block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums ${fill} ${text}`}
-                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}`}
+                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}${adjustedOn.get(profile.id)?.get(day.dateStr) ? ` · worked ${adjustedOn.get(profile.id).get(day.dateStr)}` : ''}`}
                       >
                         {band ? label : 'C'}
                       </span>

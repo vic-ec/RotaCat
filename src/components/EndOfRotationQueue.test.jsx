@@ -44,9 +44,9 @@ describe('EndOfRotationQueue', () => {
 
   it('lists only the flagged Intern — not the ongoing Registrar or the out-of-scope COSMO', () => {
     renderQueue()
-    expect(screen.getByText('Intern')).toBeInTheDocument()
-    expect(screen.queryByText('Registrar')).not.toBeInTheDocument()
-    expect(screen.queryByText('Cosmo')).not.toBeInTheDocument()
+    expect(screen.getByText(/\bIntern\b/)).toBeInTheDocument()
+    expect(screen.queryByText(/\bRegistrar\b/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\bCosmo\b/)).not.toBeInTheDocument()
     expect(screen.getByText(/ended 30 Jun/)).toBeInTheDocument()
   })
 
@@ -98,13 +98,13 @@ describe('EndOfRotationQueue', () => {
     renderQueue({
       doctors: [{ ...FLAGGED_INTERN, scheduled_inactive_date: '2027-07-01' }, OK_REGISTRAR, COSMO_DOCTOR],
     })
-    expect(screen.queryByText('Intern')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\bIntern\b/)).not.toBeInTheDocument()
   })
 
   it('Remind me later hides the entry, and the panel disappears entirely once nothing is left', async () => {
     const user = userEvent.setup()
     const { container } = renderQueue()
-    expect(screen.getByText('Intern')).toBeInTheDocument()
+    expect(screen.getByText(/\bIntern\b/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Remind me later' }))
     expect(container).toBeEmptyDOMElement()
   })
@@ -112,7 +112,7 @@ describe('EndOfRotationQueue', () => {
   it('a snoozed entry reappears once the snooze period (tomorrow) has passed', () => {
     localStorage.setItem('rotacat.endOfRotationSnoozedUntil.intern-1.2027-06-30', '2027-07-15')
     renderQueue() // system time is pinned to 2027-07-15 — the snooze has just expired
-    expect(screen.getByText('Intern')).toBeInTheDocument()
+    expect(screen.getByText(/\bIntern\b/)).toBeInTheDocument()
   })
 
   it('a snooze is scoped to the specific end_date it was raised for, not the doctor generally', () => {
@@ -120,6 +120,6 @@ describe('EndOfRotationQueue', () => {
     // one currently flagged — must not suppress today's real warning.
     localStorage.setItem('rotacat.endOfRotationSnoozedUntil.intern-1.2027-05-31', '2027-07-16')
     renderQueue()
-    expect(screen.getByText('Intern')).toBeInTheDocument()
+    expect(screen.getByText(/\bIntern\b/)).toBeInTheDocument()
   })
 })

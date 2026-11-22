@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ActionSheet, ActionSheetButton } from './ActionSheet'
+import { ActionSheet } from './ActionSheet'
+import ShiftTimesForm from './ShiftTimesForm'
 import DoctorDropdown from './DoctorDropdown'
 import NewLocumModal from './NewLocumModal'
 import { useIsDesktop } from '../lib/useIsDesktop'
@@ -9,6 +10,7 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { locumDisplayName } from '../lib/locumCover'
 import { leaveQuestion, reinstateBlocker, shiftMenuKind } from '../lib/rosterEdits'
 import { labelForShiftCode } from '../lib/shiftLabels'
+import { adjustedTimesLabel } from '../lib/shiftTimes'
 import { shortDate } from '../lib/reviewLog'
 import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 
@@ -29,7 +31,29 @@ import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 
 const REASON_LABELS = { leave: 'leave', swap: 'swap', no_show: 'no-show', other: 'other reason' }
 
-function Section({ title, children }) {
+// A choice: a radio on the first line of the label, the consequence under
+// it. The form the vacancy dialog uses, so the two menus read alike.
+function Choice({ value, label, hint, danger = false, disabled = false, checked, onChange }) {
+  return (
+    <label className={`flex min-h-[44px] items-start gap-2.5 px-3 py-2 text-sm md:min-h-0 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-canvas-sunken'}`}>
+      <input
+        type="radio"
+        name="shift-menu-choice"
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onChange(value)}
+        className="mt-[3px] h-4 w-4 flex-shrink-0 accent-[rgb(var(--color-accent))]"
+      />
+      <span className="flex min-w-0 flex-col">
+        <span className={`font-medium ${danger ? 'text-flagRed' : 'text-ink'}`}>{label}</span>
+        {hint && <span className={`text-xs ${danger ? 'text-flagRed/80' : 'text-ink-muted'}`}>{hint}</span>}
+      </span>
+    </label>
+  )
+}
+
+function Group({ title, children }) {
   return (
     <div className="py-1">
       {title && <p className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{title}</p>}
@@ -38,15 +62,24 @@ function Section({ title, children }) {
   )
 }
 
-// A row: label on one line, the consequence underneath.
-function Item({ label, hint, onClick, danger = false, disabled = false }) {
+// The menu proper: groups of choices, Continue, and Close — no change.
+function Options({ groups, onContinue, onClose }) {
+  const [choice, setChoice] = useState('')
+  const chosen = groups.flatMap(g => g.choices).find(c => c.value === choice)
   return (
-    <ActionSheetButton onClick={onClick} danger={danger} disabled={disabled}>
-      <span className="flex min-w-0 flex-col">
-        <span>{label}</span>
-        {hint && <span className={`text-xs font-normal ${danger ? 'text-flagRed/80' : 'text-ink-muted'}`}>{hint}</span>}
-      </span>
-    </ActionSheetButton>
+    <form onSubmit={e => { e.preventDefault(); if (chosen) onContinue(chosen) }} data-testid="shift-menu-options">
+      <div className="divide-y divide-slate-line">
+        {groups.map((g, i) => (
+          <Group key={g.title || i} title={g.title}>
+            {g.choices.map(c => <Choice key={c.value} {...c} checked={choice === c.value} onChange={setChoice} />)}
+          </Group>
+        ))}
+      </div>
+      <div className="flex gap-2 border-t border-slate-line px-3 pb-1 pt-3">
+        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 text-sm md:min-h-0">Close — no change</button>
+        <button type="submit" disabled={!chosen} className={`${chosen?.danger ? 'btn-danger' : 'btn-primary'} min-h-[44px] flex-1 text-sm md:min-h-0`}>Continue</button>
+      </div>
+    </form>
   )
 }
 
@@ -77,11 +110,11 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
       style={{ ...style, width }}
       className="card fixed z-50 flex max-h-[420px] flex-col border-edge p-2 shadow-raised"
     >
-      <div className="flex flex-shrink-0 items-start justify-between gap-2 px-3 pb-1 pt-2">
-        <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</p>
-        <button type="button" onClick={onClose} aria-label="Close" className="btn-close h-6 w-6 text-ink-muted">×</button>
+      <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
+        <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide leading-5 text-ink-muted">{title}</p>
+        <button type="button" onClick={onClose} aria-label="Close" className="btn-close h-6 w-6 flex-shrink-0 text-ink-muted">×</button>
       </div>
-      <div className="min-h-0 divide-y divide-slate-line overflow-y-auto">{children}</div>
+      <div className="min-h-0 overflow-y-auto">{children}</div>
     </div>,
     document.body
   )
@@ -90,8 +123,8 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
 export default function ShiftMenu({
   entry, date, shiftCode, rosterStatus, anchorRect = null,
   entries, profiles, displayNames, leaveByProfile = {}, locums = [], contacts = [], adminId,
-  nameOf, hasOpenAdvert = false,
-  onVacancy, onAssign, onRemoveEntry, onRemoveLocum, onAddCover, onRemoveSlot, onAdvertise, onUnadvertise, onReinstate, onNewLocum,
+  nameOf, hasOpenAdvert = false, shiftType = null,
+  onVacancy, onAssign, onRemoveEntry, onRemoveLocum, onAddCover, onRemoveSlot, onAdvertise, onUnadvertise, onReinstate, onNewLocum, onChangeTimes,
   onClose,
 }) {
   const wide = useIsDesktop(768)
@@ -99,14 +132,6 @@ export default function ShiftMenu({
   const [step, setStep] = useState(null) // null | 'pick' | 'pick-cover' | 'confirm-*' | 'leave'
   const [search, setSearch] = useState('')
   const [addingLocum, setAddingLocum] = useState(false)
-
-  // A doctor on a published roster goes straight to the vacancy form; the
-  // page owns that dialog.
-  useEffect(() => {
-    if (kind === 'vacancy') { onVacancy(entry); onClose() }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
-  }, [])
-  if (kind === 'vacancy') return null
 
   const vacatedName = entry?.vacated_profile_id ? nameOf(entry.vacated_profile_id) : null
   const holder = entry?.profile_id && !entry.is_locum ? nameOf(entry.profile_id) : null
@@ -118,6 +143,7 @@ export default function ShiftMenu({
     : kind === 'locum' ? `${locumName || 'Locum'} (locum)`
     : kind === 'slot' || kind === 'slot-vacated' ? 'Open locum slot'
     : holder || 'Doctor'
+  const timesNow = adjustedTimesLabel(entry)
   const title = `${what} · ${shortDate(date)} · ${labelForShiftCode(shiftCode)}${vacatedName && kind !== 'no-cover' ? ` · covering ${vacatedName} (${reasonText})` : ''}`
 
   const close = () => onClose()
@@ -155,7 +181,9 @@ export default function ShiftMenu({
         onSelectCover={handleCover}
         onNewLocum={() => { if (onNewLocum) { onNewLocum(entry, mode); close() } else setAddingLocum(true) }}
         onRemove={null}
-        onClose={() => setStep(null)}
+        onBack={() => setStep(null)}
+        cancelLabel={holder ? `Cancel — keep ${holder}` : locumName ? `Cancel — keep ${locumName}` : 'Cancel'}
+        onClose={close}
         date={date}
         shiftCode={labelForShiftCode(shiftCode)}
       />
@@ -197,99 +225,97 @@ export default function ShiftMenu({
         <button type="button" onClick={() => setStep(null)} className="text-sm font-medium text-accent hover:underline">Back</button>
       </div>
     )
+  } else if (step === 'times') {
+    body = (
+      <ShiftTimesForm
+        entry={entry}
+        shiftType={shiftType}
+        holder={holder || (locumName ? `${locumName} (locum)` : 'they')}
+        onSave={({ start, end }) => { onChangeTimes(entry, { start, end }); close() }}
+        onBack={() => setStep(null)}
+      />
+    )
   } else {
     const blocker = entry?.vacated_profile_id ? reinstateBlocker({ entry, entries, nameOf }) : null
-    const putBack = () => {
-      if (blocker) return
-      if (entry.vacated_leave_request_id) setStep('leave')
-      else { onReinstate(entry, { cancelLeave: false }); close() }
+    const linkedLeave = entry?.vacated_leave_request_id
+      ? (LEAVE_TYPE_LABELS[leaveByProfile?.[entry.vacated_profile_id]?.find(r => r[3] === entry.vacated_leave_request_id)?.[2]] || 'leave').toLowerCase()
+      : null
+    const putBackGroup = entry?.vacated_profile_id && {
+      title: 'The absent doctor',
+      choices: [{
+        value: 'put-back',
+        label: `Put ${vacatedName} back on this shift`,
+        hint: blocker || (linkedLeave ? `Their ${linkedLeave} is linked; you will be asked about it` : 'Restores them and clears the absence'),
+        disabled: Boolean(blocker),
+      }],
     }
-    const putBackItem = entry?.vacated_profile_id && (
-      <Section title="The absent doctor">
-        <Item
-          label={`Put ${vacatedName} back on this shift`}
-          hint={blocker || (entry.vacated_leave_request_id ? `Their ${(LEAVE_TYPE_LABELS[leaveByProfile?.[entry.vacated_profile_id]?.find(r => r[3] === entry.vacated_leave_request_id)?.[2]] || 'leave').toLowerCase()} is linked; you will be asked about it` : 'Restores them and clears the absence')}
-          onClick={putBack}
-          disabled={Boolean(blocker)}
-        />
-      </Section>
-    )
+    const timesChoice = {
+      value: 'times',
+      label: timesNow ? `Change times (now ${timesNow})` : 'Change times',
+      hint: timesNow ? 'Set different hours, or return to the standard times' : 'They worked different hours to the standard shift',
+    }
+    const advertChoice = hasOpenAdvert
+      ? { value: 'unadvertise', label: 'Stop advertising', hint: 'The advert is set to cancelled; the slot stays open' }
+      : { value: 'advertise', label: 'Advertise to locums', hint: 'Locums with an account can claim it' }
 
-    body = (
-      <>
-        {kind === 'add' && (
-          <Section>
-            <Item label="Add a doctor or locum" hint="Pick who works this shift" onClick={() => setStep('pick')} />
-          </Section>
-        )}
-        {kind === 'draft-doctor' && (
-          <>
-            <Section>
-              <Item label="Replace with…" hint="Pick who takes the shift instead" onClick={() => setStep('pick')} />
-            </Section>
-            <Section>
-              <Item danger label={`Remove ${holder} from this shift`} hint="The shift is left empty" onClick={() => setStep('confirm-remove')} />
-            </Section>
-          </>
-        )}
-        {kind === 'slot-vacated' && (
-          <>
-            <Section title="The locum slot">
-              <Item label="Fill with a doctor or locum" hint={`${vacatedName} stays struck through beside them`} onClick={() => setStep('pick')} />
-              {hasOpenAdvert
-                ? <Item label="Stop advertising" hint="The advert is set to cancelled; the slot stays open" onClick={() => { onUnadvertise(entry); close() }} />
-                : <Item label="Advertise to locums" hint="Locums with an account can claim it" onClick={() => { onAdvertise(entry); close() }} />}
-            </Section>
-            <Section>
-              <Item danger label="Remove the locum slot" hint={`${vacatedName} stays struck through; the shift runs short`} onClick={() => setStep('confirm-slot')} />
-            </Section>
-            {putBackItem}
-          </>
-        )}
-        {kind === 'slot' && (
-          <>
-            <Section>
-              <Item label="Fill with a doctor or locum" hint="Pick who works this shift" onClick={() => setStep('pick')} />
-              {hasOpenAdvert
-                ? <Item label="Stop advertising" hint="The advert is set to cancelled; the slot stays open" onClick={() => { onUnadvertise(entry); close() }} />
-                : <Item label="Advertise to locums" hint="Locums with an account can claim it" onClick={() => { onAdvertise(entry); close() }} />}
-            </Section>
-            <Section>
-              <Item danger label="Remove this slot" hint="The empty slot is deleted; nothing else changes" onClick={() => setStep('confirm-remove')} />
-            </Section>
-          </>
-        )}
-        {kind === 'locum' && (
-          <>
-            <Section>
-              <Item label="Change cover" hint="Pick someone else for this shift" onClick={() => setStep('pick')} />
-            </Section>
-            <Section>
-              <Item
-                danger
-                label={`Remove ${locumName}`}
-                hint={entry.vacated_profile_id ? `The slot opens again as [ ]; ${vacatedName} stays struck through` : 'The shift is left empty'}
-                onClick={() => setStep('confirm-remove')}
-              />
-            </Section>
-            {putBackItem}
-          </>
-        )}
-        {kind === 'no-cover' && (
-          <>
-            <Section title="Add cover">
-              <Item label="Replace now" hint="A doctor or locum takes the shift" onClick={() => setStep('pick-cover')} />
-              <Item label="Advertise for a locum" hint="Opens a [ ] slot and offers it to locums" onClick={() => { onAddCover(entry, 'advertise'); close() }} />
-              <Item label="Open slot, don't advertise" hint="Opens a [ ] slot to fill later" onClick={() => { onAddCover(entry, 'open'); close() }} />
-            </Section>
-            {putBackItem}
-          </>
-        )}
-        <Section>
-          <ActionSheetButton onClick={close}>Close — no change</ActionSheetButton>
-        </Section>
-      </>
-    )
+    const groups = {
+      add: [{ choices: [{ value: 'pick', label: 'Add a doctor or locum', hint: 'Pick who works this shift' }] }],
+      vacancy: [
+        { choices: [
+          { value: 'vacancy', label: `Take ${holder} off this shift`, hint: 'Say why, and what happens to the shift' },
+          timesChoice,
+        ] },
+      ],
+      'draft-doctor': [
+        { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, timesChoice] },
+        { choices: [{ value: 'confirm-remove', label: `Remove ${holder} from this shift`, hint: 'The shift is left empty', danger: true }] },
+      ],
+      'slot-vacated': [
+        { title: 'The locum slot', choices: [
+          { value: 'pick', label: 'Fill with a doctor or locum', hint: `${vacatedName} stays struck through beside them` },
+          advertChoice,
+        ] },
+        { choices: [{ value: 'confirm-slot', label: 'Remove the locum slot', hint: `${vacatedName} stays struck through; the shift runs short`, danger: true }] },
+        putBackGroup,
+      ],
+      slot: [
+        { choices: [{ value: 'pick', label: 'Fill with a doctor or locum', hint: 'Pick who works this shift' }, advertChoice] },
+        { choices: [{ value: 'confirm-remove', label: 'Remove this slot', hint: 'The empty slot is deleted; nothing else changes', danger: true }] },
+      ],
+      locum: [
+        { choices: [{ value: 'pick', label: 'Change cover', hint: 'Pick someone else for this shift' }, timesChoice] },
+        { choices: [{
+          value: 'confirm-remove', label: `Remove ${locumName}`, danger: true,
+          hint: entry?.vacated_profile_id ? `The slot opens again as [ ]; ${vacatedName} stays struck through` : 'The shift is left empty',
+        }] },
+        putBackGroup,
+      ],
+      'no-cover': [
+        { title: 'Add cover', choices: [
+          { value: 'pick-cover', label: 'Replace now', hint: 'A doctor or locum takes the shift' },
+          { value: 'add-advertise', label: 'Advertise for a locum', hint: 'Opens a [ ] slot and offers it to locums' },
+          { value: 'add-open', label: "Open slot, don't advertise", hint: 'Opens a [ ] slot to fill later' },
+        ] },
+        putBackGroup,
+      ],
+    }[kind].filter(Boolean)
+
+    const run = chosen => {
+      switch (chosen.value) {
+        case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': setStep(chosen.value); break
+        case 'vacancy': onVacancy(entry); close(); break
+        case 'advertise': onAdvertise(entry); close(); break
+        case 'unadvertise': onUnadvertise(entry); close(); break
+        case 'add-advertise': onAddCover(entry, 'advertise'); close(); break
+        case 'add-open': onAddCover(entry, 'open'); close(); break
+        case 'put-back':
+          if (entry.vacated_leave_request_id) setStep('leave')
+          else { onReinstate(entry, { cancelLeave: false }); close() }
+          break
+        default: break
+      }
+    }
+    body = <Options groups={groups} onContinue={run} onClose={close} />
   }
 
   if (wide) {

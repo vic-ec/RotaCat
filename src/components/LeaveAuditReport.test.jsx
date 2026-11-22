@@ -57,7 +57,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
   it('lists every leave-eligible doctor, including one with zero leave in range', async () => {
     render(<LeaveAuditReport />)
 
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
     // Doctor rows only — the section header rows hold a button, not a name
     const rows = screen.getAllByRole('row').filter(r => r.querySelector('td[title]'))
     expect(rows).toHaveLength(3)
@@ -65,9 +65,9 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     for (const label of ['Consultants', 'MOs', 'Registrars']) {
       expect(screen.getByRole('button', { name: new RegExp(`^${label} 1`) })).toBeInTheDocument()
     }
-    expect(within(rows[0]).getByText('Consult')).toBeInTheDocument() // Consultant
-    expect(within(rows[1]).getByText('Zephyr')).toBeInTheDocument() // MO
-    expect(within(rows[2]).getByText('Adams')).toBeInTheDocument() // Registrar
+    expect(within(rows[0]).getByText(/\bConsult\b/)).toBeInTheDocument() // Consultant
+    expect(within(rows[1]).getByText(/\bZephyr\b/)).toBeInTheDocument() // MO
+    expect(within(rows[2]).getByText(/\bAdams\b/)).toBeInTheDocument() // Registrar
     // Consultant has no leave requests at all — still shown, with a zero in
     // every leave column plus the total.
     expect(within(rows[0]).getAllByText('0')).toHaveLength(AUDIT_LEAVE_COLUMNS.length + 1)
@@ -82,7 +82,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     // the leftover.
     mockResponses['profiles:select'] = { data: PROFILES, error: null }
     render(<LeaveAuditReport />)
-    await screen.findByText('Adams')
+    await screen.findByText(/\bAdams\b/)
 
     const table = document.querySelector('table')
     expect(table.className).toContain('table-fixed')
@@ -106,7 +106,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     const headerCells = within(await screen.findByRole('row', { name: /Doctor/ })).getAllByRole('columnheader')
     expect(headerCells[headerCells.length - 1]).toBeEmptyDOMElement()
 
-    const bodyRow = (await screen.findByText('Adams')).closest('tr')
+    const bodyRow = (await screen.findByText(/\bAdams\b/)).closest('tr')
     const bodyCells = [...bodyRow.children]
     expect(bodyCells).toHaveLength(headerCells.length)
     expect(bodyCells[bodyCells.length - 1]).toBeEmptyDOMElement()
@@ -120,7 +120,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     const header = await screen.findByRole('columnheader', { name: 'Doctor' })
     expect(header.className).toContain('sticky')
     expect(header.className).toContain('left-0')
-    const cell = (await screen.findByText('Adams')).closest('td')
+    const cell = (await screen.findByText(/\bAdams\b/)).closest('td')
     expect(cell.className).toContain('sticky')
     expect(cell.className).toContain('left-0')
     // Its own background, not the row's — a sticky cell can't rely on
@@ -138,7 +138,7 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
 
   it('shows Consultant (not "Other") as the category label for the Other column', async () => {
     render(<LeaveAuditReport />)
-    const consultant = (await screen.findByText('Consult')).closest('tr')
+    const consultant = (await screen.findByText(/\bConsult\b/)).closest('tr')
     expect(within(consultant).getByText('Consultant')).toBeInTheDocument()
     expect(within(consultant).queryByText('Other')).not.toBeInTheDocument()
   })
@@ -146,58 +146,58 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
   it('folds a section from its header', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
     const header = screen.getByRole('button', { name: /^MOs 1/ })
     await user.click(header)
     expect(header).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Zephyr')).not.toBeInTheDocument()
-    expect(screen.getByText('Adams')).toBeInTheDocument()
+    expect(screen.queryByText(/\bZephyr\b/)).not.toBeInTheDocument()
+    expect(screen.getByText(/\bAdams\b/)).toBeInTheDocument()
   })
 
   it('offers Expand all only once every section is folded, and it reopens them all', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
     const headers = screen.getAllByRole('button', { expanded: true })
     expect(headers.length).toBeGreaterThan(1)
     for (const header of headers.slice(0, -1)) await user.click(header)
     expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
     await user.click(headers[headers.length - 1])
     await user.click(screen.getByRole('button', { name: 'Expand all' }))
-    expect(screen.getByText('Zephyr')).toBeInTheDocument()
+    expect(screen.getByText(/\bZephyr\b/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Expand all' })).not.toBeInTheDocument()
   })
 
   it('filter options are not shown until the Filter button is opened', async () => {
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('narrows the table when a category filter is applied, via the Category group', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
 
     await openGroup(user, 'Category')
     await pickOption(user, 'MO')
 
-    expect(screen.getByText('Zephyr')).toBeInTheDocument()
-    expect(screen.queryByText('Adams')).not.toBeInTheDocument()
-    expect(screen.queryByText('Consult')).not.toBeInTheDocument()
+    expect(screen.getByText(/\bZephyr\b/)).toBeInTheDocument()
+    expect(screen.queryByText(/\bAdams\b/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\bConsult\b/)).not.toBeInTheDocument()
   })
 
   it('narrows the table with the Status filter (active/inactive)', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
 
     await openGroup(user, 'Status')
     await pickOption(user, 'Inactive')
 
-    expect(screen.getByText('Consult')).toBeInTheDocument()
-    expect(screen.queryByText('Zephyr')).not.toBeInTheDocument()
-    expect(screen.queryByText('Adams')).not.toBeInTheDocument()
+    expect(screen.getByText(/\bConsult\b/)).toBeInTheDocument()
+    expect(screen.queryByText(/\bZephyr\b/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\bAdams\b/)).not.toBeInTheDocument()
   })
 
   it('narrows totals with the Leave type filter', async () => {
@@ -205,13 +205,13 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
     render(<LeaveAuditReport />)
     const rows = await screen.findAllByRole('row')
     // Ada has 5 annual + 2 study (special) days = 7 total before filtering
-    expect(within(rows.find(r => within(r).queryByText('Zephyr'))).getByText('7')).toBeInTheDocument()
+    expect(within(rows.find(r => within(r).queryByText(/\bZephyr\b/))).getByText('7')).toBeInTheDocument()
 
     await openGroup(user, 'Leave type')
     await pickOption(user, 'Study leave')
 
     const filteredRows = screen.getAllByRole('row')
-    const adaRow = filteredRows.find(r => within(r).queryByText('Zephyr'))
+    const adaRow = filteredRows.find(r => within(r).queryByText(/\bZephyr\b/))
     // The Study column AND the total both read 2 now — only the study-leave
     // days count — and every other column is zeroed.
     expect(within(adaRow).getAllByText('2')).toHaveLength(2)
@@ -221,27 +221,27 @@ describe('LeaveAuditReport (admin HR-audit view)', () => {
   it('shows a Clear filters link once a filter is active, and clears it', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
 
     expect(screen.queryByText('Clear filters')).not.toBeInTheDocument()
 
     await openGroup(user, 'Category')
     await pickOption(user, 'MO')
 
-    expect(screen.queryByText('Adams')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\bAdams\b/)).not.toBeInTheDocument()
     // The Filter popover is still open at this point — same as every other
     // dismissable popover in the app, its first outside click only closes
     // it (see useDismissablePopover), so close it explicitly before the
     // "Clear filters" click can actually land.
     await user.keyboard('{Escape}')
     await user.click(screen.getByText('Clear filters'))
-    expect(screen.getByText('Adams')).toBeInTheDocument() // Registrar is back
+    expect(screen.getByText(/\bAdams\b/)).toBeInTheDocument() // Registrar is back
   })
 
   it('drills down to one doctor\'s individual requests when selected', async () => {
     const user = userEvent.setup()
     render(<LeaveAuditReport />)
-    await screen.findByText('Zephyr')
+    await screen.findByText(/\bZephyr\b/)
 
     await openGroup(user, 'Doctor')
     await pickOption(user, 'Zephyr, Ada')  // the Doctor filter still lists full names

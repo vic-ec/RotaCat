@@ -194,12 +194,12 @@ describe('WeekendYearOverview', () => {
     it('lists the selected month\'s approved and pending exceptions, with the pending one badged', () => {
       renderWithExceptions()
       expect(panel().getByText('Weekend off requests (2)')).toBeInTheDocument()
-      expect(panel().getByText('Nolan')).toBeInTheDocument()
-      expect(panel().getByText('Reddy')).toBeInTheDocument()
+      expect(panel().getByText(/\bNolan\b/)).toBeInTheDocument()
+      expect(panel().getByText(/\bReddy\b/)).toBeInTheDocument()
       expect(panel().getByText('Approved')).toBeInTheDocument()
       expect(panel().getByText('Pending')).toBeInTheDocument()
       // Not this month's — October's exception stays out of August.
-      expect(panel().queryByText('Patel')).not.toBeInTheDocument()
+      expect(panel().queryByText(/\bPatel\b/)).not.toBeInTheDocument()
     })
 
     it('sits below the staffing counts and above Open month', () => {
@@ -220,11 +220,11 @@ describe('WeekendYearOverview', () => {
       renderWithExceptions()
 
       await user.click(grid().getByRole('button', { name: /^October/ }))
-      expect(panel().getByText('Patel')).toBeInTheDocument()
+      expect(panel().getByText(/\bPatel\b/)).toBeInTheDocument()
       expect(panel().getByText(/Sat 31 Oct - Sun 1 Nov 2026/)).toBeInTheDocument()
 
       await user.click(grid().getByRole('button', { name: /^November/ }))
-      expect(panel().getByText('Patel')).toBeInTheDocument()
+      expect(panel().getByText(/\bPatel\b/)).toBeInTheDocument()
     })
 
     it('omits the section entirely for a month with no exceptions', async () => {

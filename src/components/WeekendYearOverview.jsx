@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { fullDoctorName } from '../lib/doctorNames'
 import { ExternalLink, Check } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
 import { todayStr, parseLocalDate } from '../lib/dateRange'
@@ -139,7 +140,7 @@ export default function WeekendYearOverview({ year, onYearChange, byWeekend, wee
                       <li key={req.id} className="flex items-baseline justify-between gap-2 text-xs">
                         <span className={`min-w-0 truncate ${isPending ? 'italic text-ink-light' : 'text-ink'}`}>
                           <span className="font-semibold">
-                            {displayNames.get(req.profile_id) || req.profiles?.surname || '?'}
+                            {fullDoctorName(req.profiles, displayNames.get(req.profile_id) || '?')}
                           </span>
                           <span className="text-ink-muted"> · {formatWeekendRange(req.date_from)}</span>
                         </span>

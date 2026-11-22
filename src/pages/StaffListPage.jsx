@@ -30,7 +30,11 @@ import {
 import { applyHoursChange, fetchInternRotationsForDoctorIds } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, Check, X, FileUser, FilePen, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
+import { Eye, Check, X, FileUser, MessageCircleQuestionMark, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
+import InfoPopover from '../components/InfoPopover'
+import DateFieldButton from '../components/DateFieldButton'
+import { fetchProfilesById } from '../lib/changeLog'
+import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_HISTORY_FILTERS, HISTORY_STATUS_OPTIONS, HISTORY_TYPE_OPTIONS } from '../lib/requestHistory'
 import RequestRow from '../components/RequestRow'
 
 // ── Display label maps ────────────────────────
@@ -41,6 +45,8 @@ const ROLE_LABELS = {
 }
 
 const REQUEST_TYPE_LABELS = {
+  email: 'Email change',
+  phone: 'Mobile change',
   role: 'Role change',
   category: 'Category change',
   hours: 'Hours change',
@@ -247,10 +253,9 @@ function PendingApprovalRow({ person, approveAccount, rejectAccount, onEdit }) {
       person={person}
       name={fullName}
       meta={secondaryLabel}
-      column={registered}
-      columnIcon={<FileUser className="h-4 w-4" />}
+      onClick={() => onEdit(person.id)}
       actions={[
-        { icon: <Eye className="h-4 w-4" />, title: 'View request', label: `View ${fullName}'s registration`, onClick: () => onEdit(person.id) },
+        { icon: <FileUser className="h-4 w-4" />, title: registered, label: `Review ${fullName}'s registration`, onClick: () => onEdit(person.id) },
         { icon: <Check className="h-4 w-4" />, title: 'Approve', label: `Approve ${fullName}`, tone: 'success', onClick: () => approveAccount(person) },
         { icon: <X className="h-4 w-4" />, title: 'Reject', label: `Reject ${fullName}`, tone: 'danger', onClick: () => rejectAccount(person.id) },
       ]}
@@ -302,18 +307,37 @@ export default function StaffListPage() {
   // and list below; only the predicate differs (see isListTab/tabAccounts).
   // A link can open a specific tab (?tab=pending) — the admin dashboard's
   // Needs attention rows land on the queue they are about.
+  // Requests is one tab with three sub-pages (?tab=requests&sub=…), the
+  // Planners shape: New Users (sign-ups awaiting approval, rostered locums
+  // without an account), User Requests (account change requests) and All
+  // Requests (everything decided). Older links (?tab=pending, ?tab=requests
+  // on its own) still land on the right sub-page.
   const [tab, setTab] = useState(() => {
     const requested = new URLSearchParams(location.search).get('tab')
-    // The two queues are admin-only; anyone else asking for one gets the list.
-    const allowed = isAdmin ? ['active', 'accounts', 'pending', 'requests'] : ['active', 'accounts']
-    return allowed.includes(requested) ? requested : 'active'
-  }) // 'active' | 'accounts' | 'pending' | 'requests'
+    if (!isAdmin) return ['active', 'accounts'].includes(requested) ? requested : 'active'
+    if (requested === 'pending' || requested === 'requests') return 'requests'
+    return ['active', 'accounts'].includes(requested) ? requested : 'active'
+  }) // 'active' | 'accounts' | 'requests'
+  const [sub, setSub] = useState(() => {
+    const params = new URLSearchParams(location.search)
+    const requestedSub = params.get('sub')
+    if (['new-users', 'user-requests', 'all-requests'].includes(requestedSub)) return requestedSub
+    return params.get('tab') === 'requests' ? 'user-requests' : 'new-users'
+  }) // 'new-users' | 'user-requests' | 'all-requests'
+  const openRequests = nextSub => { setTab('requests'); setSub(nextSub) }
   const isListTab = tab === 'active' || tab === 'accounts'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
   // Locums on the roster with no account (admin-only read; see
   // LocumContactsPanel). Counted here for the tab badge and the notice.
   const [locumContactCount, setLocumContactCount] = useState(0)
+  // All Requests: everything decided, fetched when that sub-page opens.
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyNames, setHistoryNames] = useState(new Map())
+  const [historyFilters, setHistoryFilters] = useState(EMPTY_HISTORY_FILTERS)
+  const [historySearch, setHistorySearch] = useState('')
+  const [historySort, setHistorySort] = useState('desc')
   const [requestSectionsCollapsed, setRequestSectionsCollapsed] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -703,10 +727,13 @@ export default function StaffListPage() {
   }
 
   async function rejectOne(profileId) {
+    const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
       is_approved: false,
       is_active: false,
       is_rejected: true,
+      rejected_by: user?.id ?? null,
+      rejected_at: new Date().toISOString(),
     }).eq('id', profileId)
 
     if (error) {
@@ -801,6 +828,30 @@ export default function StaffListPage() {
     await loadAll()
     setRequestActioningId(null)
   }
+
+  // All Requests: sign-ups decided either way, change requests reviewed,
+  // locums linked. Reviewer names are looked up once per load.
+  async function loadHistory() {
+    setHistoryLoading(true)
+    const [signupsRes, changesRes, contactsRes] = await Promise.all([
+      supabase.from('profiles').select('id, name, surname, role, category, color_code, pattern_type, avatar_url, is_approved, is_rejected, approved_at, approved_by, rejected_at, rejected_by, rejection_note')
+        .or('approved_at.not.is.null,is_rejected.eq.true'),
+      supabase.from('account_change_requests')
+        .select('*, requester:profile_id(name, surname, role, category, avatar_url, color_code, pattern_type)')
+        .in('status', ['approved', 'rejected']),
+      supabase.from('locum_contacts').select('id, name, surname, linked_profile_id, linked_at').not('linked_profile_id', 'is', null),
+    ])
+    const items = buildRequestHistory({
+      signups: signupsRes.data || [], changeRequests: changesRes.data || [], linkedContacts: contactsRes.data || [],
+      typeLabels: REQUEST_TYPE_LABELS, formatValue: formatRequestValue,
+    })
+    setHistory(items)
+    setHistoryNames(await fetchProfilesById(items.map(i => i.reviewedBy)))
+    setHistoryLoading(false)
+  }
+  useEffect(() => {
+    if (isAdmin && tab === 'requests' && sub === 'all-requests') loadHistory()
+  }, [isAdmin, tab, sub])
 
   // ── Quick-action popover handlers ────────────────────
   // `anchorIsTrigger`: the kebab is exempt from the menu's outside-tap mute
@@ -980,17 +1031,17 @@ export default function StaffListPage() {
           comment for the history of it doing exactly that). */}
       {/* Rostered locums needing accounts live under Account Requests; the
           other tabs carry one line pointing there. */}
-      {isAdmin && locumContactCount > 0 && tab !== 'pending' && (
+      {isAdmin && locumContactCount > 0 && tab !== 'requests' && (
         <button
           type="button"
-          onClick={() => setTab('pending')}
+          onClick={() => openRequests('new-users')}
           data-testid="locum-contacts-notice"
           className="card mb-3 flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-flagAmber px-3 py-2 text-left text-sm text-ink hover:bg-canvas-sunken"
         >
           <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-flagAmber-bg px-1.5 text-[11px] font-bold text-flagAmber">{locumContactCount}</span>
           <span className="min-w-0 flex-1">{locumContactCount === 1 ? 'Rostered locum needing an account' : 'Rostered locums needing accounts'}</span>
           {/* On its own line on a phone, where it does not fit beside the text. */}
-          <span className="basis-full pl-[30px] text-xs font-semibold text-accent sm:basis-auto sm:pl-0">Go to Account Requests ›</span>
+          <span className="basis-full pl-[30px] text-xs font-semibold text-accent sm:basis-auto sm:pl-0">Go to New Users ›</span>
         </button>
       )}
       {/* -mt-2 cancels the pt-2 at rest, so the tabs start at the same
@@ -1006,19 +1057,35 @@ export default function StaffListPage() {
           tabs={[
             { key: 'active', label: 'Active Staff' },
             { key: 'accounts', label: 'All Staff' },
-            ...(isAdmin ? [
-              // Red while someone is waiting on an approval; the amber
-              // count of locums without an account otherwise.
-              pending.length > 0
-                ? { key: 'pending', label: 'Account Requests', badge: pending.length, badgeColor: 'red' }
-                : { key: 'pending', label: 'Account Requests', badge: locumContactCount },
-              { key: 'requests', label: 'User Requests', badge: accountRequests.length },
-            ] : []),
+            // Everything outstanding, in one count: red while a person is
+            // waiting on an approval, the accent otherwise.
+            ...(isAdmin ? [{
+              key: 'requests', label: 'Requests',
+              badge: pending.length + accountRequests.length + locumContactCount,
+              badgeColor: pending.length > 0 ? 'red' : undefined,
+            }] : []),
           ]}
           active={tab}
           onChange={setTab}
           ariaLabel="Staff"
         />
+        {isAdmin && tab === 'requests' && (
+          <div className="mt-2">
+            <PageTabs
+              size="sub"
+              tabs={[
+                pending.length > 0
+                  ? { key: 'new-users', label: 'New Users', badge: pending.length, badgeColor: 'red' }
+                  : { key: 'new-users', label: 'New Users', badge: locumContactCount },
+                { key: 'user-requests', label: 'User Requests', badge: accountRequests.length },
+                { key: 'all-requests', label: 'All Requests' },
+              ]}
+              active={sub}
+              onChange={setSub}
+              ariaLabel="Requests"
+            />
+          </div>
+        )}
 
         {isListTab && (() => {
           const sortFacets = [{
@@ -1070,7 +1137,7 @@ export default function StaffListPage() {
           )
         })()}
 
-        {tab === 'pending' && (() => {
+        {tab === 'requests' && sub === 'new-users' && (() => {
           const sortFacets = [{
             key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: pendingSortDirection, onChange: setPendingSortDirection,
@@ -1117,7 +1184,7 @@ export default function StaffListPage() {
           )
         })()}
 
-        {tab === 'requests' && (() => {
+        {tab === 'requests' && sub === 'user-requests' && (() => {
           const sortFacets = [{
             key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: requestsSortDirection, onChange: setRequestsSortDirection,
@@ -1156,6 +1223,55 @@ export default function StaffListPage() {
                   onClearAll,
                   sheetTitle: 'Filters',
                 }}
+              />
+            </>
+          )
+        })()}
+        {tab === 'requests' && sub === 'all-requests' && (() => {
+          const setF = key => next => setHistoryFilters(f => ({ ...f, [key]: next }))
+          const categoryOptions = [...new Set(history.map(i => i.category).filter(Boolean))].sort().map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))
+          const roleOptions = [...new Set(history.map(i => i.role).filter(Boolean))].sort().map(r => ({ value: r, label: ROLE_LABELS[r] || r }))
+          const reviewerOptions = [...historyNames.values()].map(p => ({ value: p.id, label: `${p.name} ${p.surname}` })).sort((a, b) => a.label.localeCompare(b.label))
+          const filterGroups = [
+            { key: 'status', label: 'Outcome', options: HISTORY_STATUS_OPTIONS, selected: historyFilters.statuses, onChange: setF('statuses') },
+            { key: 'type', label: 'Request type', options: HISTORY_TYPE_OPTIONS, selected: historyFilters.types, onChange: setF('types') },
+            { key: 'category', label: 'Category', options: categoryOptions, selected: historyFilters.categories, onChange: setF('categories') },
+            { key: 'role', label: 'Role', options: roleOptions, selected: historyFilters.roles, onChange: setF('roles') },
+            { key: 'reviewer', label: 'Reviewed by', options: reviewerOptions, selected: historyFilters.reviewers, onChange: setF('reviewers') },
+          ]
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+            value: historySort, onChange: setHistorySort,
+            options: [{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }],
+            isActive: historySort !== 'desc',
+          }]
+          const clearActive = historyFiltersActive(historyFilters, historySearch)
+          const onClearAll = () => { setHistoryFilters(EMPTY_HISTORY_FILTERS); setHistorySearch('') }
+          return (
+            <>
+              <div className="hidden md:block">
+                <Toolbar
+                  className="mt-2"
+                  searchValue={historySearch}
+                  onSearchChange={setHistorySearch}
+                  searchPlaceholder="Search by surname or first name…"
+                  sortFacets={sortFacets}
+                  filterGroups={filterGroups}
+                  mobileMode="inline"
+                  active={clearActive}
+                  onClearAll={onClearAll}
+                />
+              </div>
+              {/* The date range stays on the row at every width: the FAB has
+                  no slot for one. */}
+              <div className="mt-2 flex w-full gap-2 md:w-80">
+                <DateFieldButton label="From" fullWidth value={historyFilters.dateFrom} max={historyFilters.dateTo || undefined} onChange={setF('dateFrom')} />
+                <DateFieldButton label="To" fullWidth value={historyFilters.dateTo} min={historyFilters.dateFrom || undefined} onChange={setF('dateTo')} />
+              </div>
+              <FloatingActionMenu
+                search={{ value: historySearch, onChange: setHistorySearch, placeholder: 'Search by surname or first name…' }}
+                sort={{ facets: sortFacets, active: historySort !== 'desc' }}
+                filter={{ groups: filterGroups, active: clearActive, onClearAll, sheetTitle: 'Filters' }}
               />
             </>
           )
@@ -1614,7 +1730,7 @@ export default function StaffListPage() {
       {/* ── Tab: pending account approvals (admin only) ── */}
       {/* No breadcrumb here — "← All staff" duplicated the already-active
           "Pending Approvals" tab above it (docs/design/layout-spec.md §4). */}
-      {!loading && isAdmin && tab === 'pending' && (
+      {!loading && isAdmin && tab === 'requests' && sub === 'new-users' && (
         <div className="mx-auto md:max-w-2xl">
           {pending.length === 0 && locumContactCount === 0 ? (
             <div className="card p-10 text-center">
@@ -1684,7 +1800,7 @@ export default function StaffListPage() {
       )}
 
       {/* ── Tab: pending account change requests (admin only) ── */}
-      {!loading && isAdmin && tab === 'requests' && (
+      {!loading && isAdmin && tab === 'requests' && sub === 'user-requests' && (
         <div className="mx-auto md:max-w-2xl">
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
@@ -1711,29 +1827,30 @@ export default function StaffListPage() {
                         key={r.id}
                         person={{ id: r.profile_id, ...r.requester }}
                         name={fullName}
-                        meta={[secondaryLabel, typeLabel].filter(Boolean).join(' · ')}
-                        detail={r.request_type !== 'deletion'
-                          ? <>{formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span></>
-                          : null}
-                        column={requested}
-                        columnIcon={<FilePen className="h-4 w-4" />}
+                        meta={secondaryLabel}
+                        onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}
                         actions={[
-                          { icon: <Eye className="h-4 w-4" />, title: 'View request', label: `View ${fullName}'s request`, onClick: () => setExpandedRequestId(r.id) },
+                          {
+                            title: 'What is requested',
+                            element: (
+                              <InfoPopover icon={<MessageCircleQuestionMark className="h-4 w-4" />} title="What is requested" label={`What ${fullName} is requesting`} tone="primary-text">
+                                <p className="text-sm font-semibold text-ink">{typeLabel}</p>
+                                {r.request_type !== 'deletion' && (
+                                  <p className="mt-0.5 text-ink">{formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium">{formatRequestValue(r.requested_value, r.request_type)}</span></p>
+                                )}
+                                {r.reason && <p className="mt-1 italic">&quot;{r.reason}&quot;</p>}
+                                <p className="mt-1 text-ink-muted">{requested}</p>
+                                {r.request_type === 'deletion' && (
+                                  <p className="mt-1 text-flagAmber">Approving deactivates the account. The auth user itself must still be removed manually in Supabase.</p>
+                                )}
+                                <button type="button" onClick={() => setExpandedRequestId(r.id)} className="mt-2 font-medium text-accent underline">Open full review</button>
+                              </InfoPopover>
+                            ),
+                          },
                           { icon: <Check className="h-4 w-4" />, title: 'Approve', label: `Approve ${fullName}'s request`, tone: 'success', onClick: () => approveRequest(r), disabled: isActioning },
                           { icon: <X className="h-4 w-4" />, title: 'Reject', label: `Reject ${fullName}'s request`, tone: 'danger', onClick: () => rejectRequest(r), disabled: isActioning },
                         ]}
-                      >
-                        {(r.reason || r.request_type === 'deletion') && (
-                          <>
-                            {r.reason && <p className="text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
-                            {r.request_type === 'deletion' && (
-                              <p className="mt-1 text-xs text-flagAmber">
-                                Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </RequestRow>
+                      />
                     )
                   })}
                 </div>
@@ -1742,6 +1859,55 @@ export default function StaffListPage() {
           )}
         </div>
       )}
+
+      {/* ── Tab: All Requests — everything decided, either way ── */}
+      {!loading && isAdmin && tab === 'requests' && sub === 'all-requests' && (() => {
+        const shown = filterRequestHistory(history, historyFilters, historySearch)
+        const ordered = historySort === 'desc' ? shown : [...shown].reverse()
+        const reviewerName = id => { const p = historyNames.get(id); return p ? `${p.name} ${p.surname}` : null }
+        const when = iso => (iso ? `${iso.slice(0, 10).split('-').reverse().join('-')}` : 'date unknown')
+        const chip = {
+          approved: 'bg-success-bg text-success',
+          declined: 'bg-flagRed-bg text-flagRed',
+          linked: 'bg-accent-light text-accent-dark',
+        }
+        const chipLabel = { approved: 'Approved', declined: 'Declined', linked: 'Linked' }
+        return (
+          <div className="mx-auto md:max-w-2xl">
+            {historyLoading ? (
+              <p className="text-sm text-ink-muted">Loading…</p>
+            ) : history.length === 0 ? (
+              <div className="card p-10 text-center"><p className="text-sm text-ink-muted">No decided requests yet.</p></div>
+            ) : ordered.length === 0 ? (
+              <div className="card p-10 text-center"><p className="text-sm text-ink-muted">No requests match these filters.</p></div>
+            ) : (
+              <div className="card overflow-hidden">
+                <div className="divide-y divide-slate-line">
+                  {ordered.map(item => (
+                    <RequestRow
+                      key={item.id}
+                      person={item.person}
+                      name={item.name}
+                      meta={[item.category ? (CATEGORY_LABELS[item.category] || item.category) : (ROLE_LABELS[item.role] || item.role), item.typeLabel].filter(Boolean).join(' · ')}
+                      detail={item.detail}
+                      column={[reviewerName(item.reviewedBy) && `by ${reviewerName(item.reviewedBy)}`, when(item.at)].filter(Boolean).join(' · ')}
+                      onClick={item.profileId && item.status !== 'declined' ? () => navigate(`/account/${item.profileId}`, { state: { backgroundLocation: location } }) : undefined}
+                      trailing={(
+                        <span className="flex flex-col items-end gap-0.5 pr-1">
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip[item.status]}`}>{chipLabel[item.status]}</span>
+                          <span className="text-[11px] text-ink-muted md:hidden">{when(item.at)}</span>
+                        </span>
+                      )}
+                    >
+                      {item.note && <p className="text-xs italic text-ink-muted">&quot;{item.note}&quot;</p>}
+                    </RequestRow>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Per-row quick-action popover — shared by both the mobile and
            desktop kebab triggers, visible to any canContact viewer (admin,

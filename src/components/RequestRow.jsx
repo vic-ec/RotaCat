@@ -15,7 +15,9 @@ import RowActionIcon from './RowActionIcon'
 //                 as RowActionIcons — view, approve (success), reject
 //                 (danger) in that order
 //   children      anything else below the row (a reason, a warning)
-export default function RequestRow({ person, name, meta, detail, column, columnIcon, actions, onClick, children }) {
+//   trailing      drawn in place of the actions (the history's outcome chip
+//                 and date)
+export default function RequestRow({ person, name, meta, detail, column, columnIcon, actions = [], trailing = null, onClick, children }) {
   return (
     <div className={onClick ? 'cursor-pointer transition-colors hover:bg-canvas-sunken' : ''}>
       <div className="flex items-center gap-3 px-4 py-2" onClick={onClick}>
@@ -34,9 +36,10 @@ export default function RequestRow({ person, name, meta, detail, column, columnI
           {columnIcon && (
             <span className="flex h-9 w-7 items-center justify-center text-ink-muted md:hidden" title={column} aria-label={column}>{columnIcon}</span>
           )}
-          {actions.map(a => (
-            <RowActionIcon key={a.title} icon={a.icon} title={a.title} label={a.label} onClick={a.disabled ? undefined : a.onClick} tone={a.tone} />
-          ))}
+          {trailing}
+          {actions.map(a => a.element
+            ? <span key={a.title} onClick={e => e.stopPropagation()}>{a.element}</span>
+            : <RowActionIcon key={a.title} icon={a.icon} title={a.title} label={a.label} onClick={a.disabled ? undefined : a.onClick} tone={a.tone} />)}
         </div>
       </div>
       {children && <div className="px-4 pb-3 pl-[68px] md:pl-[58px]">{children}</div>}

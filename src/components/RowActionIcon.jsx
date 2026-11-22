@@ -22,6 +22,7 @@ const TONE_CLASS = {
   primary: 'bg-accent text-white hover:bg-accent-dark active:bg-accent-dark',
   danger: 'text-danger hover:bg-flagRed-bg active:bg-flagRed-bg',
   success: 'text-success hover:bg-success-bg active:bg-success-bg',
+  'primary-text': 'text-accent hover:bg-accent-light active:bg-accent-light',
 }
 
 export default function RowActionIcon({ icon, href, title, label, onClick, onMissing, tone = 'default' }) {

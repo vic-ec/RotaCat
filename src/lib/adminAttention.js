@@ -73,19 +73,19 @@ export function buildAttentionItems(data) {
   // 4–5. People waiting on an admin.
   if (data.pendingSignups > 0) {
     items.push({
-      key: 'signups', count: data.pendingSignups, to: '/staff?tab=pending',
+      key: 'signups', count: data.pendingSignups, to: '/staff?tab=requests&sub=new-users',
       label: `${plural(data.pendingSignups, 'sign-up', 'sign-ups')} awaiting approval`,
     })
   }
   if (data.locumContacts > 0) {
     items.push({
-      key: 'locum-contacts', count: data.locumContacts, to: '/staff?tab=pending',
+      key: 'locum-contacts', count: data.locumContacts, to: '/staff?tab=requests&sub=new-users',
       label: `rostered ${plural(data.locumContacts, 'locum', 'locums')} needing ${data.locumContacts === 1 ? 'an account' : 'accounts'}`,
     })
   }
   if (data.accountRequests > 0) {
     items.push({
-      key: 'account-requests', count: data.accountRequests, to: '/staff?tab=requests',
+      key: 'account-requests', count: data.accountRequests, to: '/staff?tab=requests&sub=user-requests',
       label: `account change ${plural(data.accountRequests, 'request', 'requests')} to review`,
     })
   }

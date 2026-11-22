@@ -6,12 +6,11 @@ import { useAuth } from '../context/AuthContext'
 import ProfileAvatar, { StatusBadge, StatusPicker } from '../components/ProfileAvatar'
 import PageTabs from '../components/PageTabs'
 import Toolbar from '../components/Toolbar'
-import Tag from '../components/Tag'
-import { ApprovalRow, SelectAllRow, ApprovalAction, APPROVE_ICON, REJECT_ICON } from '../components/ListRow'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import StatusChangeConfirmModal from '../components/StatusChangeConfirmModal'
 import AddStaffModal from '../components/AddStaffModal'
 import LocumContactsPanel from '../components/LocumContactsPanel'
+import { fetchOpenLocumContacts } from '../lib/locumCover'
 import RowActionIcon from '../components/RowActionIcon'
 import ExpandAllButton from '../components/ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
@@ -31,7 +30,12 @@ import {
 import { applyHoursChange, fetchInternRotationsForDoctorIds } from '../lib/internRotations'
 import { CATEGORY_LABELS } from '../lib/categoryLabels'
 import { setDoctorActiveStatus } from '../lib/staffStatus'
-import { Eye, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
+import { Eye, Check, X, FileUser, MessageCircleQuestionMark, CircleCheck, Plus, ShieldAlert } from 'lucide-react'
+import InfoPopover from '../components/InfoPopover'
+import DateFieldButton from '../components/DateFieldButton'
+import { fetchProfilesById } from '../lib/changeLog'
+import { buildRequestHistory, filterRequestHistory, historyFiltersActive, EMPTY_HISTORY_FILTERS, HISTORY_STATUS_OPTIONS, HISTORY_TYPE_OPTIONS } from '../lib/requestHistory'
+import RequestRow from '../components/RequestRow'
 
 // ── Display label maps ────────────────────────
 const ROLE_LABELS = {
@@ -41,6 +45,8 @@ const ROLE_LABELS = {
 }
 
 const REQUEST_TYPE_LABELS = {
+  email: 'Email change',
+  phone: 'Mobile change',
   role: 'Role change',
   category: 'Category change',
   hours: 'Hours change',
@@ -231,29 +237,28 @@ function SheetActionButton({ icon, label, href, onClick, onMissing }) {
 // uses) — the standalone "view" icon this used to also carry was dropped
 // since the row click already goes to the exact same place
 // (docs/design/layout-spec.md §7/§13).
-function PendingApprovalRow({ person, checked, onToggleCheck, approveAccount, rejectAccount, onEdit }) {
+function PendingApprovalRow({ person, approveAccount, rejectAccount, onEdit }) {
   // Doctors show their category (Registrar, MO, …) rather than the "Doctor"
-  // role badge — locum/clerk have no meaningful category, so they keep the
-  // role badge instead.
+  // role — locum/clerk have no meaningful category, so they show the role.
   const secondaryLabel = person.role === 'doctor'
     ? (person.category ? (CATEGORY_LABELS[person.category] || person.category) : '—')
     : (ROLE_LABELS[person.role] || person.role)
   const registeredDate = person.created_at?.slice(0, 10).split('-').reverse().join('-')
   const registeredTime = person.created_at?.slice(11, 16)
   const fullName = `${person.name ? `${person.name} ` : ''}${person.surname}`
+  const registered = `Account registration, submitted ${registeredDate} · ${registeredTime}`
 
   return (
-    <ApprovalRow
-      checked={checked}
-      onToggleCheck={onToggleCheck}
-      selectLabel={`Select ${fullName}`.trim()}
-      avatar={<ProfileAvatar profile={person} size={32} />}
+    <RequestRow
+      person={person}
       name={fullName}
-      tag={secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
-      meta={`Account registration, submitted ${registeredDate} · ${registeredTime}`}
-      onApprove={() => approveAccount(person)}
-      onReject={() => rejectAccount(person.id)}
+      meta={secondaryLabel}
       onClick={() => onEdit(person.id)}
+      actions={[
+        { icon: <FileUser className="h-4 w-4" />, title: registered, label: `Review ${fullName}'s registration`, onClick: () => onEdit(person.id) },
+        { icon: <Check className="h-4 w-4" />, title: 'Approve', label: `Approve ${fullName}`, tone: 'success', onClick: () => approveAccount(person) },
+        { icon: <X className="h-4 w-4" />, title: 'Reject', label: `Reject ${fullName}`, tone: 'danger', onClick: () => rejectAccount(person.id) },
+      ]}
     />
   )
 }
@@ -302,18 +307,40 @@ export default function StaffListPage() {
   // and list below; only the predicate differs (see isListTab/tabAccounts).
   // A link can open a specific tab (?tab=pending) — the admin dashboard's
   // Needs attention rows land on the queue they are about.
+  // Requests is one tab with three sub-pages (?tab=requests&sub=…), the
+  // Planners shape: New Users (sign-ups awaiting approval, rostered locums
+  // without an account), User Requests (account change requests) and All
+  // Requests (everything decided). Older links (?tab=pending, ?tab=requests
+  // on its own) still land on the right sub-page.
   const [tab, setTab] = useState(() => {
     const requested = new URLSearchParams(location.search).get('tab')
-    // The two queues are admin-only; anyone else asking for one gets the list.
-    const allowed = isAdmin ? ['active', 'accounts', 'pending', 'requests'] : ['active', 'accounts']
-    return allowed.includes(requested) ? requested : 'active'
-  }) // 'active' | 'accounts' | 'pending' | 'requests'
+    if (!isAdmin) return ['active', 'accounts'].includes(requested) ? requested : 'active'
+    if (requested === 'pending' || requested === 'requests') return 'requests'
+    return ['active', 'accounts'].includes(requested) ? requested : 'active'
+  }) // 'active' | 'accounts' | 'requests'
+  const [sub, setSub] = useState(() => {
+    const params = new URLSearchParams(location.search)
+    const requestedSub = params.get('sub')
+    if (['new-users', 'user-requests', 'all-requests'].includes(requestedSub)) return requestedSub
+    return params.get('tab') === 'requests' ? 'user-requests' : 'new-users'
+  }) // 'new-users' | 'user-requests' | 'all-requests'
+  const openRequests = nextSub => { setTab('requests'); setSub(nextSub) }
   const isListTab = tab === 'active' || tab === 'accounts'
   const [activeAccounts, setActiveAccounts] = useState([])
   const [pending, setPending] = useState([])
+  // Locums on the roster with no account (admin-only read; see
+  // LocumContactsPanel). Counted here for the tab badge and the notice.
+  const [locumContactCount, setLocumContactCount] = useState(0)
+  // All Requests: everything decided, fetched when that sub-page opens.
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyNames, setHistoryNames] = useState(new Map())
+  const [historyFilters, setHistoryFilters] = useState(EMPTY_HISTORY_FILTERS)
+  const [historySearch, setHistorySearch] = useState('')
+  const [historySort, setHistorySort] = useState('desc')
+  const [requestSectionsCollapsed, setRequestSectionsCollapsed] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selectedPendingIds, setSelectedPendingIds] = useState(new Set())
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
   const [pendingSortDirection, setPendingSortDirection] = useState('asc')
   const [togglingId, setTogglingId] = useState(null)
@@ -365,7 +392,6 @@ export default function StaffListPage() {
   })
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
-  const [selectedRequestIds, setSelectedRequestIds] = useState(new Set())
   // The account_change_requests row currently open in AccountRequestReviewDrawer, or null.
   const [expandedRequestId, setExpandedRequestId] = useState(null)
   // 'asc' = oldest first (the server's own default order), 'desc' = newest first.
@@ -573,6 +599,7 @@ export default function StaffListPage() {
     setActiveAccounts(accountsRes.data || [])
     setPending(pendingRes.data || [])
     setAccountRequests(requestsRes.data || [])
+    if (isAdmin) fetchOpenLocumContacts().then(rows => setLocumContactCount(rows.length))
     setLeaveProfileIds(new Set((leaveRes.data || []).map(r => r.profile_id)))
     setDeletionLog(deletionLogRes.data || [])
 
@@ -700,10 +727,13 @@ export default function StaffListPage() {
   }
 
   async function rejectOne(profileId) {
+    const { data: { user } } = await supabase.auth.getUser()
     const { error } = await supabase.from('profiles').update({
       is_approved: false,
       is_active: false,
       is_rejected: true,
+      rejected_by: user?.id ?? null,
+      rejected_at: new Date().toISOString(),
     }).eq('id', profileId)
 
     if (error) {
@@ -716,34 +746,6 @@ export default function StaffListPage() {
 
   async function rejectAccount(profileId) {
     if (await rejectOne(profileId)) loadAll()
-  }
-
-  function togglePendingSelected(id) {
-    setSelectedPendingIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function toggleSelectAllPending() {
-    setSelectedPendingIds(prev =>
-      prev.size === pending.length ? new Set() : new Set(pending.map(p => p.id))
-    )
-  }
-
-  async function bulkApprovePending() {
-    const targets = pending.filter(p => selectedPendingIds.has(p.id))
-    setSelectedPendingIds(new Set())
-    await Promise.all(targets.map(approveOne))
-    loadAll()
-  }
-
-  async function bulkRejectPending() {
-    const ids = Array.from(selectedPendingIds)
-    setSelectedPendingIds(new Set())
-    await Promise.all(ids.map(rejectOne))
-    loadAll()
   }
 
   async function approveRequest(request) {
@@ -827,31 +829,29 @@ export default function StaffListPage() {
     setRequestActioningId(null)
   }
 
-  function toggleRequestSelected(id) {
-    setSelectedRequestIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
+  // All Requests: sign-ups decided either way, change requests reviewed,
+  // locums linked. Reviewer names are looked up once per load.
+  async function loadHistory() {
+    setHistoryLoading(true)
+    const [signupsRes, changesRes, contactsRes] = await Promise.all([
+      supabase.from('profiles').select('id, name, surname, role, category, color_code, pattern_type, avatar_url, is_approved, is_rejected, approved_at, approved_by, rejected_at, rejected_by, rejection_note')
+        .or('approved_at.not.is.null,is_rejected.eq.true'),
+      supabase.from('account_change_requests')
+        .select('*, requester:profile_id(name, surname, role, category, avatar_url, color_code, pattern_type)')
+        .in('status', ['approved', 'rejected']),
+      supabase.from('locum_contacts').select('id, name, surname, linked_profile_id, linked_at').not('linked_profile_id', 'is', null),
+    ])
+    const items = buildRequestHistory({
+      signups: signupsRes.data || [], changeRequests: changesRes.data || [], linkedContacts: contactsRes.data || [],
+      typeLabels: REQUEST_TYPE_LABELS, formatValue: formatRequestValue,
     })
+    setHistory(items)
+    setHistoryNames(await fetchProfilesById(items.map(i => i.reviewedBy)))
+    setHistoryLoading(false)
   }
-
-  function toggleSelectAllRequests() {
-    setSelectedRequestIds(prev =>
-      prev.size === accountRequests.length ? new Set() : new Set(accountRequests.map(r => r.id))
-    )
-  }
-
-  async function bulkApproveRequests() {
-    const targets = accountRequests.filter(r => selectedRequestIds.has(r.id))
-    setSelectedRequestIds(new Set())
-    await Promise.all(targets.map(approveRequest))
-  }
-
-  async function bulkRejectRequests() {
-    const targets = accountRequests.filter(r => selectedRequestIds.has(r.id))
-    setSelectedRequestIds(new Set())
-    await Promise.all(targets.map(r => rejectRequest(r)))
-  }
+  useEffect(() => {
+    if (isAdmin && tab === 'requests' && sub === 'all-requests') loadHistory()
+  }, [isAdmin, tab, sub])
 
   // ── Quick-action popover handlers ────────────────────
   // `anchorIsTrigger`: the kebab is exempt from the menu's outside-tap mute
@@ -1029,7 +1029,21 @@ export default function StaffListPage() {
           measured, not hand-picked, so it can never drift out of sync with
           this bar's actual rendered height again (see that ref's own
           comment for the history of it doing exactly that). */}
-      {isAdmin && <LocumContactsPanel onLinked={() => loadAll({ silent: true })} />}
+      {/* Rostered locums needing accounts live under Account Requests; the
+          other tabs carry one line pointing there. */}
+      {isAdmin && locumContactCount > 0 && tab !== 'requests' && (
+        <button
+          type="button"
+          onClick={() => openRequests('new-users')}
+          data-testid="locum-contacts-notice"
+          className="card mb-3 flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 border-l-[3px] border-l-flagAmber px-3 py-2 text-left text-sm text-ink hover:bg-canvas-sunken"
+        >
+          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-flagAmber-bg px-1.5 text-[11px] font-bold text-flagAmber">{locumContactCount}</span>
+          <span className="min-w-0 flex-1">{locumContactCount === 1 ? 'Rostered locum needing an account' : 'Rostered locums needing accounts'}</span>
+          {/* On its own line on a phone, where it does not fit beside the text. */}
+          <span className="basis-full pl-[30px] text-xs font-semibold text-accent sm:basis-auto sm:pl-0">Go to New Users ›</span>
+        </button>
+      )}
       {/* -mt-2 cancels the pt-2 at rest, so the tabs start at the same
           height as every other page's (Rosters, Team Leave) — the padding
           used to push this page's row 8px lower than theirs. It stays as
@@ -1043,15 +1057,35 @@ export default function StaffListPage() {
           tabs={[
             { key: 'active', label: 'Active Staff' },
             { key: 'accounts', label: 'All Staff' },
-            ...(isAdmin ? [
-              { key: 'pending', label: 'Pending Approvals', badge: pending.length, badgeColor: 'red' },
-              { key: 'requests', label: 'User Requests', badge: accountRequests.length },
-            ] : []),
+            // Everything outstanding, in one count: red while a person is
+            // waiting on an approval, the accent otherwise.
+            ...(isAdmin ? [{
+              key: 'requests', label: 'Requests',
+              badge: pending.length + accountRequests.length + locumContactCount,
+              badgeColor: pending.length > 0 ? 'red' : undefined,
+            }] : []),
           ]}
           active={tab}
           onChange={setTab}
           ariaLabel="Staff"
         />
+        {isAdmin && tab === 'requests' && (
+          <div className="mt-2">
+            <PageTabs
+              size="sub"
+              tabs={[
+                pending.length > 0
+                  ? { key: 'new-users', label: 'New Users', badge: pending.length, badgeColor: 'red' }
+                  : { key: 'new-users', label: 'New Users', badge: locumContactCount },
+                { key: 'user-requests', label: 'User Requests', badge: accountRequests.length },
+                { key: 'all-requests', label: 'All Requests' },
+              ]}
+              active={sub}
+              onChange={setSub}
+              ariaLabel="Requests"
+            />
+          </div>
+        )}
 
         {isListTab && (() => {
           const sortFacets = [{
@@ -1103,7 +1137,7 @@ export default function StaffListPage() {
           )
         })()}
 
-        {tab === 'pending' && (() => {
+        {tab === 'requests' && sub === 'new-users' && (() => {
           const sortFacets = [{
             key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: pendingSortDirection, onChange: setPendingSortDirection,
@@ -1150,7 +1184,7 @@ export default function StaffListPage() {
           )
         })()}
 
-        {tab === 'requests' && (() => {
+        {tab === 'requests' && sub === 'user-requests' && (() => {
           const sortFacets = [{
             key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
             value: requestsSortDirection, onChange: setRequestsSortDirection,
@@ -1189,6 +1223,59 @@ export default function StaffListPage() {
                   onClearAll,
                   sheetTitle: 'Filters',
                 }}
+              />
+            </>
+          )
+        })()}
+        {tab === 'requests' && sub === 'all-requests' && (() => {
+          const setF = key => next => setHistoryFilters(f => ({ ...f, [key]: next }))
+          const categoryOptions = [...new Set(history.map(i => i.category).filter(Boolean))].sort().map(c => ({ value: c, label: CATEGORY_LABELS[c] || c }))
+          const roleOptions = [...new Set(history.map(i => i.role).filter(Boolean))].sort().map(r => ({ value: r, label: ROLE_LABELS[r] || r }))
+          const reviewerOptions = [...historyNames.values()].map(p => ({ value: p.id, label: `${p.name} ${p.surname}` })).sort((a, b) => a.label.localeCompare(b.label))
+          const filterGroups = [
+            { key: 'status', label: 'Outcome', options: HISTORY_STATUS_OPTIONS, selected: historyFilters.statuses, onChange: setF('statuses') },
+            { key: 'type', label: 'Request type', options: HISTORY_TYPE_OPTIONS, selected: historyFilters.types, onChange: setF('types') },
+            { key: 'category', label: 'Category', options: categoryOptions, selected: historyFilters.categories, onChange: setF('categories') },
+            { key: 'role', label: 'Role', options: roleOptions, selected: historyFilters.roles, onChange: setF('roles') },
+            { key: 'reviewer', label: 'Reviewed by', options: reviewerOptions, selected: historyFilters.reviewers, onChange: setF('reviewers') },
+          ]
+          const sortFacets = [{
+            key: 'sort', icon: <ZapIcon className="h-4 w-4" />, label: 'Sort',
+            value: historySort, onChange: setHistorySort,
+            options: [{ value: 'desc', label: 'Newest first' }, { value: 'asc', label: 'Oldest first' }],
+            isActive: historySort !== 'desc',
+          }]
+          const clearActive = historyFiltersActive(historyFilters, historySearch)
+          const onClearAll = () => { setHistoryFilters(EMPTY_HISTORY_FILTERS); setHistorySearch('') }
+          const dateRange = fullWidth => (
+            <>
+              <DateFieldButton label="From" fullWidth={fullWidth} value={historyFilters.dateFrom} max={historyFilters.dateTo || undefined} onChange={setF('dateFrom')} />
+              <DateFieldButton label="To" fullWidth={fullWidth} value={historyFilters.dateTo} min={historyFilters.dateFrom || undefined} onChange={setF('dateTo')} />
+            </>
+          )
+          return (
+            <>
+              <div className="hidden md:block">
+                <Toolbar
+                  className="mt-2"
+                  searchValue={historySearch}
+                  onSearchChange={setHistorySearch}
+                  searchPlaceholder="Search by surname or first name…"
+                  sortFacets={sortFacets}
+                  filterGroups={filterGroups}
+                  mobileMode="inline"
+                  active={clearActive}
+                  onClearAll={onClearAll}
+                  desktopTrailing={dateRange(false)}
+                />
+              </div>
+              {/* Below md the date range gets its own row: the FAB has no
+                  slot for one. From md it sits on the toolbar row. */}
+              <div className="mt-2 flex w-full gap-2 md:hidden">{dateRange(true)}</div>
+              <FloatingActionMenu
+                search={{ value: historySearch, onChange: setHistorySearch, placeholder: 'Search by surname or first name…' }}
+                sort={{ facets: sortFacets, active: historySort !== 'desc' }}
+                filter={{ groups: filterGroups, active: clearActive, onClearAll, sheetTitle: 'Filters' }}
               />
             </>
           )
@@ -1647,58 +1734,77 @@ export default function StaffListPage() {
       {/* ── Tab: pending account approvals (admin only) ── */}
       {/* No breadcrumb here — "← All staff" duplicated the already-active
           "Pending Approvals" tab above it (docs/design/layout-spec.md §4). */}
-      {!loading && isAdmin && tab === 'pending' && (
+      {!loading && isAdmin && tab === 'requests' && sub === 'new-users' && (
         <div className="mx-auto md:max-w-2xl">
-          {pending.length === 0 ? (
+          {pending.length === 0 && locumContactCount === 0 ? (
             <div className="card p-10 text-center">
-              <p className="text-sm text-ink-muted">No accounts pending approval.</p>
-            </div>
-          ) : filteredPending.length === 0 ? (
-            <div className="card p-10 text-center">
-              <p className="text-sm text-ink-muted">No accounts match these filters.</p>
+              <p className="text-sm text-ink-muted">No account requests. Sign-ups awaiting approval and rostered locums without an account appear here.</p>
             </div>
           ) : (
-            <>
-              {/* One card for the header and every row, rows joined by a
-                  hairline — same shape as the leave-request queue and User
-                  Requests. The header used to be its own `mb-3` card above
-                  a `space-y-3` stack of one-card-per-row, which left the
-                  select-all row floating detached from the rows it governs
-                  (and its selected tint attached to nothing). */}
-              <div className="card overflow-hidden">
-                <SelectAllRow
-                  checked={selectedPendingIds.size === pending.length}
-                  onToggleCheck={toggleSelectAllPending}
-                  selectLabel="Select all pending accounts"
-                  active={selectedPendingIds.size > 0}
-                  count={selectedPendingIds.size}
-                  actions={[
-                    { label: 'Approve selected', onClick: bulkApprovePending },
-                    { label: 'Reject selected', onClick: bulkRejectPending, tone: 'danger' },
-                  ]}
-                  onCancel={() => setSelectedPendingIds(new Set())}
-                />
-                <div className="divide-y divide-slate-line">
-                  {orderedPending.map((person) => (
-                    <PendingApprovalRow
-                      key={person.id}
-                      person={person}
-                      checked={selectedPendingIds.has(person.id)}
-                      onToggleCheck={() => togglePendingSelected(person.id)}
-                      approveAccount={approveAccount}
-                      rejectAccount={rejectAccount}
-                      onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
-                    />
-                  ))}
+            /* Two sections, each a sheen header bar over its own card — the
+               Staff list's own shape — and each shown only while it has
+               rows: sign-ups waiting on an approval, then locums put on the
+               roster by name and mobile who still need an account. */
+            <div className="space-y-4">
+              {pending.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setRequestSectionsCollapsed(c => ({ ...c, pending: !c.pending }))}
+                    aria-expanded={!requestSectionsCollapsed.pending}
+                    className="sheen-divider mb-2 w-full transition-[filter] hover:brightness-110 active:brightness-110"
+                  >
+                    <span>Pending approvals <span className="divider-meta ml-2 normal-case font-normal">{pending.length}</span></span>
+                    <ChevronDownIcon className={`divider-meta h-3.5 w-3.5 flex-shrink-0 transition-transform ${requestSectionsCollapsed.pending ? 'rotate-180' : ''}`} />
+                  </button>
+                  {!requestSectionsCollapsed.pending && (
+                    <div className="card overflow-hidden">
+                      {filteredPending.length === 0 ? (
+                        <p className="px-5 py-4 text-sm text-ink-muted">No accounts match these filters.</p>
+                      ) : (
+                        <>
+                          <div className="divide-y divide-slate-line">
+                            {orderedPending.map((person) => (
+                              <PendingApprovalRow
+                                key={person.id}
+                                person={person}
+                                approveAccount={approveAccount}
+                                rejectAccount={rejectAccount}
+                                onEdit={id => navigate(`/staff/pending/${id}`, { state: { backgroundLocation: location } })}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </>
+              )}
+              {locumContactCount > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setRequestSectionsCollapsed(c => ({ ...c, locums: !c.locums }))}
+                    aria-expanded={!requestSectionsCollapsed.locums}
+                    className="sheen-divider mb-2 w-full transition-[filter] hover:brightness-110 active:brightness-110"
+                  >
+                    <span>Rostered locums needing accounts <span className="divider-meta ml-2 normal-case font-normal">{locumContactCount}</span></span>
+                    <ChevronDownIcon className={`divider-meta h-3.5 w-3.5 flex-shrink-0 transition-transform ${requestSectionsCollapsed.locums ? 'rotate-180' : ''}`} />
+                  </button>
+                  {!requestSectionsCollapsed.locums && (
+                    <div className="card overflow-hidden">
+                      <LocumContactsPanel onLinked={() => loadAll({ silent: true })} onCount={setLocumContactCount} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
 
       {/* ── Tab: pending account change requests (admin only) ── */}
-      {!loading && isAdmin && tab === 'requests' && (
+      {!loading && isAdmin && tab === 'requests' && sub === 'user-requests' && (
         <div className="mx-auto md:max-w-2xl">
           {accountRequests.length === 0 ? (
             <div className="card p-10 text-center">
@@ -1710,80 +1816,45 @@ export default function StaffListPage() {
             </div>
           ) : (
             <>
-              {/* `divide-y` goes on the row wrapper, not the card: on the
-                  card the header counts as child #1, so the first row earns
-                  a border-top and the header gets ruled off from the rows it
-                  governs. Same shape as Pending Approvals and the leave
-                  queue — separators between rows only. */}
               <div className="card overflow-hidden">
-                <SelectAllRow
-                  checked={selectedRequestIds.size === accountRequests.length}
-                  onToggleCheck={toggleSelectAllRequests}
-                  selectLabel="Select all account requests"
-                  active={selectedRequestIds.size > 0}
-                  count={selectedRequestIds.size}
-                  actions={[
-                    { label: 'Approve selected', onClick: bulkApproveRequests },
-                    { label: 'Reject selected', onClick: bulkRejectRequests, tone: 'danger' },
-                  ]}
-                  onCancel={() => setSelectedRequestIds(new Set())}
-                />
                 <div className="divide-y divide-slate-line">
                   {displayedRequests.map((r) => {
                     const isActioning = requestActioningId === r.id
                     const secondaryLabel = r.requester?.role === 'doctor'
                       ? (r.requester?.category ? (CATEGORY_LABELS[r.requester.category] || r.requester.category) : null)
                       : (ROLE_LABELS[r.requester?.role] || r.requester?.role)
+                    const fullName = `${r.requester?.name ? `${r.requester.name} ` : ''}${r.requester?.surname || 'Unknown'}`
+                    const typeLabel = REQUEST_TYPE_LABELS[r.request_type] || r.request_type
+                    const requested = `Requested ${r.created_at?.slice(0, 10).split('-').reverse().join('-')}`
                     return (
-                      <div key={r.id} className="px-5 py-4">
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedRequestIds.has(r.id)}
-                            onChange={() => toggleRequestSelected(r.id)}
-                            aria-label={`Select ${r.requester?.name || ''} ${r.requester?.surname || ''}`.trim()}
-                            className="mt-1.5 h-4 w-4 flex-shrink-0 rounded border-slate-line accent-accent"
-                          />
-                          <ProfileAvatar profile={{ id: r.profile_id, ...r.requester }} size={32} className="mt-0.5 flex-shrink-0" />
-  
-                          <div className="min-w-0 flex-1 md:flex md:items-start md:justify-between md:gap-4">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-medium text-ink text-sm">
-                                  {r.requester?.name ? `${r.requester.name} ` : ''}{r.requester?.surname || 'Unknown'}
-                                </p>
-                                {secondaryLabel && <Tag variant="role">{secondaryLabel}</Tag>}
-                                <Tag variant="role">{REQUEST_TYPE_LABELS[r.request_type] || r.request_type}</Tag>
-                              </div>
-                              {r.request_type !== 'deletion' && (
-                                <p className="mt-1 text-xs text-ink-light">
-                                  {formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium text-ink">{formatRequestValue(r.requested_value, r.request_type)}</span>
-                                </p>
-                              )}
-                              {r.reason && <p className="mt-1 text-xs italic text-ink-muted">&quot;{r.reason}&quot;</p>}
-                              <p className="mt-0.5 text-xs text-ink-muted">
-                                Requested {r.created_at?.slice(0, 10)}
-                              </p>
-                              {r.request_type === 'deletion' && (
-                                <p className="mt-1 text-xs text-flagAmber">
-                                  Approving deactivates the account. The auth user itself must still be removed manually in Supabase.
-                                </p>
-                              )}
-                            </div>
-  
-                            <div className="mt-3 flex flex-shrink-0 items-center gap-1.5 md:mt-0">
-                              {/* Same circular-outline shell, tones and order
-                                  as every other approval row in the app
-                                  (ApprovalRow's own extra/approve/reject):
-                                  the neutral "go look at it" action leads,
-                                  then the two decisions. */}
-                              <ApprovalAction icon={<Eye className="h-5 w-5" />} label="View request" tone="neutral" onClick={() => setExpandedRequestId(r.id)} />
-                              <ApprovalAction icon={APPROVE_ICON} label="Approve" tone="success" onClick={() => approveRequest(r)} disabled={isActioning} />
-                              <ApprovalAction icon={REJECT_ICON} label="Reject" tone="danger" onClick={() => rejectRequest(r)} disabled={isActioning} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <RequestRow
+                        key={r.id}
+                        person={{ id: r.profile_id, ...r.requester }}
+                        name={fullName}
+                        meta={secondaryLabel}
+                        onClick={() => navigate(`/account/${r.profile_id}`, { state: { backgroundLocation: location } })}
+                        actions={[
+                          {
+                            title: 'What is requested',
+                            element: (
+                              <InfoPopover icon={<MessageCircleQuestionMark className="h-4 w-4" />} title="What is requested" label={`What ${fullName} is requesting`} tone="primary-text">
+                                <p className="text-sm font-semibold text-ink">{typeLabel}</p>
+                                {r.request_type !== 'deletion' && (
+                                  <p className="mt-0.5 text-ink">{formatRequestValue(r.current_value, r.request_type) || '—'} → <span className="font-medium">{formatRequestValue(r.requested_value, r.request_type)}</span></p>
+                                )}
+                                {r.reason && <p className="mt-1 italic">&quot;{r.reason}&quot;</p>}
+                                <p className="mt-1 text-ink-muted">{requested}</p>
+                                {r.request_type === 'deletion' && (
+                                  <p className="mt-1 text-flagAmber">Approving deactivates the account. The auth user itself must still be removed manually in Supabase.</p>
+                                )}
+                                <button type="button" onClick={() => setExpandedRequestId(r.id)} className="mt-2 font-medium text-accent underline">Open full review</button>
+                              </InfoPopover>
+                            ),
+                          },
+                          { icon: <Check className="h-4 w-4" />, title: 'Approve', label: `Approve ${fullName}'s request`, tone: 'success', onClick: () => approveRequest(r), disabled: isActioning },
+                          { icon: <X className="h-4 w-4" />, title: 'Reject', label: `Reject ${fullName}'s request`, tone: 'danger', onClick: () => rejectRequest(r), disabled: isActioning },
+                        ]}
+                      />
                     )
                   })}
                 </div>
@@ -1792,6 +1863,55 @@ export default function StaffListPage() {
           )}
         </div>
       )}
+
+      {/* ── Tab: All Requests — everything decided, either way ── */}
+      {!loading && isAdmin && tab === 'requests' && sub === 'all-requests' && (() => {
+        const shown = filterRequestHistory(history, historyFilters, historySearch)
+        const ordered = historySort === 'desc' ? shown : [...shown].reverse()
+        const reviewerName = id => { const p = historyNames.get(id); return p ? `${p.name} ${p.surname}` : null }
+        const when = iso => (iso ? `${iso.slice(0, 10).split('-').reverse().join('-')}` : 'date unknown')
+        const chip = {
+          approved: 'bg-success-bg text-success',
+          declined: 'bg-flagRed-bg text-flagRed',
+          linked: 'bg-accent-light text-accent-dark',
+        }
+        const chipLabel = { approved: 'Approved', declined: 'Declined', linked: 'Linked' }
+        return (
+          <div className="mx-auto md:max-w-2xl">
+            {historyLoading ? (
+              <p className="text-sm text-ink-muted">Loading…</p>
+            ) : history.length === 0 ? (
+              <div className="card p-10 text-center"><p className="text-sm text-ink-muted">No decided requests yet.</p></div>
+            ) : ordered.length === 0 ? (
+              <div className="card p-10 text-center"><p className="text-sm text-ink-muted">No requests match these filters.</p></div>
+            ) : (
+              <div className="card overflow-hidden">
+                <div className="divide-y divide-slate-line">
+                  {ordered.map(item => (
+                    <RequestRow
+                      key={item.id}
+                      person={item.person}
+                      name={item.name}
+                      meta={[item.category ? (CATEGORY_LABELS[item.category] || item.category) : (ROLE_LABELS[item.role] || item.role), item.typeLabel].filter(Boolean).join(' · ')}
+                      detail={item.detail}
+                      column={[reviewerName(item.reviewedBy) && `by ${reviewerName(item.reviewedBy)}`, when(item.at)].filter(Boolean).join(' · ')}
+                      onClick={item.profileId && item.status !== 'declined' ? () => navigate(`/account/${item.profileId}`, { state: { backgroundLocation: location } }) : undefined}
+                      trailing={(
+                        <span className="flex flex-col items-end gap-0.5 pr-1">
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${chip[item.status]}`}>{chipLabel[item.status]}</span>
+                          <span className="text-[11px] text-ink-muted md:hidden">{when(item.at)}</span>
+                        </span>
+                      )}
+                    >
+                      {item.note && <p className="text-xs italic text-ink-muted">&quot;{item.note}&quot;</p>}
+                    </RequestRow>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Per-row quick-action popover — shared by both the mobile and
            desktop kebab triggers, visible to any canContact viewer (admin,

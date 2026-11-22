@@ -130,7 +130,7 @@ export default function RotationSequenceRow({
             </button>
             {chip && <Chip tone={chip.tone} color={chip.color}>{chip.text}</Chip>}
           </div>
-          <p className="truncate text-[10px] text-ink-muted" title={positionLine}>{positionLine}</p>
+          <p className="truncate text-xs text-ink-muted" title={positionLine}>{positionLine}</p>
         </div>
         <MonthCells
           doctorRotations={rotations}

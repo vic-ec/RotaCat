@@ -63,8 +63,11 @@ describe('InternRotationsMatrix', () => {
     expect(screen.getByTitle('Ivy Intern')).toBeInTheDocument()
   })
 
-  it('shows the 4-state legend, with no standalone "OT" option', () => {
+  it('shows the 4-state legend, with no standalone "OT" option', async () => {
+    const user = userEvent.setup()
     renderMatrix()
+    // Desktop now folds the legend behind its own icon, next to More actions.
+    await user.click(screen.getByRole('button', { name: 'Legend' }))
     expect(screen.getAllByText('EC').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OT · Day Hospital').length).toBeGreaterThan(0)
     expect(screen.getAllByText('OT · TB Hospital').length).toBeGreaterThan(0)
@@ -92,6 +95,27 @@ describe('InternRotationsMatrix', () => {
     expect(within(panel).queryByRole('button', { name: /EC interns/ })).not.toBeInTheDocument()
     expect(within(panel).getByRole('button', { name: /Registrars 1/ })).toBeInTheDocument()
     expect(within(panel).getByText('From 1 Jan 2027 to 31 Dec 2027')).toBeInTheDocument()
+  })
+
+  it('right now panel: EC interns sort by surname, start date as the tie-break for a shared surname', () => {
+    const doctors = [
+      ...DOCTORS,
+      { id: 'ec-2', name: 'Zara', surname: 'Zeta', category: 'Intern', color_code: '#444444' },
+      { id: 'ec-3', name: 'Amy', surname: 'Zeta', category: 'Intern', color_code: '#555555' },
+    ]
+    const rotations = [
+      ...baseRotations(),
+      { id: 'r4', doctor_id: 'ec-2', rotation_type: 'EC', subtype: null, start_date: '2027-05-01', end_date: null },
+      { id: 'r5', doctor_id: 'ec-3', rotation_type: 'EC', subtype: null, start_date: '2027-02-01', end_date: null },
+    ]
+    renderMatrix({ doctors, rotations, displayNames: buildDoctorDisplayNames(doctors) })
+    const panel = screen.getByText('Right now').closest('div')
+    const ecGroup = within(panel).getByRole('button', { name: /EC interns 2/ })
+    const names = within(ecGroup.closest('div.mt-3')).getAllByRole('button').filter(b => b !== ecGroup).map(b => b.textContent)
+    // Both share the surname Zeta — Amy's rotation started earlier (1 Feb
+    // vs 1 May), so she sorts first despite "Zara" being alphabetically
+    // earlier than "Amy".
+    expect(names).toEqual(['A. Zeta', 'Z. Zeta'])
   })
 
   it('right now panel: Expand all appears once both its sections are folded', async () => {

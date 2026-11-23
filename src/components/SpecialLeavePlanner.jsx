@@ -61,11 +61,14 @@ export default function SpecialLeavePlanner() {
     }, { replace: true })
   }
 
-  function changeWorkspaceMonth(y, m) {
+  // `alsoUpdate`: lets the workspace move its selected day in this same URL
+  // write (stepping a day past the month's edge) rather than a second one.
+  function changeWorkspaceMonth(y, m, alsoUpdate) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.set('syear', String(y))
       next.set('smonth', String(m))
+      alsoUpdate?.(next)
       return next
     }, { replace: true })
   }

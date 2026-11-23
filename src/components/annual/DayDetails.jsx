@@ -11,6 +11,7 @@ import { resolveLeaveCapacityColumn } from '../../lib/internRotations'
 import { getApprovalWarnings, approveLeaveRequest, rejectLeaveRequest } from '../../lib/leaveApprovals'
 import { annualDaysSummary } from '../../lib/leaveRequests'
 import CategoryBadge from '../CategoryBadge'
+import { DayStepper } from '../DateStepper'
 import { REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
 
 const GRID_COLUMNS = [...LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN]
@@ -34,7 +35,7 @@ function hasWarnings(w) {
 // Consultant column is additionally hidden from a non-admin, as everywhere.
 export default function DayDetails({
   date, entriesByColumn, capacity, phName, displayNames = new Map(), pendingRows = [], maxByColumnKey, maxFullTime, rotationsByDoctorId = new Map(),
-  onDataChanged, onRequestLeave,
+  onDataChanged, onRequestLeave, onStepDay,
 }) {
   const { user, profile, isAdmin, canSubmitLeave } = useAuth()
   const visibleColumns = isAdmin ? GRID_COLUMNS : GRID_COLUMNS.filter(col => col.key !== 'Other')
@@ -112,7 +113,15 @@ export default function DayDetails({
 
   return (
     <div data-testid="day-details">
-      <h3 className="font-display text-base font-semibold text-ink">{formatWeekdayDate(date)}</h3>
+      {onStepDay ? (
+        <>
+          <h3 className="sr-only">{formatWeekdayDate(date)}</h3>
+          {/* Pinned while a busy day's list scrolls in the phone sheet. */}
+          <div className="sticky top-0 z-10 -mx-3 bg-card px-3 pb-1 pt-1"><DayStepper date={date} onStep={onStepDay} /></div>
+        </>
+      ) : (
+        <h3 className="font-display text-base font-semibold text-ink">{formatWeekdayDate(date)}</h3>
+      )}
       {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
 
       {/* Status in the day's own capacity colour, with the count in words
@@ -140,7 +149,7 @@ export default function DayDetails({
       {error && <p className="mt-2 text-sm text-flagRed">{error}</p>}
 
       {allEntries.length === 0 ? (
-        <p className="mt-3 text-sm text-ink-muted">No one is on annual leave today</p>
+        <p className="mt-3 text-sm text-ink-muted">No one is on annual leave this day.</p>
       ) : (
         <ul className="mt-3 divide-y divide-slate-line border-t border-slate-line">
           {allEntries.map(e => (

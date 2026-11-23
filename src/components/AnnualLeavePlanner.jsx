@@ -208,11 +208,14 @@ export default function AnnualLeavePlanner({ deepLinkMonth, deepLinkHighlightDat
     }, { replace: true })
   }
 
-  function changeWorkspaceMonth(newYear, newMonth) {
+  // `alsoUpdate`: lets the workspace move its selected day in this same URL
+  // write (stepping a day past the month's edge) rather than a second one.
+  function changeWorkspaceMonth(newYear, newMonth, alsoUpdate) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       next.set('ayear', String(newYear))
       next.set('amonth', String(newMonth))
+      alsoUpdate?.(next)
       return next
     }, { replace: true })
   }

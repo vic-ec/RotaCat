@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
   totalLeaveSlotsForDate,
@@ -175,6 +175,15 @@ export default function MonthWorkspace({
 
   const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
+  // Past the month's edge the grid moves too, in the same URL write as the
+  // day — two writes in one tap would each start from the same old URL and
+  // the second would undo the first.
+  function stepSelectedDay(delta) {
+    const next = addDays(selectedDate, delta)
+    if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
+    onMonthChange(Number(next.slice(0, 4)), Number(next.slice(5, 7)), params => params.set('day', next))
+  }
+
   return (
     <div>
       {/* One grid, three areas. Desktop: the toolbar spans both columns,
@@ -223,6 +232,7 @@ export default function MonthWorkspace({
             className="mt-3"
             eyebrow="Selected day"
             emptyMessage="Select a day to see details."
+            sheetHeightClassName="h-[62dvh] min-h-[320px]"
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
@@ -240,6 +250,7 @@ export default function MonthWorkspace({
                 rotationsByDoctorId={rotationsByDoctorId}
                 onDataChanged={onDataChanged}
                 onRequestLeave={openRequestLeave}
+                onStepDay={stepSelectedDay}
               />
             )}
           </PlannerDetailsCard>

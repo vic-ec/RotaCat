@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { monthsForYear } from '../lib/leaveYearGrid'
+import { formatWeekdayDateShort } from '../lib/dateRange'
 import { ActionSheet } from './ActionSheet'
 import { TodayIcon } from './PlannerIcons'
 
@@ -69,6 +70,32 @@ export function StepperShell({
       >
         <ChevronRight className="h-4 w-4" />
       </button>
+    </div>
+  )
+}
+
+// A selected day's own ‹ date › control, for a day's details (Team Leave's
+// day sheet, the Annual and Special "Selected day" panels) so a run of days
+// can be read without closing and reopening them. `onStep(±1)`; crossing a
+// month edge is the caller's to handle, since only it owns the month.
+export function DayStepper({ date, onStep }) {
+  const ref = useRef(null)
+  // A new day starts at the top of its list, not wherever the last one was
+  // scrolled to, in whichever sheet the stepper sits.
+  function step(delta) {
+    onStep(delta)
+    ref.current?.closest('[role="dialog"]')?.querySelectorAll('.overflow-y-auto').forEach(el => el.scrollTo?.({ top: 0 }))
+  }
+  return (
+    <div ref={ref}>
+      <StepperShell
+        centered
+        label={formatWeekdayDateShort(date)}
+        onPrev={() => step(-1)}
+        onNext={() => step(1)}
+        prevLabel="Previous day"
+        nextLabel="Next day"
+      />
     </div>
   )
 }

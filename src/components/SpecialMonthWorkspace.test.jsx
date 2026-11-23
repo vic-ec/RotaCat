@@ -278,17 +278,24 @@ describe('SpecialMonthWorkspace', () => {
       expect(params.get('sday')).toBe('2026-09-01')
     })
 
-    it('below lg the day opens in a bottom sheet, not a centred popup', async () => {
-      const mql = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }
-      window.matchMedia = vi.fn().mockReturnValue(mql)
+    it("below lg the day opens in Team Leave's day sheet: count, stepper, one status line, the guideline behind an (i)", async () => {
+      window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
       try {
         const user = userEvent.setup()
         renderWorkspace()
         expect(screen.queryByTestId('planner-details-card')).not.toBeInTheDocument()
         await user.click(desktopDay('2026-08-10'))
-        const sheet = await screen.findByRole('dialog', { name: 'Selected day' })
+        const sheet = await screen.findByRole('dialog', { name: 'Monday, 10 Aug 2026' })
         expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
-        await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+        expect(within(sheet).getByText('Mon, 10 Aug 2026')).toBeInTheDocument()
+        expect(within(sheet).queryByText(/It is not a cap/)).not.toBeInTheDocument()
+        await user.click(within(sheet).getByRole('button', { name: 'About the guideline' }))
+        expect(within(sheet).getByText(/It is not a cap/)).toBeInTheDocument()
+        expect(within(sheet).getByRole('button', { name: 'Request leave from this day' })).toBeInTheDocument()
+
+        await user.click(within(sheet).getByRole('button', { name: 'Next day' }))
+        expect(screen.getByRole('dialog', { name: 'Tuesday, 11 Aug 2026' })).toBeInTheDocument()
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       } finally {
         delete window.matchMedia

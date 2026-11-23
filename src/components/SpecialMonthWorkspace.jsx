@@ -15,6 +15,7 @@ import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestP
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import PlannerDetailsCard from './PlannerDetailsCard'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import CapacityBar from './CapacityBar'
 import LeaveRequestForm from './LeaveRequestForm'
 import SelectMenu from './SelectMenu'
@@ -54,6 +55,7 @@ export default function SpecialMonthWorkspace({
   // browser can reload the page at any time, and the URL survives that.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedDate = searchParams.get('sday')
+  const isDesktop = useIsDesktop()
   function setSelectedDate(date) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -120,6 +122,16 @@ export default function SpecialMonthWorkspace({
   // Past the month's edge the grid moves too, in the same URL write as the
   // day — two writes in one tap would each start from the same old URL and
   // the second would undo the first.
+  const dayDetailsProps = selectedInMonth && {
+    date: selectedDate,
+    rows: rowsForDate(selectedDate),
+    count: countsByDate.get(selectedDate) || 0,
+    phName: publicHolidaysByDate.get(selectedDate),
+    displayNames,
+    onRequestLeave: openRequestLeave,
+    onStepDay: stepSelectedDay,
+  }
+
   function stepSelectedDay(delta) {
     const next = addDays(selectedDate, delta)
     if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
@@ -181,25 +193,19 @@ export default function SpecialMonthWorkspace({
             className="mt-3"
             eyebrow="Selected day"
             emptyMessage="Select a day to see details."
-            sheetHeightClassName="h-[62dvh] min-h-[320px]"
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
-            {selectedInMonth && (
-              <SpecialDayDetails
-                key={selectedDate}
-                date={selectedDate}
-                rows={rowsForDate(selectedDate)}
-                count={countsByDate.get(selectedDate) || 0}
-                phName={publicHolidaysByDate.get(selectedDate)}
-                displayNames={displayNames}
-                onRequestLeave={openRequestLeave}
-                onStepDay={stepSelectedDay}
-              />
-            )}
+            {selectedInMonth && isDesktop && <SpecialDayDetails {...dayDetailsProps} />}
           </PlannerDetailsCard>
         </div>
       </div>
+
+      {/* Below lg the day opens in Team Leave's day sheet instead of the
+          rail card: short, steady, and the grid's top half stays in view. */}
+      {selectedInMonth && !isDesktop && (
+        <SpecialDayDetails {...dayDetailsProps} variant="sheet" onClose={() => setSelectedDate(null)} />
+      )}
 
       {requestFormDate && (
         <Modal title="Request special leave" onClose={() => setRequestFormDate(null)} centered>

@@ -15,6 +15,7 @@ import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestP
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import PlannerDetailsCard from './PlannerDetailsCard'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import CapacityBar from './CapacityBar'
 import DayDetails from './annual/DayDetails'
 import DateStepper from './DateStepper'
@@ -71,6 +72,7 @@ export default function MonthWorkspace({
   // reopening this same day's details instead of silently losing it.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedDate = searchParams.get('day')
+  const isDesktop = useIsDesktop()
 
   function setSelectedDate(date) {
     setSearchParams(prev => {
@@ -178,6 +180,21 @@ export default function MonthWorkspace({
   // Past the month's edge the grid moves too, in the same URL write as the
   // day — two writes in one tap would each start from the same old URL and
   // the second would undo the first.
+  const dayDetailsProps = selectedInMonth && {
+    date: selectedDate,
+    entriesByColumn: dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId),
+    capacity: dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey),
+    phName: publicHolidaysByDate.get(selectedDate),
+    displayNames,
+    pendingRows,
+    maxByColumnKey,
+    maxFullTime,
+    rotationsByDoctorId,
+    onDataChanged,
+    onRequestLeave: openRequestLeave,
+    onStepDay: stepSelectedDay,
+  }
+
   function stepSelectedDay(delta) {
     const next = addDays(selectedDate, delta)
     if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
@@ -232,30 +249,21 @@ export default function MonthWorkspace({
             className="mt-3"
             eyebrow="Selected day"
             emptyMessage="Select a day to see details."
-            sheetHeightClassName="h-[62dvh] min-h-[320px]"
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
-            {selectedInMonth && (
-              <DayDetails
-                key={selectedDate}
-                date={selectedDate}
-                entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
-                capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
-                phName={publicHolidaysByDate.get(selectedDate)}
-                displayNames={displayNames}
-                pendingRows={pendingRows}
-                maxByColumnKey={maxByColumnKey}
-                maxFullTime={maxFullTime}
-                rotationsByDoctorId={rotationsByDoctorId}
-                onDataChanged={onDataChanged}
-                onRequestLeave={openRequestLeave}
-                onStepDay={stepSelectedDay}
-              />
+            {selectedInMonth && isDesktop && (
+              <DayDetails {...dayDetailsProps} />
             )}
           </PlannerDetailsCard>
         </div>
       </div>
+
+      {/* Below lg the day opens in Team Leave's day sheet instead of the
+          rail card: short, steady, and the grid's top half stays in view. */}
+      {selectedInMonth && !isDesktop && (
+        <DayDetails {...dayDetailsProps} variant="sheet" onClose={() => setSelectedDate(null)} />
+      )}
 
       {requestFormDate && (
         <Modal title="Request annual leave" onClose={() => setRequestFormDate(null)} centered>

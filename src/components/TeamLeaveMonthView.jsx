@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
-import Modal from './Modal'
+import DaySheet, { DayCount } from './DaySheet'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import TeamLeavePersonRow from './TeamLeavePersonRow'
-import { DayStepper } from './DateStepper'
 import { datesInMonth, columnForLeaveCategory, COLUMN_BADGE_LABEL } from '../lib/leaveYearGrid'
-import { todayStr, addDays, formatWeekdayDate } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import { peopleAwayByDate } from '../lib/teamLeaveMobile'
 
 // One month of "who is away", on the same calendar the Annual and Special
@@ -60,23 +59,6 @@ export default function TeamLeaveMonthView({ requests, year, month, onMonthChang
     setSelectedDate(next)
   }
 
-  const dayHeader = selectedDate && (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      {/* Shown as 0 rather than hidden on an empty day, so the stepper
-          beside it never shifts sideways mid-step. */}
-      <span
-        title={`${dayPeople.length} ${dayPeople.length === 1 ? 'person' : 'people'} away`}
-        className="flex h-[30px] min-w-[40px] flex-shrink-0 flex-col items-center justify-center rounded-md border border-slate-line px-1.5 leading-none"
-      >
-        <span className={`text-sm font-bold leading-none ${dayPeople.length ? 'text-ink' : 'text-ink-muted'}`}>{dayPeople.length}</span>
-        <span className="mt-0.5 text-[9px] uppercase tracking-wide text-ink-muted">away</span>
-      </span>
-      <div className="min-w-0 flex-1">
-        <DayStepper date={selectedDate} onStep={stepDay} />
-      </div>
-    </div>
-  )
-
   return (
     <div className="mt-4">
       <PlannerCalendarGrid
@@ -90,11 +72,20 @@ export default function TeamLeaveMonthView({ requests, year, month, onMonthChang
       />
 
       {selectedDate && (
-        <Modal
-          title={formatWeekdayDate(selectedDate)}
-          header={dayHeader}
-          heightClassName="h-[42dvh] min-h-[260px]"
+        <DaySheet
+          date={selectedDate}
+          onStep={stepDay}
           onClose={() => setSelectedDate(null)}
+          count={(
+            // Shown as 0 rather than hidden on an empty day, so the stepper
+            // beside it never shifts sideways mid-step.
+            <DayCount
+              value={dayPeople.length}
+              label="away"
+              title={`${dayPeople.length} ${dayPeople.length === 1 ? 'person' : 'people'} away`}
+              valueClassName={dayPeople.length ? 'text-ink' : 'text-ink-muted'}
+            />
+          )}
         >
           {dayPeople.length === 0 ? (
             <p className="text-sm text-ink-muted">No one is on leave this day.</p>
@@ -109,7 +100,7 @@ export default function TeamLeaveMonthView({ requests, year, month, onMonthChang
               ))}
             </div>
           )}
-        </Modal>
+        </DaySheet>
       )}
     </div>
   )

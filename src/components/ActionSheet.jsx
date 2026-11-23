@@ -26,17 +26,14 @@ import { createPortal } from 'react-dom'
 // card's hover:brightness-95 is a filter) was being positioned against that
 // card instead, and jumped between the card and the middle of the screen as
 // the pointer moved on and off it.
-// `heightClassName`: a fixed height instead of sizing to the content, for a
-// sheet whose content changes while it's open (a day stepped through) and
-// whose controls shouldn't move under the finger.
-export function ActionSheet({ title, onBack, onClose, children, heightClassName = 'max-h-[80vh]' }) {
+export function ActionSheet({ title, onBack, onClose, children }) {
   return createPortal(
     <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center scrim sm:items-center sm:px-4" onClick={e => { e.stopPropagation(); onClose?.(e) }}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`card flex ${heightClassName} w-full max-w-sm flex-col rounded-b-none border-edge p-2 sm:rounded-b-lg`}
+        className="card flex max-h-[80vh] w-full max-w-sm flex-col rounded-b-none border-edge p-2 sm:rounded-b-lg"
         onClick={e => e.stopPropagation()}
       >
         {title && (

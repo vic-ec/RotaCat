@@ -555,6 +555,29 @@ describe('MonthWorkspace', () => {
       expect(details().getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     })
 
+    it('steps a day at a time from the card, moving the grid selection with it', async () => {
+      const user = userEvent.setup()
+      renderWorkspace({}, ['/?day=2026-08-12'])
+      expect(details().getByText('Anderson')).toBeInTheDocument()
+      await user.click(details().getByRole('button', { name: 'Next day' }))
+      expect(details().getByRole('heading', { name: 'Thursday, 13 Aug 2026' })).toBeInTheDocument()
+      expect(details().queryByText('Anderson')).not.toBeInTheDocument()
+      expect(desktopGrid().getByRole('button', { name: /^2026-08-13/ })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      expect(details().getByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('past the month edge, moves the month and the day in one URL write', async () => {
+      const user = userEvent.setup()
+      const onMonthChange = vi.fn()
+      renderWorkspace({ onMonthChange }, ['/?day=2026-08-01'])
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      expect(onMonthChange).toHaveBeenCalledWith(2026, 7, expect.any(Function))
+      const params = new URLSearchParams()
+      onMonthChange.mock.calls[0][2](params)
+      expect(params.get('day')).toBe('2026-07-31')
+    })
+
     it('below lg the same details open in a bottom sheet, with no inline card', async () => {
       // A phone-width matchMedia for this test only.
       const mql = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import { daysBySlotsUsed } from '../lib/plannerCalendar'
 import {
   specialCountsByDate, specialMonthMarkers, specialCapacityBarLabels, SPECIAL_CATEGORY_FILTER_OPTIONS, matchesSpecialCategory, defaultSpecialCategoryKey,
@@ -117,6 +117,15 @@ export default function SpecialMonthWorkspace({
 
   const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
+  // Past the month's edge the grid moves too, in the same URL write as the
+  // day — two writes in one tap would each start from the same old URL and
+  // the second would undo the first.
+  function stepSelectedDay(delta) {
+    const next = addDays(selectedDate, delta)
+    if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
+    onMonthChange(Number(next.slice(0, 4)), Number(next.slice(5, 7)), params => params.set('sday', next))
+  }
+
   return (
     <div>
       {/* Toolbar, panel, grid on a phone; on desktop the toolbar spans
@@ -172,6 +181,7 @@ export default function SpecialMonthWorkspace({
             className="mt-3"
             eyebrow="Selected day"
             emptyMessage="Select a day to see details."
+            sheetHeightClassName="h-[62dvh] min-h-[320px]"
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
@@ -184,6 +194,7 @@ export default function SpecialMonthWorkspace({
                 phName={publicHolidaysByDate.get(selectedDate)}
                 displayNames={displayNames}
                 onRequestLeave={openRequestLeave}
+                onStepDay={stepSelectedDay}
               />
             )}
           </PlannerDetailsCard>

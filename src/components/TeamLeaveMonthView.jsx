@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import Modal from './Modal'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import TeamLeavePersonRow from './TeamLeavePersonRow'
-import { StepperShell } from './DateStepper'
+import { DayStepper } from './DateStepper'
 import { datesInMonth, columnForLeaveCategory, COLUMN_BADGE_LABEL } from '../lib/leaveYearGrid'
-import { todayStr, addDays, formatWeekdayDate, formatWeekdayDateShort } from '../lib/dateRange'
+import { todayStr, addDays, formatWeekdayDate } from '../lib/dateRange'
 import { peopleAwayByDate } from '../lib/teamLeaveMobile'
 
 // One month of "who is away", on the same calendar the Annual and Special
@@ -72,14 +72,7 @@ export default function TeamLeaveMonthView({ requests, year, month, onMonthChang
         <span className="mt-0.5 text-[9px] uppercase tracking-wide text-ink-muted">away</span>
       </span>
       <div className="min-w-0 flex-1">
-        <StepperShell
-          centered
-          label={formatWeekdayDateShort(selectedDate)}
-          onPrev={() => stepDay(-1)}
-          onNext={() => stepDay(1)}
-          prevLabel="Previous day"
-          nextLabel="Next day"
-        />
+        <DayStepper date={selectedDate} onStep={stepDay} />
       </div>
     </div>
   )

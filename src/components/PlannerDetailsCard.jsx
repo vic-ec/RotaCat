@@ -16,7 +16,8 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 // the two containers are genuinely different DOM rather than two copies
 // hidden by CSS (which would double every heading for a screen reader and
 // a test alike).
-export default function PlannerDetailsCard({ eyebrow, title, emptyMessage, open = false, onClose, children, className = '' }) {
+// `sheetHeightClassName`: passed to the phone sheet (see ActionSheet).
+export default function PlannerDetailsCard({ eyebrow, title, emptyMessage, open = false, onClose, children, className = '', sheetHeightClassName }) {
   const isDesktop = useIsDesktop()
 
   if (isDesktop) {
@@ -37,7 +38,7 @@ export default function PlannerDetailsCard({ eyebrow, title, emptyMessage, open 
 
   if (!open || !children) return null
   return (
-    <ActionSheet title={eyebrow} onClose={onClose}>
+    <ActionSheet title={eyebrow} onClose={onClose} heightClassName={sheetHeightClassName}>
       <div data-testid="planner-details-sheet" className="px-3 pb-3 pt-1">
         {title && <h3 className="font-display text-base font-semibold text-ink">{title}</h3>}
         {children}

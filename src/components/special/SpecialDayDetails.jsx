@@ -4,6 +4,7 @@ import { COLUMN_BADGE_LABEL, capacityStateForCount } from '../../lib/leaveYearGr
 import { SPECIAL_LEAVE_SOFT_CAP, shortLeaveTypeLabel } from '../../lib/leaveRequests'
 import { REVIEW_STATUS_LABELS } from '../../lib/statusLabels'
 import CategoryBadge from '../CategoryBadge'
+import { DayStepper } from '../DateStepper'
 
 // The Special month view's SELECTED DAY content — the counterpart of
 // annual/DayDetails, mounted by PlannerDetailsCard (rail card on a
@@ -16,7 +17,7 @@ import CategoryBadge from '../CategoryBadge'
 //          Consultant column already hidden from a non-admin
 //   count  distinct doctors on genuine special leave that day (the true
 //          shared count, hidden Consultants included)
-export default function SpecialDayDetails({ date, rows, count, phName, displayNames = new Map(), onRequestLeave }) {
+export default function SpecialDayDetails({ date, rows, count, phName, displayNames = new Map(), onRequestLeave, onStepDay }) {
   const { canSubmitLeave } = useAuth()
   const cap = SPECIAL_LEAVE_SOFT_CAP
   const state = capacityStateForCount(count)
@@ -27,7 +28,15 @@ export default function SpecialDayDetails({ date, rows, count, phName, displayNa
 
   return (
     <div data-testid="special-day-details">
-      <h3 className="font-display text-base font-semibold text-ink">{formatWeekdayDate(date)}</h3>
+      {onStepDay ? (
+        <>
+          <h3 className="sr-only">{formatWeekdayDate(date)}</h3>
+          {/* Pinned while a busy day's list scrolls in the phone sheet. */}
+          <div className="sticky top-0 z-10 -mx-3 bg-card px-3 pb-1 pt-1"><DayStepper date={date} onStep={onStepDay} /></div>
+        </>
+      ) : (
+        <h3 className="font-display text-base font-semibold text-ink">{formatWeekdayDate(date)}</h3>
+      )}
       {phName && <p className="mt-1 inline-block rounded bg-ink/5 px-2 py-0.5 text-sm font-medium text-ink-light">{phName}</p>}
 
       <div className={`mt-3 rounded-lg p-3 ring-1 ring-inset ${state.tint} ${state.ringDark}`}>
@@ -38,7 +47,7 @@ export default function SpecialDayDetails({ date, rows, count, phName, displayNa
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-ink-muted">No one is on special leave today.</p>
+        <p className="mt-3 text-sm text-ink-muted">No one is on special leave this day.</p>
       ) : (
         <ul className="mt-3 divide-y divide-slate-line border-t border-slate-line">
           {rows.map(e => (

@@ -36,6 +36,15 @@ vi.mock('../lib/supabase', () => ({
   },
 }))
 
+const late = vi.hoisted(() => ({ fetchLateArrivalsForProfile: vi.fn(), fetchMyLateArrivals: vi.fn() }))
+vi.mock('../lib/lateArrivals', async () => ({ ...(await vi.importActual('../lib/lateArrivals')), ...late }))
+vi.mock('../components/LateArrivalModal', () => ({
+  default: ({ record, profileId, personName }) => <div role="dialog" aria-label="late form">{record ? `edit ${record.id}` : `new for ${personName} ${profileId}`}</div>,
+}))
+
+const OWN_LATE = { entry_date: '2026-11-02', shift_code: 'WD_08', shift_start: '08:00:00', arrived_at: '08:25:00', minutes_late: 25, reason_given: 'Car trouble' }
+const ADMIN_LATE = { ...OWN_LATE, id: 'late-1', roster_entry_id: 'e1', logged_by: 'x', logger: { name: 'Pat', surname: 'Admin' } }
+
 const doctor = (id, name) => ({ id, name, surname: 'Zephyr', role: 'doctor', category: 'MO', is_approved: true })
 
 function LocationProbe() {
@@ -60,6 +69,8 @@ describe('MyYearPage', () => {
   beforeEach(() => {
     vi.setSystemTime(new Date(2026, 10, 24))
     eqCalls.length = 0
+    late.fetchLateArrivalsForProfile.mockReset().mockResolvedValue([])
+    late.fetchMyLateArrivals.mockReset().mockResolvedValue([])
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: false, canSubmitLeave: true }
     Object.assign(mockTables, {
       profiles: [doctor(ME, 'Maurice'), doctor(ADA, 'Ada')],
@@ -197,5 +208,60 @@ describe('MyYearPage', () => {
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
     renderAt('/my-year?tab=attendance')
     expect(await screen.findByText('No late arrivals recorded.')).toBeInTheDocument()
+  })
+
+  it('shows a doctor their own late arrivals, with the reason and never who logged it', async () => {
+    late.fetchMyLateArrivals.mockResolvedValue([OWN_LATE])
+    renderAt('/my-year?tab=attendance')
+    const table = await screen.findByTestId('late-arrivals-table')
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given'])
+    expect(table.textContent).toMatch(/Mon, 2 Nov 2026.*08h00.*08h25.*25 min.*Car trouble/s)
+    expect(screen.getByText('Shift start, arrival time and your reason, as recorded. Speak to an admin if a record looks wrong.')).toBeInTheDocument()
+    expect(screen.getByText('Late arrivals').parentElement.textContent).toMatch(/1 this year/)
+    // The own view reads through the function, never the table, and has nothing to edit or log.
+    expect(late.fetchMyLateArrivals).toHaveBeenCalledWith(2026)
+    expect(late.fetchLateArrivalsForProfile).not.toHaveBeenCalled()
+    expect(screen.queryByText(/Logged by/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /late arrival/i })).not.toBeInTheDocument()
+  })
+
+  it('marks late days on the year grid for the doctor', async () => {
+    late.fetchMyLateArrivals.mockResolvedValue([OWN_LATE])
+    renderAt('/my-year')
+    expect(await screen.findByRole('button', { name: '2 Nov: Late arrival' })).toBeInTheDocument()
+    expect(screen.getAllByTestId('late-dot')).toHaveLength(1)
+  })
+
+  it('with staff visibility off, a doctor sees no Attendance tab and no dots', async () => {
+    mockTables.app_settings = [{ key: 'attendance_visible_to_staff', value: 'false' }]
+    // The database function returns nothing in this state; even if rows arrived they would not show.
+    late.fetchMyLateArrivals.mockResolvedValue([OWN_LATE])
+    renderAt('/my-year')
+    await screen.findByTestId('my-year-totals')
+    expect(screen.queryByRole('button', { name: 'Attendance' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('late-dot')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Late arrival/ })).not.toBeInTheDocument()
+  })
+
+  it('gives an admin the full record for another doctor: Logged by, edit on a row, and Log late arrival', async () => {
+    mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
+    late.fetchLateArrivalsForProfile.mockResolvedValue([ADMIN_LATE])
+    renderAt(`/my-year/${ADA}?tab=attendance`)
+    const table = await screen.findByTestId('late-arrivals-table')
+    expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given', 'Logged by', 'Open in'])
+    expect(table.textContent).toMatch(/Pat Admin/)
+    expect(within(table).getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1')
+    expect(late.fetchLateArrivalsForProfile).toHaveBeenCalledWith(ADA, 2026)
+    expect(screen.queryByText(/Speak to an admin/)).not.toBeInTheDocument()
+
+    await userEvent.click(within(table).getByRole('button', { name: /Edit late arrival/ }))
+    expect(screen.getByRole('dialog', { name: 'late form' })).toHaveTextContent('edit late-1')
+  })
+
+  it('opens the form for that doctor from the Log late arrival button', async () => {
+    mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
+    renderAt(`/my-year/${ADA}?tab=attendance`)
+    await userEvent.click(await screen.findByRole('button', { name: 'Log late arrival' }))
+    expect(screen.getByRole('dialog', { name: 'late form' })).toHaveTextContent(`new for Ada Zephyr ${ADA}`)
   })
 })

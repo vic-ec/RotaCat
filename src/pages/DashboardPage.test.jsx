@@ -25,6 +25,8 @@ import { fetchAdminAttention } from '../lib/adminAttention'
 // the pending *count*, one for the approved rows), so a single
 // "leave_requests:select" fixture couldn't answer both.
 const { mockResponses, eqCalls, updateCalls } = vi.hoisted(() => ({ mockResponses: {}, eqCalls: [], updateCalls: [] }))
+vi.mock('../components/LateArrivalModal', () => ({ default: ({ option, profileId }) => <div role="dialog" aria-label="Log late arrival">{option || profileId ? 'prefilled' : 'today, anyone rostered'}</div> }))
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from(table) {
@@ -369,5 +371,25 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Roster' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Staff' })).toBeInTheDocument()
+  })
+})
+
+describe('DashboardPage — Log late arrival', () => {
+  it('admin: a button on the Needs attention heading opens the form with nothing but today filled in', async () => {
+    mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
+    getDashboardHoursWarnings.mockResolvedValue([])
+    renderDashboard()
+    const button = await screen.findByRole('button', { name: 'Log late arrival' })
+    expect(button.closest('section').textContent).toMatch(/Needs attention/)
+    expect(screen.queryByRole('dialog', { name: 'Log late arrival' })).not.toBeInTheDocument()
+    await userEvent.click(button)
+    expect(screen.getByRole('dialog', { name: 'Log late arrival' })).toHaveTextContent('today, anyone rostered')
+  })
+
+  it('is not shown to a doctor', async () => {
+    mockAuth = { profile: { id: 'doc-1', name: 'Doc' }, isAdmin: false }
+    renderDashboard()
+    await screen.findAllByText(/./)
+    expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
   })
 })

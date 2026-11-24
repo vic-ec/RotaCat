@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { applyTimeOverrides } from '../lib/shiftTimes'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
+import { AlarmClock, ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
+import LateArrivalModal from '../components/LateArrivalModal'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
@@ -34,10 +35,11 @@ const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // How far back the sick-leave panel's "recently" column looks.
 const SICK_LOOKBACK_DAYS = 7
 
-function SectionHeading({ children, to, linkLabel }) {
+function SectionHeading({ children, to, linkLabel, action = null }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3">
       <h2 className="text-sm font-semibold text-ink">{children}</h2>
+      {action}
       {to && (
         <Link to={to} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
           {linkLabel} ›
@@ -132,6 +134,7 @@ function fullName(person) {
 
 export default function DashboardPage() {
   const { profile, isAdmin, isClerk, isLocum } = useAuth()
+  const [lateOpen, setLateOpen] = useState(false)
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
   const [coworkersByKey, setCoworkersByKey] = useState({})
@@ -648,7 +651,19 @@ export default function DashboardPage() {
                 (requests, hours), and each row is already its own link. A
                 single "View requests" beside an hours row pointed at the
                 wrong page. */}
-            <SectionHeading>Needs attention</SectionHeading>
+            {/* Log late arrival sits on this heading (it has no link of its
+                own): today's date filled in, then anyone rostered today. */}
+            <SectionHeading
+              action={(
+                <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] whitespace-nowrap text-sm md:min-h-0">
+                  <AlarmClock className="h-4 w-4" aria-hidden="true" />
+                  Log late arrival
+                </button>
+              )}
+            >
+              Needs attention
+            </SectionHeading>
+            {lateOpen && <LateArrivalModal onClose={() => setLateOpen(false)} />}
             {pendingLeaveCount === 0 && hoursWarnings.length === 0 && attentionItems.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (

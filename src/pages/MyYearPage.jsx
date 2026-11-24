@@ -11,6 +11,8 @@ import {
 } from '../lib/myYear'
 import { fetchMyYear, isProfileId } from '../lib/myYearData'
 import { ALL_LEAVE_PATH, MY_LEAVE_PATH } from '../lib/myYearLinks'
+import { fetchLateArrivalsForProfile, fetchMyLateArrivals } from '../lib/lateArrivals'
+import LateArrivalModal from '../components/LateArrivalModal'
 import PageTabs from '../components/PageTabs'
 import DateStepper from '../components/DateStepper'
 import ProfileAvatar from '../components/ProfileAvatar'
@@ -96,6 +98,13 @@ function MyYear({ profileId, own }) {
   const [version, setVersion] = useState(0)
   const [selectedDate, setSelectedDate] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
+  // Late arrivals for the displayed year. Admins read the records
+  // themselves (and can edit them); everyone else gets their own through
+  // get_my_late_arrivals, which returns nothing when staff visibility is off.
+  const [lateRecords, setLateRecords] = useState([])
+  const [lateVersion, setLateVersion] = useState(0)
+  // null | { record } to edit | {} to log a new one
+  const [lateForm, setLateForm] = useState(null)
 
   const today = todayStr()
   const currentYear = Number(today.slice(0, 4))
@@ -109,6 +118,13 @@ function MyYear({ profileId, own }) {
       .catch(err => { if (!cancelled) setError(err.message || 'Could not load this page.') })
     return () => { cancelled = true }
   }, [profileId, version])
+
+  useEffect(() => {
+    let cancelled = false
+    const read = isAdmin ? fetchLateArrivalsForProfile(profileId, year) : (own ? fetchMyLateArrivals(year) : Promise.resolve([]))
+    read.then(rows => { if (!cancelled) setLateRecords(rows) }).catch(() => { if (!cancelled) setLateRecords([]) })
+    return () => { cancelled = true }
+  }, [isAdmin, own, profileId, year, lateVersion])
 
   function setParam(key, value) {
     setSearchParams(prev => {
@@ -141,10 +157,9 @@ function MyYear({ profileId, own }) {
       shifts: shiftCounts(entries, { profileId, year, leaveRanges }),
       onCall: onCallDates(entries, profileId, year),
       record: leaveRecord(requests, year),
-      // Late arrivals are not read yet; the dots follow with that work.
-      days: buildYearDays(year, { requests, holidays, entries, profileId }),
+      days: buildYearDays(year, { requests, holidays, entries, profileId, lateDates: new Set(lateRecords.map(r => r.entry_date)) }),
     }
-  }, [data, year, today, profileId])
+  }, [data, year, today, profileId, lateRecords])
 
   if (error) return <div className="mx-auto max-w-7xl"><p className="card px-4 py-3 text-sm text-ink-muted">{error}</p></div>
   if (!data) return <div className="mx-auto max-w-7xl"><p className="text-sm text-ink-muted">Loading…</p></div>
@@ -174,8 +189,9 @@ function MyYear({ profileId, own }) {
   // At most one filled button on screen: Request leave on your own
   // Overview, Capture leave when an admin is on someone else's Leave tab.
   const action = own && tab === 'overview'
-    ? { label: 'Request leave' }
-    : !own && isAdmin && tab === 'leave' ? { label: 'Capture leave' } : null
+    ? { label: 'Request leave', onClick: () => setFormOpen(true) }
+    : !own && isAdmin && tab === 'leave' ? { label: 'Capture leave', onClick: () => setFormOpen(true) }
+    : !own && isAdmin && tab === 'attendance' ? { label: 'Log late arrival', onClick: () => setLateForm({}) } : null
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -199,7 +215,7 @@ function MyYear({ profileId, own }) {
           <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(null) }} nowrap />
           <GoToMenu links={goTo} />
           {action && (
-            <button type="button" onClick={() => setFormOpen(true)} className="btn-primary min-h-[44px] whitespace-nowrap text-sm md:min-h-0">
+            <button type="button" onClick={action.onClick} className="btn-primary min-h-[44px] whitespace-nowrap text-sm md:min-h-0">
               <Plus className="h-4 w-4" aria-hidden="true" />
               {action.label}
             </button>
@@ -221,6 +237,7 @@ function MyYear({ profileId, own }) {
             data={data}
             profileId={profileId}
             isAdmin={isAdmin}
+            showLate={showAttendance}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
           />
@@ -237,7 +254,15 @@ function MyYear({ profileId, own }) {
             hoursSummaryTo={hoursSummaryTo}
           />
         )}
-        {tab === 'attendance' && <MyYearAttendance />}
+        {tab === 'attendance' && (
+          <MyYearAttendance
+            records={lateRecords}
+            admin={isAdmin}
+            monthIds={data.monthIds}
+            profileId={profileId}
+            onEdit={record => setLateForm({ record })}
+          />
+        )}
       </div>
 
       {formOpen && (
@@ -246,6 +271,17 @@ function MyYear({ profileId, own }) {
             ? <LeaveRequestForm onSubmitted={() => { setVersion(v => v + 1); setFormOpen(false) }} />
             : <LeaveRequestForm captureOnly initialSubjectId={profileId} initialLeaveType="sick" onSubmitted={() => setVersion(v => v + 1)} />}
         </Modal>
+      )}
+
+      {lateForm && (
+        <LateArrivalModal
+          record={lateForm.record || null}
+          profileId={lateForm.record ? null : profileId}
+          personName={`${person.name || ''} ${person.surname || ''}`.trim()}
+          year={year}
+          onClose={() => setLateForm(null)}
+          onSaved={() => setLateVersion(v => v + 1)}
+        />
       )}
     </div>
   )

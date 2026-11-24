@@ -8,7 +8,7 @@ import { annualDaysInRange } from './leaveDashboard'
 import { fetchApprovedLeaveByProfile } from './approvedLeave'
 import { isEntryOnLeave } from './rosterVacancy'
 import { entryDurationHours } from './shiftTimes'
-import { leaveAdjustedMinimum, unavailableDaysInMonth } from './contractMinimum'
+import { fetchMonthMinimums } from './contractMinimum'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
 // set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
@@ -28,9 +28,10 @@ function emptyRow(profile) {
     category: profile.category,
     contractType: profile.contract_type,
     minHours: profile.min_hours,
-    // The minimum this month, lowered for approved leave as the engine
-    // lowers it (lib/contractMinimum.js). Set once the leave is read.
+    // This month's minimum (lib/contractMinimum.js): lowered for leave,
+    // for days not in the EC, and by the engine's variance.
     adjustedMinHours: profile.min_hours,
+    minimumDetail: null,
     maxHours: profile.max_hours,
     colorCode: profile.color_code,
     totalHours: 0,
@@ -66,7 +67,7 @@ export async function fetchRosterSummary({ month, year }) {
 
   const [profilesRes, rosterMonthsRes, leaveRes, ledgerRes] = await Promise.all([
     supabase.from('profiles')
-      .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code')
+      .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code, ec_start_date, scheduled_inactive_date')
       .eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant')
       .order('surname'),
     supabase.from('roster_months').select('id').eq('year', year).eq('month', month).is('deleted_at', null),
@@ -121,7 +122,6 @@ export async function fetchRosterSummary({ month, year }) {
     if (st.day_type === 'PH' || st.day_type === 'PH_weekday') row.totalPH++
   }
 
-  const approvedByProfile = {}
   for (const lr of leaveRes.data || []) {
     const row = rowByProfileId[lr.profile_id]
     if (!row) continue
@@ -143,14 +143,15 @@ export async function fetchRosterSummary({ month, year }) {
     }
     // `leaveDays` stays calendar days — how long the doctor is away.
     row.leaveDays += calendarDays
-    ;(approvedByProfile[lr.profile_id] ||= []).push(lr)
     row.leaveByType[lr.leave_type] = (row.leaveByType[lr.leave_type] || 0) + typeDays
   }
 
-  const daysInMonth = Number(monthEnd.slice(8, 10))
+  const minimums = await fetchMonthMinimums({ profiles: profilesRes.data || [], year, month })
   for (const row of rows) {
-    const away = unavailableDaysInMonth(approvedByProfile[row.profileId], monthStart, monthEnd)
-    row.adjustedMinHours = leaveAdjustedMinimum(row.minHours, away, daysInMonth)
+    const m = minimums.get(row.profileId)
+    if (!m) continue
+    row.adjustedMinHours = m.minimum
+    row.minimumDetail = m
   }
 
   // Cumulative, not month-scoped — a running PH-in-lieu balance owed/taken

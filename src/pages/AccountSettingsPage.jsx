@@ -16,6 +16,7 @@ import Breadcrumb from '../components/Breadcrumb'
 import SectionLabel from '../components/SectionLabel'
 import CapsLockNotice from '../components/CapsLockNotice'
 import DetailInfoButton from '../components/DetailInfoButton'
+import DateFieldButton from '../components/DateFieldButton'
 import { useCapsLockWarning } from '../lib/useCapsLockWarning'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { AVATAR_COLOR_PALETTE, NEUTRAL_AVATAR_COLOR, randomAvatarColor } from '../lib/color'
@@ -586,6 +587,9 @@ export default function AccountSettingsPage() {
   const [adminSubtype, setAdminSubtype] = useState(null)
   const [adminIsAdmin, setAdminIsAdmin] = useState(false)
   const [adminIsActive, setAdminIsActive] = useState(true)
+  // First day in the EC (profiles.ec_start_date): days before it aren't
+  // held against the contracted minimum (lib/contractMinimum.js).
+  const [adminEcStart, setAdminEcStart] = useState('')
   const [adminSaving, setAdminSaving] = useState(false)
   const [adminJustSaved, setAdminJustSaved] = useState(false)
   const [adminMsg, setAdminMsg] = useState(null)
@@ -676,6 +680,7 @@ export default function AccountSettingsPage() {
     setAdminSubtype(profile.psych_subcategory || null)
     setAdminIsAdmin(profile.is_admin === true)
     setAdminIsActive(profile.is_active !== false)
+    setAdminEcStart(profile.ec_start_date || '')
     setColorForm({ colorCode: profile.color_code || NEUTRAL_AVATAR_COLOR })
   }, [profile])
 
@@ -1169,7 +1174,8 @@ export default function AccountSettingsPage() {
     adminCategory !== (profile?.category || '') ||
     (categoryNeedsContractChoice(adminCategory) && adminContractType !== (profile?.contract_type || 'full')) ||
     (categoryNeedsContractChoice(adminCategory) && adminContractType === 'Junior_Doctor_Overtime' && adminSubtype !== (profile?.psych_subcategory || null)) ||
-    adminIsAdmin !== (profile?.is_admin === true)
+    adminIsAdmin !== (profile?.is_admin === true) ||
+    (adminRole === 'doctor' && adminEcStart !== (profile?.ec_start_date || ''))
 
   async function saveAdminAccountFields() {
     setAdminSaving(true)
@@ -1195,6 +1201,7 @@ export default function AccountSettingsPage() {
         role: adminRole,
         category: finalCategory,
         is_admin: adminRole === 'clerk' ? false : adminIsAdmin,
+        ...(adminRole === 'doctor' ? { ec_start_date: adminEcStart || null } : {}),
       })
       .eq('id', targetId)
 
@@ -1946,6 +1953,19 @@ export default function AccountSettingsPage() {
                 <p id="admin-permissions-help" className="mt-1 pl-6 text-xs text-ink-muted">
                   Can manage staff, leave requests, planners and settings.
                 </p>
+              </div>
+            )}
+
+            {adminRole === 'doctor' && (
+              <div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <label className="label-text mb-0" htmlFor="ec-start-input">In EC from</label>
+                  <DetailInfoButton
+                    label="About In EC from"
+                    text="The first day this doctor worked in the Emergency Centre. Hours checks don't count the days before it, so a month they hadn't started yet isn't flagged as under their hours. Interns and registrars use their rotation dates; leave this blank for them."
+                  />
+                </div>
+                <DateFieldButton id="ec-start-input" label="In EC from" labelledExternally value={adminEcStart} onChange={v => setAdminEcStart(v || '')} fullWidth />
               </div>
             )}
 

@@ -45,7 +45,19 @@ const WEEKEND_COLUMNS = shiftColumns(['WE_08', 'WE_13', 'WE_20'], shiftTimeRange
 const PH_WEEKDAY_COLUMNS = shiftColumns(['PHW_08', 'PHW_12', 'PHW_15', 'PHW_22'], shiftTimeRange)
 const PH_WEEKEND_COLUMNS = shiftColumns(['PH_08', 'PH_13', 'PH_20'], shiftTimeRange)
 
-// Under is measured against the leave-adjusted minimum — the one the
+// Why this month's minimum differs from the contract — the hover text on
+// "min N this month".
+function minimumNote(row) {
+  const m = row.minimumDetail
+  if (!m) return ''
+  const parts = [`Contract ${m.contracted}h, less the engine's variance (210 of every 220)`]
+  const leave = m.awayDays - m.notInEcDays
+  if (leave > 0) parts.push(`${leave} day${leave === 1 ? '' : 's'} on leave`)
+  if (m.notInEcDays > 0) parts.push(`${m.notInEcDays} day${m.notInEcDays === 1 ? '' : 's'} not in the EC`)
+  return `${parts.join(' · ')} (of ${m.daysInMonth})`
+}
+
+// Under is measured against the month's minimum — the one the
 // roster engine aims for (see lib/contractMinimum.js).
 function hoursBand(row) {
   if (row.totalHours < (row.adjustedMinHours ?? row.minHours)) return 'under'
@@ -470,7 +482,7 @@ export default function RosterSummaryPage() {
                     <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">
                       {row.minHours}–{row.maxHours}
                       {row.adjustedMinHours != null && row.adjustedMinHours !== row.minHours && (
-                        <span className="block text-[10px] text-ink-muted" title="Minimum lowered for the days on leave this month, as the roster engine does">min {row.adjustedMinHours} with leave</span>
+                        <span className="block text-[10px] text-ink-muted" title={minimumNote(row)}>min {row.adjustedMinHours} this month</span>
                       )}
                     </td>
                     <td className={`border-b border-slate-hairline px-2 py-1.5 text-center font-semibold ${

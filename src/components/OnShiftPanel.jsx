@@ -56,14 +56,13 @@ function PersonLine({ person }) {
 }
 
 // The left-hand side of a desktop shift row.
-function ShiftLabel({ group, tag, when }) {
+function ShiftLabel({ group, tag }) {
   return (
     <>
       <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{tag}</p>
       <span className={`${group.night ? 'chip-night' : 'chip-mint'} mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
         {shiftStartLabel(group.startTime)}–{shiftStartLabel(group.endTime)}
       </span>
-      <p className="mt-1 text-xs text-ink-muted">{when}</p>
     </>
   )
 }
@@ -92,7 +91,7 @@ function Badge({ person, open, onToggle }) {
   )
 }
 
-function ShiftRow({ group, tag, when, next = false, openKey, setOpenKey }) {
+function ShiftRow({ group, tag, next = false, openKey, setOpenKey }) {
   return (
     <li className={`grid gap-3 px-4 py-3.5 md:grid-cols-[210px_minmax(0,1fr)] md:items-center md:gap-4 ${next ? 'bg-canvas-cool' : ''}`}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:block">
@@ -100,7 +99,6 @@ function ShiftRow({ group, tag, when, next = false, openKey, setOpenKey }) {
         <span className={`${group.night ? 'chip-night' : 'chip-mint'} inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
           {shiftStartLabel(group.startTime)}–{shiftStartLabel(group.endTime)}
         </span>
-        <p className="text-xs text-ink-muted md:mt-1">{when}</p>
       </div>
       <ul className="flex flex-wrap gap-2">
         {group.people.map(p => (
@@ -133,8 +131,6 @@ export default function OnShiftPanel() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [])
 
-  const until = g => <>On shift until <b className="text-sm text-ink">{shiftStartLabel(g.endTime)}</b></>
-  const onAt = g => <>On at <b className="text-sm text-ink">{shiftStartLabel(g.startTime)}</b></>
 
   return (
     <section data-testid="on-shift-panel">
@@ -155,12 +151,12 @@ export default function OnShiftPanel() {
               <PanelRow label={<p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Now</p>} empty="Nobody on shift right now." />
             )}
             {board.now.map(g => (
-              <PanelRow key={g.key} testId="on-shift-group" label={<ShiftLabel group={g} tag="Now" when={until(g)} />}>
+              <PanelRow key={g.key} testId="on-shift-group" label={<ShiftLabel group={g} tag="Now" />}>
                 {g.people.map(p => <PersonLine key={p.key} person={p} />)}
               </PanelRow>
             ))}
             {board.next.map(g => (
-              <PanelRow key={g.key} testId="on-shift-group" tint label={<ShiftLabel group={g} tag={`Next · ${startsInLabel(g.start, now)}`} when={onAt(g)} />}>
+              <PanelRow key={g.key} testId="on-shift-group" tint label={<ShiftLabel group={g} tag={`Next · ${startsInLabel(g.start, now)}`} />}>
                 {g.people.map(p => <PersonLine key={p.key} person={p} />)}
               </PanelRow>
             ))}
@@ -168,9 +164,9 @@ export default function OnShiftPanel() {
         ) : (
           <ul className="divide-y divide-slate-line">
             {board.now.length === 0 && <li className="p-4 text-sm text-ink-muted">Nobody on shift right now.</li>}
-            {board.now.map(g => <ShiftRow key={g.key} group={g} tag="Now" when={until(g)} openKey={openKey} setOpenKey={setOpenKey} />)}
+            {board.now.map(g => <ShiftRow key={g.key} group={g} tag="Now" openKey={openKey} setOpenKey={setOpenKey} />)}
             {board.next.map(g => (
-              <ShiftRow key={g.key} group={g} tag={`Next · ${startsInLabel(g.start, now)}`} when={onAt(g)} next openKey={openKey} setOpenKey={setOpenKey} />
+              <ShiftRow key={g.key} group={g} tag={`Next · ${startsInLabel(g.start, now)}`} next openKey={openKey} setOpenKey={setOpenKey} />
             ))}
           </ul>
         )}

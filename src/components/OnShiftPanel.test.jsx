@@ -35,13 +35,13 @@ describe('OnShiftPanel — phone', () => {
     })
   })
 
-  it('shows one row per shift: now with its end, next with its start', async () => {
+  it('shows one row per shift: Now or Next, with the shift times', async () => {
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
     const rows = within(await screen.findByTestId('on-shift-panel')).getAllByRole('listitem').filter(li => li.querySelector('ul'))
     expect(rows).toHaveLength(3)
-    expect(rows[0].textContent).toMatch(/Now.*08h00–18h00.*On shift until 18h00/)
-    expect(rows[1].textContent).toMatch(/Now.*12h00–22h00.*On shift until 22h00/)
-    expect(rows[2].textContent).toMatch(/Next · in 30 min.*15h00–01h00.*On at 15h00/)
+    expect(rows[0].textContent).toMatch(/Now.*08h00–18h00/)
+    expect(rows[1].textContent).toMatch(/Now.*12h00–22h00/)
+    expect(rows[2].textContent).toMatch(/Next · in 30 min.*15h00–01h00/)
     expect(screen.getByText(/Consultant: Kate Meyer/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster')
   })
@@ -92,12 +92,19 @@ describe('OnShiftPanel — desktop', () => {
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
     const groups = await screen.findAllByTestId('on-shift-group')
     expect(groups).toHaveLength(3)
-    expect(groups[0].textContent).toMatch(/Now08h00–18h00On shift until 18h00.*Maurice MokoenaMO.*Zara KhanMO/)
-    expect(groups[1].textContent).toMatch(/Now12h00–22h00On shift until 22h00.*Open locum slotNot covered/)
-    expect(groups[2].textContent).toMatch(/Next · in 30 min15h00–01h00On at 15h00.*Tom PetersenMO/)
+    expect(groups[0].textContent).toMatch(/Now08h00–18h00.*Maurice MokoenaMO.*Zara KhanMO/)
+    expect(groups[1].textContent).toMatch(/Now12h00–22h00.*Open locum slotNot covered/)
+    expect(groups[2].textContent).toMatch(/Next · in 30 min15h00–01h00.*Tom PetersenMO/)
     expect(groups[2].className).toMatch(/bg-canvas-cool/)
     expect(within(screen.getByLabelText('Zara Khan · MO · late arrival logged')).getByTestId('on-shift-late')).toBeInTheDocument()
     // Names, not badges to tap.
     expect(screen.queryByRole('button', { name: /Maurice Mokoena/ })).not.toBeInTheDocument()
+  })
+
+  it('does not repeat the times as "On shift until" or "On at"', async () => {
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await screen.findAllByTestId('on-shift-group')
+    expect(screen.queryByText(/On shift until/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/On at/)).not.toBeInTheDocument()
   })
 })

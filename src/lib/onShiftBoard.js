@@ -29,12 +29,13 @@ export function initialsOf(name) {
 // off with no cover wanted, or the consultant's own row).
 export function boardPerson(row, { late = false, vacatedName = null } = {}) {
   if (isOpenLocumSlot(row)) {
-    return { key: row.id, kind: 'open', initials: '[ ]', label: 'Open locum slot · not covered', sortName: '', late: false }
+    return { key: row.id, kind: 'open', initials: '[ ]', name: 'Open locum slot', meta: 'Not covered', label: 'Open locum slot · not covered', sortName: '', late: false }
   }
   if (row.is_locum) {
     const name = row.profile ? fullName(row.profile) : locumDisplayName(row.locum_name)
     return {
       key: row.id, kind: 'locum', initials: initialsOf(name), sortName: row.profile?.surname || name, late,
+      name: name || 'Locum', meta: `Locum${vacatedName ? ` · covering ${vacatedName}` : ''}`,
       label: `${name || 'Locum'} · Locum${vacatedName ? ` · covering ${vacatedName}` : ''}`,
     }
   }
@@ -43,6 +44,7 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
   const category = String(row.profile?.category || '').replace(/_/g, ' ')
   return {
     key: row.id, kind: 'doctor', profile: row.profile, initials: initialsOf(name), sortName: row.profile?.surname || name, late,
+    name, meta: `${category || 'Doctor'}${vacatedName ? ` · covering ${vacatedName}` : ''}`,
     label: `${name}${category ? ` · ${category}` : ''}${vacatedName ? ` · covering ${vacatedName}` : ''}`,
   }
 }

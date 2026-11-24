@@ -4,30 +4,83 @@ import { AlarmClock } from 'lucide-react'
 import { fetchOnShiftBoard, startsInLabel } from '../lib/onShiftBoard'
 import { shiftStartLabel } from '../lib/myYear'
 import ProfileAvatar from './ProfileAvatar'
+import { useIsDesktop } from '../lib/useIsDesktop'
 
-// The admin Dashboard's "On shift": one row per shift — who is on now
-// (until when), then who starts next (and when). Initials only, in each
-// person's avatar; the full name and category show on hover and on tap.
+// The admin Dashboard's "On shift": who is on now (grouped by shift, each
+// with its end time) and who starts next.
+//   desktop (md+)  a split panel like Sick leave: Now | Next, one person per
+//                  line with avatar, full name and category — short enough
+//                  to read without scrolling
+//   phone          one row per shift with initials badges; the full name and
+//                  category show on tap
 // A small clock marks a late arrival logged for that shift.
 const BADGE = 40
 
+function Face({ person, size }) {
+  if (person.kind === 'doctor') return <ProfileAvatar profile={person.profile} size={size} />
+  return (
+    <span
+      className={`flex flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed font-bold ${size < 36 ? 'text-[10px]' : 'text-xs'} ${
+        person.kind === 'open' ? 'border-flagRed bg-canvas-raised text-flagRed' : 'border-flagAmber bg-flagAmber-bg text-flagAmber'
+      }`}
+      style={{ width: size, height: size }}
+    >
+      {person.initials}
+    </span>
+  )
+}
+
+function LateClock() {
+  return (
+    <span data-testid="on-shift-late" className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-slate-line bg-canvas-raised">
+      <AlarmClock className="h-3 w-3 text-ink" aria-hidden="true" />
+    </span>
+  )
+}
+
+// Desktop: one line per person.
+function PersonLine({ person }) {
+  return (
+    <li className="flex items-center gap-2.5" aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}>
+      <span className="relative flex-shrink-0">
+        <Face person={person} size={32} />
+        {person.late && <LateClock />}
+      </span>
+      <span className="min-w-0">
+        <span className={`block truncate text-sm font-semibold ${person.kind === 'open' ? 'text-flagRed' : 'text-ink'}`}>{person.name}</span>
+        <span className="block truncate text-xs text-ink-muted">{person.meta}</span>
+      </span>
+    </li>
+  )
+}
+
+function Column({ title, groups, when, empty }) {
+  return (
+    <div className="p-4">
+      <p className="text-xs font-medium text-ink-muted">{title}</p>
+      {groups.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-muted">{empty}</p>
+      ) : groups.map(g => (
+        <div key={g.key} className="mt-3 first:mt-2" data-testid="on-shift-group">
+          <p className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+            <span className={`${g.night ? 'chip-night' : 'chip-mint'} rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
+              {shiftStartLabel(g.startTime)}–{shiftStartLabel(g.endTime)}
+            </span>
+            {when(g)}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {g.people.map(p => <PersonLine key={p.key} person={p} />)}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Phone: an initials badge; tap for the name.
 function Badge({ person, open, onToggle }) {
   const tipShown = open ? 'block' : 'hidden group-hover:block group-focus-visible:block'
-  let face
-  if (person.kind === 'doctor') {
-    face = <ProfileAvatar profile={person.profile} size={BADGE} />
-  } else {
-    face = (
-      <span
-        className={`flex items-center justify-center rounded-full border-[1.5px] border-dashed text-xs font-bold ${
-          person.kind === 'open' ? 'border-flagRed bg-canvas-raised text-flagRed' : 'border-flagAmber bg-flagAmber-bg text-flagAmber'
-        }`}
-        style={{ width: BADGE, height: BADGE }}
-      >
-        {person.initials}
-      </span>
-    )
-  }
+  const face = <Face person={person} size={BADGE} />
   return (
     <li className="relative">
       <button
@@ -39,11 +92,7 @@ function Badge({ person, open, onToggle }) {
         className="group relative block rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {face}
-        {person.late && (
-          <span data-testid="on-shift-late" className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full border border-slate-line bg-canvas-raised">
-            <AlarmClock className="h-3 w-3 text-ink" aria-hidden="true" />
-          </span>
-        )}
+        {person.late && <LateClock />}
         <span role="tooltip" className={`pointer-events-none absolute bottom-full left-0 z-20 mb-1.5 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-canvas ${tipShown}`}>
           {person.label}
         </span>
@@ -76,6 +125,7 @@ export default function OnShiftPanel() {
   const [error, setError] = useState('')
   const [openKey, setOpenKey] = useState(null)
   const [now, setNow] = useState(() => new Date())
+  const isDesktop = useIsDesktop(768)
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +158,16 @@ export default function OnShiftPanel() {
           <p className="p-4 text-sm text-ink-muted">Loading…</p>
         ) : board.now.length === 0 && board.next.length === 0 ? (
           <p className="p-4 text-sm text-ink-muted">Nobody on shift on a published roster.</p>
+        ) : isDesktop ? (
+          <div className="grid grid-cols-2 divide-x divide-slate-line">
+            <Column title="Now" groups={board.now} when={until} empty="Nobody on shift right now." />
+            <Column
+              title={board.next.length ? `Next · ${startsInLabel(board.next[0].start, now)}` : 'Next'}
+              groups={board.next}
+              when={onAt}
+              empty="Nothing starts in the next 24 hours."
+            />
+          </div>
         ) : (
           <ul className="divide-y divide-slate-line">
             {board.now.length === 0 && <li className="p-4 text-sm text-ink-muted">Nobody on shift right now.</li>}

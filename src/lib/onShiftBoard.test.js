@@ -64,7 +64,9 @@ describe('boardPerson', () => {
   it('labels doctors, locums covering someone, and open slots', () => {
     expect(boardPerson(ROWS[2]).label).toBe('Zara Khan · Registrar')
     expect(boardPerson(ROWS[3], { vacatedName: 'Naledi Dlamini' })).toMatchObject({ kind: 'locum', initials: 'DS', label: 'Dr Smith · Locum · covering Naledi Dlamini' })
-    expect(boardPerson(ROWS[5])).toMatchObject({ kind: 'open', initials: '[ ]' })
+    expect(boardPerson(ROWS[5])).toMatchObject({ kind: 'open', initials: '[ ]', name: 'Open locum slot', meta: 'Not covered' })
+    expect(boardPerson(ROWS[2])).toMatchObject({ name: 'Zara Khan', meta: 'Registrar' })
+    expect(boardPerson(ROWS[3], { vacatedName: 'Naledi Dlamini' })).toMatchObject({ name: 'Dr Smith', meta: 'Locum · covering Naledi Dlamini' })
     expect(boardPerson(ROWS[6])).toBeNull()
   })
 })

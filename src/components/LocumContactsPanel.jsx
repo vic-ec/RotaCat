@@ -11,7 +11,9 @@ import {
 import { Link } from 'react-router-dom'
 import Modal from './Modal'
 import { formatDayMonthYear } from '../lib/dateRange'
-import { shiftTimeRange } from '../lib/shiftLabels'
+import { shiftTimeRange, labelForShiftCode } from '../lib/shiftLabels'
+import { fetchLateArrivalsForLocum, lateByLabel } from '../lib/lateArrivals'
+import { shiftStartLabel } from '../lib/myYear'
 
 // Locums who were put on the roster with only a name and mobile (see
 // NewLocumModal) and still have no account. Each one is a loose end: they
@@ -43,8 +45,13 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
   const [shiftsFor, setShiftsFor] = useState(null) // { row, shifts } | null
 
   async function openShifts(row) {
-    setShiftsFor({ row, shifts: null })
-    setShiftsFor({ row, shifts: await fetchContactShifts(row.id) })
+    setShiftsFor({ row, shifts: null, late: null })
+    const shifts = await fetchContactShifts(row.id)
+    setShiftsFor(current => (current?.row.id === row.id ? { ...current, shifts } : current))
+    // A locum has no My year page, so their late arrivals are listed here
+    // (this panel is admin only). Read after the shifts, never blocking them.
+    const late = await fetchLateArrivalsForLocum({ contactId: row.id, name: `${row.name} ${row.surname}`.trim() }).catch(() => [])
+    setShiftsFor(current => (current?.row.id === row.id ? { ...current, late } : current))
   }
 
   async function load() {
@@ -217,6 +224,30 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
                 </li>
               ))}
             </ul>
+          )}
+          {shiftsFor.shifts !== null && (
+            <div className="mt-4 border-t border-slate-line pt-3" data-testid="contact-late-arrivals">
+              <h3 className="text-sm font-semibold text-ink">Late arrivals</h3>
+              {shiftsFor.late === null ? (
+                <p className="mt-1 text-sm text-ink-muted">Loading…</p>
+              ) : shiftsFor.late.length === 0 ? (
+                <p className="mt-1 text-sm text-ink-muted">No late arrivals recorded.</p>
+              ) : (
+                <ul className="mt-1 divide-y divide-slate-line">
+                  {shiftsFor.late.map(l => (
+                    <li key={l.id} className="py-2 text-sm">
+                      <p className="flex items-baseline justify-between gap-3">
+                        <span className="font-medium text-ink">{formatDayMonthYear(l.entry_date)} · {labelForShiftCode(l.shift_code)}</span>
+                        <span className="flex-shrink-0 font-semibold text-ink">{lateByLabel(l.minutes_late)} late</span>
+                      </p>
+                      <p className="text-xs text-ink-muted">
+                        Shift start {shiftStartLabel(l.shift_start)} · arrived {shiftStartLabel(l.arrived_at)} · reason given: {l.reason_given || '—'}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </Modal>
       )}

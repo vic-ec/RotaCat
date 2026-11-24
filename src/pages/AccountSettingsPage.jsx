@@ -1778,6 +1778,24 @@ export default function AccountSettingsPage() {
           </div>
         </div>
 
+        {/* ── My year: leave record, shifts, public holidays, attendance.
+            Doctors only — locums and clerks have no such page. ── */}
+        {profile?.role === 'doctor' && profile?.is_approved && (isOwnAccount || isAdmin) && (
+          <div>
+            <SectionLabel>Year</SectionLabel>
+            <Link
+              to={isOwnAccount ? '/my-year' : `/my-year/${profile.id}`}
+              className="card flex items-center gap-3 px-5 py-3 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-ink">{isOwnAccount ? 'My year' : `${profile.name || profile.surname}’s year`}</span>
+                <span className="mt-0.5 block truncate text-xs text-ink-muted">Leave record, shifts, public holidays and attendance</span>
+              </span>
+              <span className="flex-shrink-0 text-ink-muted" aria-hidden="true">›</span>
+            </Link>
+          </div>
+        )}
+
         {/* ── Security & access ─────────────────────────────────── */}
         <div>
         <SectionLabel>Security &amp; Access</SectionLabel>

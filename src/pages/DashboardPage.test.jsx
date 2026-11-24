@@ -25,6 +25,8 @@ import { fetchAdminAttention } from '../lib/adminAttention'
 // the pending *count*, one for the approved rows), so a single
 // "leave_requests:select" fixture couldn't answer both.
 const { mockResponses, eqCalls, updateCalls } = vi.hoisted(() => ({ mockResponses: {}, eqCalls: [], updateCalls: [] }))
+vi.mock('../components/LateArrivalModal', () => ({ default: ({ option, profileId }) => <div role="dialog" aria-label="Log late arrival">{option || profileId ? 'prefilled' : 'today, anyone rostered'}</div> }))
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from(table) {
@@ -133,8 +135,15 @@ describe('DashboardPage', () => {
     expect(screen.getByText('days left')).toBeInTheDocument()
     expect(screen.getByText('0 of 22 booked · 0 pending')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
-    expect(screen.getByRole('link', { name: 'Request leave' })).toHaveAttribute('href', '/leave?tab=my-leave')
-    expect(screen.getByRole('link', { name: 'Request swap' })).toHaveAttribute('href', '/swaps')
+    // Request leave and Request swap side by side, above the first heading.
+    const request = screen.getByRole('button', { name: 'Request leave' })
+    const swap = screen.getByRole('link', { name: 'Request swap' })
+    expect(swap).toHaveAttribute('href', '/swaps')
+    expect(swap.parentElement).toBe(request.parentElement)
+    expect(request.closest('section')).toBeNull()
+    expect(request.compareDocumentPosition(screen.getByText('Upcoming shifts')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Capture leave' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
   })
 
   it('doctor: lists the week ahead as rows — date cell, shift and hour, co-workers, time chip', async () => {
@@ -283,19 +292,19 @@ describe('DashboardPage', () => {
     renderDashboard()
 
     // One Team leave section: heading on the page with its link, a card
-    // split into today and the week ahead.
+    // with a row for today and a row for the week ahead.
     expect(await screen.findByText('On Leave')).toBeInTheDocument()
     const heading = screen.getByText('Team leave').closest('div')
     expect(within(heading).getByRole('link', { name: /View team leave/ })).toHaveAttribute('href', '/leave?tab=team')
-    const today_ = screen.getByText('Away today').closest('div')
+    const today_ = screen.getByText('Away today').closest('li')
     // Each name carries its leave type — "away" alone never said what for.
     expect(within(today_).getByText('On Leave')).toBeInTheDocument()
     expect(within(today_).getByText(/^Annual · /)).toBeInTheDocument()
     // Sick leave is not planned leave: it has its own panel, today and the last week
     expect(within(today_).queryByText('Off Sick')).not.toBeInTheDocument()
-    expect(within(screen.getByText('Off sick today').closest('div')).getByText('Off Sick')).toBeInTheDocument()
-    expect(within(screen.getByText('Last 7 days').closest('div')).getByText('Back Now')).toBeInTheDocument()
-    const next = screen.getByText('Next 7 days').closest('div')
+    expect(within(screen.getByText('Off sick today').closest('li')).getByText('Off Sick')).toBeInTheDocument()
+    expect(within(screen.getByText('Last 7 days').closest('li')).getByText('Back Now')).toBeInTheDocument()
+    const next = screen.getByText('Next 7 days').closest('li')
     expect(within(next).getByText('Soon Doctor')).toBeInTheDocument()
     expect(within(next).getByText(/^Annual · /)).toBeInTheDocument()
     // Every name carries its avatar, the same one the Staff list shows.
@@ -369,5 +378,44 @@ describe('DashboardPage', () => {
     expect(screen.queryByText('Your leave')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Roster' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Staff' })).toBeInTheDocument()
+  })
+})
+
+describe('DashboardPage — Log late arrival', () => {
+  it('admin: a button on the Needs attention heading opens the form with nothing but today filled in', async () => {
+    mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
+    getDashboardHoursWarnings.mockResolvedValue([])
+    renderDashboard()
+    const button = await screen.findByRole('button', { name: 'Log late arrival' })
+    // Above the Needs attention heading, not on it.
+    expect(button.closest('section')).toBeNull()
+    expect(button.compareDocumentPosition(screen.getByText('Needs attention')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: 'Log late arrival' })).not.toBeInTheDocument()
+    await userEvent.click(button)
+    expect(screen.getByRole('dialog', { name: 'Log late arrival' })).toHaveTextContent('today, anyone rostered')
+  })
+
+  it('admin: Capture leave sits beside Log late arrival and opens the capture form', async () => {
+    mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
+    getDashboardHoursWarnings.mockResolvedValue([])
+    renderDashboard()
+    const capture = await screen.findByRole('button', { name: 'Capture leave' })
+    expect(capture.parentElement).toBe(screen.getByRole('button', { name: 'Log late arrival' }).parentElement)
+    await userEvent.click(capture)
+    expect(screen.getByRole('dialog', { name: 'Capture leave for a doctor' })).toBeInTheDocument()
+  })
+
+  it('doctor: Request leave opens the request form in place', async () => {
+    mockAuth = { profile: { id: 'doctor-1', name: 'Jane' }, isAdmin: false }
+    renderDashboard()
+    await userEvent.click(await screen.findByRole('button', { name: 'Request leave' }))
+    expect(screen.getByRole('dialog', { name: 'Request leave' })).toBeInTheDocument()
+  })
+
+  it('is not shown to a doctor', async () => {
+    mockAuth = { profile: { id: 'doc-1', name: 'Doc' }, isAdmin: false }
+    renderDashboard()
+    await screen.findAllByText(/./)
+    expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
   })
 })

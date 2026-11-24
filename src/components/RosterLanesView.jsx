@@ -188,6 +188,9 @@ function buildDayColumns(days, padToWeek) {
 // something the row label already says. See src/lib/shiftBands.js.
 export default function RosterLanesView({
   days, profiles, entries, shiftTypes, displayNames, entryMap, padToWeek = false, textSize = 'md', leaveByProfile = {},
+  // Admins outside Edit mode: a tap on a worked shift (to log a late
+  // arrival), and the entries that already have one (a small dot).
+  onShiftClick, lateEntryIds = new Map(),
 }) {
   const { base } = rosterTextSize(textSize)
   const scale = rosterTextScale(textSize)
@@ -217,6 +220,8 @@ export default function RosterLanesView({
   // at most one shift a day (findSameDayConflict enforces it), so this is a
   // flat lookup rather than a list.
   const byProfileDate = new Map()
+  // profileId -> date -> the roster entry itself, for onShiftClick.
+  const entryOn = new Map()
   // profileId -> date -> "10h–20h" where the shift's hours were adjusted.
   const adjustedOn = new Map()
   entries.forEach(entry => {
@@ -225,6 +230,8 @@ export default function RosterLanesView({
     if (!code) return
     if (!byProfileDate.has(entry.profile_id)) byProfileDate.set(entry.profile_id, new Map())
     byProfileDate.get(entry.profile_id).set(entry.date, code)
+    if (!entryOn.has(entry.profile_id)) entryOn.set(entry.profile_id, new Map())
+    entryOn.get(entry.profile_id).set(entry.date, entry)
     const times = adjustedTimesLabel(entry)
     if (times) {
       if (!adjustedOn.has(entry.profile_id)) adjustedOn.set(entry.profile_id, new Map())
@@ -492,14 +499,22 @@ export default function RosterLanesView({
                   const fill = band ? band.fill : 'bg-accent-light'
                   const text = band ? band.text : 'text-accent-dark'
                   const label = band ? band.label : 'On call'
+                  const laneEntry = code ? entryOn.get(profile.id)?.get(day.dateStr) : null
+                  const isLate = Boolean(laneEntry && lateEntryIds.has(laneEntry.id))
+                  const cellTitle = `${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}${adjustedOn.get(profile.id)?.get(day.dateStr) ? ` · worked ${adjustedOn.get(profile.id).get(day.dateStr)}` : ''}${isLate ? ' · late arrival recorded' : ''}`
+                  const cellClass = `relative block w-full px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums ${fill} ${text}`
+                  const lateDot = isLate && <span data-testid="late-marker" aria-hidden="true" className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-ink print:hidden" />
                   return (
                     <td key={key} className="border-r border-slate-hairline p-0">
-                      <span
-                        className={`block px-0.5 py-1 text-center text-[0.834em] font-semibold tabular-nums ${fill} ${text}`}
-                        title={`${day.dateStr} — ${code ? labelForShiftCode(code) : 'Consultant on call'}${adjustedOn.get(profile.id)?.get(day.dateStr) ? ` · worked ${adjustedOn.get(profile.id).get(day.dateStr)}` : ''}`}
-                      >
-                        {band ? label : 'C'}
-                      </span>
+                      {onShiftClick && laneEntry ? (
+                        <button type="button" onClick={() => onShiftClick(laneEntry)} className={cellClass} title={cellTitle}>
+                          {band ? label : 'C'}{lateDot}
+                        </button>
+                      ) : (
+                        <span className={cellClass} title={cellTitle}>
+                          {band ? label : 'C'}{lateDot}
+                        </span>
+                      )}
                     </td>
                   )
                 })}

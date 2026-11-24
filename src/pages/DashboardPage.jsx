@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { applyTimeOverrides } from '../lib/shiftTimes'
 import { Link } from 'react-router-dom'
-import { AlarmClock, ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
+import { AlarmClock, ArrowLeftRight, ChevronRight, Plus, TriangleAlert, UserPlus } from 'lucide-react'
+import Modal from '../components/Modal'
+import LeaveRequestForm from '../components/LeaveRequestForm'
 import LateArrivalModal from '../components/LateArrivalModal'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -35,11 +37,15 @@ const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // How far back the sick-leave panel's "recently" column looks.
 const SICK_LOOKBACK_DAYS = 7
 
+// `action`: buttons for the section. Beside the heading from md; on a phone
+// they drop to their own full-width row under it, so a long heading and its
+// link are never squeezed into a column.
 function SectionHeading({ children, to, linkLabel, action = null }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
       <h2 className="text-sm font-semibold text-ink">{children}</h2>
-      {action}
+      <span className="flex-1" />
+      {action && <div className="order-last flex w-full gap-2 md:order-none md:w-auto [&>*]:flex-1 md:[&>*]:flex-none">{action}</div>}
       {to && (
         <Link to={to} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
           {linkLabel} ›
@@ -135,6 +141,8 @@ function fullName(person) {
 export default function DashboardPage() {
   const { profile, isAdmin, isClerk, isLocum } = useAuth()
   const [lateOpen, setLateOpen] = useState(false)
+  // 'capture' (admin, for any doctor) | 'request' (a doctor, their own) | null
+  const [leaveForm, setLeaveForm] = useState(null)
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
   const [coworkersByKey, setCoworkersByKey] = useState({})
@@ -468,7 +476,20 @@ export default function DashboardPage() {
                 is itself worth stating under a heading, and the link out is
                 exactly what someone with no shifts wants. The empty message
                 sits inside the panel, in place of the chips. */}
-            <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
+            {/* Request leave sits where an admin's Capture leave does: on
+                the first heading. */}
+            <SectionHeading
+              to="/roster"
+              linkLabel="View roster"
+              action={!isLocum && (
+                <button type="button" onClick={() => setLeaveForm('request')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Request leave
+                </button>
+              )}
+            >
+              Upcoming shifts
+            </SectionHeading>
             {myShifts.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">No shifts in the next 7 days</p>
             ) : (
@@ -537,11 +558,13 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {/* Quick actions — the two things a doctor comes here to start. */}
-          <div className="grid grid-cols-2 gap-3">
-            {!isLocum && <Link to={MY_LEAVE_PATH} className="btn-primary py-2.5">Request leave</Link>}
-            <Link to={SWAPS_PATH} className={`btn-secondary py-2.5 ${isLocum ? 'col-span-2' : ''}`}>Request swap</Link>
-          </div>
+          {leaveForm === 'request' && (
+            <Modal title="Request leave" onClose={() => setLeaveForm(null)} centered>
+              <LeaveRequestForm onSubmitted={() => { setLeaveForm(null); loadDoctorWidgets({ silent: true }) }} />
+            </Modal>
+          )}
+          {/* Quick action — Request leave moved up to the first heading. */}
+          <Link to={SWAPS_PATH} className="btn-secondary w-full py-2.5">Request swap</Link>
 
           {/* 3. Shift swaps — only when one is actually waiting on an answer */}
           {incomingSwaps.length > 0 && (
@@ -655,15 +678,26 @@ export default function DashboardPage() {
                 own): today's date filled in, then anyone rostered today. */}
             <SectionHeading
               action={(
-                <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] whitespace-nowrap text-sm md:min-h-0">
-                  <AlarmClock className="h-4 w-4" aria-hidden="true" />
-                  Log late arrival
-                </button>
+                <>
+                  <button type="button" onClick={() => setLeaveForm('capture')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+                    <UserPlus className="h-4 w-4" aria-hidden="true" />
+                    Capture leave
+                  </button>
+                  <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+                    <AlarmClock className="h-4 w-4" aria-hidden="true" />
+                    Log late arrival
+                  </button>
+                </>
               )}
             >
               Needs attention
             </SectionHeading>
             {lateOpen && <LateArrivalModal onClose={() => setLateOpen(false)} />}
+            {leaveForm === 'capture' && (
+              <Modal title="Capture leave for a doctor" onClose={() => setLeaveForm(null)} centered>
+                <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => { loadAdminWidgets({ silent: true }) }} />
+              </Modal>
+            )}
             {pendingLeaveCount === 0 && hoursWarnings.length === 0 && attentionItems.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (

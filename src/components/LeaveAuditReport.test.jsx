@@ -334,14 +334,30 @@ describe('LeaveAuditReport — By month', () => {
     const cell = screen.getByRole('button', { name: 'Ada Zephyr, March: 5 days on leave' })
 
     act(() => cell.focus())
-    expect(screen.getByTestId('month-breakdown').textContent).toMatch(/March 2026.*Ada Zephyr/s)
+    const preview = screen.getByTestId('month-breakdown')
+    expect(preview.textContent).toMatch(/March 2026.*Ada Zephyr/s)
+    // Hover/focus preview: links greyed, a hint, no ×, and the month outlined rather than filled.
+    expect(within(preview).queryByRole('link')).not.toBeInTheDocument()
+    expect(within(preview).getByText('Their year ›')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByTestId('month-breakdown-hint')).toHaveTextContent('Click the month to keep this open and use the links.')
+    expect(within(preview).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+    expect(cell).toHaveAttribute('aria-pressed', 'false')
     await user.click(cell)
+    // Pinned: the month turns teal, the hint goes, and an × closes it.
+    expect(cell).toHaveAttribute('aria-pressed', 'true')
+    expect(cell.className).toMatch(/bg-accent/)
+    expect(screen.queryByTestId('month-breakdown-hint')).not.toBeInTheDocument()
     const dialog = screen.getByRole('dialog', { name: 'March 2026, Ada Zephyr' })
     expect(dialog.textContent).toMatch(/Annual leave.*10–14 Mar.*5 days/s)
     expect(dialog.textContent).toMatch(/Annual 5 · Sick 0 · Other 0/)
     expect(within(dialog).getByRole('link', { name: /Roster/ })).toHaveAttribute('href', '/roster/m3')
     expect(within(dialog).getByRole('link', { name: /Their year/ })).toHaveAttribute('href', '/my-year/p1?tab=leave&year=2026')
 
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByTestId('month-breakdown')).not.toBeInTheDocument()
+    expect(cell).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(cell)
     await user.keyboard('{Escape}')
     expect(screen.queryByTestId('month-breakdown')).not.toBeInTheDocument()
   })

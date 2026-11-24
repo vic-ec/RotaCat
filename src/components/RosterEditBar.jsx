@@ -1,4 +1,4 @@
-import { CircleCheck, History, Undo2 } from 'lucide-react'
+import { CalendarX2, CircleCheck, History, Undo2 } from 'lucide-react'
 
 // The persistent bar shown the whole time roster editing is on. Not
 // dismissible: the only way off it is Done.
@@ -16,7 +16,10 @@ import { CircleCheck, History, Undo2 } from 'lucide-react'
 // gap. Kept here beside the layout it measures.
 export const EDIT_BAR_HEIGHT = 52
 
-export default function RosterEditBar({ canUndo, undoing = false, onUndo, onHistory, onDone, notice = null }) {
+// `onAbsence`, when given, adds "Absence": capture leave, a course or any
+// other time away for a doctor without leaving the roster — for rosters
+// rebuilt from paper, where the absences live on the paper copy.
+export default function RosterEditBar({ canUndo, undoing = false, onUndo, onHistory, onDone, onAbsence, notice = null }) {
   const btn = 'h-[30px] px-2.5 text-sm md:px-3'
   return (
     <div
@@ -41,9 +44,15 @@ export default function RosterEditBar({ canUndo, undoing = false, onUndo, onHist
             <Undo2 className="h-4 w-4" />
             <span>{undoing ? 'Undoing…' : <><span className="md:hidden">Undo</span><span className="hidden md:inline">Undo last</span></>}</span>
           </button>
-          <button type="button" onClick={onHistory} className={`btn-secondary ${btn}`}>
+          {onAbsence && (
+            <button type="button" onClick={onAbsence} className={`btn-secondary ${btn}`} title="Record leave, a course or other time away" aria-label="Record an absence">
+              <CalendarX2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Absence</span>
+            </button>
+          )}
+          <button type="button" onClick={onHistory} className={`btn-secondary ${btn}`} title="History" aria-label="History">
             <History className="h-4 w-4" />
-            <span>History</span>
+            <span className={onAbsence ? 'hidden sm:inline' : ''}>History</span>
           </button>
           <button type="button" onClick={onDone} className={`btn-primary ${btn}`}>
             <CircleCheck className="h-4 w-4" />

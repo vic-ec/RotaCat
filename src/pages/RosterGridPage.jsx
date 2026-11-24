@@ -32,6 +32,7 @@ import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import RosterJumpButton from '../components/RosterJumpButton'
 import Modal from '../components/Modal'
+import LeaveRequestForm from '../components/LeaveRequestForm'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -125,6 +126,8 @@ export default function RosterGridPage() {
   const [consultantProfiles, setConsultantProfiles] = useState([]) // Consultant-category profiles, for the Consultant column dropdown
   const [shiftTypes, setShiftTypes] = useState({}) // keyed by id -> code
   const [shiftTypeRows, setShiftTypeRows] = useState({}) // keyed by id -> { code, start_time, end_time }
+  // "Absence" on the edit bar: the Capture leave form, for this month.
+  const [absenceOpen, setAbsenceOpen] = useState(false)
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -948,8 +951,22 @@ export default function RosterGridPage() {
           onUndo={undoLastAction}
           onHistory={() => setShowChangeLog(true)}
           onDone={() => setEditing(false)}
+          onAbsence={() => setAbsenceOpen(true)}
           notice={editNotice || null}
         />
+      )}
+
+      {absenceOpen && rosterMonth && (
+        <Modal title="Record an absence" onClose={() => setAbsenceOpen(false)} centered>
+          {/* Approved on the spot, like Team Leave's Capture leave. Stays
+              open so several can be entered in one sitting from the paper
+              roster; the grid's leave re-reads after each. */}
+          <LeaveRequestForm
+            captureOnly
+            initialDateFrom={monthBounds(rosterMonth.year, rosterMonth.month).start}
+            onSubmitted={refreshLeave}
+          />
+        </Modal>
       )}
 
       {canEdit && toastVisible && lastAction && lastAction.byUserId === user.id && (

@@ -8,6 +8,7 @@ import { annualDaysInRange } from './leaveDashboard'
 import { fetchApprovedLeaveByProfile } from './approvedLeave'
 import { isEntryOnLeave } from './rosterVacancy'
 import { entryDurationHours } from './shiftTimes'
+import { fetchMonthMinimums } from './contractMinimum'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
 // set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
@@ -27,6 +28,10 @@ function emptyRow(profile) {
     category: profile.category,
     contractType: profile.contract_type,
     minHours: profile.min_hours,
+    // This month's minimum (lib/contractMinimum.js): lowered for leave,
+    // for days not in the EC, and by the engine's variance.
+    adjustedMinHours: profile.min_hours,
+    minimumDetail: null,
     maxHours: profile.max_hours,
     colorCode: profile.color_code,
     totalHours: 0,
@@ -62,7 +67,7 @@ export async function fetchRosterSummary({ month, year }) {
 
   const [profilesRes, rosterMonthsRes, leaveRes, ledgerRes] = await Promise.all([
     supabase.from('profiles')
-      .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code')
+      .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code, ec_start_date, scheduled_inactive_date')
       .eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant')
       .order('surname'),
     supabase.from('roster_months').select('id').eq('year', year).eq('month', month).is('deleted_at', null),
@@ -139,6 +144,14 @@ export async function fetchRosterSummary({ month, year }) {
     // `leaveDays` stays calendar days — how long the doctor is away.
     row.leaveDays += calendarDays
     row.leaveByType[lr.leave_type] = (row.leaveByType[lr.leave_type] || 0) + typeDays
+  }
+
+  const minimums = await fetchMonthMinimums({ profiles: profilesRes.data || [], year, month })
+  for (const row of rows) {
+    const m = minimums.get(row.profileId)
+    if (!m) continue
+    row.adjustedMinHours = m.minimum
+    row.minimumDetail = m
   }
 
   // Cumulative, not month-scoped — a running PH-in-lieu balance owed/taken

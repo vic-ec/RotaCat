@@ -60,3 +60,13 @@ describe('monthMinimum', () => {
     expect(monthMinimum({ profile: { id: 'i', category: 'Intern', min_hours: 220 }, ...nov }).minimum).toBe(210)
   })
 })
+
+import { isUnderHoursTracked } from './contractMinimum'
+
+describe('isUnderHoursTracked', () => {
+  it('checks under-hours from November 2026, when absences started being recorded in the app', () => {
+    expect(isUnderHoursTracked(2026, 10)).toBe(false)
+    expect(isUnderHoursTracked(2026, 11)).toBe(true)
+    expect(isUnderHoursTracked(2027, 1)).toBe(true)
+  })
+})

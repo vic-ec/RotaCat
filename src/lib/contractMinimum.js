@@ -21,6 +21,19 @@ import { OT_HOURS, ROTATION_PLANNED_CATEGORIES } from './staffDefaults'
 // The engine also counts calendar blocks as unavailable. That table is
 // empty and only its owner can read it, so it isn't read here.
 
+// Absences before this month were never recorded in the app — rosters up
+// to October 2026 were rebuilt from paper, and their sick leave lived on
+// scattered notes. Under-hours isn't judged for those months; over-hours
+// still is, since a missing absence can't cause it.
+export const HOURS_TRACKED_FROM = '2026-11-01'
+export function isUnderHoursTracked(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}-01` >= HOURS_TRACKED_FROM
+}
+export function trackedFromLabel() {
+  const [y, m] = HOURS_TRACKED_FROM.split('-').map(Number)
+  return `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1]} ${y}`
+}
+
 export const ENGINE_FLOOR = 210
 export const ENGINE_CONTRACT = 220
 const EC_ROTATION_MIN = 220

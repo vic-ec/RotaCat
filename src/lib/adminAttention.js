@@ -12,7 +12,7 @@ import { saturdaysInMonth } from './weekendPlanner'
 import { endOfRotationFlag } from './internRotations'
 import { getMonthlyHoursByProfile } from './monthlyHours'
 import { OPEN_LOCUM_LABEL } from './locumCover'
-import { fetchMonthMinimums, MINIMUM_PROFILE_FIELDS } from './contractMinimum'
+import { fetchMonthMinimums, isUnderHoursTracked, MINIMUM_PROFILE_FIELDS } from './contractMinimum'
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -212,7 +212,7 @@ export async function fetchAdminAttention(now = new Date()) {
 
   // Under-minimum only means something once this month has a roster.
   let underMinimum = 0
-  if (rosters.some(r => r.year === year && r.month === month)) {
+  if (isUnderHoursTracked(year, month) && rosters.some(r => r.year === year && r.month === month)) {
     try {
       const profiles = doctorsRes.data || []
       const [hoursByProfile, minimums] = await Promise.all([

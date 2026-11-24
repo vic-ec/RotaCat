@@ -18,7 +18,7 @@ npm run preview         # preview the production build locally
 npm run lint           # eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0
 ```
 
-There is no test suite in this repo yet.
+Tests are Vitest (`npm run test`); component tests mock `src/lib/supabase`.
 
 Local setup requires `.env.local` (copy from `.env.example`) with `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and `VITE_SCHEDULER_URL`. The Supabase client (`src/lib/supabase.js`) throws at import time if the Supabase vars are missing, so the app won't boot without them.
 
@@ -36,11 +36,13 @@ Local setup requires `.env.local` (copy from `.env.example`) with `VITE_SUPABASE
 **Auth flow** (`src/context/AuthContext.jsx` + `src/components/ProtectedRoute.jsx`):
 - Supabase auth session drives a `profiles` table lookup (role, `is_approved`, name/surname/category) — the profile row, not the auth user, is what the rest of the app reads from `useAuth()`.
 - New signups aren't usable until an admin sets `is_approved = true` on their profile; unapproved users are routed to `/pending` regardless of what URL they hit (see the `PendingRoute` wrapper in `App.jsx`).
-- `isAdmin` is derived from `profile.role === 'admin'` and drives both route guarding (`ProtectedRoute adminOnly`) and which nav items render in `AppLayout` (`adminNav` vs `doctorNav`).
+- `isAdmin` is derived from `profile.is_admin === true` (roles are `doctor`/`locum`/`clerk`; admin is a flag, checked in the database by `is_admin()`) and drives both route guarding (`ProtectedRoute adminOnly`) and which nav items render in `AppLayout` (`adminNav` vs `doctorNav`).
 
 **Routing** (`src/App.jsx`): all authenticated routes nest under one `ProtectedRoute` + `AppLayout` shell. Unbuilt phases are wired up front with `PlaceholderPage` rather than left unrouted — follow that pattern when stubbing a future phase instead of omitting the route.
 
 **Roster domain model** (see `src/pages/RosterGridPage.jsx` for the fullest picture): `roster_months` (one row per year+month, status `draft`/`published`/`archived`) has many `roster_entries` (date + position + profile_id + shift_type_id). Shift codes are day-type-dependent — weekday, weekend, and public-holiday days each have a different shift set (`WD_*`, `WE_*`, `PHW_*`, `PH_*`), looked up per-date against `public_holidays`. `staff_reference`/`profiles` carry scheduling constraints per doctor (`contract_type`, `min_hours`/`max_hours`, `weekend_day_saturday_only`, `no_weekend_nights`) that the OR-Tools backend consumes — the frontend mostly displays/edits these, it doesn't enforce them.
+
+**My year** (`/my-year`, `/my-year/:profileId` for admins; `src/pages/MyYearPage.jsx`): one person's leave, shifts, public holidays, days in lieu and attendance for a year, all read from existing tables. Every figure is calculated in the pure module `src/lib/myYear.js` (components only format); `src/lib/myYearData.js` does the reads. Days in lieu are calculated (1 per public holiday shift worked on a published or archived roster, minus approved `time_off_in_lieu`) — Hours Summary reads the same helper; `ph_lieu_ledger` is unused. Not a nav item: reached from My leave, Account, All Leave and the Staff list.
 
 **Styling**: Tailwind with a custom design-token palette in `tailwind.config.js` — use the semantic tokens (`ink`, `canvas`, `accent`, `rose`, `flagRed`/`flagAmber`/`flagBlue`/`success`) rather than raw Tailwind colors. The `flag*`/`success` colors are reserved strictly for roster-state semantics (draft/published/conflict indicators) — don't reach for them as general-purpose UI colors. Shared component classes (`.btn-primary`, `.btn-secondary`, `.card`, `.input-field`, `.label-text`) are defined once in `src/styles/index.css` under `@layer components`; prefer reusing them over ad hoc utility strings for buttons/cards/inputs. There's also an unused/exploratory dark theme (`night`, `graphite` tokens) kept as its own namespace, not yet wired into any page.
 

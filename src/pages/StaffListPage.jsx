@@ -1957,6 +1957,12 @@ export default function StaffListPage() {
               href={mailHref}
               onClick={mailHref ? closeQuickActions : missing('Mail')}
             />
+            {isAdmin && quickActionPerson.role === 'doctor' && quickActionPerson.is_approved !== false && (
+              <QuickActionRow
+                label={`${quickActionPerson.name || quickActionPerson.surname || 'Their'}’s year`}
+                onClick={() => { const id = quickActionPerson.id; closeQuickActions(); navigate(`/my-year/${id}`) }}
+              />
+            )}
             {isAdmin && (
               <QuickActionRow
                 label="Update status"

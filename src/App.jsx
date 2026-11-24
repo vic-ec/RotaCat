@@ -20,6 +20,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage'
 import PendingApprovalReviewPage from './pages/PendingApprovalReviewPage'
 import LeavePlannerPage from './pages/LeavePlannerPage'
 import WeekendPlannerPage from './pages/WeekendPlannerPage'
+import MyYearPage from './pages/MyYearPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 
 // Standalone (outside the ProtectedRoute shell) because that shell is
@@ -95,6 +96,11 @@ function AppRoutes() {
           <Route path="account/:id" element={<AccountSettingsPage />} />
           <Route path="leave" element={<LeavePlannerPage />} />
           <Route path="weekend" element={<WeekendPlannerPage />} />
+          {/* "My year": the signed-in doctor's own, or (admins) someone
+              else's. Reached from My leave, Account, All Leave and the
+              Staff list — deliberately not a nav item. */}
+          <Route path="my-year" element={<MyYearPage />} />
+          <Route path="my-year/:profileId" element={<MyYearPage />} />
           <Route
             path="swaps"
             element={<PlaceholderPage title="Shift swaps" description="Swap request workflow coming in a later phase." maxWidthClassName="md:max-w-2xl" />}

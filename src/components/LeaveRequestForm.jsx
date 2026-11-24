@@ -70,11 +70,11 @@ const WEEKEND_EXCEPTION_HINT = 'Pick the Saturday — the Sunday is added automa
 // `subject` (the doctor the leave is for), never the signed-in profile.
 // `captureOnly`: opened from an admin-only "Capture leave" action, so the
 // picker starts empty instead of on the admin themself.
-export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual', captureOnly = false }) {
+export default function LeaveRequestForm({ onSubmitted, initialDateFrom = '', initialDateTo = '', initialLeaveType = 'annual', captureOnly = false, initialSubjectId = null }) {
   const { profile: ownProfile, isAdmin, canSubmitLeave } = useAuth()
   // An admin who isn't a doctor themself has nobody to default to either.
   const canFileForSelf = !captureOnly && (!isAdmin || canSubmitLeave !== false)
-  const [subjectId, setSubjectId] = useState(canFileForSelf ? (ownProfile?.id ?? null) : null)
+  const [subjectId, setSubjectId] = useState(initialSubjectId ?? (canFileForSelf ? (ownProfile?.id ?? null) : null))
   const [candidates, setCandidates] = useState([])
   const [rosterOverlaps, setRosterOverlaps] = useState([]) // [{ date, rosterMonthId }]
   const [subjectLeave, setSubjectLeave] = useState(null)   // null until read

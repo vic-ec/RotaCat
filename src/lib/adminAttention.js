@@ -29,10 +29,39 @@ export function nextMonthOf(year, month) {
 //   pendingSignups, accountRequests, neverSignedIn — counts
 //   rotationsEnding          — doctors whose last rotation ends this month with nothing after
 //   underMinimum             — doctors rostered below their contracted minimum this month
+// Pure: rostered shifts from today on whose doctor holds approved leave
+// over the date — the doctor is still on the shift and nobody has
+// decided on cover. Entries: { id, date, roster_month_id, profile_id };
+// leave: { profile_id, date_from, date_to }. Earliest first.
+export function shiftsOnLeave(entries, leave, today) {
+  const byProfile = new Map()
+  for (const l of leave || []) {
+    if (!byProfile.has(l.profile_id)) byProfile.set(l.profile_id, [])
+    byProfile.get(l.profile_id).push([l.date_from.slice(0, 10), l.date_to.slice(0, 10)])
+  }
+  return (entries || [])
+    .map(e => ({ ...e, date: e.date.slice(0, 10) }))
+    .filter(e => e.date >= today && (byProfile.get(e.profile_id) || []).some(([f, t]) => e.date >= f && e.date <= t))
+    .sort((a, b) => a.date.localeCompare(b.date))
+}
+
 export function buildAttentionItems(data) {
   const { year, month } = data
   const next = nextMonthOf(year, month)
   const items = []
+
+  // 0. A doctor on approved leave still holding a published shift: the
+  //    shift has nobody working it until cover is arranged. Links to the
+  //    earliest, with its cover form open.
+  if (data.shiftsOnLeave?.length > 0) {
+    const first = data.shiftsOnLeave[0]
+    const n = data.shiftsOnLeave.length
+    items.push({
+      key: 'shifts-on-leave', count: n,
+      to: `/roster/${first.roster_month_id}?date=${first.date}&doctor=${first.profile_id}&mode=edit&cover=1`,
+      label: `rostered ${plural(n, 'shift needs', 'shifts need')} cover — the doctor is on leave`,
+    })
+  }
   const isCurrentOrLater = r => r.year > year || (r.year === year && r.month >= month)
 
   // 1. Unfilled shifts in a published roster, this month onward — a
@@ -171,6 +200,18 @@ export async function fetchAdminAttention(now = new Date()) {
   ))
   const locumCountByRosterId = Object.fromEntries(published.map((r, i) => [r.id, locumCounts[i].count || 0]))
 
+  // Published shifts from today whose doctor is on approved leave.
+  let onLeaveShifts = []
+  if (published.length > 0) {
+    const [entriesRes, futureLeaveRes] = await Promise.all([
+      safe(supabase.from('roster_entries').select('id, date, roster_month_id, profile_id')
+        .in('roster_month_id', published.map(r => r.id)).gte('date', today)
+        .not('profile_id', 'is', null).eq('is_locum', false), empty),
+      safe(supabase.from('leave_requests').select('profile_id, date_from, date_to').eq('status', 'approved').gte('date_to', today), empty),
+    ])
+    onLeaveShifts = shiftsOnLeave(entriesRes.data, futureLeaveRes.data, today)
+  }
+
   // Under-minimum only means something once this month has a roster.
   let underMinimum = 0
   if (rosters.some(r => r.year === year && r.month === month)) {
@@ -202,6 +243,7 @@ export async function fetchAdminAttention(now = new Date()) {
 
   return buildAttentionItems({
     year, month, rosters, locumCountByRosterId,
+    shiftsOnLeave: onLeaveShifts,
     plannedSaturdays: new Set((plannerRes.data || []).map(e => e.weekend_saturday)),
     pendingSignups: signupsRes.count || 0,
     accountRequests: requestsRes.count || 0,

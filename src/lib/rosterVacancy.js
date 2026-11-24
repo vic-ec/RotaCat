@@ -207,7 +207,7 @@ export function entryAbsence(entry, leaveByProfile) {
   }
   const range = leaveRangeOn(leaveByProfile, entry.profile_id, entry.date)
   if (range) {
-    return { kind: 'on_leave', profileId: entry.profile_id, reason: 'leave', leaveRange: range }
+    return { kind: 'on_leave', profileId: entry.profile_id, reason: 'leave', leaveRange: range, byId: range[4] || null }
   }
   return null
 }
@@ -236,7 +236,10 @@ export function absenceSummary({ absence, leaveByProfile, doctorName, coverName,
     lines.push(coverName ? `Covered by ${coverName}` : absence.noCover ? 'Shift not covered' : absence.open ? 'Shift open — no cover yet' : 'Covered by a locum')
     if (byName) lines.push(`Recorded by ${byName}`)
   } else {
-    lines.push('Still on the roster for this shift')
+    // On leave but still on the shift: nobody has arranged cover yet.
+    // Hours do not count either way (isEntryOnLeave).
+    lines.push('Shift not covered')
+    if (byName) lines.push(`Recorded by ${byName}`)
   }
   if (canSeeNote && absence.note) lines.push(`Note: ${absence.note}`)
   return { doctorName: doctorName || 'This doctor', headline, lines }

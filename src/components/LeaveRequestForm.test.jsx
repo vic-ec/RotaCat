@@ -76,8 +76,8 @@ describe('LeaveRequestForm', () => {
     await user.type(screen.getByLabelText('To'), '2026-11-20')
     expect(await screen.findByTestId('roster-overlap-note')).toHaveTextContent('Rostered on 20 Nov — capturing leave will not remove the shift.')
     // The warning links to that day on the roster, in a new tab.
-    const rosterLink = screen.getByRole('link', { name: 'Go to roster: 20 Nov' })
-    expect(rosterLink).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
+    const rosterLink = screen.getByRole('link', { name: 'Arrange cover: 20 Nov' })
+    expect(rosterLink).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2&mode=edit&cover=1')
     expect(rosterLink).toHaveAttribute('target', '_blank')
 
     await user.click(screen.getByRole('button', { name: 'Capture leave' }))
@@ -86,7 +86,7 @@ describe('LeaveRequestForm', () => {
     })))
     expect(await screen.findByText(/Leave captured for Sam Rivers and approved\./)).toBeInTheDocument()
     // The link survives the form reset, so the shift can still be reached.
-    expect(screen.getByRole('link', { name: 'Go to roster: 20 Nov' })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2')
+    expect(screen.getByRole('link', { name: 'Arrange cover: 20 Nov' })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-20&doctor=doctor-2&mode=edit&cover=1')
   })
 
   it('the doctor picker filters as the admin types a name, and Enter picks the first match', async () => {

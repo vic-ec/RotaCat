@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('./supabase', () => ({ supabase: {} }))
 
-const { buildAttentionItems, countUnderMinimum, nextMonthOf } = await import('./adminAttention')
+const { buildAttentionItems, countUnderMinimum, nextMonthOf, shiftsOnLeave } = await import('./adminAttention')
 
 // December 2026 has four Saturdays: 5, 12, 19, 26.
 const DEC_SATURDAYS = ['2026-12-05', '2026-12-12', '2026-12-19', '2026-12-26']
@@ -92,5 +92,30 @@ describe('countUnderMinimum', () => {
     expect(one.find(i => i.key === 'locum-contacts')).toMatchObject({ count: 1, to: '/staff?tab=requests&sub=new-users', label: 'rostered locum needing an account' })
     const three = buildAttentionItems({ ...quiet, locumContacts: 3 })
     expect(three.find(i => i.key === 'locum-contacts').label).toBe('rostered locums needing accounts')
+  })
+})
+
+describe('shiftsOnLeave', () => {
+  it('finds shifts from today on that fall inside the doctor\'s approved leave, earliest first', () => {
+    const entries = [
+      { id: 'e1', date: '2026-11-26', roster_month_id: 'rm', profile_id: 'a' },
+      { id: 'e2', date: '2026-11-24', roster_month_id: 'rm', profile_id: 'a' },
+      { id: 'e3', date: '2026-11-23', roster_month_id: 'rm', profile_id: 'a' }, // past
+      { id: 'e4', date: '2026-11-24', roster_month_id: 'rm', profile_id: 'b' }, // not on leave
+    ]
+    const leave = [{ profile_id: 'a', date_from: '2026-11-20', date_to: '2026-11-30' }]
+    expect(shiftsOnLeave(entries, leave, '2026-11-24').map(e => e.id)).toEqual(['e2', 'e1'])
+  })
+
+  it('becomes a Needs attention row linking to the earliest shift with its cover form open', () => {
+    const items = buildAttentionItems({ ...quiet, shiftsOnLeave: [
+      { id: 'e2', date: '2026-11-24', roster_month_id: 'rm', profile_id: 'a' },
+      { id: 'e1', date: '2026-11-26', roster_month_id: 'rm', profile_id: 'a' },
+    ] })
+    expect(items[0]).toMatchObject({
+      key: 'shifts-on-leave', count: 2,
+      to: '/roster/rm?date=2026-11-24&doctor=a&mode=edit&cover=1',
+      label: 'rostered shifts need cover — the doctor is on leave',
+    })
   })
 })

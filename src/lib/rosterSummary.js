@@ -9,7 +9,7 @@ import { fetchApprovedLeaveByProfile } from './approvedLeave'
 import { isEntryOnLeave } from './rosterVacancy'
 import { entryDurationHours } from './shiftTimes'
 import { fetchLieuBalances } from './myYearData'
-import { fetchMonthMinimums } from './contractMinimum'
+import { fetchMonthMinimums, isUnderHoursTracked } from './contractMinimum'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
 // set for a PH falling on a weekday (see CLAUDE.md's roster domain model) —
@@ -147,7 +147,10 @@ export async function fetchRosterSummary({ month, year }) {
   }
 
   const minimums = await fetchMonthMinimums({ profiles: profilesRes.data || [], year, month })
+  const underTracked = isUnderHoursTracked(year, month)
   for (const row of rows) {
+    // Before HOURS_TRACKED_FROM no one is judged under their hours.
+    row.underTracked = underTracked
     const m = minimums.get(row.profileId)
     if (!m) continue
     row.adjustedMinHours = m.minimum

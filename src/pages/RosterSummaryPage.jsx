@@ -5,6 +5,7 @@ import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRosterSummary } from '../lib/rosterSummary'
+import { isUnderHoursTracked, trackedFromLabel } from '../lib/contractMinimum'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import DateStepper from '../components/DateStepper'
 import { TodayIcon } from '../components/PlannerIcons'
@@ -51,16 +52,15 @@ function minimumNote(row) {
   const m = row.minimumDetail
   if (!m) return ''
   const parts = [`Contract ${m.contracted}h, less the engine's variance (210 of every 220)`]
-  const leave = m.awayDays - m.notInEcDays
-  if (leave > 0) parts.push(`${leave} day${leave === 1 ? '' : 's'} on leave`)
+  if (m.leaveShifts > 0) parts.push(`${m.leaveShifts} of ${m.expectedShifts} shifts on leave (weekdays)`)
   if (m.notInEcDays > 0) parts.push(`${m.notInEcDays} day${m.notInEcDays === 1 ? '' : 's'} not in the EC`)
-  return `${parts.join(' · ')} (of ${m.daysInMonth})`
+  return parts.join(' · ')
 }
 
 // Under is measured against the month's minimum — the one the
 // roster engine aims for (see lib/contractMinimum.js).
 function hoursBand(row) {
-  if (row.totalHours < (row.adjustedMinHours ?? row.minHours)) return 'under'
+  if (row.underTracked !== false && row.totalHours < (row.adjustedMinHours ?? row.minHours)) return 'under'
   if (row.totalHours > row.maxHours) return 'over'
   return null
 }
@@ -331,6 +331,12 @@ export default function RosterSummaryPage() {
         {leaveOpen ? 'Hide leave breakdown' : 'Show leave breakdown'}
       </button>
 
+      {!isUnderHoursTracked(year, month) && (
+        <p className="mt-3 text-xs text-ink-muted" data-testid="under-not-tracked">
+          Absences before {trackedFromLabel()} weren&apos;t recorded in the app, so under-hours isn&apos;t checked for this month. Over-hours still is.
+        </p>
+      )}
+
       {loading && <p className="mt-6 text-sm text-ink-muted">Loading…</p>}
       {error && <p className="mt-6 text-sm text-flagRed">{error}</p>}
 
@@ -481,7 +487,7 @@ export default function RosterSummaryPage() {
                     </td>
                     <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">
                       {row.minHours}–{row.maxHours}
-                      {row.adjustedMinHours != null && row.adjustedMinHours !== row.minHours && (
+                      {row.underTracked !== false && row.adjustedMinHours != null && row.adjustedMinHours !== row.minHours && (
                         <span className="block text-[10px] text-ink-muted" title={minimumNote(row)}>min {row.adjustedMinHours} this month</span>
                       )}
                     </td>

@@ -331,6 +331,8 @@ describe('RosterGridPage editing: no cover, edit bar, undo', () => {
     const row = rowFor('2026-08-18')
     await user.click(within(row).getByRole('button', { name: /Anderson/ }))
     expect(screen.getByText('Shift not covered')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText('Shift not covered')).not.toBeInTheDocument()
   })
 
   it('the edit bar is there the whole time editing is on, and Done ends it', async () => {

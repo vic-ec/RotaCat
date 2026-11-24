@@ -224,3 +224,30 @@ describe('ShiftMenu — phone', () => {
     expect(dialog().className).toMatch(/rounded-b-none/)
   })
 })
+
+describe('ShiftMenu — late arrival', () => {
+  it('offers "Log late arrival" while editing, for a shift someone is on', async () => {
+    const onLateArrival = vi.fn()
+    const user = userEvent.setup()
+    const h = open(row, { lateArrival: { exists: false }, onLateArrival })
+    await choose(user, /Log late arrival/)
+    expect(onLateArrival).toHaveBeenCalledWith(row)
+    expect(h.onClose).toHaveBeenCalled()
+    // It is not a roster edit: none of the edit handlers fire.
+    expect(h.onVacancy).not.toHaveBeenCalled()
+    expect(h.onChangeTimes).not.toHaveBeenCalled()
+  })
+
+  it('reads "Edit late arrival" when the shift already has a record, and for a locum too', () => {
+    open(locum, { lateArrival: { exists: true }, onLateArrival: vi.fn() })
+    expect(option(/Edit late arrival/)).toBeInTheDocument()
+  })
+
+  it('is not offered when no late arrival can be logged (an open slot, or a shift not started)', () => {
+    open(row)
+    expect(within(dialog()).queryByRole('radio', { name: /late arrival/i })).not.toBeInTheDocument()
+    cleanup()
+    open(slot, { lateArrival: { exists: false }, onLateArrival: vi.fn() })
+    expect(within(dialog()).queryByRole('radio', { name: /late arrival/i })).not.toBeInTheDocument()
+  })
+})

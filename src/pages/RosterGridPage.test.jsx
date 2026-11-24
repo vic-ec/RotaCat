@@ -15,6 +15,7 @@ vi.mock('../lib/rosterUndo', async () => ({ ...(await vi.importActual('../lib/ro
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
 vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue({ error: null }), setLogErrorListener: vi.fn() }))
 vi.mock('../lib/weekendPatternSync', () => ({ syncWeekendPatternsFromEntries: vi.fn() }))
+vi.mock('../components/LateArrivalModal', () => ({ default: ({ option }) => <div role="dialog" aria-label="late form">{option.label} · {option.date}</div> }))
 vi.mock('../components/RosterLanesView', () => ({ default: () => null, LanesLegend: () => null }))
 
 const SHIFT_TYPES = ['WD_08', 'WD_12', 'WD_15', 'WD_22', 'WE_08', 'WE_13', 'WE_20', 'PHW_08', 'PHW_12', 'PHW_15', 'PHW_22', 'PH_08', 'PH_13', 'PH_20']
@@ -26,6 +27,7 @@ const PROFILES = [
 const CONSULTANTS = [{ id: 'c1', name: 'Dee', surname: 'De Haan', color_code: '#0F766E' }]
 let mockRosterStatus = 'draft'
 let extraEntries = []
+let lateRows = []
 const ENTRIES = [
   { id: 'e1', date: '2026-08-26', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
   { id: 'e2', date: '2026-08-27', shift_type_id: st('WD_12'), profile_id: 'p1', is_flagged: true, position: 0 },
@@ -65,6 +67,7 @@ vi.mock('../lib/supabase', () => ({
           if (table === 'profiles') data = filters.some(([c, v]) => c === 'category' && v === 'Consultant') ? CONSULTANTS : PROFILES
           if (table === 'shift_types') data = single ? SHIFT_TYPES[0] : SHIFT_TYPES
           if (table === 'shift_advertisements') data = []
+          if (table === 'late_arrivals') data = lateRows
           if (table === 'public_holidays') data = [{ date: '2026-08-09', name: "Women's Day" }, { date: '2026-08-10', name: 'Public holiday' }]
           return Promise.resolve({ data, error: null }).then(resolve, reject)
         },
@@ -427,5 +430,68 @@ describe('RosterGridPage editing: no cover, edit bar, undo', () => {
     await user.click(within(row).getByText('Anderson'))
     expect(document.body.textContent).not.toMatch(/Remove from this slot/)
     expect(screen.getByRole('radio', { name: /Remove Alice Anderson from this shift/ })).toBeInTheDocument()
+  })
+})
+
+describe('RosterGridPage — late arrivals', () => {
+  const worked = { id: 'x1', date: '2026-08-04', shift_type_id: st('WD_08'), profile_id: 'p1', position: 0 }
+  beforeEach(() => {
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 0, 0))
+    setViewport(true)
+    mockAuth = { isAdmin: true, isLocum: false, user: { id: 'admin-1' } }
+    mockRosterStatus = 'published'
+    extraEntries = [worked]
+    lateRows = []
+  })
+
+  it('an admin logs a late arrival from a name without Edit mode, with person, date and shift filled in', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    expect(screen.queryByText(/Editing/)).not.toBeInTheDocument()
+    await user.click(await waitFor(() => document.querySelector('[data-entry-id="x1"]')))
+    await user.click(await screen.findByRole('button', { name: 'Log late arrival' }))
+    expect(screen.getByRole('dialog', { name: 'late form' })).toHaveTextContent(/Anderson · MO ·.*2026-08-04/)
+    // Still not editing: nothing about the roster changed.
+    expect(mockEdits.assignCover).not.toHaveBeenCalled()
+  })
+
+  it('offers nothing for a shift that has not started, an open slot, or a draft roster', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderPage()
+    await screen.findByText('August 2026')
+    await user.click(await waitFor(() => document.querySelector('[data-entry-id="e1"]'))) // 26 Aug, in the future
+    await user.click(document.querySelector('[data-entry-id="e7"]'))                        // an open slot
+    expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
+    unmount()
+
+    mockRosterStatus = 'draft'
+    renderPage()
+    await screen.findByText('August 2026')
+    await user.click(await waitFor(() => document.querySelector('[data-entry-id="x1"]')))
+    expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
+  })
+
+  it('marks a shift that has a late arrival, and offers to edit it', async () => {
+    lateRows = [{ id: 'late-1', roster_entry_id: 'x1', minutes_late: 25 }]
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    const chip = await waitFor(() => document.querySelector('[data-entry-id="x1"]'))
+    expect(await within(chip).findByTestId('late-marker')).toBeInTheDocument()
+    await user.click(chip)
+    expect(await screen.findByRole('button', { name: 'Late arrival · 25 min — edit' })).toBeInTheDocument()
+  })
+
+  it('shows a non-admin no marker and no way to log one', async () => {
+    mockAuth = { isAdmin: false, isLocum: false, user: { id: 'p1' } }
+    lateRows = [{ id: 'late-1', roster_entry_id: 'x1', minutes_late: 25 }]
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByText('August 2026')
+    const chip = await waitFor(() => document.querySelector('[data-entry-id="x1"]'))
+    await user.click(chip)
+    expect(screen.queryByTestId('late-marker')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /late arrival/i })).not.toBeInTheDocument()
   })
 })

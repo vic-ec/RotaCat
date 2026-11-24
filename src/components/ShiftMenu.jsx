@@ -124,6 +124,9 @@ export default function ShiftMenu({
   entries, profiles, displayNames, leaveByProfile = {}, locums = [], contacts = [], adminId,
   nameOf, hasOpenAdvert = false, shiftType = null,
   onVacancy, onAssign, onRemoveEntry, onRemoveLocum, onAddCover, onRemoveSlot, onAdvertise, onUnadvertise, onReinstate, onNewLocum, onChangeTimes,
+  // { exists } when a late arrival can be logged against this shift (see
+  // the page's lateOptionFor), else null.
+  lateArrival = null, onLateArrival,
   onClose,
 }) {
   const wide = useIsDesktop(768)
@@ -253,6 +256,16 @@ export default function ShiftMenu({
       label: timesNow ? `Change times (now ${timesNow})` : 'Change times',
       hint: timesNow ? 'Set different hours, or return to the standard times' : 'They worked different hours to the standard shift',
     }
+    // Not a roster edit: it opens the late-arrival form, and nothing here
+    // joins the undo batches or the change log.
+    const lateGroup = lateArrival && onLateArrival && {
+      title: 'Attendance',
+      choices: [{
+        value: 'late',
+        label: lateArrival.exists ? 'Edit late arrival' : 'Log late arrival',
+        hint: lateArrival.exists ? 'Correct or delete the record for this shift' : 'Record the time they arrived',
+      }],
+    }
     const advertChoice = hasOpenAdvert
       ? { value: 'unadvertise', label: 'Stop advertising', hint: 'The advert is set to cancelled; the slot stays open' }
       : { value: 'advertise', label: 'Advertise to locums', hint: 'Locums with an account can claim it' }
@@ -264,6 +277,7 @@ export default function ShiftMenu({
           { value: 'vacancy', label: `Take ${holder} off this shift`, hint: 'Say why, and what happens to the shift' },
           timesChoice,
         ] },
+        lateGroup,
       ],
       'draft-doctor': [
         { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, timesChoice] },
@@ -287,6 +301,7 @@ export default function ShiftMenu({
           value: 'confirm-remove', label: `Remove ${locumName}`, danger: true,
           hint: entry?.vacated_profile_id ? `The slot opens again as [ ]; ${vacatedName} stays struck through` : 'The shift is left empty',
         }] },
+        lateGroup,
         putBackGroup,
       ],
       'no-cover': [
@@ -303,6 +318,7 @@ export default function ShiftMenu({
       switch (chosen.value) {
         case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': setStep(chosen.value); break
         case 'vacancy': onVacancy(entry); close(); break
+        case 'late': onLateArrival(entry); close(); break
         case 'advertise': onAdvertise(entry); close(); break
         case 'unadvertise': onUnadvertise(entry); close(); break
         case 'add-advertise': onAddCover(entry, 'advertise'); close(); break

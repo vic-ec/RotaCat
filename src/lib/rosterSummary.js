@@ -1,5 +1,5 @@
 // Live query layer for the Roster Summary tab — computed on demand from
-// source tables (roster_entries/shift_types/leave_requests/ph_lieu_ledger),
+// source tables (roster_entries/shift_types/leave_requests),
 // never from the unpopulated monthly_stats table. See Section 12 of
 // vhw_scheduling_rules_v2.md for the physical sheet this replicates.
 import { supabase } from './supabase'
@@ -8,6 +8,7 @@ import { annualDaysInRange } from './leaveDashboard'
 import { fetchApprovedLeaveByProfile } from './approvedLeave'
 import { isEntryOnLeave } from './rosterVacancy'
 import { entryDurationHours } from './shiftTimes'
+import { fetchLieuBalances } from './myYearData'
 import { fetchMonthMinimums } from './contractMinimum'
 
 // PH_* is the 3-slot weekend-style code set; PHW_* is the separate 4-slot
@@ -65,7 +66,7 @@ function emptyRow(profile) {
 export async function fetchRosterSummary({ month, year }) {
   const { start: monthStart, end: monthEnd } = monthBounds(year, month)
 
-  const [profilesRes, rosterMonthsRes, leaveRes, ledgerRes] = await Promise.all([
+  const [profilesRes, rosterMonthsRes, leaveRes, lieuBalances] = await Promise.all([
     supabase.from('profiles')
       .select('id, name, surname, category, contract_type, min_hours, max_hours, color_code, ec_start_date, scheduled_inactive_date')
       .eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant')
@@ -75,13 +76,12 @@ export async function fetchRosterSummary({ month, year }) {
       .select('profile_id, leave_type, date_from, date_to, annual_leave_days, status')
       .in('status', ['approved', 'cancelled'])
       .lte('date_from', monthEnd).gte('date_to', monthStart),
-    supabase.from('ph_lieu_ledger').select('profile_id, days_owed, taken'),
+    fetchLieuBalances(),
   ])
 
   if (profilesRes.error) throw new Error(profilesRes.error.message)
   if (rosterMonthsRes.error) throw new Error(rosterMonthsRes.error.message)
   if (leaveRes.error) throw new Error(leaveRes.error.message)
-  if (ledgerRes.error) throw new Error(ledgerRes.error.message)
 
   const rosterMonthIds = (rosterMonthsRes.data || []).map(r => r.id)
   const entriesRes = rosterMonthIds.length > 0
@@ -154,14 +154,16 @@ export async function fetchRosterSummary({ month, year }) {
     row.minimumDetail = m
   }
 
-  // Cumulative, not month-scoped — a running PH-in-lieu balance owed/taken
-  // across every PH shift this doctor has ever worked, per ph_lieu_ledger's
-  // own doc comment ("HR reference only — not enforced by scheduler").
-  for (const ledgerRow of ledgerRes.data || []) {
-    const row = rowByProfileId[ledgerRow.profile_id]
-    if (!row) continue
-    row.phLieuOwed += ledgerRow.days_owed || 0
-    if (ledgerRow.taken) row.phLieuTaken += ledgerRow.days_owed || 0
+  // Days in lieu: a running balance across all time, not month-scoped —
+  // earned from public holiday shifts worked on published rosters, taken as
+  // approved time off in lieu. The same helper the My year page uses (see
+  // myYear.js), so the two screens cannot disagree. ph_lieu_ledger is no
+  // longer read: nothing ever wrote to it.
+  for (const row of rows) {
+    const balance = lieuBalances[row.profileId]
+    if (!balance) continue
+    row.phLieuOwed = balance.owed
+    row.phLieuTaken = balance.taken
   }
 
   return rows

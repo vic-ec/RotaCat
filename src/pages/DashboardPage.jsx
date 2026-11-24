@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { applyTimeOverrides } from '../lib/shiftTimes'
 import { Link } from 'react-router-dom'
-import { ArrowLeftRight, ChevronRight, TriangleAlert } from 'lucide-react'
+import { AlarmClock, ArrowLeftRight, ChevronRight, Plus, TriangleAlert, UserPlus } from 'lucide-react'
+import Modal from '../components/Modal'
+import LeaveRequestForm from '../components/LeaveRequestForm'
+import LateArrivalModal from '../components/LateArrivalModal'
+import OnShiftPanel from '../components/OnShiftPanel'
+import { PanelRows, PanelRow, PanelLabel } from '../components/PanelRows'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
@@ -33,6 +38,12 @@ const MAX_UPCOMING_ROWS = 5
 const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // How far back the sick-leave panel's "recently" column looks.
 const SICK_LOOKBACK_DAYS = 7
+
+// A row of start buttons above a dashboard's first heading: equal halves
+// across a phone, right-aligned at their own width from md.
+function QuickActions({ children }) {
+  return <div className="flex gap-2 md:justify-end [&>*]:flex-1 md:[&>*]:flex-none">{children}</div>
+}
 
 function SectionHeading({ children, to, linkLabel }) {
   return (
@@ -132,6 +143,9 @@ function fullName(person) {
 
 export default function DashboardPage() {
   const { profile, isAdmin, isClerk, isLocum } = useAuth()
+  const [lateOpen, setLateOpen] = useState(false)
+  // 'capture' (admin, for any doctor) | 'request' (a doctor, their own) | null
+  const [leaveForm, setLeaveForm] = useState(null)
   const [myLeave, setMyLeave] = useState([])
   const [myShifts, setMyShifts] = useState([])
   const [coworkersByKey, setCoworkersByKey] = useState({})
@@ -455,6 +469,20 @@ export default function DashboardPage() {
 
       {!loading && !isAdmin && !isClerk && (
         <div className="mt-6 space-y-6">
+          {/* The two things a doctor starts from here, above the first
+              heading. A locum has no leave to request. */}
+          <QuickActions>
+            {!isLocum && (
+              <button type="button" onClick={() => setLeaveForm('request')} className="btn-primary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Request leave
+              </button>
+            )}
+            <Link to={SWAPS_PATH} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+              Request swap
+            </Link>
+          </QuickActions>
           {/* 1. Next shifts */}
           <section>
             {/* Heading sits on the plain page background; the chips get
@@ -534,11 +562,12 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {/* Quick actions — the two things a doctor comes here to start. */}
-          <div className="grid grid-cols-2 gap-3">
-            {!isLocum && <Link to={MY_LEAVE_PATH} className="btn-primary py-2.5">Request leave</Link>}
-            <Link to={SWAPS_PATH} className={`btn-secondary py-2.5 ${isLocum ? 'col-span-2' : ''}`}>Request swap</Link>
-          </div>
+          {leaveForm === 'request' && (
+            <Modal title="Request leave" onClose={() => setLeaveForm(null)} centered>
+              <LeaveRequestForm onSubmitted={() => { setLeaveForm(null); loadDoctorWidgets({ silent: true }) }} />
+            </Modal>
+          )}
+
 
           {/* 3. Shift swaps — only when one is actually waiting on an answer */}
           {incomingSwaps.length > 0 && (
@@ -635,6 +664,19 @@ export default function DashboardPage() {
 
       {!loading && isAdmin && (
         <div className="mt-6 space-y-6">
+          {/* The two things an admin starts from here, above the first
+              heading: side by side, full width on a phone, right-aligned
+              from md. */}
+          <QuickActions>
+            <button type="button" onClick={() => setLeaveForm('capture')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              Capture leave
+            </button>
+            <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <AlarmClock className="h-4 w-4" aria-hidden="true" />
+              Log late arrival
+            </button>
+          </QuickActions>
           {/* Same shape as the doctor view: a heading on the page ground
               with its link out on the right, and a card underneath. The
               headings stay put when a section is empty — the empty message
@@ -649,6 +691,12 @@ export default function DashboardPage() {
                 single "View requests" beside an hours row pointed at the
                 wrong page. */}
             <SectionHeading>Needs attention</SectionHeading>
+            {lateOpen && <LateArrivalModal onClose={() => setLateOpen(false)} />}
+            {leaveForm === 'capture' && (
+              <Modal title="Capture leave for a doctor" onClose={() => setLeaveForm(null)} centered>
+                <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => { loadAdminWidgets({ silent: true }) }} />
+              </Modal>
+            )}
             {pendingLeaveCount === 0 && hoursWarnings.length === 0 && attentionItems.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (
@@ -674,31 +722,22 @@ export default function DashboardPage() {
             )}
           </section>
 
-          {/* Team leave — read-only awareness. One card, two columns
-              (stacked on a phone): who is away today, and who is next. */}
+          {/* Who is on now, by shift, and who starts next. */}
+          <OnShiftPanel />
+
+          {/* Team leave — read-only awareness: who is away today, and who
+              starts leave soon. Stacked rows, like On shift above. */}
           <section>
             <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Team leave</SectionHeading>
-            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Away today</p>
-                {onLeaveNow.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody away today</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {onLeaveNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Next {TEAM_LEAVE_LOOKAHEAD_DAYS} days</p>
-                {onLeaveNext.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody starting leave</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
+            <div className="card overflow-hidden">
+              <PanelRows testId="team-leave-panel">
+                <PanelRow label={<PanelLabel tag="Today" title="Away today" />} empty="Nobody away today">
+                  {onLeaveNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+                <PanelRow label={<PanelLabel tag={`Next ${TEAM_LEAVE_LOOKAHEAD_DAYS} days`} title="Starting leave" />} empty="Nobody starting leave">
+                  {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+              </PanelRows>
             </div>
           </section>
 
@@ -706,27 +745,15 @@ export default function DashboardPage() {
               last week. Kept apart from Team leave above, which is planned. */}
           <section>
             <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Sick leave</SectionHeading>
-            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Off sick today</p>
-                {sickNow.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody off sick today</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {sickNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Last {SICK_LOOKBACK_DAYS} days</p>
-                {sickRecent.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">No other sick leave</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {sickRecent.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
+            <div className="card overflow-hidden">
+              <PanelRows testId="sick-leave-panel">
+                <PanelRow label={<PanelLabel tag="Today" title="Off sick today" />} empty="Nobody off sick today">
+                  {sickNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+                <PanelRow label={<PanelLabel tag={`Last ${SICK_LOOKBACK_DAYS} days`} title="Earlier" />} empty="No other sick leave">
+                  {sickRecent.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+              </PanelRows>
             </div>
           </section>
 
@@ -743,11 +770,11 @@ export default function DashboardPage() {
 // colour/pattern is how this app has always identified a doctor.
 function TeamLeaveRow({ request }) {
   return (
-    <li className="flex items-center gap-2.5">
+    <li className="flex min-w-0 items-center gap-2.5">
       <ProfileAvatar profile={request.profiles} size={32} />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-ink">{fullName(request.profiles)}</span>
-        <span className="block text-xs text-ink-muted">
+        <span className="block truncate whitespace-nowrap text-sm font-semibold text-ink">{fullName(request.profiles)}</span>
+        <span className="block whitespace-nowrap text-xs text-ink-muted">
           {shortLeaveTypeLabel(request.leave_type)} · {formatShortDateRange(request.date_from, request.date_to)}
         </span>
       </span>

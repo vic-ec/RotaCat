@@ -24,6 +24,11 @@ vi.mock('../lib/locumCover', async () => {
     fetchContactShifts: (...a) => fetchContactShifts(...a),
   }
 })
+const fetchLateArrivalsForLocum = vi.fn()
+vi.mock('../lib/lateArrivals', async () => {
+  const actual = await vi.importActual('../lib/lateArrivals')
+  return { ...actual, fetchLateArrivalsForLocum: (...a) => fetchLateArrivalsForLocum(...a) }
+})
 vi.mock('./AddStaffModal', () => ({ default: ({ initialValues }) => <div>AddStaffStub: {initialValues.name} {initialValues.role}</div> }))
 
 const CONTACT = { id: 'c-1', name: 'Jo', surname: 'Marsh', phone: '0821234567' }
@@ -35,6 +40,7 @@ describe('LocumContactsPanel', () => {
     fetchLocumProfiles.mockReset().mockResolvedValue([])
     linkLocumContact.mockReset().mockResolvedValue(undefined)
     fetchContactShifts.mockReset().mockResolvedValue([])
+    fetchLateArrivalsForLocum.mockReset().mockResolvedValue([])
   })
 
   it('renders nothing when every locum on the roster has an account', async () => {
@@ -110,5 +116,29 @@ describe('LocumContactsPanel', () => {
     expect(rows[0]).toHaveTextContent('20 Nov 2026 · 12h-22h')
     expect(rows[1]).toHaveTextContent('3 Nov 2026 · 08h-18h')
     expect(within(rows[0]).getByRole('link', { name: /View on roster/ })).toHaveAttribute('href', '/roster/rm1?date=2026-11-20&entry=e2')
+  })
+
+  it('lists the locum\'s late arrivals on their entry, matched on the contact and the roster name', async () => {
+    fetchLateArrivalsForLocum.mockResolvedValue([
+      { id: 'l1', entry_date: '2026-11-20', shift_code: 'WD_12', shift_start: '12:00:00', arrived_at: '12:40:00', minutes_late: 40, reason_given: 'Traffic on the N2' },
+    ])
+    const user = userEvent.setup()
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    await user.click(phone().getByTestId('locum-contact-row'))
+    const section = await screen.findByTestId('contact-late-arrivals')
+    expect(await within(section).findByText(/40 min late/)).toBeInTheDocument()
+    expect(section.textContent).toMatch(/20 Nov 2026/)
+    expect(section.textContent).toMatch(/Shift start 12h00 · arrived 12h40 · reason given: Traffic on the N2/)
+    expect(section.textContent).not.toMatch(/Logged by/)
+    expect(fetchLateArrivalsForLocum).toHaveBeenCalledWith({ contactId: 'c-1', name: 'Jo Marsh' })
+  })
+
+  it('says so when a locum has no late arrivals', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    await user.click(phone().getByTestId('locum-contact-row'))
+    expect(await within(await screen.findByTestId('contact-late-arrivals')).findByText('No late arrivals recorded.')).toBeInTheDocument()
   })
 })

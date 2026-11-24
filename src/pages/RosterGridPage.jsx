@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
+import { AlarmClock, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -28,6 +28,9 @@ import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
 import { fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
+import LateArrivalModal from '../components/LateArrivalModal'
+import { ActionSheet, ActionSheetButton } from '../components/ActionSheet'
+import { fetchLateArrivalsInRange, shiftOption, shiftHasStarted, lateByLabel } from '../lib/lateArrivals'
 import { buildDoctorDisplayNames } from '../lib/doctorNames'
 import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import RosterJumpButton from '../components/RosterJumpButton'
@@ -167,6 +170,12 @@ export default function RosterGridPage() {
   // The one shift menu (see components/ShiftMenu.jsx): what was tapped and
   // where, so the md+ panel can sit beside the cell.
   const [menu, setMenu] = useState(null) // { date, shiftCode, entry, anchorRect }
+  // Late arrivals (admins only; nobody else can read them). Logged from a
+  // tap on a name WITHOUT Edit mode, or from the shift menu while editing.
+  // Kept apart from the roster's own edits: no undo batch, no change log.
+  const [lateByEntryId, setLateByEntryId] = useState(new Map())
+  const [latePrompt, setLatePrompt] = useState(null) // the shiftOption tapped, before the form
+  const [lateFor, setLateFor] = useState(null)       // the shiftOption the form is open for
   // Entry ids with an open advert this month, for the menu's Advertise /
   // Stop advertising.
   const [advertisedIds, setAdvertisedIds] = useState(new Set())
@@ -299,6 +308,19 @@ export default function RosterGridPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id])
 
+  // Linked from My year ("Roster change history"): open History on
+  // arrival, then drop the flag so a reload doesn't reopen it.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('history') !== '1') return
+    setShowChangeLog(true)
+    // With ?date= as well, the effect below clears both in one write: two
+    // separate writes in the same tick would each start from the same
+    // stale params and the second would put the first one's back.
+    if (searchParams.get('date')) return
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('history'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
+
   // Linked from a leave capture ("Go to roster"): ?date=YYYY-MM-DD, plus
   // &doctor=<profile id> for whose shift it is. Lands on that day in Rows,
   // on the right week, with the doctor's shift lit up — or just the day if
@@ -335,7 +357,7 @@ export default function RosterGridPage() {
         }
       }
     }
-    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('cover'); return next }, { replace: true })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); next.delete('cover'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id, loading])
 
@@ -430,6 +452,30 @@ export default function RosterGridPage() {
   // drift derived from them) after a single-cell edit — unlike loadAll,
   // this never toggles `loading`, so the grid stays mounted and the
   // update lands as a quiet re-render instead of a full-page reload.
+  async function refreshLateArrivals() {
+    if (!isAdmin || !rosterMonth) return
+    try {
+      const { start, end } = monthBounds(rosterMonth.year, rosterMonth.month)
+      const rows = await fetchLateArrivalsInRange(start, end)
+      setLateByEntryId(new Map(rows.filter(r => r.roster_entry_id).map(r => [r.roster_entry_id, r])))
+    } catch {
+      setLateByEntryId(new Map()) // ahead of the migration, or offline: no markers
+    }
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once per roster
+  useEffect(() => { refreshLateArrivals() }, [rosterMonth?.id, isAdmin])
+
+  // The shift a late arrival can be logged against, or null: a published
+  // roster, somebody actually on the shift (not an open slot, not a
+  // struck-through name), and a shift that has started.
+  function lateOptionFor(entry) {
+    if (!isAdmin || !entry || !['published', 'archived'].includes(rosterMonth?.status)) return null
+    if (absenceFor(entry)?.kind === 'on_leave') return null
+    const person = entry.profile_id ? (profileMap[entry.profile_id] || locumProfiles.find(l => l.id === entry.profile_id) || null) : null
+    const option = shiftOption({ ...entry, roster_month_id: id }, shiftTypeRows[entry.shift_type_id], person)
+    return option && shiftHasStarted(option.date, option.shiftStart) ? option : null
+  }
+
   async function refreshEntries() {
     const { data } = await supabase
       .from('roster_entries')
@@ -1204,6 +1250,8 @@ export default function RosterGridPage() {
             entryMap={entryMap}
             leaveByProfile={leaveByProfile}
             padToWeek={viewMode === 'week'}
+            lateEntryIds={lateByEntryId}
+            onShiftClick={isAdmin && !canEdit ? entry => { const o = lateOptionFor(entry); if (o) setLatePrompt(o) } : undefined}
           />
           <LanesLegend textSize={textSize} />
         </>
@@ -1376,6 +1424,8 @@ export default function RosterGridPage() {
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
                               onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
+                              onLate={!canEdit && lateOptionFor(entry) ? () => setLatePrompt(lateOptionFor(entry)) : undefined}
+                              late={lateByEntryId.has(entry.id)}
                               onDragStart={() => handleDragStart(entry, code)}
                               isAdmin={canEdit}
                               canDrag={rosterMonth.status !== 'published'}
@@ -1444,8 +1494,27 @@ export default function RosterGridPage() {
           onChangeTimes={(entry, { start, end }) => runEdit(() => rosterEdits.changeTimes({ ...editArgs(entry), start, end }))}
           onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
+          lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
+          onLateArrival={entry => setLateFor(lateOptionFor(entry))}
           onClose={() => setMenu(null)}
         />
+      )}
+
+      {/* A name tapped outside Edit mode (admins): one thing to do. */}
+      {latePrompt && (
+        <ActionSheet title={`${latePrompt.name} · ${latePrompt.label.split(' · ').pop()}`} onClose={() => setLatePrompt(null)}>
+          <ActionSheetButton
+            icon={<AlarmClock className="h-4 w-4" aria-hidden="true" />}
+            onClick={() => { setLateFor(latePrompt); setLatePrompt(null) }}
+          >
+            {lateByEntryId.has(latePrompt.entryId)
+              ? `Late arrival · ${lateByLabel(lateByEntryId.get(latePrompt.entryId).minutes_late)} — edit`
+              : 'Log late arrival'}
+          </ActionSheetButton>
+        </ActionSheet>
+      )}
+      {lateFor && (
+        <LateArrivalModal option={lateFor} onClose={() => setLateFor(null)} onSaved={refreshLateArrivals} />
       )}
 
       {newLocumFor && (
@@ -1528,7 +1597,10 @@ export default function RosterGridPage() {
 // still on it who has approved leave over its date, whose own name is the
 // one struck through. Tapping a struck name says why; while editing it is
 // plain text, since a tap there already means "edit this shift".
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null }) {
+// `onLate` (admins, outside Edit mode): the chip opens "Log late arrival".
+// `late`: this shift has a late arrival on record — a small clock, shown to
+// admins only (nobody else can read the records) and never printed.
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
@@ -1539,6 +1611,9 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   // shadow outside the chip's box, and the chip stacked just below was
   // painting over its bottom edge.
   const glowRing = glow ? 'relative z-10 ring-2 ring-ink ring-offset-2 ring-offset-canvas-raised' : ''
+  const lateMark = late && (
+    <AlarmClock data-testid="late-marker" aria-label="Late arrival recorded" className="ml-1 h-3 w-3 flex-shrink-0 text-ink-muted print:hidden" />
+  )
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
     <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
@@ -1605,12 +1680,13 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       {vacatedLine}
       <div
         data-entry-id={entry.id}
-        onClick={isAdmin ? onClick : undefined}
-        className={`rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
-          isAdmin ? 'cursor-pointer hover:opacity-80' : ''
+        onClick={isAdmin ? onClick : onLate}
+        className={`flex items-center rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
+          isAdmin || onLate ? 'cursor-pointer hover:opacity-80' : ''
         } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       >
-        {entry.locum_name || OPEN_LOCUM_LABEL}{adjustedTimesLabel(entry) && <span className="ml-1 font-normal" data-testid="adjusted-times">{adjustedTimesLabel(entry)}</span>}
+        <span className="min-w-0 flex-1">{entry.locum_name || OPEN_LOCUM_LABEL}{adjustedTimesLabel(entry) && <span className="ml-1 font-normal" data-testid="adjusted-times">{adjustedTimesLabel(entry)}</span>}</span>
+        {lateMark}
       </div>
       </>
     )
@@ -1633,16 +1709,17 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       data-entry-id={entry.id}
       draggable={draggableNow}
       onDragStart={draggableNow ? onDragStart : undefined}
-      onClick={isAdmin ? onClick : undefined}
+      onClick={isAdmin ? onClick : onLate}
       className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium ${onLeave ? 'text-ink-muted' : 'text-ink'} ${
-        isAdmin ? 'cursor-pointer hover:bg-canvas-sunken' : ''
+        isAdmin || onLate ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       {onLeave
         ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} />
-        : <span className="truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
+        : <span className="min-w-0 flex-1 truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
+      {lateMark}
     </div>
     </>
   )

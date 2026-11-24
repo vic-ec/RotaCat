@@ -201,6 +201,11 @@
   --color-mint-ink: 10 16 14;                 /* #0A100E — ink on a mint fill */
   /* Chips — two-part (fill / ink) tokens as colours so the dark theme can
      use a translucent fill. */
+  /* All Leave by month: four shade steps for a month cell (none, 1-2, 3-5,
+     6 or more days), in the teal accent family. Not the cap* capacity
+     colours and not the flag* colours — this says "how many days", nothing
+     about capacity or roster state. The number is always printed on top. */
+  --month-shade-1: #E3F1EE;  --month-shade-2: #BFE0D9;  --month-shade-3: #8CC8BC;
   --chip-mint-bg: #E6F2EF;       --chip-mint-ink: #0F766E;    /* available / approved / day shift */
   --chip-night-bg: #1F6763;      --chip-night-ink: #FFFFFF;   /* night-shift time chip */
   --chip-amber-bg: #FDF3D8;      --chip-amber-ink: #92600F;   /* pending / limited capacity */
@@ -486,6 +491,7 @@
   --color-on-sheen-accent: 143 211 197;
   --color-mint: 111 189 175;
   --color-mint-ink: 10 16 14;
+  --month-shade-1: rgba(111, 189, 175, 0.14);  --month-shade-2: rgba(111, 189, 175, 0.30);  --month-shade-3: rgba(111, 189, 175, 0.50);
   --chip-mint-bg: rgba(111, 189, 175, 0.18);  --chip-mint-ink: #8FD3C5;
   --chip-night-bg: #6FBDAF;                   --chip-night-ink: #0A100E;
   --chip-amber-bg: #231A0D;                   --chip-amber-ink: #E0B15C;

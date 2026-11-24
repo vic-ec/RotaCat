@@ -4,6 +4,7 @@ import SectionBar from './SectionBar'
 import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowUpDown, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -20,7 +21,13 @@ import {
 } from '../lib/doctorSort'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
-import { LEAVE_TYPE_OPTIONS, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
+import { LEAVE_TYPE_OPTIONS, ANNUAL_LEAVE_ALLOWANCE, annualDaysSummary, naturalLeavePeriodLabel } from '../lib/leaveRequests'
+import { buildMonthAuditRows } from '../lib/leaveAuditByMonth'
+import { BREAK_LEAVE_TYPES, DEFAULT_LONG_BREAK_DAYS } from '../lib/myYear'
+import { fetchMyYearSettings } from '../lib/myYearData'
+import DateStepper from './DateStepper'
+import ViewToggle from './ViewToggle'
+import LeaveAuditByMonth, { ByMonthLegend } from './LeaveAuditByMonth'
 import DateFieldButton from './DateFieldButton'
 import FilterPanel from './FilterPanel'
 import { QuickSelectButton } from './Toolbar'
@@ -49,6 +56,14 @@ const TABLE_SECTIONS = [
   { key: 'mos', label: 'MOs', columns: ['MO'] },
   { key: 'registrars', label: 'Registrars', columns: ['Registrar'] },
   { key: 'interns', label: 'Interns', columns: ['EC_Intern', 'OT_Intern'] },
+]
+
+// The two readings of the same leave: a year by month, or a date range by
+// leave type. Kept in the URL (?by=, ?lyear=) so a link or a reload lands
+// on the same one.
+const VIEW_OPTIONS = [
+  { key: 'month', label: 'By month' },
+  { key: 'type', label: 'By leave type' },
 ]
 
 const STATUS_OPTIONS = [
@@ -141,8 +156,41 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
   // Same window-filling frame as Hours Summary and Current & Upcoming Leave.
   const [tableRef, tableFill] = useFillToViewport(32, { fit: true })
   const swatch = useSwatch()
-  const [dateFrom, setDateFrom] = useState(yearStartStr())
-  const [dateTo, setDateTo] = useState(todayStr())
+  const [searchParams, setSearchParams] = useSearchParams()
+  const view = searchParams.get('by') === 'type' ? 'type' : 'month'
+  const byMonth = view === 'month'
+  const requestedYear = Number(searchParams.get('lyear'))
+  const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : new Date().getFullYear()
+  function setParam(key, value) {
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.set(key, String(value)); return next }, { replace: true })
+  }
+  // By leave type keeps its own From/To; By month is always a whole year.
+  const [typeFrom, setDateFrom] = useState(yearStartStr())
+  const [typeTo, setDateTo] = useState(todayStr())
+  const dateFrom = byMonth ? `${year}-01-01` : typeFrom
+  const dateTo = byMonth ? `${year}-12-31` : typeTo
+  // By month only, read once and after the table: every approved break-type
+  // request (to find a last break before the displayed year), the roster
+  // months (for the breakdown's Roster link) and the "Long" threshold. The
+  // table paints from the year's leave alone; "Since last break" fills in.
+  const [breakRequests, setBreakRequests] = useState(null)
+  const [monthIds, setMonthIds] = useState({})
+  const [longBreakDays, setLongBreakDays] = useState(DEFAULT_LONG_BREAK_DAYS)
+  useEffect(() => {
+    if (!byMonth || breakRequests) return undefined
+    let cancelled = false
+    Promise.all([
+      supabase.from('leave_requests').select('id, profile_id, leave_type, date_from, date_to, status').eq('status', 'approved').in('leave_type', BREAK_LEAVE_TYPES),
+      supabase.from('roster_months').select('id, year, month').is('deleted_at', null),
+      fetchMyYearSettings(),
+    ]).then(([breaksRes, monthsRes, settings]) => {
+      if (cancelled) return
+      setBreakRequests(breaksRes?.data || [])
+      setMonthIds(Object.fromEntries((monthsRes?.data || []).map(m => [`${m.year}-${String(m.month).padStart(2, '0')}`, m.id])))
+      setLongBreakDays(settings.longBreakDays)
+    }).catch(() => { if (!cancelled) setBreakRequests([]) })
+    return () => { cancelled = true }
+  }, [byMonth, breakRequests])
   // Each a Set of selected values — empty means "All" for that dimension
   // (see FilterPanel.jsx). Doctor is still effectively single-select in
   // practice: the drill-down below only activates when exactly one doctor
@@ -227,9 +275,15 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
     ? leaveRequests
     : leaveRequests.filter(lr => leaveTypeFilter.has(lr.leave_type))
 
+  const today = todayStr()
   const rows = useMemo(
-    () => buildAuditRows(statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo),
-    [statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo]
+    () => (byMonth
+      ? buildMonthAuditRows(statusFilteredProfiles, typeFilteredRequests, year, {
+          today, allowance: ANNUAL_LEAVE_ALLOWANCE, longBreakDays, breakRequests,
+        })
+      : buildAuditRows(statusFilteredProfiles, typeFilteredRequests, dateFrom, dateTo)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- typeFilteredRequests is rebuilt every render; its inputs are listed
+    [byMonth, statusFilteredProfiles, leaveRequests, leaveTypeFilter, dateFrom, dateTo, year, today, longBreakDays, breakRequests]
   )
 
   // Surname only, with a first initial for whoever shares one — the compact
@@ -339,9 +393,18 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
             </button>
           )}
         </div>
-        <div className="flex basis-full gap-2 md:basis-auto">
-          <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-          <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+        {/* The period, then the view switch — the only two controls that
+            stay on the page on a phone. */}
+        <div className="flex basis-full flex-wrap items-center gap-2 md:basis-auto">
+          {byMonth ? (
+            <DateStepper unit="year" year={year} onChange={y => setParam('lyear', y)} nowrap />
+          ) : (
+            <div className="flex min-w-0 flex-1 gap-2 md:flex-none">
+              <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+              <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+            </div>
+          )}
+          <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} />
         </div>
       </div>
 
@@ -380,6 +443,23 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
               are the same problem as eleven: the numbers say nothing
               without the name they belong to, and on a phone this table is
               wider than the screen. */}
+          {byMonth && (
+            <>
+              <LeaveAuditByMonth
+                sections={sections}
+                collapsedSections={collapsedSections}
+                onToggleSection={key => setCollapsedSections(c => ({ ...c, [key]: !c[key] }))}
+                displayNames={displayNames}
+                columnLabelOf={profileId => COLUMN_LABEL_BY_KEY[columnByProfileId.get(profileId)]}
+                year={year}
+                monthIds={monthIds}
+                tableRef={tableRef}
+                tableFill={tableFill}
+              />
+              <ByMonthLegend longBreakDays={longBreakDays} />
+            </>
+          )}
+          {!byMonth && (
           <div ref={tableRef} style={tableFill} className="mt-4 overflow-auto rounded-lg border border-slate-line">
             {/* table-fixed, unlike every other grid in this app, because
                 this is the one that has to hold fifteen columns at the SAME
@@ -504,6 +584,7 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
               </tbody>
             </table>
           </div>
+          )}
           {allSectionsCollapsed(sections, collapsedSections) && (
             <ExpandAllButton onExpandAll={() => setCollapsedSections({})} />
           )}

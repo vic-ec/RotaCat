@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, X } from 'lucide-react'
 import { MONTH_ABBR, formatShortDateRange } from '../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 import { MONTH_SHADES, monthShadeStep, sinceLastBreakText } from '../lib/leaveAuditByMonth'
@@ -22,12 +22,24 @@ const COLUMN_COUNT = 1 + 12 + 6 + 1
 
 // One month for one doctor: each leave entry, the annual / sick / other
 // subtotal, and the way to the roster and to their year.
-function MonthBreakdown({ row, month, year, rosterTo }) {
+// `pinned` false is the hover preview: the links are greyed (moving the
+// pointer to them would close it) and a hint says to click the month.
+// `onClose` puts an × in the corner (the desktop popover once pinned; the
+// phone sheet has its own).
+function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = null }) {
+  const linkClass = 'flex min-h-[44px] items-center font-medium md:min-h-0'
+  const live = `${linkClass} text-accent hover:text-accent-dark`
+  const greyed = `${linkClass} cursor-default text-ink-muted`
   const entries = row.entries[month]
   const split = { annual: 0, sick: 0, other: 0 }
   for (const e of entries) split[e.bucket] += e.days
   return (
-    <div data-testid="month-breakdown" className="text-sm">
+    <div data-testid="month-breakdown" className="relative text-sm">
+      {onClose && (
+        <button type="button" onClick={onClose} aria-label="Close" className="btn-close absolute -right-1 -top-1 h-6 w-6 text-ink-muted">
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
       <p className="font-display text-base font-semibold text-ink">{MONTH_NAMES[month]} {year}</p>
       <p className="text-xs text-ink-muted">{row.name} {row.surname}</p>
       {entries.length === 0 ? (
@@ -51,9 +63,23 @@ function MonthBreakdown({ row, month, year, rosterTo }) {
         <span className="text-sm font-semibold text-ink">{plural(row.months[month], 'day')}</span>
       </p>
       <p className="mt-2 flex items-center gap-4">
-        {rosterTo && <Link to={rosterTo} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0">Roster ›</Link>}
-        <Link to={myYearPath(row.profileId, { tab: 'leave', year })} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0">Their year ›</Link>
+        {pinned ? (
+          <>
+            {rosterTo && <Link to={rosterTo} className={live}>Roster ›</Link>}
+            <Link to={myYearPath(row.profileId, { tab: 'leave', year })} className={live}>Their year ›</Link>
+          </>
+        ) : (
+          <>
+            {rosterTo && <span className={greyed} aria-disabled="true">Roster ›</span>}
+            <span className={greyed} aria-disabled="true">Their year ›</span>
+          </>
+        )}
       </p>
+      {!pinned && (
+        <p className="mt-2 rounded-lg bg-canvas-sunken px-2 py-1.5 text-xs text-ink-muted" data-testid="month-breakdown-hint">
+          Click the month to keep this open and use the links.
+        </p>
+      )}
     </div>
   )
 }
@@ -165,10 +191,14 @@ export default function LeaveAuditByMonth({
                               if (isOpen(row, month) && open.pinned) setOpen(null)
                               else show(row, month, e.currentTarget, true)
                             }}
+                            aria-pressed={isOpen(row, month) && open.pinned}
                             className={`flex h-8 w-full items-center justify-center rounded text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${
-                              days > 0 ? 'font-semibold text-ink' : 'text-ink-muted'
-                            } ${isOpen(row, month) ? 'ring-2 ring-ink' : ''}`}
-                            style={shadeStyle(monthShadeStep(days))}
+                              isOpen(row, month) && open.pinned
+                                ? 'bg-accent font-bold text-on-fill ring-2 ring-accent'
+                                : `${days > 0 ? 'font-semibold text-ink' : 'text-ink-muted'} ${isOpen(row, month) ? 'ring-2 ring-ink' : ''}`
+                            }`}
+                            // A pinned month takes the solid teal; the shade would sit under it.
+                            style={isOpen(row, month) && open.pinned ? undefined : shadeStyle(monthShadeStep(days))}
                           >
                             {days}
                           </button>
@@ -211,7 +241,7 @@ export default function LeaveAuditByMonth({
           style={popoverStyle}
           className={`fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 shadow-raised ${open.pinned ? '' : 'pointer-events-none'}`}
         >
-          <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} />
+          <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} pinned={open.pinned} onClose={open.pinned ? () => setOpen(null) : null} />
         </div>,
         document.body,
       )}

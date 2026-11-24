@@ -295,10 +295,6 @@ export default function LeavePlannerPage() {
           }`}
         >
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Team Leave</h2>
-          {/* No Week/Month/People explainer on a phone: beside Capture leave
-              it overlapped the "All Leave" tab, and each of W / M / People
-              names itself on a tap (HintLayer). It shows from sm up, on
-              TeamLeaveMobile's own row. */}
           <PageTabs tabs={teamTabs} active={teamTab} onChange={setTeamTab} ariaLabel="Team Leave" size="sub" />
         </div>
       )}

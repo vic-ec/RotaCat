@@ -52,10 +52,9 @@ function minimumNote(row) {
   const m = row.minimumDetail
   if (!m) return ''
   const parts = [`Contract ${m.contracted}h, less the engine's variance (210 of every 220)`]
-  const leave = m.awayDays - m.notInEcDays
-  if (leave > 0) parts.push(`${leave} day${leave === 1 ? '' : 's'} on leave`)
+  if (m.leaveShifts > 0) parts.push(`${m.leaveShifts} of ${m.expectedShifts} shifts on leave (weekdays)`)
   if (m.notInEcDays > 0) parts.push(`${m.notInEcDays} day${m.notInEcDays === 1 ? '' : 's'} not in the EC`)
-  return `${parts.join(' · ')} (of ${m.daysInMonth})`
+  return parts.join(' · ')
 }
 
 // Under is measured against the month's minimum — the one the

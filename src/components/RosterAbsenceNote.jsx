@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 
@@ -54,7 +55,18 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, c
           style={{ ...positionStyle, width }}
           className="fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 text-xs text-ink-light shadow-raised"
         >
-          <p className="text-sm font-semibold text-ink">{summary.headline}</p>
+          {/* Close, as every other popover and sheet in the app has one. */}
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-ink">{summary.headline}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="btn-close -mr-1 -mt-0.5 h-6 w-6 flex-shrink-0 text-ink-muted"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <p className="mt-0.5 text-ink">{summary.doctorName}</p>
           {summary.lines.map(line => <p key={line} className="mt-1">{line}</p>)}
         </div>,

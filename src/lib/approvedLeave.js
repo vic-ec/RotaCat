@@ -23,7 +23,7 @@ export async function fetchApprovedLeaveByProfile(dateFrom, dateTo) {
     const [rpcRes, rowsRes] = await Promise.all([
       Promise.resolve(supabase.rpc('approved_leave_ranges', { p_from: dateFrom, p_to: dateTo })).catch(() => ({ data: null, error: true })),
       supabase.from('leave_requests')
-        .select('id, profile_id, date_from, date_to, leave_type')
+        .select('id, profile_id, date_from, date_to, leave_type, submitted_by, reviewed_by')
         .eq('status', 'approved')
         .lte('date_from', dateTo)
         .gte('date_to', dateFrom),
@@ -48,7 +48,9 @@ export function mergeLeaveRanges(ranges, visibleRows) {
     const to = day(r.date_to)
     const match = visibleByKey.get(`${r.profile_id}|${from}|${to}`)
     const list = byProfile[r.profile_id] || (byProfile[r.profile_id] = [])
-    list.push([from, to, match?.leave_type ?? null, match?.id ?? null])
+    // Slot 4: who put it on record — the admin who captured it, else the
+    // one who approved it. Null where this viewer cannot see the row.
+    list.push([from, to, match?.leave_type ?? null, match?.id ?? null, match ? (match.submitted_by || match.reviewed_by || null) : null])
   }
   return byProfile
 }

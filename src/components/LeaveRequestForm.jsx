@@ -32,7 +32,7 @@ function describeLeave(lr) {
 // filled — on that day, with the doctor's shift lit up.
 function RosterLinks({ shifts, profileId }) {
   const links = shifts
-    .map(s => ({ date: s.date, href: rosterShiftLink({ rosterMonthId: s.rosterMonthId, date: s.date, profileId }) }))
+    .map(s => ({ date: s.date, href: rosterShiftLink({ rosterMonthId: s.rosterMonthId, date: s.date, profileId, cover: true }) }))
     .filter(l => l.href)
   if (links.length === 0) return null
   const shown = links.slice(0, MAX_ROSTER_LINKS)
@@ -44,7 +44,7 @@ function RosterLinks({ shifts, profileId }) {
         <span key={l.date}>
           {i > 0 && ' · '}
           <a href={l.href} target="_blank" rel="noopener noreferrer" className="font-semibold underline hover:no-underline">
-            {i === 0 && 'Go to roster: '}{formatShortDateRange(l.date, l.date)}
+            {i === 0 && 'Arrange cover: '}{formatShortDateRange(l.date, l.date)}
           </a>
         </span>
       ))}

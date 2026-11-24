@@ -23,7 +23,7 @@ import PublicHolidayBadge from '../components/PublicHolidayBadge'
 import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { findSameDayConflict } from '../lib/rosterVacancy'
-import { fetchApprovedLeaveByProfile } from '../lib/approvedLeave'
+import { fetchApprovedLeaveByProfile, leaveRangeOn } from '../lib/approvedLeave'
 import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
 import { fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
@@ -340,8 +340,21 @@ export default function RosterGridPage() {
       }
       if (target) setPendingJumpId(target.id)
       else setPendingJumpDate(date)
+      // &cover=1 (from Capture leave or the dashboard): open that shift's
+      // cover decision straight away — the vacancy form on a published
+      // roster, with the leave already linked; the shift menu on a draft.
+      if (searchParams.get('cover') === '1' && isAdmin && target?.profile_id && !target.is_locum) {
+        const shiftCode = shiftTypes[target.shift_type_id] || 'UNKNOWN'
+        setEditing(true)
+        if (rosterMonth.status === 'published') {
+          const range = leaveRangeOn(leaveByProfile, target.profile_id, date)
+          setActiveVacancy({ entryId: target.id, date, shiftCode, currentProfileId: target.profile_id, suggestedReason: range?.[2] === 'sick' ? 'sick' : 'leave' })
+        } else {
+          setMenu({ date, shiftCode, entry: target, anchorRect: null })
+        }
+      }
     }
-    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); return next }, { replace: true })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); next.delete('cover'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id, loading])
 

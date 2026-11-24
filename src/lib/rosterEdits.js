@@ -380,12 +380,27 @@ export function reinstateLeave({ entry, leaveByProfile }) {
   return range || [null, null, null, entry.vacated_leave_request_id]
 }
 
-export function leaveQuestion({ entry, leaveByProfile, nameOf }) {
+// The linked leave, described: { type, dates, multiDay }. A leave that
+// covers only this shift's day is cancelled along with the put-back (a
+// doctor back on the shift is not on leave); one that runs over more
+// days has other days the admin must decide about, so Put back asks.
+export function describeLinkedLeave({ entry, leaveByProfile }) {
   const leave = reinstateLeave({ entry, leaveByProfile })
   if (!leave) return null
-  const type = (leave[2] && LEAVE_TYPE_LABELS[leave[2]]) || 'leave'
-  const dates = leave[0] && leave[1] ? (leave[0] === leave[1] ? shortDate(leave[0]) : `${shortDate(leave[0])} – ${shortDate(leave[1])}`) : shortDate(entry.date)
-  return `Also cancel ${possessive(nameOf(entry.vacated_profile_id) || 'this doctor')} ${type.toLowerCase()} for ${dates}?`
+  const type = ((leave[2] && LEAVE_TYPE_LABELS[leave[2]]) || 'leave').toLowerCase()
+  const known = Boolean(leave[0] && leave[1])
+  const multiDay = known && leave[0] !== leave[1]
+  const dates = known ? (multiDay ? `${shortDate(leave[0])} – ${shortDate(leave[1])}` : shortDate(leave[0])) : shortDate(entry.date)
+  return { type, dates, multiDay }
+}
+
+export function leaveQuestion({ entry, leaveByProfile, nameOf }) {
+  const leave = describeLinkedLeave({ entry, leaveByProfile })
+  if (!leave) return null
+  const who = possessive(nameOf(entry.vacated_profile_id) || 'this doctor')
+  return leave.multiDay
+    ? `${who} ${leave.type} runs ${leave.dates}. Cancel all of it, or keep the other days?`
+    : `Also cancel ${who} ${leave.type} for ${leave.dates}?`
 }
 
 export async function reinstate({ rosterMonthId, entry, shiftCode, entries, cancelLeave = false, adminId, nameOf, batchId = newBatchId() }) {

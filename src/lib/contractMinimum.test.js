@@ -27,6 +27,33 @@ describe('monthMinimum', () => {
     expect(r).toMatchObject({ minimum: 158, leaveShifts: 5 }) // 210 × 15/20 = 157.5
   })
 
+  it('adds a weekend on leave when it was their weekend, by every second weekend (Van Schalkwyk)', () => {
+    // On leave 4–10 Nov; worked the weekend of 24 Oct, so 7 Nov was his.
+    const r = monthMinimum({ profile: mo, leave: [{ date_from: '2026-11-04', date_to: '2026-11-10' }], weekendsWorked: new Set(['2026-10-24', '2026-11-21']), ...nov })
+    expect(r).toMatchObject({ leaveShifts: 6, weekendLeaveShifts: 1, minimum: 147 }) // 210 × 14/20
+  })
+
+  it('does not add a weekend on leave that was not theirs (Van Zyl, 7 Nov)', () => {
+    // Worked 31 Oct and 14 Nov: 7 Nov was the weekend off; 28 Nov was his.
+    const r = monthMinimum({
+      profile: mo,
+      leave: [{ date_from: '2026-11-02', date_to: '2026-11-08' }, { date_from: '2026-11-21', date_to: '2026-11-29' }],
+      weekendsWorked: new Set(['2026-10-31', '2026-11-14']),
+      ...nov,
+    })
+    expect(r).toMatchObject({ leaveShifts: 11, weekendLeaveShifts: 1 }) // the paper's 11
+  })
+
+  it('counts a weekend the planner names them for', () => {
+    const r = monthMinimum({ profile: mo, leave: [{ date_from: '2026-11-14', date_to: '2026-11-15' }], plannedWeekends: new Set(['2026-11-14']), ...nov })
+    expect(r).toMatchObject({ leaveShifts: 1, weekendLeaveShifts: 1 })
+  })
+
+  it('looks two weekends ahead when there is no earlier weekend on record', () => {
+    const r = monthMinimum({ profile: mo, leave: [{ date_from: '2026-11-07', date_to: '2026-11-08' }], weekendsWorked: new Set(['2026-11-21']), ...nov })
+    expect(r.weekendLeaveShifts).toBe(1)
+  })
+
   it('uses 10 shifts for ⅝ (Baerends, 2 weekdays)', () => {
     const r = monthMinimum({ profile: { ...mo, contract_type: 'five_eighths', min_hours: 108 }, leave: [{ date_from: '2026-11-11', date_to: '2026-11-12' }], ...nov })
     expect(r.minimum).toBe(82) // 103 × 8/10 = 82.4

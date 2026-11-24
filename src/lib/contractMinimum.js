@@ -16,9 +16,13 @@ import { OT_HOURS, ROTATION_PLANNED_CATEGORIES } from './staffDefaults'
 // 3. Leave is credited per shift missed, the way the paper roster's hours
 //    sheet does it: each weekday (Mon–Fri) on approved leave is one shift
 //    off the shifts the contract expects in a month — 20 full-time, 10 for
-//    ⅝, 6 for OT/psych. Weekend days on leave don't count; a doctor works
-//    one weekend day in two, and the paper doesn't count them either.
-//    Barnes, 10 weekdays of leave: 210 × 10/20 = 105.
+//    ⅝, 6 for OT/psych. Barnes, 10 weekdays of leave: 210 × 10/20 = 105.
+//    A weekend on leave adds one shift only when it was the doctor's
+//    weekend to work, as the paper lists them: the weekend planner names
+//    them for it, or — doctors work every second weekend — they worked
+//    the weekend two before it (or, with no earlier weekend on record,
+//    the one two after). Van Schalkwyk, on leave 4–10 Nov, worked 24 Oct,
+//    so 7 Nov was his: 5 weekdays + 1 = 6 shifts.
 // 4. Days not in the EC at all — outside every rotation (interns and
 //    registrars), before ec_start_date, after scheduled_inactive_date —
 //    take off their share of the month's weekdays. A day counts once;
@@ -48,6 +52,16 @@ const EC_ROTATION_MIN = 220
 // Shifts a month's contract expects, as on the paper roster's hours sheet.
 export const EXPECTED_SHIFTS = { full: 20, five_eighths: 10, Junior_Doctor_Overtime: 6 }
 
+function dow(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+}
+
+// The Saturday of the weekend a Saturday or Sunday belongs to.
+export function weekendSaturday(dateStr) {
+  return dow(dateStr) === 0 ? prevDay(dateStr) : dateStr
+}
+
 function isWeekday(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
@@ -71,8 +85,11 @@ function addRange(days, from, to, monthStart, monthEnd) {
 
 // Pure. `profile` needs id, category, contract_type, min_hours,
 // ec_start_date and scheduled_inactive_date; `leave` its approved leave
-// ({ date_from, date_to }) and `rotations` its intern_rotations rows.
-export function monthMinimum({ profile, leave = [], rotations = [], monthStart, monthEnd }) {
+// ({ date_from, date_to }); `rotations` its intern_rotations rows;
+// `weekendsWorked` the Saturdays of weekends it holds a roster shift on
+// (around the month), and `plannedWeekends` the Saturdays the weekend
+// planner names it for.
+export function monthMinimum({ profile, leave = [], rotations = [], weekendsWorked = new Set(), plannedWeekends = new Set(), monthStart, monthEnd }) {
   const daysInMonth = Number(monthEnd.slice(8, 10))
   const monthDays = datesInRange(monthStart, monthEnd)
 
@@ -107,7 +124,17 @@ export function monthMinimum({ profile, leave = [], rotations = [], monthStart, 
 
   const weekdays = monthDays.filter(isWeekday).length
   const notInEcWeekdays = [...notInEc].filter(isWeekday).length
-  const leaveShifts = [...onLeave].filter(isWeekday).length
+  const weekdayLeave = [...onLeave].filter(isWeekday).length
+  const leaveWeekends = new Set([...onLeave].filter(d => !isWeekday(d)).map(weekendSaturday))
+  let weekendLeave = 0
+  for (const sat of leaveWeekends) {
+    const hasEarlier = [...weekendsWorked].some(w => w < sat)
+    const theirs = plannedWeekends.has(sat) ||
+      weekendsWorked.has(shift(sat, -14)) ||
+      (!hasEarlier && weekendsWorked.has(shift(sat, 14)))
+    if (theirs) weekendLeave++
+  }
+  const leaveShifts = weekdayLeave + weekendLeave
   const expected = EXPECTED_SHIFTS[contract] ?? EXPECTED_SHIFTS.full
   const expectedHere = weekdays ? expected * (weekdays - notInEcWeekdays) / weekdays : expected
 
@@ -118,6 +145,7 @@ export function monthMinimum({ profile, leave = [], rotations = [], monthStart, 
     minimum,
     expectedShifts: expected,
     leaveShifts,
+    weekendLeaveShifts: weekendLeave,
     leaveDays: onLeave.size,
     notInEcDays: notInEc.size,
     awayDays: onLeave.size + notInEc.size,
@@ -139,10 +167,17 @@ export async function fetchMonthMinimums({ profiles, year, month }) {
   const { start: monthStart, end: monthEnd } = monthBounds(year, month)
   const ids = profiles.map(p => p.id)
   if (ids.length === 0) return new Map()
-  const [leaveRes, rotRes] = await Promise.all([
+  // Shifts from two weeks either side, to tell whose weekend a
+  // leave weekend was (every second weekend).
+  const [leaveRes, rotRes, weekendRes, plannerRes] = await Promise.all([
     supabase.from('leave_requests').select('profile_id, date_from, date_to')
       .eq('status', 'approved').lte('date_from', monthEnd).gte('date_to', monthStart),
     supabase.from('intern_rotations').select('doctor_id, rotation_type, start_date, end_date').in('doctor_id', ids),
+    supabase.from('roster_entries').select('profile_id, date, roster_months!inner(deleted_at)')
+      .in('profile_id', ids).is('roster_months.deleted_at', null)
+      .gte('date', shift(monthStart, -16)).lte('date', shift(monthEnd, 15)),
+    supabase.from('weekend_planner_entries').select('profile_id, weekend_saturday')
+      .in('profile_id', ids).gte('weekend_saturday', shift(monthStart, -1)).lte('weekend_saturday', monthEnd),
   ])
   const group = (rows, key) => {
     const m = new Map()
@@ -151,8 +186,21 @@ export async function fetchMonthMinimums({ profiles, year, month }) {
   }
   const leaveBy = group(leaveRes.data, 'profile_id')
   const rotBy = group(rotRes.data, 'doctor_id')
+  const workedBy = new Map()
+  for (const e of weekendRes.data || []) {
+    if (isWeekday(e.date)) continue
+    if (!workedBy.has(e.profile_id)) workedBy.set(e.profile_id, new Set())
+    workedBy.get(e.profile_id).add(weekendSaturday(e.date))
+  }
+  const plannedBy = new Map()
+  for (const w of plannerRes.data || []) {
+    if (!plannedBy.has(w.profile_id)) plannedBy.set(w.profile_id, new Set())
+    plannedBy.get(w.profile_id).add(w.weekend_saturday)
+  }
   return new Map(profiles.map(p => [p.id, monthMinimum({
-    profile: p, leave: leaveBy.get(p.id) || [], rotations: rotBy.get(p.id) || [], monthStart, monthEnd,
+    profile: p, leave: leaveBy.get(p.id) || [], rotations: rotBy.get(p.id) || [],
+    weekendsWorked: workedBy.get(p.id), plannedWeekends: plannedBy.get(p.id),
+    monthStart, monthEnd,
   })]))
 }
 

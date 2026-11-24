@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import {
   LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN, COLUMN_BADGE_LABEL, LEAVE_CAPACITY_STATES,
   totalLeaveSlotsForDate,
@@ -15,6 +15,7 @@ import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestP
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import PlannerDetailsCard from './PlannerDetailsCard'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import CapacityBar from './CapacityBar'
 import DayDetails from './annual/DayDetails'
 import DateStepper from './DateStepper'
@@ -71,6 +72,7 @@ export default function MonthWorkspace({
   // reopening this same day's details instead of silently losing it.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedDate = searchParams.get('day')
+  const isDesktop = useIsDesktop()
 
   function setSelectedDate(date) {
     setSearchParams(prev => {
@@ -175,6 +177,30 @@ export default function MonthWorkspace({
 
   const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
+  // Past the month's edge the grid moves too, in the same URL write as the
+  // day — two writes in one tap would each start from the same old URL and
+  // the second would undo the first.
+  const dayDetailsProps = selectedInMonth && {
+    date: selectedDate,
+    entriesByColumn: dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId),
+    capacity: dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey),
+    phName: publicHolidaysByDate.get(selectedDate),
+    displayNames,
+    pendingRows,
+    maxByColumnKey,
+    maxFullTime,
+    rotationsByDoctorId,
+    onDataChanged,
+    onRequestLeave: openRequestLeave,
+    onStepDay: stepSelectedDay,
+  }
+
+  function stepSelectedDay(delta) {
+    const next = addDays(selectedDate, delta)
+    if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
+    onMonthChange(Number(next.slice(0, 4)), Number(next.slice(5, 7)), params => params.set('day', next))
+  }
+
   return (
     <div>
       {/* One grid, three areas. Desktop: the toolbar spans both columns,
@@ -226,25 +252,18 @@ export default function MonthWorkspace({
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
-            {selectedInMonth && (
-              <DayDetails
-                key={selectedDate}
-                date={selectedDate}
-                entriesByColumn={dayEntriesByColumn(selectedDate, { approvedByDate, pendingByDate }, rotationsByDoctorId)}
-                capacity={dayCapacitySummary(selectedDate, countByColumnPerDate, maxByColumnKey)}
-                phName={publicHolidaysByDate.get(selectedDate)}
-                displayNames={displayNames}
-                pendingRows={pendingRows}
-                maxByColumnKey={maxByColumnKey}
-                maxFullTime={maxFullTime}
-                rotationsByDoctorId={rotationsByDoctorId}
-                onDataChanged={onDataChanged}
-                onRequestLeave={openRequestLeave}
-              />
+            {selectedInMonth && isDesktop && (
+              <DayDetails {...dayDetailsProps} />
             )}
           </PlannerDetailsCard>
         </div>
       </div>
+
+      {/* Below lg the day opens in Team Leave's day sheet instead of the
+          rail card: short, steady, and the grid's top half stays in view. */}
+      {selectedInMonth && !isDesktop && (
+        <DayDetails {...dayDetailsProps} variant="sheet" onClose={() => setSelectedDate(null)} />
+      )}
 
       {requestFormDate && (
         <Modal title="Request annual leave" onClose={() => setRequestFormDate(null)} centered>

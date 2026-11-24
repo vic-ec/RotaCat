@@ -228,7 +228,7 @@ describe('SpecialMonthWorkspace', () => {
       renderWorkspace({ leaveByDate: byDate })
       let card = await selectDay(user, '2026-08-12')
       expect(card.getByText('Free · 0 of 3 on special leave')).toBeInTheDocument()
-      expect(card.getByText('No one is on special leave today.')).toBeInTheDocument()
+      expect(card.getByText('No one is on special leave this day.')).toBeInTheDocument()
       card = await selectDay(user, '2026-08-20')
       expect(card.getByText('At guideline · 3 of 3 on special leave')).toBeInTheDocument()
       card = await selectDay(user, '2026-08-21')
@@ -255,17 +255,47 @@ describe('SpecialMonthWorkspace', () => {
       expect(details().getByText('Ellis')).toBeInTheDocument()
     })
 
-    it('below lg the day opens in a bottom sheet, not a centred popup', async () => {
-      const mql = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }
-      window.matchMedia = vi.fn().mockReturnValue(mql)
+    it('steps a day at a time from the card, moving the grid selection with it', async () => {
+      const user = userEvent.setup()
+      renderWorkspace({}, '/leave?sday=2026-08-10')
+      await user.click(details().getByRole('button', { name: 'Next day' }))
+      expect(details().getByRole('heading', { name: 'Tuesday, 11 Aug 2026' })).toBeInTheDocument()
+      expect(details().getByText('Tue, 11 Aug 2026')).toBeInTheDocument()
+      expect(desktopDay('2026-08-11')).toHaveAttribute('aria-pressed', 'true')
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      expect(details().getByRole('heading', { name: "Sunday, 9 Aug 2026" })).toBeInTheDocument()
+    })
+
+    it('past the month edge, moves the month and the day in one URL write', async () => {
+      const user = userEvent.setup()
+      const onMonthChange = vi.fn()
+      renderWorkspace({ onMonthChange }, '/leave?sday=2026-08-31')
+      await user.click(details().getByRole('button', { name: 'Next day' }))
+      expect(onMonthChange).toHaveBeenCalledWith(2026, 9, expect.any(Function))
+      const params = new URLSearchParams()
+      onMonthChange.mock.calls[0][2](params)
+      expect(params.get('sday')).toBe('2026-09-01')
+    })
+
+    it("below lg the day opens in Team Leave's day sheet: count, stepper, one status line, the guideline behind an (i)", async () => {
+      window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
       try {
         const user = userEvent.setup()
         renderWorkspace()
         expect(screen.queryByTestId('planner-details-card')).not.toBeInTheDocument()
         await user.click(desktopDay('2026-08-10'))
-        const sheet = await screen.findByRole('dialog', { name: 'Selected day' })
+        const sheet = await screen.findByRole('dialog', { name: 'Monday, 10 Aug 2026' })
         expect(within(sheet).getByText('Ellis')).toBeInTheDocument()
-        await user.click(within(sheet).getByRole('button', { name: 'Close' }))
+        expect(within(sheet).getByText('Mon, 10 Aug 2026')).toBeInTheDocument()
+        expect(within(sheet).queryByText(/It is not a cap/)).not.toBeInTheDocument()
+        await user.click(within(sheet).getByRole('button', { name: 'About the guideline' }))
+        expect(within(sheet).getByText(/It is not a cap/)).toBeInTheDocument()
+        expect(within(sheet).getByRole('button', { name: 'Request leave from this day' })).toBeInTheDocument()
+
+        await user.click(within(sheet).getByRole('button', { name: 'Next day' }))
+        expect(screen.getByRole('dialog', { name: 'Tuesday, 11 Aug 2026' })).toBeInTheDocument()
+        await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       } finally {
         delete window.matchMedia

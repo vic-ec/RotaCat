@@ -555,22 +555,70 @@ describe('MonthWorkspace', () => {
       expect(details().getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
     })
 
-    it('below lg the same details open in a bottom sheet, with no inline card', async () => {
-      // A phone-width matchMedia for this test only.
-      const mql = { matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }
-      window.matchMedia = vi.fn().mockReturnValue(mql)
-      try {
+    it('steps a day at a time from the card, moving the grid selection with it', async () => {
+      const user = userEvent.setup()
+      renderWorkspace({}, ['/?day=2026-08-12'])
+      expect(details().getByText('Anderson')).toBeInTheDocument()
+      await user.click(details().getByRole('button', { name: 'Next day' }))
+      expect(details().getByRole('heading', { name: 'Thursday, 13 Aug 2026' })).toBeInTheDocument()
+      expect(details().queryByText('Anderson')).not.toBeInTheDocument()
+      expect(desktopGrid().getByRole('button', { name: /^2026-08-13/ })).toHaveAttribute('aria-pressed', 'true')
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      expect(details().getByText('Anderson')).toBeInTheDocument()
+    })
+
+    it('past the month edge, moves the month and the day in one URL write', async () => {
+      const user = userEvent.setup()
+      const onMonthChange = vi.fn()
+      renderWorkspace({ onMonthChange }, ['/?day=2026-08-01'])
+      await user.click(details().getByRole('button', { name: 'Previous day' }))
+      expect(onMonthChange).toHaveBeenCalledWith(2026, 7, expect.any(Function))
+      const params = new URLSearchParams()
+      onMonthChange.mock.calls[0][2](params)
+      expect(params.get('day')).toBe('2026-07-31')
+    })
+
+    describe('below lg: the day sheet', () => {
+      beforeEach(() => {
+        // A phone-width matchMedia for these tests only.
+        window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+        mockAuth = { user: { id: 'doctor-1' }, isAdmin: false, canSubmitLeave: true, profile: { category: 'MO' } }
+      })
+      afterEach(() => { delete window.matchMedia })
+
+      it("opens Team Leave's day sheet, with no rail card: slots count, stepper, one status line, the action pinned", async () => {
         const user = userEvent.setup()
         renderWorkspace()
         expect(screen.queryByTestId('planner-details-card')).not.toBeInTheDocument()
         await user.click(mobileGrid().getByRole('button', { name: /^2026-08-12/ }))
-        const sheet = screen.getByRole('dialog', { name: 'Selected day' })
-        expect(within(sheet).getByRole('heading', { name: 'Wednesday, 12 Aug 2026' })).toBeInTheDocument()
+        const sheet = screen.getByRole('dialog', { name: 'Wednesday, 12 Aug 2026' })
+        expect(within(sheet).getByTitle('2 of 3 slots used')).toHaveTextContent('2/3slots')
+        expect(within(sheet).getByText('Wed, 12 Aug 2026')).toBeInTheDocument()
+        expect(within(sheet).getByText('2 of 3 slots used · no room for MO')).toBeInTheDocument()
+        expect(within(sheet).getByText('Main pool 2/2 · OT Intern 0/1')).toBeInTheDocument()
+        expect(within(sheet).getByText('Anderson')).toBeInTheDocument()
+        // The long explanations wait behind the (i).
+        expect(within(sheet).queryByText(/share the main pool/)).not.toBeInTheDocument()
+        expect(within(sheet).queryByText(/approve it as overbooked/)).not.toBeInTheDocument()
+        expect(within(sheet).getByRole('button', { name: 'Submit for admin approval' })).toBeInTheDocument()
+
+        await user.click(within(sheet).getByRole('button', { name: 'About these numbers' }))
+        expect(within(sheet).getByText(/MO, Registrar and EC Intern share the main pool of 2 slots\. The OT Intern pool has 1 slot of its own/)).toBeInTheDocument()
+        expect(within(sheet).getByText(/approve it as overbooked/)).toBeInTheDocument()
+
         await user.click(within(sheet).getByRole('button', { name: 'Close' }))
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      } finally {
-        delete window.matchMedia
-      }
+      })
+
+      it('steps a day without closing, and a free day offers a plain request', async () => {
+        const user = userEvent.setup()
+        renderWorkspace({}, ['/?day=2026-08-12'])
+        await user.click(screen.getByRole('button', { name: 'Next day' }))
+        const sheet = screen.getByRole('dialog', { name: 'Thursday, 13 Aug 2026' })
+        expect(within(sheet).getByText('Free · room for MO')).toBeInTheDocument()
+        expect(within(sheet).getByText('No one is on annual leave this day.')).toBeInTheDocument()
+        expect(within(sheet).getByRole('button', { name: 'Request leave from this day' })).toBeInTheDocument()
+      })
     })
   })
 

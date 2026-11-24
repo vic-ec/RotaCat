@@ -91,6 +91,7 @@ export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLe
   const [weekAnchor, setWeekAnchor] = useState(today)
   const [monthYear, setMonthYear] = useState(Number(today.slice(0, 4)))
   const [monthMonth, setMonthMonth] = useState(Number(today.slice(5, 7)))
+  const changeMonth = (y, m) => { setMonthYear(y); setMonthMonth(m) }
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState(null) // a selected leave request
@@ -180,7 +181,7 @@ export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLe
               onWeekChange={setWeekAnchor}
               year={monthYear}
               month={monthMonth}
-              onMonthChange={(y, m) => { setMonthYear(y); setMonthMonth(m) }}
+              onMonthChange={changeMonth}
             />
           </div>
         )}
@@ -218,7 +219,7 @@ export default function TeamLeaveMobile({ requests, canCancelLeave = false, onLe
 
 
       {view === 'week' && <TeamLeaveWeekView requests={filtered} weekAnchor={weekAnchor} onSelectLeave={setDetail} />}
-      {view === 'month' && <TeamLeaveMonthView requests={filtered} year={monthYear} month={monthMonth} onSelectLeave={setDetail} />}
+      {view === 'month' && <TeamLeaveMonthView requests={filtered} year={monthYear} month={monthMonth} onMonthChange={changeMonth} onSelectLeave={setDetail} />}
       {view === 'people' && <TeamLeavePeopleView requests={filtered} onSelectLeave={setDetail} />}
 
       {detail && (

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { COLUMN_BADGE_LABEL, LEAVE_OTHER_COLUMN, LEAVE_CAPACITY_COLUMNS, LEAVE_CAPACITY_STATES } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn } from '../lib/internRotations'
 import { SPECIAL_LEAVE_SOFT_CAP } from '../lib/leaveRequests'
-import { todayStr } from '../lib/dateRange'
+import { todayStr, addDays } from '../lib/dateRange'
 import { daysBySlotsUsed } from '../lib/plannerCalendar'
 import {
   specialCountsByDate, specialMonthMarkers, specialCapacityBarLabels, SPECIAL_CATEGORY_FILTER_OPTIONS, matchesSpecialCategory, defaultSpecialCategoryKey,
@@ -15,6 +15,7 @@ import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestP
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import PlannerDetailsCard from './PlannerDetailsCard'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import CapacityBar from './CapacityBar'
 import LeaveRequestForm from './LeaveRequestForm'
 import SelectMenu from './SelectMenu'
@@ -54,6 +55,7 @@ export default function SpecialMonthWorkspace({
   // browser can reload the page at any time, and the URL survives that.
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedDate = searchParams.get('sday')
+  const isDesktop = useIsDesktop()
   function setSelectedDate(date) {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
@@ -117,6 +119,25 @@ export default function SpecialMonthWorkspace({
 
   const selectedInMonth = Boolean(selectedDate) && selectedDate.startsWith(monthPrefix)
 
+  // Past the month's edge the grid moves too, in the same URL write as the
+  // day — two writes in one tap would each start from the same old URL and
+  // the second would undo the first.
+  const dayDetailsProps = selectedInMonth && {
+    date: selectedDate,
+    rows: rowsForDate(selectedDate),
+    count: countsByDate.get(selectedDate) || 0,
+    phName: publicHolidaysByDate.get(selectedDate),
+    displayNames,
+    onRequestLeave: openRequestLeave,
+    onStepDay: stepSelectedDay,
+  }
+
+  function stepSelectedDay(delta) {
+    const next = addDays(selectedDate, delta)
+    if (next.startsWith(monthPrefix)) { setSelectedDate(next); return }
+    onMonthChange(Number(next.slice(0, 4)), Number(next.slice(5, 7)), params => params.set('sday', next))
+  }
+
   return (
     <div>
       {/* Toolbar, panel, grid on a phone; on desktop the toolbar spans
@@ -175,20 +196,16 @@ export default function SpecialMonthWorkspace({
             open={selectedInMonth}
             onClose={() => setSelectedDate(null)}
           >
-            {selectedInMonth && (
-              <SpecialDayDetails
-                key={selectedDate}
-                date={selectedDate}
-                rows={rowsForDate(selectedDate)}
-                count={countsByDate.get(selectedDate) || 0}
-                phName={publicHolidaysByDate.get(selectedDate)}
-                displayNames={displayNames}
-                onRequestLeave={openRequestLeave}
-              />
-            )}
+            {selectedInMonth && isDesktop && <SpecialDayDetails {...dayDetailsProps} />}
           </PlannerDetailsCard>
         </div>
       </div>
+
+      {/* Below lg the day opens in Team Leave's day sheet instead of the
+          rail card: short, steady, and the grid's top half stays in view. */}
+      {selectedInMonth && !isDesktop && (
+        <SpecialDayDetails {...dayDetailsProps} variant="sheet" onClose={() => setSelectedDate(null)} />
+      )}
 
       {requestFormDate && (
         <Modal title="Request special leave" onClose={() => setRequestFormDate(null)} centered>

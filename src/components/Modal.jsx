@@ -30,7 +30,16 @@ function CloseIcon(props) {
 // planner day), where rising from the bottom keeps the tapped thing in
 // view. Swipe-to-dismiss goes with the sheet: a centered card isn't
 // anchored to the bottom edge, so a downward drag has nowhere to go.
-export default function Modal({ title, onClose, children, footer, centered = false, maxWidthClassName = 'md:max-w-[520px]' }) {
+//
+// `header`: replaces the title text with a control of the caller's own (a
+// day stepper), beside the same Close button; `title` still names the dialog.
+// `heightClassName`: a fixed height instead of sizing to the content, for a
+// sheet whose content changes while it's open and whose header controls
+// shouldn't move under the finger.
+export default function Modal({
+  title, onClose, children, footer, centered = false, maxWidthClassName = 'md:max-w-[520px]',
+  header, heightClassName = 'max-h-[85vh]',
+}) {
   const panelRef = useRef(null)
   useDismissablePopover(true, onClose, panelRef)
   const swipe = useSwipeToDismiss(onClose)
@@ -54,15 +63,15 @@ export default function Modal({ title, onClose, children, footer, centered = fal
         aria-modal="true"
         aria-label={title}
         style={centered ? undefined : swipe.style}
-        className={`flex max-h-[85vh] w-full flex-col overflow-hidden border border-edge bg-canvas-raised md:rounded-b-xl md:shadow-raised ${
+        className={`flex ${heightClassName} w-full flex-col overflow-hidden border border-edge bg-canvas-raised md:rounded-b-xl md:shadow-raised ${
           centered ? 'rounded-xl shadow-raised' : 'rounded-t-xl rounded-b-none'
         } ${maxWidthClassName}`}
       >
         <div
           {...(centered ? {} : swipe.handleProps)}
-          className={`flex flex-shrink-0 items-center justify-between border-b border-slate-line px-5 py-4 ${centered ? '' : 'touch-none'}`}
+          className={`flex flex-shrink-0 items-center justify-between gap-2 border-b border-slate-line px-5 py-4 ${centered ? '' : 'touch-none'}`}
         >
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          {header ?? <h2 className="text-base font-semibold text-ink">{title}</h2>}
           <button
             type="button"
             onClick={onClose}

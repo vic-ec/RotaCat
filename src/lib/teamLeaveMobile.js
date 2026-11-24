@@ -122,7 +122,11 @@ export function peopleAwayByDate(requests, dates) {
     }
   }
 
+  // Surname first, start date as the tie-break for a shared surname — the
+  // same order as the planners' on-leave lists.
+  const bySurnameThenStart = (a, b) =>
+    (a.doctor.surname || '').localeCompare(b.doctor.surname || '') || a.request.date_from.localeCompare(b.request.date_from)
   const result = new Map()
-  for (const d of dates) result.set(d, [...perDay.get(d).values()])
+  for (const d of dates) result.set(d, [...perDay.get(d).values()].sort(bySurnameThenStart))
   return result
 }

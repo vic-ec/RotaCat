@@ -52,14 +52,17 @@ export function boardPerson(row, { late = false, vacatedName = null } = {}) {
 // rows   roster_entries joined with shift_type, profile and the vacated
 //        doctor's name, adjusted times already applied
 // now    a Date
-// Returns { now: [group], next: [group], consultant }, each group
+// Returns { now: [group], next: [group], consultant, rosterMonthId (the
+// roster holding today) }, each group
 // { key, start, end, startTime, endTime, night, people }. `next` is every
 // shift starting at the first start time after `now` (within 24 hours).
 export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) {
   const groups = new Map()
   let consultant = null
+  let rosterMonthId = null
   const today = formatLocalDate(now)
   for (const row of rows || []) {
+    if (row.date === today && row.roster_month_id) rosterMonthId = row.roster_month_id
     if (row.consultant_profile_id && row.date === today && row.consultant) consultant = fullName(row.consultant)
     const st = row.shift_type
     if (!st) continue
@@ -81,7 +84,7 @@ export function buildOnShiftBoard(rows, now, { lateEntryIds = new Set() } = {}) 
   const ahead = all.filter(g => g.start > now && g.start - now <= 24 * 3600000)
   const firstStart = ahead[0]?.start?.getTime()
   const next = firstStart == null ? [] : ahead.filter(g => g.start.getTime() === firstStart)
-  return { now: onNow, next, consultant }
+  return { now: onNow, next, consultant, rosterMonthId }
 }
 
 // "in 30 min" / "in 2 h" / "tomorrow"
@@ -93,7 +96,7 @@ export function startsInLabel(start, now) {
 }
 
 const PERSON = 'name, surname, category, color_code, avatar_url, pattern_type'
-const COLUMNS = 'id, date, profile_id, is_locum, locum_name, locum_contact_id, vacated_profile_id, consultant_profile_id, '
+const COLUMNS = 'id, date, roster_month_id, profile_id, is_locum, locum_name, locum_contact_id, vacated_profile_id, consultant_profile_id, '
   + 'start_time_override, end_time_override, roster_months!inner(status, deleted_at), '
   + 'shift_type:shift_types(code, start_time, end_time, is_night_shift), '
   + `profile:profiles!roster_entries_profile_id_fkey(${PERSON}), `

@@ -271,7 +271,7 @@ export default function AppLayout() {
             within the normal scroll flow instead, which tracks the visual
             viewport correctly through that. */}
         {isDashboard && (
-          <header className="sheen sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2 md:hidden">
+          <header className="sheen sheen-pinned sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2 md:hidden">
             {/* Chrome role (docs/app-theme/SPEC.md): sheen, wordmark left,
                 avatar with its status dot right, no page title. Same
                 height as before. */}
@@ -310,7 +310,7 @@ export default function AppLayout() {
           tab is a state, not a button, so it takes no bevel (a deliberate
           departure from the spec's "mint filled square with the bevel").
           Icons unchanged. */}
-      <nav className="sheen fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
+      <nav className="sheen sheen-pinned fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

@@ -125,6 +125,16 @@ describe("LeaveListView — Who's away", () => {
     expect(within(later).getByText(/Doc far/)).toBeInTheDocument()
   })
 
+  it('offers Expand all once every section is folded, and Collapse all otherwise', async () => {
+    mockData.rows = [row('now', { status: 'approved', date_from: TODAY, date_to: inDays(1) })]
+    render(<LeaveListView />)
+    await screen.findByRole('region', { name: 'Away today' })
+    fireEvent.click(screen.getByRole('button', { name: /Collapse all/ }))
+    expect(screen.queryByText(/Doc now/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Expand all/ }))
+    expect(screen.getByText(/Doc now/)).toBeInTheDocument()
+  })
+
   it('opens the leave details on a tap, with Cancel leave for admins only', async () => {
     mockAuth.isAdmin = true
     mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]

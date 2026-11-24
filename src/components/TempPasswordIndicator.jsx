@@ -108,7 +108,7 @@ export default function TempPasswordIndicator({ className = '', notSignedIn = fa
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); setOpen(false) }}
           style={{ ...positionStyle, width: 'max-content' }}
-          className="fixed z-50 whitespace-nowrap rounded-full border border-edge bg-canvas-raised px-3 py-1.5 text-xs font-medium text-ink shadow-raised"
+          className="fixed z-50 popup-hint whitespace-nowrap"
         >
           {label}
         </div>,

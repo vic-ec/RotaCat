@@ -239,7 +239,7 @@ export default function LeaveAuditByMonth({
           role="dialog"
           aria-label={`${MONTH_NAMES[open.month]} ${year}, ${open.row.name} ${open.row.surname}`}
           style={popoverStyle}
-          className={`fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 shadow-raised ${open.pinned ? '' : 'pointer-events-none'}`}
+          className={`fixed z-50 popup ${open.pinned ? '' : 'pointer-events-none'}`}
         >
           <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} pinned={open.pinned} onClose={open.pinned ? () => setOpen(null) : null} />
         </div>,

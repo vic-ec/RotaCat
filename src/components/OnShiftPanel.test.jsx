@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import OnShiftPanel from './OnShiftPanel'
 
@@ -35,36 +34,38 @@ describe('OnShiftPanel — phone', () => {
     })
   })
 
-  it('shows one row per shift: Now or Next, with the shift times', async () => {
+  it('shows full names in two columns on a phone too, with no badges to tap', async () => {
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
-    const rows = within(await screen.findByTestId('on-shift-panel')).getAllByRole('listitem').filter(li => li.querySelector('ul'))
-    expect(rows).toHaveLength(3)
-    expect(rows[0].textContent).toMatch(/Now.*08h00–18h00/)
-    expect(rows[1].textContent).toMatch(/Now.*12h00–22h00/)
-    expect(rows[2].textContent).toMatch(/Next · in 30 min.*15h00–01h00/)
-    expect(screen.getByText(/Consultant: Kate Meyer/)).toBeInTheDocument()
+    const groups = await screen.findAllByTestId('on-shift-group')
+    expect(groups).toHaveLength(3)
+    expect(groups[0].textContent).toMatch(/Now08h00–18h00.*Maurice MokoenaMO.*Zara KhanMO.*Dr SmithLocum · covering Naledi Dlamini/)
+    expect(groups[1].textContent).toMatch(/Now12h00–22h00.*Open locum slotNot covered/)
+    expect(groups[2].textContent).toMatch(/Next · in 30 min15h00–01h00.*Tom PetersenMO/)
+    expect(within(groups[0]).getAllByRole('list')[0].className).toMatch(/grid-cols-2/)
+    expect(screen.queryByRole('button', { name: /Maurice Mokoena/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+
+  it('reads "On call Consultant: name"', async () => {
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    expect(await screen.findByTestId('on-call')).toHaveTextContent('On call Consultant: Kate Meyer')
+  })
+
+  it('links View roster to today on the roster holding today, else the Roster page', async () => {
+    fetchOnShiftBoard.mockResolvedValueOnce({ ...(await fetchOnShiftBoard()), rosterMonthId: 'rm-nov' })
+    const { unmount } = render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await screen.findAllByTestId('on-shift-group')
+    expect(screen.getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster/rm-nov?date=2026-11-24')
+    unmount()
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await screen.findAllByTestId('on-shift-group')
     expect(screen.getByRole('link', { name: /View roster/ })).toHaveAttribute('href', '/roster')
   })
 
-  it('shows initials only, with the full name on hover and on tap', async () => {
+  it('marks a late arrival', async () => {
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
-    const badge = await screen.findByRole('button', { name: 'Maurice Mokoena · MO' })
-    expect(badge.textContent).toMatch(/^MM/)
-    const tip = within(badge).getByRole('tooltip', { hidden: true })
-    expect(tip).toHaveTextContent('Maurice Mokoena · MO')
-    expect(tip.className).toMatch(/hidden group-hover:block/)
-    await userEvent.click(badge)
-    expect(badge).toHaveAttribute('aria-expanded', 'true')
-    expect(tip.className).not.toMatch(/hidden/)
-  })
-
-  it('marks a late arrival, a locum covering someone and an open slot', async () => {
-    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
-    const khan = await screen.findByRole('button', { name: 'Zara Khan · MO · late arrival logged' })
-    expect(within(khan).getByTestId('on-shift-late')).toBeInTheDocument()
+    expect(within(await screen.findByLabelText('Zara Khan · MO · late arrival logged')).getByTestId('on-shift-late')).toBeInTheDocument()
     expect(screen.getAllByTestId('on-shift-late')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'Dr Smith · Locum · covering Naledi Dlamini' })).toHaveTextContent(/^DS/)
-    expect(screen.getByRole('button', { name: 'Open locum slot · not covered' })).toHaveTextContent(/^\[ \]/)
   })
 
   it('says so when nobody is rostered', async () => {

@@ -51,7 +51,7 @@ export default function PasswordRequirementsInfo({ align = 'left' }) {
       )}
       <span
         role="tooltip"
-        className={`absolute top-full z-20 mt-2 w-56 rounded-lg border border-edge bg-canvas-raised px-3 py-2 text-xs font-normal normal-case text-ink shadow-raised transition-opacity ${anchorClass} ${
+        className={`absolute top-full z-20 mt-2 w-56 popup normal-case transition-opacity ${anchorClass} ${
           show ? 'opacity-100' : 'pointer-events-none opacity-0 group-hover:opacity-100'
         }`}
       >

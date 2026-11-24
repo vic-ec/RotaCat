@@ -108,19 +108,21 @@ describe('isEntryOnLeave', () => {
 })
 
 describe('mergeLeaveRanges', () => {
-  const visible = [{ id: 'leave-1', profile_id: 'doc-a', date_from: '2026-11-20', date_to: '2026-11-21', leave_type: 'sick' }]
+  const visible = [{ id: 'leave-1', profile_id: 'doc-a', date_from: '2026-11-20', date_to: '2026-11-21', leave_type: 'sick', submitted_by: 'admin-1' }]
+  // The merge adds who recorded it (slot 4) where the row is visible.
+  const MERGED = { 'doc-a': [['2026-11-20', '2026-11-21', 'sick', 'leave-1', 'admin-1']], 'doc-c': [['2026-11-20', '2026-11-20', null, null, null]] }
 
   it('takes who and when from the RPC, and the type only where a visible row matches', () => {
     const merged = mergeLeaveRanges([
       { profile_id: 'doc-a', date_from: '2026-11-20', date_to: '2026-11-21' },
       { profile_id: 'doc-c', date_from: '2026-11-20', date_to: '2026-11-20' },
     ], visible)
-    expect(merged).toEqual(LEAVE)
-    expect(leaveRangeOn(merged, 'doc-c', '2026-11-20')).toEqual(['2026-11-20', '2026-11-20', null, null])
+    expect(merged).toEqual(MERGED)
+    expect(leaveRangeOn(merged, 'doc-c', '2026-11-20')).toEqual(['2026-11-20', '2026-11-20', null, null, null])
   })
 
   it('falls back to the visible rows alone when the RPC gave nothing', () => {
-    expect(mergeLeaveRanges(null, visible)).toEqual({ 'doc-a': LEAVE['doc-a'] })
+    expect(mergeLeaveRanges(null, visible)).toEqual({ 'doc-a': MERGED['doc-a'] })
   })
 })
 
@@ -162,5 +164,15 @@ describe('the no-cover row', () => {
   it('a snapshot drops updated_at so two reads of the same row compare equal', () => {
     expect(entrySnapshot({ id: 'e1', profile_id: 'a', updated_at: 'x' })).toEqual({ id: 'e1', profile_id: 'a' })
     expect(entrySnapshot(null)).toBeNull()
+  })
+})
+
+describe('a doctor still on a shift over approved leave', () => {
+  it('reads as an uncovered shift, naming who recorded the leave', () => {
+    const leave = { 'doc-a': [['2026-11-20', '2026-11-21', 'sick', 'leave-1', 'admin-1']] }
+    const absence = entryAbsence({ profile_id: 'doc-a', date: '2026-11-20' }, leave)
+    expect(absence).toMatchObject({ kind: 'on_leave', byId: 'admin-1' })
+    const s = absenceSummary({ absence, leaveByProfile: leave, doctorName: 'Sam Rivers', byName: 'Pat Admin' })
+    expect(s.lines).toEqual(['20–21 Nov', 'Shift not covered', 'Recorded by Pat Admin'])
   })
 })

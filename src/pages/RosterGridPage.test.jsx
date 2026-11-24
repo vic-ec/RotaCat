@@ -420,6 +420,12 @@ describe('RosterGridPage editing: no cover, edit bar, undo', () => {
     expect(await screen.findByText(/could not be written to History \(permission denied\)/)).toBeInTheDocument()
   })
 
+  it('a cover link (&cover=1) opens the roster editing, with that doctor\'s cover form up', async () => {
+    renderPage('/roster/rm1?date=2026-08-26&doctor=p1&mode=edit&cover=1')
+    expect(await screen.findByRole('dialog', { name: 'Replace or open shift' })).toBeInTheDocument()
+    expect(screen.getByTestId('roster-edit-bar')).toBeInTheDocument()
+  })
+
   it('nothing in the page says "Remove from this slot"', async () => {
     const user = userEvent.setup()
     mockRosterStatus = 'draft'

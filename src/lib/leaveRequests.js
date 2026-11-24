@@ -653,10 +653,13 @@ export async function fetchRosterOverlapShifts({ profileId, dateFrom, dateTo }) 
 
 // Where the roster link for one of those shifts goes: the month's grid,
 // scrolled to that day with the doctor's shift lit up (see RosterGridPage).
-export function rosterShiftLink({ rosterMonthId, date, profileId }) {
+// `cover`: open the roster in edit mode with that shift's cover form up
+// (an admin arranging cover for leave just captured).
+export function rosterShiftLink({ rosterMonthId, date, profileId, cover = false }) {
   if (!rosterMonthId || !date) return null
   const params = new URLSearchParams({ date })
   if (profileId) params.set('doctor', profileId)
+  if (cover) { params.set('mode', 'edit'); params.set('cover', '1') }
   return `/roster/${rosterMonthId}?${params.toString()}`
 }
 

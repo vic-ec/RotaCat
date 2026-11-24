@@ -122,8 +122,8 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(link).toHaveAttribute('href', '/leave?tab=requests')
     // The link belongs to the annual balance, which has something pending
     expect(link.closest('section').textContent).toMatch(/Annual leave · 2026/)
-    // Sick leave has nothing pending, so it gets no link
-    expect(screen.getAllByRole('link')).toHaveLength(1)
+    // One "View request" link only; the other link on the page is My year.
+    expect(screen.getAllByRole('link', { name: /View request/ })).toHaveLength(1)
   })
 
   it('pluralises the link when more than one request is pending', async () => {
@@ -139,7 +139,7 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
     expect(await screen.findByRole('link', { name: /View requests ›/ })).toBeInTheDocument()
   })
 
-  it('lists every other leave type used this year, counting requests where no day figure exists', async () => {
+  it('keeps to balance, Request leave, Upcoming and the My year link — other leave types live on My year', async () => {
     mockQueues.leave_requests = [
       { data: [
         { id: 's1', leave_type: 'special_leave', date_from: '2026-02-01', date_to: '2026-02-03', status: 'approved' },
@@ -149,14 +149,15 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     render(<LeaveDashboard />)
 
-    const otherSection = (await screen.findByText('Other leave · 2026')).closest('section')
-    expect(otherSection.textContent).toMatch(/Sick leave.*1 request booked.*0 pending/s)
-    expect(otherSection.textContent).toMatch(/Special leave.*1 request booked/s)
-    // No invented day figure for types with no deducted-days column
-    expect(otherSection.textContent).not.toMatch(/days/)
-    expect(otherSection.textContent).not.toMatch(/Annual leave/)
-    // The annual balance still shows, untouched
-    expect(screen.getByText('Annual leave · 2026').closest('section').textContent).toMatch(/Days left\s*22/)
+    // The annual balance still shows, untouched by the other types
+    expect((await screen.findByText('Annual leave · 2026')).closest('section').textContent).toMatch(/Days left\s*22/)
+    expect(screen.queryByText(/Other leave/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/request booked/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Annual leave · 2026', 'Upcoming'])
+
+    const link = screen.getByRole('link', { name: /My year/ })
+    expect(link).toHaveAttribute('href', '/my-year')
+    expect(link.textContent).toMatch(/Full leave record, shifts, public holidays and attendance/)
   })
 
   it('shows the full balance and an empty Upcoming with no requests at all', async () => {

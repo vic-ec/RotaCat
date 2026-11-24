@@ -1,7 +1,6 @@
-import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
@@ -11,7 +10,6 @@ import LeaveRequestForm from './LeaveRequestForm'
 import LeaveCard from './LeaveCard'
 import Modal from './Modal'
 
-const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.value, o.label]))
 const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
 
 // The "Requests" tab of this same Leave page — a doctor's own submission
@@ -21,16 +19,10 @@ const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
 const REQUESTS_PATH = '/leave?tab=requests'
 
 // "My leave" tab content — only ever rendered for a signed-in doctor
-// (canSubmitLeave), gated by the caller. The annual balance, any other
-// leave types used this year, upcoming own requests, and the submission
-// form all in one place, rather than a separate "dashboard" tab plus a
-// separate "submit" tab. Full
-// request history (past + rejected, not just upcoming) lives on the
-// "Requests" tab under Planners instead of being duplicated here.
-//
-// One row per non-annual leave type actually used this year (see
-// leaveTrackersForYear) rather than a fixed Annual/Special/Sick grouping:
-// a doctor who's taken study leave and paternity leave sees each.
+// (canSubmitLeave), gated by the caller. Four things only: the annual
+// balance, Request leave, upcoming own requests, and a link into My year,
+// which holds everything else (other leave types, the full leave record,
+// shifts, public holidays, attendance).
 export default function LeaveDashboard() {
   const { profile } = useAuth()
   const [trackers, setTrackers] = useState([])
@@ -58,11 +50,10 @@ export default function LeaveDashboard() {
   // annual history yet it reads 22 left, 0 booked, 0 pending.
   const annual = trackers.find(t => t.leaveType === 'annual')
     ?? { leaveType: 'annual', approvedDays: 0, approvedRequests: 0, pendingRequests: 0 }
-  const otherTrackers = trackers.filter(t => t.leaveType !== 'annual')
 
   return (
     <div className="space-y-6">
-      {/* One full-width column: balance card, other leave types, upcoming.
+      {/* One full-width column: balance card, upcoming, the My year link.
           Request leave sits on the first heading so it stays put however
           long the Upcoming list grows. */}
       <section>
@@ -80,15 +71,6 @@ export default function LeaveDashboard() {
         )}
       </section>
 
-      {!loading && otherTrackers.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-ink">Other leave · {year}</h2>
-          <ul className="card divide-y divide-slate-line overflow-hidden">
-            {otherTrackers.map(t => <OtherLeaveRow key={t.leaveType} tracker={t} />)}
-          </ul>
-        </section>
-      )}
-
       <section>
         <h2 className="mb-3 text-sm font-semibold text-ink">Upcoming</h2>
         {loading ? (
@@ -103,6 +85,19 @@ export default function LeaveDashboard() {
           </ul>
         )}
       </section>
+
+      {/* The rest of the record — other leave types, past leave, shifts,
+          public holidays, attendance — lives on My year. */}
+      <Link
+        to="/my-year"
+        className="card flex min-h-[44px] items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-ink">My year</span>
+          <span className="mt-0.5 block text-xs text-ink-muted">Full leave record, shifts, public holidays and attendance</span>
+        </span>
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
+      </Link>
 
       {/* Centered on every viewport, not the usual bottom sheet — this one
           is opened deliberately from a button and then filled in, rather
@@ -156,28 +151,5 @@ function AnnualBalanceCard({ tracker }) {
         {ANNUAL_LEAVE_ALLOWANCE} days a year · resets on 1 January
       </p>
     </div>
-  )
-}
-
-// Every type except annual has no deducted-days column, so these report
-// approved *requests*, not days — a calendar-day span under a "days" heading
-// would read as a balance that nothing actually tracks.
-function OtherLeaveRow({ tracker }) {
-  const { leaveType, approvedRequests, pendingRequests } = tracker
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3">
-      <span className="flex items-center gap-2 text-sm font-semibold text-ink"><LeaveTypeIcon leaveType={leaveType} size="sm" />{LEAVE_TYPE_LABELS[leaveType] || leaveType}</span>
-      <span className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
-        <span>{approvedRequests} request{approvedRequests === 1 ? '' : 's'} booked</span>
-        <span aria-hidden="true">·</span>
-        <span>{pendingRequests} pending</span>
-        {pendingRequests > 0 && (
-          <>
-            <span aria-hidden="true">·</span>
-            <PendingLink count={pendingRequests} />
-          </>
-        )}
-      </span>
-    </li>
   )
 }

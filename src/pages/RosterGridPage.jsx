@@ -296,6 +296,19 @@ export default function RosterGridPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id])
 
+  // Linked from My year ("Roster change history"): open History on
+  // arrival, then drop the flag so a reload doesn't reopen it.
+  useEffect(() => {
+    if (!rosterMonth || !isAdmin || searchParams.get('history') !== '1') return
+    setShowChangeLog(true)
+    // With ?date= as well, the effect below clears both in one write: two
+    // separate writes in the same tick would each start from the same
+    // stale params and the second would put the first one's back.
+    if (searchParams.get('date')) return
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('history'); return next }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
+  }, [rosterMonth?.id])
+
   // Linked from a leave capture ("Go to roster"): ?date=YYYY-MM-DD, plus
   // &doctor=<profile id> for whose shift it is. Lands on that day in Rows,
   // on the right week, with the doctor's shift lit up — or just the day if
@@ -319,7 +332,7 @@ export default function RosterGridPage() {
       if (target) setPendingJumpId(target.id)
       else setPendingJumpDate(date)
     }
-    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); return next }, { replace: true })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id, loading])
 

@@ -38,7 +38,7 @@ export const DEFAULT_SWAP_GROUP = {
 // via its own name/history. Canonical home: leaveYearGrid.js and
 // weekendPlanner.js import this rather than redeclaring it.
 export const AMBIGUOUS_CATEGORIES = new Set(['COSMO', 'Intern'])
-const OT_HOURS = { min: 64, max: 72 }
+export const OT_HOURS = { min: 64, max: 72 }
 
 // Single source of truth for the EC/OT "Hours" picker — previously
 // duplicated inline in PendingApprovalReviewPage.jsx, now also used by

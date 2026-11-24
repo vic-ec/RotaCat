@@ -76,17 +76,15 @@ describe('buildAttentionItems', () => {
 })
 
 describe('countUnderMinimum', () => {
-  const profiles = [
-    { id: 'a', min_hours: 220 }, // under
-    { id: 'b', min_hours: 220 }, // exactly at minimum — fine
-    { id: 'c', min_hours: 220 }, // under, but on leave this month — can't be judged
-    { id: 'd', min_hours: null }, // no minimum on record
-  ]
-  it('counts doctors below their minimum, skipping anyone on leave or with no minimum', () => {
-    const hoursByProfile = new Map([['a', 200], ['b', 220], ['c', 100], ['d', 0]])
-    expect(countUnderMinimum({ profiles, hoursByProfile, onLeaveIds: new Set(['c']) })).toBe(1)
+  it('counts doctors below their month minimum, ignoring anyone with none', () => {
+    const profiles = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }]
+    const minimums = new Map([['a', { minimum: 210 }], ['b', { minimum: 210 }], ['c', { minimum: 0 }]])
+    const hoursByProfile = new Map([['a', 204], ['b', 210], ['c', 0], ['d', 0]])
+    expect(countUnderMinimum({ profiles, hoursByProfile, minimums })).toBe(1)
   })
+})
 
+describe('buildAttentionItems (cont.)', () => {
   it('counts rostered locums without an account, linking to Account Requests', () => {
     const one = buildAttentionItems({ ...quiet, locumContacts: 1 })
     expect(one.find(i => i.key === 'locum-contacts')).toMatchObject({ count: 1, to: '/staff?tab=requests&sub=new-users', label: 'rostered locum needing an account' })

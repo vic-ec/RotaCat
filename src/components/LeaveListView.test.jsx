@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
+import { todayStr, addDays } from '../lib/dateRange'
 import LeaveListView from './LeaveListView'
 
 // useAuth only gates the admin "Cancel" action (see the cancel tests at the
@@ -7,12 +8,9 @@ import LeaveListView from './LeaveListView'
 const mockAuth = vi.hoisted(() => ({ isAdmin: false }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
 
-// These assertions are about the query contract + which rows come back, so
-// they run against the Table view — the faithful full-list rendering of every
-// returned row. The default Matrix view is deliberately year-scoped and shows
-// surnames only, so it can't stand in for "renders exactly the RLS rows".
-async function switchToTable() {
-  fireEvent.click(await screen.findByRole('button', { name: 'Table' }))
+// Who's away is the list view (the Matrix is the wide-screen default).
+async function switchToList() {
+  fireEvent.click((await screen.findAllByRole('button', { name: "Who's away" }))[0])
 }
 
 // This is the most security-sensitive part of the feature. LeaveListView is
@@ -60,134 +58,86 @@ function row(id, overrides) {
   }
 }
 
-describe('LeaveListView — role visibility matrix', () => {
+const TODAY = todayStr()
+const inDays = n => addDays(TODAY, n)
+
+describe('LeaveListView — query contract', () => {
   beforeEach(() => {
     methodCalls.length = 0
     mockData.rows = []
-    localStorage.clear() // the view toggle is now persisted; start each test from the default
+    localStorage.clear()
   })
+  afterEach(() => { cleanup(); mockAuth.isAdmin = false })
 
   it('never issues a role-conditional filter on the query (no client-side substitute for RLS)', async () => {
-    mockData.rows = [row('a', { own: true, status: 'pending' })]
+    mockData.rows = [row('a', { status: 'approved', date_from: TODAY, date_to: TODAY })]
     render(<LeaveListView />)
-    await switchToTable()
+    await switchToList()
     await waitFor(() => expect(screen.getByText(/Doc a/)).toBeInTheDocument())
     expect(methodCalls.some(c => c[0] === 'eq' || c[0] === 'match')).toBe(false)
   })
 
-  it('requester (doctor): renders own pending + own approved + others\' approved, historical and future alike', async () => {
-    mockData.rows = [
-      row('own-pending', { own: true, status: 'pending', date_from: '2099-01-01', date_to: '2099-01-05' }), // own, future, pending
-      row('own-approved-past', { own: true, status: 'approved', date_from: '2020-01-01', date_to: '2020-01-05' }), // own, historical, approved
-      row('others-approved', { own: false, status: 'approved' }), // others' approved — RLS allows this for a doctor
-    ]
+  it('opens on the Matrix and remembers a switch to Who\'s away', async () => {
     render(<LeaveListView />)
-    await switchToTable()
-    expect(await screen.findByText(/Doc own-pending/)).toBeInTheDocument()
-    expect(await screen.findByText(/Doc own-approved-past/)).toBeInTheDocument()
-    expect(await screen.findByText(/Doc others-approved/)).toBeInTheDocument()
-    expect(screen.getAllByText(/Doc/)).toHaveLength(3)
+    await switchToList()
+    expect(await screen.findByRole('region', { name: 'Away today' })).toBeInTheDocument()
+    expect(localStorage.getItem('rotacat:leaveTeamDesktopView')).toBe('away')
   })
 
-  it('admin: renders everything — own and others\', pending and approved, historical and future', async () => {
-    mockData.rows = [
-      row('own-pending', { own: true, status: 'pending' }),
-      row('others-pending', { own: false, status: 'pending' }),
-      row('others-approved', { own: false, status: 'approved' }),
-      row('historical', { own: false, status: 'approved', date_from: '2019-01-01', date_to: '2019-01-05' }),
-      row('future', { own: false, status: 'pending', date_from: '2099-01-01', date_to: '2099-01-05' }),
-    ]
+  it('treats a remembered Table choice as Who\'s away', async () => {
+    localStorage.setItem('rotacat:leaveTeamDesktopView', 'table')
     render(<LeaveListView />)
-    await switchToTable()
-    for (const id of ['own-pending', 'others-pending', 'others-approved', 'historical', 'future']) {
-      expect(await screen.findByText(new RegExp(`Doc ${id}`))).toBeInTheDocument()
-    }
-  })
-
-  it('clerk: RLS returns every approved row year-round, nothing pending — renders exactly that', async () => {
-    // Simulates what the leave_select policy's clerk branch actually returns
-    // (approved, any date range) — the component itself does no date/status
-    // filtering of its own.
-    mockData.rows = [
-      row('historical-approved', { own: false, status: 'approved', date_from: '2020-01-01', date_to: '2020-01-05' }),
-      row('future-approved', { own: false, status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' }),
-    ]
-    render(<LeaveListView />)
-    await switchToTable()
-    expect(await screen.findByText(/Doc historical-approved/)).toBeInTheDocument()
-    expect(await screen.findByText(/Doc future-approved/)).toBeInTheDocument()
-    expect(screen.getAllByText(/Doc/)).toHaveLength(2)
-  })
-
-  it('freezes the Name column and puts the view switch on the toolbar row', async () => {
-    // Eleven columns of dates mean nothing without the name they belong to,
-    // so Name stays put while the rest scrolls — the same treatment Hours
-    // Summary gives its own Doctor column.
-    mockData.rows = [row('a', { own: true })]
-    render(<LeaveListView />)
-    await switchToTable()
-
-    const header = await screen.findByRole('columnheader', { name: 'Name' })
-    expect(header.className).toContain('sticky')
-    expect(header.className).toContain('left-0')
-    const cell = (await screen.findByText(/Doc a/)).closest('td')
-    expect(cell.className).toContain('sticky')
-    expect(cell.className).toContain('left-0')
-    // Opaque in every state: a frozen column hides what scrolls under it by
-    // painting over it, so a hover with an alpha modifier turns it into a
-    // window onto the columns behind.
-    for (const el of [cell, cell.closest('tr')]) {
-      expect(el.className).not.toMatch(/hover:bg-[\w-]+\/\d/)
-    }
-
-    // …and the toggle rides the search/sort/filter row rather than a line
-    // of its own, so switching views doesn't move it. The Toolbar draws a
-    // desktop row and a mobile row and puts `trailing` on both, so there
-    // are two of it — each has to be on a row with the search box.
-    const toggles = screen.getAllByRole('button', { name: 'Matrix' })
-    expect(toggles).toHaveLength(2)
-    for (const toggle of toggles) {
-      const row = toggle.parentElement.parentElement
-      expect(within(row).getByPlaceholderText(/Search by surname/)).toBeInTheDocument()
-    }
-  })
-
-  it('locum: RLS returns nothing — renders the empty state (this route is also locum-blocked before mount)', async () => {
-    mockData.rows = []
-    render(<LeaveListView />)
-    expect(await screen.findByText(/no leave requests visible to you/i)).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Away today' })).toBeInTheDocument()
   })
 })
 
-describe('LeaveListView — admin cancel action', () => {
+describe("LeaveListView — Who's away", () => {
   beforeEach(() => {
     methodCalls.length = 0
-    try { localStorage.clear() } catch { /* ignore */ }
+    localStorage.setItem('rotacat:leaveTeamDesktopView', 'away')
   })
-  afterEach(() => { cleanup(); mockAuth.isAdmin = false })
+  afterEach(() => { cleanup(); mockAuth.isAdmin = false; localStorage.clear() })
 
-  it('shows a Cancel action to admins on pending/approved rows only', async () => {
-    mockAuth.isAdmin = true
+  it('groups approved leave that has not ended; pending, rejected and past leave stay out', async () => {
     mockData.rows = [
-      row('live', { status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' }),
-      row('done', { status: 'rejected' }),
-      row('gone', { status: 'cancelled' }),
+      row('now', { status: 'approved', date_from: inDays(-2), date_to: inDays(1) }),
+      row('soon', { status: 'approved', date_from: inDays(3), date_to: inDays(4) }),
+      row('fortnight', { status: 'approved', date_from: inDays(10), date_to: inDays(11) }),
+      row('pending', { status: 'pending', date_from: inDays(2), date_to: inDays(3) }),
+      row('rejected', { status: 'rejected', date_from: inDays(2), date_to: inDays(3) }),
+      row('past', { status: 'approved', date_from: inDays(-9), date_to: inDays(-5) }),
     ]
     render(<LeaveListView />)
-    await switchToTable()
-    await screen.findByText(/Doc live/)
-    const buttons = screen.getAllByRole('button', { name: /^Cancel Doc .*'s leave$/ })
-    expect(buttons).toHaveLength(1)
-    expect(buttons[0]).toHaveAccessibleName("Cancel Doc live's leave")
-    expect(screen.getByText('Cancelled')).toBeInTheDocument()
+    const today = await screen.findByRole('region', { name: 'Away today' })
+    expect(within(today).getByText(/Doc now/)).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Next 7 days' })).getByText(/Doc soon/)).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Next 2 weeks' })).getByText(/Doc fortnight/)).toBeInTheDocument()
+    for (const id of ['pending', 'rejected', 'past']) expect(screen.queryByText(new RegExp(`Doc ${id}`))).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Table' })).not.toBeInTheDocument()
   })
 
-  it('shows no Cancel action to non-admins', async () => {
-    mockAuth.isAdmin = false
-    mockData.rows = [row('live', { own: true, status: 'approved', date_from: '2099-01-01', date_to: '2099-01-05' })]
+  it('starts Later collapsed', async () => {
+    mockData.rows = [row('far', { status: 'approved', date_from: inDays(40), date_to: inDays(41) })]
     render(<LeaveListView />)
-    await switchToTable()
-    await screen.findByText(/Doc live/)
-    expect(screen.queryByRole('button', { name: /'s leave$/ })).not.toBeInTheDocument()
+    const later = await screen.findByRole('region', { name: 'Later' })
+    expect(within(later).queryByText(/Doc far/)).not.toBeInTheDocument()
+    fireEvent.click(within(later).getByRole('button', { expanded: false }))
+    expect(within(later).getByText(/Doc far/)).toBeInTheDocument()
+  })
+
+  it('opens the leave details on a tap, with Cancel leave for admins only', async () => {
+    mockAuth.isAdmin = true
+    mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
+    render(<LeaveListView />)
+    fireEvent.click(await screen.findByText(/Doc live/))
+    expect(await screen.findByRole('button', { name: /Cancel leave/ })).toBeInTheDocument()
+  })
+
+  it('shows no Cancel leave to non-admins', async () => {
+    mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
+    render(<LeaveListView />)
+    fireEvent.click(await screen.findByText(/Doc live/))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cancel leave/ })).not.toBeInTheDocument()
   })
 })

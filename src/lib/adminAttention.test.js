@@ -79,12 +79,19 @@ describe('countUnderMinimum', () => {
   const profiles = [
     { id: 'a', min_hours: 220 }, // under
     { id: 'b', min_hours: 220 }, // exactly at minimum — fine
-    { id: 'c', min_hours: 220 }, // under, but on leave this month — can't be judged
+    { id: 'c', min_hours: 220 }, // 10 of 30 days on leave: minimum 147
     { id: 'd', min_hours: null }, // no minimum on record
+    { id: 'e', min_hours: 220 }, // 10 days on leave, below even the lowered minimum
   ]
-  it('counts doctors below their minimum, skipping anyone on leave or with no minimum', () => {
-    const hoursByProfile = new Map([['a', 200], ['b', 220], ['c', 100], ['d', 0]])
-    expect(countUnderMinimum({ profiles, hoursByProfile, onLeaveIds: new Set(['c']) })).toBe(1)
+  const month = { monthStart: '2026-11-01', monthEnd: '2026-11-30' }
+  it('counts doctors below their minimum, lowered for leave as the engine lowers it', () => {
+    const hoursByProfile = new Map([['a', 200], ['b', 220], ['c', 150], ['d', 0], ['e', 140]])
+    const leave = [
+      { profile_id: 'c', date_from: '2026-10-28', date_to: '2026-11-05' }, // 5 days in November
+      { profile_id: 'c', date_from: '2026-11-04', date_to: '2026-11-10' }, // overlaps: 5 more
+      { profile_id: 'e', date_from: '2026-11-21', date_to: '2026-12-03' },
+    ]
+    expect(countUnderMinimum({ profiles, hoursByProfile, leave, ...month })).toBe(2) // a and e
   })
 
   it('counts rostered locums without an account, linking to Account Requests', () => {

@@ -12,6 +12,7 @@ import { saturdaysInMonth } from './weekendPlanner'
 import { endOfRotationFlag } from './internRotations'
 import { getMonthlyHoursByProfile } from './monthlyHours'
 import { OPEN_LOCUM_LABEL } from './locumCover'
+import { leaveAdjustedMinimum, unavailableDaysInMonth } from './contractMinimum'
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -147,13 +148,20 @@ export function buildAttentionItems(data) {
 }
 
 // Doctors under their contracted minimum for a month that HAS a roster.
-// Anyone with approved leave in the month is left out: the engine scales
-// their minimum down for the days they're away, and this page can't
-// reproduce that exactly — better no row than a false one.
-export function countUnderMinimum({ profiles, hoursByProfile, onLeaveIds }) {
+// A doctor with approved leave in the month is held to a lower minimum,
+// scaled for the days they're away exactly as the roster engine scales it
+// (see lib/contractMinimum.js).
+export function countUnderMinimum({ profiles, hoursByProfile, leave = [], monthStart, monthEnd }) {
+  const daysInMonth = Number(monthEnd.slice(8, 10))
+  const leaveByProfile = new Map()
+  for (const l of leave) {
+    if (!leaveByProfile.has(l.profile_id)) leaveByProfile.set(l.profile_id, [])
+    leaveByProfile.get(l.profile_id).push(l)
+  }
   return profiles.filter(p => {
-    const min = Number(p.min_hours)
-    if (!min || onLeaveIds.has(p.id)) return false
+    const away = unavailableDaysInMonth(leaveByProfile.get(p.id), monthStart, monthEnd)
+    const min = leaveAdjustedMinimum(p.min_hours, away, daysInMonth)
+    if (!min) return false
     return (hoursByProfile.get(p.id) || 0) < min
   }).length
 }
@@ -187,7 +195,7 @@ export async function fetchAdminAttention(now = new Date()) {
     safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
     safe(supabase.from('profiles').select('id, min_hours').eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant'), empty),
-    safe(supabase.from('leave_requests').select('profile_id').eq('status', 'approved').lte('date_from', monthEnd).gte('date_to', monthStart), empty),
+    safe(supabase.from('leave_requests').select('profile_id, date_from, date_to').eq('status', 'approved').lte('date_from', monthEnd).gte('date_to', monthStart), empty),
     safe(supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true), empty),
   ])
 
@@ -220,7 +228,9 @@ export async function fetchAdminAttention(now = new Date()) {
       underMinimum = countUnderMinimum({
         profiles: doctorsRes.data || [],
         hoursByProfile,
-        onLeaveIds: new Set((leaveRes.data || []).map(l => l.profile_id)),
+        leave: leaveRes.data || [],
+        monthStart,
+        monthEnd,
       })
     } catch { /* leave it at 0 */ }
   }

@@ -5,6 +5,7 @@ import { AlarmClock, ArrowLeftRight, ChevronRight, Plus, TriangleAlert, UserPlus
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LateArrivalModal from '../components/LateArrivalModal'
+import OnShiftPanel from '../components/OnShiftPanel'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
@@ -719,6 +720,9 @@ export default function DashboardPage() {
               </div>
             )}
           </section>
+
+          {/* Who is on now, by shift, and who starts next. */}
+          <OnShiftPanel />
 
           {/* Team leave — read-only awareness. One card, two columns
               (stacked on a phone): who is away today, and who is next. */}

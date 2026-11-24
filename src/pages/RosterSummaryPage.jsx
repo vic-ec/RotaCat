@@ -52,7 +52,7 @@ function minimumNote(row) {
   const m = row.minimumDetail
   if (!m) return ''
   const parts = [`Contract ${m.contracted}h, less the engine's variance (210 of every 220)`]
-  if (m.leaveShifts > 0) parts.push(`${m.leaveShifts} of ${m.expectedShifts} shifts on leave (weekdays)`)
+  if (m.leaveShifts > 0) parts.push(`${m.leaveShifts} of ${m.expectedShifts} shifts on leave${m.weekendLeaveShifts ? ` (incl. ${m.weekendLeaveShifts} weekend)` : ''}`)
   if (m.notInEcDays > 0) parts.push(`${m.notInEcDays} day${m.notInEcDays === 1 ? '' : 's'} not in the EC`)
   return parts.join(' · ')
 }

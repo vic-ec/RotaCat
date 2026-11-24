@@ -194,6 +194,15 @@
   --card-border: #E3E7EB;                     /* card hairline; dark is a translucent mint, hence a colour, not channels */
   --color-sheen: 31 103 99;                   /* #1F6763 — base under the sheen */
   --bg-sheen: var(--bg-auth-sheen);
+  /* The same sheen with every stop worked out as a solid colour and no
+     grain, for sheen on a sticky or fixed bar. iPhone Safari (WebKit)
+     drops the transparency of a translucent gradient on a sticky element,
+     so the rgba stops above paint as black and white streaks there (and in
+     screenshots of it). Base #1F6763 blended with each stop's black/white. */
+  --bg-sheen-opaque:
+    linear-gradient(135deg,
+      #18504D 0%, #1D5F5B 24%, #2C706C 48%, #256C68 56%,
+      #1D5F5B 76%, #184E4B 100%);
   --color-on-sheen: 243 246 245;              /* #F3F6F5 — primary text on sheen */
   --color-on-sheen-2: 207 224 220;            /* #CFE0DC — secondary text, chevrons, counts on sheen */
   --color-on-sheen-accent: 143 211 197;       /* #8FD3C5 — wordmark "Cat", links on sheen */
@@ -486,6 +495,10 @@
       rgba(0, 0, 0, 0.08) 76%, rgba(0, 0, 0, 0.24) 100%),
     repeating-linear-gradient(0deg,
       rgba(255, 255, 255, 0.025) 0 1px, rgba(0, 0, 0, 0.01) 1px 2px, transparent 2px 3px);
+  --bg-sheen-opaque:
+    linear-gradient(135deg,
+      #173832 0%, #1C423B 24%, #274F48 48%, #224C44 56%,
+      #1C423B 76%, #173731 100%);
   --color-on-sheen: 243 246 245;
   --color-on-sheen-2: 207 224 220;
   --color-on-sheen-accent: 143 211 197;
@@ -704,6 +717,21 @@
     color: rgb(var(--color-on-sheen));
   }
   .sheen-divider .divider-meta { color: rgb(var(--color-on-sheen-2)); }
+  /* Popups: one surface for every hover hint and tap-to-read note in the
+     app, so they look the same everywhere and in both day and night
+     themes — the raised card colour, its hairline edge and lift shadow,
+     ink text. `.popup` is a note (a few lines: an info (i), a struck-
+     through name, a public holiday); `.popup-hint` a one-line label (a
+     hover hint, an icon's name). Menus and toasts are not popups. */
+  .popup {
+    @apply rounded-lg border border-edge bg-canvas-raised p-3 text-sm text-ink-light shadow-raised;
+  }
+  .popup-hint {
+    @apply rounded-lg border border-edge bg-canvas-raised px-2.5 py-1.5 text-xs font-medium text-ink shadow-raised;
+  }
+  /* Sheen on a sticky or fixed bar (the phone header and tab bar): the
+     opaque version, see --bg-sheen-opaque. */
+  .sheen-pinned { background-image: var(--bg-sheen-opaque); }
   /* Night vision only: a mint edge on the left of each group header, so
      headers read as the section breaks they are against the darker cards. */
   :root[data-theme="neutral-dark"] .sheen-divider { box-shadow: inset 3px 0 0 rgb(var(--color-accent)); }

@@ -115,7 +115,7 @@ export default function HintLayer() {
         maxWidth: MAX_WIDTH,
         transform: `translate(-50%, ${hint.above ? '-100%' : '0'})`,
       }}
-      className="pointer-events-none z-40 w-max rounded-md bg-ink px-2 py-1 text-center text-xs font-medium text-canvas-raised shadow-raised"
+      className="pointer-events-none z-40 w-max popup-hint text-center"
     >
       {hint.label}
     </span>,

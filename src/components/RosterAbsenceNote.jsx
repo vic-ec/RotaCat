@@ -53,7 +53,7 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, c
           role="dialog"
           aria-label={hint}
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 text-xs text-ink-light shadow-raised"
+          className="fixed z-50 popup"
         >
           {/* Close, as every other popover and sheet in the app has one. */}
           <div className="flex items-start justify-between gap-2">

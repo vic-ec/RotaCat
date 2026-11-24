@@ -116,7 +116,7 @@ function ColumnHeaderButton({ short, label }) {
           role="dialog"
           aria-label={label}
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised px-3 py-2 text-sm font-medium normal-case tracking-normal text-ink shadow-raised"
+          className="fixed z-50 popup-hint normal-case tracking-normal"
         >
           {label}
         </div>,

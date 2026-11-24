@@ -1320,7 +1320,7 @@ export default function StaffListPage() {
                       // renders inside it) the way a fixed px offset here
                       // already has twice before.
                       style={{ top: stickyHeaderHeight }}
-                      className="sheen-divider sticky z-[5] mb-2 transition-[filter] hover:brightness-110 active:brightness-110"
+                      className="sheen-divider sheen-pinned sticky z-[5] mb-2 transition-[filter] hover:brightness-110 active:brightness-110"
                     >
                       {/* "X active · Y inactive" instead of "X total · Y
                           active" — surfaces the exception (anyone inactive)

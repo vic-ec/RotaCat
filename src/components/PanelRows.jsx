@@ -1,7 +1,7 @@
 // A dashboard panel as stacked rows: a label on the left (200px from md;
-// above the people on a phone) and the people side by side on the right,
-// wrapping only when a row is full. Rows are only as tall as their names
-// need, so a panel never has one long column beside a half-empty one.
+// above the people on a phone) and the people in two columns on the right,
+// one doctor per line, so names line up down the panel instead of wrapping
+// wherever they happen to fit.
 // Used by On shift, Team leave and Sick leave on the admin Dashboard.
 export function PanelRows({ children, testId }) {
   return <ul className="divide-y divide-slate-line" data-testid={testId}>{children}</ul>
@@ -14,7 +14,7 @@ export function PanelRow({ label, empty, tint = false, children, testId }) {
       <div className="min-w-0">{label}</div>
       {items.length === 0
         ? <p className="text-sm text-ink-muted md:pt-1.5">{empty}</p>
-        : <ul className="flex flex-wrap gap-x-5 gap-y-2.5">{items}</ul>}
+        : <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5">{items}</ul>}
     </li>
   )
 }

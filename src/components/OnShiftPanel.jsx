@@ -3,19 +3,16 @@ import { Link } from 'react-router-dom'
 import { AlarmClock } from 'lucide-react'
 import { fetchOnShiftBoard, startsInLabel } from '../lib/onShiftBoard'
 import { shiftStartLabel } from '../lib/myYear'
+import { formatLocalDate } from '../lib/dateRange'
 import ProfileAvatar from './ProfileAvatar'
-import { useIsDesktop } from '../lib/useIsDesktop'
 import { PanelRows, PanelRow } from './PanelRows'
 
 // The admin Dashboard's "On shift": who is on now (grouped by shift, each
-// with its end time) and who starts next.
-//   desktop (md+)  one row per shift (PanelRows, as Team leave and Sick
-//                  leave): the shift on the left, its people side by side
-//                  with avatar, full name and category
-//   phone          one row per shift with initials badges; the full name and
-//                  category show on tap
-// A small clock marks a late arrival logged for that shift.
-const BADGE = 40
+// with its end time) and who starts next. One row per shift (PanelRows, as
+// Team leave and Sick leave): the shift, then its people in two columns
+// with avatar, full name and category — the same at every width, so the
+// three panels read alike. A small clock marks a late arrival logged for
+// that shift.
 
 function Face({ person, size }) {
   if (person.kind === 'doctor') return <ProfileAvatar profile={person.profile} size={size} />
@@ -39,7 +36,7 @@ function LateClock() {
   )
 }
 
-// Desktop: one line per person.
+// One line per person.
 function PersonLine({ person }) {
   return (
     <li className="flex min-w-0 items-center gap-2.5" aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}>
@@ -67,54 +64,17 @@ function ShiftLabel({ group, tag }) {
   )
 }
 
-// Phone: an initials badge; tap for the name.
-function Badge({ person, open, onToggle }) {
-  const tipShown = open ? 'block' : 'hidden group-hover:block group-focus-visible:block'
-  const face = <Face person={person} size={BADGE} />
-  return (
-    <li className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        onBlur={() => open && onToggle()}
-        aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}
-        aria-expanded={open}
-        className="group relative block rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        {face}
-        {person.late && <LateClock />}
-        <span role="tooltip" className={`pointer-events-none absolute bottom-full left-0 z-20 mb-1.5 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-canvas ${tipShown}`}>
-          {person.label}
-        </span>
-      </button>
-    </li>
-  )
-}
-
-function ShiftRow({ group, tag, next = false, openKey, setOpenKey }) {
-  return (
-    <li className={`grid gap-3 px-4 py-3.5 md:grid-cols-[210px_minmax(0,1fr)] md:items-center md:gap-4 ${next ? 'bg-canvas-cool' : ''}`}>
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 md:block">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted md:mb-1">{tag}</p>
-        <span className={`${group.night ? 'chip-night' : 'chip-mint'} inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
-          {shiftStartLabel(group.startTime)}–{shiftStartLabel(group.endTime)}
-        </span>
-      </div>
-      <ul className="flex flex-wrap gap-2">
-        {group.people.map(p => (
-          <Badge key={p.key} person={p} open={openKey === p.key} onToggle={() => setOpenKey(k => (k === p.key ? null : p.key))} />
-        ))}
-      </ul>
-    </li>
-  )
+// Today's row on the roster that holds today's shifts; the Roster page
+// when there's none.
+function rosterLink(board, now) {
+  if (!board?.rosterMonthId) return '/roster'
+  return `/roster/${board.rosterMonthId}?date=${formatLocalDate(now)}`
 }
 
 export default function OnShiftPanel() {
   const [board, setBoard] = useState(null)
   const [error, setError] = useState('')
-  const [openKey, setOpenKey] = useState(null)
   const [now, setNow] = useState(() => new Date())
-  const isDesktop = useIsDesktop(768)
 
   useEffect(() => {
     let cancelled = false
@@ -136,7 +96,7 @@ export default function OnShiftPanel() {
     <section data-testid="on-shift-panel">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ink">On shift</h2>
-        <Link to="/roster" className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">View roster ›</Link>
+        <Link to={rosterLink(board, now)} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">View roster ›</Link>
       </div>
       <div className="card overflow-visible">
         {error ? (
@@ -145,7 +105,7 @@ export default function OnShiftPanel() {
           <p className="p-4 text-sm text-ink-muted">Loading…</p>
         ) : board.now.length === 0 && board.next.length === 0 ? (
           <p className="p-4 text-sm text-ink-muted">Nobody on shift on a published roster.</p>
-        ) : isDesktop ? (
+        ) : (
           <PanelRows>
             {board.now.length === 0 && (
               <PanelRow label={<p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Now</p>} empty="Nobody on shift right now." />
@@ -161,19 +121,10 @@ export default function OnShiftPanel() {
               </PanelRow>
             ))}
           </PanelRows>
-        ) : (
-          <ul className="divide-y divide-slate-line">
-            {board.now.length === 0 && <li className="p-4 text-sm text-ink-muted">Nobody on shift right now.</li>}
-            {board.now.map(g => <ShiftRow key={g.key} group={g} tag="Now" openKey={openKey} setOpenKey={setOpenKey} />)}
-            {board.next.map(g => (
-              <ShiftRow key={g.key} group={g} tag={`Next · ${startsInLabel(g.start, now)}`} next openKey={openKey} setOpenKey={setOpenKey} />
-            ))}
-          </ul>
         )}
         {board?.consultant && (
-          <p className="flex items-center gap-2 border-t border-slate-line px-4 py-2.5 text-xs text-ink-muted">
-            <span className="chip-mint rounded-full px-2 py-0.5 text-[11px] font-semibold">On call</span>
-            Consultant: {board.consultant}
+          <p className="border-t border-slate-line px-4 py-2.5 text-xs text-ink-muted" data-testid="on-call">
+            On call Consultant: <span className="font-semibold text-ink">{board.consultant}</span>
           </p>
         )}
       </div>

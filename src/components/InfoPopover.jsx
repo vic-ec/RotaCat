@@ -37,7 +37,7 @@ export default function InfoPopover({ icon, title, label, tone = 'default', chil
           role="dialog"
           aria-label={title}
           style={{ ...style, width }}
-          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised p-3 text-xs text-ink-light shadow-raised"
+          className="fixed z-50 popup"
           onClick={e => e.stopPropagation()}
         >
           {children}

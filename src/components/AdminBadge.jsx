@@ -53,7 +53,7 @@ export default function AdminBadge({ short, fullName }) {
           ref={popRef}
           role="tooltip"
           style={{ ...positionStyle, width }}
-          className="fixed z-50 rounded-lg border border-edge bg-canvas-raised px-3 py-1.5 text-center text-sm text-ink shadow-raised"
+          className="fixed z-50 popup-hint text-center"
         >
           {label}
         </div>,

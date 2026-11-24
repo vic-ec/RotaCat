@@ -52,7 +52,7 @@ export default function PublicHolidayBadge({ name, children }) {
           would be clipped by the scroll container instead of overhanging it. */}
       <span
         role="tooltip"
-        className={`absolute left-full top-0 z-30 ml-1 w-max max-w-[160px] rounded border border-slate-line bg-canvas-raised px-1.5 py-1 text-left text-[10px] font-normal leading-tight text-ink shadow-md ${
+        className={`absolute left-full top-0 z-30 ml-1 popup-hint w-max max-w-[180px] text-left font-normal leading-tight ${
           open ? 'block' : 'hidden group-hover:block'
         }`}
       >

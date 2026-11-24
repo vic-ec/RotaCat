@@ -135,10 +135,13 @@ describe('DashboardPage', () => {
     expect(screen.getByText('days left')).toBeInTheDocument()
     expect(screen.getByText('0 of 22 booked · 0 pending')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View all leave/ })).toHaveAttribute('href', '/leave?tab=my-leave')
-    expect(screen.getByRole('link', { name: 'Request swap' })).toHaveAttribute('href', '/swaps')
-    // Request leave sits on the first heading, where an admin's Capture leave is.
+    // Request leave and Request swap side by side, above the first heading.
     const request = screen.getByRole('button', { name: 'Request leave' })
-    expect(request.closest('section').textContent).toMatch(/Upcoming shifts/)
+    const swap = screen.getByRole('link', { name: 'Request swap' })
+    expect(swap).toHaveAttribute('href', '/swaps')
+    expect(swap.parentElement).toBe(request.parentElement)
+    expect(request.closest('section')).toBeNull()
+    expect(request.compareDocumentPosition(screen.getByText('Upcoming shifts')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Capture leave' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Log late arrival' })).not.toBeInTheDocument()
   })
@@ -384,7 +387,9 @@ describe('DashboardPage — Log late arrival', () => {
     getDashboardHoursWarnings.mockResolvedValue([])
     renderDashboard()
     const button = await screen.findByRole('button', { name: 'Log late arrival' })
-    expect(button.closest('section').textContent).toMatch(/Needs attention/)
+    // Above the Needs attention heading, not on it.
+    expect(button.closest('section')).toBeNull()
+    expect(button.compareDocumentPosition(screen.getByText('Needs attention')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.queryByRole('dialog', { name: 'Log late arrival' })).not.toBeInTheDocument()
     await userEvent.click(button)
     expect(screen.getByRole('dialog', { name: 'Log late arrival' })).toHaveTextContent('today, anyone rostered')

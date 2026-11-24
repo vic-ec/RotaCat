@@ -37,15 +37,16 @@ const TEAM_LEAVE_LOOKAHEAD_DAYS = 7
 // How far back the sick-leave panel's "recently" column looks.
 const SICK_LOOKBACK_DAYS = 7
 
-// `action`: buttons for the section. Beside the heading from md; on a phone
-// they drop to their own full-width row under it, so a long heading and its
-// link are never squeezed into a column.
-function SectionHeading({ children, to, linkLabel, action = null }) {
+// A row of start buttons above a dashboard's first heading: equal halves
+// across a phone, right-aligned at their own width from md.
+function QuickActions({ children }) {
+  return <div className="flex gap-2 md:justify-end [&>*]:flex-1 md:[&>*]:flex-none">{children}</div>
+}
+
+function SectionHeading({ children, to, linkLabel }) {
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="mb-3 flex items-center justify-between gap-3">
       <h2 className="text-sm font-semibold text-ink">{children}</h2>
-      <span className="flex-1" />
-      {action && <div className="order-last flex w-full gap-2 md:order-none md:w-auto [&>*]:flex-1 md:[&>*]:flex-none">{action}</div>}
       {to && (
         <Link to={to} className="whitespace-nowrap text-sm font-medium text-accent hover:text-accent-dark">
           {linkLabel} ›
@@ -466,6 +467,20 @@ export default function DashboardPage() {
 
       {!loading && !isAdmin && !isClerk && (
         <div className="mt-6 space-y-6">
+          {/* The two things a doctor starts from here, above the first
+              heading. A locum has no leave to request. */}
+          <QuickActions>
+            {!isLocum && (
+              <button type="button" onClick={() => setLeaveForm('request')} className="btn-primary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Request leave
+              </button>
+            )}
+            <Link to={SWAPS_PATH} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+              Request swap
+            </Link>
+          </QuickActions>
           {/* 1. Next shifts */}
           <section>
             {/* Heading sits on the plain page background; the chips get
@@ -476,20 +491,7 @@ export default function DashboardPage() {
                 is itself worth stating under a heading, and the link out is
                 exactly what someone with no shifts wants. The empty message
                 sits inside the panel, in place of the chips. */}
-            {/* Request leave sits where an admin's Capture leave does: on
-                the first heading. */}
-            <SectionHeading
-              to="/roster"
-              linkLabel="View roster"
-              action={!isLocum && (
-                <button type="button" onClick={() => setLeaveForm('request')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Request leave
-                </button>
-              )}
-            >
-              Upcoming shifts
-            </SectionHeading>
+            <SectionHeading to="/roster" linkLabel="View roster">Upcoming shifts</SectionHeading>
             {myShifts.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">No shifts in the next 7 days</p>
             ) : (
@@ -563,8 +565,7 @@ export default function DashboardPage() {
               <LeaveRequestForm onSubmitted={() => { setLeaveForm(null); loadDoctorWidgets({ silent: true }) }} />
             </Modal>
           )}
-          {/* Quick action — Request leave moved up to the first heading. */}
-          <Link to={SWAPS_PATH} className="btn-secondary w-full py-2.5">Request swap</Link>
+
 
           {/* 3. Shift swaps — only when one is actually waiting on an answer */}
           {incomingSwaps.length > 0 && (
@@ -661,6 +662,19 @@ export default function DashboardPage() {
 
       {!loading && isAdmin && (
         <div className="mt-6 space-y-6">
+          {/* The two things an admin starts from here, above the first
+              heading: side by side, full width on a phone, right-aligned
+              from md. */}
+          <QuickActions>
+            <button type="button" onClick={() => setLeaveForm('capture')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              Capture leave
+            </button>
+            <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
+              <AlarmClock className="h-4 w-4" aria-hidden="true" />
+              Log late arrival
+            </button>
+          </QuickActions>
           {/* Same shape as the doctor view: a heading on the page ground
               with its link out on the right, and a card underneath. The
               headings stay put when a section is empty — the empty message
@@ -674,24 +688,7 @@ export default function DashboardPage() {
                 (requests, hours), and each row is already its own link. A
                 single "View requests" beside an hours row pointed at the
                 wrong page. */}
-            {/* Log late arrival sits on this heading (it has no link of its
-                own): today's date filled in, then anyone rostered today. */}
-            <SectionHeading
-              action={(
-                <>
-                  <button type="button" onClick={() => setLeaveForm('capture')} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
-                    <UserPlus className="h-4 w-4" aria-hidden="true" />
-                    Capture leave
-                  </button>
-                  <button type="button" onClick={() => setLateOpen(true)} className="btn-secondary min-h-[44px] justify-center whitespace-nowrap text-sm md:min-h-0">
-                    <AlarmClock className="h-4 w-4" aria-hidden="true" />
-                    Log late arrival
-                  </button>
-                </>
-              )}
-            >
-              Needs attention
-            </SectionHeading>
+            <SectionHeading>Needs attention</SectionHeading>
             {lateOpen && <LateArrivalModal onClose={() => setLateOpen(false)} />}
             {leaveForm === 'capture' && (
               <Modal title="Capture leave for a doctor" onClose={() => setLeaveForm(null)} centered>

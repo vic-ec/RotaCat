@@ -8,17 +8,16 @@ import { useIsDesktop } from '../lib/useIsDesktop'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { locumDisplayName } from '../lib/locumCover'
-import { leaveQuestion, reinstateBlocker, shiftMenuKind } from '../lib/rosterEdits'
+import { describeLinkedLeave, leaveQuestion, reinstateBlocker, shiftMenuKind } from '../lib/rosterEdits'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
 import { shortDate } from '../lib/reviewLog'
-import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 
 // The one shift menu. Opens from any tap on a name or slot while editing
 // and decides, from what was tapped, which menu to show (see shiftMenuKind
 // below — the table in the spec). A bottom sheet on a phone; a panel
 // anchored beside the tapped cell from md up. Every version ends with
-// "Close — no change".
+// Cancel.
 //
 // The menu only DECIDES. The writes are the page's (see lib/rosterEdits.js);
 // each handler here hands back what was chosen and closes. The vacancy
@@ -62,7 +61,7 @@ function Group({ title, children }) {
   )
 }
 
-// The menu proper: groups of choices, Continue, and Close — no change.
+// The menu proper: groups of choices, Cancel and Continue.
 function Options({ groups, onContinue, onClose }) {
   const [choice, setChoice] = useState('')
   const chosen = groups.flatMap(g => g.choices).find(c => c.value === choice)
@@ -75,9 +74,9 @@ function Options({ groups, onContinue, onClose }) {
           </Group>
         ))}
       </div>
-      <div className="flex gap-2 border-t border-slate-line px-3 pb-1 pt-3">
-        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 text-sm md:min-h-0">Close — no change</button>
-        <button type="submit" disabled={!chosen} className={`${chosen?.danger ? 'btn-danger' : 'btn-primary'} min-h-[44px] flex-1 text-sm md:min-h-0`}>Continue</button>
+      <div className="flex flex-nowrap gap-2 border-t border-slate-line px-3 pb-1 pt-3">
+        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Cancel</button>
+        <button type="submit" disabled={!chosen} className={`${chosen?.danger ? 'btn-danger' : 'btn-primary'} min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0`}>Continue</button>
       </div>
     </form>
   )
@@ -100,7 +99,7 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
   const ref = useRef(null)
   useDismissablePopover(true, onClose, ref)
   const width = 320
-  const style = anchorRect ? computeAnchoredPosition(anchorRect, width, { maxHeight: 420 }) : { left: 16, top: 80 }
+  const style = anchorRect ? computeAnchoredPosition(anchorRect, width, { maxHeight: 520 }) : { left: 16, top: 80 }
   return createPortal(
     <div
       ref={ref}
@@ -108,7 +107,7 @@ function AnchoredPanel({ anchorRect, title, onClose, children }) {
       aria-modal="false"
       aria-label={title}
       style={{ ...style, width }}
-      className="card fixed z-50 flex max-h-[420px] flex-col border-edge p-2 shadow-raised"
+      className="card fixed z-50 flex max-h-[calc(100vh-24px)] flex-col border-edge p-2 shadow-raised"
     >
       <div className="flex flex-shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-2">
         <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide leading-5 text-ink-muted">{title}</p>
@@ -220,10 +219,10 @@ export default function ShiftMenu({
     body = (
       <div className="space-y-3 p-3">
         <p className="text-sm text-ink">{question}</p>
-        <p className="text-xs text-ink-muted">Keeping it leaves {vacatedName} on the roster over approved leave, shown struck through.</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: true }); close() }} className="btn-primary min-h-[44px] flex-1 text-sm md:min-h-0">Cancel the leave</button>
-          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: false }); close() }} className="btn-secondary min-h-[44px] flex-1 text-sm md:min-h-0">Keep the leave</button>
+        <p className="text-xs text-ink-muted">Keeping the other days leaves the leave on record; {vacatedName} works this shift and stays off the rest.</p>
+        <div className="flex flex-nowrap gap-2">
+          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: true }); close() }} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Cancel all of it</button>
+          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: false }); close() }} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Keep the other days</button>
         </div>
         <button type="button" onClick={() => setStep(null)} className="text-sm font-medium text-accent hover:underline">Back</button>
       </div>
@@ -240,15 +239,15 @@ export default function ShiftMenu({
     )
   } else {
     const blocker = entry?.vacated_profile_id ? reinstateBlocker({ entry, entries, nameOf }) : null
-    const linkedLeave = entry?.vacated_leave_request_id
-      ? (LEAVE_TYPE_LABELS[leaveByProfile?.[entry.vacated_profile_id]?.find(r => r[3] === entry.vacated_leave_request_id)?.[2]] || 'leave').toLowerCase()
-      : null
+    const linkedLeave = describeLinkedLeave({ entry, leaveByProfile })
     const putBackGroup = entry?.vacated_profile_id && {
       title: 'The absent doctor',
       choices: [{
         value: 'put-back',
         label: `Put ${vacatedName} back on this shift`,
-        hint: blocker || (linkedLeave ? `Their ${linkedLeave} is linked; you will be asked about it` : 'Restores them and clears the absence'),
+        hint: blocker || (linkedLeave
+          ? (linkedLeave.multiDay ? `Their ${linkedLeave.type} runs ${linkedLeave.dates}; you choose what happens to it` : `Their ${linkedLeave.type} for that day is cancelled too`)
+          : 'Restores them and clears the absence'),
         disabled: Boolean(blocker),
       }],
     }
@@ -325,8 +324,9 @@ export default function ShiftMenu({
         case 'add-advertise': onAddCover(entry, 'advertise'); close(); break
         case 'add-open': onAddCover(entry, 'open'); close(); break
         case 'put-back':
-          if (entry.vacated_leave_request_id) setStep('leave')
-          else { onReinstate(entry, { cancelLeave: false }); close() }
+          // A one-day leave goes with the put-back; a longer one asks.
+          if (linkedLeave?.multiDay) setStep('leave')
+          else { onReinstate(entry, { cancelLeave: Boolean(linkedLeave) }); close() }
           break
         default: break
       }

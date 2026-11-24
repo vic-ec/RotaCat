@@ -6,7 +6,7 @@ vi.mock('./leaveCancellation', () => ({ cancelLeaveRequest: vi.fn().mockResolved
 
 import {
   assignCover, removeEntry, removeLocum, moveEntry, addCover, removeSlot, advertise, unadvertise,
-  reinstate, reinstateBlocker, leaveQuestion, shiftMenuKind, emptySideEffects,
+  reinstate, reinstateBlocker, leaveQuestion, describeLinkedLeave, shiftMenuKind, emptySideEffects,
 } from './rosterEdits'
 import { cancelLeaveRequest } from './leaveCancellation'
 
@@ -191,8 +191,12 @@ describe('Put back', () => {
 
   it('asks about the linked leave, naming type and dates when visible', () => {
     const leaveByProfile = { 'doc-a': [['2026-08-10', '2026-08-12', 'sick', 'leave-1']] }
-    expect(leaveQuestion({ entry: noCoverRow, leaveByProfile, nameOf })).toBe("Also cancel Alice Anderson's sick leave for Mon 10 Aug – Wed 12 Aug?")
+    // A leave over several days asks about the other days; a one-day leave
+    // is cancelled with the put-back, so its question is the simple one.
+    expect(leaveQuestion({ entry: noCoverRow, leaveByProfile, nameOf })).toBe("Alice Anderson's sick leave runs Mon 10 Aug – Wed 12 Aug. Cancel all of it, or keep the other days?")
     expect(leaveQuestion({ entry: noCoverRow, leaveByProfile: {}, nameOf })).toBe("Also cancel Alice Anderson's leave for Mon 10 Aug?")
+    expect(describeLinkedLeave({ entry: noCoverRow, leaveByProfile })).toMatchObject({ type: 'sick leave', multiDay: true })
+    expect(describeLinkedLeave({ entry: noCoverRow, leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-10', 'sick', 'leave-1']] } })).toMatchObject({ multiDay: false, dates: 'Mon 10 Aug' })
     expect(leaveQuestion({ entry: { ...noCoverRow, vacated_leave_request_id: null }, leaveByProfile, nameOf })).toBeNull()
   })
 

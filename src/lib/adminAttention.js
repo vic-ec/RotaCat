@@ -7,12 +7,12 @@
 // drops that row rather than the whole panel.
 
 import { supabase } from './supabase'
-import { monthBounds, todayStr } from './dateRange'
+import { todayStr } from './dateRange'
 import { saturdaysInMonth } from './weekendPlanner'
 import { endOfRotationFlag } from './internRotations'
 import { getMonthlyHoursByProfile } from './monthlyHours'
 import { OPEN_LOCUM_LABEL } from './locumCover'
-import { leaveAdjustedMinimum, unavailableDaysInMonth } from './contractMinimum'
+import { fetchMonthMinimums, MINIMUM_PROFILE_FIELDS } from './contractMinimum'
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -147,20 +147,12 @@ export function buildAttentionItems(data) {
   return items
 }
 
-// Doctors under their contracted minimum for a month that HAS a roster.
-// A doctor with approved leave in the month is held to a lower minimum,
-// scaled for the days they're away exactly as the roster engine scales it
-// (see lib/contractMinimum.js).
-export function countUnderMinimum({ profiles, hoursByProfile, leave = [], monthStart, monthEnd }) {
-  const daysInMonth = Number(monthEnd.slice(8, 10))
-  const leaveByProfile = new Map()
-  for (const l of leave) {
-    if (!leaveByProfile.has(l.profile_id)) leaveByProfile.set(l.profile_id, [])
-    leaveByProfile.get(l.profile_id).push(l)
-  }
+// Doctors under their minimum for a month that HAS a roster. The minimum
+// is the month's own (lib/contractMinimum.js): lowered for leave, for days
+// not yet (or no longer) in the EC, and by the engine's own variance.
+export function countUnderMinimum({ profiles, hoursByProfile, minimums }) {
   return profiles.filter(p => {
-    const away = unavailableDaysInMonth(leaveByProfile.get(p.id), monthStart, monthEnd)
-    const min = leaveAdjustedMinimum(p.min_hours, away, daysInMonth)
+    const min = minimums.get(p.id)?.minimum || 0
     if (!min) return false
     return (hoursByProfile.get(p.id) || 0) < min
   }).length
@@ -180,11 +172,10 @@ export async function fetchAdminAttention(now = new Date()) {
   const month = now.getMonth() + 1
   const next = nextMonthOf(year, month)
   const today = todayStr()
-  const { start: monthStart, end: monthEnd } = monthBounds(year, month)
   const nextSaturdays = saturdaysInMonth(next.year, next.month)
   const empty = { data: [], count: 0 }
 
-  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, doctorsRes, leaveRes, rotatingRes] = await Promise.all([
+  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, doctorsRes, rotatingRes] = await Promise.all([
     safe(supabase.from('roster_months').select('id, year, month, status').is('deleted_at', null).gte('year', year), empty),
     nextSaturdays.length > 0
       ? safe(supabase.from('weekend_planner_entries').select('weekend_saturday')
@@ -194,8 +185,7 @@ export async function fetchAdminAttention(now = new Date()) {
     safe(supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'), empty),
     safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
-    safe(supabase.from('profiles').select('id, min_hours').eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant'), empty),
-    safe(supabase.from('leave_requests').select('profile_id, date_from, date_to').eq('status', 'approved').lte('date_from', monthEnd).gte('date_to', monthStart), empty),
+    safe(supabase.from('profiles').select(MINIMUM_PROFILE_FIELDS).eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant'), empty),
     safe(supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true), empty),
   ])
 
@@ -224,14 +214,12 @@ export async function fetchAdminAttention(now = new Date()) {
   let underMinimum = 0
   if (rosters.some(r => r.year === year && r.month === month)) {
     try {
-      const hoursByProfile = await getMonthlyHoursByProfile(year, month)
-      underMinimum = countUnderMinimum({
-        profiles: doctorsRes.data || [],
-        hoursByProfile,
-        leave: leaveRes.data || [],
-        monthStart,
-        monthEnd,
-      })
+      const profiles = doctorsRes.data || []
+      const [hoursByProfile, minimums] = await Promise.all([
+        getMonthlyHoursByProfile(year, month),
+        fetchMonthMinimums({ profiles, year, month }),
+      ])
+      underMinimum = countUnderMinimum({ profiles, hoursByProfile, minimums })
     } catch { /* leave it at 0 */ }
   }
 

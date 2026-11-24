@@ -167,12 +167,12 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
     expect(h.onAddCover).toHaveBeenCalledWith(noCover, 'replace', { kind: 'doctor', id: 'doc-b' })
   })
 
-  it('every version ends with "Close — no change", and Continue stays off until a choice is ticked', async () => {
+  it('every version ends with Cancel, and Continue stays off until a choice is ticked', async () => {
     const user = userEvent.setup()
     for (const entry of [null, row, slotVacated, slot, locum, noCover]) {
       const h = open(entry, { rosterStatus: 'draft' })
       expect(within(dialog()).getByRole('button', { name: 'Continue' })).toBeDisabled()
-      await user.click(within(dialog()).getByRole('button', { name: 'Close — no change' }))
+      await user.click(within(dialog()).getByRole('button', { name: 'Cancel' }))
       expect(h.onClose).toHaveBeenCalled()
       expect(h.onAssign).not.toHaveBeenCalled()
       cleanup()
@@ -181,20 +181,29 @@ describe('ShiftMenu — which menu opens (the spec table)', () => {
 })
 
 describe('ShiftMenu — Put back', () => {
-  it('asks about the linked leave, with Cancel the leave / Keep the leave', async () => {
+  it('a leave over several days asks: cancel all of it, or keep the other days', async () => {
     const user = userEvent.setup()
     const h = open(noCover, { leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-11', 'sick', 'leave-1']] } })
+    expect(option(/Put Alice Anderson back on this shift/).closest('label')).toHaveTextContent(/sick leave runs Mon 10 Aug – Tue 11 Aug; you choose/)
     await choose(user, /Put Alice Anderson back on this shift/)
-    expect(screen.getByText("Also cancel Alice Anderson's sick leave for Mon 10 Aug – Tue 11 Aug?")).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Keep the leave' }))
+    expect(screen.getByText("Alice Anderson's sick leave runs Mon 10 Aug – Tue 11 Aug. Cancel all of it, or keep the other days?")).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Keep the other days' }))
     expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: false })
   })
 
-  it('cancels the leave when asked', async () => {
+  it('a one-day leave is cancelled with the put-back, without asking', async () => {
+    const user = userEvent.setup()
+    const h = open(noCover, { leaveByProfile: { 'doc-a': [['2026-08-10', '2026-08-10', 'sick', 'leave-1']] } })
+    expect(option(/Put Alice Anderson back on this shift/).closest('label')).toHaveTextContent(/sick leave for that day is cancelled too/)
+    await choose(user, /Put Alice Anderson back on this shift/)
+    expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: true })
+    expect(h.onClose).toHaveBeenCalled()
+  })
+
+  it('a linked leave the viewer cannot see the dates of is treated as this day\'s and cancelled', async () => {
     const user = userEvent.setup()
     const h = open(noCover)
     await choose(user, /Put Alice Anderson back on this shift/)
-    await user.click(screen.getByRole('button', { name: 'Cancel the leave' }))
     expect(h.onReinstate).toHaveBeenCalledWith(noCover, { cancelLeave: true })
   })
 

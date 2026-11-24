@@ -5,12 +5,13 @@ import { fetchOnShiftBoard, startsInLabel } from '../lib/onShiftBoard'
 import { shiftStartLabel } from '../lib/myYear'
 import ProfileAvatar from './ProfileAvatar'
 import { useIsDesktop } from '../lib/useIsDesktop'
+import { PanelRows, PanelRow } from './PanelRows'
 
 // The admin Dashboard's "On shift": who is on now (grouped by shift, each
 // with its end time) and who starts next.
-//   desktop (md+)  a split panel like Sick leave: Now | Next, one person per
-//                  line with avatar, full name and category — short enough
-//                  to read without scrolling
+//   desktop (md+)  one row per shift (PanelRows, as Team leave and Sick
+//                  leave): the shift on the left, its people side by side
+//                  with avatar, full name and category
 //   phone          one row per shift with initials badges; the full name and
 //                  category show on tap
 // A small clock marks a late arrival logged for that shift.
@@ -41,39 +42,29 @@ function LateClock() {
 // Desktop: one line per person.
 function PersonLine({ person }) {
   return (
-    <li className="flex items-center gap-2.5" aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}>
+    <li className="flex min-w-0 items-center gap-2.5" aria-label={`${person.label}${person.late ? ' · late arrival logged' : ''}`}>
       <span className="relative flex-shrink-0">
         <Face person={person} size={32} />
         {person.late && <LateClock />}
       </span>
       <span className="min-w-0">
-        <span className={`block truncate text-sm font-semibold ${person.kind === 'open' ? 'text-flagRed' : 'text-ink'}`}>{person.name}</span>
-        <span className="block truncate text-xs text-ink-muted">{person.meta}</span>
+        <span className={`block truncate whitespace-nowrap text-sm font-semibold ${person.kind === 'open' ? 'text-flagRed' : 'text-ink'}`}>{person.name}</span>
+        <span className="block truncate whitespace-nowrap text-xs text-ink-muted">{person.meta}</span>
       </span>
     </li>
   )
 }
 
-function Column({ title, groups, when, empty }) {
+// The left-hand side of a desktop shift row.
+function ShiftLabel({ group, tag, when }) {
   return (
-    <div className="p-4">
-      <p className="text-xs font-medium text-ink-muted">{title}</p>
-      {groups.length === 0 ? (
-        <p className="mt-2 text-sm text-ink-muted">{empty}</p>
-      ) : groups.map(g => (
-        <div key={g.key} className="mt-3 first:mt-2" data-testid="on-shift-group">
-          <p className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-            <span className={`${g.night ? 'chip-night' : 'chip-mint'} rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
-              {shiftStartLabel(g.startTime)}–{shiftStartLabel(g.endTime)}
-            </span>
-            {when(g)}
-          </p>
-          <ul className="mt-2 space-y-2">
-            {g.people.map(p => <PersonLine key={p.key} person={p} />)}
-          </ul>
-        </div>
-      ))}
-    </div>
+    <>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{tag}</p>
+      <span className={`${group.night ? 'chip-night' : 'chip-mint'} mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold`}>
+        {shiftStartLabel(group.startTime)}–{shiftStartLabel(group.endTime)}
+      </span>
+      <p className="mt-1 text-xs text-ink-muted">{when}</p>
+    </>
   )
 }
 
@@ -159,15 +150,21 @@ export default function OnShiftPanel() {
         ) : board.now.length === 0 && board.next.length === 0 ? (
           <p className="p-4 text-sm text-ink-muted">Nobody on shift on a published roster.</p>
         ) : isDesktop ? (
-          <div className="grid grid-cols-2 divide-x divide-slate-line">
-            <Column title="Now" groups={board.now} when={until} empty="Nobody on shift right now." />
-            <Column
-              title={board.next.length ? `Next · ${startsInLabel(board.next[0].start, now)}` : 'Next'}
-              groups={board.next}
-              when={onAt}
-              empty="Nothing starts in the next 24 hours."
-            />
-          </div>
+          <PanelRows>
+            {board.now.length === 0 && (
+              <PanelRow label={<p className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">Now</p>} empty="Nobody on shift right now." />
+            )}
+            {board.now.map(g => (
+              <PanelRow key={g.key} testId="on-shift-group" label={<ShiftLabel group={g} tag="Now" when={until(g)} />}>
+                {g.people.map(p => <PersonLine key={p.key} person={p} />)}
+              </PanelRow>
+            ))}
+            {board.next.map(g => (
+              <PanelRow key={g.key} testId="on-shift-group" tint label={<ShiftLabel group={g} tag={`Next · ${startsInLabel(g.start, now)}`} when={onAt(g)} />}>
+                {g.people.map(p => <PersonLine key={p.key} person={p} />)}
+              </PanelRow>
+            ))}
+          </PanelRows>
         ) : (
           <ul className="divide-y divide-slate-line">
             {board.now.length === 0 && <li className="p-4 text-sm text-ink-muted">Nobody on shift right now.</li>}

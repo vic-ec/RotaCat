@@ -88,15 +88,14 @@ describe('OnShiftPanel — desktop', () => {
     })
   })
 
-  it('splits Now and Next, one person per line with full name and category', async () => {
+  it('shows one row per shift, people side by side with full name and category', async () => {
     render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
     const groups = await screen.findAllByTestId('on-shift-group')
     expect(groups).toHaveLength(3)
-    expect(groups[0].textContent).toMatch(/08h00–18h00On shift until 18h00.*Maurice MokoenaMO.*Zara KhanMO/)
-    expect(groups[1].textContent).toMatch(/12h00–22h00On shift until 22h00.*Open locum slotNot covered/)
-    expect(groups[2].textContent).toMatch(/15h00–01h00On at 15h00.*Tom PetersenMO/)
-    expect(screen.getByText('Now')).toBeInTheDocument()
-    expect(screen.getByText('Next · in 30 min')).toBeInTheDocument()
+    expect(groups[0].textContent).toMatch(/Now08h00–18h00On shift until 18h00.*Maurice MokoenaMO.*Zara KhanMO/)
+    expect(groups[1].textContent).toMatch(/Now12h00–22h00On shift until 22h00.*Open locum slotNot covered/)
+    expect(groups[2].textContent).toMatch(/Next · in 30 min15h00–01h00On at 15h00.*Tom PetersenMO/)
+    expect(groups[2].className).toMatch(/bg-canvas-cool/)
     expect(within(screen.getByLabelText('Zara Khan · MO · late arrival logged')).getByTestId('on-shift-late')).toBeInTheDocument()
     // Names, not badges to tap.
     expect(screen.queryByRole('button', { name: /Maurice Mokoena/ })).not.toBeInTheDocument()

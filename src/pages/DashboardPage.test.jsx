@@ -292,19 +292,19 @@ describe('DashboardPage', () => {
     renderDashboard()
 
     // One Team leave section: heading on the page with its link, a card
-    // split into today and the week ahead.
+    // with a row for today and a row for the week ahead.
     expect(await screen.findByText('On Leave')).toBeInTheDocument()
     const heading = screen.getByText('Team leave').closest('div')
     expect(within(heading).getByRole('link', { name: /View team leave/ })).toHaveAttribute('href', '/leave?tab=team')
-    const today_ = screen.getByText('Away today').closest('div')
+    const today_ = screen.getByText('Away today').closest('li')
     // Each name carries its leave type — "away" alone never said what for.
     expect(within(today_).getByText('On Leave')).toBeInTheDocument()
     expect(within(today_).getByText(/^Annual · /)).toBeInTheDocument()
     // Sick leave is not planned leave: it has its own panel, today and the last week
     expect(within(today_).queryByText('Off Sick')).not.toBeInTheDocument()
-    expect(within(screen.getByText('Off sick today').closest('div')).getByText('Off Sick')).toBeInTheDocument()
-    expect(within(screen.getByText('Last 7 days').closest('div')).getByText('Back Now')).toBeInTheDocument()
-    const next = screen.getByText('Next 7 days').closest('div')
+    expect(within(screen.getByText('Off sick today').closest('li')).getByText('Off Sick')).toBeInTheDocument()
+    expect(within(screen.getByText('Last 7 days').closest('li')).getByText('Back Now')).toBeInTheDocument()
+    const next = screen.getByText('Next 7 days').closest('li')
     expect(within(next).getByText('Soon Doctor')).toBeInTheDocument()
     expect(within(next).getByText(/^Annual · /)).toBeInTheDocument()
     // Every name carries its avatar, the same one the Staff list shows.

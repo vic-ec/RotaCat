@@ -6,6 +6,7 @@ import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LateArrivalModal from '../components/LateArrivalModal'
 import OnShiftPanel from '../components/OnShiftPanel'
+import { PanelRows, PanelRow, PanelLabel } from '../components/PanelRows'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { getDashboardHoursWarnings } from '../lib/monthlyHours'
@@ -724,31 +725,19 @@ export default function DashboardPage() {
           {/* Who is on now, by shift, and who starts next. */}
           <OnShiftPanel />
 
-          {/* Team leave — read-only awareness. One card, two columns
-              (stacked on a phone): who is away today, and who is next. */}
+          {/* Team leave — read-only awareness: who is away today, and who
+              starts leave soon. Stacked rows, like On shift above. */}
           <section>
             <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Team leave</SectionHeading>
-            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Away today</p>
-                {onLeaveNow.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody away today</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {onLeaveNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Next {TEAM_LEAVE_LOOKAHEAD_DAYS} days</p>
-                {onLeaveNext.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody starting leave</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
+            <div className="card overflow-hidden">
+              <PanelRows testId="team-leave-panel">
+                <PanelRow label={<PanelLabel tag="Today" title="Away today" />} empty="Nobody away today">
+                  {onLeaveNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+                <PanelRow label={<PanelLabel tag={`Next ${TEAM_LEAVE_LOOKAHEAD_DAYS} days`} title="Starting leave" />} empty="Nobody starting leave">
+                  {onLeaveNext.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+              </PanelRows>
             </div>
           </section>
 
@@ -756,27 +745,15 @@ export default function DashboardPage() {
               last week. Kept apart from Team leave above, which is planned. */}
           <section>
             <SectionHeading to={TEAM_LEAVE_PATH} linkLabel="View team leave">Sick leave</SectionHeading>
-            <div className="card grid divide-y divide-slate-line overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Off sick today</p>
-                {sickNow.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">Nobody off sick today</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {sickNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
-              <div className="p-4">
-                <p className="text-xs font-medium text-ink-muted">Last {SICK_LOOKBACK_DAYS} days</p>
-                {sickRecent.length === 0 ? (
-                  <p className="mt-2 text-sm text-ink-muted">No other sick leave</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {sickRecent.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
-                  </ul>
-                )}
-              </div>
+            <div className="card overflow-hidden">
+              <PanelRows testId="sick-leave-panel">
+                <PanelRow label={<PanelLabel tag="Today" title="Off sick today" />} empty="Nobody off sick today">
+                  {sickNow.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+                <PanelRow label={<PanelLabel tag={`Last ${SICK_LOOKBACK_DAYS} days`} title="Earlier" />} empty="No other sick leave">
+                  {sickRecent.map(lr => <TeamLeaveRow key={lr.id} request={lr} />)}
+                </PanelRow>
+              </PanelRows>
             </div>
           </section>
 
@@ -793,11 +770,11 @@ export default function DashboardPage() {
 // colour/pattern is how this app has always identified a doctor.
 function TeamLeaveRow({ request }) {
   return (
-    <li className="flex items-center gap-2.5">
+    <li className="flex min-w-0 items-center gap-2.5">
       <ProfileAvatar profile={request.profiles} size={32} />
       <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold text-ink">{fullName(request.profiles)}</span>
-        <span className="block text-xs text-ink-muted">
+        <span className="block truncate whitespace-nowrap text-sm font-semibold text-ink">{fullName(request.profiles)}</span>
+        <span className="block whitespace-nowrap text-xs text-ink-muted">
           {shortLeaveTypeLabel(request.leave_type)} · {formatShortDateRange(request.date_from, request.date_to)}
         </span>
       </span>

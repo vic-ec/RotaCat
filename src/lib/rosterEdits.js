@@ -507,6 +507,59 @@ export async function reinstate({ rosterMonthId, entry, shiftCode, entries, canc
   }
 }
 
+// ── After leave is cancelled from the roster ────────────────────────────
+// A shift the doctor was taken off FOR this leave (vacated_leave_request_id)
+// gets one of two outcomes, chosen when the leave is cancelled:
+//   undoShift true   the doctor goes back on it; any cover is removed and
+//                    any advert stopped — as if the leave never happened
+//   undoShift false  the shift stays as it is (the cover works it) and its
+//                    reason stops saying leave, since there is none now
+// Refused for undoShift when the doctor has another shift that day.
+export function leaveShiftBlocker({ entry, entries, nameOf }) {
+  if (!entry?.vacated_profile_id) return null
+  if (findSameDayConflict({ entries, date: entry.date, profileId: entry.vacated_profile_id, excludeEntryId: entry.id })) {
+    return `${nameOf(entry.vacated_profile_id) || 'This doctor'} has another shift on ${shortDate(entry.date)}`
+  }
+  return null
+}
+
+export async function afterLeaveCancelled({ rosterMonthId, entry, shiftCode, entries, undoShift, adminId, nameOf, batchId = newBatchId() }) {
+  const fresh = (await fetchEntry(entry.id)) || entry
+  const name = nameOf(fresh.vacated_profile_id) || 'Doctor'
+  const sideEffects = emptySideEffects()
+  let patch
+  if (undoShift) {
+    const blocker = leaveShiftBlocker({ entry: fresh, entries, nameOf })
+    if (blocker) throw new Error(`${blocker}, so they cannot go back on ${shiftLabel(fresh.date, shiftCode)}.`)
+    sideEffects.adverts_cancelled = await cancelOpenAdverts(fresh.id)
+    patch = {
+      profile_id: fresh.vacated_profile_id, is_locum: false, locum_name: null, locum_contact_id: null,
+      counts_toward_contract_hours: true, is_manual_override: true, is_flagged: false, flag_type: null, flag_reason: null,
+      vacated_profile_id: null, vacated_reason: null, vacated_note: null, vacated_leave_request_id: null, vacated_by: null, vacated_at: null,
+    }
+  } else {
+    patch = { vacated_reason: 'other', vacated_note: 'Leave cancelled; cover kept', vacated_leave_request_id: null }
+  }
+  await updateEntry(fresh.id, patch)
+  const entryAfter = { ...fresh, ...patch }
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: fresh.id, entryDate: fresh.date, shiftCode,
+    action: undoShift ? 'reinstate' : 'assign',
+    profileIdBefore: undoShift ? fresh.vacated_profile_id : fresh.profile_id,
+    profileIdAfter: undoShift ? fresh.vacated_profile_id : fresh.profile_id,
+    reason: undoShift ? null : 'other',
+    note: undoShift ? 'Leave cancelled; cover removed' : 'Leave cancelled; cover kept',
+    changedBy: adminId, batchId, entryBefore: entrySnapshot(fresh), entryAfter: entrySnapshot(entryAfter), sideEffects,
+  })
+  return {
+    batchId,
+    description: undoShift
+      ? `${name} back on ${shiftLabel(fresh.date, shiftCode)}; the cover was removed`
+      : `${shiftLabel(fresh.date, shiftCode)} kept as it is`,
+    logError,
+  }
+}
+
 // ── Adjusted times ───────────────────────────────────────────────────────
 // A doctor or locum works this shift at different hours to its standard
 // ones. "HH:MM" inputs; both empty returns the shift to standard times. The

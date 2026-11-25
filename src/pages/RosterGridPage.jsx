@@ -37,6 +37,7 @@ import RosterJumpButton from '../components/RosterJumpButton'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import CancelLeaveModal from '../components/CancelLeaveModal'
+import LeaveShiftsChoice from '../components/LeaveShiftsChoice'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -135,6 +136,9 @@ export default function RosterGridPage() {
   // Leave being cancelled from the roster (the struck-through name's popup
   // or the shift menu): the request, in CancelLeaveModal's shape.
   const [cancelLeaveFor, setCancelLeaveFor] = useState(null)
+  // What happens to the shifts that leave took the doctor off: 'undo'
+  // (put them back) or 'keep' — asked in the same dialog.
+  const [leaveShiftsChoice, setLeaveShiftsChoice] = useState('')
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -632,6 +636,18 @@ export default function RosterGridPage() {
     }
   }
 
+  // The shifts this roster shows that the leave being cancelled opened.
+  const leaveShifts = cancelLeaveFor
+    ? entries.filter(e => e.vacated_leave_request_id === cancelLeaveFor.id).map(entry => ({
+        entry,
+        shiftCode: shiftTypes[entry.shift_type_id] || 'UNKNOWN',
+        cover: entry.is_locum
+          ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : 'open locum slot')
+          : entry.profile_id ? nameById(entry.profile_id) : null,
+        blocker: rosterEdits.leaveShiftBlocker({ entry, entries, nameOf }),
+      }))
+    : []
+
   function handleCellClick(date, shiftCode, existingEntry, event = null) {
     if (!canEdit) return
     const anchorRect = event?.currentTarget?.getBoundingClientRect?.() ?? null
@@ -1013,9 +1029,35 @@ export default function RosterGridPage() {
         <CancelLeaveModal
           request={cancelLeaveFor}
           isOwn={false}
-          onClose={() => setCancelLeaveFor(null)}
-          onCancelled={() => { setCancelLeaveFor(null); refreshLeave() }}
-        />
+          canConfirm={leaveShifts.length === 0 || Boolean(leaveShiftsChoice)}
+          onClose={() => { setCancelLeaveFor(null); setLeaveShiftsChoice('') }}
+          onCancelled={() => {
+            const shifts = leaveShifts
+            const undoShift = leaveShiftsChoice === 'undo'
+            setCancelLeaveFor(null)
+            setLeaveShiftsChoice('')
+            if (shifts.length === 0) { refreshLeave(); return }
+            // One batch for every shift the leave opened, so Undo treats
+            // the follow-up as one change.
+            const batchId = rosterEdits.newBatchId()
+            runEdit(async () => {
+              let last
+              for (const { entry, shiftCode } of shifts) {
+                last = await rosterEdits.afterLeaveCancelled({ rosterMonthId: id, entry, shiftCode, entries, undoShift, adminId: user.id, nameOf, batchId })
+              }
+              return { ...last, description: `Leave cancelled; ${shifts.length === 1 ? last.description : (undoShift ? `${nameOf(shifts[0].entry.vacated_profile_id) || 'Doctor'} back on ${shifts.length} shifts` : `${shifts.length} shifts kept as they are`)}` }
+            }).then(refreshLeave)
+          }}
+        >
+          {leaveShifts.length > 0 && (
+            <LeaveShiftsChoice
+              doctorName={cancelLeaveFor.profiles?.name || 'the doctor'}
+              shifts={leaveShifts}
+              value={leaveShiftsChoice}
+              onChange={setLeaveShiftsChoice}
+            />
+          )}
+        </CancelLeaveModal>
       )}
 
       {absenceOpen && rosterMonth && (

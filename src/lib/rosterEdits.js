@@ -264,6 +264,65 @@ export async function moveEntry({ rosterMonthId, entry, shiftCodeBefore, targetD
   return { batchId, description: `${holderName(entry, nameOf)} moved to ${shiftLabel(targetDate, targetShiftCode)}`, logError }
 }
 
+// ── Swap two doctors' shifts ─────────────────────────────────────────────
+// Each doctor takes the other's shift — the same day or two different
+// days. Both rows keep their slot, times and history; only who holds them
+// changes. Refused when either doctor would end up with two shifts on one
+// day, or is on approved leave on the shift they'd take. Two log rows under
+// one batch, so Undo puts both back together.
+export function swapProblem({ a, b, entries, nameOf, isOnLeave = () => false }) {
+  if (!a?.profile_id || !b?.profile_id || a.is_locum || b.is_locum) return 'Only two doctors\' shifts can be swapped.'
+  if (a.id === b.id) return 'Pick a different shift.'
+  if (a.profile_id === b.profile_id) return 'Both shifts belong to the same doctor.'
+  const others = entries.filter(e => e.id !== a.id && e.id !== b.id)
+  const clash = (profileId, date) => others.some(e => e.date === date && e.profile_id === profileId)
+  const nameA = nameOf(a.profile_id) || 'The first doctor'
+  const nameB = nameOf(b.profile_id) || 'The other doctor'
+  if (clash(a.profile_id, b.date)) return `${nameA} already has another shift on ${shortDate(b.date)}.`
+  if (clash(b.profile_id, a.date)) return `${nameB} already has another shift on ${shortDate(a.date)}.`
+  if (isOnLeave(a.profile_id, b.date)) return `${nameA} is on approved leave on ${shortDate(b.date)}.`
+  if (isOnLeave(b.profile_id, a.date)) return `${nameB} is on approved leave on ${shortDate(a.date)}.`
+  return null
+}
+
+export async function swapEntries({ rosterMonthId, a, b, shiftCodeA, shiftCodeB, entries, note = null, isOnLeave, adminId, nameOf, batchId = newBatchId() }) {
+  const problem = swapProblem({ a, b, entries, nameOf, isOnLeave })
+  if (problem) throw new Error(problem)
+  const patchA = { profile_id: b.profile_id, is_manual_override: true }
+  const patchB = { profile_id: a.profile_id, is_manual_override: true }
+  await updateEntry(a.id, patchA)
+  try {
+    await updateEntry(b.id, patchB)
+  } catch (err) {
+    await updateEntry(a.id, { profile_id: a.profile_id, is_manual_override: a.is_manual_override ?? false }).catch(() => {})
+    throw err
+  }
+  const log = (entry, shiftCode, patch) => logRosterEntryChange({
+    rosterMonthId,
+    rosterEntryId: entry.id,
+    entryDate: entry.date,
+    shiftCode,
+    action: 'assign',
+    profileIdBefore: entry.profile_id,
+    profileIdAfter: patch.profile_id,
+    reason: 'swap',
+    note,
+    changedBy: adminId,
+    batchId,
+    entryBefore: entrySnapshot(entry),
+    entryAfter: entrySnapshot({ ...entry, ...patch }),
+    sideEffects: emptySideEffects(),
+  })
+  const [logA, logB] = await Promise.all([log(a, shiftCodeA, patchA), log(b, shiftCodeB, patchB)])
+  const nameA = nameOf(a.profile_id) || 'Doctor'
+  const nameB = nameOf(b.profile_id) || 'Doctor'
+  return {
+    batchId,
+    description: `${nameA} and ${nameB} swapped: ${nameB} on ${shiftLabel(a.date, shiftCodeA)}, ${nameA} on ${shiftLabel(b.date, shiftCodeB)}`,
+    logError: logA.error || logB.error || null,
+  }
+}
+
 // ── The locum slot beside a vacated doctor ───────────────────────────────
 // Cover added to a no-cover row: a replacement now, an advertised slot, or
 // an open slot nobody is told about.

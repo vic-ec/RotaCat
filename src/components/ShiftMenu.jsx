@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ActionSheet } from './ActionSheet'
 import ShiftTimesForm from './ShiftTimesForm'
+import SwapPicker from './SwapPicker'
 import DoctorDropdown from './DoctorDropdown'
 import NewLocumModal from './NewLocumModal'
 import { useIsDesktop } from '../lib/useIsDesktop'
@@ -123,7 +124,10 @@ export default function ShiftMenu({
   entry, date, shiftCode, rosterStatus, anchorRect = null,
   entries, profiles, displayNames, leaveByProfile = {}, locums = [], contacts = [], adminId,
   nameOf, hasOpenAdvert = false, shiftType = null,
-  onVacancy, onAssign, onRemoveEntry, onRemoveLocum, onAddCover, onRemoveSlot, onAdvertise, onUnadvertise, onReinstate, onNewLocum, onChangeTimes,
+  onVacancy, onAssign, onRemoveEntry, onRemoveLocum, onAddCover, onRemoveSlot, onAdvertise, onUnadvertise, onReinstate, onNewLocum, onChangeTimes, onSwap,
+  // For Swap: the shift code of any entry, the month's first/last day and
+  // whether a doctor is on approved leave on a date.
+  shiftCodeOf, monthStart, monthEnd, isOnLeave,
   // { exists } when a late arrival can be logged against this shift (see
   // the page's lateOptionFor), else null.
   lateArrival = null, onLateArrival,
@@ -227,6 +231,21 @@ export default function ShiftMenu({
         <button type="button" onClick={() => setStep(null)} className="text-sm font-medium text-accent hover:underline">Back</button>
       </div>
     )
+  } else if (step === 'swap') {
+    body = (
+      <SwapPicker
+        entry={entry}
+        shiftCode={shiftCode}
+        entries={entries}
+        shiftCodeOf={shiftCodeOf}
+        nameOf={nameOf}
+        isOnLeave={isOnLeave}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        onConfirm={(other, otherCode) => { onSwap(entry, other, otherCode); close() }}
+        onBack={() => setStep(null)}
+      />
+    )
   } else if (step === 'times') {
     body = (
       <ShiftTimesForm
@@ -250,6 +269,9 @@ export default function ShiftMenu({
           : 'Restores them and clears the absence'),
         disabled: Boolean(blocker),
       }],
+    }
+    const swapChoice = onSwap && holder && {
+      value: 'swap', label: 'Swap with another doctor', hint: 'Each takes the other\'s shift — this day or another',
     }
     const timesChoice = {
       value: 'times',
@@ -275,12 +297,13 @@ export default function ShiftMenu({
       vacancy: [
         { choices: [
           { value: 'vacancy', label: `Take ${holder} off this shift`, hint: 'Say why, and what happens to the shift' },
+          swapChoice,
           timesChoice,
-        ] },
+        ].filter(Boolean) },
         lateGroup,
       ],
       'draft-doctor': [
-        { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, timesChoice] },
+        { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, swapChoice, timesChoice].filter(Boolean) },
         { choices: [{ value: 'confirm-remove', label: `Remove ${holder} from this shift`, hint: 'The shift is left empty', danger: true }] },
       ],
       'slot-vacated': [
@@ -316,7 +339,7 @@ export default function ShiftMenu({
 
     const run = chosen => {
       switch (chosen.value) {
-        case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': setStep(chosen.value); break
+        case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': case 'swap': setStep(chosen.value); break
         case 'vacancy': onVacancy(entry); close(); break
         case 'late': onLateArrival(entry); close(); break
         case 'advertise': onAdvertise(entry); close(); break

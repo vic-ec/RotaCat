@@ -40,15 +40,20 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
   }, [onClose])
 
   return (
+    // Near the top on a phone, centred from md. The search box focuses
+    // itself, and a centred card sits where the keyboard comes up: iPhone
+    // Safari then shifts the page to keep the field in view and leaves the
+    // text cursor drawn where the field used to be (below and left of the
+    // text). Opening above the keyboard means nothing has to move.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center scrim px-4"
+      className="fixed inset-0 z-50 flex items-start justify-center scrim px-4 pt-[8vh] md:items-center md:pt-0"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Assign doctor — ${shiftCode} on ${date}`}
-        className="card w-full max-w-xs p-0 shadow-raised overflow-hidden"
+        className="card w-full max-w-xs p-0 shadow-raised overflow-hidden max-h-[55vh] flex flex-col md:max-h-none md:block"
         onClick={e => e.stopPropagation()}
       >
         <div className="border-b border-slate-line px-3 py-2.5">
@@ -84,7 +89,7 @@ export default function DoctorDropdown({ profiles, displayNames, search, onSearc
             clearLabel="Clear search"
           />
         </div>
-        <div className="max-h-64 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto md:max-h-64 md:flex-none">
           {filtered.length === 0 && locumRows.length === 0 && (
             <p className="px-3 py-3 text-sm text-ink-muted">No doctors found.</p>
           )}

@@ -1493,6 +1493,15 @@ export default function RosterGridPage() {
           onUnadvertise={entry => runEdit(() => rosterEdits.unadvertise(editArgs(entry)))}
           onChangeTimes={(entry, { start, end }) => runEdit(() => rosterEdits.changeTimes({ ...editArgs(entry), start, end }))}
           onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
+          onSwap={(entry, other, otherCode) => runEdit(() => rosterEdits.swapEntries({
+            rosterMonthId: id, a: entry, b: other, shiftCodeA: menu.shiftCode, shiftCodeB: otherCode, entries,
+            isOnLeave: (profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date }),
+            adminId: user.id, nameOf,
+          }))}
+          shiftCodeOf={e => shiftTypes[e.shift_type_id] || 'UNKNOWN'}
+          monthStart={monthBounds(rosterMonth.year, rosterMonth.month).start}
+          monthEnd={monthBounds(rosterMonth.year, rosterMonth.month).end}
+          isOnLeave={(profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date })}
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
           onLateArrival={entry => setLateFor(lateOptionFor(entry))}

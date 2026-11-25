@@ -7,6 +7,7 @@ vi.mock('./leaveCancellation', () => ({ cancelLeaveRequest: vi.fn().mockResolved
 import {
   assignCover, removeEntry, removeLocum, moveEntry, addCover, removeSlot, advertise, unadvertise,
   reinstate, reinstateBlocker, leaveQuestion, describeLinkedLeave, shiftMenuKind, emptySideEffects,
+  swapEntries, swapProblem, afterLeaveCancelled, leaveShiftBlocker,
 } from './rosterEdits'
 import { cancelLeaveRequest } from './leaveCancellation'
 
@@ -231,5 +232,64 @@ describe('Put back', () => {
 describe('emptySideEffects', () => {
   it('carries every key, so each row compares alike', () => {
     expect(Object.keys(emptySideEffects()).sort()).toEqual(['advert_created', 'adverts_cancelled', 'adverts_reopened', 'leave_request_cancelled', 'leave_request_captured', 'leave_request_reapproved', 'reverses_batch_id'])
+  })
+})
+
+describe('swapEntries — two doctors exchange shifts', () => {
+  const aRow = { ...doctorRow, id: 'a', date: '2026-08-10', profile_id: 'doc-a' }
+  const bSameDay = { ...doctorRow, id: 'b', date: '2026-08-10', shift_type_id: 'st4', profile_id: 'doc-b' }
+  const bOtherDay = { ...bSameDay, date: '2026-08-13' }
+
+  it('swaps two doctors on the same day, logged as one undoable batch', async () => {
+    const entries = [aRow, bSameDay]
+    const result = await swapEntries({ ...base, a: aRow, b: bSameDay, shiftCodeA: 'WD_12', shiftCodeB: 'WD_22', entries })
+    const updates = entryUpdates()
+    expect(updates.map(u => [u.filters.find(f => f[1] === 'id')[2], u.payload.profile_id])).toEqual([['a', 'doc-b'], ['b', 'doc-a']])
+    const logs = logRows()
+    expect(logs).toHaveLength(2)
+    expect(logs.every(l => l.batch_id === result.batchId && l.reason === 'swap' && l.action === 'assign')).toBe(true)
+    expect(logs[0]).toMatchObject({ profile_id_before: 'doc-a', profile_id_after: 'doc-b' })
+    expect(logs[0].entry_after).toMatchObject({ id: 'a', profile_id: 'doc-b' })
+    expect(result.description).toMatch(/^Alice Anderson and Bob Brown swapped: Bob Brown on Mon 10 Aug · WD 12h-22h, Alice Anderson on Mon 10 Aug · WD 22h-10h/)
+  })
+
+  it('swaps across two days', async () => {
+    await swapEntries({ ...base, a: aRow, b: bOtherDay, shiftCodeA: 'WD_22', shiftCodeB: 'WD_22', entries: [aRow, bOtherDay] })
+    expect(entryUpdates()).toHaveLength(2)
+  })
+
+  it('refuses when a doctor would have two shifts on one day, or would work while on leave', async () => {
+    const aOtherShiftThatDay = { ...doctorRow, id: 'a2', date: '2026-08-13', profile_id: 'doc-a' }
+    await expect(swapEntries({ ...base, a: aRow, b: bOtherDay, shiftCodeA: 'WD_22', shiftCodeB: 'WD_22', entries: [aRow, bOtherDay, aOtherShiftThatDay] }))
+      .rejects.toThrow('Alice Anderson already has another shift on Thu 13 Aug.')
+    expect(swapProblem({ a: aRow, b: bOtherDay, entries: [aRow, bOtherDay], nameOf, isOnLeave: (p, d) => p === 'doc-b' && d === '2026-08-10' }))
+      .toBe('Bob Brown is on approved leave on Mon 10 Aug.')
+    expect(swapProblem({ a: aRow, b: namedLocum, entries: [], nameOf })).toMatch(/Only two doctors/)
+    expect(entryUpdates()).toHaveLength(0)
+  })
+})
+
+describe('afterLeaveCancelled — the shifts a cancelled leave opened', () => {
+  // Landes taken off for sick leave; Alli the locum covers it.
+  const covered = { ...namedLocum, id: 'c1', vacated_profile_id: 'doc-a', vacated_reason: 'leave', vacated_leave_request_id: 'leave-1' }
+  beforeEach(() => { mock.respond('roster_entries', call => (call.method === 'select' ? [covered] : undefined)) })
+
+  it('keeps the cover and stops calling it leave', async () => {
+    const r = await afterLeaveCancelled({ ...base, entry: covered, shiftCode: 'WD_12', entries: [covered], undoShift: false })
+    expect(entryUpdates()[0].payload).toEqual({ vacated_reason: 'other', vacated_note: 'Leave cancelled; cover kept', vacated_leave_request_id: null })
+    expect(logRows()[0]).toMatchObject({ action: 'assign', note: 'Leave cancelled; cover kept', batch_id: r.batchId })
+  })
+
+  it('puts the doctor back and removes the cover', async () => {
+    await afterLeaveCancelled({ ...base, entry: covered, shiftCode: 'WD_12', entries: [covered], undoShift: true })
+    expect(entryUpdates()[0].payload).toMatchObject({ profile_id: 'doc-a', is_locum: false, locum_name: null, vacated_profile_id: null, vacated_leave_request_id: null })
+    expect(logRows()[0]).toMatchObject({ action: 'reinstate', note: 'Leave cancelled; cover removed' })
+  })
+
+  it('will not put the doctor back over another shift that day', async () => {
+    const night = { ...doctorRow, id: 'n1', shift_type_id: 'st4', profile_id: 'doc-a' }
+    expect(leaveShiftBlocker({ entry: covered, entries: [covered, night], nameOf })).toBe('Alice Anderson has another shift on Mon 10 Aug')
+    await expect(afterLeaveCancelled({ ...base, entry: covered, shiftCode: 'WD_12', entries: [covered, night], undoShift: true })).rejects.toThrow(/cannot go back/)
+    expect(entryUpdates()).toHaveLength(0)
   })
 })

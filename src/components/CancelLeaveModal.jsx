@@ -16,7 +16,10 @@ import {
 // optionally `profiles` ({name, surname}) for the admin wording.
 // `isOwn`: the viewer is cancelling their own leave (changes the copy).
 // `onCancelled(updatedRow)` fires after the database confirms.
-export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled }) {
+// `children`: anything the caller needs decided alongside (the roster asks
+// what happens to shifts the leave opened); `canConfirm` false keeps the
+// button off until it is.
+export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled, children = null, canConfirm = true }) {
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -62,7 +65,7 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled 
           <button
             type="button"
             onClick={confirm}
-            disabled={saving || !isValidCancelReason(reason)}
+            disabled={saving || !isValidCancelReason(reason) || !canConfirm}
             className="btn-danger text-sm"
             title={isValidCancelReason(reason) ? undefined : 'A reason is required'}
           >
@@ -86,6 +89,8 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled 
           {rosterWarning}
         </div>
       )}
+
+      {children}
 
       <label className="label-text mt-4 block" htmlFor="cancel-leave-reason">Reason (required)</label>
       <textarea

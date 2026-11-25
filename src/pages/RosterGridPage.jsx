@@ -24,7 +24,7 @@ import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { fetchApprovedLeaveByProfile, leaveRangeOn } from '../lib/approvedLeave'
-import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
+import { entryAbsence, absenceSummary, leaveRequestForAbsence } from '../lib/rosterVacancy'
 import { fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
@@ -36,6 +36,8 @@ import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import RosterJumpButton from '../components/RosterJumpButton'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
+import CancelLeaveModal from '../components/CancelLeaveModal'
+import LeaveShiftsChoice from '../components/LeaveShiftsChoice'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -131,6 +133,12 @@ export default function RosterGridPage() {
   const [shiftTypeRows, setShiftTypeRows] = useState({}) // keyed by id -> { code, start_time, end_time }
   // "Absence" on the edit bar: the Capture leave form, for this month.
   const [absenceOpen, setAbsenceOpen] = useState(false)
+  // Leave being cancelled from the roster (the struck-through name's popup
+  // or the shift menu): the request, in CancelLeaveModal's shape.
+  const [cancelLeaveFor, setCancelLeaveFor] = useState(null)
+  // What happens to the shifts that leave took the doctor off: 'undo'
+  // (put them back) or 'keep' — asked in the same dialog.
+  const [leaveShiftsChoice, setLeaveShiftsChoice] = useState('')
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -622,8 +630,23 @@ export default function RosterGridPage() {
         byName: nameById(absence.byId),
         canSeeNote: isAdmin,
       }),
+      // Admins can cancel leave from the struck-through name (leave
+      // recorded in error).
+      cancelRequest: isAdmin ? leaveRequestForAbsence(absence, leaveByProfile, nameById(absence.profileId)) : null,
     }
   }
+
+  // The shifts this roster shows that the leave being cancelled opened.
+  const leaveShifts = cancelLeaveFor
+    ? entries.filter(e => e.vacated_leave_request_id === cancelLeaveFor.id).map(entry => ({
+        entry,
+        shiftCode: shiftTypes[entry.shift_type_id] || 'UNKNOWN',
+        cover: entry.is_locum
+          ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : 'open locum slot')
+          : entry.profile_id ? nameById(entry.profile_id) : null,
+        blocker: rosterEdits.leaveShiftBlocker({ entry, entries, nameOf }),
+      }))
+    : []
 
   function handleCellClick(date, shiftCode, existingEntry, event = null) {
     if (!canEdit) return
@@ -1000,6 +1023,41 @@ export default function RosterGridPage() {
           onAbsence={() => setAbsenceOpen(true)}
           notice={editNotice || null}
         />
+      )}
+
+      {cancelLeaveFor && (
+        <CancelLeaveModal
+          request={cancelLeaveFor}
+          isOwn={false}
+          canConfirm={leaveShifts.length === 0 || Boolean(leaveShiftsChoice)}
+          onClose={() => { setCancelLeaveFor(null); setLeaveShiftsChoice('') }}
+          onCancelled={() => {
+            const shifts = leaveShifts
+            const undoShift = leaveShiftsChoice === 'undo'
+            setCancelLeaveFor(null)
+            setLeaveShiftsChoice('')
+            if (shifts.length === 0) { refreshLeave(); return }
+            // One batch for every shift the leave opened, so Undo treats
+            // the follow-up as one change.
+            const batchId = rosterEdits.newBatchId()
+            runEdit(async () => {
+              let last
+              for (const { entry, shiftCode } of shifts) {
+                last = await rosterEdits.afterLeaveCancelled({ rosterMonthId: id, entry, shiftCode, entries, undoShift, adminId: user.id, nameOf, batchId })
+              }
+              return { ...last, description: `Leave cancelled; ${shifts.length === 1 ? last.description : (undoShift ? `${nameOf(shifts[0].entry.vacated_profile_id) || 'Doctor'} back on ${shifts.length} shifts` : `${shifts.length} shifts kept as they are`)}` }
+            }).then(refreshLeave)
+          }}
+        >
+          {leaveShifts.length > 0 && (
+            <LeaveShiftsChoice
+              doctorName={cancelLeaveFor.profiles?.name || 'the doctor'}
+              shifts={leaveShifts}
+              value={leaveShiftsChoice}
+              onChange={setLeaveShiftsChoice}
+            />
+          )}
+        </CancelLeaveModal>
       )}
 
       {absenceOpen && rosterMonth && (
@@ -1423,6 +1481,7 @@ export default function RosterGridPage() {
                               glow={glowEntryId === entry.id}
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
+                              onCancelLeave={isAdmin ? setCancelLeaveFor : null}
                               onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
                               onLate={!canEdit && lateOptionFor(entry) ? () => setLatePrompt(lateOptionFor(entry)) : undefined}
                               late={lateByEntryId.has(entry.id)}
@@ -1493,6 +1552,17 @@ export default function RosterGridPage() {
           onUnadvertise={entry => runEdit(() => rosterEdits.unadvertise(editArgs(entry)))}
           onChangeTimes={(entry, { start, end }) => runEdit(() => rosterEdits.changeTimes({ ...editArgs(entry), start, end }))}
           onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
+          onSwap={(entry, other, otherCode) => runEdit(() => rosterEdits.swapEntries({
+            rosterMonthId: id, a: entry, b: other, shiftCodeA: menu.shiftCode, shiftCodeB: otherCode, entries,
+            isOnLeave: (profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date }),
+            adminId: user.id, nameOf,
+          }))}
+          shiftCodeOf={e => shiftTypes[e.shift_type_id] || 'UNKNOWN'}
+          monthStart={monthBounds(rosterMonth.year, rosterMonth.month).start}
+          monthEnd={monthBounds(rosterMonth.year, rosterMonth.month).end}
+          isOnLeave={(profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date })}
+          cancelLeaveRequest={menu.entry ? absenceFor(menu.entry)?.cancelRequest ?? null : null}
+          onCancelLeave={setCancelLeaveFor}
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
           onLateArrival={entry => setLateFor(lateOptionFor(entry))}
@@ -1600,7 +1670,7 @@ export default function RosterGridPage() {
 // `onLate` (admins, outside Edit mode): the chip opens "Log late arrival".
 // `late`: this shift has a late arrival on record — a small clock, shown to
 // admins only (nobody else can read the records) and never printed.
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false }) {
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false, onCancelLeave = null }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
@@ -1617,7 +1687,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
     <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
-      <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} />
+      <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} onCancelLeave={vacated.cancelRequest && onCancelLeave ? () => onCancelLeave(vacated.cancelRequest) : null} />
     </div>
   )
 
@@ -1717,7 +1787,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       {onLeave
-        ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} />
+        ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} onCancelLeave={onLeave.cancelRequest && onCancelLeave ? () => onCancelLeave(onLeave.cancelRequest) : null} />
         : <span className="min-w-0 flex-1 truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
       {lateMark}
     </div>

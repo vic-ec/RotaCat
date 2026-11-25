@@ -221,6 +221,20 @@ export function absenceLeaveRange(absence, leaveByProfile) {
   return ranges.find(r => r[3] && r[3] === absence.leaveRequestId) || null
 }
 
+// The leave request behind an absence, in the shape CancelLeaveModal takes
+// — or null when the absence isn't leave this viewer can see. Used by the
+// roster's two ways to cancel it: the struck-through name's popup and the
+// shift menu.
+export function leaveRequestForAbsence(absence, leaveByProfile, doctorName) {
+  const range = absenceLeaveRange(absence, leaveByProfile)
+  if (!range?.[3]) return null
+  return {
+    id: range[3], profile_id: absence.profileId, leave_type: range[2] || 'annual',
+    date_from: range[0], date_to: range[1], status: 'approved',
+    profiles: { name: doctorName || 'This doctor', surname: '' },
+  }
+}
+
 // What the popup says. `canSeeNote`: admins only (a no-show note is not for
 // the whole department).
 export function absenceSummary({ absence, leaveByProfile, doctorName, coverName, byName, canSeeNote = false }) {

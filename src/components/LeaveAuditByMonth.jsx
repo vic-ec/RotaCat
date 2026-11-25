@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
-import { ChevronRight, X } from 'lucide-react'
+import { CalendarX2, ChevronRight, X } from 'lucide-react'
+import RowActionIcon from './RowActionIcon'
+import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
 import { MONTH_ABBR, formatShortDateRange } from '../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 import { MONTH_SHADES, monthShadeStep, sinceLastBreakText } from '../lib/leaveAuditByMonth'
@@ -26,7 +28,7 @@ const COLUMN_COUNT = 1 + 12 + 6 + 1
 // pointer to them would close it) and a hint says to click the month.
 // `onClose` puts an × in the corner (the desktop popover once pinned; the
 // phone sheet has its own).
-function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = null }) {
+function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = null, onCancelLeave = null }) {
   const linkClass = 'flex min-h-[44px] items-center font-medium md:min-h-0'
   const live = `${linkClass} text-accent hover:text-accent-dark`
   const greyed = `${linkClass} cursor-default text-ink-muted`
@@ -54,6 +56,15 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
                 <span className="block text-xs text-ink-muted">{formatShortDateRange(request.date_from, request.date_to)}</span>
               </span>
               <span className="flex-shrink-0 font-semibold text-ink">{plural(days, 'day')}</span>
+              {pinned && onCancelLeave && CANCELLABLE_STATUSES.includes(request.status) && (
+                <RowActionIcon
+                  icon={<CalendarX2 className="h-4 w-4" />}
+                  title="Cancel leave"
+                  label={`Cancel ${LEAVE_TYPE_LABELS[request.leave_type] || 'leave'}, ${formatShortDateRange(request.date_from, request.date_to)}`}
+                  onClick={() => onCancelLeave(request)}
+                  tone="danger"
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -91,6 +102,9 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
 // are what open a doctor's year.
 export default function LeaveAuditByMonth({
   sections, collapsedSections, onToggleSection, displayNames, columnLabelOf, year, monthIds = {}, tableRef, tableFill,
+  // A "Cancel" icon beside each leave in the month breakdown (admins; it
+  // opens CancelLeaveModal) — so leave on any date can be cancelled here.
+  onCancelLeave = null,
 }) {
   const swatch = useSwatch()
   const isDesktop = useIsDesktop(768)
@@ -241,14 +255,14 @@ export default function LeaveAuditByMonth({
           style={popoverStyle}
           className={`fixed z-50 popup ${open.pinned ? '' : 'pointer-events-none'}`}
         >
-          <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} pinned={open.pinned} onClose={open.pinned ? () => setOpen(null) : null} />
+          <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} pinned={open.pinned} onClose={open.pinned ? () => setOpen(null) : null} onCancelLeave={onCancelLeave ? r => { setOpen(null); onCancelLeave(r) } : null} />
         </div>,
         document.body,
       )}
       {open && !isDesktop && (
         <ActionSheet title="Month" onClose={() => setOpen(null)}>
           <div className="px-3 pb-3 pt-1">
-            <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} />
+            <MonthBreakdown row={open.row} month={open.month} year={year} rosterTo={rosterLink(open.month)} onCancelLeave={onCancelLeave ? r => { setOpen(null); onCancelLeave(r) } : null} />
           </div>
         </ActionSheet>
       )}

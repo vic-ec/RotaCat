@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom'
 import { ActionSheet } from './ActionSheet'
 import ShiftTimesForm from './ShiftTimesForm'
 import SwapPicker from './SwapPicker'
+import { LEAVE_TYPE_LABELS } from '../lib/leaveRequests'
 import DoctorDropdown from './DoctorDropdown'
 import NewLocumModal from './NewLocumModal'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
 import { locumDisplayName } from '../lib/locumCover'
-import { describeLinkedLeave, leaveQuestion, reinstateBlocker, shiftMenuKind } from '../lib/rosterEdits'
+import { describeLinkedLeave, leaveQuestion, possessive, reinstateBlocker, shiftMenuKind } from '../lib/rosterEdits'
 import { labelForShiftCode } from '../lib/shiftLabels'
 import { adjustedTimesLabel } from '../lib/shiftTimes'
 import { shortDate } from '../lib/reviewLog'
@@ -128,6 +129,9 @@ export default function ShiftMenu({
   // For Swap: the shift code of any entry, the month's first/last day and
   // whether a doctor is on approved leave on a date.
   shiftCodeOf, monthStart, monthEnd, isOnLeave,
+  // The leave behind this shift's absence (CancelLeaveModal's shape), when
+  // there is any: offered as "Cancel …'s leave", for leave recorded in error.
+  cancelLeaveRequest = null, onCancelLeave,
   // { exists } when a late arrival can be logged against this shift (see
   // the page's lateOptionFor), else null.
   lateArrival = null, onLateArrival,
@@ -292,6 +296,17 @@ export default function ShiftMenu({
       ? { value: 'unadvertise', label: 'Stop advertising', hint: 'The advert is set to cancelled; the slot stays open' }
       : { value: 'advertise', label: 'Advertise to locums', hint: 'Locums with an account can claim it' }
 
+    const leaveLabel = cancelLeaveRequest
+      ? (LEAVE_TYPE_LABELS[cancelLeaveRequest.leave_type] || 'leave').toLowerCase()
+      : ''
+    const cancelLeaveGroup = cancelLeaveRequest && onCancelLeave && {
+      title: 'The leave',
+      choices: [{
+        value: 'cancel-leave',
+        label: `Cancel ${possessive(cancelLeaveRequest.profiles?.name || 'this doctor')} ${leaveLabel}`,
+        hint: 'Only the leave, if it was recorded in error. The shift stays as it is.',
+      }],
+    }
     const groups = {
       add: [{ choices: [{ value: 'pick', label: 'Add a doctor or locum', hint: 'Pick who works this shift' }] }],
       vacancy: [
@@ -335,13 +350,14 @@ export default function ShiftMenu({
         ] },
         putBackGroup,
       ],
-    }[kind].filter(Boolean)
+    }[kind].concat(kind === 'add' || kind === 'slot' ? [] : [cancelLeaveGroup]).filter(Boolean)
 
     const run = chosen => {
       switch (chosen.value) {
         case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': case 'swap': setStep(chosen.value); break
         case 'vacancy': onVacancy(entry); close(); break
         case 'late': onLateArrival(entry); close(); break
+        case 'cancel-leave': onCancelLeave(cancelLeaveRequest); close(); break
         case 'advertise': onAdvertise(entry); close(); break
         case 'unadvertise': onUnadvertise(entry); close(); break
         case 'add-advertise': onAddCover(entry, 'advertise'); close(); break

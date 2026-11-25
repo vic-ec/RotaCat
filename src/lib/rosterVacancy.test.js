@@ -176,3 +176,15 @@ describe('a doctor still on a shift over approved leave', () => {
     expect(s.lines).toEqual(['20–21 Nov', 'Shift not covered', 'Recorded by Pat Admin'])
   })
 })
+
+import { leaveRequestForAbsence as _leaveRequestForAbsence } from './rosterVacancy'
+describe('leaveRequestForAbsence', () => {
+  it('builds the request CancelLeaveModal takes from the leave behind an absence', () => {
+    const leave = { 'doc-a': [['2026-11-23', '2026-11-23', 'sick', 'leave-1', 'admin-1']] }
+    expect(_leaveRequestForAbsence({ reason: 'leave', profileId: 'doc-a', leaveRequestId: 'leave-1' }, leave, 'Cara Landes')).toEqual({
+      id: 'leave-1', profile_id: 'doc-a', leave_type: 'sick', date_from: '2026-11-23', date_to: '2026-11-23', status: 'approved',
+      profiles: { name: 'Cara Landes', surname: '' },
+    })
+    expect(_leaveRequestForAbsence({ reason: 'no_show', profileId: 'doc-a' }, leave, 'X')).toBeNull()
+  })
+})

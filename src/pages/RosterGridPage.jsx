@@ -24,7 +24,7 @@ import WeekendDriftDetailsModal from '../components/WeekendDriftDetailsModal'
 import { workedNightShiftPreviousDay, isOnApprovedLeave } from '../lib/rosterAssignmentEligibility'
 import { findSameDayConflict } from '../lib/rosterVacancy'
 import { fetchApprovedLeaveByProfile, leaveRangeOn } from '../lib/approvedLeave'
-import { entryAbsence, absenceSummary } from '../lib/rosterVacancy'
+import { entryAbsence, absenceSummary, leaveRequestForAbsence } from '../lib/rosterVacancy'
 import { fetchLocumProfiles, fetchOpenLocumContacts, locumDisplayName, OPEN_LOCUM_LABEL } from '../lib/locumCover'
 import NewLocumModal from '../components/NewLocumModal'
 import RosterAbsenceNote from '../components/RosterAbsenceNote'
@@ -36,6 +36,7 @@ import Toolbar, { ToolbarFacet } from '../components/Toolbar'
 import RosterJumpButton from '../components/RosterJumpButton'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
+import CancelLeaveModal from '../components/CancelLeaveModal'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -131,6 +132,9 @@ export default function RosterGridPage() {
   const [shiftTypeRows, setShiftTypeRows] = useState({}) // keyed by id -> { code, start_time, end_time }
   // "Absence" on the edit bar: the Capture leave form, for this month.
   const [absenceOpen, setAbsenceOpen] = useState(false)
+  // Leave being cancelled from the roster (the struck-through name's popup
+  // or the shift menu): the request, in CancelLeaveModal's shape.
+  const [cancelLeaveFor, setCancelLeaveFor] = useState(null)
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -622,6 +626,9 @@ export default function RosterGridPage() {
         byName: nameById(absence.byId),
         canSeeNote: isAdmin,
       }),
+      // Admins can cancel leave from the struck-through name (leave
+      // recorded in error).
+      cancelRequest: isAdmin ? leaveRequestForAbsence(absence, leaveByProfile, nameById(absence.profileId)) : null,
     }
   }
 
@@ -999,6 +1006,15 @@ export default function RosterGridPage() {
           onDone={() => setEditing(false)}
           onAbsence={() => setAbsenceOpen(true)}
           notice={editNotice || null}
+        />
+      )}
+
+      {cancelLeaveFor && (
+        <CancelLeaveModal
+          request={cancelLeaveFor}
+          isOwn={false}
+          onClose={() => setCancelLeaveFor(null)}
+          onCancelled={() => { setCancelLeaveFor(null); refreshLeave() }}
         />
       )}
 
@@ -1423,6 +1439,7 @@ export default function RosterGridPage() {
                               glow={glowEntryId === entry.id}
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
+                              onCancelLeave={isAdmin ? setCancelLeaveFor : null}
                               onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
                               onLate={!canEdit && lateOptionFor(entry) ? () => setLatePrompt(lateOptionFor(entry)) : undefined}
                               late={lateByEntryId.has(entry.id)}
@@ -1502,6 +1519,8 @@ export default function RosterGridPage() {
           monthStart={monthBounds(rosterMonth.year, rosterMonth.month).start}
           monthEnd={monthBounds(rosterMonth.year, rosterMonth.month).end}
           isOnLeave={(profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date })}
+          cancelLeaveRequest={menu.entry ? absenceFor(menu.entry)?.cancelRequest ?? null : null}
+          onCancelLeave={setCancelLeaveFor}
           onNewLocum={(entry, mode) => setNewLocumFor({ date: menu.date, shiftCode: menu.shiftCode, entry, mode })}
           lateArrival={menu.entry && lateOptionFor(menu.entry) ? { exists: lateByEntryId.has(menu.entry.id) } : null}
           onLateArrival={entry => setLateFor(lateOptionFor(entry))}
@@ -1609,7 +1628,7 @@ export default function RosterGridPage() {
 // `onLate` (admins, outside Edit mode): the chip opens "Log late arrival".
 // `late`: this shift has a late arrival on record — a small clock, shown to
 // admins only (nobody else can read the records) and never printed.
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false }) {
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false, onCancelLeave = null }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
@@ -1626,7 +1645,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
     <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
-      <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} />
+      <RosterAbsenceNote name={vacated.shortName} summary={vacated.summary} interactive={!isAdmin} onCancelLeave={vacated.cancelRequest && onCancelLeave ? () => onCancelLeave(vacated.cancelRequest) : null} />
     </div>
   )
 
@@ -1726,7 +1745,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       {onLeave
-        ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} />
+        ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} onCancelLeave={onLeave.cancelRequest && onCancelLeave ? () => onCancelLeave(onLeave.cancelRequest) : null} />
         : <span className="min-w-0 flex-1 truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
       {lateMark}
     </div>

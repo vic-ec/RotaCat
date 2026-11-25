@@ -260,3 +260,37 @@ describe('ShiftMenu — late arrival', () => {
     expect(within(dialog()).queryByRole('radio', { name: /late arrival/i })).not.toBeInTheDocument()
   })
 })
+
+describe('ShiftMenu — cancel leave and swap', () => {
+  const request = { id: 'leave-1', profile_id: 'doc-a', leave_type: 'sick', date_from: '2026-08-10', date_to: '2026-08-10', status: 'approved', profiles: { name: 'Alice Anderson', surname: '' } }
+
+  it('offers "Cancel Alice Anderson\'s sick leave" on a shift she came off, keeping the cover', async () => {
+    const user = userEvent.setup()
+    const onCancelLeave = vi.fn()
+    const h = open(locumVacated, { cancelLeaveRequest: request, onCancelLeave })
+    await choose(user, /Cancel Alice Anderson's sick leave/)
+    expect(onCancelLeave).toHaveBeenCalledWith(request)
+    expect(h.onRemoveLocum).not.toHaveBeenCalled()
+    expect(h.onReinstate).not.toHaveBeenCalled()
+  })
+
+  it('does not offer it without leave behind the shift', () => {
+    open(locumVacated, { cancelLeaveRequest: null, onCancelLeave: vi.fn() })
+    expect(within(dialog()).queryByRole('radio', { name: /Cancel .* leave/ })).not.toBeInTheDocument()
+  })
+
+  it('swaps a doctor with another doctor on the same day', async () => {
+    const user = userEvent.setup()
+    const onSwap = vi.fn()
+    const other = { ...row, id: 'e2', shift_type_id: 'st4', profile_id: 'doc-b' }
+    open(row, {
+      entries: [row, other], onSwap, shiftCodeOf: e => (e.shift_type_id === 'st4' ? 'WD_22' : 'WD_08'),
+      monthStart: '2026-08-01', monthEnd: '2026-08-31', isOnLeave: () => false,
+    })
+    await choose(user, /Swap with another doctor/)
+    await user.click(screen.getByRole('radio', { name: /Bob Brown/ }))
+    expect(screen.getByTestId('swap-summary')).toHaveTextContent('Bob Brown works Mon 10 Aug WD 08h-18h; Alice Anderson works Mon 10 Aug WD 22h-10h.')
+    await user.click(screen.getByRole('button', { name: 'Swap shifts' }))
+    expect(onSwap).toHaveBeenCalledWith(row, other, 'WD_22')
+  })
+})

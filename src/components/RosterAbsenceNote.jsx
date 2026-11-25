@@ -10,10 +10,12 @@ import { computeAnchoredPosition } from '../lib/popoverPosition'
 // never opens on a touch tap, and the roster is read on phones.
 //
 // `summary` = { doctorName, headline, lines } from absenceSummary.
+// `onCancelLeave` (admins, when the absence is leave): a "Cancel leave"
+// button in the popup — for leave recorded in error.
 // `interactive` false renders the same struck-through name as plain text —
 // for the roster's edit mode, where a tap on the cell already means "edit
 // this shift" and must not also open a note.
-export default function RosterAbsenceNote({ name, summary, interactive = true, className = '' }) {
+export default function RosterAbsenceNote({ name, summary, interactive = true, onCancelLeave = null, className = '' }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
@@ -54,6 +56,9 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, c
           aria-label={hint}
           style={{ ...positionStyle, width }}
           className="fixed z-50 popup"
+          // The popup is portalled, but React still bubbles its clicks to the
+          // chip that holds the name — whose own click means something else.
+          onClick={e => e.stopPropagation()}
         >
           {/* Close, as every other popover and sheet in the app has one. */}
           <div className="flex items-start justify-between gap-2">
@@ -69,6 +74,16 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, c
           </div>
           <p className="mt-0.5 text-ink">{summary.doctorName}</p>
           {summary.lines.map(line => <p key={line} className="mt-1">{line}</p>)}
+          {onCancelLeave && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onCancelLeave() }}
+              className="btn-secondary mt-3 w-full text-sm text-flagRed"
+              data-testid="absence-cancel-leave"
+            >
+              Cancel leave
+            </button>
+          )}
         </div>,
         document.body
       )}

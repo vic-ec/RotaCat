@@ -5,7 +5,10 @@ import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowUpDown, Plus } from 'lucide-react'
+import { ArrowUpDown, CalendarX2, Plus } from 'lucide-react'
+import RowActionIcon from './RowActionIcon'
+import CancelLeaveModal from './CancelLeaveModal'
+import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
 import { supabase } from '../lib/supabase'
 import { todayStr } from '../lib/dateRange'
 import { reviewStatusLabel } from '../lib/statusLabels'
@@ -159,6 +162,9 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const view = searchParams.get('by') === 'type' ? 'type' : 'month'
   const byMonth = view === 'month'
+  // Leave being cancelled from All Leave (the month breakdown or the
+  // request list under a doctor): every date, every screen size.
+  const [cancelTarget, setCancelTarget] = useState(null)
   const requestedYear = Number(searchParams.get('lyear'))
   const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : new Date().getFullYear()
   function setParam(key, value) {
@@ -211,6 +217,11 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
   // pick, which is a different job once the list runs to a few dozen names.
   const [q, setQ] = useState('')
   const [profiles, setProfiles] = useState([])
+  // CancelLeaveModal names the doctor from `profiles` on the request.
+  const withDoctorName = request => {
+    const p = profiles.find(x => x.id === request.profile_id)
+    return { ...request, profiles: p ? { name: p.name, surname: p.surname } : request.profiles }
+  }
   const [leaveRequests, setLeaveRequests] = useState([])
   const [rotationsByDoctorId, setRotationsByDoctorId] = useState(new Map())
   const [loading, setLoading] = useState(true)
@@ -453,6 +464,7 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
                 columnLabelOf={profileId => COLUMN_LABEL_BY_KEY[columnByProfileId.get(profileId)]}
                 year={year}
                 monthIds={monthIds}
+                onCancelLeave={request => setCancelTarget(withDoctorName(request))}
                 tableRef={tableRef}
                 tableFill={tableFill}
               />
@@ -602,8 +614,19 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
                         <p className="flex items-center gap-2 text-ink"><LeaveTypeIcon leaveType={lr.leave_type} size="sm" />{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
                         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
-                        {reviewStatusLabel(lr.status)}
+                      <span className="flex flex-shrink-0 items-center gap-1">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
+                          {reviewStatusLabel(lr.status)}
+                        </span>
+                        {CANCELLABLE_STATUSES.includes(lr.status) && (
+                          <RowActionIcon
+                            icon={<CalendarX2 className="h-4 w-4" />}
+                            title="Cancel leave"
+                            label={`Cancel ${LEAVE_TYPE_LABELS[lr.leave_type] || 'leave'}, ${naturalLeavePeriodLabel(lr.date_from, lr.date_to)}`}
+                            onClick={() => setCancelTarget(withDoctorName(lr))}
+                            tone="danger"
+                          />
+                        )}
                       </span>
                     </div>
                   ))}
@@ -612,6 +635,14 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
             </div>
           )}
         </>
+      )}
+      {cancelTarget && (
+        <CancelLeaveModal
+          request={cancelTarget}
+          isOwn={false}
+          onClose={() => setCancelTarget(null)}
+          onCancelled={() => { setCancelTarget(null); load() }}
+        />
       )}
     </div>
   )

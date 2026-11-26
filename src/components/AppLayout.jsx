@@ -3,7 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSwipeNavigation } from '../lib/swipeNavigation'
 import { useBackTarget, BackTargetContext, drawsOwnBack } from '../lib/backNav'
 import BackLink from './BackLink'
-import { UsersRound, NotebookTabs, UserCog } from 'lucide-react'
+import { UsersRound, NotebookTabs, UserCog, Grid2x2Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import RotaCat from '../components/RotaCat'
@@ -117,7 +117,7 @@ function MobileAvatar({ profile, size, onLeave }) {
 }
 
 export default function AppLayout() {
-  const { profile, signOut, isAdmin, isLocum, isClerk } = useAuth()
+  const { profile, signOut, isAdmin, isLocum, isClerk, canSubmitLeave } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [staffBadgeCount, setStaffBadgeCount] = useState(0)
@@ -174,6 +174,12 @@ export default function AppLayout() {
                  : isLocum  ? locumNav
                  : isClerk  ? clerkNav
                  : doctorNav
+  // My Year sits under Dashboard in the desktop sidebar, for anyone who has
+  // a year page (doctors, and admins who are doctors). Not on the phone tab
+  // bar — five tabs is its limit; the phone Dashboard has a My Year button.
+  const sidebarItems = canSubmitLeave
+    ? [navItems[0], { to: '/my-year', label: 'My Year', icon: Grid2x2Check }, ...navItems.slice(1)]
+    : navItems
   const swipe = useSwipeNavigation(navItems)
   // Where this page was opened from, for the standard "‹ <page>" back.
   const backTarget = useBackTarget()
@@ -214,7 +220,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 px-2 lg:px-3">
-          {navItems.map((item) => (
+          {sidebarItems.map((item) => (
             <NavLink
             state={{ navTab: true }}
               key={item.to}

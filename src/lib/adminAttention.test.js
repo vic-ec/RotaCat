@@ -61,14 +61,14 @@ describe('buildAttentionItems', () => {
   })
 
   it('adds a row per outstanding count, each linking to where it is handled', () => {
+    // Hours (over/under) are not here: they are the Rosters list's Flags.
     const items = buildAttentionItems({ ...quiet, pendingSignups: 1, accountRequests: 2, rotationsEnding: 3, neverSignedIn: 1, underMinimum: 1 })
-    expect(keys(items)).toEqual(['signups', 'account-requests', 'rotations-ending', 'never-signed-in', 'under-minimum'])
+    expect(keys(items)).toEqual(['signups', 'account-requests', 'rotations-ending', 'never-signed-in'])
     expect(Object.fromEntries(items.map(i => [i.key, i.to]))).toEqual({
       signups: '/staff?tab=requests&sub=new-users',
       'account-requests': '/staff?tab=requests&sub=user-requests',
       'rotations-ending': '/leave?tab=planners&sub=interns',
       'never-signed-in': '/staff?tab=accounts',
-      'under-minimum': '/roster?view=summary&hours=under',
     })
     expect(items.find(i => i.key === 'signups').label).toBe('sign-up awaiting approval')
     expect(items.find(i => i.key === 'account-requests').label).toBe('account change requests to review')

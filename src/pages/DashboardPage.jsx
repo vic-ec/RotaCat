@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { applyTimeOverrides } from '../lib/shiftTimes'
 import { Link } from 'react-router-dom'
-import { AlarmClock, ArrowLeftRight, ChevronRight, Plus, TriangleAlert, UserPlus } from 'lucide-react'
+import { AlarmClock, ArrowLeftRight, ChevronRight, Grid2x2Check, Plus, TriangleAlert, UserPlus } from 'lucide-react'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import LateArrivalModal from '../components/LateArrivalModal'
@@ -9,7 +9,6 @@ import OnShiftPanel from '../components/OnShiftPanel'
 import { PanelRows, PanelRow, PanelLabel } from '../components/PanelRows'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { getDashboardHoursWarnings } from '../lib/monthlyHours'
 import { fetchAdminAttention } from '../lib/adminAttention'
 import { todayStr, addDays, formatShortDateRange, parseLocalDate } from '../lib/dateRange'
 import { splitByShiftStatus } from '../lib/shiftStatus'
@@ -28,7 +27,6 @@ import { useLiveRefresh } from '../lib/useLiveRefresh'
 const MY_LEAVE_PATH = '/leave?tab=my-leave'
 const TEAM_LEAVE_PATH = '/leave?tab=team'
 const LEAVE_REQUESTS_PATH = '/leave?tab=requests'
-const HOURS_SUMMARY_PATH = '/roster?view=summary'
 const SWAPS_PATH = '/swaps'
 
 // The upcoming-shifts card shows at most this many rows of the week ahead.
@@ -43,6 +41,17 @@ const SICK_LOOKBACK_DAYS = 7
 // across a phone, right-aligned at their own width from md.
 function QuickActions({ children }) {
   return <div className="flex gap-2 md:justify-end [&>*]:flex-1 md:[&>*]:flex-none">{children}</div>
+}
+
+// My Year on a phone: the desktop sidebar has it under Dashboard, but the
+// tab bar stays at five, so it lives here instead.
+function MyYearButton() {
+  return (
+    <Link to="/my-year" data-testid="dashboard-my-year" className="btn-secondary flex min-h-[44px] w-full justify-center whitespace-nowrap text-sm md:hidden">
+      <Grid2x2Check className="h-4 w-4" aria-hidden="true" />
+      My Year
+    </Link>
+  )
 }
 
 function SectionHeading({ children, to, linkLabel }) {
@@ -142,7 +151,7 @@ function fullName(person) {
 }
 
 export default function DashboardPage() {
-  const { profile, isAdmin, isClerk, isLocum } = useAuth()
+  const { profile, isAdmin, isClerk, isLocum, canSubmitLeave } = useAuth()
   const [lateOpen, setLateOpen] = useState(false)
   // 'capture' (admin, for any doctor) | 'request' (a doctor, their own) | null
   const [leaveForm, setLeaveForm] = useState(null)
@@ -160,7 +169,6 @@ export default function DashboardPage() {
   const [sickNow, setSickNow] = useState([])
   const [sickRecent, setSickRecent] = useState([])
   const [pendingLeaveCount, setPendingLeaveCount] = useState(0)
-  const [hoursWarnings, setHoursWarnings] = useState([])
   // The rest of Needs attention — see lib/adminAttention.js.
   const [attentionItems, setAttentionItems] = useState([])
   const [onShiftNow, setOnShiftNow] = useState([])
@@ -389,7 +397,7 @@ export default function DashboardPage() {
     if (!silent) setLoading(true)
     const today = todayStr()
 
-    const [pendingRes, leaveRes, profilesRes, sickRes] = await Promise.all([
+    const [pendingRes, leaveRes, sickRes] = await Promise.all([
       supabase
         .from('leave_requests')
         .select('id', { count: 'exact', head: true })
@@ -401,12 +409,6 @@ export default function DashboardPage() {
         .gte('date_to', today)
         .order('date_from', { ascending: true })
         .limit(50),
-      supabase
-        .from('profiles')
-        .select('id, name, surname, contract_type')
-        .eq('is_approved', true)
-        .eq('is_active', true)
-        .neq('category', 'Consultant'),
       // Sick leave touching today or the last SICK_LOOKBACK_DAYS days.
       // Pending counts too: sick leave is reported as it happens and is
       // often still waiting on approval while the doctor is already off.
@@ -434,13 +436,11 @@ export default function DashboardPage() {
     // Back at work within the last week, most recent first.
     setSickRecent(sick.filter(r => r.date_to < today).sort((a, b) => b.date_to.localeCompare(a.date_to)))
 
-    const now = new Date()
-    const [warnings, attention] = await Promise.all([
-      getDashboardHoursWarnings(profilesRes.data || [], { year: now.getFullYear(), month: now.getMonth() + 1 }),
-      // Never let this panel's extra rows take the dashboard down with them.
-      fetchAdminAttention(now).catch(() => []),
-    ])
-    setHoursWarnings(warnings)
+    // Hours warnings (over / under contracted hours) live on the Rosters
+    // list's Flags column and in Hours Summary, where they can be acted
+    // on, not here. Never let this panel's extra rows take the dashboard
+    // down with them.
+    const attention = await fetchAdminAttention(new Date()).catch(() => [])
     setAttentionItems(attention)
 
     setLoading(false)
@@ -483,6 +483,7 @@ export default function DashboardPage() {
               Request swap
             </Link>
           </QuickActions>
+          {canSubmitLeave && <div className="!mt-2"><MyYearButton /></div>}
           {/* 1. Next shifts */}
           <section>
             {/* Heading sits on the plain page background; the chips get
@@ -677,6 +678,7 @@ export default function DashboardPage() {
               Log late arrival
             </button>
           </QuickActions>
+          {canSubmitLeave && <div className="!mt-2"><MyYearButton /></div>}
           {/* Same shape as the doctor view: a heading on the page ground
               with its link out on the right, and a card underneath. The
               headings stay put when a section is empty — the empty message
@@ -697,7 +699,7 @@ export default function DashboardPage() {
                 <LeaveRequestForm captureOnly initialLeaveType="sick" onSubmitted={() => { loadAdminWidgets({ silent: true }) }} />
               </Modal>
             )}
-            {pendingLeaveCount === 0 && hoursWarnings.length === 0 && attentionItems.length === 0 ? (
+            {pendingLeaveCount === 0 && attentionItems.length === 0 ? (
               <p className="card p-4 text-sm text-ink-muted">Nothing needs your attention</p>
             ) : (
               <div className="card divide-y divide-slate-line">
@@ -706,13 +708,6 @@ export default function DashboardPage() {
                     to={LEAVE_REQUESTS_PATH}
                     count={pendingLeaveCount}
                     label={`leave request${pendingLeaveCount === 1 ? '' : 's'} awaiting approval`}
-                  />
-                )}
-                {hoursWarnings.length > 0 && (
-                  <AttentionRow
-                    to={`${HOURS_SUMMARY_PATH}&hours=over`}
-                    count={hoursWarnings.length}
-                    label={`${hoursWarnings.length === 1 ? 'doctor is' : 'doctors are'} over their contracted hours this month`}
                   />
                 )}
                 {attentionItems.map(item => (

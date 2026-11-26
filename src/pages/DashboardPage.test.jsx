@@ -240,7 +240,7 @@ describe('DashboardPage', () => {
     expect(updateCalls).toContainEqual(['swap_requests', { status: 'rejected' }])
   })
 
-  it('admin: needs-attention rows link to the approval queue and the hours summary', async () => {
+  it('admin: needs-attention rows link to the approval queue, and carry no hours rows (those are the Rosters list Flags)', async () => {
     mockAuth = { profile: { id: 'admin-1', name: 'Admin' }, isAdmin: true }
     mockResponses['leave_requests:count'] = { count: 3, error: null }
     mockResponses['profiles:select'] = { data: [{ id: 'p1', name: 'Nadia', surname: 'Bennett', contract_type: 'five_eighths' }], error: null }
@@ -252,9 +252,7 @@ describe('DashboardPage', () => {
     expect(pendingRow).toHaveAttribute('href', '/leave?tab=requests')
     expect(within(pendingRow).getByText('3')).toBeInTheDocument()
 
-    const hoursRow = screen.getByRole('link', { name: /over their contracted hours this month/ })
-    expect(hoursRow).toHaveAttribute('href', '/roster?view=summary&hours=over')
-    expect(within(hoursRow).getByText('1')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /contracted hours this month/ })).not.toBeInTheDocument()
   })
 
   it('admin: lists the other attention rows, each a link, with a dot where a row has no count', async () => {

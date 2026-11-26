@@ -4,7 +4,7 @@ import SectionBar from '../components/SectionBar'
 import { useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { fetchRosterSummary } from '../lib/rosterSummary'
+import { fetchRosterSummary, hoursBand } from '../lib/rosterSummary'
 import { isUnderHoursTracked, trackedFromLabel } from '../lib/contractMinimum'
 import { LEAVE_TYPE_OPTIONS } from '../lib/leaveRequests'
 import DateStepper from '../components/DateStepper'
@@ -57,13 +57,6 @@ function minimumNote(row) {
   return parts.join(' · ')
 }
 
-// Under is measured against the month's minimum — the one the
-// roster engine aims for (see lib/contractMinimum.js).
-function hoursBand(row) {
-  if (row.underTracked !== false && row.totalHours < (row.adjustedMinHours ?? row.minHours)) return 'under'
-  if (row.totalHours > row.maxHours) return 'over'
-  return null
-}
 
 const HOURS_FILTER_OPTIONS = [
   { value: 'over', label: 'Over contracted hours' },
@@ -71,6 +64,8 @@ const HOURS_FILTER_OPTIONS = [
   { value: 'within', label: 'Within range' },
 ]
 function hoursFilterFromParam(param) {
+  // ?hours=flagged (the Rosters list's Flags link): over and under together.
+  if (param === 'flagged') return new Set(['over', 'under'])
   return new Set(HOURS_FILTER_OPTIONS.map(o => o.value).filter(v => v === param))
 }
 

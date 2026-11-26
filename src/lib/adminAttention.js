@@ -10,9 +10,7 @@ import { supabase } from './supabase'
 import { todayStr } from './dateRange'
 import { saturdaysInMonth } from './weekendPlanner'
 import { endOfRotationFlag } from './internRotations'
-import { getMonthlyHoursByProfile } from './monthlyHours'
 import { OPEN_LOCUM_LABEL } from './locumCover'
-import { fetchMonthMinimums, isUnderHoursTracked, MINIMUM_PROFILE_FIELDS } from './contractMinimum'
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -136,13 +134,6 @@ export function buildAttentionItems(data) {
     })
   }
 
-  // 8. Rostered below their contracted minimum this month.
-  if (data.underMinimum > 0) {
-    items.push({
-      key: 'under-minimum', count: data.underMinimum, to: '/roster?view=summary&hours=under',
-      label: `${plural(data.underMinimum, 'doctor is', 'doctors are')} under their contracted hours this month`,
-    })
-  }
 
   return items
 }
@@ -175,7 +166,7 @@ export async function fetchAdminAttention(now = new Date()) {
   const nextSaturdays = saturdaysInMonth(next.year, next.month)
   const empty = { data: [], count: 0 }
 
-  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, doctorsRes, rotatingRes] = await Promise.all([
+  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, rotatingRes] = await Promise.all([
     safe(supabase.from('roster_months').select('id, year, month, status').is('deleted_at', null).gte('year', year), empty),
     nextSaturdays.length > 0
       ? safe(supabase.from('weekend_planner_entries').select('weekend_saturday')
@@ -185,7 +176,6 @@ export async function fetchAdminAttention(now = new Date()) {
     safe(supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'), empty),
     safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
-    safe(supabase.from('profiles').select(MINIMUM_PROFILE_FIELDS).eq('role', 'doctor').eq('is_approved', true).eq('is_active', true).neq('category', 'Consultant'), empty),
     safe(supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true), empty),
   ])
 
@@ -210,18 +200,9 @@ export async function fetchAdminAttention(now = new Date()) {
     onLeaveShifts = shiftsOnLeave(entriesRes.data, futureLeaveRes.data, today)
   }
 
-  // Under-minimum only means something once this month has a roster.
-  let underMinimum = 0
-  if (isUnderHoursTracked(year, month) && rosters.some(r => r.year === year && r.month === month)) {
-    try {
-      const profiles = doctorsRes.data || []
-      const [hoursByProfile, minimums] = await Promise.all([
-        getMonthlyHoursByProfile(year, month),
-        fetchMonthMinimums({ profiles, year, month }),
-      ])
-      underMinimum = countUnderMinimum({ profiles, hoursByProfile, minimums })
-    } catch { /* leave it at 0 */ }
-  }
+  // Hours (under the contracted minimum) are flagged on the Rosters
+  // list, not here — see fetchHoursFlags in lib/rosterSummary.js.
+  const underMinimum = 0
 
   // Same rule as the Rotations tab's own badge (endOfRotationFlag).
   let rotationsEnding = 0

@@ -8,6 +8,7 @@ import {
   assignCover, removeEntry, removeLocum, moveEntry, addCover, removeSlot, advertise, unadvertise,
   reinstate, reinstateBlocker, leaveQuestion, describeLinkedLeave, shiftMenuKind, emptySideEffects,
   swapEntries, swapProblem, afterLeaveCancelled, leaveShiftBlocker,
+  removeCover, moveCover, changeAbsenceReason, coverOf,
 } from './rosterEdits'
 import { cancelLeaveRequest } from './leaveCancellation'
 
@@ -291,5 +292,42 @@ describe('afterLeaveCancelled — the shifts a cancelled leave opened', () => {
     expect(leaveShiftBlocker({ entry: covered, entries: [covered, night], nameOf })).toBe('Alice Anderson has another shift on Mon 10 Aug')
     await expect(afterLeaveCancelled({ ...base, entry: covered, shiftCode: 'WD_12', entries: [covered, night], undoShift: true })).rejects.toThrow(/cannot go back/)
     expect(entryUpdates()).toHaveLength(0)
+  })
+})
+
+describe('the cover on a shift a doctor came off', () => {
+  const covered = { ...namedLocumVacated, id: 'c1', vacated_reason: 'leave', vacated_leave_request_id: 'leave-1' }
+  beforeEach(() => { mock.respond('roster_entries', call => (call.method === 'select' ? [covered] : undefined)) })
+
+  it('Remove → close leaves no slot, the absent doctor kept', async () => {
+    await removeCover({ ...base, entry: covered, shiftCode: 'WD_12', mode: 'close' })
+    const patch = entryUpdates()[0].payload
+    expect(patch).toMatchObject({ profile_id: null })
+    expect(patch).not.toHaveProperty('vacated_profile_id')
+    expect(logRows()[0]).toMatchObject({ action: 'remove', note: 'Cover removed; shift runs short' })
+  })
+
+  it('Remove → advertise reopens the slot and offers it to locums', async () => {
+    await removeCover({ ...base, entry: covered, shiftCode: 'WD_12', mode: 'advertise' })
+    expect(entryUpdates()[0].payload).toMatchObject({ locum_name: '[ ]', is_locum: true })
+    expect(mock.find('shift_advertisements', 'insert')).toHaveLength(1)
+  })
+
+  it('Move puts the locum on another shift and reopens this one', async () => {
+    const r = await moveCover({ ...base, entry: covered, shiftCode: 'WD_12', targetDate: '2026-08-12', targetShiftCode: 'WD_22', targetShiftTypeId: 'st4', entries: [covered] })
+    expect(coverOf(covered, nameOf)).toMatchObject({ kind: 'locum', id: 'loc-1' })
+    expect(logRows().map(l => l.batch_id).every(b => b === r.batchId)).toBe(true)
+    expect(r.description).toMatch(/moved to Wed 12 Aug · WD 22h-10h; Mon 10 Aug · WD 12h-22h is open again/)
+  })
+
+  it('Change why … is off: leave → swap, cancelling the leave when asked', async () => {
+    const r = await changeAbsenceReason({ ...base, entry: covered, shiftCode: 'WD_12', reason: 'swap', note: 'Moved to the night', cancelLeave: true })
+    expect(entryUpdates()[0].payload).toEqual({ vacated_reason: 'swap', vacated_note: 'Moved to the night', vacated_leave_request_id: null })
+    expect(cancelLeaveRequest).toHaveBeenCalledWith('leave-1', 'Reason changed on the roster')
+    expect(r.description).toMatch(/reason on .* is now swap; their leave was cancelled/)
+  })
+
+  it('Change why … is off: "other" needs a note', async () => {
+    await expect(changeAbsenceReason({ ...base, entry: covered, shiftCode: 'WD_12', reason: 'other' })).rejects.toThrow(/note/)
   })
 })

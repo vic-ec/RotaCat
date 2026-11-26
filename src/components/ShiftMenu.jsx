@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react'
+import DateFieldButton from './DateFieldButton'
+import SelectMenu from './SelectMenu'
+import { VACANCY_LEAVE_TYPE_OPTIONS } from '../lib/rosterVacancy'
 import { createPortal } from 'react-dom'
 import { ActionSheet } from './ActionSheet'
 import ShiftTimesForm from './ShiftTimesForm'
@@ -64,7 +67,7 @@ function Group({ title, children }) {
 }
 
 // The menu proper: groups of choices, Cancel and Continue.
-function Options({ groups, onContinue, onClose }) {
+function Options({ groups, onContinue, onClose, closeLabel = 'Cancel' }) {
   const [choice, setChoice] = useState('')
   const chosen = groups.flatMap(g => g.choices).find(c => c.value === choice)
   return (
@@ -77,7 +80,7 @@ function Options({ groups, onContinue, onClose }) {
         ))}
       </div>
       <div className="flex flex-nowrap gap-2 border-t border-slate-line px-3 pb-1 pt-3">
-        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Cancel</button>
+        <button type="button" onClick={onClose} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">{closeLabel}</button>
         <button type="submit" disabled={!chosen} className={`${chosen?.danger ? 'btn-danger' : 'btn-primary'} min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0`}>Continue</button>
       </div>
     </form>
@@ -93,6 +96,99 @@ function Confirm({ question, confirmLabel, onConfirm, onBack }) {
         <button type="button" onClick={onConfirm} className="btn-danger min-h-[44px] flex-1 text-sm md:min-h-0">{confirmLabel}</button>
       </div>
     </div>
+  )
+}
+
+// What the absent doctor's reason says now, for "Change why … is off".
+function absenceReasonText(entry, activeLeave) {
+  const r = entry?.vacated_reason
+  if (r === 'leave') {
+    if (!activeLeave) return entry.vacated_leave_request_id ? 'leave (since cancelled)' : 'leave'
+    return (LEAVE_TYPE_LABELS[activeLeave.leave_type] || 'leave').toLowerCase()
+  }
+  return { swap: 'swap', no_show: 'no-show', other: 'other reason' }[r] || 'not recorded'
+}
+
+// "Move <locum> to another shift": a day of the month and one of its shifts.
+function MoveCoverForm({ entry, shiftCode, who, shiftsForDate, onSave, onBack }) {
+  const [date, setDate] = useState(entry.date)
+  const [code, setCode] = useState('')
+  const options = shiftsForDate(date)
+    .filter(o => !(date === entry.date && o.code === shiftCode))
+    .map(o => ({ value: o.code, label: o.label }))
+  return (
+    <div className="space-y-3 p-3" data-testid="move-cover-form">
+      <p className="text-sm text-ink">Move {who} to:</p>
+      <DateFieldButton id="move-cover-date" label="Day" fullWidth value={date} onChange={v => { if (v) { setDate(v); setCode('') } }} />
+      <SelectMenu id="move-cover-shift" value={code} onChange={setCode} options={options} placeholder="Choose a shift…" />
+      <p className="text-xs text-ink-muted">This shift reopens as [ ], with the absent doctor still struck through.</p>
+      <div className="flex flex-nowrap gap-2">
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
+        <button type="button" disabled={!code} onClick={() => onSave({ date, code })} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Move</button>
+      </div>
+    </div>
+  )
+}
+
+// "Change why <name> is off": the reason recorded when they came off the
+// shift. Moving off an active leave asks whether to cancel that leave too.
+const REASON_CHOICES = [
+  { value: 'sick', label: 'Sick leave' },
+  { value: 'leave', label: 'Other leave' },
+  { value: 'swap', label: 'Swap', hint: 'They moved to another shift' },
+  { value: 'no_show', label: 'No-show' },
+  { value: 'other', label: 'Other reason' },
+]
+function currentReasonChoice(entry, activeLeave) {
+  if (entry.vacated_reason === 'leave') return activeLeave?.leave_type === 'sick' ? 'sick' : activeLeave ? 'leave' : ''
+  return entry.vacated_reason || ''
+}
+function ReasonForm({ entry, name, activeLeave, onSave, onBack }) {
+  const [reason, setReason] = useState(() => currentReasonChoice(entry, activeLeave))
+  const [leaveType, setLeaveType] = useState(activeLeave && activeLeave.leave_type !== 'sick' ? activeLeave.leave_type : 'family_responsibility')
+  const [note, setNote] = useState('')
+  const [cancelLeave, setCancelLeave] = useState(false)
+  const toLeave = reason === 'sick' || reason === 'leave'
+  const canSave = Boolean(reason) && (reason !== 'other' || note.trim().length > 0)
+  return (
+    <form
+      className="space-y-3 p-3"
+      data-testid="reason-form"
+      onSubmit={e => { e.preventDefault(); if (canSave) onSave({ reason, leaveType, note, cancelLeave: !toLeave && cancelLeave }) }}
+    >
+      <fieldset>
+        <legend className="mb-1 text-sm text-ink">Why is {name} off this shift?</legend>
+        {REASON_CHOICES.map(c => (
+          <label key={c.value} className="flex min-h-[40px] items-start gap-2.5 py-1 text-sm md:min-h-0">
+            <input type="radio" name="absence-reason" value={c.value} checked={reason === c.value} onChange={() => setReason(c.value)} className="mt-[3px] h-4 w-4 accent-[rgb(var(--color-accent))]" />
+            <span className="flex flex-col"><span className="font-medium text-ink">{c.label}</span>{c.hint && <span className="text-xs text-ink-muted">{c.hint}</span>}</span>
+          </label>
+        ))}
+      </fieldset>
+      {reason === 'leave' && (
+        <div>
+          <label htmlFor="reason-leave-type" className="label-text">Leave type</label>
+          <SelectMenu id="reason-leave-type" value={leaveType} onChange={setLeaveType} options={VACANCY_LEAVE_TYPE_OPTIONS} />
+        </div>
+      )}
+      {toLeave && !activeLeave && <p className="text-xs text-ink-muted">One day of leave is captured for {name} on this date, approved straight away.</p>}
+      {!toLeave && (
+        <div>
+          <label htmlFor="reason-note" className="label-text">Note{reason === 'other' ? ' (required)' : ''}</label>
+          <textarea id="reason-note" rows={2} value={note} onChange={e => setNote(e.target.value)} className="input-field w-full" placeholder="Optional — admins only…" />
+        </div>
+      )}
+      {!toLeave && activeLeave && (
+        <label className="flex items-start gap-2 text-sm text-ink">
+          <input type="checkbox" checked={cancelLeave} onChange={e => setCancelLeave(e.target.checked)} className="mt-[3px] h-4 w-4 accent-[rgb(var(--color-accent))]" />
+          <span>Also cancel {possessive(name)} {(LEAVE_TYPE_LABELS[activeLeave.leave_type] || 'leave').toLowerCase()}</span>
+        </label>
+      )}
+      <div className="flex flex-nowrap gap-2">
+        <button type="button" onClick={onBack} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Back</button>
+        <button type="submit" disabled={!canSave} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Save</button>
+      </div>
+    </form>
   )
 }
 
@@ -132,6 +228,10 @@ export default function ShiftMenu({
   // The leave behind this shift's absence (CancelLeaveModal's shape), when
   // there is any: offered as "Cancel …'s leave", for leave recorded in error.
   cancelLeaveRequest = null, onCancelLeave,
+  // The cover on a shift a doctor came off: take it off (reopen / close),
+  // move it to another shift, or change why the doctor is off.
+  // shiftsForDate(date) -> [{ code, label }] for that day's columns.
+  onRemoveCover, onMoveCover, onChangeReason, shiftsForDate = () => [],
   // { exists } when a late arrival can be logged against this shift (see
   // the page's lateOptionFor), else null.
   lateArrival = null, onLateArrival,
@@ -142,11 +242,16 @@ export default function ShiftMenu({
   const [step, setStep] = useState(null) // null | 'pick' | 'pick-cover' | 'confirm-*' | 'leave'
   const [search, setSearch] = useState('')
   const [addingLocum, setAddingLocum] = useState(false)
+  // Put back from Replace (over the cover) rather than on an empty slot.
+  const [putBackOver, setPutBackOver] = useState(false)
 
   const vacatedName = entry?.vacated_profile_id ? nameOf(entry.vacated_profile_id) : null
   const holder = entry?.profile_id && !entry.is_locum ? nameOf(entry.profile_id) : null
   const locumName = entry?.is_locum ? locumDisplayName(entry.locum_name) : ''
   const reasonText = entry?.vacated_reason ? REASON_LABELS[entry.vacated_reason] || entry.vacated_reason : null
+  // Someone (a doctor or a named locum) covering a doctor taken off this shift.
+  const covered = Boolean(entry?.vacated_profile_id && (holder || locumName))
+  const coverLabel = holder || (locumName ? `${locumName} (locum)` : '')
 
   const what = kind === 'add' ? 'Add to shift'
     : kind === 'no-cover' ? `${vacatedName || 'Doctor'} — no cover`
@@ -229,11 +334,55 @@ export default function ShiftMenu({
         <p className="text-sm text-ink">{question}</p>
         <p className="text-xs text-ink-muted">Keeping the other days leaves the leave on record; {vacatedName} works this shift and stays off the rest.</p>
         <div className="flex flex-nowrap gap-2">
-          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: true }); close() }} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Cancel all of it</button>
-          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: false }); close() }} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Keep the other days</button>
+          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: true, overCover: putBackOver }); close() }} className="btn-primary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Cancel all of it</button>
+          <button type="button" onClick={() => { onReinstate(entry, { cancelLeave: false, overCover: putBackOver }); close() }} className="btn-secondary min-h-[44px] flex-1 whitespace-nowrap text-sm md:min-h-0">Keep the other days</button>
         </div>
         <button type="button" onClick={() => setStep(null)} className="text-sm font-medium text-accent hover:underline">Back</button>
       </div>
+    )
+  } else if (step === 'replace' || step === 'remove-cover') {
+    const covering = coverLabel
+    const overBlocker = reinstateBlocker({ entry, entries, nameOf, overCover: true })
+    const choices = step === 'replace'
+      ? [
+          {
+            value: 'put-back-over', label: `Put ${vacatedName} back`,
+            hint: overBlocker || `${covering} comes off; ${vacatedName} works the shift`, disabled: Boolean(overBlocker),
+          },
+          { value: 'pick', label: 'Another doctor or locum', hint: `Pick who covers instead of ${covering}` },
+        ]
+      : [
+          { value: 'advertise', label: 'Reopen the slot and advertise it', hint: 'An open [ ] slot, offered to locums' },
+          { value: 'open', label: "Reopen the slot, don't advertise", hint: 'An open [ ] slot, filled later by hand' },
+          { value: 'close', label: 'Close the shift', hint: `No slot; the shift runs short and ${vacatedName} stays struck through`, danger: true },
+        ]
+    body = (
+      <Options
+        groups={[{ choices }]}
+        closeLabel="Back"
+        onClose={() => setStep(null)}
+        onContinue={chosen => {
+          if (chosen.value === 'pick') { setStep('pick'); return }
+          if (chosen.value === 'put-back-over') {
+            const linked = describeLinkedLeave({ entry, leaveByProfile })
+            if (cancelLeaveRequest && linked?.multiDay) { setPutBackOver(true); setStep('leave'); return }
+            onReinstate(entry, { cancelLeave: Boolean(cancelLeaveRequest), overCover: true }); close(); return
+          }
+          onRemoveCover(entry, chosen.value); close()
+        }}
+      />
+    )
+  } else if (step === 'move-cover') {
+    body = <MoveCoverForm entry={entry} shiftCode={shiftCode} who={coverLabel} shiftsForDate={shiftsForDate} onBack={() => setStep(null)} onSave={target => { onMoveCover(entry, target); close() }} />
+  } else if (step === 'reason') {
+    body = (
+      <ReasonForm
+        entry={entry}
+        name={vacatedName}
+        activeLeave={cancelLeaveRequest}
+        onBack={() => setStep(null)}
+        onSave={opts => { onChangeReason(entry, opts); close() }}
+      />
     )
   } else if (step === 'swap') {
     body = (
@@ -263,16 +412,32 @@ export default function ShiftMenu({
   } else {
     const blocker = entry?.vacated_profile_id ? reinstateBlocker({ entry, entries, nameOf }) : null
     const linkedLeave = describeLinkedLeave({ entry, leaveByProfile })
-    const putBackGroup = entry?.vacated_profile_id && {
-      title: 'The absent doctor',
-      choices: [{
-        value: 'put-back',
-        label: `Put ${vacatedName} back on this shift`,
-        hint: blocker || (linkedLeave
-          ? (linkedLeave.multiDay ? `Their ${linkedLeave.type} runs ${linkedLeave.dates}; you choose what happens to it` : `Their ${linkedLeave.type} for that day is cancelled too`)
-          : 'Restores them and clears the absence'),
-        disabled: Boolean(blocker),
-      }],
+    // The doctor taken off this shift, whatever now covers it: why they are
+    // off (changeable — "sick leave" recorded in error that was really a
+    // swap), their leave, and — when nobody covers the shift — Put back.
+    // With a cover, putting them back is Replace → "Put <name> back".
+    const absentGroup = entry?.vacated_profile_id && {
+      title: `The absent doctor (${vacatedName})`,
+      choices: [
+        !covered && {
+          value: 'put-back',
+          label: `Put ${vacatedName} back on this shift`,
+          hint: blocker || (linkedLeave && cancelLeaveRequest
+            ? (linkedLeave.multiDay ? `Their ${linkedLeave.type} runs ${linkedLeave.dates}; you choose what happens to it` : `Their ${linkedLeave.type} for that day is cancelled too`)
+            : 'Restores them and clears the absence'),
+          disabled: Boolean(blocker),
+        },
+        onChangeReason && {
+          value: 'reason',
+          label: `Change why ${vacatedName} is off`,
+          hint: `Now: ${absenceReasonText(entry, cancelLeaveRequest)}`,
+        },
+        cancelLeaveRequest && onCancelLeave && {
+          value: 'cancel-leave',
+          label: `Cancel ${possessive(vacatedName)} ${(LEAVE_TYPE_LABELS[cancelLeaveRequest.leave_type] || 'leave').toLowerCase()}`,
+          hint: 'If it was recorded in error. You choose what happens to the shift.',
+        },
+      ].filter(Boolean),
     }
     const swapChoice = onSwap && holder && {
       value: 'swap', label: 'Swap with another doctor', hint: 'Each takes the other\'s shift — this day or another',
@@ -292,6 +457,17 @@ export default function ShiftMenu({
         hint: lateArrival.exists ? 'Correct or delete the record for this shift' : 'Record the time they arrived',
       }],
     }
+    // Whoever covers a doctor taken off this shift.
+    const coverGroup = covered && {
+      title: `The cover (${coverLabel})`,
+      choices: [
+        { value: 'replace', label: `Replace ${coverLabel}`, hint: `Put ${vacatedName} back, or pick someone else` },
+        onRemoveCover && { value: 'remove-cover', label: `Remove ${coverLabel}`, hint: 'Reopen the slot, or close the shift' },
+        entry.is_locum && onMoveCover && { value: 'move-cover', label: `Move ${coverLabel} to another shift`, hint: 'This slot reopens as [ ]' },
+        holder && swapChoice,
+        timesChoice,
+      ].filter(Boolean),
+    }
     const advertChoice = hasOpenAdvert
       ? { value: 'unadvertise', label: 'Stop advertising', hint: 'The advert is set to cancelled; the slot stays open' }
       : { value: 'advertise', label: 'Advertise to locums', hint: 'Locums with an account can claim it' }
@@ -299,7 +475,7 @@ export default function ShiftMenu({
     const leaveLabel = cancelLeaveRequest
       ? (LEAVE_TYPE_LABELS[cancelLeaveRequest.leave_type] || 'leave').toLowerCase()
       : ''
-    const cancelLeaveGroup = cancelLeaveRequest && onCancelLeave && {
+    const cancelLeaveGroup = !entry?.vacated_profile_id && cancelLeaveRequest && onCancelLeave && {
       title: 'The leave',
       choices: [{
         value: 'cancel-leave',
@@ -309,7 +485,7 @@ export default function ShiftMenu({
     }
     const groups = {
       add: [{ choices: [{ value: 'pick', label: 'Add a doctor or locum', hint: 'Pick who works this shift' }] }],
-      vacancy: [
+      vacancy: covered ? [coverGroup, lateGroup, absentGroup] : [
         { choices: [
           { value: 'vacancy', label: `Take ${holder} off this shift`, hint: 'Say why, and what happens to the shift' },
           swapChoice,
@@ -317,7 +493,7 @@ export default function ShiftMenu({
         ].filter(Boolean) },
         lateGroup,
       ],
-      'draft-doctor': [
+      'draft-doctor': covered ? [coverGroup, absentGroup] : [
         { choices: [{ value: 'pick', label: 'Replace with…', hint: 'Pick who takes the shift instead' }, swapChoice, timesChoice].filter(Boolean) },
         { choices: [{ value: 'confirm-remove', label: `Remove ${holder} from this shift`, hint: 'The shift is left empty', danger: true }] },
       ],
@@ -327,20 +503,16 @@ export default function ShiftMenu({
           advertChoice,
         ] },
         { choices: [{ value: 'confirm-slot', label: 'Remove the locum slot', hint: `${vacatedName} stays struck through; the shift runs short`, danger: true }] },
-        putBackGroup,
+        absentGroup,
       ],
       slot: [
         { choices: [{ value: 'pick', label: 'Fill with a doctor or locum', hint: 'Pick who works this shift' }, advertChoice] },
         { choices: [{ value: 'confirm-remove', label: 'Remove this slot', hint: 'The empty slot is deleted; nothing else changes', danger: true }] },
       ],
-      locum: [
+      locum: covered ? [coverGroup, lateGroup, absentGroup] : [
         { choices: [{ value: 'pick', label: 'Change cover', hint: 'Pick someone else for this shift' }, timesChoice] },
-        { choices: [{
-          value: 'confirm-remove', label: `Remove ${locumName}`, danger: true,
-          hint: entry?.vacated_profile_id ? `The slot opens again as [ ]; ${vacatedName} stays struck through` : 'The shift is left empty',
-        }] },
+        { choices: [{ value: 'confirm-remove', label: `Remove ${locumName}`, danger: true, hint: 'The shift is left empty' }] },
         lateGroup,
-        putBackGroup,
       ],
       'no-cover': [
         { title: 'Add cover', choices: [
@@ -348,13 +520,15 @@ export default function ShiftMenu({
           { value: 'add-advertise', label: 'Advertise for a locum', hint: 'Opens a [ ] slot and offers it to locums' },
           { value: 'add-open', label: "Open slot, don't advertise", hint: 'Opens a [ ] slot to fill later' },
         ] },
-        putBackGroup,
+        absentGroup,
       ],
     }[kind].concat(kind === 'add' || kind === 'slot' ? [] : [cancelLeaveGroup]).filter(Boolean)
 
     const run = chosen => {
       switch (chosen.value) {
-        case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': case 'swap': setStep(chosen.value); break
+        case 'pick': case 'pick-cover': case 'confirm-remove': case 'confirm-slot': case 'times': case 'swap':
+        case 'replace': case 'remove-cover': case 'move-cover': case 'reason':
+          setStep(chosen.value); break
         case 'vacancy': onVacancy(entry); close(); break
         case 'late': onLateArrival(entry); close(); break
         case 'cancel-leave': onCancelLeave(cancelLeaveRequest); close(); break
@@ -364,8 +538,10 @@ export default function ShiftMenu({
         case 'add-open': onAddCover(entry, 'open'); close(); break
         case 'put-back':
           // A one-day leave goes with the put-back; a longer one asks.
-          if (linkedLeave?.multiDay) setStep('leave')
-          else { onReinstate(entry, { cancelLeave: Boolean(linkedLeave) }); close() }
+          // Only leave still active is cancelled (one already cancelled,
+          // in Team Leave say, is left alone).
+          if (cancelLeaveRequest && linkedLeave?.multiDay) { setPutBackOver(false); setStep('leave') }
+          else { onReinstate(entry, { cancelLeave: Boolean(cancelLeaveRequest) }); close() }
           break
         default: break
       }

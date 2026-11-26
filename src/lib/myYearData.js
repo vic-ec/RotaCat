@@ -115,11 +115,12 @@ export async function fetchLieuBalances() {
 
 // The roster page for a date, or null when this viewer has no roster for
 // that month. `doctor` lights up that person's shift on arrival.
-export function rosterLinkForDate(monthIds, date, { doctor, entry } = {}) {
+export function rosterLinkForDate(monthIds, date, { doctor, entry, mark = false } = {}) {
   const id = monthIds?.[String(date).slice(0, 7)]
   if (!id) return null
   const params = new URLSearchParams({ date })
   if (entry) params.set('entry', entry)
   else if (doctor) params.set('doctor', doctor)
+  if (mark) params.set('mark', '1')
   return `/roster/${id}?${params}`
 }

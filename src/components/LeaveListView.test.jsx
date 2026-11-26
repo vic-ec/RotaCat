@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
 import { todayStr, addDays } from '../lib/dateRange'
+import { MemoryRouter } from 'react-router-dom'
 import LeaveListView from './LeaveListView'
+
+// LeaveListView reads Team Leave's deep-link params (?ldoctor=…).
+function renderList(url = '/leave?tab=team') {
+  return render(<MemoryRouter initialEntries={[url]}><LeaveListView /></MemoryRouter>)
+}
 
 // useAuth only gates the admin "Cancel" action (see the cancel tests at the
 // bottom); the query contract below stays role-blind regardless.
@@ -71,22 +77,43 @@ describe('LeaveListView — query contract', () => {
 
   it('never issues a role-conditional filter on the query (no client-side substitute for RLS)', async () => {
     mockData.rows = [row('a', { status: 'approved', date_from: TODAY, date_to: TODAY })]
-    render(<LeaveListView />)
+    renderList()
     await switchToList()
     await waitFor(() => expect(screen.getByText(/Doc a/)).toBeInTheDocument())
     expect(methodCalls.some(c => c[0] === 'eq' || c[0] === 'match')).toBe(false)
   })
 
   it('opens on the Matrix and remembers a switch to Who\'s away', async () => {
-    render(<LeaveListView />)
+    renderList()
     await switchToList()
     expect(await screen.findByRole('region', { name: 'Away today' })).toBeInTheDocument()
     expect(localStorage.getItem('rotacat:leaveTeamDesktopView')).toBe('away')
   })
 
+  it('a Team Leave link (?ldoctor=&lyear=&lrequest=) opens the Matrix on that year with the leave selected, whatever view was remembered', async () => {
+    localStorage.setItem('rotacat:leaveTeamDesktopView', 'away')
+    mockData.rows = [row('r1', { status: 'approved', profile_id: 'doc-1', date_from: '2025-06-02', date_to: '2025-06-06' })]
+    const original = Element.prototype.scrollIntoView
+    const scrolled = []
+    Element.prototype.scrollIntoView = function scrollIntoView() { scrolled.push(this.getAttribute('data-request-id')) }
+    try {
+      renderList('/leave?tab=team&sub=current&ldoctor=doc-1&lyear=2025&lrequest=r1')
+      expect(await screen.findByText('2025')).toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'Away today' })).not.toBeInTheDocument()
+      // The side panel shows the leave, not the resting "On leave now".
+      expect(screen.queryByText('On leave now')).not.toBeInTheDocument()
+      expect(screen.getAllByText(/Doc r1/).length).toBeGreaterThan(1)
+      await waitFor(() => expect(scrolled).toContain('r1'))
+      // The remembered choice is left as it was.
+      expect(localStorage.getItem('rotacat:leaveTeamDesktopView')).toBe('away')
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
   it('treats a remembered Table choice as Who\'s away', async () => {
     localStorage.setItem('rotacat:leaveTeamDesktopView', 'table')
-    render(<LeaveListView />)
+    renderList()
     expect(await screen.findByRole('region', { name: 'Away today' })).toBeInTheDocument()
   })
 })
@@ -107,7 +134,7 @@ describe("LeaveListView — Who's away", () => {
       row('rejected', { status: 'rejected', date_from: inDays(2), date_to: inDays(3) }),
       row('past', { status: 'approved', date_from: inDays(-9), date_to: inDays(-5) }),
     ]
-    render(<LeaveListView />)
+    renderList()
     const today = await screen.findByRole('region', { name: 'Away today' })
     expect(within(today).getByText(/Doc now/)).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Next 7 days' })).getByText(/Doc soon/)).toBeInTheDocument()
@@ -118,7 +145,7 @@ describe("LeaveListView — Who's away", () => {
 
   it('starts Later collapsed', async () => {
     mockData.rows = [row('far', { status: 'approved', date_from: inDays(40), date_to: inDays(41) })]
-    render(<LeaveListView />)
+    renderList()
     const later = await screen.findByRole('region', { name: 'Later' })
     expect(within(later).queryByText(/Doc far/)).not.toBeInTheDocument()
     fireEvent.click(within(later).getByRole('button', { expanded: false }))
@@ -127,7 +154,7 @@ describe("LeaveListView — Who's away", () => {
 
   it('offers Expand all once every section is folded, and Collapse all otherwise', async () => {
     mockData.rows = [row('now', { status: 'approved', date_from: TODAY, date_to: inDays(1) })]
-    render(<LeaveListView />)
+    renderList()
     await screen.findByRole('region', { name: 'Away today' })
     fireEvent.click(screen.getByRole('button', { name: /Collapse all/ }))
     expect(screen.queryByText(/Doc now/)).not.toBeInTheDocument()
@@ -138,14 +165,14 @@ describe("LeaveListView — Who's away", () => {
   it('opens the leave details on a tap, with Cancel leave for admins only', async () => {
     mockAuth.isAdmin = true
     mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
-    render(<LeaveListView />)
+    renderList()
     fireEvent.click(await screen.findByText(/Doc live/))
     expect(await screen.findByRole('button', { name: /Cancel leave/ })).toBeInTheDocument()
   })
 
   it('shows no Cancel leave to non-admins', async () => {
     mockData.rows = [row('live', { status: 'approved', date_from: TODAY, date_to: inDays(2) })]
-    render(<LeaveListView />)
+    renderList()
     fireEvent.click(await screen.findByText(/Doc live/))
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Cancel leave/ })).not.toBeInTheDocument()

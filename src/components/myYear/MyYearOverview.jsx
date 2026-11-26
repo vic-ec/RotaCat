@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useIsDesktop } from '../../lib/useIsDesktop'
-import { formatWeekdayDate, formatShortDateRange, formatTimestampDate } from '../../lib/dateRange'
+import { formatWeekdayDate, formatShortDateRange, formatTimestampDate, todayStr } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
 import { coverKind, shiftStartLabel } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
-import { requestLink } from '../../lib/myYearLinks'
-import PlannerDetailsCard from '../PlannerDetailsCard'
+import { requestLink, teamLeaveLink } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
 import YearGlance from './YearGlance'
 
@@ -83,9 +82,13 @@ export function BreaksCard({ breaks, year, longBreakDays }) {
 
 const COVER_LINE = { not_covered: 'Shift not covered', open_locum: 'Open locum slot' }
 
-// What the selected day is about: leave, the rostered shift and who is
-// covering it, and where to open each.
-function DayDetails({ day, data, profileId, isAdmin, wide = false }) {
+const linkClass = 'inline-flex min-h-[44px] items-center text-sm font-medium text-accent hover:text-accent-dark md:min-h-0 md:pt-1'
+
+// What the selected day is about, in up to three columns (Leave · Rostered
+// shift · Captured), each with its own link directly under it. On a phone
+// the same columns stack as lines with the link at the right.
+function DayDetails({ day, data, profileId, isAdmin, compact = false }) {
+  const teamLeaveFits = useIsDesktop(1024)
   const { leave, shift } = day
   const cameOff = shift && (shift.vacated_profile_id === profileId || (shift.profile_id === profileId && leave))
   const kind = cameOff ? coverKind(shift, profileId) : null
@@ -99,53 +102,97 @@ function DayDetails({ day, data, profileId, isAdmin, wide = false }) {
   const shiftText = shift
     ? (shiftLabel.includes(shiftStart) ? shiftLabel : `${shiftLabel} · ${shiftStart}`)
     : day.onCall ? 'On call' : published ? 'No shift' : 'No published roster'
-  const rosterTo = rosterLinkForDate(data.monthIds, day.date, shift ? { entry: shift.id } : { doctor: profileId })
-  const request = leave && requestLink(leave)
+  const shiftSub = kind ? `Cover: ${COVER_LINE[kind] || coverName}`
+    : shift && day.onCall ? 'On call' : !shift && leave ? 'On leave' : ''
+  const rosterTo = rosterLinkForDate(data.monthIds, day.date, shift ? { entry: shift.id, mark: true } : { doctor: profileId, mark: true })
+  // Admins open the leave on Team Leave's Matrix (their row, that period);
+  // the Matrix needs a wide screen, and doctors don't have Team Leave, so
+  // everyone else gets the planner (or the pending request).
+  const fallback = leave && requestLink(leave)
+  const leaveTo = leave && (isAdmin && teamLeaveFits
+    ? { to: teamLeaveLink(leave), label: 'Open in Team Leave ›', short: 'Team Leave ›' }
+    : { to: fallback.to, label: leave.status === 'pending' ? 'Open request ›' : 'Open in planner ›', short: leave.status === 'pending' ? 'Request ›' : 'Planner ›' })
   const capturedBy = leave?.submitted_by && leave.submitted_by !== leave.profile_id ? data.names[leave.submitted_by] : null
 
-  return (
-    <div className="mt-2 space-y-3 text-sm">
-      {day.holidayName && <p className="text-ink-light">Public holiday · {day.holidayName}</p>}
-      <dl className={wide ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4' : 'space-y-2'}>
-        <div>
-          <dt className="text-xs font-medium text-ink-muted">Leave</dt>
-          <dd className="mt-0.5 text-ink">
-            {leave ? (
-              <>
-                <span className="flex items-center gap-2 font-semibold">
-                  <LeaveCodeBox leaveType={leave.leave_type} />{LEAVE_TYPE_LABELS[leave.leave_type] || 'Leave'}
-                </span>
-                <span className="mt-0.5 block text-xs text-ink-muted">
-                  {formatShortDateRange(leave.date_from, leave.date_to)} · {leaveDayCountLabel(leave)}
-                </span>
-              </>
-            ) : 'Not on leave'}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs font-medium text-ink-muted">Rostered shift</dt>
-          <dd className="mt-0.5 text-ink">{shiftText}{shift && day.onCall ? ' · On call' : ''}</dd>
-        </div>
-        {kind && (
-          <div>
-            <dt className="text-xs font-medium text-ink-muted">Cover</dt>
-            <dd className="mt-0.5 text-ink">{COVER_LINE[kind] || coverName}</dd>
+  const columns = [
+    {
+      key: 'leave',
+      label: 'Leave',
+      value: leave ? (
+        <span className="flex items-center gap-2"><LeaveCodeBox leaveType={leave.leave_type} />{LEAVE_TYPE_LABELS[leave.leave_type] || 'Leave'}</span>
+      ) : 'Not on leave',
+      sub: leave ? `${formatShortDateRange(leave.date_from, leave.date_to)} · ${leaveDayCountLabel(leave)}` : '',
+      link: leaveTo,
+    },
+    {
+      key: 'shift',
+      label: 'Rostered shift',
+      value: shiftText,
+      sub: shiftSub,
+      link: rosterTo ? { to: rosterTo, label: 'Open this day on the roster ›', short: 'Roster ›' } : null,
+    },
+    ...(isAdmin && leave ? [{
+      key: 'captured',
+      label: 'Captured',
+      value: capturedBy ? `By ${capturedBy}` : 'By the doctor',
+      sub: formatTimestampDate(leave.created_at),
+      link: null,
+    }] : []),
+  ]
+
+  if (compact) {
+    return (
+      <dl className="mt-1 divide-y divide-slate-line text-sm">
+        {columns.map(col => (
+          <div key={col.key} data-testid={`day-${col.key}`} className="flex items-center justify-between gap-3 py-1.5">
+            <div className="min-w-0">
+              <dt className="text-xs font-medium text-ink-muted">{col.label}</dt>
+              <dd className="mt-0.5 font-semibold text-ink">{col.value}</dd>
+              {col.sub && <dd className="text-xs text-ink-muted">{col.sub}</dd>}
+            </div>
+            {col.link && <Link to={col.link.to} aria-label={col.link.label.replace(' ›', '')} className={`${linkClass} flex-shrink-0`}>{col.link.short}</Link>}
           </div>
-        )}
-        {isAdmin && leave && (
-          <div>
-            <dt className="text-xs font-medium text-ink-muted">Captured</dt>
-            <dd className="mt-0.5 text-ink">
-              {capturedBy ? `By ${capturedBy}` : 'By the doctor'} on {formatTimestampDate(leave.created_at)}
-            </dd>
-          </div>
-        )}
+        ))}
       </dl>
-      <ul className={`border-t border-slate-line pt-3 ${wide ? 'flex flex-wrap gap-x-6 gap-y-1' : 'space-y-1'}`}>
-        {rosterTo && <li><Link to={rosterTo} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Open this day on the roster ›</Link></li>}
-        {request && <li><Link to={request.to} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Open leave request ›</Link></li>}
-        {isAdmin && rosterTo && <li><Link to={`${rosterTo}&history=1`} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Roster change history ›</Link></li>}
-      </ul>
+    )
+  }
+  return (
+    // Always three tracks, so each column stays put from day to day.
+    <dl className="mt-2 grid grid-cols-3 gap-4 text-sm">
+      {columns.map(col => (
+        <div key={col.key} data-testid={`day-${col.key}`} className="min-w-0">
+          <dt className="text-xs font-medium text-ink-muted">{col.label}</dt>
+          <dd className="mt-0.5 font-semibold text-ink">{col.value}</dd>
+          {col.sub && <dd className="text-xs text-ink-muted">{col.sub}</dd>}
+          {col.link && <dd><Link to={col.link.to} className={linkClass}>{col.link.label}</Link></dd>}
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+// The selected day, in a card under the grid.
+function SelectedDayCard({ day, data, profileId, isAdmin, compact, onClose }) {
+  const isToday = day.date === todayStr()
+  return (
+    <div className={`card relative mt-3 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} data-testid="selected-day-card">
+      <p className="pr-8">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{compact && isToday ? 'Today' : 'Selected day'}</span>{' '}
+        <span className={`${compact ? 'block' : ''} font-display text-sm font-semibold text-ink`}>{formatWeekdayDate(day.date)}</span>
+        {!compact && isToday && <span className="ml-2 rounded-full bg-accent px-2 py-px align-[1px] text-[10px] font-bold text-on-fill">Today</span>}
+      </p>
+      {day.holidayName && <p className="mt-0.5 text-xs text-ink-light">Public holiday · {day.holidayName}</p>}
+      <DayDetails day={day} data={data} profileId={profileId} isAdmin={isAdmin} compact={compact} />
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close selected day"
+          className="btn-close absolute right-2 top-2 h-7 w-7 text-ink-muted"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
     </div>
   )
 }
@@ -153,47 +200,32 @@ function DayDetails({ day, data, profileId, isAdmin, wide = false }) {
 export default function MyYearOverview({
   year, totals, days, breaks, lieu, holidaysWorked, data, profileId, isAdmin, showLate = false, selectedDate, onSelectDate,
 }) {
-  const selected = selectedDate ? days.find(d => d.date === selectedDate) : null
   const isDesktop = useIsDesktop()
+  // A phone's grid is month rows too small to tap a day on (each opens its
+  // month on the planner instead), so the card there is always today.
+  const shownDate = isDesktop ? selectedDate : todayStr()
+  const selected = shownDate ? days.find(d => d.date === shownDate) : null
   return (
     <div className="space-y-6">
       <TotalsCard totals={totals} holidaysWorked={holidaysWorked} lieuOwed={lieu.owed} />
 
-      {/* The grid takes the full width. The selected day's details used to
-          sit in a 280px rail beside it, which squeezed the grid on a
-          laptop; on a desktop they now open as a card between the heading
-          and the grid (closed with its ×), on a phone as a bottom sheet. */}
+      {/* The grid takes the full width, with the selected day's card under
+          it: it opens on today, and a desktop click picks another day. */}
       <section className="min-w-0">
         <h2 className="mb-3 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
-        {isDesktop && selected && (
-          <div className="relative mb-3" data-testid="selected-day-card">
-            <PlannerDetailsCard eyebrow="Selected day" title={formatWeekdayDate(selected.date)}>
-              <DayDetails day={selected} data={data} profileId={profileId} isAdmin={isAdmin} wide />
-            </PlannerDetailsCard>
-            <button
-              type="button"
-              onClick={() => onSelectDate(null)}
-              aria-label="Close selected day"
-              className="btn-close absolute right-2 top-2 h-7 w-7 text-ink-muted"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        )}
-        {!isDesktop && (
-          <PlannerDetailsCard
-            eyebrow="Selected day"
-            title={selected ? formatWeekdayDate(selected.date) : null}
-            open={Boolean(selected)}
-            onClose={() => onSelectDate(null)}
-          >
-            {selected && <DayDetails day={selected} data={data} profileId={profileId} isAdmin={isAdmin} />}
-          </PlannerDetailsCard>
-        )}
         <div className="card p-4">
           <YearGlance days={days} year={year} selectedDate={selectedDate} onSelect={onSelectDate} showLate={showLate} />
         </div>
-        {isDesktop && !selected && <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>}
+        {selected ? (
+          <SelectedDayCard
+            day={selected}
+            data={data}
+            profileId={profileId}
+            isAdmin={isAdmin}
+            compact={!isDesktop}
+            onClose={isDesktop ? () => onSelectDate(null) : null}
+          />
+        ) : isDesktop && <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>}
       </section>
 
       <section>

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import MyYearPage from './MyYearPage'
+import { formatWeekdayDate, todayStr } from '../lib/dateRange'
 
 const ME = '11111111-1111-4111-8111-111111111111'
 const ADA = '22222222-2222-4222-8222-222222222222'
@@ -125,14 +126,38 @@ describe('MyYearPage', () => {
   it('opens the selected day with its leave, shift and links', async () => {
     renderAt('/my-year')
     await screen.findByTestId('my-year-totals')
+    // It opens on today, under the grid.
+    expect(screen.getByTestId('selected-day-card').textContent).toMatch(new RegExp(formatWeekdayDate(todayStr())))
     await userEvent.click(screen.getByRole('button', { name: '2 Nov' }))
-    const card = screen.getByTestId('planner-details-card')
+    const card = screen.getByTestId('selected-day-card')
     expect(card.textContent).toMatch(/Monday, 2 Nov 2026/)
     expect(card.textContent).toMatch(/Not on leave/)
-    expect(card.textContent).toMatch(/Rostered shift08h00$|Rostered shift08h00[^·]/)
-    expect(within(card).getByRole('link', { name: /Open this day on the roster/ })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1')
+    expect(within(card).getByTestId('day-shift').textContent).toMatch(/^Rostered shift08h00/)
+    // The roster opens on that day, marked as opened from My year.
+    expect(within(card).getByRole('link', { name: /Open this day on the roster/ })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
     // "Roster change history" is for admins.
     expect(within(card).queryByRole('link', { name: /Roster change history/ })).not.toBeInTheDocument()
+  })
+
+  it('opens a day\'s leave in Team Leave for an admin, in the planner for the doctor', async () => {
+    renderAt('/my-year')
+    await screen.findByTestId('my-year-totals')
+    await userEvent.click(screen.getByRole('button', { name: '18 Nov: Sick leave' }))
+    let card = screen.getByTestId('selected-day-card')
+    expect(within(card).queryByRole('link', { name: /Team Leave/ })).not.toBeInTheDocument()
+    expect(within(card).getByRole('link', { name: /Open in planner/ })).toHaveAttribute('href', expect.stringMatching(/tab=planners&sub=special/))
+    expect(within(card).queryByRole('link', { name: /Roster change history/ })).not.toBeInTheDocument()
+  })
+
+  it('gives an admin "Open in Team Leave" on the doctor\'s row and leave, and who captured it', async () => {
+    mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
+    renderAt('/my-year')
+    await screen.findByTestId('my-year-totals')
+    await userEvent.click(screen.getByRole('button', { name: '18 Nov: Sick leave' }))
+    const card = screen.getByTestId('selected-day-card')
+    expect(within(card).getByRole('link', { name: /Open in Team Leave/ }))
+      .toHaveAttribute('href', `/leave?tab=team&sub=current&ldoctor=${ME}&lyear=2026&lrequest=k1`)
+    expect(within(card).getByTestId('day-captured').textContent).toMatch(/By the doctor/)
   })
 
   it('reads the tab and year from the URL and writes them back', async () => {
@@ -250,7 +275,7 @@ describe('MyYearPage', () => {
     const table = await screen.findByTestId('late-arrivals-table')
     expect(within(table).getAllByRole('columnheader').map(h => h.textContent)).toEqual(['Date', 'Shift', 'Shift start', 'Arrived', 'Late by', 'Reason given', 'Logged by', 'Open in'])
     expect(table.textContent).toMatch(/Pat Admin/)
-    expect(within(table).getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1')
+    expect(within(table).getByRole('link', { name: 'Roster' })).toHaveAttribute('href', '/roster/m11?date=2026-11-02&entry=e1&mark=1')
     expect(late.fetchLateArrivalsForProfile).toHaveBeenCalledWith(ADA, 2026)
     expect(screen.queryByText(/Speak to an admin/)).not.toBeInTheDocument()
 

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { useIsDesktop } from '../../lib/useIsDesktop'
-import { MONTH_ABBR } from '../../lib/dateRange'
+import { MONTH_ABBR, todayStr } from '../../lib/dateRange'
 import { leaveGroupInk, LEAVE_GROUP_OPTIONS } from '../../lib/leaveMatrix'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { yearWeekColumns, daysByMonth } from '../../lib/myYear'
@@ -25,7 +25,10 @@ function dayLabel(day, { showLate = false } = {}) {
 
 // Leave takes its group's colour (--leave-ink-*, so it follows the theme);
 // a weekend is a shade darker than a weekday either way.
-function squareStyle(day) {
+function squareStyle(day, isToday = false) {
+  // Today: solid accent, whatever the day holds (the panel under the grid
+  // says what that is), so it stands out from every leave colour.
+  if (isToday) return { backgroundColor: 'rgb(var(--color-accent))' }
   if (day.leaveGroup) {
     const ink = leaveGroupInk(day.leaveGroup)
     return { backgroundColor: day.weekend ? ink : `color-mix(in srgb, ${ink} 62%, transparent)` }
@@ -34,15 +37,19 @@ function squareStyle(day) {
 }
 
 function Square({ day, showLate, selected, onSelect, interactive }) {
-  const label = dayLabel(day, { showLate })
-  const className = `relative block aspect-square w-full rounded-[3px] ${day.holidayName ? 'outline outline-1 -outline-offset-1 outline-ink' : ''} ${
-    selected ? 'ring-2 ring-ink ring-offset-1 ring-offset-canvas-raised' : ''
-  }`
+  const isToday = day.date === todayStr()
+  const label = `${dayLabel(day, { showLate })}${isToday ? ' (today)' : ''}`
+  // Today wears an accent ring as well as the fill; a selected day that is
+  // not today, an ink ring.
+  const ring = isToday
+    ? 'ring-2 ring-accent ring-offset-1 ring-offset-canvas-raised'
+    : selected ? 'ring-2 ring-ink ring-offset-1 ring-offset-canvas-raised' : ''
+  const className = `relative block aspect-square w-full rounded-[3px] ${day.holidayName ? 'outline outline-1 -outline-offset-1 outline-ink' : ''} ${ring}`
   const dot = showLate && day.late && (
     <span aria-hidden="true" data-testid="late-dot" className="absolute right-0 top-0 h-1.5 w-1.5 rounded-full bg-ink ring-1 ring-canvas-raised" />
   )
   if (!interactive) {
-    return <span role="img" aria-label={label} title={label} data-date={day.date} className={className} style={squareStyle(day)}>{dot}</span>
+    return <span role="img" aria-label={label} title={label} data-date={day.date} data-today={isToday || undefined} className={className} style={squareStyle(day, isToday)}>{dot}</span>
   }
   return (
     <button
@@ -52,8 +59,9 @@ function Square({ day, showLate, selected, onSelect, interactive }) {
       aria-pressed={selected}
       data-date={day.date}
       onClick={() => onSelect(day.date)}
+      data-today={isToday || undefined}
       className={`${className} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent`}
-      style={squareStyle(day)}
+      style={squareStyle(day, isToday)}
     >
       {dot}
     </button>
@@ -65,6 +73,9 @@ function Legend({ days, showLate }) {
   const sample = 'inline-block h-3 w-3 rounded-[3px]'
   return (
     <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-muted" aria-label="Legend">
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden="true" className={`${sample} ring-2 ring-accent ring-offset-1 ring-offset-canvas-raised`} style={{ backgroundColor: 'rgb(var(--color-accent))' }} />Today
+      </li>
       {groups.map(g => (
         <li key={g.key} className="flex items-center gap-1.5"><LeaveTypeIcon groupKey={g.key} size="sm" />{g.label}</li>
       ))}

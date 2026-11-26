@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { LayoutGrid, UserRoundX } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -27,6 +28,15 @@ const DESKTOP_VIEW_KEY = 'rotacat:leaveTeamDesktopView'
 export default function LeaveListView({ leading = null, onCapture }) {
   const { isAdmin } = useAuth()
   const isWide = useIsDesktop(1024)
+  // A link into one doctor's leave (My year's "Open in Team Leave"):
+  // ?ldoctor=&lyear=&lrequest= opens the Matrix on that row and period.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const ldoctor = searchParams.get('ldoctor')
+  const lyear = searchParams.get('lyear')
+  const lrequest = searchParams.get('lrequest')
+  const focus = useMemo(() => (
+    ldoctor || lrequest ? { doctorId: ldoctor, year: Number(lyear) || null, requestId: lrequest } : null
+  ), [ldoctor, lyear, lrequest])
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -57,10 +67,23 @@ export default function LeaveListView({ leading = null, onCapture }) {
   if (loading) return <p className="text-sm text-ink-muted">Loading…</p>
   if (error) return <p className="text-sm text-flagRed">{error}</p>
 
-  const viewToggle = <ViewToggle view={view} onChange={setView} options={VIEW_OPTIONS} />
+  // The link shows the Matrix whatever view was last chosen; switching
+  // view drops it.
+  const shownView = focus ? 'matrix' : view
+  function changeView(next) {
+    setView(next)
+    if (focus) {
+      setSearchParams(prev => {
+        const p = new URLSearchParams(prev)
+        ;['ldoctor', 'lyear', 'lrequest'].forEach(k => p.delete(k))
+        return p
+      }, { replace: true })
+    }
+  }
+  const viewToggle = <ViewToggle view={shownView} onChange={changeView} options={VIEW_OPTIONS} />
 
-  if (isWide && view === 'matrix') {
-    return <LeaveMatrix requests={requests} controls={viewToggle} leading={leading} canCancelLeave={isAdmin} onLeaveCancelled={load} />
+  if (isWide && shownView === 'matrix') {
+    return <LeaveMatrix key={focus ? `${ldoctor}|${lyear}|${lrequest}` : 'matrix'} requests={requests} controls={viewToggle} leading={leading} canCancelLeave={isAdmin} onLeaveCancelled={load} focus={focus} />
   }
   return (
     <WhosAwayList

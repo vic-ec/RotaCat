@@ -115,6 +115,20 @@ describe('RosterGridPage day blocks', () => {
     }
   })
 
+  it('a day opened from My year (&mark=1) keeps a dark grey rail and frame, distinct from today', async () => {
+    renderPage('/roster/rm1?date=2026-08-20&doctor=nobody&mark=1')
+    await screen.findByText('August 2026')
+    const row = await waitFor(() => {
+      const el = document.querySelector('[data-testid="day-row"][data-date="2026-08-20"]')
+      expect(el).toHaveAttribute('data-marked', 'true')
+      return el
+    })
+    expect(row.querySelector('td').className).toMatch(/bg-ink-light/)
+    expect(document.querySelectorAll('[data-marked]').length).toBe(1)
+    // Today keeps its own accent rail.
+    expect(document.querySelector('[data-testid="day-row"][data-date="2026-08-05"] td').className).toMatch(/bg-accent/)
+  })
+
   it('a link naming an entry (&entry=) scrolls to and lights that row — a locum contact\'s shift has no doctor to match', async () => {
     const original = Element.prototype.scrollIntoView
     const scrolled = []

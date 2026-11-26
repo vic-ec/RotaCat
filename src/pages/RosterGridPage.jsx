@@ -181,6 +181,9 @@ export default function RosterGridPage() {
   const [pendingJumpId, setPendingJumpId] = useState(null)
   const [glowEntryId, setGlowEntryId] = useState(null)
   const [pendingJumpDate, setPendingJumpDate] = useState(null) // a day to scroll to, with no entry to light
+  // A day opened from My year (?date=…&mark=1) keeps a dark grey rail and
+  // frame, distinct from today's accent, until another day is opened.
+  const [markedDate, setMarkedDate] = useState(null)
   const [currentWeek, setCurrentWeek] = useState(0) // 0-indexed week
   const [publishing, setPublishing] = useState(false)
   const [publicHolidays, setPublicHolidays] = useState({}) // keyed by "YYYY-MM-DD" -> name
@@ -392,6 +395,7 @@ export default function RosterGridPage() {
       }
       if (target) setPendingJumpId(target.id)
       else setPendingJumpDate(date)
+      setMarkedDate(searchParams.get('mark') === '1' ? date : null)
       // &cover=1 (from Capture leave or the dashboard): open that shift's
       // cover decision straight away — the vacancy form on a published
       // roster, with the leave already linked; the shift menu on a draft.
@@ -406,7 +410,7 @@ export default function RosterGridPage() {
         }
       }
     }
-    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); next.delete('cover'); return next }, { replace: true })
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('date'); next.delete('doctor'); next.delete('entry'); next.delete('history'); next.delete('cover'); next.delete('mark'); return next }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once the roster has loaded
   }, [rosterMonth?.id, loading])
 
@@ -1426,8 +1430,12 @@ export default function RosterGridPage() {
               // its date rail is filled solid accent with "Today" under the
               // date, so the day stands out from its neighbours at a glance
               // (a 1px accent line alone read as just another row).
-              const line = isToday ? 'border-accent' : 'border-slate-line'
-              const cellFrame = isToday ? 'border-y-2 border-accent' : `border-y ${line}`
+              // A day opened from My year (not today) gets the same 2px
+              // frame and solid rail in dark grey instead.
+              const isMarked = !isToday && day.dateStr === markedDate
+              const strong = isToday || isMarked
+              const line = isToday ? 'border-accent' : isMarked ? 'border-ink-light' : 'border-slate-line'
+              const cellFrame = strong ? `border-y-2 ${line}` : `border-y ${line}`
               const headerBand = `whitespace-nowrap border-b ${line} px-1 py-1 text-center text-[0.917em] font-semibold ${chromeBg}`
 
               const consultantCell = (
@@ -1449,14 +1457,14 @@ export default function RosterGridPage() {
                       <td colSpan={wideGrid ? 6 : 5} className="p-0" />
                     </tr>
                   )}
-                  <tr data-testid="day-row" data-date={day.dateStr} className={rowBg}>
+                  <tr data-testid="day-row" data-date={day.dateStr} data-marked={isMarked || undefined} className={rowBg}>
                   {/* Date rail: pinned left on a phone with an opaque fill so
                       the shift columns scroll beneath it. */}
                   <td
-                    className={`${cellFrame} ${isToday ? 'border-l-2 border-r bg-accent text-on-fill' : `border-l border-r ${chromeBg} ${dateInk}`} rounded-l-md px-2 py-1.5 align-top font-medium ${wideGrid ? '' : 'sticky left-0 z-10'}`}
+                    className={`${cellFrame} ${isToday ? 'border-l-2 border-r bg-accent text-on-fill' : isMarked ? 'border-l-2 border-r bg-ink-light text-canvas' : `border-l border-r ${chromeBg} ${dateInk}`} rounded-l-md px-2 py-1.5 align-top font-medium ${wideGrid ? '' : 'sticky left-0 z-10'}`}
                     aria-current={isToday ? 'date' : undefined}
                   >
-                    <span className={`block text-[0.834em] ${isToday ? 'text-on-fill/80' : 'text-ink-muted'}`}>{DAY_NAMES[localDate.getDay()]}</span>
+                    <span className={`block text-[0.834em] ${isToday ? 'text-on-fill/80' : isMarked ? 'text-canvas/80' : 'text-ink-muted'}`}>{DAY_NAMES[localDate.getDay()]}</span>
                     <span>{d}</span>
                     {isToday && <span data-testid="today-tag" className="mt-0.5 block text-[0.75em] font-bold uppercase tracking-wide">Today</span>}
                     {day.phName && (
@@ -1465,7 +1473,7 @@ export default function RosterGridPage() {
                       </span>
                     )}
                     {!wideGrid && (
-                      <div data-testid="rail-consultant" className={`mt-1 overflow-hidden text-[0.834em] ${isToday ? 'text-on-fill/80' : 'text-ink-muted'}`}>
+                      <div data-testid="rail-consultant" className={`mt-1 overflow-hidden text-[0.834em] ${isToday ? 'text-on-fill/80' : isMarked ? 'text-canvas/80' : 'text-ink-muted'}`}>
                         {consultantCell}
                       </div>
                     )}
@@ -1494,7 +1502,7 @@ export default function RosterGridPage() {
                     return (
                       <td
                         key={code}
-                        className={`${cellFrame} align-top p-0 ${last ? `${isToday ? 'border-r-2' : 'border-r'} rounded-r-md` : ''}`}
+                        className={`${cellFrame} align-top p-0 ${last ? `${strong ? 'border-r-2' : 'border-r'} rounded-r-md` : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >

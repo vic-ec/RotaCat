@@ -58,7 +58,7 @@ export default function MyYearShifts({ year, shifts, onCall, lieu, holidayRows, 
           ) : (
             <ul className="divide-y divide-slate-line border-t border-slate-line">
               {holidayRows.map(row => {
-                const to = rosterLinkForDate(data.monthIds, row.date, { entry: row.entryId })
+                const to = rosterLinkForDate(data.monthIds, row.date, { entry: row.entryId, mark: true })
                 return (
                   <li key={row.entryId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-sm">
                     <span className="min-w-0">

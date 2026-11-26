@@ -717,6 +717,12 @@
     color: rgb(var(--color-on-sheen));
   }
   .sheen-divider .divider-meta { color: rgb(var(--color-on-sheen-2)); }
+  /* The roster's Fullscreen (RosterGridPage sets the class on <body>): the
+     app's sidebar, tab bar and their reserved space go, so the grid has
+     the whole screen — for reading it in landscape and for screenshots. */
+  body.roster-fullscreen [data-app-chrome] { display: none !important; }
+  body.roster-fullscreen [data-app-shell] { padding-bottom: 0 !important; }
+  body.roster-fullscreen [data-app-main] { padding: 0.25rem !important; }
   /* Popups: one surface for every hover hint and tap-to-read note in the
      app, so they look the same everywhere and in both day and night
      themes — the raised card colour, its hairline edge and lift shadow,

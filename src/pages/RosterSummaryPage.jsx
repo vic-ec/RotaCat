@@ -34,7 +34,7 @@ const LEAVE_TYPE_LABELS = Object.fromEntries(LEAVE_TYPE_OPTIONS.map(o => [o.valu
 // Consultant deliberately excluded — see rosterSummary.js's fetch-level note.
 // One fixed width for the Doctor column, header and cells alike — see the
 // header's own comment for why it can't be measured off the content.
-const DOCTOR_COLUMN = 'w-44 max-w-44'
+const DOCTOR_COLUMN = ''
 
 const CATEGORY_ORDER = ['MO', 'Registrar', 'COSMO', 'COSMOPsych', 'EC_Intern', 'OT_Intern', 'EC_COSMO_Intern', 'OT_COSMO_Intern', 'Intern', 'Locum']
 
@@ -176,6 +176,11 @@ export default function RosterSummaryPage() {
   const displayNames = buildDoctorDisplayNames(
     rows.map(r => ({ id: r.profileId, name: r.name, surname: r.surname }))
   )
+  // The Doctor column is as wide as the longest name on the whole page
+  // (collapsed sections included, so folding one never moves the grid) and
+  // no wider: a 10px pill is about 6.2px a character, plus its padding and
+  // the cell's. Names never wrap or truncate.
+  const doctorColWidth = Math.max(96, Math.ceil(Math.max(0, ...rows.map(r => fullDoctorName(r, displayNames.get(r.profileId) ?? r.surname).length)) * 6.2) + 34)
 
   const availableCategories = CATEGORY_ORDER.filter(c => rows.some(r => r.category === c))
   const filtersActive = selectedCategories.size > 0 || selectedContractTypes.size > 0 || selectedHours.size > 0
@@ -378,7 +383,7 @@ export default function RosterSummaryPage() {
                     right jumps sideways. 11rem fits the longest surname the
                     roster holds at this size, and a longer one truncates in
                     its pill rather than moving the grid. */}
-                <th className={`sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left ${DOCTOR_COLUMN}`} rowSpan={2}>Doctor</th>
+                <th style={{ width: doctorColWidth, minWidth: doctorColWidth }} className={`sticky left-0 z-20 border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-left ${DOCTOR_COLUMN}`} rowSpan={2}>Doctor</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={3}>Totals</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKDAY_COLUMNS.length}>Weekday</th>
                 <th className="border-b border-r border-slate-line bg-canvas-sunken px-2 py-1.5 text-center" colSpan={WEEKEND_COLUMNS.length}>Weekend</th>
@@ -466,13 +471,14 @@ export default function RosterSummaryPage() {
                         what sets the column's width. */}
                     <td
                       title={`${row.name} ${row.surname}`}
+                      style={{ width: doctorColWidth, minWidth: doctorColWidth }}
                       className={`sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line px-2 py-1.5 align-top ${DOCTOR_COLUMN} ${
                         isSelected ? 'bg-accent-tint' : 'hover:bg-canvas-cool'
                       } ${isMe ? `shadow-[inset_3px_0_0_theme(colors.accent.DEFAULT)] ${isSelected ? '' : 'bg-canvas-cool'}` : (isSelected ? '' : 'bg-canvas')}`}
                     >
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="truncate whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
+                          className="whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
                           style={swatch.fill(row.colorCode || '#4A90D9', { text: true })}
                         >
                           {fullDoctorName(row, displayNames.get(row.profileId) ?? row.surname)}
@@ -487,7 +493,7 @@ export default function RosterSummaryPage() {
                     </td>
                     <td className="border-b border-slate-hairline px-2 py-1.5 text-center text-ink-light">
                       {row.minHours}–{row.maxHours}
-                      {row.underTracked !== false && row.adjustedMinHours != null && row.adjustedMinHours !== row.minHours && (
+                      {row.underTracked !== false && Boolean(row.minHours) && row.adjustedMinHours != null && row.adjustedMinHours !== row.minHours && (
                         <span className="block text-[10px] text-ink-muted" title={minimumNote(row)}>min {row.adjustedMinHours} this month</span>
                       )}
                     </td>

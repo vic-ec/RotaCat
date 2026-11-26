@@ -10,7 +10,7 @@ import {
   leaveTotals, breakSummary, lieuBalance, shiftCounts, onCallDates, leaveRecord, buildYearDays, approvedLeaveRanges,
 } from '../lib/myYear'
 import { fetchMyYear, isProfileId } from '../lib/myYearData'
-import { useBack } from '../lib/backNav'
+import { useBack, rememberPageLabel } from '../lib/backNav'
 import { ALL_LEAVE_PATH, MY_LEAVE_PATH } from '../lib/myYearLinks'
 import { fetchLateArrivalsForProfile, fetchMyLateArrivals } from '../lib/lateArrivals'
 import LateArrivalModal from '../components/LateArrivalModal'
@@ -178,6 +178,7 @@ function MyYear({ profileId, own }) {
 
   const firstName = person.name || person.surname || 'This doctor'
   const title = own ? 'My year' : `${firstName}’s year`
+  rememberPageLabel(own ? '/my-year' : `/my-year/${profileId}`, title)
   const month = year === currentYear ? Number(today.slice(5, 7)) : 12
   const hoursSummaryTo = `/roster?view=summary&year=${year}&month=${month}`
   const goTo = [

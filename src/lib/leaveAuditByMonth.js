@@ -63,6 +63,7 @@ export function buildMonthAuditRows(profiles, requests, year, { today, allowance
         surname: profile.surname,
         category: profile.category,
         contractType: profile.contract_type ?? null,
+        psychSubcategory: profile.psych_subcategory ?? null,
         colorCode: profile.color_code ?? null,
         ...row,
         annualLeft: allowance - row.annual,

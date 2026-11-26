@@ -1,6 +1,7 @@
 import { shortDate } from './reviewLog'
 import { locumDisplayName } from './locumCover'
 import { adjustedTimesLabel } from './shiftTimes'
+import { LEAVE_TYPE_LABELS } from './leaveRequests'
 
 // What the roster's edit marker (a small pen on a name) says: who is on the
 // shift and how they got there, for a shift changed by hand. Null for a
@@ -14,14 +15,25 @@ export function isEditedEntry(entry) {
 // `change`: the newest roster_entry_changes row for this entry (admins
 // only — see fetchLatestChangeByEntry), or undefined. `nameOf(id)` the
 // doctor's full name.
-export function editHint({ entry, change, nameOf }) {
+// `leaveType`: the leave the covered doctor was taken off for, when the
+// reason is leave — "Alli (locum) covering Cara Landes — sick leave".
+function leaveWords(leaveType) {
+  const label = LEAVE_TYPE_LABELS[leaveType]
+  if (!label) return 'leave'
+  const lower = label.charAt(0).toLowerCase() + label.slice(1)
+  return /leave$/i.test(lower) ? lower : `${lower} leave`
+}
+
+export function editHint({ entry, change, nameOf, leaveType = null }) {
   if (!isEditedEntry(entry)) return null
   const holder = entry.is_locum
     ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : 'Open slot')
     : (nameOf(entry.profile_id) || 'This doctor')
   let text
   if (entry.vacated_profile_id) {
-    const reason = REASONS[entry.vacated_reason] ? ` — ${REASONS[entry.vacated_reason]}` : ''
+    const reason = entry.vacated_reason === 'leave'
+      ? ` — ${leaveWords(leaveType)}`
+      : REASONS[entry.vacated_reason] ? ` — ${REASONS[entry.vacated_reason]}` : ''
     text = `${holder} covering ${nameOf(entry.vacated_profile_id) || 'a doctor'}${reason}`
   } else if (change?.action === 'move' && change.date_before) {
     text = `${holder}, moved here from ${shortDate(change.date_before)}`

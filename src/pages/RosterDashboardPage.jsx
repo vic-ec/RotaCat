@@ -13,6 +13,7 @@ import GenerationRunsPanel from '../components/GenerationRunsPanel'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import RosterSummaryPage from './RosterSummaryPage'
 import RowActionIcon from '../components/RowActionIcon'
+import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -20,6 +21,7 @@ const MONTH_NAMES = [
 ]
 
 // Tag's semantic status tones — see docs/design/layout-spec.md §9.
+const MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const STATUS_TONE = {
   draft:     'warning',
   published: 'success',
@@ -229,6 +231,29 @@ export default function RosterDashboardPage() {
   const moveToBin = (ids) => runAction(() =>
     supabase.from('roster_months').update({ deleted_at: new Date().toISOString() }).in('id', ids))
 
+  // Publish several drafts at once — the same two steps as the roster
+  // page's own Publish, roster by roster in date order (the weekend
+  // pattern each one leaves behind is what the next month continues from).
+  const publishMany = (ids) => {
+    const chosen = rosters.filter(r => ids.includes(r.id) && r.status === 'draft')
+      .sort((a, b) => a.year - b.year || a.month - b.month)
+    if (chosen.length === 0) return
+    const names = chosen.map(r => `${MONTH_LABELS[r.month - 1]} ${r.year}`).join(', ')
+    if (!window.confirm(`Publish ${chosen.length === 1 ? 'this roster' : `these ${chosen.length} rosters`}? ${names}. Every doctor will be able to see ${chosen.length === 1 ? 'it' : 'them'}.`)) return
+    return runAction(async () => {
+      const { data: types } = await supabase.from('shift_types').select('id, code')
+      const codes = Object.fromEntries((types || []).map(t => [t.id, t.code]))
+      for (const r of chosen) {
+        const { error } = await supabase.from('roster_months')
+          .update({ status: 'published', published_at: new Date().toISOString() }).eq('id', r.id)
+        if (error) return { error }
+        const { data: entries } = await supabase.from('roster_entries').select('*').eq('roster_month_id', r.id)
+        await syncWeekendPatternsFromEntries((entries || []).map(e => ({ ...e, date: e.date?.slice(0, 10) })), codes)
+      }
+      return { error: null }
+    })
+  }
+
   const restoreFromBin = (ids) => runAction(() =>
     supabase.from('roster_months').update({ deleted_at: null }).in('id', ids))
 
@@ -415,7 +440,10 @@ export default function RosterDashboardPage() {
                   { header: 'Created', cell: r => formatDate(r.created_at) },
                   { header: 'Notes', cell: r => (r.carry_forward ? 'Carry-forward used' : '') },
                 ]}
-                actions={[{ label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } }]}
+                actions={[
+                  { label: 'Publish', primary: true, onClick: (ids) => { publishMany(ids); setDraftSel(new Set()) } },
+                  { label: 'Move to Bin', destructive: true, onClick: (ids) => { moveToBin(ids); setDraftSel(new Set()) } },
+                ]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
                 isAdmin={isAdmin}
               />
@@ -690,7 +718,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                 onClick={() => action.onClick([...selected])}
                 // A bulk action that bins or deletes is destructive and takes
                 // the outlined red; Archive / Unarchive stay generic.
-                className={`${action.destructive ? 'btn-danger-outline' : 'btn-secondary'} px-3`}
+                className={`${action.destructive ? 'btn-danger-outline' : action.primary ? 'btn-primary' : 'btn-secondary'} px-3`}
               >
                 {action.label} ({selected.size})
               </button>

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -20,7 +20,27 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, o
   const [anchorRect, setAnchorRect] = useState(null)
   const triggerRef = useRef(null)
   const popRef = useRef(null)
-  useDismissablePopover(open, () => setOpen(false), popRef, [triggerRef])
+  useDismissablePopover(open, () => { setOpen(false); setPinned(false) }, popRef, [triggerRef])
+  // On a desktop (a pointer that hovers) the note also opens on hover and
+  // closes when the pointer leaves it and the name — with a short grace so
+  // the pointer can travel into the note (to Cancel leave). A tap or click
+  // still opens it everywhere.
+  const canHover = typeof window !== 'undefined' && window.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches
+  const leaveTimer = useRef(null)
+  // A click on a note the pointer opened keeps it open (pinned) until the
+  // × or a click elsewhere, rather than closing it again.
+  const [pinned, setPinned] = useState(false)
+  useEffect(() => () => clearTimeout(leaveTimer.current), [])
+  function hoverOpen() {
+    if (!canHover) return
+    clearTimeout(leaveTimer.current)
+    if (!open && triggerRef.current) { setAnchorRect(triggerRef.current.getBoundingClientRect()); setOpen(true) }
+  }
+  function hoverClose() {
+    if (!canHover || pinned) return
+    clearTimeout(leaveTimer.current)
+    leaveTimer.current = setTimeout(() => setOpen(false), 200)
+  }
 
   const hint = `${summary.doctorName} — ${summary.headline}`
   if (!interactive) {
@@ -29,9 +49,11 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, o
 
   function toggle(e) {
     e.stopPropagation()
-    if (open) { setOpen(false); return }
+    if (open && canHover && !pinned) { clearTimeout(leaveTimer.current); setPinned(true); return }
+    if (open) { setOpen(false); setPinned(false); return }
     setAnchorRect(triggerRef.current.getBoundingClientRect())
     setOpen(true)
+    setPinned(true)
   }
 
   const width = 220
@@ -43,6 +65,8 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, o
         ref={triggerRef}
         type="button"
         onClick={toggle}
+        onMouseEnter={hoverOpen}
+        onMouseLeave={hoverClose}
         aria-expanded={open}
         aria-label={`${hint}. Show details`}
         className={`min-w-0 truncate text-left line-through decoration-ink-muted hover:text-ink ${className}`}
@@ -59,13 +83,15 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, o
           // The popup is portalled, but React still bubbles its clicks to the
           // chip that holds the name — whose own click means something else.
           onClick={e => e.stopPropagation()}
+          onMouseEnter={hoverOpen}
+          onMouseLeave={hoverClose}
         >
           {/* Close, as every other popover and sheet in the app has one. */}
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-semibold text-ink">{summary.headline}</p>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => { setOpen(false); setPinned(false) }}
               aria-label="Close"
               className="btn-close -mr-1 -mt-0.5 h-6 w-6 flex-shrink-0 text-ink-muted"
             >
@@ -77,7 +103,7 @@ export default function RosterAbsenceNote({ name, summary, interactive = true, o
           {onCancelLeave && (
             <button
               type="button"
-              onClick={() => { setOpen(false); onCancelLeave() }}
+              onClick={() => { setOpen(false); setPinned(false); onCancelLeave() }}
               className="btn-secondary mt-3 w-full text-sm text-flagRed"
               data-testid="absence-cancel-leave"
             >

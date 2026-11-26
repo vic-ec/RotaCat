@@ -116,6 +116,16 @@ export async function createLocumContact({ name, surname, phone, createdBy }) {
   return data
 }
 
+// A contact's mobile, corrected from the Staff page (admins; RLS). Stored
+// as its 10 digits, as createLocumContact's callers store it.
+export async function updateLocumContactPhone(contactId, phone) {
+  const digits = (phone || '').replace(/\D/g, '')
+  if (digits.length !== 10) throw new Error('Enter all 10 digits.')
+  const { error } = await supabase.from('locum_contacts').update({ phone: digits }).eq('id', contactId)
+  if (error) throw new Error(error.message)
+  return digits
+}
+
 // How many shifts sit under each contact, for the Staff page's list.
 export async function fetchContactShiftCounts(contactIds) {
   const counts = new Map()

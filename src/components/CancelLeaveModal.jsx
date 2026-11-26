@@ -4,6 +4,9 @@ import { LEAVE_TYPE_LABELS, naturalLeavePeriodLabel } from '../lib/leaveRequests
 import {
   cancelLeaveRequest, fetchRosterMonthsAffected, isValidCancelReason, rosterWarningText, CANCEL_REASON_MIN_LENGTH,
 } from '../lib/leaveCancellation'
+import { fetchLeaveShifts, afterLeaveCancelled, newBatchId } from '../lib/rosterEdits'
+import { useAuth } from '../context/AuthContext'
+import LeaveShiftsChoice from './LeaveShiftsChoice'
 
 // The confirmation step in front of cancelling leave, shared by the
 // doctor's My Requests and every admin surface (Team leave matrix, mobile
@@ -19,11 +22,24 @@ import {
 // `children`: anything the caller needs decided alongside (the roster asks
 // what happens to shifts the leave opened); `canConfirm` false keeps the
 // button off until it is.
+// The shifts this leave took the doctor off (roster rows linked to it) are
+// read here, wherever the leave is cancelled from: an admin chooses what
+// happens to them in the same step (keep the cover, or put the doctor
+// back); a doctor cancelling their own is told an admin will review them.
 export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled, children = null, canConfirm = true }) {
+  const { user } = useAuth()
   const [reason, setReason] = useState('')
+  const [shifts, setShifts] = useState([])
+  const [shiftsChoice, setShiftsChoice] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [rosterWarning, setRosterWarning] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetchLeaveShifts(request.id).then(rows => { if (!cancelled) setShifts(rows) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [request.id])
 
   useEffect(() => {
     let cancelled = false
@@ -44,6 +60,19 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled,
     setError('')
     try {
       const row = await cancelLeaveRequest(request.id, reason)
+      // An admin's choice for the shifts, as one undoable batch.
+      if (!isOwn && shifts.length > 0 && shiftsChoice) {
+        const batchId = newBatchId()
+        const nameOf = () => who || 'Doctor'
+        for (const s of shifts) {
+          try {
+            await afterLeaveCancelled({
+              rosterMonthId: s.rosterMonthId, entry: s.entry, shiftCode: s.shiftCode, entries: [],
+              undoShift: shiftsChoice === 'undo', adminId: user?.id, nameOf, batchId,
+            })
+          } catch { /* a shift that can't change stays for review on the roster */ }
+        }
+      }
       onCancelled?.(row)
     } catch (err) {
       setError(err.message)
@@ -65,7 +94,7 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled,
           <button
             type="button"
             onClick={confirm}
-            disabled={saving || !isValidCancelReason(reason) || !canConfirm}
+            disabled={saving || !isValidCancelReason(reason) || !canConfirm || (!isOwn && shifts.length > 0 && !shiftsChoice)}
             className="btn-danger text-sm"
             title={isValidCancelReason(reason) ? undefined : 'A reason is required'}
           >
@@ -91,6 +120,15 @@ export default function CancelLeaveModal({ request, isOwn, onClose, onCancelled,
       )}
 
       {children}
+      {shifts.length > 0 && !isOwn && (
+        <LeaveShiftsChoice doctorName={who || 'the doctor'} shifts={shifts} value={shiftsChoice} onChange={setShiftsChoice} />
+      )}
+      {shifts.length > 0 && isOwn && (
+        <p className="mt-3 rounded-lg bg-canvas-sunken px-3 py-2 text-sm text-ink-light" data-testid="own-leave-shifts-note">
+          This leave took you off {shifts.length === 1 ? 'a shift' : `${shifts.length} shifts`} ({shifts.map(s => s.entry.date).join(', ')}).
+          The roster stays as it is until an admin reviews {shifts.length === 1 ? 'it' : 'them'}: they will either keep the cover or put you back, and you will see the result on the roster.
+        </p>
+      )}
 
       <label className="label-text mt-4 block" htmlFor="cancel-leave-reason">Reason (required)</label>
       <textarea

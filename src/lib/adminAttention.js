@@ -61,6 +61,19 @@ export function buildAttentionItems(data) {
       label: `rostered ${plural(n, 'shift needs', 'shifts need')} cover — the doctor is on leave`,
     })
   }
+  // Shifts a doctor came off for leave that has since been cancelled
+  // (from Team Leave, or by the doctor): the roster still says "leave"
+  // until an admin keeps the cover or puts them back. Soonest first.
+  const cancelledLeaveShifts = [...(data.cancelledLeaveShifts || [])].sort((a, b) => a.date.localeCompare(b.date))
+  if (cancelledLeaveShifts.length > 0) {
+    const n = cancelledLeaveShifts.length
+    const first = cancelledLeaveShifts[0]
+    items.push({
+      key: 'cancelled-leave-shifts', count: n,
+      to: `/roster/${first.roster_month_id}?date=${first.date}&entry=${first.id}&mode=edit`,
+      label: `${plural(n, 'shift is', 'shifts are')} still marked as leave after the leave was cancelled`,
+    })
+  }
   const isCurrentOrLater = r => r.year > year || (r.year === year && r.month >= month)
 
   // 1. Unfilled shifts in a published roster, this month onward — a
@@ -166,7 +179,7 @@ export async function fetchAdminAttention(now = new Date()) {
   const nextSaturdays = saturdaysInMonth(next.year, next.month)
   const empty = { data: [], count: 0 }
 
-  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, rotatingRes] = await Promise.all([
+  const [rostersRes, plannerRes, signupsRes, requestsRes, locumContactsRes, neverRes, rotatingRes, cancelledLeaveRes] = await Promise.all([
     safe(supabase.from('roster_months').select('id, year, month, status').is('deleted_at', null).gte('year', year), empty),
     nextSaturdays.length > 0
       ? safe(supabase.from('weekend_planner_entries').select('weekend_saturday')
@@ -177,6 +190,9 @@ export async function fetchAdminAttention(now = new Date()) {
     safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
     safe(supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true), empty),
+    safe(supabase.from('roster_entries')
+      .select('id, date, roster_month_id, leave:leave_requests!roster_entries_vacated_leave_request_id_fkey(status), roster_months!inner(deleted_at)')
+      .eq('vacated_reason', 'leave').not('vacated_leave_request_id', 'is', null).is('roster_months.deleted_at', null), empty),
   ])
 
   const rosters = rostersRes.data || []
@@ -223,6 +239,9 @@ export async function fetchAdminAttention(now = new Date()) {
   return buildAttentionItems({
     year, month, rosters, locumCountByRosterId,
     shiftsOnLeave: onLeaveShifts,
+    cancelledLeaveShifts: (cancelledLeaveRes.data || [])
+      .filter(r => r.leave?.status === 'cancelled' && !r.roster_months?.deleted_at)
+      .map(r => ({ id: r.id, date: r.date?.slice(0, 10), roster_month_id: r.roster_month_id })),
     plannedSaturdays: new Set((plannerRes.data || []).map(e => e.weekend_saturday)),
     pendingSignups: signupsRes.count || 0,
     accountRequests: requestsRes.count || 0,

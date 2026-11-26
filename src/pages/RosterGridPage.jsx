@@ -40,7 +40,6 @@ import CancelLeaveModal from '../components/CancelLeaveModal'
 import { editHint } from '../lib/rosterEditHint'
 import { fetchLatestChangeByEntry } from '../lib/changeLog'
 import { useBack } from '../lib/backNav'
-import LeaveShiftsChoice from '../components/LeaveShiftsChoice'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
 import RosterLanesView, { LanesLegend } from '../components/RosterLanesView'
@@ -164,9 +163,6 @@ export default function RosterGridPage() {
   }
   // The newest change to each entry (admins), for the edit marker's hint.
   const [latestChanges, setLatestChanges] = useState(() => new Map())
-  // What happens to the shifts that leave took the doctor off: 'undo'
-  // (put them back) or 'keep' — asked in the same dialog.
-  const [leaveShiftsChoice, setLeaveShiftsChoice] = useState('')
   const [leaveByProfile, setLeaveByProfile] = useState({}) // profile_id -> [[dateFrom, dateTo, leaveType|null, id|null], ...] approved leave
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -674,6 +670,7 @@ export default function RosterGridPage() {
     if (!entry?.vacated_profile_id || entry.vacated_reason !== 'leave') return null
     const ranges = leaveByProfile?.[entry.vacated_profile_id] || []
     const range = ranges.find(r => r[3] && r[3] === entry.vacated_leave_request_id) || leaveRangeOn(leaveByProfile, entry.vacated_profile_id, entry.date)
+    if (!range && entry.vacated_leave_request_id) return 'cancelled'
     return range?.[2] || null
   }
   function absenceFor(entry) {
@@ -697,20 +694,6 @@ export default function RosterGridPage() {
     }
   }
 
-  // The shifts this roster shows that the leave being cancelled opened.
-  // A function, read when the dialog renders: computed here as a value it
-  // ran before nameOf (declared further down) existed, and opening the
-  // dialog for a leave that took someone off a shift blanked the page.
-  const leaveShiftsFor = request => request
-    ? entries.filter(e => e.vacated_leave_request_id === cancelLeaveFor.id).map(entry => ({
-        entry,
-        shiftCode: shiftTypes[entry.shift_type_id] || 'UNKNOWN',
-        cover: entry.is_locum
-          ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : 'open locum slot')
-          : entry.profile_id ? nameById(entry.profile_id) : null,
-        blocker: rosterEdits.leaveShiftBlocker({ entry, entries, nameOf }),
-      }))
-    : []
 
   function handleCellClick(date, shiftCode, existingEntry, event = null) {
     if (!canEdit) return
@@ -1092,40 +1075,16 @@ export default function RosterGridPage() {
         />
       )}
 
-      {cancelLeaveFor && (() => { const leaveShifts = leaveShiftsFor(cancelLeaveFor); return (
+      {cancelLeaveFor && (
+        // The dialog reads and asks about the shifts the leave opened
+        // itself (the same everywhere leave is cancelled).
         <CancelLeaveModal
           request={cancelLeaveFor}
           isOwn={false}
-          canConfirm={leaveShifts.length === 0 || Boolean(leaveShiftsChoice)}
-          onClose={() => { setCancelLeaveFor(null); setLeaveShiftsChoice('') }}
-          onCancelled={() => {
-            const shifts = leaveShifts
-            const undoShift = leaveShiftsChoice === 'undo'
-            setCancelLeaveFor(null)
-            setLeaveShiftsChoice('')
-            if (shifts.length === 0) { refreshLeave(); return }
-            // One batch for every shift the leave opened, so Undo treats
-            // the follow-up as one change.
-            const batchId = rosterEdits.newBatchId()
-            runEdit(async () => {
-              let last
-              for (const { entry, shiftCode } of shifts) {
-                last = await rosterEdits.afterLeaveCancelled({ rosterMonthId: id, entry, shiftCode, entries, undoShift, adminId: user.id, nameOf, batchId })
-              }
-              return { ...last, description: `Leave cancelled; ${shifts.length === 1 ? last.description : (undoShift ? `${nameOf(shifts[0].entry.vacated_profile_id) || 'Doctor'} back on ${shifts.length} shifts` : `${shifts.length} shifts kept as they are`)}` }
-            }).then(refreshLeave)
-          }}
-        >
-          {leaveShifts.length > 0 && (
-            <LeaveShiftsChoice
-              doctorName={cancelLeaveFor.profiles?.name || 'the doctor'}
-              shifts={leaveShifts}
-              value={leaveShiftsChoice}
-              onChange={setLeaveShiftsChoice}
-            />
-          )}
-        </CancelLeaveModal>
-      ) })()}
+          onClose={() => setCancelLeaveFor(null)}
+          onCancelled={() => { setCancelLeaveFor(null); refreshLeave(); refreshEntries() }}
+        />
+      )}
 
       {absenceOpen && rosterMonth && (
         <Modal title="Record an absence" onClose={() => setAbsenceOpen(false)} centered>
@@ -1649,7 +1608,19 @@ export default function RosterGridPage() {
           onAdvertise={entry => runEdit(() => rosterEdits.advertise(editArgs(entry)))}
           onUnadvertise={entry => runEdit(() => rosterEdits.unadvertise(editArgs(entry)))}
           onChangeTimes={(entry, { start, end }) => runEdit(() => rosterEdits.changeTimes({ ...editArgs(entry), start, end }))}
-          onReinstate={(entry, { cancelLeave }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave })).then(refreshLeave)}
+          onReinstate={(entry, { cancelLeave, overCover = false }) => runEdit(() => rosterEdits.reinstate({ ...editArgs(entry), entries, cancelLeave, overCover })).then(refreshLeave)}
+          onRemoveCover={(entry, mode) => runEdit(() => rosterEdits.removeCover({ ...editArgs(entry), mode }))}
+          onMoveCover={(entry, { date: targetDate, code }) => runEdit(() => rosterEdits.moveCover({
+            ...editArgs(entry), targetDate, targetShiftCode: code, targetShiftTypeId: shiftTypeIdFor(code), entries,
+          }))}
+          onChangeReason={(entry, opts) => runEdit(() => rosterEdits.changeAbsenceReason({
+            ...editArgs(entry), ...opts,
+            existingLeaveId: leaveRangeOn(leaveByProfile, entry.vacated_profile_id, entry.date)?.[3] || null,
+          })).then(refreshLeave)}
+          shiftsForDate={date => {
+            const day = calendarDays.find(d => d.dateStr === date)
+            return day ? getShiftsForDay(day.dayType) : []
+          }}
           onSwap={(entry, other, otherCode) => runEdit(() => rosterEdits.swapEntries({
             rosterMonthId: id, a: entry, b: other, shiftCodeA: menu.shiftCode, shiftCodeB: otherCode, entries,
             isOnLeave: (profileId, date) => isOnApprovedLeave({ leaveByProfile, profileId, date }),

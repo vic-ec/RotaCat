@@ -26,7 +26,7 @@ import { entrySnapshot, findSameDayConflict, isNoCoverRow, NO_COVER_PATCH } from
 import { labelForShiftCode } from './shiftLabels'
 import { shortDate } from './reviewLog'
 import { cancelLeaveRequest } from './leaveCancellation'
-import { LEAVE_TYPE_LABELS } from './leaveRequests'
+import { LEAVE_TYPE_LABELS, submitLeaveRequest } from './leaveRequests'
 import { adjustedTimesLabel, validateTimes } from './shiftTimes'
 
 // What a tapped roster cell is, and so which shift menu it gets (see
@@ -237,6 +237,125 @@ export async function removeLocum({ rosterMonthId, entry, shiftCode, adminId, na
   return { batchId, description: `${holderName(entry, nameOf)} removed from ${shiftLabel(entry.date, shiftCode)}; the slot is open again`, logError }
 }
 
+// ── The cover on a shift a doctor came off ──────────────────────────────
+// Who covers a row, as a cover object assignCover takes (lib/locumCover).
+export function coverOf(entry, nameOf) {
+  if (!entry) return null
+  if (entry.locum_contact_id) return { kind: 'contact', id: entry.locum_contact_id, name: locumDisplayName(entry.locum_name) }
+  if (entry.is_locum && entry.profile_id) {
+    const full = nameOf(entry.profile_id) || ''
+    return { kind: 'locum', id: entry.profile_id, name: full.split(' ')[0], surname: locumDisplayName(entry.locum_name) || full.split(' ').slice(1).join(' ') }
+  }
+  if (entry.profile_id) return { kind: 'doctor', id: entry.profile_id }
+  return null
+}
+
+// Remove → the cover comes off and the absent doctor stays struck through:
+//   'open'       the slot reopens as [ ]
+//   'advertise'  the same, and it is offered to locums
+//   'close'      no slot; the shift runs short
+export async function removeCover({ rosterMonthId, entry, shiftCode, mode, adminId, nameOf, batchId = newBatchId() }) {
+  if (!['open', 'advertise', 'close'].includes(mode)) throw new Error('Choose what happens to the shift.')
+  if (!entry.vacated_profile_id) throw new Error('Nobody was taken off this shift.')
+  const sideEffects = emptySideEffects()
+  sideEffects.adverts_cancelled = await cancelOpenAdverts(entry.id)
+  const patch = mode === 'close'
+    ? { ...NO_COVER_PATCH }
+    : { ...OPEN_SLOT_PATCH, counts_toward_contract_hours: entry.counts_toward_contract_hours }
+  await updateEntry(entry.id, patch)
+  if (mode === 'advertise') {
+    const { data: ad } = await supabase.from('shift_advertisements')
+      .insert({ roster_entry_id: entry.id, advertised_by: adminId, status: 'open' }).select('id').maybeSingle()
+    sideEffects.advert_created = ad?.id ?? null
+  }
+  const entryAfter = { ...entry, ...patch }
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: entry.id, entryDate: entry.date, shiftCode, action: 'remove',
+    profileIdBefore: entry.profile_id, profileIdAfter: null, advertised: mode === 'advertise', changedBy: adminId,
+    locumName: !entry.profile_id ? locumDisplayName(entry.locum_name) || null : null,
+    note: mode === 'close' ? 'Cover removed; shift runs short' : 'Cover removed; slot reopened',
+    batchId, entryBefore: entrySnapshot(entry), entryAfter: entrySnapshot(entryAfter), sideEffects,
+  })
+  const who = holderName(entry, nameOf)
+  const what = mode === 'close' ? 'the shift runs short' : mode === 'advertise' ? 'the slot is open and advertised' : 'the slot is open again'
+  return { batchId, description: `${who} removed from ${shiftLabel(entry.date, shiftCode)}; ${what}`, logError }
+}
+
+// Move → the cover goes to another shift (any day of the month) and this
+// slot reopens as [ ], the absent doctor still struck through above it.
+export async function moveCover({ rosterMonthId, entry, shiftCode, targetDate, targetShiftCode, targetShiftTypeId, entries, adminId, nameOf, batchId = newBatchId() }) {
+  const cover = coverOf(entry, nameOf)
+  if (!cover) throw new Error('Nobody covers this shift.')
+  if (cover.kind !== 'contact' && findSameDayConflict({ entries, date: targetDate, profileId: cover.id, excludeEntryId: entry.id })) {
+    throw new Error(`${holderName(entry, nameOf)} already has a shift on ${shortDate(targetDate)}.`)
+  }
+  if (targetDate === entry.date && targetShiftCode === shiftCode) throw new Error('Pick a different shift.')
+  await assignCover({ rosterMonthId, cover, date: targetDate, shiftCode: targetShiftCode, shiftTypeId: targetShiftTypeId, adminId, nameOf, batchId })
+  await removeCover({ rosterMonthId, entry, shiftCode, mode: 'open', adminId, nameOf, batchId })
+  return {
+    batchId,
+    description: `${holderName(entry, nameOf)} moved to ${shiftLabel(targetDate, targetShiftCode)}; ${shiftLabel(entry.date, shiftCode)} is open again`,
+    logError: null,
+  }
+}
+
+// ── Why the absent doctor is off ─────────────────────────────────────────
+// Change the reason recorded for a doctor taken off this shift — "sick
+// leave" recorded in error that was really a swap, say. reason: 'sick' |
+// 'leave' (with leaveType) | 'swap' | 'no_show' | 'other' (note needed).
+// A leave reason links the leave already covering the date or captures a
+// one-day one; moving off leave can cancel the leave it was linked to
+// (cancelLeave). The shift and its cover are untouched.
+const REASON_STORED = { sick: 'leave', leave: 'leave', swap: 'swap', no_show: 'no_show', other: 'other' }
+export async function changeAbsenceReason({
+  rosterMonthId, entry, shiftCode, reason, leaveType = 'sick', note = '', existingLeaveId = null, cancelLeave = false,
+  adminId, nameOf, batchId = newBatchId(),
+}) {
+  const stored = REASON_STORED[reason]
+  if (!stored) throw new Error('Choose a reason.')
+  if (!entry.vacated_profile_id) throw new Error('Nobody was taken off this shift.')
+  const trimmed = (note || '').trim()
+  if (reason === 'other' && !trimmed) throw new Error('Add a note explaining the reason.')
+  const name = nameOf(entry.vacated_profile_id) || 'This doctor'
+  const sideEffects = emptySideEffects()
+  const type = reason === 'sick' ? 'sick' : leaveType
+  let leaveId = null
+  if (stored === 'leave') {
+    leaveId = existingLeaveId
+    if (!leaveId) {
+      const captured = await submitLeaveRequest({
+        profileId: entry.vacated_profile_id, isAdmin: true, leaveType: type,
+        dateFrom: entry.date, dateTo: entry.date, annualLeaveDays: type === 'annual' ? 1 : null,
+        notes: trimmed, capturedBy: adminId,
+      })
+      leaveId = captured?.leaveRequestId ?? null
+      sideEffects.leave_request_captured = leaveId
+    }
+  } else if (cancelLeave && entry.vacated_leave_request_id) {
+    await cancelLeaveRequest(entry.vacated_leave_request_id, 'Reason changed on the roster')
+    sideEffects.leave_request_cancelled = entry.vacated_leave_request_id
+  }
+  const patch = {
+    vacated_reason: stored,
+    vacated_note: stored === 'leave' ? null : (trimmed || null),
+    vacated_leave_request_id: leaveId,
+  }
+  await updateEntry(entry.id, patch)
+  const label = stored === 'leave' ? (LEAVE_TYPE_LABELS[type] || 'Leave') : { swap: 'Swap', no_show: 'No-show', other: 'Other reason' }[stored]
+  const { error: logError } = await logRosterEntryChange({
+    rosterMonthId, rosterEntryId: entry.id, entryDate: entry.date, shiftCode, action: 'assign',
+    profileIdBefore: entry.profile_id ?? null, profileIdAfter: entry.profile_id ?? null, changedBy: adminId,
+    reason: stored, note: `Reason changed to ${label.toLowerCase()}${trimmed && stored !== 'leave' ? `: ${trimmed}` : ''}`,
+    leaveRequestId: leaveId, batchId,
+    entryBefore: entrySnapshot(entry), entryAfter: entrySnapshot({ ...entry, ...patch }), sideEffects,
+  })
+  return {
+    batchId,
+    description: `${possessive(name)} reason on ${shiftLabel(entry.date, shiftCode)} is now ${label.toLowerCase()}${sideEffects.leave_request_cancelled ? '; their leave was cancelled' : ''}`,
+    logError,
+  }
+}
+
 // ── Move (drag and drop) ─────────────────────────────────────────────────
 export async function moveEntry({ rosterMonthId, entry, shiftCodeBefore, targetDate, targetShiftCode, targetShiftTypeId, entries, adminId, nameOf, batchId = newBatchId() }) {
   if (findSameDayConflict({ entries, date: targetDate, profileId: entry.profile_id, excludeEntryId: entry.id })) {
@@ -419,13 +538,13 @@ export async function unadvertise({ rosterMonthId, entry, shiftCode, adminId, ba
 // ── Put back ─────────────────────────────────────────────────────────────
 // Which refusal, if any, "Put back" meets — checked before the menu offers
 // it, and again when it runs.
-export function reinstateBlocker({ entry, entries, nameOf }) {
+export function reinstateBlocker({ entry, entries, nameOf, overCover = false }) {
   if (!entry?.vacated_profile_id) return 'Nobody was taken off this shift.'
   const name = nameOf(entry.vacated_profile_id) || 'This doctor'
   if (findSameDayConflict({ entries, date: entry.date, profileId: entry.vacated_profile_id, excludeEntryId: entry.id })) {
     return `${name} now has another shift on ${shortDate(entry.date)}, so they cannot be put back on this one.`
   }
-  if (entry.profile_id || (entry.is_locum && locumDisplayName(entry.locum_name))) {
+  if (!overCover && (entry.profile_id || (entry.is_locum && locumDisplayName(entry.locum_name)))) {
     return `This shift has since been filled by ${holderName(entry, nameOf)}. Remove them first to put ${name} back.`
   }
   return null
@@ -462,14 +581,17 @@ export function leaveQuestion({ entry, leaveByProfile, nameOf }) {
     : `Also cancel ${who} ${leave.type} for ${leave.dates}?`
 }
 
-export async function reinstate({ rosterMonthId, entry, shiftCode, entries, cancelLeave = false, adminId, nameOf, batchId = newBatchId() }) {
+// `overCover`: Replace → "Put <doctor> back" on a shift someone now covers;
+// the cover comes off (and any advert stops) as the doctor goes back on.
+export async function reinstate({ rosterMonthId, entry, shiftCode, entries, cancelLeave = false, overCover = false, adminId, nameOf, batchId = newBatchId() }) {
   // Re-read the row: the guard must see the slot as it is now, not as the
   // menu saw it when it opened.
   const fresh = (await fetchEntry(entry.id)) || entry
-  const blocker = reinstateBlocker({ entry: fresh, entries, nameOf })
+  const blocker = reinstateBlocker({ entry: fresh, entries, nameOf, overCover })
   if (blocker) throw new Error(blocker)
   const sideEffects = emptySideEffects()
   sideEffects.adverts_cancelled = await cancelOpenAdverts(fresh.id)
+  const coverRemoved = overCover && (fresh.profile_id || (fresh.is_locum && locumDisplayName(fresh.locum_name))) ? holderName(fresh, nameOf) : null
   const patch = {
     profile_id: fresh.vacated_profile_id,
     is_locum: false,
@@ -502,9 +624,46 @@ export async function reinstate({ rosterMonthId, entry, shiftCode, entries, canc
   const name = nameOf(fresh.vacated_profile_id) || 'Doctor'
   return {
     batchId,
-    description: `${name} put back on ${shiftLabel(fresh.date, shiftCode)}${sideEffects.leave_request_cancelled ? '; their leave was cancelled' : ''}`,
+    description: `${name} put back on ${shiftLabel(fresh.date, shiftCode)}${coverRemoved ? ` in place of ${coverRemoved}` : ''}${sideEffects.leave_request_cancelled ? '; their leave was cancelled' : ''}`,
     logError,
   }
+}
+
+// ── The shifts a leave took a doctor off ─────────────────────────────────
+// For "Cancel this leave?" anywhere in the app: every roster shift (not in
+// the bin) the doctor was taken off for this leave, with who covers it and
+// whether putting them back is possible. [{ entry, shiftCode, rosterMonthId,
+// cover, blocker }], oldest first.
+export async function fetchLeaveShifts(leaveRequestId) {
+  if (!leaveRequestId) return []
+  const { data, error } = await supabase
+    .from('roster_entries')
+    .select('*, shift_types(code), roster_months!inner(deleted_at), holder:profiles!roster_entries_profile_id_fkey(name, surname), absent:profiles!roster_entries_vacated_profile_id_fkey(name, surname)')
+    .eq('vacated_leave_request_id', leaveRequestId)
+    .is('roster_months.deleted_at', null)
+  if (error || !data?.length) return []
+  const rows = data.map(r => ({ ...r, date: r.date?.slice(0, 10) }))
+  const doctorId = rows[0].vacated_profile_id
+  const { data: others } = await supabase
+    .from('roster_entries').select('id, date, profile_id, roster_months!inner(deleted_at)')
+    .eq('profile_id', doctorId).in('date', [...new Set(rows.map(r => r.date))]).is('roster_months.deleted_at', null)
+  const name = `${rows[0].absent?.name || ''} ${rows[0].absent?.surname || ''}`.trim() || 'This doctor'
+  return rows
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(entry => {
+      const coverName = entry.is_locum
+        ? (locumDisplayName(entry.locum_name) ? `${locumDisplayName(entry.locum_name)} (locum)` : 'open locum slot')
+        : entry.profile_id ? `${entry.holder?.name || ''} ${entry.holder?.surname || ''}`.trim() : null
+      const clash = (others || []).some(o => o.date === entry.date && o.id !== entry.id)
+      const { shift_types: st, roster_months: _rm, holder: _h, absent: _a, ...row } = entry // eslint-disable-line no-unused-vars
+      return {
+        entry: row,
+        shiftCode: st?.code || 'UNKNOWN',
+        rosterMonthId: entry.roster_month_id,
+        cover: coverName,
+        blocker: clash ? `${name} has another shift on ${shortDate(entry.date)}` : null,
+      }
+    })
 }
 
 // ── After leave is cancelled from the roster ────────────────────────────

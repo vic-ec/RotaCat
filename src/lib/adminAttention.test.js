@@ -117,3 +117,17 @@ describe('shiftsOnLeave', () => {
     })
   })
 })
+
+describe('buildAttentionItems — shifts still marked as leave', () => {
+  it('lists shifts whose leave was cancelled, linking to the soonest', () => {
+    const items = buildAttentionItems({
+      ...quiet,
+      cancelledLeaveShifts: [
+        { id: 'b', date: '2026-11-26', roster_month_id: 'rm' },
+        { id: 'a', date: '2026-11-23', roster_month_id: 'rm' },
+      ],
+    })
+    const item = items.find(i => i.key === 'cancelled-leave-shifts')
+    expect(item).toMatchObject({ count: 2, to: '/roster/rm?date=2026-11-23&entry=a&mode=edit', label: 'shifts are still marked as leave after the leave was cancelled' })
+  })
+})

@@ -18,6 +18,7 @@ export function isEditedEntry(entry) {
 // `leaveType`: the leave the covered doctor was taken off for, when the
 // reason is leave — "Alli (locum) covering Cara Landes — sick leave".
 function leaveWords(leaveType) {
+  if (leaveType === 'cancelled') return 'leave, since cancelled'
   const label = LEAVE_TYPE_LABELS[leaveType]
   if (!label) return 'leave'
   const lower = label.charAt(0).toLowerCase() + label.slice(1)

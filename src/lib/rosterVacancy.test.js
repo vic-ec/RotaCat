@@ -89,6 +89,13 @@ describe('absenceSummary', () => {
     expect(absenceSummary({ absence: onLeave, leaveByProfile: LEAVE }).headline).toBe('On leave')
   })
 
+  it('tells an admin when the linked leave was cancelled after the doctor came off the shift', () => {
+    const cancelled = { kind: 'vacated', profileId: 'doc-a', reason: 'leave', leaveRequestId: 'gone', date: '2026-11-23' }
+    const s = absenceSummary({ absence: cancelled, leaveByProfile: {}, coverName: 'Alli (locum)', canSeeNote: true })
+    expect(s.headline).toBe('Leave cancelled')
+    expect(s.lines[0]).toBe('Review: keep the cover, or put them back')
+  })
+
   it('an open shift says so, and a note is for admins only', () => {
     const noShow = { kind: 'vacated', profileId: 'doc-a', reason: 'no_show', note: 'Did not answer', open: true }
     expect(absenceSummary({ absence: noShow, leaveByProfile: {} }).lines).toEqual(['Shift open — no cover yet'])

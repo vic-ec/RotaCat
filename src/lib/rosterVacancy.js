@@ -195,6 +195,7 @@ export function entryAbsence(entry, leaveByProfile) {
     return {
       kind: 'vacated',
       profileId: entry.vacated_profile_id,
+      date: entry.date,
       reason: entry.vacated_reason,
       leaveRequestId: entry.vacated_leave_request_id || null,
       note: entry.vacated_note || null,
@@ -239,13 +240,22 @@ export function leaveRequestForAbsence(absence, leaveByProfile, doctorName) {
 // the whole department).
 export function absenceSummary({ absence, leaveByProfile, doctorName, coverName, byName, canSeeNote = false }) {
   const range = absenceLeaveRange(absence, leaveByProfile)
+  // Leave linked to this shift that no approved leave covers any more was
+  // cancelled after the doctor came off it (in Team Leave, say): the shift
+  // still needs an admin's decision — keep the cover, or put them back.
+  // Admins only: they see every leave, so "no approved leave covers it"
+  // really means cancelled; another viewer may just not see its dates.
+  const leaveCancelled = canSeeNote && absence.reason === 'leave' && absence.kind === 'vacated' && !range
+    && Boolean(absence.leaveRequestId) && !leaveRangeOn(leaveByProfile, absence.profileId, absence.date)
   let headline
-  if (absence.reason === 'leave') headline = (range?.[2] && LEAVE_TYPE_LABELS[range[2]]) || 'On leave'
+  if (leaveCancelled) headline = 'Leave cancelled'
+  else if (absence.reason === 'leave') headline = (range?.[2] && LEAVE_TYPE_LABELS[range[2]]) || 'On leave'
   else if (absence.reason === 'no_show') headline = 'No-show'
   else headline = 'Taken off this shift'
 
   const lines = []
   if (range) lines.push(formatShortDateRange(range[0], range[1]))
+  if (leaveCancelled) lines.push('Review: keep the cover, or put them back')
   if (absence.kind === 'vacated') {
     lines.push(coverName ? `Covered by ${coverName}` : absence.noCover ? 'Shift not covered' : absence.open ? 'Shift open — no cover yet' : 'Covered by a locum')
     if (byName) lines.push(`Recorded by ${byName}`)

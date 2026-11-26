@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlarmClock, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
+import { AlarmClock, UserRoundPen, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -37,6 +37,8 @@ import RosterJumpButton from '../components/RosterJumpButton'
 import Modal from '../components/Modal'
 import LeaveRequestForm from '../components/LeaveRequestForm'
 import CancelLeaveModal from '../components/CancelLeaveModal'
+import { editHint } from '../lib/rosterEditHint'
+import { fetchLatestChangeByEntry } from '../lib/changeLog'
 import LeaveShiftsChoice from '../components/LeaveShiftsChoice'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
@@ -136,6 +138,8 @@ export default function RosterGridPage() {
   // Leave being cancelled from the roster (the struck-through name's popup
   // or the shift menu): the request, in CancelLeaveModal's shape.
   const [cancelLeaveFor, setCancelLeaveFor] = useState(null)
+  // The newest change to each entry (admins), for the edit marker's hint.
+  const [latestChanges, setLatestChanges] = useState(() => new Map())
   // What happens to the shifts that leave took the doctor off: 'undo'
   // (put them back) or 'keep' — asked in the same dialog.
   const [leaveShiftsChoice, setLeaveShiftsChoice] = useState('')
@@ -483,6 +487,15 @@ export default function RosterGridPage() {
     const option = shiftOption({ ...entry, roster_month_id: id }, shiftTypeRows[entry.shift_type_id], person)
     return option && shiftHasStarted(option.date, option.shiftStart) ? option : null
   }
+
+  // Re-read whenever the entries do (after every edit), so a marker's hint
+  // names the newest change.
+  useEffect(() => {
+    if (!isAdmin || !id) return undefined
+    let cancelled = false
+    fetchLatestChangeByEntry(id).then(map => { if (!cancelled) setLatestChanges(map) })
+    return () => { cancelled = true }
+  }, [id, isAdmin, entries])
 
   async function refreshEntries() {
     const { data } = await supabase
@@ -1370,10 +1383,12 @@ export default function RosterGridPage() {
                 : isWeekend ? 'bg-accent-light text-accent-dark' : 'bg-day-rail text-ink'
               const rowBg = isPH ? 'bg-rose-light' : isWeekend ? 'bg-accent-tint' : 'bg-canvas-raised'
               const dateInk = isPH ? 'text-rose-dark' : isWeekend ? 'text-accent-dark' : 'text-ink'
-              // The block's own 1px border, in the accent on today so the
-              // outline wraps the whole day.
+              // The block's own 1px border; today's is 2px in the accent, and
+              // its date rail is filled solid accent with "Today" under the
+              // date, so the day stands out from its neighbours at a glance
+              // (a 1px accent line alone read as just another row).
               const line = isToday ? 'border-accent' : 'border-slate-line'
-              const cellFrame = `border-y ${line}`
+              const cellFrame = isToday ? 'border-y-2 border-accent' : `border-y ${line}`
               const headerBand = `whitespace-nowrap border-b ${line} px-1 py-1 text-center text-[0.917em] font-semibold ${chromeBg}`
 
               const consultantCell = (
@@ -1399,17 +1414,19 @@ export default function RosterGridPage() {
                   {/* Date rail: pinned left on a phone with an opaque fill so
                       the shift columns scroll beneath it. */}
                   <td
-                    className={`${cellFrame} border-l border-r rounded-l-md px-2 py-1.5 align-top font-medium ${chromeBg} ${dateInk} ${wideGrid ? '' : 'sticky left-0 z-10'}`}
+                    className={`${cellFrame} ${isToday ? 'border-l-2 border-r bg-accent text-on-fill' : `border-l border-r ${chromeBg} ${dateInk}`} rounded-l-md px-2 py-1.5 align-top font-medium ${wideGrid ? '' : 'sticky left-0 z-10'}`}
+                    aria-current={isToday ? 'date' : undefined}
                   >
-                    <span className="block text-[0.834em] text-ink-muted">{DAY_NAMES[localDate.getDay()]}</span>
+                    <span className={`block text-[0.834em] ${isToday ? 'text-on-fill/80' : 'text-ink-muted'}`}>{DAY_NAMES[localDate.getDay()]}</span>
                     <span>{d}</span>
+                    {isToday && <span data-testid="today-tag" className="mt-0.5 block text-[0.75em] font-bold uppercase tracking-wide">Today</span>}
                     {day.phName && (
                       <span className="mt-0.5 block">
                         <PublicHolidayBadge name={day.phName} />
                       </span>
                     )}
                     {!wideGrid && (
-                      <div data-testid="rail-consultant" className="mt-1 overflow-hidden text-[0.834em] text-ink-muted">
+                      <div data-testid="rail-consultant" className={`mt-1 overflow-hidden text-[0.834em] ${isToday ? 'text-on-fill/80' : 'text-ink-muted'}`}>
                         {consultantCell}
                       </div>
                     )}
@@ -1438,7 +1455,7 @@ export default function RosterGridPage() {
                     return (
                       <td
                         key={code}
-                        className={`${cellFrame} align-top p-0 ${last ? 'border-r rounded-r-md' : ''}`}
+                        className={`${cellFrame} align-top p-0 ${last ? `${isToday ? 'border-r-2' : 'border-r'} rounded-r-md` : ''}`}
                         onDragOver={e => e.preventDefault()}
                         onDrop={() => handleDrop(day.dateStr, code)}
                       >
@@ -1482,6 +1499,7 @@ export default function RosterGridPage() {
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
                               onCancelLeave={isAdmin ? setCancelLeaveFor : null}
+                              editHint={editHint({ entry, change: latestChanges.get(entry.id), nameOf: nameById })}
                               onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
                               onLate={!canEdit && lateOptionFor(entry) ? () => setLatePrompt(lateOptionFor(entry)) : undefined}
                               late={lateByEntryId.has(entry.id)}
@@ -1670,7 +1688,7 @@ export default function RosterGridPage() {
 // `onLate` (admins, outside Edit mode): the chip opens "Log late arrival".
 // `late`: this shift has a late arrival on record — a small clock, shown to
 // admins only (nobody else can read the records) and never printed.
-function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false, onCancelLeave = null }) {
+function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false, onCancelLeave = null, editHint = null }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()
   // A jumped-to chip glows for a moment (see jumpTo) in its own colour.
@@ -1683,6 +1701,23 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   const glowRing = glow ? 'relative z-10 ring-2 ring-ink ring-offset-2 ring-offset-canvas-raised' : ''
   const lateMark = late && (
     <AlarmClock data-testid="late-marker" aria-label="Late arrival recorded" className="ml-1 h-3 w-3 flex-shrink-0 text-ink-muted print:hidden" />
+  )
+  // A name changed by hand (covering someone, swapped, replaced, moved,
+  // put back, new times) carries a small grey pen; it alone has a hint,
+  // on hover or tap. Untouched names have none.
+  // Its own tap target: a tap shows the hint and does not also open the
+  // chip's menu or late-arrival prompt.
+  const editMark = editHint && (
+    <span
+      data-testid="edit-marker"
+      role="img"
+      aria-label={editHint}
+      title={editHint}
+      onClick={e => e.stopPropagation()}
+      className="-my-0.5 -mr-1 ml-0.5 flex flex-shrink-0 items-center p-0.5 text-ink-muted print:hidden"
+    >
+      <UserRoundPen className="h-3 w-3" aria-hidden="true" />
+    </span>
   )
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
@@ -1757,6 +1792,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       >
         <span className="min-w-0 flex-1">{entry.locum_name || OPEN_LOCUM_LABEL}{adjustedTimesLabel(entry) && <span className="ml-1 font-normal" data-testid="adjusted-times">{adjustedTimesLabel(entry)}</span>}</span>
         {lateMark}
+        {editMark}
       </div>
       </>
     )
@@ -1784,12 +1820,12 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
         isAdmin || onLate ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
-      title={`${profile.name} ${profile.surname}${entry.is_manual_override ? ' (manually set)' : ''}`}
     >
       {onLeave
         ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} onCancelLeave={onLeave.cancelRequest && onCancelLeave ? () => onCancelLeave(onLeave.cancelRequest) : null} />
         : <span className="min-w-0 flex-1 truncate">{chipName}{times && <span className="ml-1 font-normal text-ink-light" data-testid="adjusted-times">{times}</span>}</span>}
       {lateMark}
+      {editMark}
     </div>
     </>
   )
@@ -1848,7 +1884,6 @@ function ConsultantCell({ date, rosterMonthId, existing, consultantProfiles, dis
           <div
             className={`flex items-center rounded-sm border border-slate-line border-l-[3px] bg-canvas-raised px-1.5 py-0.5 text-[0.834em] font-medium text-ink ${isAdmin ? 'hover:bg-canvas-sunken' : ''}`}
             style={{ borderLeftColor: swatch.stroke(railColor) }}
-            title={`${consultant.name} ${consultant.surname}`}
           >
             <span className="truncate">{displayNames?.get(consultant.id) ?? consultant.surname}</span>
           </div>

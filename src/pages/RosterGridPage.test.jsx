@@ -13,7 +13,7 @@ vi.mock('../lib/rosterEdits', async () => ({ ...(await vi.importActual('../lib/r
 const mockUndo = vi.hoisted(() => ({ undoRosterBatch: vi.fn() }))
 vi.mock('../lib/rosterUndo', async () => ({ ...(await vi.importActual('../lib/rosterUndo')), ...mockUndo }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
-vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue({ error: null }), setLogErrorListener: vi.fn() }))
+vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue({ error: null }), setLogErrorListener: vi.fn(), fetchLatestChangeByEntry: vi.fn().mockResolvedValue(new Map()) }))
 vi.mock('../lib/weekendPatternSync', () => ({ syncWeekendPatternsFromEntries: vi.fn() }))
 vi.mock('../components/LateArrivalModal', () => ({ default: ({ option }) => <div role="dialog" aria-label="late form">{option.label} · {option.date}</div> }))
 vi.mock('../components/RosterLanesView', () => ({ default: () => null, LanesLegend: () => null }))

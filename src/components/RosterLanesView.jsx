@@ -392,7 +392,7 @@ export default function RosterLanesView({
                   aria-current={isToday ? 'date' : undefined}
                   style={isToday ? { boxShadow: TODAY_HEAD_SHADOW } : undefined}
                   className={`sticky top-0 z-20 border-b border-slate-line px-0.5 py-1 text-center text-[0.834em] font-semibold ${
-                    off ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head text-ink-muted'
+                    isToday ? 'bg-accent text-on-fill' : off ? 'bg-grid-head-weekend text-accent-dark' : 'bg-grid-head text-ink-muted'
                   }`}
                 >
                   {day.phName

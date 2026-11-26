@@ -92,6 +92,23 @@ export async function logWeekendPlannerChange({ weekendSaturday, category, actio
 // doesn't leave the log showing a stale/wrong name. Carrying `role` lets the
 // log flag locum-involving edits without a schema change: a locum edit is
 // just one whose profile_id happens to resolve to role === 'locum'.
+// The newest change to each roster entry in a month (Map entryId -> row),
+// for the roster's edit marker hint — "Smith replaced Venter", "moved
+// here from Tue 24 Nov". Admins only (RLS); an empty map otherwise.
+export async function fetchLatestChangeByEntry(rosterMonthId) {
+  const { data, error } = await supabase
+    .from('roster_entry_changes')
+    .select('roster_entry_id, action, reason, profile_id_before, profile_id_after, date_before, changed_at')
+    .eq('roster_month_id', rosterMonthId)
+    .not('roster_entry_id', 'is', null)
+    .order('changed_at', { ascending: false })
+    .limit(1000)
+  const latest = new Map()
+  if (error) return latest
+  for (const row of data || []) if (!latest.has(row.roster_entry_id)) latest.set(row.roster_entry_id, row)
+  return latest
+}
+
 export async function fetchProfilesById(ids) {
   const map = new Map()
   const uniqueIds = [...new Set([...ids].filter(Boolean))]

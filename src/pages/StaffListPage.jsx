@@ -386,9 +386,15 @@ export default function StaffListPage() {
   // role/category/status/isAdmin are each a Set of selected values — empty
   // means "All" for that dimension (see FilterPanel.jsx). Multi-select: a
   // viewer can filter to e.g. "Registrar OR MO" within one dimension.
-  const [accountFilters, setAccountFilters] = useState({
+  // signin: 'never' — accounts handed over (a temporary password) that
+  // nobody has signed in to yet; the dashboard's row links here with
+  // ?signin=never.
+  const [accountFilters, setAccountFilters] = useState(() => ({
     q: '', role: new Set(), category: new Set(), status: new Set(), isAdmin: new Set(),
-  })
+    signin: new Set(isAdmin && new URLSearchParams(location.search).get('signin') === 'never' ? ['never'] : []),
+  }))
+  // Ids from never_signed_in_profile_ids() (admin only).
+  const [neverSignedInIds, setNeverSignedInIds] = useState(() => new Set())
   const [accountRequests, setAccountRequests] = useState([])
   const [requestActioningId, setRequestActioningId] = useState(null)
   // The account_change_requests row currently open in AccountRequestReviewDrawer, or null.
@@ -599,6 +605,11 @@ export default function StaffListPage() {
     setPending(pendingRes.data || [])
     setAccountRequests(requestsRes.data || [])
     if (isAdmin) fetchOpenLocumContacts().then(rows => setLocumContactCount(rows.length))
+    if (isAdmin) {
+      Promise.resolve(supabase.rpc('never_signed_in_profile_ids'))
+        .then(res => setNeverSignedInIds(new Set(Array.isArray(res?.data) ? res.data.map(r => (typeof r === 'string' ? r : r?.never_signed_in_profile_ids ?? r?.id)) : [])))
+        .catch(() => {})
+    }
     setLeaveProfileIds(new Set((leaveRes.data || []).map(r => r.profile_id)))
     setDeletionLog(deletionLogRes.data || [])
 
@@ -923,6 +934,11 @@ export default function StaffListPage() {
       options: [{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }],
       selected: accountFilters.isAdmin,
       onChange: next => setAccountFilterDimension('isAdmin', next),
+    }, {
+      key: 'signin', label: 'Sign-in',
+      options: [{ value: 'never', label: 'Not signed in yet' }],
+      selected: accountFilters.signin,
+      onChange: next => setAccountFilterDimension('signin', next),
     }] : []),
   ]
 
@@ -950,11 +966,13 @@ export default function StaffListPage() {
       const isAdminKey = person.is_admin ? 'yes' : 'no'
       if (!accountFilters.isAdmin.has(isAdminKey)) return false
     }
+    if (accountFilters.signin.has('never') && !neverSignedInIds.has(person.id)) return false
     return true
   })
 
   const accountFiltersActive = Boolean(accountFilters.q) || accountFilters.role.size > 0 ||
-    accountFilters.category.size > 0 || accountFilters.status.size > 0 || accountFilters.isAdmin.size > 0
+    accountFilters.category.size > 0 || accountFilters.status.size > 0 || accountFilters.isAdmin.size > 0 ||
+    accountFilters.signin.size > 0
 
   const groups = buildGroups(filteredAccounts, sortMode, azDirection)
   // Only ever true once a viewer has shut every section themselves — an
@@ -992,7 +1010,7 @@ export default function StaffListPage() {
   const staffTableCols = 3 + (isAdmin ? 1 : 0) + (canContact ? 1 : 0)
 
   function clearAllFilters() {
-    setAccountFilters({ q: '', role: new Set(), category: new Set(), status: new Set(), isAdmin: new Set() })
+    setAccountFilters({ q: '', role: new Set(), category: new Set(), status: new Set(), isAdmin: new Set(), signin: new Set() })
   }
 
   return (
@@ -1413,7 +1431,7 @@ export default function StaffListPage() {
                             </div>
                             {isAdmin && (
                               <span className="flex w-5 flex-shrink-0 justify-center">
-                                {person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active} person={person} />}
+                                {person.must_change_password && <TempPasswordIndicator notSignedIn={!person.is_active || neverSignedInIds.has(person.id)} person={person} />}
                               </span>
                             )}
                           </div>
@@ -1619,7 +1637,7 @@ export default function StaffListPage() {
                                     which varies in length row to row
                                     ("Active" vs "Active until 31 Dec Edit")
                                     and carried the shield with it. */}
-                                {isAdmin && person.must_change_password && <TempPasswordIndicator className="ml-auto pl-2" notSignedIn={!person.is_active} person={person} />}
+                                {isAdmin && person.must_change_password && <TempPasswordIndicator className="ml-auto pl-2" notSignedIn={!person.is_active || neverSignedInIds.has(person.id)} person={person} />}
                               </div>
                             </td>
                             {isAdmin && (
@@ -2075,11 +2093,11 @@ export default function StaffListPage() {
                     <span className="whitespace-nowrap text-xs font-medium" style={{ color: leaveTypeInk(leaveDatesById[person.id][2]) }}>{formatShortDateRange(leaveDatesById[person.id][0], leaveDatesById[person.id][1])}</span>
                   )}
                   {isAdmin && person.must_change_password && (
-                    <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
+                    <span className={`flex items-center gap-1 text-right text-xs font-medium ${person.is_active && !neverSignedInIds.has(person.id) && !isTempPasswordExpired(person) ? 'whitespace-nowrap text-ink-muted' : 'text-rose'}`}>
                       <ShieldAlert className="h-3.5 w-3.5 flex-shrink-0" />
                       {isTempPasswordExpired(person)
                         ? `Temp password expired ${formatExpiryDate(tempPasswordExpiresAt(person.temp_password_issued_at))}`
-                        : person.is_active ? 'Temp password in use' : 'Account created; not signed in'}
+                        : person.is_active && !neverSignedInIds.has(person.id) ? 'Temp password in use' : 'Account created; not signed in'}
                     </span>
                   )}
                 </div>

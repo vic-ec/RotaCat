@@ -139,10 +139,13 @@ export function buildAttentionItems(data) {
     })
   }
 
-  // 7. Accounts an admin created that nobody has signed in to.
+  // 7. Accounts an admin handed over (a temporary password) that nobody has
+  //    signed in to yet — not someone given a new temporary password after
+  //    signing in before, and not a rostered locum with no account at all
+  //    (row 5). See never_signed_in_profile_ids().
   if (data.neverSignedIn > 0) {
     items.push({
-      key: 'never-signed-in', count: data.neverSignedIn, to: '/staff?tab=accounts',
+      key: 'never-signed-in', count: data.neverSignedIn, to: '/staff?tab=accounts&signin=never',
       label: `${plural(data.neverSignedIn, 'account has', 'accounts have')} not signed in yet`,
     })
   }
@@ -188,7 +191,7 @@ export async function fetchAdminAttention(now = new Date()) {
     safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', false).eq('is_rejected', false), empty),
     safe(supabase.from('account_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'), empty),
     safe(supabase.from('locum_contacts').select('id', { count: 'exact', head: true }).is('linked_profile_id', null), empty),
-    safe(supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('is_approved', true).eq('must_change_password', true), empty),
+    safe(supabase.rpc('never_signed_in_profile_ids'), empty),
     safe(supabase.from('profiles').select('id, category, scheduled_inactive_date').in('category', ['Intern', 'Registrar']).eq('is_active', true), empty),
     safe(supabase.from('roster_entries')
       .select('id, date, roster_month_id, leave:leave_requests!roster_entries_vacated_leave_request_id_fkey(status), roster_months!inner(deleted_at)')
@@ -246,7 +249,7 @@ export async function fetchAdminAttention(now = new Date()) {
     pendingSignups: signupsRes.count || 0,
     accountRequests: requestsRes.count || 0,
     locumContacts: locumContactsRes.count || 0,
-    neverSignedIn: neverRes.count || 0,
+    neverSignedIn: Array.isArray(neverRes.data) ? neverRes.data.length : 0,
     rotationsEnding,
     underMinimum,
   })

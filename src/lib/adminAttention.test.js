@@ -68,7 +68,7 @@ describe('buildAttentionItems', () => {
       signups: '/staff?tab=requests&sub=new-users',
       'account-requests': '/staff?tab=requests&sub=user-requests',
       'rotations-ending': '/leave?tab=planners&sub=interns',
-      'never-signed-in': '/staff?tab=accounts',
+      'never-signed-in': '/staff?tab=accounts&signin=never',
     })
     expect(items.find(i => i.key === 'signups').label).toBe('sign-up awaiting approval')
     expect(items.find(i => i.key === 'account-requests').label).toBe('account change requests to review')

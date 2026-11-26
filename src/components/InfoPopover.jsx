@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
 import { computeAnchoredPosition } from '../lib/popoverPosition'
@@ -10,6 +11,9 @@ import RowActionIcon from './RowActionIcon'
 // `hover`: on a desktop (a pointer that hovers) it also opens on hover, and
 // closes when the pointer leaves both the icon and the popup (with a short
 // grace to cross between them). A click pins it.
+// The icon carries no `title`: the popup is its label, and a title would
+// also raise the app's hint (HintLayer) beside it — two popups for one tap.
+// The popup closes on its ×, an outside tap or Esc.
 export default function InfoPopover({ icon, title, label, tone = 'default', hover = false, children }) {
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState(null)
@@ -38,8 +42,7 @@ export default function InfoPopover({ icon, title, label, tone = 'default', hove
       <span ref={triggerRef} className="inline-flex" onMouseEnter={hoverOpen} onMouseLeave={hoverClose}>
         <RowActionIcon
           icon={icon}
-          title={title}
-          label={label}
+          label={label || title}
           tone={tone}
           onClick={() => {
             if (open && canHover && !pinned) { clearTimeout(timer.current); setPinned(true); return }
@@ -61,7 +64,17 @@ export default function InfoPopover({ icon, title, label, tone = 'default', hove
           onMouseEnter={hoverOpen}
           onMouseLeave={hoverClose}
         >
-          {children}
+          {/* The close every popover and sheet in the app has (see
+              RosterAbsenceNote): top right, over the content's own padding. */}
+          <button
+            type="button"
+            onClick={() => { setOpen(false); setPinned(false) }}
+            aria-label="Close"
+            className="btn-close absolute right-2 top-2 h-6 w-6 text-ink-muted"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <div className="pr-6">{children}</div>
         </div>,
         document.body
       )}

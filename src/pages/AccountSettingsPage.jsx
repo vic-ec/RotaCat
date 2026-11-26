@@ -1792,7 +1792,7 @@ export default function AccountSettingsPage() {
               className="card flex items-center gap-3 px-5 py-3 transition-colors hover:bg-canvas-sunken active:bg-canvas-sunken"
             >
               <span className="flex-shrink-0 text-ink-light" aria-hidden="true"><CalendarRange className="h-5 w-5" /></span>
-              <span className="min-w-0 flex-1 text-sm font-medium text-ink">Leave record, shifts, public holidays and attendance</span>
+              <span className="min-w-0 flex-1 text-sm font-medium text-ink">Leave, shifts &amp; attendance record</span>
               <span className="flex-shrink-0 rounded p-1 text-ink-muted" aria-hidden="true"><ChevronRight className="h-4 w-4" /></span>
             </Link>
           </div>

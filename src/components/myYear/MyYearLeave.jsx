@@ -85,8 +85,9 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
 
   const phoneItems = showAll ? items : items.slice(0, PHONE_LIMIT)
 
+  // The Staff list's spacing: 8px between the section bar and what it heads.
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Search and Filter above the section, as on the other lists; on a
           phone they are the FAB's, and the leave type pills stay. */}
       <div className="hidden md:block">

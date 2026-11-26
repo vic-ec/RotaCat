@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlarmClock, UserRoundPen, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange, Maximize2, Minimize2 } from 'lucide-react'
+import { AlarmClock, UserRoundPen, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange, Maximize2, Minimize2, CircleCheck } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -340,6 +340,9 @@ export default function RosterGridPage() {
   // The paper roster's Leave and Course columns, on a screen wide enough to
   // add them; narrower, the date rail says how many are away instead.
   const leaveCols = useIsDesktop(1024)
+  // Under 400px (smaller phones) the bar is short of room once the status
+  // icon and both jump chips are on it, so Fullscreen moves into the ⋮.
+  const roomyBar = useIsDesktop(400)
 
   useEffect(() => {
     loadAll()
@@ -934,6 +937,7 @@ export default function RosterGridPage() {
   // Below `desk` the ⋮ leads with the view switches the bar has no room for
   // there (Font size follows, from rosterMenuItems): how much of the month, and which way round it is drawn.
   const phoneMenuItems = [
+    ...(roomyBar ? [] : [{ key: 'fullscreen', icon: <Maximize2 className="h-4 w-4" />, label: 'Fullscreen', onClick: enterFullscreen }]),
     {
       key: 'range', icon: <CalendarRange className="h-4 w-4" />, label: 'Show',
       value: viewMode, options: [{ key: 'month', label: 'Whole month' }, { key: 'week', label: 'One week' }],
@@ -951,6 +955,24 @@ export default function RosterGridPage() {
   const statusPillTone = rosterMonth.status === 'published'
     ? 'bg-success-bg text-success ring-1 ring-inset ring-success/45'
     : 'bg-flagAmber-bg text-flagAmber ring-1 ring-inset ring-flagAmber/45'
+
+  // Below lg there's no room for the status pill, so the status is an icon
+  // right of the month: a dashed circle with a tick for a draft (amber, the
+  // pill's colour), a solid one for a published roster (the pill's green).
+  // Its title names it, on hover or a tap (HintLayer).
+  const statusIcon = (
+    <span
+      role="img"
+      aria-label={statusLabel}
+      title={statusLabel}
+      data-testid="roster-status-icon"
+      className={`flex h-[30px] w-[24px] flex-shrink-0 cursor-help items-center justify-center lg:hidden ${
+        rosterMonth.status === 'published' ? 'text-success' : rosterMonth.status === 'draft' ? 'text-flagAmber' : 'text-ink-muted'
+      }`}
+    >
+      {rosterMonth.status === 'draft' ? <CircleDashedCheck className="h-5 w-5" /> : <CircleCheck className="h-5 w-5" />}
+    </span>
+  )
 
   // Week view's stepper. Inside the month it moves a week; off either end
   // it opens the neighbouring month's roster, at its first or last week.
@@ -1234,6 +1256,7 @@ export default function RosterGridPage() {
           )}
         </h1>
 
+        {statusIcon}
         <span className={`hidden rounded-full px-2 py-0.5 text-xs font-medium lg:inline ${statusPillTone}`}>
           {statusLabel}
         </span>
@@ -1329,7 +1352,7 @@ export default function RosterGridPage() {
               <Pencil className="h-4 w-4" /> Edit
             </button>
           )}
-          <button
+          {roomyBar && <button
             type="button"
             onClick={enterFullscreen}
             aria-label="Fullscreen"
@@ -1338,16 +1361,12 @@ export default function RosterGridPage() {
             className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
           >
             <Maximize2 className="h-4 w-4" />
-          </button>
+          </button>}
 
           {/* ⋮ — always last, holding whatever isn't on the row at this
-              width. On a phone it also wears the status as a dot (amber
-              for a draft), since the pill has no room there. */}
+              width. (The status sits right of the month: statusIcon.) */}
           <div className="relative desk:hidden">
             <PageActionsMenu items={phoneMenuItems} trigger={kebabTrigger} />
-            {rosterMonth.status === 'draft' && (
-              <span title="Draft" aria-label="Draft" className="pointer-events-none absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-canvas-raised bg-flagAmber lg:hidden" />
-            )}
           </div>
           <div className="hidden desk:block 2xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
           <div className="hidden 2xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
@@ -1797,6 +1816,25 @@ export default function RosterGridPage() {
 // `onLate` (admins, outside Edit mode): the chip opens "Log late arrival".
 // `late`: this shift has a late arrival on record — a small clock, shown to
 // admins only (nobody else can read the records) and never printed.
+// Lucide's circle-dashed with circle-check's tick inside: a roster that is
+// not yet final (a draft). Drawn here: the installed lucide has no
+// CircleDashedCheck.
+function CircleDashedCheck(props) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.1 2.182a10 10 0 0 1 3.8 0" />
+      <path d="M13.9 21.818a10 10 0 0 1-3.8 0" />
+      <path d="M17.609 3.721a10 10 0 0 1 2.69 2.7" />
+      <path d="M2.182 13.9a10 10 0 0 1 0-3.8" />
+      <path d="M20.279 17.609a10 10 0 0 1-2.7 2.69" />
+      <path d="M21.818 10.1a10 10 0 0 1 0 3.8" />
+      <path d="M3.721 6.391a10 10 0 0 1 2.7-2.69" />
+      <path d="M6.391 20.279a10 10 0 0 1-2.69-2.7" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
 function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmin, canDrag = true, dimmed = false, glow = false, absence = null, onLate, late = false, onCancelLeave = null, editHint = null }) {
   // Before the early returns below — a hook can't sit behind one.
   const swatch = useSwatch()

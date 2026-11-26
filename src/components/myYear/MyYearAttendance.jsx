@@ -12,8 +12,9 @@ import { rosterLinkForDate } from '../../lib/myYearData'
 export default function MyYearAttendance({ records = [], admin = false, monthIds = {}, profileId, onEdit }) {
   const rosterTo = r => rosterLinkForDate(monthIds, r.entry_date, r.roster_entry_id ? { entry: r.roster_entry_id, mark: true } : { doctor: profileId, mark: true })
   const logger = r => (r.logger ? `${r.logger.name || ''} ${r.logger.surname || ''}`.trim() : '—')
+  // The Staff list's spacing: 8px between a section bar and what it heads.
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div className="sheen-divider">
         <span>Late arrivals</span>
         <span className="divider-meta normal-case font-normal">{records.length} this year</span>

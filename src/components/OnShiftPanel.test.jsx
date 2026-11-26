@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import OnShiftPanel from './OnShiftPanel'
 
@@ -9,6 +10,8 @@ function setViewport(desktop) {
 
 const fetchOnShiftBoard = vi.hoisted(() => vi.fn())
 vi.mock('../lib/onShiftBoard', async () => ({ ...(await vi.importActual('../lib/onShiftBoard')), fetchOnShiftBoard }))
+const fetchContactCard = vi.hoisted(() => vi.fn())
+vi.mock('../lib/contactCard', () => ({ fetchContactCard }))
 
 const doctor = (key, name, surname, extra = {}) => ({ key, kind: 'doctor', profile: { name, surname, color_code: '#0F766E' }, initials: `${name[0]}${surname[0]}`, name: `${name} ${surname}`, meta: 'MO', label: `${name} ${surname} · MO`, late: false, ...extra })
 const group = (startTime, endTime, people, extra = {}) => ({
@@ -107,5 +110,47 @@ describe('OnShiftPanel — desktop', () => {
     await screen.findAllByTestId('on-shift-group')
     expect(screen.queryByText(/On shift until/)).not.toBeInTheDocument()
     expect(screen.queryByText(/On at/)).not.toBeInTheDocument()
+  })
+})
+
+describe('OnShiftPanel — contact details', () => {
+  beforeEach(() => {
+    setViewport(false)
+    vi.setSystemTime(new Date(2026, 10, 24, 14, 30))
+    fetchContactCard.mockReset().mockResolvedValue({ name: 'Maurice Mokoena', phone: '0821234567', email: 'm@example.test', emailVerified: true })
+    fetchOnShiftBoard.mockReset().mockResolvedValue({
+      now: [group('08:00:00', '18:00:00', [
+        doctor('a', 'Maurice', 'Mokoena', { profileId: 'p-1' }),
+        { key: 'd', kind: 'open', initials: '[ ]', name: 'Open locum slot', meta: 'Not covered', label: 'Open locum slot · not covered', late: false },
+      ])],
+      next: [],
+      consultant: 'Kate Meyer',
+      consultantId: 'c-1',
+    })
+  })
+
+  it('a tap on a doctor opens their contact card: mobile, email, and call / text / WhatsApp / email', async () => {
+    vi.useRealTimers()
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: /Maurice Mokoena · MO\. Contact details/ }))
+    const sheet = await screen.findByTestId('contact-sheet')
+    expect(fetchContactCard).toHaveBeenCalledWith({ profileId: 'p-1', contactId: undefined })
+    expect(await within(sheet).findByTestId('contact-mobile')).toHaveTextContent('(082) 123-4567')
+    expect(within(sheet).getByTestId('contact-email')).toHaveTextContent('m@example.test')
+    expect(within(sheet).getByRole('link', { name: 'Call Maurice Mokoena' })).toHaveAttribute('href', 'tel:0821234567')
+    expect(within(sheet).getByRole('link', { name: 'WhatsApp Maurice Mokoena' })).toHaveAttribute('href', 'https://wa.me/27821234567')
+    expect(within(sheet).getByRole('link', { name: 'Email Maurice Mokoena' })).toHaveAttribute('href', 'mailto:m@example.test')
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByTestId('contact-sheet')).not.toBeInTheDocument()
+    // An open slot has nobody to contact.
+    expect(screen.queryByRole('button', { name: /Open locum slot/ })).not.toBeInTheDocument()
+  })
+
+  it('the consultant on call opens theirs too', async () => {
+    vi.useRealTimers()
+    render(<MemoryRouter><OnShiftPanel /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: /Kate Meyer, consultant on call/ }))
+    expect(await screen.findByTestId('contact-sheet')).toHaveTextContent('Consultant on call')
+    expect(fetchContactCard).toHaveBeenCalledWith({ profileId: 'c-1', contactId: undefined })
   })
 })

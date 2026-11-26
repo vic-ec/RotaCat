@@ -137,6 +137,27 @@ export async function fetchContactShiftCounts(contactIds) {
   return counts
 }
 
+// Corrections to a contact's mobile, newest first (admin only; see the
+// locum_contact_changes migration): [{ id, oldValue, newValue, at, byName }].
+// Never throws.
+export async function fetchContactChanges(contactId) {
+  try {
+    const { data, error } = await supabase
+      .from('locum_contact_changes')
+      .select('id, field, old_value, new_value, changed_at, changer:profiles!locum_contact_changes_changed_by_fkey(name, surname)')
+      .eq('contact_id', contactId)
+      .eq('field', 'phone')
+      .order('changed_at', { ascending: false })
+    if (error) return []
+    return (data || []).map(r => ({
+      id: r.id, oldValue: r.old_value, newValue: r.new_value, at: r.changed_at,
+      byName: r.changer ? `${r.changer.name || ''} ${r.changer.surname || ''}`.trim() : null,
+    }))
+  } catch {
+    return []
+  }
+}
+
 // A contact's rostered shifts, most recent first: [{ id, date,
 // rosterMonthId, code }]. Never throws.
 export async function fetchContactShifts(contactId) {

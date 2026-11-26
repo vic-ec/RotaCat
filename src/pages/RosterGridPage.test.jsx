@@ -240,6 +240,14 @@ describe('RosterGridPage day blocks', () => {
     expect(within(rowFor('2026-08-21')).queryByTestId('rail-away')).not.toBeInTheDocument()
   })
 
+  it('names the status with an icon right of the month: a draft\'s dashed amber tick', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    const icon = screen.getByTestId('roster-status-icon')
+    expect(icon).toHaveAttribute('title', 'Draft')
+    expect(icon).toHaveClass('text-flagAmber')
+  })
+
   it('Fullscreen hides the header bar and the app chrome until Exit', async () => {
     renderPage()
     await screen.findByText('August 2026')

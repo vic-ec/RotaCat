@@ -7,7 +7,7 @@ import SelectMenu from './SelectMenu'
 import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref, phoneWhatsAppMessageHref } from '../lib/phone'
 import {
   fetchOpenLocumContacts, fetchContactShiftCounts, fetchContactShifts, fetchLocumProfiles, findByPhone, linkLocumContact, locumInviteText,
-  phoneKey, updateLocumContactPhone,
+  phoneKey, updateLocumContactPhone, fetchContactChanges,
 } from '../lib/locumCover'
 import { Link } from 'react-router-dom'
 import Modal from './Modal'
@@ -35,6 +35,11 @@ import { shiftStartLabel } from '../lib/myYear'
 // table (the heading is the tab's own section bar); the rows here are the
 // table's rows. `onCount` reports how many there are, for the badge and
 // the notice on the other tabs. Renders nothing when there are none.
+// "26 Nov 2026, 14:32"
+function formatChangeTime(value) {
+  return new Date(value).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 export default function LocumContactsPanel({ onLinked, onCount }) {
   const [rows, setRows] = useState([])
   const [shiftCounts, setShiftCounts] = useState(new Map())
@@ -52,9 +57,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
   const [shiftsFor, setShiftsFor] = useState(null) // { row, shifts } | null
 
   async function openShifts(row) {
-    setShiftsFor({ row, shifts: null, late: null })
-    const shifts = await fetchContactShifts(row.id)
-    setShiftsFor(current => (current?.row.id === row.id ? { ...current, shifts } : current))
+    setShiftsFor({ row, shifts: null, late: null, changes: [] })
+    const [shifts, changes] = await Promise.all([fetchContactShifts(row.id), fetchContactChanges(row.id)])
+    setShiftsFor(current => (current?.row.id === row.id ? { ...current, shifts, changes } : current))
     // A locum has no My year page, so their late arrivals are listed here
     // (this panel is admin only). Read after the shifts, never blocking them.
     const late = await fetchLateArrivalsForLocum({ contactId: row.id, name: `${row.name} ${row.surname}`.trim() }).catch(() => [])
@@ -108,6 +113,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
       setRows(list => list.map(r => (r.id === row.id ? { ...r, phone: digits } : r)))
       setPhoneEdit(null)
       setSavedPhoneFor(row.id)
+      // The trigger has recorded the change; an open window on this locum
+      // shows it at once.
+      fetchContactChanges(row.id).then(changes => setShiftsFor(current => (current?.row.id === row.id ? { ...current, changes } : current)))
       setTimeout(() => setSavedPhoneFor(id => (id === row.id ? null : id)), 2000)
     } catch (err) {
       setPhoneEdit(e => (e ? { ...e, saving: false, error: err.message } : e))
@@ -329,6 +337,19 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
                   ))}
                 </ul>
               )}
+            </div>
+          )}
+          {shiftsFor.changes?.length > 0 && (
+            <div className="mt-4 border-t border-slate-line pt-3" data-testid="contact-phone-changes">
+              <h3 className="text-sm font-semibold text-ink">Mobile number changes</h3>
+              <ul className="mt-1 divide-y divide-slate-line">
+                {shiftsFor.changes.map(c => (
+                  <li key={c.id} className="py-2 text-sm">
+                    <p className="text-ink">{formatPhoneDisplay(c.oldValue) || 'None'} → <span className="font-medium">{formatPhoneDisplay(c.newValue) || 'None'}</span></p>
+                    <p className="text-xs text-ink-muted">{c.byName ? `By ${c.byName}` : 'By an admin'} · {formatChangeTime(c.at)}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </Modal>

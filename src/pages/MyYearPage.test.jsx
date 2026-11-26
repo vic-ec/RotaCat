@@ -150,7 +150,28 @@ describe('MyYearPage', () => {
     expect(within(card).queryByRole('link', { name: /Roster change history/ })).not.toBeInTheDocument()
   })
 
-  it('gives an admin "Open in Team Leave" on the doctor\'s row and leave, and who captured it', async () => {
+  it('on a phone: today stays above the grid; a day tapped in its month opens in a sheet with its links', async () => {
+    const original = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
+    try {
+      renderAt('/my-year')
+      await screen.findByTestId('my-year-totals')
+      const todayCard = screen.getByTestId('selected-day-card')
+      expect(todayCard.textContent).toMatch(new RegExp(formatWeekdayDate(todayStr())))
+      // Today's month starts open; tap a day in it.
+      await userEvent.click(within(screen.getByTestId('month-calendar')).getByRole('button', { name: '18 Nov: Sick leave' }))
+      const sheet = await screen.findByTestId('day-sheet')
+      expect(within(sheet).getByRole('link', { name: /My Requests/ })).toHaveAttribute('href', '/leave?tab=requests&request=k1')
+      // The card above still says today.
+      expect(screen.getByTestId('selected-day-card').textContent).toMatch(new RegExp(formatWeekdayDate(todayStr())))
+      await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+      expect(screen.queryByTestId('day-sheet')).not.toBeInTheDocument()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
+  it('gives an admin "Open in Team Leave" on the doctor\'s row and leave', async () => {
     mockAuth = { profile: doctor(ME, 'Maurice'), isAdmin: true, canSubmitLeave: true }
     renderAt('/my-year')
     await screen.findByTestId('my-year-totals')
@@ -158,7 +179,9 @@ describe('MyYearPage', () => {
     const card = screen.getByTestId('selected-day-card')
     expect(within(card).getByRole('link', { name: /Open in Team Leave/ }))
       .toHaveAttribute('href', `/leave?tab=team&sub=current&ldoctor=${ME}&lyear=2026&lrequest=k1`)
-    expect(within(card).getByTestId('day-captured').textContent).toMatch(/By the doctor/)
+    // Captured by the doctor themselves: nothing said (no Captured row).
+    expect(within(card).queryByTestId('day-captured')).not.toBeInTheDocument()
+    expect(card.textContent).not.toMatch(/captured by/)
   })
 
   it('reads the tab and year from the URL and writes them back', async () => {

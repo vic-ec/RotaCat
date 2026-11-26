@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { useIsDesktop } from '../../lib/useIsDesktop'
-import { formatWeekdayDate, formatShortDateRange, formatTimestampDate, todayStr } from '../../lib/dateRange'
+import { formatWeekdayDate, formatShortDateRange, todayStr } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
 import { coverKind, shiftStartLabel } from '../../lib/myYear'
@@ -9,6 +10,7 @@ import { rosterLinkForDate } from '../../lib/myYearData'
 import { leaveDestination } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
 import YearGlance from './YearGlance'
+import { ActionSheet } from '../ActionSheet'
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 const rangeWithYear = r => `${formatShortDateRange(r.from, r.to)} ${r.to.slice(0, 4)}`
@@ -122,7 +124,9 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
       value: leave ? (
         <span className="flex items-center gap-2"><LeaveCodeBox leaveType={leave.leave_type} />{LEAVE_TYPE_LABELS[leave.leave_type] || 'Leave'}</span>
       ) : 'Not on leave',
-      sub: leave ? `${formatShortDateRange(leave.date_from, leave.date_to)} · ${leaveDayCountLabel(leave)}` : '',
+      // Who put it on record only when it wasn't the doctor (an admin
+      // capturing it for them); "by the doctor" said nothing.
+      sub: leave ? `${formatShortDateRange(leave.date_from, leave.date_to)} · ${leaveDayCountLabel(leave)}${capturedBy ? ` · captured by ${capturedBy}` : ''}` : '',
       link: leaveTo,
     },
     {
@@ -132,13 +136,6 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
       sub: shiftSub,
       link: rosterTo ? { to: rosterTo, label: 'Open this day on the roster ›', short: 'Roster ›' } : null,
     },
-    ...(isAdmin && leave ? [{
-      key: 'captured',
-      label: 'Captured',
-      value: capturedBy ? `By ${capturedBy}` : 'By the doctor',
-      sub: formatTimestampDate(leave.created_at),
-      link: null,
-    }] : []),
   ]
 
   if (compact) {
@@ -159,7 +156,7 @@ function DayDetails({ day, data, profileId, isAdmin, own = false, compact = fals
   }
   return (
     // Always three tracks, so each column stays put from day to day.
-    <dl className="mt-2 grid grid-cols-3 gap-4 text-sm">
+    <dl className="mt-2 grid grid-cols-2 gap-4 text-sm">
       {columns.map(col => (
         <div key={col.key} data-testid={`day-${col.key}`} className="min-w-0">
           <dt className="text-xs font-medium text-ink-muted">{col.label}</dt>
@@ -202,8 +199,15 @@ export default function MyYearOverview({
   year, totals, days, breaks, lieu, holidaysWorked, data, profileId, isAdmin, own = false, showLate = false, selectedDate, onSelectDate,
 }) {
   const isDesktop = useIsDesktop()
-  // A phone picks a day by opening its month in the grid (YearGlance).
-  const selected = selectedDate ? days.find(d => d.date === selectedDate) : null
+  // A phone: the card above the grid is always today; a day tapped in an
+  // opened month opens in a sheet where it was tapped, so nothing needs a
+  // scroll back up to read. A desktop: the card under the grid is the
+  // selected day.
+  const [sheetDate, setSheetDate] = useState(null)
+  const sheetDay = sheetDate ? days.find(d => d.date === sheetDate) : null
+  const selected = isDesktop
+    ? (selectedDate ? days.find(d => d.date === selectedDate) : null)
+    : days.find(d => d.date === todayStr()) || null
   const card = selected && (
     <SelectedDayCard
       day={selected}
@@ -226,10 +230,26 @@ export default function MyYearOverview({
         <h2 className="mb-2 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
         {!isDesktop && card}
         <div className="card p-4">
-          <YearGlance days={days} year={year} selectedDate={selectedDate} onSelect={onSelectDate} showLate={showLate} />
+          <YearGlance
+            days={days}
+            year={year}
+            selectedDate={isDesktop ? selectedDate : sheetDate}
+            openOn={todayStr()}
+            onSelect={isDesktop ? onSelectDate : setSheetDate}
+            showLate={showLate}
+          />
         </div>
         {isDesktop && (card || <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>)}
       </section>
+
+      {!isDesktop && sheetDay && (
+        <ActionSheet title={formatWeekdayDate(sheetDay.date)} onClose={() => setSheetDate(null)}>
+          <div className="px-3 pb-2" data-testid="day-sheet">
+            {sheetDay.holidayName && <p className="text-xs text-ink-light">Public holiday · {sheetDay.holidayName}</p>}
+            <DayDetails day={sheetDay} data={data} profileId={profileId} isAdmin={isAdmin} own={own} compact />
+          </div>
+        </ActionSheet>
+      )}
 
       <section>
         <h2 className="mb-2 text-sm font-semibold text-ink">Breaks</h2>

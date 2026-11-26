@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, waitFor } from '@testing-library/react'
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import RosterGridPage from './RosterGridPage'
@@ -166,6 +166,25 @@ describe('RosterGridPage day blocks', () => {
     expect(within(rail('2026-08-09')).getByText("Women's Day")).toBeInTheDocument()
     for (const cell of rowFor('2026-08-05').children) expect(cell).toHaveClass('border-accent')
     expect(rail('2026-08-04')).not.toHaveClass('border-accent')
+  })
+
+  it('marks today with a filled date rail and a TODAY tag', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    const rail = rowFor('2026-08-05').firstElementChild
+    expect(rail).toHaveClass('bg-accent', 'text-on-fill', 'border-y-2')
+    expect(within(rail).getByTestId('today-tag')).toHaveTextContent('Today')
+  })
+
+  it('Fullscreen hides the header bar and the app chrome until Exit', async () => {
+    renderPage()
+    await screen.findByText('August 2026')
+    fireEvent.click(screen.getByTestId('enter-fullscreen'))
+    expect(document.body).toHaveClass('roster-fullscreen')
+    expect(screen.queryByText('August 2026')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('exit-fullscreen'))
+    expect(document.body).not.toHaveClass('roster-fullscreen')
+    expect(await screen.findByText('August 2026')).toBeInTheDocument()
   })
 
   it('keeps a flag fill on the inset inner block, never on the cell or its header', async () => {

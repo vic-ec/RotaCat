@@ -10,6 +10,7 @@ import {
   leaveTotals, breakSummary, lieuBalance, shiftCounts, onCallDates, leaveRecord, buildYearDays, approvedLeaveRanges,
 } from '../lib/myYear'
 import { fetchMyYear, isProfileId } from '../lib/myYearData'
+import { useBack } from '../lib/backNav'
 import { ALL_LEAVE_PATH, MY_LEAVE_PATH } from '../lib/myYearLinks'
 import { fetchLateArrivalsForProfile, fetchMyLateArrivals } from '../lib/lateArrivals'
 import LateArrivalModal from '../components/LateArrivalModal'
@@ -61,9 +62,9 @@ function GoToMenu({ links }) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
-        className="btn-secondary min-h-[44px] whitespace-nowrap text-sm md:min-h-0"
+        className="btn-secondary h-[30px] whitespace-nowrap px-3 py-0 text-sm"
       >
-        Go to…
+        Go to
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {open && (
@@ -92,6 +93,7 @@ function GoToMenu({ links }) {
 
 function MyYear({ profileId, own }) {
   const { isAdmin } = useAuth()
+  const back = useBack()
   const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
@@ -189,13 +191,16 @@ function MyYear({ profileId, own }) {
   // At most one filled button on screen: Request leave on your own
   // Overview, Capture leave when an admin is on someone else's Leave tab.
   const action = own && tab === 'overview'
-    ? { label: 'Request leave', onClick: () => setFormOpen(true) }
-    : !own && isAdmin && tab === 'leave' ? { label: 'Capture leave', onClick: () => setFormOpen(true) }
-    : !own && isAdmin && tab === 'attendance' ? { label: 'Log late arrival', onClick: () => setLateForm({}) } : null
+    ? { label: 'Request leave', short: 'Request', onClick: () => setFormOpen(true) }
+    : !own && isAdmin && tab === 'leave' ? { label: 'Capture leave', short: 'Capture', onClick: () => setFormOpen(true) }
+    : !own && isAdmin && tab === 'attendance' ? { label: 'Log late arrival', short: 'Log late', onClick: () => setLateForm({}) } : null
 
   return (
     <div className="mx-auto max-w-7xl">
-      {own ? (
+      {/* The app's standard back (AppLayout) when the page was opened by a
+          link; this fixed one only when it wasn't (a bookmark, a reload of
+          a fresh tab). */}
+      {back ? null : own ? (
         <Link to={MY_LEAVE_PATH} className="mb-2 inline-flex min-h-[44px] items-center gap-1 text-sm font-medium text-accent md:hidden">
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />My leave
         </Link>
@@ -211,13 +216,17 @@ function MyYear({ profileId, own }) {
           <h1 className="min-w-0 truncate font-display text-xl font-bold text-ink md:text-2xl">{title}</h1>
           {!own && person.category && <Tag>{categoryLabel(person.category)}</Tag>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* One row at every width, every control the stepper's 30px: the
+            year, Go to and the page's one action. On a phone the action
+            drops its second word so the three fit a 390px screen. */}
+        <div className="flex flex-nowrap items-center gap-2">
           <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(null) }} nowrap />
           <GoToMenu links={goTo} />
           {action && (
-            <button type="button" onClick={action.onClick} className="btn-primary min-h-[44px] whitespace-nowrap text-sm md:min-h-0">
+            <button type="button" onClick={action.onClick} aria-label={action.label} className="btn-primary h-[30px] whitespace-nowrap px-3 py-0 text-sm">
               <Plus className="h-4 w-4" aria-hidden="true" />
-              {action.label}
+              <span className="sm:hidden">{action.short}</span>
+              <span className="hidden sm:inline">{action.label}</span>
             </button>
           )}
         </div>

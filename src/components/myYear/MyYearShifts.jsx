@@ -46,7 +46,8 @@ export default function MyYearShifts({ year, shifts, onCall, lieu, holidayRows, 
               { label: 'Days in lieu taken', value: lieu.taken },
               { label: 'Days in lieu owed', value: lieu.owed },
             ].map(stat => (
-              <div key={stat.label} className="min-w-0 border-l border-slate-line p-3 sm:p-4">
+              // Shared rows (subgrid): a wrapped label never moves its number.
+              <div key={stat.label} className="row-span-2 grid min-w-0 grid-rows-subgrid gap-0 border-l border-slate-line p-3 sm:p-4">
                 <dt className="text-xs font-medium text-ink-muted">{stat.label}</dt>
                 <dd className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">{stat.value}</dd>
               </div>

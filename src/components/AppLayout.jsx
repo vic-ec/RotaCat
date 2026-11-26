@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useSwipeNavigation } from '../lib/swipeNavigation'
+import { useBackTarget, BackTargetContext, drawsOwnBack } from '../lib/backNav'
+import BackLink from './BackLink'
 import { UsersRound, NotebookTabs, UserCog } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -173,6 +175,8 @@ export default function AppLayout() {
                  : isClerk  ? clerkNav
                  : doctorNav
   const swipe = useSwipeNavigation(navItems)
+  // Where this page was opened from, for the standard "‹ <page>" back.
+  const backTarget = useBackTarget()
   const isDashboard = location.pathname === '/'
 
   // Subtitle under the name in the sidebar
@@ -193,7 +197,7 @@ export default function AppLayout() {
           back in at >=1024px) per docs/design/layout-spec.md §15 — nothing
           is removed at that width, nav items keep a `title` tooltip and
           stay fully clickable, just narrower. */}
-      <aside className="sticky top-0 hidden h-dvh w-16 flex-col border-r border-accent/50 bg-canvas-raised md:flex lg:w-60">
+      <aside data-app-chrome className="sticky top-0 hidden h-dvh w-16 flex-col border-r border-accent/50 bg-canvas-raised md:flex lg:w-60">
         <div className="px-3 py-6 lg:px-5">
           <div className="flex items-center justify-center gap-2 lg:justify-start">
             <UserAvatar profile={profile} size={40} onLeave={myOnLeave} />
@@ -212,6 +216,7 @@ export default function AppLayout() {
         <nav className="flex-1 space-y-1 px-2 lg:px-3">
           {navItems.map((item) => (
             <NavLink
+            state={{ navTab: true }}
               key={item.to}
               to={item.to}
               end={item.end ?? false}
@@ -256,7 +261,7 @@ export default function AppLayout() {
           lib/swipeNavigation). overflow-x-clip (not hidden — clip makes no
           scroll container, so the sticky header keeps working) contains the
           few pixels the incoming screen slides in from. */}
-      <div ref={swipe.ref} className="flex min-w-0 flex-1 flex-col overflow-x-clip pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
+      <div ref={swipe.ref} data-app-shell className="flex min-w-0 flex-1 flex-col overflow-x-clip pb-[calc(54px+env(safe-area-inset-bottom))] md:pb-0">
         {/* Top bar — mobile only, and Dashboard-only: every other mobile
             page starts straight into its own content/nav instead, the same
             way a native app only brands its home tab. Sign-out lives on the
@@ -287,12 +292,16 @@ export default function AppLayout() {
             the slide-in from the side it came from; a tap on the bar leaves
             the count alone and arrives without one, as it always has. */}
         <main
+          data-app-main
           key={swipe.arrival.count}
           className={`min-w-0 flex-1 px-4 pb-6 pt-4 md:px-6 md:pb-8 md:pt-5 lg:px-8 ${
             swipe.arrival.direction ? `swipe-arrive-${swipe.arrival.direction}` : ''
           }`}
         >
-          <Outlet />
+          <BackTargetContext.Provider value={backTarget}>
+            {!drawsOwnBack(location.pathname) && <BackLink target={backTarget} />}
+            <Outlet />
+          </BackTargetContext.Provider>
         </main>
       </div>
 
@@ -310,9 +319,10 @@ export default function AppLayout() {
           tab is a state, not a button, so it takes no bevel (a deliberate
           departure from the spec's "mint filled square with the bevel").
           Icons unchanged. */}
-      <nav className="sheen sheen-pinned fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
+      <nav data-app-chrome className="sheen sheen-pinned fixed inset-x-0 bottom-0 z-10 flex rounded-t-[22px] pb-[env(safe-area-inset-bottom)] shadow-tabbar md:hidden">
         {navItems.map((item) => (
           <NavLink
+            state={{ navTab: true }}
             key={item.to}
             to={item.to}
             end={item.end ?? false}

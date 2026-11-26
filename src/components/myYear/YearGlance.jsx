@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import { MONTH_ABBR, todayStr } from '../../lib/dateRange'
 import { leaveGroupInk, LEAVE_GROUP_OPTIONS } from '../../lib/leaveMatrix'
-import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
+import { LEAVE_TYPE_LABELS, SPECIAL_LEAVE_TYPES } from '../../lib/leaveRequests'
 import { yearWeekColumns, daysByMonth } from '../../lib/myYear'
 import { plannerMonthLink } from '../../lib/myYearLinks'
 import LeaveTypeIcon from '../LeaveTypeIcon'
@@ -103,8 +103,10 @@ const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 // A month opened on a phone: a Monday-first calendar with cells big enough
 // to tap (about 44px), each day in the grid's own colours, its number on it.
 function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, showLate }) {
+  // The Special planner only when the month's leave is special leave (it
+  // doesn't show sick leave); the Annual planner otherwise.
   const leaveDays = monthDays.filter(d => d.leave)
-  const special = leaveDays.length > 0 && !leaveDays.some(d => d.leave.leave_type === 'annual')
+  const special = leaveDays.some(d => SPECIAL_LEAVE_TYPES.includes(d.leave.leave_type)) && !leaveDays.some(d => d.leave.leave_type === 'annual')
   const lead = (new Date(year, monthIndex, 1).getDay() + 6) % 7
   const today = todayStr()
   return (
@@ -152,10 +154,13 @@ function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, sh
 // tap on a row opens that month in place as a calendar to pick a day from,
 // with the planner a link in its header. One month open at a time; it
 // starts on the selected day's month.
-export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false }) {
+// `openOn`: the date whose month starts open on a phone (today), else the
+// selected day's.
+export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false, openOn = null }) {
   const isDesktop = useIsDesktop(768)
-  const selectedMonth = selectedDate && selectedDate.startsWith(`${year}-`) ? Number(selectedDate.slice(5, 7)) - 1 : null
-  const [openMonth, setOpenMonth] = useState(selectedMonth)
+  const startDate = openOn || selectedDate
+  const startMonth = startDate && startDate.startsWith(`${year}-`) ? Number(startDate.slice(5, 7)) - 1 : null
+  const [openMonth, setOpenMonth] = useState(startMonth)
 
   if (!isDesktop) {
     const months = daysByMonth(days)

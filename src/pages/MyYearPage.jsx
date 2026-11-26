@@ -98,7 +98,8 @@ function MyYear({ profileId, own }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
-  const [selectedDate, setSelectedDate] = useState(null)
+  // The Overview's selected day opens on today (a past or future year, on nothing).
+  const [selectedDate, setSelectedDate] = useState(() => todayStr())
   const [formOpen, setFormOpen] = useState(false)
   // Late arrivals for the displayed year. Admins read the records
   // themselves (and can edit them); everyone else gets their own through
@@ -221,7 +222,7 @@ function MyYear({ profileId, own }) {
             year, Go to and the page's one action. On a phone the action
             drops its second word so the three fit a 390px screen. */}
         <div className="flex flex-nowrap items-center gap-2">
-          <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(null) }} nowrap />
+          <DateStepper unit="year" year={year} onChange={y => { setParam('year', y); setSelectedDate(y === currentYear ? today : null) }} nowrap />
           <GoToMenu links={goTo} />
           {action && (
             <button type="button" onClick={action.onClick} aria-label={action.label} className="btn-primary h-[30px] whitespace-nowrap px-3 py-0 text-sm">

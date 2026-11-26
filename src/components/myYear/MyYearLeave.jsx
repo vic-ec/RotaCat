@@ -78,7 +78,7 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
         cover: r.status === 'approved'
           ? coverSummary(coverForRequest(r, data.entries, { profileId, publishedMonths: data.publishedMonths, today }))
           : '—',
-        rosterTo: rosterLinkForDate(data.monthIds, r.date_from, { doctor: profileId }),
+        rosterTo: rosterLinkForDate(data.monthIds, r.date_from, { doctor: profileId, mark: true }),
         open: requestLink(r),
       }
     }), [rows, filter, facets, q, data, profileId, today])

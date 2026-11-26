@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useState } from 'react'
-import { Link2, MessageCircle, UserPlus } from 'lucide-react'
+import { Link2, MessageCircle, Pencil, UserPlus } from 'lucide-react'
 import ProfileAvatar from './ProfileAvatar'
 import RowActionIcon from './RowActionIcon'
 import AddStaffModal from './AddStaffModal'
 import SelectMenu from './SelectMenu'
-import { formatPhoneDisplay, phoneTelHref, phoneWhatsAppMessageHref } from '../lib/phone'
+import { formatPhoneDisplay, formatPhoneProgressive, phoneTelHref, phoneWhatsAppMessageHref } from '../lib/phone'
 import {
   fetchOpenLocumContacts, fetchContactShiftCounts, fetchContactShifts, fetchLocumProfiles, findByPhone, linkLocumContact, locumInviteText,
+  phoneKey, updateLocumContactPhone,
 } from '../lib/locumCover'
 import { Link } from 'react-router-dom'
 import Modal from './Modal'
@@ -27,6 +28,9 @@ import { shiftStartLabel } from '../lib/myYear'
 //   Link to account   they already have one: move the shifts onto it. An
 //                     account with the same mobile is suggested.
 //
+// The pencil corrects the mobile (which otherwise only an account could
+// carry): it opens a field under the row, where Link opens its picker.
+//
 // Lives in the Staff page's Account Requests tab as one section of its
 // table (the heading is the tab's own section bar); the rows here are the
 // table's rows. `onCount` reports how many there are, for the badge and
@@ -39,6 +43,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
   const [linkingFor, setLinkingFor] = useState(null)
   const [linkTarget, setLinkTarget] = useState(null)
   const [busy, setBusy] = useState(false)
+  // The mobile being corrected: { id, digits, saving, error } | null.
+  const [phoneEdit, setPhoneEdit] = useState(null)
+  const [savedPhoneFor, setSavedPhoneFor] = useState(null)
   const [error, setError] = useState('')
   // Tapping a row: their rostered shifts, newest first, each linking to
   // its cell on the roster.
@@ -88,6 +95,36 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
     }
   }
 
+  function openPhoneEdit(row) {
+    setLinkingFor(null)
+    setPhoneEdit(current => (current?.id === row.id ? null : { id: row.id, digits: (row.phone || '').replace(/\D/g, '').slice(0, 10), saving: false, error: '' }))
+  }
+
+  async function savePhone(row) {
+    if (!phoneEdit) return
+    setPhoneEdit(e => ({ ...e, saving: true, error: '' }))
+    try {
+      const digits = await updateLocumContactPhone(row.id, phoneEdit.digits)
+      setRows(list => list.map(r => (r.id === row.id ? { ...r, phone: digits } : r)))
+      setPhoneEdit(null)
+      setSavedPhoneFor(row.id)
+      setTimeout(() => setSavedPhoneFor(id => (id === row.id ? null : id)), 2000)
+    } catch (err) {
+      setPhoneEdit(e => (e ? { ...e, saving: false, error: err.message } : e))
+    }
+  }
+
+  // Another contact on this list, or a locum account, with the number
+  // being typed: worth knowing (a placeholder number shared between
+  // locums), not a reason to refuse it.
+  function sharedNumberNote(row, digits) {
+    if (digits.length !== 10) return null
+    const other = rows.find(r => r.id !== row.id && phoneKey(r.phone) === phoneKey(digits))
+    if (other) return `Also ${other.name} ${other.surname}'s number.`
+    const account = findByPhone(accounts, digits)
+    return account ? `Same mobile as ${account.name} ${account.surname}'s account.` : null
+  }
+
   if (rows.length === 0 && !creatingFor && !error) return null
 
   const signupUrl = `${window.location.origin}/signup`
@@ -96,6 +133,12 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
   // The actions, as the Staff list draws its own: icon-only, titled.
   const actionIcons = (row, count, match, inviteHref) => (
     <div className="flex items-center justify-end gap-0.5">
+      <RowActionIcon
+        icon={<Pencil className="h-4 w-4" />}
+        title="Edit mobile"
+        label={`Edit ${row.name}'s mobile number`}
+        onClick={() => openPhoneEdit(row)}
+      />
       {inviteHref && (
         <RowActionIcon icon={<MessageCircle className="h-4 w-4" />} title="WhatsApp" label={`WhatsApp ${row.name}`} href={inviteHref} />
       )}
@@ -104,13 +147,47 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
         icon={<Link2 className="h-4 w-4" />}
         title="Link to account"
         label={`Link ${row.name} to an existing account`}
-        onClick={() => { setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
+        onClick={() => { setPhoneEdit(null); setLinkingFor(linkingFor === row.id ? null : row.id); setLinkTarget(match?.id ?? null) }}
       />
     </div>
   )
 
   // The follow-ups under a row: the same-mobile suggestion, or the picker.
-  const followUp = (row, count, match) => (
+  const phoneEditor = row => {
+    const digits = phoneEdit.digits
+    const unchanged = digits === (row.phone || '').replace(/\D/g, '')
+    const short = digits.length > 0 && digits.length < 10
+    const note = sharedNumberNote(row, digits)
+    return (
+      <form
+        data-testid="contact-phone-editor"
+        onSubmit={e => { e.preventDefault(); savePhone(row) }}
+        onKeyDown={e => { if (e.key === 'Escape') setPhoneEdit(null) }}
+        className="max-w-xs space-y-1.5"
+      >
+        <input
+          type="tel"
+          autoFocus
+          aria-label={`${row.name}'s mobile number`}
+          value={formatPhoneProgressive(digits)}
+          onChange={e => { const next = e.target.value.replace(/\D/g, '').slice(0, 10); setPhoneEdit(p => ({ ...p, digits: next, error: '' })) }}
+          placeholder="e.g. (082) 123 4567"
+          className="input-field"
+        />
+        {short && <p className="text-xs font-medium text-flagRed">Enter all 10 digits.</p>}
+        {!short && note && <p className="rounded bg-flagAmber-bg px-1.5 py-1 text-xs text-flagAmber" data-testid="contact-phone-shared">{note}</p>}
+        {phoneEdit.error && <p className="text-xs font-medium text-flagRed" role="alert">{phoneEdit.error}</p>}
+        <div className="flex items-center gap-2">
+          <button type="submit" disabled={phoneEdit.saving || unchanged || digits.length !== 10} className="btn-primary px-3 py-1.5 text-xs">
+            {phoneEdit.saving ? 'Saving…' : 'Update'}
+          </button>
+          <button type="button" onClick={() => setPhoneEdit(null)} className="btn-secondary px-3 py-1.5 text-xs">Cancel</button>
+        </div>
+      </form>
+    )
+  }
+
+  const followUp = (row, count, match) => phoneEdit?.id === row.id ? phoneEditor(row) : (
     <>
       {match && linkingFor !== row.id && (
         <p className="text-xs text-ink-light" data-testid="contact-match">
@@ -147,9 +224,9 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
     <div data-testid="locum-contacts-panel">
       {error && <p className="px-4 pt-3 text-xs text-flagRed" role="alert">{error}</p>}
 
-      {/* Phone: the Staff list's card rows — avatar, name, a line of meta,
-          the actions as icons. The mobile number is left off; WhatsApp is
-          the way to reach them from here. */}
+      {/* Phone: the Staff list's card rows — avatar, name, the mobile and
+          shift count on one line, the actions as icons (the pencil there,
+          so the line never has to wrap around one of its own). */}
       <ul className="divide-y divide-slate-line md:hidden">
         {prepared.map(({ row, count, fullName, match, inviteHref }) => (
           <li key={row.id} className="px-4 py-1">
@@ -157,11 +234,13 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
               <ProfileAvatar profile={row} size={40} className="flex-shrink-0" />
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink">{fullName}</span>
-                <span className="mt-0.5 block text-xs text-ink-muted">Locum · {count} shift{count === 1 ? '' : 's'}</span>
+                <span className="mt-0.5 block truncate text-xs text-ink-muted">
+                  {formatPhoneDisplay(row.phone)}{savedPhoneFor === row.id && <span className="ml-1 font-semibold text-accent-dark">Saved</span>} · {count} shift{count === 1 ? '' : 's'}
+                </span>
               </div>
               {actionIcons(row, count, match, inviteHref)}
             </div>
-            {(match || linkingFor === row.id) && <div className="pb-2 pl-[52px]">{followUp(row, count, match)}</div>}
+            {(match || linkingFor === row.id || phoneEdit?.id === row.id) && <div className="pb-2 pl-[52px]">{followUp(row, count, match)}</div>}
           </li>
         ))}
       </ul>
@@ -173,7 +252,7 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
             <th className="px-2.5 py-2">Locum</th>
             <th className="w-40 px-2.5 py-2">Mobile</th>
             <th className="w-24 px-2.5 py-2">Shifts</th>
-            <th className="w-28 px-2.5 py-2 text-right">Actions</th>
+            <th className="w-36 px-2.5 py-2 text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -189,11 +268,14 @@ export default function LocumContactsPanel({ onLinked, onCount }) {
                     </div>
                   </div>
                 </td>
-                <td className="px-2.5 py-1.5 text-sm"><a href={phoneTelHref(row.phone)} className="text-accent underline">{formatPhoneDisplay(row.phone)}</a></td>
+                <td className="px-2.5 py-1.5 text-sm">
+                  <a href={phoneTelHref(row.phone)} onClick={e => e.stopPropagation()} className="text-accent underline">{formatPhoneDisplay(row.phone)}</a>
+                  {savedPhoneFor === row.id && <span className="ml-1.5 text-xs font-semibold text-accent-dark">Saved</span>}
+                </td>
                 <td className="px-2.5 py-1.5 text-sm text-ink-muted">{count}</td>
                 <td className="px-2.5 py-1.5">{actionIcons(row, count, match, inviteHref)}</td>
               </tr>
-              {(match || linkingFor === row.id) && (
+              {(match || linkingFor === row.id || phoneEdit?.id === row.id) && (
                 <tr className="border-b border-slate-line last:border-0">
                   <td colSpan={4} className="px-2.5 pb-2 pl-[50px]">{followUp(row, count, match)}</td>
                 </tr>

@@ -10,7 +10,7 @@ import { rosterLinkForDate } from '../../lib/myYearData'
 //   own    date, shift, shift start, arrival, late by and reason — what
 //          get_my_late_arrivals returns. No "Logged by", nothing to edit.
 export default function MyYearAttendance({ records = [], admin = false, monthIds = {}, profileId, onEdit }) {
-  const rosterTo = r => rosterLinkForDate(monthIds, r.entry_date, r.roster_entry_id ? { entry: r.roster_entry_id } : { doctor: profileId })
+  const rosterTo = r => rosterLinkForDate(monthIds, r.entry_date, r.roster_entry_id ? { entry: r.roster_entry_id, mark: true } : { doctor: profileId, mark: true })
   const logger = r => (r.logger ? `${r.logger.name || ''} ${r.logger.surname || ''}`.trim() : '—')
   return (
     <div className="space-y-4">

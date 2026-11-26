@@ -13,6 +13,15 @@ export function requestLink(request) {
   }
 }
 
+// One doctor's leave on Team Leave → Matrix: their row, the request's year,
+// the request's bar selected (admins; the Matrix needs a wide screen).
+export function teamLeaveLink(request) {
+  const params = new URLSearchParams({
+    tab: 'team', sub: 'current', ldoctor: request.profile_id, lyear: request.date_from.slice(0, 4), lrequest: request.id,
+  })
+  return `/leave?${params.toString()}`
+}
+
 // A month on the planner that suits what is in it.
 export function plannerMonthLink(year, month, { special = false } = {}) {
   const mm = String(month).padStart(2, '0')

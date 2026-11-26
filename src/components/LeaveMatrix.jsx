@@ -74,6 +74,7 @@ function LeaveBar({ request, year, selected, onSelect, monthColWidth }) {
   return (
     <button
       type="button"
+      data-request-id={request.id}
       onClick={() => onSelect(request)}
       title={`${leaveTypeLabelWithCode(request.leave_type)}: ${formatDMY(request.date_from)} – ${formatDMY(request.date_to)}`}
       className="absolute top-1/2 flex -translate-y-1/2 items-center justify-center overflow-hidden rounded-sm transition-shadow"
@@ -128,7 +129,7 @@ function DoctorRows({ row, year, selected, onSelectDoctor, onSelectBlock, gridTe
   const doctorSelected = selected?.kind === 'doctor' && selected.doctorId === row.doctor.id
 
   return (
-    <div className="border-b border-slate-line last:border-0">
+    <div data-doctor-id={row.doctor.id} className="border-b border-slate-line last:border-0">
       {tracks.map((track, i) => (
         <div key={track.status} className={`grid ${i > 0 ? 'border-t border-dashed border-slate-line' : ''}`} style={{ gridTemplateColumns }}>
           <div
@@ -291,7 +292,10 @@ function useElementWidth() {
 // `canCancelLeave` / `onLeaveCancelled` thread through to LeaveBlockDetail
 // (admin "Cancel leave"); a successful cancel clears the selection, since
 // the block it described is no longer on the matrix.
-export default function LeaveMatrix({ requests, controls, leading = null, canCancelLeave = false, onLeaveCancelled }) {
+// `focus` ({ doctorId, year, requestId }, from a link such as My year's
+// "Open in Team Leave") opens the matrix on that year with the request's
+// bar selected and scrolled into view.
+export default function LeaveMatrix({ requests, controls, leading = null, canCancelLeave = false, onLeaveCancelled, focus = null }) {
   const [gridRef, gridWidth] = useElementWidth()
   // The grid runs to the bottom of the window like the Table view and
   // Hours Summary, scrolling inside itself past that.
@@ -300,10 +304,16 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
   const [search, setSearch] = useState('')
   const isDesktop = useIsDesktop()
   const currentYear = Number(todayStr().slice(0, 4))
-  const [year, setYear] = useState(currentYear)
+  const [year, setYear] = useState(() => (focus?.year && focus.year >= 2000 && focus.year <= 2100 ? focus.year : currentYear))
   const [collapsedGroups, setCollapsedGroups] = useState({})
   // selected: null | { kind: 'doctor', doctorId } | { kind: 'block', request }
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(() => {
+    const request = focus?.requestId && requests.find(r => r.id === focus.requestId)
+    if (request) return { kind: 'block', request }
+    return focus?.doctorId ? { kind: 'doctor', doctorId: focus.doctorId } : null
+  })
+  const focusKey = focus ? `${focus.doctorId || ''}|${focus.year || ''}|${focus.requestId || ''}` : ''
+  const scrolledFor = useRef('')
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -327,6 +337,20 @@ export default function LeaveMatrix({ requests, controls, leading = null, canCan
   const currentMonthIndex = Number(todayStr().slice(5, 7)) - 1
 
   const selectedDoctorRow = selected?.kind === 'doctor' ? rowsByDoctorId.get(selected.doctorId) : null
+
+  // Bring the focused bar (or, failing that, the doctor's row) into view;
+  // again once the grid has measured its width, since the bars move then.
+  useEffect(() => {
+    const key = `${focusKey}|${gridWidth > 0}`
+    if (!focusKey || scrolledFor.current === key) return
+    const grid = gridRef.current
+    if (!grid) return
+    const target = (focus.requestId && grid.querySelector(`[data-request-id="${focus.requestId}"]`))
+      || (focus.doctorId && grid.querySelector(`[data-doctor-id="${focus.doctorId}"]`))
+    if (!target) return
+    scrolledFor.current = key
+    target.scrollIntoView?.({ block: 'center', inline: 'center' })
+  }, [focusKey, focus, gridWidth, gridRef, rows])
 
   // Panel body reflects the current selection; reused by the desktop sticky
   // panel and the mobile modal.

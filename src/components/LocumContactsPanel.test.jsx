@@ -13,6 +13,7 @@ const fetchContactShiftCounts = vi.fn()
 const fetchLocumProfiles = vi.fn()
 const linkLocumContact = vi.fn()
 const fetchContactShifts = vi.fn()
+const updateLocumContactPhone = vi.fn()
 vi.mock('../lib/locumCover', async () => {
   const actual = await vi.importActual('../lib/locumCover')
   return {
@@ -22,6 +23,7 @@ vi.mock('../lib/locumCover', async () => {
     fetchLocumProfiles: (...a) => fetchLocumProfiles(...a),
     linkLocumContact: (...a) => linkLocumContact(...a),
     fetchContactShifts: (...a) => fetchContactShifts(...a),
+    updateLocumContactPhone: (...a) => updateLocumContactPhone(...a),
   }
 })
 const fetchLateArrivalsForLocum = vi.fn()
@@ -41,6 +43,7 @@ describe('LocumContactsPanel', () => {
     linkLocumContact.mockReset().mockResolvedValue(undefined)
     fetchContactShifts.mockReset().mockResolvedValue([])
     fetchLateArrivalsForLocum.mockReset().mockResolvedValue([])
+    updateLocumContactPhone.mockReset().mockImplementation(async (id, digits) => digits)
   })
 
   it('renders nothing when every locum on the roster has an account', async () => {
@@ -61,6 +64,42 @@ describe('LocumContactsPanel', () => {
     // Three shifts under this contact, so the message says so.
     expect(text).toContain("You've been rostered for shifts at Victoria Hospital Emergency Centre.")
     expect(text.endsWith('/signup')).toBe(true)
+  })
+
+  it('the pencil opens the mobile under the row; Update saves a full new number and the row shows it', async () => {
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    expect(phone().getByText(/\(082\) 123-4567/)).toBeInTheDocument()
+    await userEvent.click(phone().getByRole('button', { name: "Edit Jo's mobile number" }))
+    const editor = phone().getByTestId('contact-phone-editor')
+    const field = within(editor).getByRole('textbox', { name: "Jo's mobile number" })
+    const update = within(editor).getByRole('button', { name: 'Update' })
+    expect(update).toBeDisabled() // unchanged
+    await userEvent.clear(field)
+    await userEvent.type(field, '083555')
+    expect(within(editor).getByText('Enter all 10 digits.')).toBeInTheDocument()
+    expect(update).toBeDisabled()
+    await userEvent.type(field, '0142')
+    await userEvent.click(update)
+    expect(updateLocumContactPhone).toHaveBeenCalledWith('c-1', '0835550142')
+    await waitFor(() => expect(screen.queryAllByTestId('contact-phone-editor')).toHaveLength(0))
+    expect(phone().getByText(/\(083\) 555-0142/)).toBeInTheDocument()
+    expect(fetchContactShifts).not.toHaveBeenCalled() // the pencil doesn't open the shifts too
+  })
+
+  it('notes a number another locum on the list already has, and Cancel puts the old one back', async () => {
+    fetchOpenLocumContacts.mockResolvedValue([CONTACT, { id: 'c-2', name: 'Ann', surname: 'Walker', phone: '0835550142' }])
+    render(<MemoryRouter><LocumContactsPanel /></MemoryRouter>)
+    await screen.findAllByText('Jo Marsh')
+    await userEvent.click(phone().getByRole('button', { name: "Edit Jo's mobile number" }))
+    const field = phone().getByRole('textbox', { name: "Jo's mobile number" })
+    await userEvent.clear(field)
+    await userEvent.type(field, '0835550142')
+    expect(phone().getByTestId('contact-phone-shared')).toHaveTextContent('Also Ann Walker\'s number.')
+    await userEvent.click(phone().getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryAllByTestId('contact-phone-editor')).toHaveLength(0)
+    expect(updateLocumContactPhone).not.toHaveBeenCalled()
+    expect(phone().getAllByText(/\(082\) 123-4567/).length).toBe(1)
   })
 
   it('"Create account" opens Add staff prefilled as a locum', async () => {

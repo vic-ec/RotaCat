@@ -126,16 +126,15 @@ describe('SpecialMonthWorkspace', () => {
       expect(onBack).toHaveBeenCalled()
     })
 
-    it('one panel: eyebrow, the month stepper as the only period control, Showing, the days-with-room headline, the guideline bar, one filled button', () => {
+    it('one panel: eyebrow, the month stepper as the only period control, Showing, the guideline bar, one filled button — no days-with-room headline', () => {
       renderWorkspace()
       const panel = screen.getByTestId('planner-request-panel')
       expect(panel).toHaveTextContent('Special leave · Month')
       expect(within(panel).getByRole('button', { name: /^August 2026, jump to month or year/ })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Today' })).not.toBeInTheDocument()
       expect(within(panel).getByLabelText('Showing')).toBeInTheDocument()
-      // Nothing in the fixture reaches three doctors on one day.
-      expect(panel).toHaveTextContent('31')
-      expect(panel).toHaveTextContent('of 31 days have room')
+      // The "N of 31 days have room" headline is gone (it read as confusing).
+      expect(panel).not.toHaveTextContent('days have room')
       // The fixture is keyed by day: only the 10th carries entries.
       expect(within(panel).getByText('0/3 slots used · 30 days')).toBeInTheDocument()
       expect(within(panel).getByText('1/3 slots used · 0 days').closest('li')).toHaveClass('text-ink-muted/60')
@@ -147,7 +146,7 @@ describe('SpecialMonthWorkspace', () => {
       expect(panel.parentElement).toHaveClass('order-2', 'lg:order-none', 'lg:sticky', 'lg:top-4', 'lg:w-80')
     })
 
-    it('counts a day at the guideline in the bar and the headline', () => {
+    it('counts a day at the guideline in the bar', () => {
       const pressured = new Map([['2026-08-10', [
         entry('p1', 'study', '2026-08-10', '2026-08-10', 'approved', 'Ellis'),
         entry('p2', 'workshop', '2026-08-10', '2026-08-10', 'approved', 'Stone'),
@@ -155,8 +154,6 @@ describe('SpecialMonthWorkspace', () => {
       ]]])
       renderWorkspace({ leaveByDate: pressured })
       const panel = screen.getByTestId('planner-request-panel')
-      expect(panel).toHaveTextContent('30')
-      expect(panel).toHaveTextContent('of 31 days have room')
       expect(within(panel).getByText('3/3 slots used · 1 day').closest('li')).not.toHaveClass('text-ink-muted/60')
     })
 

@@ -415,8 +415,8 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
             <div className="flex min-w-0 flex-1 gap-2 md:flex-none">
               {/* min-w-0: the two share what the view switch leaves, rather
                   than pushing it off a phone's edge. */}
-              <DateFieldButton label="From" fullWidth shortYearOnPhone className="min-w-0 flex-1" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-              <DateFieldButton label="To" fullWidth shortYearOnPhone className="min-w-0 flex-1" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+              <DateFieldButton label="From" fullWidth className="min-w-0 flex-1" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+              <DateFieldButton label="To" fullWidth className="min-w-0 flex-1" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
             </div>
           )}
           <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} iconOnly />

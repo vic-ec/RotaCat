@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Calendar, ChevronRight, NotebookTabs } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
+import LeaveRequestRow from '../LeaveRequestRow'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import Toolbar from '../Toolbar'
 import FloatingActionMenu from '../FloatingActionMenu'
@@ -180,31 +181,17 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
           <div className="md:hidden">
             <ul className="card divide-y divide-slate-line overflow-hidden">
               {phoneItems.map(item => (
-                // Two lines: type and status, then dates, days and cover;
-                // the links as icons (calendar: the roster; notebook: the
-                // planner or the request), an empty slot keeping them lined up.
-                <li
+                <LeaveRequestRow
                   key={item.request.id}
-                  data-request-id={item.request.id}
-                  className={`flex items-center gap-2 py-2 pl-4 pr-2 ${focusId === item.request.id ? 'bg-accent-tint' : ''}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
-                      <LeaveCodeBox leaveType={item.request.leave_type} />
-                      <span className="truncate">{item.label}</span>
-                      <Tag variant="status" tone={STATUS_TONE[item.request.status] || 'neutral'}>{reviewStatusLabel(item.request.status)}</Tag>
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-ink-muted">{item.dates} · {plural(item.days, 'day')}{item.cover && item.cover !== '—' ? ` · ${item.cover}` : ''}</p>
-                  </div>
-                  <div className="flex flex-shrink-0 items-center gap-0.5">
-                    {item.rosterTo
-                      ? <RowActionLink to={item.rosterTo} icon={<Calendar className="h-4 w-4" />} label="Roster" />
-                      : <span className="h-9 w-9" aria-hidden="true" />}
-                    {item.open
-                      ? <RowActionLink to={item.open.to} icon={<NotebookTabs className="h-4 w-4" />} label={item.open.label} />
-                      : <span className="h-9 w-9" aria-hidden="true" />}
-                  </div>
-                </li>              ))}
+                  request={item.request}
+                  dates={item.dates}
+                  days={item.days}
+                  detail={item.cover && item.cover !== '—' ? item.cover : ''}
+                  rosterTo={item.rosterTo}
+                  open={item.open}
+                  focused={focusId === item.request.id}
+                />
+              ))}
             </ul>
             {!showAll && items.length > PHONE_LIMIT && (
               <button type="button" onClick={() => setShowAll(true)} className="btn-secondary mt-3 min-h-[44px] w-full justify-center">
@@ -215,20 +202,5 @@ export default function MyYearLeave({ rows, data, profileId, today, isAdmin = fa
         </>
       )}
     </div>
-  )
-}
-
-// RowActionIcon's look as a router link (an in-app page, so a <Link>, not
-// an <a href> that would reload the app).
-function RowActionLink({ to, icon, label }) {
-  return (
-    <Link
-      to={to}
-      title={label}
-      aria-label={label}
-      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
-    >
-      {icon}
-    </Link>
   )
 }

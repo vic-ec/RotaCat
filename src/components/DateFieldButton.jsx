@@ -115,8 +115,13 @@ const VARIANTS = {
 export default function DateFieldButton({
   label, value, onChange, min, max, required = false, id, fullWidth = false,
   disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '', variant = 'default',
-  invalid = false, ariaDescribedBy, shortYearOnPhone = false,
+  invalid = false, ariaDescribedBy,
 }) {
+  // On a phone every date field is compact: a 2-digit year below sm ("26
+  // Nov 26") and no calendar icon under 380px, so a pair of them fits a
+  // toolbar row and a form reads the same. Not the auth modals' field (a
+  // birthday's year needs all four digits).
+  const shortYearOnPhone = variant !== 'auth'
   const inputRef = useRef(null)
   const v = VARIANTS[variant] || VARIANTS.default
   // The red outline overrides the variant's own border colour; it is only
@@ -136,8 +141,6 @@ export default function DateFieldButton({
       } ${value ? v.pad.withValue : v.pad.empty} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
       <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted ${shortYearOnPhone ? 'hidden min-[380px]:block' : ''}`} />
-      {/* `shortYearOnPhone`: "26 Nov 26" below sm, for a pair of these
-          sharing a phone's toolbar row with other controls. */}
       <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>
         {value
           ? (shortYearOnPhone

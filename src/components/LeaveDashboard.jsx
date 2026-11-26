@@ -7,7 +7,12 @@ import { todayStr } from '../lib/dateRange'
 import { leaveTrackersForYear, upcomingRequests } from '../lib/leaveDashboard'
 import { LEAVE_TYPE_OPTIONS, ANNUAL_LEAVE_ALLOWANCE } from '../lib/leaveRequests'
 import LeaveRequestForm from './LeaveRequestForm'
-import LeaveCard from './LeaveCard'
+import LeaveRequestRow from './LeaveRequestRow'
+import { formatShortDateRange } from '../lib/dateRange'
+import { totalLeaveDays } from '../lib/leaveMatrix'
+import { rosterLinkForDate } from '../lib/myYearData'
+import { leaveDestination } from '../lib/myYearLinks'
+import { useIsDesktop } from '../lib/useIsDesktop'
 import Modal from './Modal'
 
 const LEAVE_TYPE_ORDER = LEAVE_TYPE_OPTIONS.map(o => o.value)
@@ -24,8 +29,11 @@ const REQUESTS_PATH = '/leave?tab=requests'
 // which holds everything else (other leave types, the full leave record,
 // shifts, public holidays, attendance).
 export default function LeaveDashboard() {
-  const { profile } = useAuth()
+  const { profile, isAdmin } = useAuth()
+  const wide = useIsDesktop(1024)
   const [trackers, setTrackers] = useState([])
+  // Roster ids by "YYYY-MM", for each upcoming row's roster link.
+  const [monthIds, setMonthIds] = useState({})
   const [myUpcoming, setMyUpcoming] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -37,8 +45,13 @@ export default function LeaveDashboard() {
     const today = todayStr()
     const year = new Date().getFullYear()
 
-    const { data } = await supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true })
+    const [{ data }, monthsRes] = await Promise.all([
+      supabase.from('leave_requests').select('*').eq('profile_id', profile.id).order('date_from', { ascending: true }),
+      // Best effort: without it the rows just have no roster link.
+      (async () => { try { return await supabase.from('roster_months').select('id, year, month').is('deleted_at', null) } catch { return { data: [] } } })(),
+    ])
     const rows = data || []
+    setMonthIds(Object.fromEntries((monthsRes?.data || []).map(m => [`${m.year}-${String(m.month).padStart(2, '0')}`, m.id])))
 
     setTrackers(leaveTrackersForYear(rows, year, LEAVE_TYPE_ORDER))
     setMyUpcoming(upcomingRequests(rows, today))
@@ -78,9 +91,18 @@ export default function LeaveDashboard() {
         ) : myUpcoming.length === 0 ? (
           <p className="card px-4 py-3 text-sm text-ink-muted">Nothing upcoming.</p>
         ) : (
+          // My year → Leave's rows: two lines, the roster and the planner
+          // (or request) as icons.
           <ul className="card divide-y divide-slate-line overflow-hidden">
             {myUpcoming.map(lr => (
-              <li key={lr.id} className="p-4"><LeaveCard request={lr} bare /></li>
+              <LeaveRequestRow
+                key={lr.id}
+                request={lr}
+                dates={`${formatShortDateRange(lr.date_from, lr.date_to)} ${lr.date_to.slice(0, 4)}`}
+                days={Number(totalLeaveDays(lr))}
+                rosterTo={rosterLinkForDate(monthIds, lr.date_from, { doctor: profile.id, mark: true })}
+                open={leaveDestination(lr, { isAdmin, own: true, wide, profileId: profile.id })}
+              />
             ))}
           </ul>
         )}

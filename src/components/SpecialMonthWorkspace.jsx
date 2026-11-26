@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import DateStepper from './DateStepper'
 import Modal from './Modal'
-import PlannerRequestPanel, { PanelReading, PANEL_RAIL } from './PlannerRequestPanel'
+import PlannerRequestPanel, { PANEL_RAIL } from './PlannerRequestPanel'
 import PlannerToolbar from './PlannerToolbar'
 import PlannerCalendarGrid from './PlannerCalendarGrid'
 import PlannerDetailsCard from './PlannerDetailsCard'
@@ -80,7 +80,6 @@ export default function SpecialMonthWorkspace({
   const monthStartDate = `${monthPrefix}-01`
   const countsByDate = specialCountsByDate(leaveByDate)
   const monthMarkers = specialMonthMarkers(year, month, countsByDate, publicHolidaysByDate)
-  const daysWithRoom = monthMarkers.filter(m => m.count < SPECIAL_LEAVE_SOFT_CAP).length
   const monthBuckets = daysBySlotsUsed(year, month, d => countsByDate.get(d) || 0, { max: SPECIAL_LEAVE_SOFT_CAP })
 
   // Today when today is in the month being viewed, else the 1st — so a
@@ -172,13 +171,6 @@ export default function SpecialMonthWorkspace({
           <PlannerRequestPanel
             eyebrow="Special leave · Month"
             stepper={<DateStepper unit="month" year={year} month={month} onChange={onMonthChange} showToday={false} centered />}
-            headline={(
-              <PanelReading
-                value={daysWithRoom}
-                valueClassName={daysWithRoom === monthMarkers.length ? 'text-capAvailable-ink' : daysWithRoom === 0 ? 'text-capAtCapacity-ink' : 'text-capNear-ink'}
-                unit={`of ${monthMarkers.length} days have room`}
-              />
-            )}
             capacityBar={<CapacityBar buckets={monthBuckets} labels={specialCapacityBarLabels()} max={SPECIAL_LEAVE_SOFT_CAP} />}
             actionLabel="Request special leave"
             onAction={() => openRequestLeave()}

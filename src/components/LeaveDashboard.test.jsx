@@ -72,8 +72,8 @@ describe('LeaveDashboard ("My leave" tab — doctor only, gated by the caller)',
 
     const upcomingSection = screen.getByText('Upcoming').closest('section')
     expect(upcomingSection.textContent).toMatch(/Annual leave/)
-    expect(upcomingSection.textContent).toMatch(/Mon 10 Aug/)
-    expect(upcomingSection.textContent).toMatch(/5 calendar days · 5 leave days/)
+    // My year → Leave's two-line row: dates and days on the second line.
+    expect(upcomingSection.textContent).toMatch(/10–14 Aug 2026 · 5 days/)
     expect(upcomingSection.textContent).toMatch(/Approved/)
     expect(upcomingSection.textContent).toMatch(/Pending/)
     // Upcoming is one card with a row per request, not a card each

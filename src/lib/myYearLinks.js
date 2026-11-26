@@ -40,3 +40,31 @@ export function myYearPath(profileId, { tab, year } = {}) {
   const query = params.toString()
   return `/my-year${profileId ? `/${profileId}` : ''}${query ? `?${query}` : ''}`
 }
+
+// Where a leave request opens from My year, so the link lands on that
+// request (or its day), never on a page it isn't on:
+//   rejected / cancelled    nowhere (no planner shows it; the roster link stays)
+//   sick                    the request itself: the doctor's My Requests,
+//                           scrolled to it; an admin's Team Leave matrix on a
+//                           wide screen; else the person's My year Leave tab,
+//                           scrolled to it (none from that tab itself)
+//   pending                 the doctor's My Requests at it; an admin's queue
+//   annual / special        that month on its planner (requestLink)
+// `teamLeave` (the Overview's desktop panel for an admin) sends every type
+// to Team Leave's matrix instead. Returns { to, label, kind } or null;
+// kind is 'planner' or 'request', for the icon.
+export function leaveDestination(request, { isAdmin = false, own = false, wide = false, profileId = null, inLeaveTab = false, teamLeave = false } = {}) {
+  if (!request || request.status === 'rejected' || request.status === 'cancelled') return null
+  const doctorOwn = own && !isAdmin
+  const myRequests = { to: `/leave?tab=requests&request=${request.id}`, label: 'My Requests', kind: 'request' }
+  if (isAdmin && wide && (teamLeave || request.leave_type === 'sick')) return { to: teamLeaveLink(request), label: 'Team Leave', kind: 'request' }
+  if (request.leave_type === 'sick') {
+    if (doctorOwn) return myRequests
+    if (inLeaveTab) return null
+    const base = myYearPath(own ? null : profileId, { tab: 'leave', year: request.date_from.slice(0, 4) })
+    return { to: `${base}&request=${request.id}`, label: 'Leave record', kind: 'request' }
+  }
+  if (request.status === 'pending') return doctorOwn ? myRequests : { to: '/leave?tab=requests', label: 'Requests', kind: 'request' }
+  const r = requestLink(request)
+  return { to: r.to, label: r.label, kind: 'planner' }
+}

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Calendar, ChevronRight, NotebookTabs } from 'lucide-react'
+import { useIsDesktop } from '../../lib/useIsDesktop'
 import Toolbar from '../Toolbar'
 import FloatingActionMenu from '../FloatingActionMenu'
 import { MONTH_ABBR } from '../../lib/dateRange'
@@ -11,7 +12,7 @@ import { totalLeaveDays } from '../../lib/leaveMatrix'
 import { reviewStatusLabel } from '../../lib/statusLabels'
 import { leaveBucket, leaveRecordCounts, coverForRequest, coverSummary, isCountedLeave } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
-import { requestLink } from '../../lib/myYearLinks'
+import { leaveDestination } from '../../lib/myYearLinks'
 import Tag from '../Tag'
 import LeaveCodeBox from './LeaveCodeBox'
 
@@ -37,12 +38,21 @@ function monthsOf(r) {
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 const linkClass = 'font-medium text-accent hover:text-accent-dark'
 
-export default function MyYearLeave({ rows, data, profileId, today }) {
+// `?request=<id>` (a link to one request, e.g. a sick day from the
+// Overview): the list shows in full, scrolls to that request and rings it.
+export default function MyYearLeave({ rows, data, profileId, today, isAdmin = false, own = false }) {
+  const [searchParams] = useSearchParams()
+  const focusId = searchParams.get('request')
+  const wide = useIsDesktop(1024)
   const [filter, setFilter] = useState('all')
-  const [showAll, setShowAll] = useState(false)
+  const [showAll, setShowAll] = useState(Boolean(focusId))
   const [q, setQ] = useState('')
   const [facets, setFacets] = useState(EMPTY)
-  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    if (!focusId) return
+    const el = [...document.querySelectorAll(`[data-request-id="${focusId}"]`)].find(n => n.offsetParent !== null) || document.querySelector(`[data-request-id="${focusId}"]`)
+    el?.scrollIntoView?.({ block: 'center' })
+  }, [focusId, rows])
   const setFacet = (key, next) => { setFacets(f => ({ ...f, [key]: next })); setShowAll(false) }
   // The year itself is the page's year stepper; these narrow within it.
   const filterGroups = [
@@ -79,9 +89,11 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
           ? coverSummary(coverForRequest(r, data.entries, { profileId, publishedMonths: data.publishedMonths, today }))
           : '—',
         rosterTo: rosterLinkForDate(data.monthIds, r.date_from, { doctor: profileId, mark: true }),
-        open: requestLink(r),
+        // The request where it is shown (see leaveDestination); none for
+        // rejected or cancelled leave, or a sick day already on this list.
+        open: leaveDestination(r, { isAdmin, own, wide, profileId, inLeaveTab: true }),
       }
-    }), [rows, filter, facets, q, data, profileId, today])
+    }), [rows, filter, facets, q, data, profileId, today, isAdmin, own, wide])
 
   const phoneItems = showAll ? items : items.slice(0, PHONE_LIMIT)
 
@@ -107,34 +119,25 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
         filter={{ groups: filterGroups, active, onClearAll: clearAll, sheetTitle: 'Filters' }}
       />
 
-      <button
-        type="button"
-        onClick={() => setCollapsed(c => !c)}
-        aria-expanded={!collapsed}
-        className="sheen-divider text-left"
-      >
-        <span className="flex items-center gap-1.5">
-          Leave record
-          <ChevronDown className={`divider-meta h-3.5 w-3.5 transition-transform ${collapsed ? '-rotate-90' : ''}`} aria-hidden="true" />
-        </span>
-        <span className="divider-meta normal-case font-normal">{plural(rows.length, 'request')} · {plural(approvedDays, 'day')}</span>
-      </button>
 
-      {!collapsed && (<>
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by leave type">
+      {/* Four equal widths across the panel on a phone; the app's 30px
+          pill (no taller touch padding) everywhere. */}
+      <div className="grid grid-cols-4 gap-2 md:flex md:flex-wrap" role="group" aria-label="Filter by leave type">
         {FILTERS.map(f => (
           <button
             key={f.key}
             type="button"
             aria-pressed={filter === f.key}
             onClick={() => { setFilter(f.key); setShowAll(false) }}
-            className={`toolbar-pill min-h-[44px] md:min-h-0 ${filter === f.key ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
+            className={`toolbar-pill px-2 md:px-3 ${filter === f.key ? 'toolbar-pill-active' : 'toolbar-pill-idle'}`}
           >
             {f.label} <span className="opacity-70">{counts[f.key]}</span>
           </button>
         ))}
       </div>
+      {/* What the old "Leave record" bar said: the tab is the section. */}
+      <p className="text-xs text-ink-muted" data-testid="leave-record-summary">{plural(rows.length, 'request')} · {plural(approvedDays, 'day')} approved</p>
 
       {items.length === 0 ? (
         <p className="card px-4 py-3 text-sm text-ink-muted">No leave requests{filter === 'all' && !active ? '' : ' match'} this year.</p>
@@ -155,7 +158,7 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
               </thead>
               <tbody className="divide-y divide-slate-line">
                 {items.map(item => (
-                  <tr key={item.request.id}>
+                  <tr key={item.request.id} data-request-id={item.request.id} className={focusId === item.request.id ? 'bg-accent-tint' : ''}>
                     <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">{item.dates}</td>
                     <td className="px-4 py-3 text-ink"><span className="flex items-center gap-2"><LeaveCodeBox leaveType={item.request.leave_type} />{item.label}</span></td>
                     <td className="px-4 py-3 text-right text-ink">{item.days}</td>
@@ -164,7 +167,7 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className="flex items-center gap-3">
                         {item.rosterTo && <Link to={item.rosterTo} className={`inline-flex items-center gap-0.5 ${linkClass}`}>Roster<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                        <Link to={item.open.to} className={`inline-flex items-center gap-0.5 ${linkClass}`}>{item.open.label}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>
+                        {item.open && <Link to={item.open.to} className={`inline-flex items-center gap-0.5 ${linkClass}`}>{item.open.label}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
                       </span>
                     </td>
                   </tr>
@@ -177,19 +180,31 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
           <div className="md:hidden">
             <ul className="card divide-y divide-slate-line overflow-hidden">
               {phoneItems.map(item => (
-                <li key={item.request.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-ink"><LeaveCodeBox leaveType={item.request.leave_type} />{item.label}</h3>
-                    <Tag variant="status" tone={STATUS_TONE[item.request.status] || 'neutral'}>{reviewStatusLabel(item.request.status)}</Tag>
+                // Two lines: type and status, then dates, days and cover;
+                // the links as icons (calendar: the roster; notebook: the
+                // planner or the request), an empty slot keeping them lined up.
+                <li
+                  key={item.request.id}
+                  data-request-id={item.request.id}
+                  className={`flex items-center gap-2 py-2 pl-4 pr-2 ${focusId === item.request.id ? 'bg-accent-tint' : ''}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
+                      <LeaveCodeBox leaveType={item.request.leave_type} />
+                      <span className="truncate">{item.label}</span>
+                      <Tag variant="status" tone={STATUS_TONE[item.request.status] || 'neutral'}>{reviewStatusLabel(item.request.status)}</Tag>
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-ink-muted">{item.dates} · {plural(item.days, 'day')}{item.cover && item.cover !== '—' ? ` · ${item.cover}` : ''}</p>
                   </div>
-                  <p className="mt-2 text-sm font-bold text-ink">{item.dates}</p>
-                  <p className="mt-1 text-xs text-ink-muted">{plural(item.days, 'day')} · {item.cover}</p>
-                  <p className="mt-1 flex items-center gap-4 text-sm">
-                    {item.rosterTo && <Link to={item.rosterTo} className={`flex min-h-[44px] items-center gap-0.5 ${linkClass}`}>Roster<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>}
-                    <Link to={item.open.to} className={`flex min-h-[44px] items-center gap-0.5 ${linkClass}`}>{item.open.label}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>
-                  </p>
-                </li>
-              ))}
+                  <div className="flex flex-shrink-0 items-center gap-0.5">
+                    {item.rosterTo
+                      ? <RowActionLink to={item.rosterTo} icon={<Calendar className="h-4 w-4" />} label="Roster" />
+                      : <span className="h-9 w-9" aria-hidden="true" />}
+                    {item.open
+                      ? <RowActionLink to={item.open.to} icon={<NotebookTabs className="h-4 w-4" />} label={item.open.label} />
+                      : <span className="h-9 w-9" aria-hidden="true" />}
+                  </div>
+                </li>              ))}
             </ul>
             {!showAll && items.length > PHONE_LIMIT && (
               <button type="button" onClick={() => setShowAll(true)} className="btn-secondary mt-3 min-h-[44px] w-full justify-center">
@@ -199,7 +214,21 @@ export default function MyYearLeave({ rows, data, profileId, today }) {
           </div>
         </>
       )}
-      </>)}
     </div>
+  )
+}
+
+// RowActionIcon's look as a router link (an in-app page, so a <Link>, not
+// an <a href> that would reload the app).
+function RowActionLink({ to, icon, label }) {
+  return (
+    <Link
+      to={to}
+      title={label}
+      aria-label={label}
+      className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-canvas-sunken hover:text-ink active:bg-canvas-sunken active:text-ink"
+    >
+      {icon}
+    </Link>
   )
 }

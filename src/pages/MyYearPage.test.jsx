@@ -145,7 +145,8 @@ describe('MyYearPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '18 Nov: Sick leave' }))
     let card = screen.getByTestId('selected-day-card')
     expect(within(card).queryByRole('link', { name: /Team Leave/ })).not.toBeInTheDocument()
-    expect(within(card).getByRole('link', { name: /Open in planner/ })).toHaveAttribute('href', expect.stringMatching(/tab=planners&sub=special/))
+    // Sick leave isn't on any planner: the doctor's link opens the request itself.
+    expect(within(card).getByRole('link', { name: /Open in My Requests/ })).toHaveAttribute('href', '/leave?tab=requests&request=k1')
     expect(within(card).queryByRole('link', { name: /Roster change history/ })).not.toBeInTheDocument()
   })
 
@@ -169,14 +170,14 @@ describe('MyYearPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Leave' }))
     expect(screen.getByTestId('location').textContent).toBe('/my-year?tab=leave&year=2026')
-    expect(screen.getByText('Leave record').parentElement.textContent).toMatch(/3 requests · 7 days/)
+    expect(screen.getByTestId('leave-record-summary')).toHaveTextContent('3 requests · 7 days approved')
     // Not on someone else's page, so no Capture leave; and Request leave is Overview only.
     expect(screen.queryByRole('button', { name: /leave$/ })).not.toBeInTheDocument()
   })
 
   it('filters the leave record by type', async () => {
     renderAt('/my-year?tab=leave')
-    await screen.findByText('Leave record')
+    await screen.findByTestId('leave-record-summary')
     const group = screen.getByRole('group', { name: 'Filter by leave type' })
     expect(within(group).getAllByRole('button').map(b => b.textContent)).toEqual(['All 3', 'Annual 1', 'Sick 1', 'Other 1'])
     await userEvent.click(within(group).getByRole('button', { name: /Sick/ }))

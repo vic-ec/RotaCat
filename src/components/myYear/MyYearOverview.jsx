@@ -6,7 +6,7 @@ import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
 import { coverKind, shiftStartLabel } from '../../lib/myYear'
 import { rosterLinkForDate } from '../../lib/myYearData'
-import { requestLink, teamLeaveLink } from '../../lib/myYearLinks'
+import { leaveDestination } from '../../lib/myYearLinks'
 import LeaveCodeBox from './LeaveCodeBox'
 import YearGlance from './YearGlance'
 
@@ -87,7 +87,7 @@ const linkClass = 'inline-flex min-h-[44px] items-center text-sm font-medium tex
 // What the selected day is about, in up to three columns (Leave · Rostered
 // shift · Captured), each with its own link directly under it. On a phone
 // the same columns stack as lines with the link at the right.
-function DayDetails({ day, data, profileId, isAdmin, compact = false }) {
+function DayDetails({ day, data, profileId, isAdmin, own = false, compact = false }) {
   const teamLeaveFits = useIsDesktop(1024)
   const { leave, shift } = day
   const cameOff = shift && (shift.vacated_profile_id === profileId || (shift.profile_id === profileId && leave))
@@ -108,10 +108,11 @@ function DayDetails({ day, data, profileId, isAdmin, compact = false }) {
   // Admins open the leave on Team Leave's Matrix (their row, that period);
   // the Matrix needs a wide screen, and doctors don't have Team Leave, so
   // everyone else gets the planner (or the pending request).
-  const fallback = leave && requestLink(leave)
-  const leaveTo = leave && (isAdmin && teamLeaveFits
-    ? { to: teamLeaveLink(leave), label: 'Open in Team Leave ›', short: 'Team Leave ›' }
-    : { to: fallback.to, label: leave.status === 'pending' ? 'Open request ›' : 'Open in planner ›', short: leave.status === 'pending' ? 'Request ›' : 'Planner ›' })
+  // The request itself where it is shown (see leaveDestination): Team
+  // Leave for an admin on a wide screen; a planner month, My Requests or
+  // the Leave tab otherwise; nothing for rejected or cancelled leave.
+  const dest = leave && leaveDestination(leave, { isAdmin, own, wide: teamLeaveFits, profileId, teamLeave: true })
+  const leaveTo = dest && { to: dest.to, label: `Open in ${dest.label} ›`, short: `${dest.label} ›` }
   const capturedBy = leave?.submitted_by && leave.submitted_by !== leave.profile_id ? data.names[leave.submitted_by] : null
 
   const columns = [
@@ -172,17 +173,17 @@ function DayDetails({ day, data, profileId, isAdmin, compact = false }) {
 }
 
 // The selected day, in a card under the grid.
-function SelectedDayCard({ day, data, profileId, isAdmin, compact, onClose }) {
+function SelectedDayCard({ day, data, profileId, isAdmin, own, compact, onClose }) {
   const isToday = day.date === todayStr()
   return (
-    <div className={`card relative mt-3 ${compact ? 'px-3 py-2' : 'px-4 py-3'}`} data-testid="selected-day-card">
+    <div className={`card relative ${compact ? 'mb-2 px-3 py-2' : 'mt-2 px-4 py-3'}`} data-testid="selected-day-card">
       <p className="pr-8">
         <span className="text-[10px] font-bold uppercase tracking-wide text-ink-muted">{compact && isToday ? 'Today' : 'Selected day'}</span>{' '}
         <span className={`${compact ? 'block' : ''} font-display text-sm font-semibold text-ink`}>{formatWeekdayDate(day.date)}</span>
         {!compact && isToday && <span className="ml-2 rounded-full bg-accent px-2 py-px align-[1px] text-[10px] font-bold text-on-fill">Today</span>}
       </p>
       {day.holidayName && <p className="mt-0.5 text-xs text-ink-light">Public holiday · {day.holidayName}</p>}
-      <DayDetails day={day} data={data} profileId={profileId} isAdmin={isAdmin} compact={compact} />
+      <DayDetails day={day} data={data} profileId={profileId} isAdmin={isAdmin} own={own} compact={compact} />
       {onClose && (
         <button
           type="button"
@@ -198,38 +199,40 @@ function SelectedDayCard({ day, data, profileId, isAdmin, compact, onClose }) {
 }
 
 export default function MyYearOverview({
-  year, totals, days, breaks, lieu, holidaysWorked, data, profileId, isAdmin, showLate = false, selectedDate, onSelectDate,
+  year, totals, days, breaks, lieu, holidaysWorked, data, profileId, isAdmin, own = false, showLate = false, selectedDate, onSelectDate,
 }) {
   const isDesktop = useIsDesktop()
-  // A phone's grid is month rows too small to tap a day on (each opens its
-  // month on the planner instead), so the card there is always today.
-  const shownDate = isDesktop ? selectedDate : todayStr()
-  const selected = shownDate ? days.find(d => d.date === shownDate) : null
+  // A phone picks a day by opening its month in the grid (YearGlance).
+  const selected = selectedDate ? days.find(d => d.date === selectedDate) : null
+  const card = selected && (
+    <SelectedDayCard
+      day={selected}
+      data={data}
+      profileId={profileId}
+      isAdmin={isAdmin}
+      own={own}
+      compact={!isDesktop}
+      onClose={isDesktop ? () => onSelectDate(null) : null}
+    />
+  )
   return (
     <div className="space-y-6">
       <TotalsCard totals={totals} holidaysWorked={holidaysWorked} lieuOwed={lieu.owed} />
 
-      {/* The grid takes the full width, with the selected day's card under
-          it: it opens on today, and a desktop click picks another day. */}
+      {/* The grid takes the full width. The selected day's card opens on
+          today: under the grid on a desktop (a click picks another day),
+          above it on a phone (a day is picked from an opened month). */}
       <section className="min-w-0">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
+        {!isDesktop && card}
         <div className="card p-4">
           <YearGlance days={days} year={year} selectedDate={selectedDate} onSelect={onSelectDate} showLate={showLate} />
         </div>
-        {selected ? (
-          <SelectedDayCard
-            day={selected}
-            data={data}
-            profileId={profileId}
-            isAdmin={isAdmin}
-            compact={!isDesktop}
-            onClose={isDesktop ? () => onSelectDate(null) : null}
-          />
-        ) : isDesktop && <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>}
+        {isDesktop && (card || <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>)}
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-ink">Breaks</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Breaks</h2>
         <BreaksCard breaks={breaks} year={year} longBreakDays={data.settings.longBreakDays} />
       </section>
     </div>

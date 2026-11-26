@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import MyRequestHistory from './MyRequestHistory'
+
+const renderHistory = (url = '/leave?tab=requests') => render(<MemoryRouter initialEntries={[url]}><MyRequestHistory /></MemoryRouter>)
 
 let mockAuth = { profile: { id: 'doctor-1' } }
 vi.mock('../context/AuthContext', () => ({
@@ -30,9 +33,20 @@ describe('MyRequestHistory', () => {
     mockData.rows = []
   })
 
+  it('a link to one request (?request=) tints that row', async () => {
+    mockData.rows = [
+      { id: 'r1', leave_type: 'sick', date_from: '2026-11-18', date_to: '2026-11-18', status: 'approved' },
+      { id: 'r2', leave_type: 'annual', date_from: '2026-12-07', date_to: '2026-12-11', status: 'approved' },
+    ]
+    renderHistory('/leave?tab=requests&request=r1')
+    await screen.findByText(/Sick leave/)
+    expect(document.querySelector('[data-request-id="r1"]')).toHaveClass('bg-accent-tint')
+    expect(document.querySelector('[data-request-id="r2"]')).not.toHaveClass('bg-accent-tint')
+  })
+
   it('explicitly scopes the query to the signed-in profile', async () => {
     mockData.rows = [{ id: 'r1', leave_type: 'annual', date_from: '2026-01-01', date_to: '2026-01-05', status: 'pending' }]
-    render(<MyRequestHistory />)
+    renderHistory()
     await screen.findByText(/Annual leave/)
     expect(eqCalls).toContainEqual(['leave_requests', 'profile_id', 'doctor-1'])
   })
@@ -44,7 +58,7 @@ describe('MyRequestHistory', () => {
         reviewed_at: '2025-02-28T00:00:00Z', admin_notes: 'No cover available', reviewer: { name: 'Ada', surname: 'Admin' },
       },
     ]
-    render(<MyRequestHistory />)
+    renderHistory()
     // A rejected request gets its own section below Pending/Approved rather
     // than disappearing — heading plus the row's own status pill
     expect(await screen.findAllByText('Rejected')).toHaveLength(2)
@@ -60,7 +74,7 @@ describe('MyRequestHistory', () => {
     mockData.rows = [{
       id: 'r1', leave_type: 'annual', date_from: '2026-08-08', date_to: '2026-08-14', status: 'approved', annual_leave_days: 5,
     }]
-    render(<MyRequestHistory />)
+    renderHistory()
     expect(await screen.findByText('7 total days (5 annual leave)')).toBeInTheDocument()
   })
 
@@ -69,7 +83,7 @@ describe('MyRequestHistory', () => {
       { id: 'r1', leave_type: 'annual', date_from: '2026-08-24', date_to: '2026-08-28', status: 'pending' },
       { id: 'r2', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-16', status: 'approved' },
     ]
-    render(<MyRequestHistory />)
+    renderHistory()
 
     const sections = await screen.findAllByRole('region')
     // The divider carries the count after the title ("Pending review · 1").
@@ -80,7 +94,7 @@ describe('MyRequestHistory', () => {
 
   it('collapses an empty section to a single row instead of an empty panel', async () => {
     mockData.rows = [{ id: 'r1', leave_type: 'annual', date_from: '2026-08-10', date_to: '2026-08-16', status: 'approved' }]
-    render(<MyRequestHistory />)
+    renderHistory()
 
     const pending = (await screen.findByText('Pending review')).closest('section')
     expect(pending.textContent).toMatch('No requests pending review')
@@ -89,7 +103,7 @@ describe('MyRequestHistory', () => {
   })
 
   it('shows an empty state for both sections with no requests at all', async () => {
-    render(<MyRequestHistory />)
+    renderHistory()
     expect(await screen.findByText('No requests pending review')).toBeInTheDocument()
     expect(screen.getByText('No requests approved')).toBeInTheDocument()
     expect(screen.queryByText('Rejected')).not.toBeInTheDocument()
@@ -110,7 +124,7 @@ describe('MyRequestHistory — cancelling', () => {
       { id: 'p1', profile_id: 'doctor-1', leave_type: 'annual', date_from: '2020-01-01', date_to: '2020-01-02', status: 'approved' },
       { id: 'r1', profile_id: 'doctor-1', leave_type: 'annual', date_from: future, date_to: future, status: 'rejected' },
     ]
-    render(<MyRequestHistory />)
+    renderHistory()
     await screen.findByText(/Study leave/)
     const cancelButtons = screen.getAllByRole('button', { name: /^Cancel .* request$/ })
     expect(cancelButtons).toHaveLength(2)
@@ -129,7 +143,7 @@ describe('MyRequestHistory — cancelling', () => {
         cancelled_by: 'admin-9', cancelled_at: '2026-02-02T09:00:00Z', cancel_reason: 'Course withdrawn', canceller: { name: 'Ada', surname: 'Admin' },
       },
     ]
-    render(<MyRequestHistory />)
+    renderHistory()
     expect(await screen.findByRole('region', { name: 'Cancelled' })).toBeInTheDocument()
     expect(screen.getByText(/Cancelled by you on .* — "Plans changed"/)).toBeInTheDocument()
     expect(screen.getByText(/Cancelled by Ada Admin on .* — "Course withdrawn"/)).toBeInTheDocument()

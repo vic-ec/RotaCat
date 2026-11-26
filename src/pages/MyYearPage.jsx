@@ -251,12 +251,13 @@ function MyYear({ profileId, own }) {
             data={data}
             profileId={profileId}
             isAdmin={isAdmin}
+            own={own}
             showLate={showAttendance}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
           />
         )}
-        {tab === 'leave' && <MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} />}
+        {tab === 'leave' && <MyYearLeave rows={view.record} data={data} profileId={profileId} today={today} isAdmin={isAdmin} own={own} />}
         {tab === 'shifts' && (
           <MyYearShifts
             year={year}

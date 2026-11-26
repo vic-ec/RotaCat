@@ -1,5 +1,6 @@
 import LeaveTypeIcon from './LeaveTypeIcon'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -33,6 +34,10 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [cancelTarget, setCancelTarget] = useState(null)
+  // `?request=<id>` (My year's link to one request, e.g. a sick day):
+  // scrolled to and tinted once the list is in.
+  const [searchParams] = useSearchParams()
+  const focusId = searchParams.get('request')
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps -- load is redefined every render; profile.id doesn't change within a session
 
@@ -55,6 +60,11 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
     </button>
   )
 
+  useEffect(() => {
+    if (!focusId || loading) return
+    document.querySelector(`[data-request-id="${focusId}"]`)?.scrollIntoView?.({ block: 'center' })
+  }, [focusId, loading])
+
   if (loading) return <>{backLink}<p className="text-sm text-ink-muted">Loading…</p></>
   if (error) return <>{backLink}<p className="text-sm text-flagRed">{error}</p></>
 
@@ -72,13 +82,13 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
   return (
     <div className="space-y-6">
       {backLink}
-      <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" canCancel={canCancel} onCancel={setCancelTarget} />
-      <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" canCancel={canCancel} onCancel={setCancelTarget} />
+      <RequestSection title="Pending review" requests={pending} emptyLabel="No requests pending review" canCancel={canCancel} onCancel={setCancelTarget} focusId={focusId} />
+      <RequestSection title="Approved" requests={approved} emptyLabel="No requests approved" canCancel={canCancel} onCancel={setCancelTarget} focusId={focusId} />
       {/* Only when there are any — a declined request still has to be
           findable somewhere, and this is the complete-record view, but an
           empty "Rejected" row on every doctor's page would be noise. */}
-      {rejected.length > 0 && <RequestSection title="Rejected" requests={rejected} emptyLabel="" />}
-      {cancelled.length > 0 && <RequestSection title="Cancelled" requests={cancelled} emptyLabel="" />}
+      {rejected.length > 0 && <RequestSection title="Rejected" requests={rejected} emptyLabel="" focusId={focusId} />}
+      {cancelled.length > 0 && <RequestSection title="Cancelled" requests={cancelled} emptyLabel="" focusId={focusId} />}
 
       {cancelTarget && (
         <CancelLeaveModal
@@ -96,7 +106,7 @@ export default function MyRequestHistory({ onBack, backLabel = 'Planners' }) {
 // the same treatment the Dashboard's shift section uses. With nothing in
 // the section the panel collapses to a single muted row instead of an
 // empty bordered card.
-function RequestSection({ title, requests, emptyLabel, canCancel, onCancel }) {
+function RequestSection({ title, requests, emptyLabel, canCancel, onCancel, focusId = null }) {
   return (
     <section aria-label={title}>
       {/* Divider role (SPEC app-theme): a sheen bar with the count. */}
@@ -107,7 +117,7 @@ function RequestSection({ title, requests, emptyLabel, canCancel, onCancel }) {
         <p className="card px-4 py-3 text-sm text-ink-muted">{emptyLabel}</p>
       ) : (
         <div className="card divide-y divide-slate-line overflow-hidden">
-          {requests.map(lr => <RequestRow key={lr.id} request={lr} onCancel={canCancel?.(lr) ? onCancel : null} />)}
+          {requests.map(lr => <RequestRow key={lr.id} request={lr} onCancel={canCancel?.(lr) ? onCancel : null} focused={lr.id === focusId} />)}
         </div>
       )}
     </section>
@@ -126,10 +136,10 @@ function decisionLine(lr) {
   return `${lr.status === 'approved' ? 'Approved' : 'Rejected'} by ${lr.reviewer ? `${lr.reviewer.name} ${lr.reviewer.surname}` : 'an admin'} on ${formatTimestampDate(lr.reviewed_at)}${lr.admin_notes ? ` — "${lr.admin_notes}"` : ''}`
 }
 
-function RequestRow({ request: lr, onCancel }) {
+function RequestRow({ request: lr, onCancel, focused = false }) {
   const line = decisionLine(lr)
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+    <div data-request-id={lr.id} aria-current={focused || undefined} className={`flex items-center justify-between gap-3 px-4 py-3 text-sm ${focused ? 'bg-accent-tint' : ''}`}>
       <div>
         {/* naturalLeavePeriodLabel, not the raw YYYY-MM-DD columns — the
             same leave-period wording Team leave rows and the approval

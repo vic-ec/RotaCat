@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useIsDesktop } from '../../lib/useIsDesktop'
 import { MONTH_ABBR, todayStr } from '../../lib/dateRange'
 import { leaveGroupInk, LEAVE_GROUP_OPTIONS } from '../../lib/leaveMatrix'
@@ -97,11 +98,64 @@ function Legend({ days, showLate }) {
   )
 }
 
+const DOW = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+// A month opened on a phone: a Monday-first calendar with cells big enough
+// to tap (about 44px), each day in the grid's own colours, its number on it.
+function MonthCalendar({ year, monthIndex, monthDays, selectedDate, onSelect, showLate }) {
+  const leaveDays = monthDays.filter(d => d.leave)
+  const special = leaveDays.length > 0 && !leaveDays.some(d => d.leave.leave_type === 'annual')
+  const lead = (new Date(year, monthIndex, 1).getDay() + 6) % 7
+  const today = todayStr()
+  return (
+    <div className="pb-3 pt-1" data-testid="month-calendar">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-ink">{MONTH_NAMES[monthIndex]} {year}</span>
+        <Link to={plannerMonthLink(year, monthIndex + 1, { special })} className="text-sm font-medium text-accent hover:text-accent-dark">
+          {special ? 'Special' : 'Annual'} planner ›
+        </Link>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-ink-muted" aria-hidden="true">
+        {DOW.map((d, i) => <span key={i}>{d}</span>)}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {Array.from({ length: lead }, (_, i) => <span key={`lead-${i}`} aria-hidden="true" />)}
+        {monthDays.map(day => {
+          const isToday = day.date === today
+          const selected = day.date === selectedDate
+          const label = `${dayLabel(day, { showLate })}${isToday ? ' (today)' : ''}`
+          return (
+            <button
+              key={day.date}
+              type="button"
+              aria-label={label}
+              aria-pressed={selected}
+              data-date={day.date}
+              onClick={() => onSelect(day.date)}
+              style={squareStyle(day, isToday)}
+              className={`relative flex aspect-square items-center justify-center rounded-md text-xs ${isToday ? 'font-bold text-on-fill' : 'text-ink'} ${
+                day.holidayName ? 'outline outline-1 -outline-offset-1 outline-ink' : ''
+              } ${selected ? 'ring-2 ring-ink ring-offset-2 ring-offset-canvas-raised' : ''}`}
+            >
+              {Number(day.date.slice(8, 10))}
+              {showLate && day.late && <span aria-hidden="true" className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ink" />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // Desktop: one square per day, weeks as columns, rows Monday to Sunday.
-// Phone: one row per month, 31 squares across; a row opens that month in
-// the planner (a square there is too small to be a touch target).
+// Phone: one row per month, 31 squares across (too small to tap one); a
+// tap on a row opens that month in place as a calendar to pick a day from,
+// with the planner a link in its header. One month open at a time; it
+// starts on the selected day's month.
 export default function YearGlance({ days, year, selectedDate, onSelect, showLate = false }) {
   const isDesktop = useIsDesktop(768)
+  const selectedMonth = selectedDate && selectedDate.startsWith(`${year}-`) ? Number(selectedDate.slice(5, 7)) - 1 : null
+  const [openMonth, setOpenMonth] = useState(selectedMonth)
 
   if (!isDesktop) {
     const months = daysByMonth(days)
@@ -110,21 +164,26 @@ export default function YearGlance({ days, year, selectedDate, onSelect, showLat
         <ul className="divide-y divide-slate-line">
           {months.map((monthDays, i) => {
             const leaveDays = monthDays.filter(d => d.leave)
-            const special = leaveDays.length > 0 && !leaveDays.some(d => d.leave.leave_type === 'annual')
             const summary = leaveDays.length === 0 ? 'no leave' : `${leaveDays.length} day${leaveDays.length === 1 ? '' : 's'} on leave`
+            const open = openMonth === i
             return (
               <li key={i}>
-                <Link
-                  to={plannerMonthLink(year, i + 1, { special })}
-                  aria-label={`${MONTH_NAMES[i]}: ${summary}. Open in the ${special ? 'Special' : 'Annual'} planner`}
-                  className="flex min-h-[44px] items-center gap-2 py-1.5 active:bg-canvas-sunken"
+                <button
+                  type="button"
+                  onClick={() => setOpenMonth(open ? null : i)}
+                  aria-expanded={open}
+                  aria-label={`${MONTH_NAMES[i]}: ${summary}. ${open ? 'Close' : 'Open'} the month to pick a day`}
+                  className={`-mx-2 flex min-h-[44px] w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 py-1.5 text-left active:bg-canvas-sunken ${open ? 'bg-accent-tint' : ''}`}
                 >
                   <span className="w-8 flex-shrink-0 text-xs font-semibold text-ink">{MONTH_ABBR[i]}</span>
                   <span className="grid min-w-0 flex-1 gap-[2px]" style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}>
-                    {monthDays.map(day => <Square key={day.date} day={day} showLate={showLate} />)}
+                    {monthDays.map(day => <Square key={day.date} day={day} showLate={showLate} selected={day.date === selectedDate} />)}
                   </span>
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-muted" aria-hidden="true" />
-                </Link>
+                  <ChevronDown className={`h-4 w-4 flex-shrink-0 text-ink-muted transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+                </button>
+                {open && (
+                  <MonthCalendar year={year} monthIndex={i} monthDays={monthDays} selectedDate={selectedDate} onSelect={onSelect} showLate={showLate} />
+                )}
               </li>
             )
           })}

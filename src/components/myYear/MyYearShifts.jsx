@@ -11,9 +11,11 @@ export default function MyYearShifts({ year, shifts, onCall, lieu, holidayRows, 
   return (
     <div className="space-y-6">
       <section>
-        <div className="mb-3 flex items-center justify-between gap-3">
+        {/* 8px under each heading, as on the other pages. The link keeps
+            a 44px touch target without making the heading row that tall. */}
+        <div className="mb-2 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-ink">Shifts worked · {year}</h2>
-          <Link to={hoursSummaryTo} className="flex min-h-[44px] items-center text-sm font-medium text-accent hover:text-accent-dark md:min-h-0">Hours Summary ›</Link>
+          <Link to={hoursSummaryTo} className="-my-3 flex min-h-[44px] items-center text-sm font-medium text-accent hover:text-accent-dark md:my-0 md:min-h-0">Hours Summary ›</Link>
         </div>
         <div className="card p-4" data-testid="my-year-shift-bars">
           <ul className="space-y-3">
@@ -38,7 +40,7 @@ export default function MyYearShifts({ year, shifts, onCall, lieu, holidayRows, 
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-ink">Public holidays and days in lieu</h2>
+        <h2 className="mb-2 text-sm font-semibold text-ink">Public holidays and days in lieu</h2>
         <div className="card overflow-hidden" data-testid="my-year-lieu">
           <dl className="-ml-px grid grid-cols-3">
             {[

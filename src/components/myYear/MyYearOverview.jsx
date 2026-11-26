@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import { X } from 'lucide-react'
+import { useIsDesktop } from '../../lib/useIsDesktop'
 import { formatWeekdayDate, formatShortDateRange, formatTimestampDate } from '../../lib/dateRange'
 import { LEAVE_TYPE_LABELS } from '../../lib/leaveRequests'
 import { leaveDayCountLabel } from '../../lib/leaveCard'
@@ -27,10 +29,13 @@ export function TotalsCard({ totals, holidaysWorked, lieuOwed }) {
     <div className="card overflow-hidden" data-testid="my-year-totals">
       <dl className="-ml-px -mt-px grid grid-cols-3 lg:grid-cols-6">
         {stats.map(stat => (
-          <div key={stat.label} className="min-w-0 border-l border-t border-slate-line p-3 sm:p-4">
+          // Label, number and note sit on rows the whole line of tiles shares
+          // (subgrid), so a label that wraps to two lines never pushes its
+          // number below its neighbours'.
+          <div key={stat.label} className="row-span-3 grid min-w-0 grid-rows-subgrid gap-0 border-l border-t border-slate-line p-3 sm:p-4">
             <dt className="text-xs font-medium text-ink-muted">{stat.label}</dt>
             <dd className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">{stat.value}</dd>
-            {stat.sub && <dd className="mt-1 text-xs text-ink-muted">{stat.sub}</dd>}
+            <dd className="mt-1 text-xs text-ink-muted">{stat.sub || ''}</dd>
           </div>
         ))}
       </dl>
@@ -80,7 +85,7 @@ const COVER_LINE = { not_covered: 'Shift not covered', open_locum: 'Open locum s
 
 // What the selected day is about: leave, the rostered shift and who is
 // covering it, and where to open each.
-function DayDetails({ day, data, profileId, isAdmin }) {
+function DayDetails({ day, data, profileId, isAdmin, wide = false }) {
   const { leave, shift } = day
   const cameOff = shift && (shift.vacated_profile_id === profileId || (shift.profile_id === profileId && leave))
   const kind = cameOff ? coverKind(shift, profileId) : null
@@ -101,7 +106,7 @@ function DayDetails({ day, data, profileId, isAdmin }) {
   return (
     <div className="mt-2 space-y-3 text-sm">
       {day.holidayName && <p className="text-ink-light">Public holiday · {day.holidayName}</p>}
-      <dl className="space-y-2">
+      <dl className={wide ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4' : 'space-y-2'}>
         <div>
           <dt className="text-xs font-medium text-ink-muted">Leave</dt>
           <dd className="mt-0.5 text-ink">
@@ -136,7 +141,7 @@ function DayDetails({ day, data, profileId, isAdmin }) {
           </div>
         )}
       </dl>
-      <ul className="space-y-1 border-t border-slate-line pt-3">
+      <ul className={`border-t border-slate-line pt-3 ${wide ? 'flex flex-wrap gap-x-6 gap-y-1' : 'space-y-1'}`}>
         {rosterTo && <li><Link to={rosterTo} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Open this day on the roster ›</Link></li>}
         {request && <li><Link to={request.to} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Open leave request ›</Link></li>}
         {isAdmin && rosterTo && <li><Link to={`${rosterTo}&history=1`} className="flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0 md:py-1">Roster change history ›</Link></li>}
@@ -149,29 +154,47 @@ export default function MyYearOverview({
   year, totals, days, breaks, lieu, holidaysWorked, data, profileId, isAdmin, showLate = false, selectedDate, onSelectDate,
 }) {
   const selected = selectedDate ? days.find(d => d.date === selectedDate) : null
+  const isDesktop = useIsDesktop()
   return (
     <div className="space-y-6">
       <TotalsCard totals={totals} holidaysWorked={holidaysWorked} lieuOwed={lieu.owed} />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <section className="min-w-0">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
-          <div className="card p-4">
-            <YearGlance days={days} year={year} selectedDate={selectedDate} onSelect={onSelectDate} showLate={showLate} />
+      {/* The grid takes the full width. The selected day's details used to
+          sit in a 280px rail beside it, which squeezed the grid on a
+          laptop; on a desktop they now open as a card between the heading
+          and the grid (closed with its ×), on a phone as a bottom sheet. */}
+      <section className="min-w-0">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Year at a glance · {year}</h2>
+        {isDesktop && selected && (
+          <div className="relative mb-3" data-testid="selected-day-card">
+            <PlannerDetailsCard eyebrow="Selected day" title={formatWeekdayDate(selected.date)}>
+              <DayDetails day={selected} data={data} profileId={profileId} isAdmin={isAdmin} wide />
+            </PlannerDetailsCard>
+            <button
+              type="button"
+              onClick={() => onSelectDate(null)}
+              aria-label="Close selected day"
+              className="btn-close absolute right-2 top-2 h-7 w-7 text-ink-muted"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
-        </section>
-        <aside className="lg:pt-8">
+        )}
+        {!isDesktop && (
           <PlannerDetailsCard
             eyebrow="Selected day"
             title={selected ? formatWeekdayDate(selected.date) : null}
-            emptyMessage="Select a day to see details."
             open={Boolean(selected)}
             onClose={() => onSelectDate(null)}
           >
             {selected && <DayDetails day={selected} data={data} profileId={profileId} isAdmin={isAdmin} />}
           </PlannerDetailsCard>
-        </aside>
-      </div>
+        )}
+        <div className="card p-4">
+          <YearGlance days={days} year={year} selectedDate={selectedDate} onSelect={onSelectDate} showLate={showLate} />
+        </div>
+        {isDesktop && !selected && <p className="mt-2 text-xs text-ink-muted">Select a day to see its details.</p>}
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-ink">Breaks</h2>

@@ -140,10 +140,11 @@ function AnnualBalanceCard({ tracker }) {
     <div className="card overflow-hidden">
       <dl className="grid grid-cols-3 divide-x divide-slate-line">
         {stats.map(stat => (
-          <div key={stat.label} className="min-w-0 p-3 sm:p-4">
+          // Shared rows (subgrid): a wrapped label never moves its number.
+          <div key={stat.label} className="row-span-3 grid min-w-0 grid-rows-subgrid gap-0 p-3 sm:p-4">
             <dt className="text-xs font-medium text-ink-muted">{stat.label}</dt>
             <dd className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">{stat.value}</dd>
-            {stat.extra && <dd className="mt-1 text-xs">{stat.extra}</dd>}
+            <dd className="mt-1 text-xs">{stat.extra || ''}</dd>
           </div>
         ))}
       </dl>

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { AlarmClock, UserRoundPen, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange } from 'lucide-react'
+import { AlarmClock, UserRoundPen, ClipboardClock, ScrollText, BookUp, Undo, Rows3, Columns3, Type, EllipsisVertical, Pencil, Trash2, ClipboardList, TriangleAlert, ArrowLeft, RefreshCw, CalendarRange, Maximize2, Minimize2 } from 'lucide-react'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import DateStepper, { StepperShell } from '../components/DateStepper'
 import { supabase } from '../lib/supabase'
@@ -39,6 +39,7 @@ import LeaveRequestForm from '../components/LeaveRequestForm'
 import CancelLeaveModal from '../components/CancelLeaveModal'
 import { editHint } from '../lib/rosterEditHint'
 import { fetchLatestChangeByEntry } from '../lib/changeLog'
+import { useBack } from '../lib/backNav'
 import LeaveShiftsChoice from '../components/LeaveShiftsChoice'
 import ViewToggle from '../components/ViewToggle'
 import PageActionsMenu from '../components/PageActionsMenu'
@@ -138,6 +139,29 @@ export default function RosterGridPage() {
   // Leave being cancelled from the roster (the struck-through name's popup
   // or the shift menu): the request, in CancelLeaveModal's shape.
   const [cancelLeaveFor, setCancelLeaveFor] = useState(null)
+  // Fullscreen: the app's bars and the roster's own toolbars hide so the
+  // grid has the whole screen (landscape phones, screenshots). Where the
+  // browser allows it (desktop, Android) the page goes truly fullscreen
+  // too; an iPhone has no such API, so there it is just the bars.
+  const [fullscreen, setFullscreen] = useState(false)
+  const back = useBack()
+  useEffect(() => {
+    document.body.classList.toggle('roster-fullscreen', fullscreen)
+    return () => document.body.classList.remove('roster-fullscreen')
+  }, [fullscreen])
+  useEffect(() => {
+    const onChange = () => { if (!document.fullscreenElement) setFullscreen(false) }
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  function enterFullscreen() {
+    setFullscreen(true)
+    try { document.documentElement.requestFullscreen?.().catch(() => {}) } catch { /* not supported */ }
+  }
+  function exitFullscreen() {
+    setFullscreen(false)
+    try { if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}) } catch { /* not supported */ }
+  }
   // The newest change to each entry (admins), for the edit marker's hint.
   const [latestChanges, setLatestChanges] = useState(() => new Map())
   // What happens to the shifts that leave took the doctor off: 'undo'
@@ -997,25 +1021,28 @@ export default function RosterGridPage() {
       {/* Edit / Publish float at the bottom-right so they stay in reach
           however far the grid has been scrolled. On a phone they fold into
           the quick-actions ⊕ instead (Delete stays in the ⋮ menu). */}
-      {isAdmin && (
+      {/* Publish floats at the bottom-right (Edit is on the header bar). */}
+      {isAdmin && showPublish && !fullscreen && (
           <div className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 md:flex">
-            {!editing && (
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                aria-pressed={editing}
-                className="btn-secondary text-sm shadow-raised"
-              >
-                <Pencil className="h-4 w-4" /> Edit
-              </button>
-            )}
-            {showPublish && publishButton}
+            {publishButton}
           </div>
+      )}
+      {fullscreen && (
+        <button
+          type="button"
+          onClick={exitFullscreen}
+          aria-label="Exit fullscreen"
+          title="Exit fullscreen"
+          data-testid="exit-fullscreen"
+          className="btn-utility fixed right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-[45] h-[34px] w-[34px] p-0 opacity-80 shadow-raised hover:opacity-100 print:hidden"
+        >
+          <Minimize2 className="h-4 w-4" />
+        </button>
       )}
       {/* Phone quick-actions ⊕: Find (search + Filter) for everyone, plus
           Edit and Publish for admins — the same place Rotations and Team
           Leave keep their search. */}
-      <FloatingActionMenu
+      {!fullscreen && <FloatingActionMenu
         search={{ value: search, onChange: setSearch, placeholder: 'Search by surname…' }}
         filter={{ groups: filterGroups, active: filtersActive, onClearAll: clearFilters, sheetTitle: 'Filters' }}
         actions={isAdmin ? [
@@ -1024,7 +1051,7 @@ export default function RosterGridPage() {
           showPublish && { key: 'publish', icon: BookUp, label: 'Publish', onClick: () => setShowPublishConfirm(true) },
         ] : undefined}
         raiseBy={canEdit ? EDIT_BAR_HEIGHT + 8 : 0}
-      />
+      />}
 
       {canEdit && (
         <RosterEditBar
@@ -1177,12 +1204,16 @@ export default function RosterGridPage() {
           iPhone's notch) while the grid scrolls under it; z above the
           Lanes grid's own sticky header (z-30), below menus, sheets and
           modals (z-40+). */}
-      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-[35] -mx-3 mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:mx-0 md:top-3 md:flex-nowrap">
+      {/* Close to the top: pulled up into the page's own top padding, and
+          only a few pixels below the window edge once it sticks. */}
+      {!fullscreen && <div className="sticky top-[max(0.25rem,env(safe-area-inset-top))] z-[35] -mx-3 -mt-2 mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-line bg-canvas-raised/95 px-2 py-1.5 shadow-raised backdrop-blur sm:gap-2 md:mx-0 md:-mt-3 md:top-1.5 md:flex-nowrap">
         <button
           type="button"
-          onClick={() => navigate('/roster')}
-          aria-label="Back to Rosters"
-          title="Rosters"
+          // The app's standard back: to wherever the roster was opened from
+          // (the Dashboard, My year…), else the Rosters list.
+          onClick={() => (back ? navigate(-1) : navigate('/roster'))}
+          aria-label={`Back to ${back ? back.label : 'Rosters'}`}
+          title={back ? back.label : 'Rosters'}
           className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -1292,6 +1323,28 @@ export default function RosterGridPage() {
             </button>
           )}
 
+          {/* Edit — on the bar from md (on a phone it is in the ⊕). */}
+          {isAdmin && !editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-pressed={editing}
+              className="hidden btn-secondary h-[30px] px-3 py-0 text-sm md:inline-flex"
+            >
+              <Pencil className="h-4 w-4" /> Edit
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={enterFullscreen}
+            aria-label="Fullscreen"
+            title="Fullscreen"
+            data-testid="enter-fullscreen"
+            className="btn-utility h-[30px] w-[30px] flex-shrink-0 p-0"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+
           {/* ⋮ — always last, holding whatever isn't on the row at this
               width. On a phone it also wears the status as a dot (amber
               for a draft), since the pill has no room there. */}
@@ -1304,7 +1357,7 @@ export default function RosterGridPage() {
           <div className="hidden desk:block 2xl:hidden"><PageActionsMenu items={midMenuItems} trigger={kebabTrigger} /></div>
           <div className="hidden 2xl:block"><PageActionsMenu items={desktopMenuItems} trigger={kebabTrigger} /></div>
         </div>
-      </div>
+      </div>}
       {noRosterNote && (
         <p role="status" className="-mt-1 mb-3 text-sm text-ink-muted">{noRosterNote}</p>
       )}

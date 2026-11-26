@@ -119,7 +119,7 @@ export function useSwipeNavigation(navItems) {
       const to = swipeDestination(items, pathname, direction)
       if (!to) return
       setArrival(prev => ({ direction, count: prev.count + 1 }))
-      navigate(to)
+      navigate(to, { state: { navTab: true } })
     }
 
     function onTouchCancel() { start = null }

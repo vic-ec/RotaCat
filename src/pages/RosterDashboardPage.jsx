@@ -63,6 +63,14 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+// A phone row's date: "21 Nov", with the year only when it isn't this one,
+// so the one-line row still fits a 360px screen.
+function formatPhoneDate(value) {
+  const d = new Date(value)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) })
+}
+
 function daysRemaining(deletedAt) {
   const elapsed = (Date.now() - new Date(deletedAt).getTime()) / 86400000
   return Math.max(0, Math.ceil(30 - elapsed))
@@ -334,6 +342,13 @@ export default function RosterDashboardPage() {
     return publishedLine
   }
 
+  // A phone's one line: the latest of the two dates.
+  function publishedPhoneMetaFn(r) {
+    const lastEdit = lastEditByRosterId[r.id]
+    if (isAdmin && lastEdit && lastEdit > r.published_at) return `Updated ${formatPhoneDate(lastEdit)}`
+    return `Published ${formatPhoneDate(r.published_at || r.updated_at)}`
+  }
+
   // The same "edited since it was published" fact as publishedMetaFn's
   // second line, for the table's own Last updated column. Admins only, as
   // there; empty when nothing has changed since publishing.
@@ -447,6 +462,7 @@ export default function RosterDashboardPage() {
                 setSelected={setDraftSel}
                 navigate={navigate}
                 metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
+                phoneMetaFn={r => `Created ${formatPhoneDate(r.created_at)}${r.carry_forward ? ' · carry-forward' : ''}`}
                 columns={[
                   { header: 'Created', width: 'w-24', cell: r => formatDate(r.created_at) },
                   { header: 'Last updated', width: 'w-36', cell: r => (lastEditByRosterId[r.id] ? formatDateTime(lastEditByRosterId[r.id]) : '') },
@@ -467,6 +483,7 @@ export default function RosterDashboardPage() {
               setSelected={setPubSel}
               navigate={navigate}
               metaFn={publishedMetaFn}
+              phoneMetaFn={publishedPhoneMetaFn}
               columns={[
                 { header: 'Published', width: 'w-24', cell: r => formatDate(r.published_at || r.updated_at) },
                 { header: 'Last updated', width: 'w-36', cell: publishedUpdatedCell },
@@ -498,6 +515,7 @@ export default function RosterDashboardPage() {
               setSelected={setArchiveSel}
               navigate={navigate}
               metaFn={r => `Archived ${formatDate(r.archived_at || r.updated_at)}`}
+              phoneMetaFn={r => `Archived ${formatPhoneDate(r.archived_at || r.updated_at)}`}
               columns={[
                 { header: 'Archived', cell: r => formatDate(r.archived_at || r.updated_at) },
                 { header: 'Published', cell: r => (r.published_at ? formatDate(r.published_at) : '') },
@@ -526,6 +544,8 @@ export default function RosterDashboardPage() {
               setSelected={setBinSel}
               navigate={navigate}
               metaFn={r => `Deleted ${formatDate(r.deleted_at)} · auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
+              phoneMetaFn={r => `Auto-deletes in ${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}`}
+              phoneStatus
               columns={[
                 { header: 'Deleted', cell: r => formatDate(r.deleted_at) },
                 { header: 'Auto-deletes in', cell: r => `${daysRemaining(r.deleted_at)} day${daysRemaining(r.deleted_at) !== 1 ? 's' : ''}` },
@@ -704,7 +724,12 @@ function HoursFlag({ roster, flag }) {
   )
 }
 
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, isAdmin = false, columns = [], flags = null }) {
+// Phone rows are one line each (no wrapping): the section heading already
+// names the status, so the tag shows only where a section mixes them (the
+// Bin, `phoneStatus`); View is left off, since tapping the row opens the
+// roster; a row without an hours flag keeps the flag's space, so the icons
+// line up down the list; `phoneMetaFn` gives a shorter date line.
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, phoneMetaFn = null, phoneStatus = false, actions, emptyText, isAdmin = false, columns = [], flags = null }) {
   // View / Edit / Publish for one roster — icon buttons on its row
   // (RowActionIcon), the same on every screen size.
   function rosterActions(roster) {
@@ -723,6 +748,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
   }
 
   const allSelected = rosters.every(r => selected.has(r.id))
+  const sectionHasFlags = Boolean(flags) && rosters.some(r => flags.get(r.id))
 
   function toggleOne(id) {
     const next = new Set(selected)
@@ -858,12 +884,14 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               onToggleCheck={() => toggleOne(roster.id)}
               selectLabel={`Select ${MONTH_NAMES[roster.month]} ${roster.year}`}
               title={`${MONTH_NAMES[roster.month]} ${roster.year}`}
-              subtitle={metaAsLine(metaFn(roster))}
-              statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
+              subtitle={metaAsLine((phoneMetaFn || metaFn)(roster))}
+              statusTag={phoneStatus ? <Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag> : null}
               onClick={() => navigate(`/roster/${roster.id}`)}
               actions={isAdmin ? [
-                flags?.get(roster.id) && <span key="flag" onClick={e => e.stopPropagation()}><HoursFlag roster={roster} flag={flags.get(roster.id)} /></span>,
-              ].filter(Boolean).concat(rosterActions(roster).map(a => (
+                flags?.get(roster.id)
+                  ? <span key="flag" onClick={e => e.stopPropagation()}><HoursFlag roster={roster} flag={flags.get(roster.id)} /></span>
+                  : sectionHasFlags && <span key="flag" aria-hidden="true" className="block h-9 w-9" />,
+              ].filter(Boolean).concat(rosterActions(roster).filter(a => a.key !== 'view').map(a => (
                 <RowActionIcon
                   key={a.key}
                   icon={a.icon}

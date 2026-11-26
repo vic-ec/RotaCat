@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, Pencil, BookUp, Plus } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Eye, Pencil, BookUp, Plus, TriangleAlert } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import PageTabs from '../components/PageTabs'
@@ -13,6 +13,8 @@ import GenerationRunsPanel from '../components/GenerationRunsPanel'
 import FloatingActionMenu from '../components/FloatingActionMenu'
 import RosterSummaryPage from './RosterSummaryPage'
 import RowActionIcon from '../components/RowActionIcon'
+import InfoPopover from '../components/InfoPopover'
+import { fetchHoursFlags } from '../lib/rosterSummary'
 import { syncWeekendPatternsFromEntries } from '../lib/weekendPatternSync'
 
 const MONTH_NAMES = [
@@ -130,6 +132,8 @@ export default function RosterDashboardPage() {
   // clear on a tab switch and when the browser tab closes.
   const [draftSel, setDraftSel] = useSessionSet('rotacat:rosterSel:draft')
   const [pubSel, setPubSel] = useSessionSet('rotacat:rosterSel:published')
+  // roster id -> { over, under } doctor counts (see fetchHoursFlags).
+  const [hoursFlags, setHoursFlags] = useState(() => new Map())
   const [archiveSel, setArchiveSel] = useSessionSet('rotacat:rosterSel:archive')
   const [binSel, setBinSel] = useSessionSet('rotacat:rosterSel:bin')
   const prevTab = useRef(tab)
@@ -150,7 +154,8 @@ export default function RosterDashboardPage() {
 
   useEffect(() => {
     loadRosters()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loads on open, and again if admin rights resolve after (for the Flags)
+  }, [isAdmin])
 
   useEffect(() => {
     // Only on a real tab switch — on mount the restored ticks are what we
@@ -199,7 +204,8 @@ export default function RosterDashboardPage() {
     // Published rosters only — a draft has no "was this edited after
     // going live" question to answer, and archived/bin keep their own
     // existing meta text untouched.
-    const publishedIds = data.filter(r => r.status === 'published' && !r.deleted_at).map(r => r.id)
+    // Drafts too, for their own "Last updated" column.
+    const publishedIds = data.filter(r => (r.status === 'published' || r.status === 'draft') && !r.deleted_at).map(r => r.id)
     if (publishedIds.length === 0) {
       setLastEditByRosterId({})
     } else {
@@ -216,6 +222,11 @@ export default function RosterDashboardPage() {
       setLastEditByRosterId(lastEdit)
     }
     setLoading(false)
+    // Hours warnings per roster (admins), read after the list is on screen.
+    if (isAdmin) {
+      fetchHoursFlags(data.filter(r => (r.status === 'published' || r.status === 'draft') && !r.deleted_at))
+        .then(setHoursFlags).catch(() => {})
+    }
   }
 
   async function runAction(fn) {
@@ -437,8 +448,8 @@ export default function RosterDashboardPage() {
                 navigate={navigate}
                 metaFn={r => `Created ${formatDate(r.created_at)}${r.carry_forward ? ' · carry-forward used' : ''}`}
                 columns={[
-                  { header: 'Created', cell: r => formatDate(r.created_at) },
-                  { header: 'Notes', cell: r => (r.carry_forward ? 'Carry-forward used' : '') },
+                  { header: 'Created', width: 'w-24', cell: r => formatDate(r.created_at) },
+                  { header: 'Last updated', width: 'w-36', cell: r => (lastEditByRosterId[r.id] ? formatDateTime(lastEditByRosterId[r.id]) : '') },
                 ]}
                 actions={[
                   { label: 'Publish', primary: true, onClick: (ids) => { publishMany(ids); setDraftSel(new Set()) } },
@@ -446,6 +457,7 @@ export default function RosterDashboardPage() {
                 ]}
                 emptyText={drafts.length > 0 ? 'No drafts match these filters.' : undefined}
                 isAdmin={isAdmin}
+                flags={isAdmin ? hoursFlags : null}
               />
             )}
             <RosterSection
@@ -456,12 +468,13 @@ export default function RosterDashboardPage() {
               navigate={navigate}
               metaFn={publishedMetaFn}
               columns={[
-                { header: 'Published', cell: r => formatDate(r.published_at || r.updated_at) },
-                { header: 'Last updated', cell: publishedUpdatedCell },
+                { header: 'Published', width: 'w-24', cell: r => formatDate(r.published_at || r.updated_at) },
+                { header: 'Last updated', width: 'w-36', cell: publishedUpdatedCell },
               ]}
               actions={[{ label: 'Archive', onClick: (ids) => { archiveRosters(ids); setPubSel(new Set()) } }]}
               emptyText={published.length > 0 ? 'No published rosters match these filters.' : undefined}
               isAdmin={isAdmin}
+              flags={isAdmin ? hoursFlags : null}
             />
             {(!isAdmin || drafts.length === 0) && published.length === 0 && (
               <EmptyState isAdmin={isAdmin} onCreate={() => setShowCreateModal(true)} />
@@ -660,7 +673,38 @@ function EmptyState({ isAdmin, onCreate }) {
 // fixed, so the Drafts and Published tables stacked on the Active tab line
 // up column for column. On a phone there is no room for columns, and the
 // rows stay the stacked ListRowRecord they were.
-function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, isAdmin = false, columns = [] }) {
+// `flags` (admins): roster id -> { over, under } hours warnings, shown as a
+// warning icon in a Flags column that opens the counts and a link to that
+// roster's Hours Summary, filtered to the flagged doctors.
+function HoursFlag({ roster, flag }) {
+  if (!flag) return null
+  const name = `${MONTH_NAMES[roster.month]} ${roster.year}`
+  const total = flag.over + flag.under
+  const plural = (n, a, b) => (n === 1 ? a : b)
+  return (
+    <InfoPopover
+      hover
+      icon={<TriangleAlert className="h-4 w-4" />}
+      title={`${total} ${plural(total, 'doctor', 'doctors')} outside contracted hours`}
+      label={`Hours warnings for ${name}`}
+      tone="danger"
+    >
+      <p className="font-semibold text-ink">{name}</p>
+      <ul className="mt-1 space-y-0.5">
+        {flag.over > 0 && <li>{flag.over} {plural(flag.over, 'doctor is', 'doctors are')} over contracted hours</li>}
+        {flag.under > 0 && <li>{flag.under} {plural(flag.under, 'doctor is', 'doctors are')} under contracted hours</li>}
+      </ul>
+      <Link
+        to={`/roster?view=summary&year=${roster.year}&month=${roster.month}&hours=flagged`}
+        className="mt-2 inline-flex min-h-[44px] items-center font-medium text-accent hover:text-accent-dark md:min-h-0"
+      >
+        Open Hours Summary ›
+      </Link>
+    </InfoPopover>
+  )
+}
+
+function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn, actions, emptyText, isAdmin = false, columns = [], flags = null }) {
   // View / Edit / Publish for one roster — icon buttons on its row
   // (RowActionIcon), the same on every screen size.
   function rosterActions(roster) {
@@ -731,9 +775,11 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
           <table className="w-full min-w-[600px] table-fixed border-collapse text-xs" aria-label={title}>
             <colgroup>
               <col className="w-9" />
-              <col />
+              {/* Roster takes what is left, never less than a month's name. */}
+              <col className="min-w-[8.5rem]" />
               <col className="w-24" />
-              {columns.map(c => <col key={c.header} className="w-32" />)}
+              {columns.map(c => <col key={c.header} className={c.width || 'w-28'} />)}
+              {flags && <col className="w-14" />}
               {isAdmin && <col className="w-24" />}
             </colgroup>
             <thead>
@@ -742,6 +788,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                 <th className="px-2.5 py-2">Roster</th>
                 <th className="px-2.5 py-2">Status</th>
                 {columns.map(c => <th key={c.header} className="px-2.5 py-2">{c.header}</th>)}
+                {flags && <th className="px-2.5 py-2">Flags</th>}
                 {isAdmin && <th className="px-2.5 py-2 text-right">Actions</th>}
               </tr>
             </thead>
@@ -764,7 +811,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                         className="block h-4 w-4 rounded border-slate-line accent-accent"
                       />
                     </td>
-                    <td className="truncate px-2.5 py-2.5 text-sm font-medium text-ink">{name}</td>
+                    <td className="whitespace-nowrap px-2.5 py-2.5 text-sm font-medium text-ink">{name}</td>
                     <td className="px-2.5 py-2.5">
                       <Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>
                     </td>
@@ -776,6 +823,11 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                         </td>
                       )
                     })}
+                    {flags && (
+                      <td className="px-1.5 py-1" onClick={e => e.stopPropagation()} data-testid="hours-flag-cell">
+                        <HoursFlag roster={roster} flag={flags.get(roster.id)} />
+                      </td>
+                    )}
                     {isAdmin && (
                       <td className="px-2.5 py-2" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-0.5">
@@ -809,7 +861,9 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
               subtitle={metaAsLine(metaFn(roster))}
               statusTag={<Tag variant="status" tone={STATUS_TONE[roster.status]}>{STATUS_LABELS[roster.status]}</Tag>}
               onClick={() => navigate(`/roster/${roster.id}`)}
-              actions={isAdmin ? rosterActions(roster).map(a => (
+              actions={isAdmin ? [
+                flags?.get(roster.id) && <span key="flag" onClick={e => e.stopPropagation()}><HoursFlag roster={roster} flag={flags.get(roster.id)} /></span>,
+              ].filter(Boolean).concat(rosterActions(roster).map(a => (
                 <RowActionIcon
                   key={a.key}
                   icon={a.icon}
@@ -818,7 +872,7 @@ function RosterSection({ title, rosters, selected, setSelected, navigate, metaFn
                   onClick={a.onClick}
                   tone={a.key === 'publish' ? 'primary' : 'default'}
                 />
-              )) : undefined}
+              ))) : undefined}
             />
           ))}
         </div>

@@ -171,3 +171,32 @@ export async function fetchRosterSummary({ month, year }) {
 
   return rows
 }
+
+// Under is measured against the month's minimum — the one the
+// roster engine aims for (see lib/contractMinimum.js).
+export function hoursBand(row) {
+  if (row.underTracked !== false && row.totalHours < (row.adjustedMinHours ?? row.minHours)) return 'under'
+  if (row.maxHours != null && row.totalHours > row.maxHours) return 'over'
+  return null
+}
+
+// Hours warnings for each roster on the Rosters list: { over, under }
+// doctor counts, from the same summary and bands as Hours Summary.
+// Rosters with neither are left out of the map.
+export async function fetchHoursFlags(rosters) {
+  const flags = new Map()
+  await Promise.all(rosters.map(async r => {
+    try {
+      const rows = await fetchRosterSummary({ month: r.month, year: r.year })
+      let over = 0
+      let under = 0
+      for (const row of rows) {
+        const band = hoursBand(row)
+        if (band === 'over') over++
+        else if (band === 'under') under++
+      }
+      if (over || under) flags.set(r.id, { over, under })
+    } catch { /* a roster whose summary can't be read just shows no flag */ }
+  }))
+  return flags
+}

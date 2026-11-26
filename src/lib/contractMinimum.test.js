@@ -95,3 +95,14 @@ describe('isUnderHoursTracked', () => {
     expect(isUnderHoursTracked(2027, 1)).toBe(true)
   })
 })
+
+import { hoursBand } from './rosterSummary'
+describe('hoursBand', () => {
+  it('flags over and under, and never over for a doctor with no maximum', () => {
+    expect(hoursBand({ totalHours: 250, minHours: 220, maxHours: 246, adjustedMinHours: 210 })).toBe('over')
+    expect(hoursBand({ totalHours: 200, minHours: 220, maxHours: 246, adjustedMinHours: 210 })).toBe('under')
+    expect(hoursBand({ totalHours: 215, minHours: 220, maxHours: 246, adjustedMinHours: 210 })).toBeNull()
+    expect(hoursBand({ totalHours: 50, minHours: null, maxHours: null, adjustedMinHours: 0 })).toBeNull()
+    expect(hoursBand({ totalHours: 100, minHours: 220, maxHours: 246, adjustedMinHours: 210, underTracked: false })).toBeNull()
+  })
+})

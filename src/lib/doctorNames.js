@@ -17,6 +17,12 @@
 // of category" means the caller decides scope, not this utility.
 // "First Surname" for a list row, where there is room for it. Falls back
 // to the surname-only display name when the row carries no first name.
+// The Doctor column's width wherever a table lists doctors by name (Hours
+// Summary, All Leave by month and by leave type): the longest name pill on
+// the roster (103px at 10px) plus a little room. A longer name truncates in
+// its pill, with the full name on the cell's title.
+export const DOCTOR_NAME_COL_PX = 112
+
 export function fullDoctorName(person, fallback = '') {
   if (!person) return fallback
   const full = `${person.name || ''} ${person.surname || ''}`.trim()

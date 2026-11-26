@@ -183,7 +183,7 @@ export function ListRowRecord({
       )}
       <div className="min-w-0 flex-1">
         {/* One line: the title gives way (truncates) before the tag wraps. */}
-        <div className="flex min-w-0 items-center gap-x-2">
+        <div className="flex min-w-0 items-center gap-x-1.5">
           <p className="min-w-0 truncate text-sm font-medium text-ink">{title}</p>
           {statusTag && <span className="flex-shrink-0">{statusTag}</span>}
         </div>

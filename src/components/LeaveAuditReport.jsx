@@ -5,7 +5,7 @@ import ExpandAllButton from './ExpandAllButton'
 import { allSectionsCollapsed } from '../lib/collapsibleSections'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowUpDown, CalendarX2, Plus } from 'lucide-react'
+import { ArrowUpDown, CalendarX2, Plus, Shapes } from 'lucide-react'
 import RowActionIcon from './RowActionIcon'
 import CancelLeaveModal from './CancelLeaveModal'
 import { CANCELLABLE_STATUSES } from '../lib/leaveCancellation'
@@ -15,7 +15,7 @@ import { reviewStatusLabel } from '../lib/statusLabels'
 import { LEAVE_CAPACITY_COLUMNS, LEAVE_OTHER_COLUMN } from '../lib/leaveYearGrid'
 import { resolveLeaveCapacityColumn, fetchInternRotationsForDoctorIds, groupRotationsByDoctorId } from '../lib/internRotations'
 import { buildAuditRows, AUDIT_LEAVE_COLUMNS } from '../lib/leaveAudit'
-import { buildDoctorDisplayNames, fullDoctorName } from '../lib/doctorNames'
+import { buildDoctorDisplayNames, fullDoctorName, DOCTOR_NAME_COL_PX } from '../lib/doctorNames'
 import { useSelectedRow } from '../lib/useSelectedRow'
 import { useSwatch } from '../lib/useSwatch'
 import {
@@ -65,8 +65,10 @@ const TABLE_SECTIONS = [
 // leave type. Kept in the URL (?by=, ?lyear=) so a link or a reload lands
 // on the same one.
 const VIEW_OPTIONS = [
-  { key: 'month', label: 'By month' },
-  { key: 'type', label: 'By leave type' },
+  // Icons only (the date pickers need the room): "M" for month, shapes for
+  // leave type, each named on hover or tap.
+  { key: 'month', label: 'By month', shortLabel: 'M' },
+  { key: 'type', label: 'By leave type', icon: Shapes },
 ]
 
 const STATUS_OPTIONS = [
@@ -411,11 +413,13 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
             <DateStepper unit="year" year={year} onChange={y => setParam('lyear', y)} nowrap />
           ) : (
             <div className="flex min-w-0 flex-1 gap-2 md:flex-none">
-              <DateFieldButton label="From" fullWidth value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-              <DateFieldButton label="To" fullWidth value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+              {/* min-w-0: the two share what the view switch leaves, rather
+                  than pushing it off a phone's edge. */}
+              <DateFieldButton label="From" fullWidth shortYearOnPhone className="min-w-0 flex-1" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+              <DateFieldButton label="To" fullWidth shortYearOnPhone className="min-w-0 flex-1" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
             </div>
           )}
-          <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} />
+          <ViewToggle view={view} onChange={key => setParam('by', key)} options={VIEW_OPTIONS} iconOnly />
         </div>
       </div>
 
@@ -490,7 +494,7 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
                   own 10px, which is the size these headers are held at so
                   the two tables read as one. */}
               <colgroup>
-                <col className="w-[112px]" />
+                <col style={{ width: DOCTOR_NAME_COL_PX }} />
                 {AUDIT_LEAVE_COLUMNS.map(column => <col key={column.key} className="w-[74px]" />)}
                 <col className="w-[74px]" />
                 <col />

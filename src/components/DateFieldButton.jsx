@@ -82,9 +82,9 @@ function ClearIcon(props) {
   )
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, year = 'numeric') {
   const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year })
 }
 
 // `variant="auth"` is the auth modals' field (AUTH_MODAL in
@@ -115,7 +115,7 @@ const VARIANTS = {
 export default function DateFieldButton({
   label, value, onChange, min, max, required = false, id, fullWidth = false,
   disabled = false, onBlur, emptyLabel, labelledExternally = false, className = '', variant = 'default',
-  invalid = false, ariaDescribedBy,
+  invalid = false, ariaDescribedBy, shortYearOnPhone = false,
 }) {
   const inputRef = useRef(null)
   const v = VARIANTS[variant] || VARIANTS.default
@@ -135,8 +135,16 @@ export default function DateFieldButton({
         fullWidth ? 'w-full' : 'w-40 flex-shrink-0'
       } ${value ? v.pad.withValue : v.pad.empty} ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className}`}
     >
-      <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted`} />
-      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>{value ? formatDate(value) : (emptyLabel ?? label)}</span>
+      <CalendarIcon className={`${v.icon} flex-shrink-0 text-ink-muted ${shortYearOnPhone ? 'hidden min-[380px]:block' : ''}`} />
+      {/* `shortYearOnPhone`: "26 Nov 26" below sm, for a pair of these
+          sharing a phone's toolbar row with other controls. */}
+      <span className={`truncate ${value ? 'text-ink' : 'text-ink-light'}`}>
+        {value
+          ? (shortYearOnPhone
+            ? <><span className="sm:hidden">{formatDate(value, '2-digit')}</span><span className="hidden sm:inline">{formatDate(value)}</span></>
+            : formatDate(value))
+          : (emptyLabel ?? label)}
+      </span>
       <input
         ref={inputRef}
         id={id}

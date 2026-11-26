@@ -314,6 +314,23 @@ export default function RosterGridPage() {
     el.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
     setPendingJumpDate(null)
   }, [pendingJumpDate, layout, currentWeek, viewMode])
+  // Opening a roster: this month's lands on today, centred; any other
+  // month starts at its first day. Once per roster, and not when a link
+  // already says which day to show (?date=).
+  const openedRosterRef = useRef(null)
+  useEffect(() => {
+    if (!rosterMonth || loading || openedRosterRef.current === rosterMonth.id) return
+    openedRosterRef.current = rosterMonth.id
+    if (searchParams.get('date')) return
+    const now = new Date()
+    if (rosterMonth.year === now.getFullYear() && rosterMonth.month === now.getMonth() + 1) {
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      setPendingJumpDate(today)
+    } else {
+      try { window.scrollTo({ top: 0 }) } catch { /* jsdom */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per roster opened
+  }, [rosterMonth?.id, loading])
   useEffect(() => { storeRosterTextSize(textSize) }, [textSize])
   const { base: rosterBase } = rosterTextSize(textSize)
   const rosterScale = rosterTextScale(textSize)
@@ -652,6 +669,13 @@ export default function RosterGridPage() {
     const p = profileMap[id] || consultantProfiles.find(c => c.id === id)
     return p ? `${p.name} ${p.surname}` : null
   }
+  // The type of the leave a doctor was taken off this shift for, if any.
+  function vacatedLeaveType(entry) {
+    if (!entry?.vacated_profile_id || entry.vacated_reason !== 'leave') return null
+    const ranges = leaveByProfile?.[entry.vacated_profile_id] || []
+    const range = ranges.find(r => r[3] && r[3] === entry.vacated_leave_request_id) || leaveRangeOn(leaveByProfile, entry.vacated_profile_id, entry.date)
+    return range?.[2] || null
+  }
   function absenceFor(entry) {
     const absence = entryAbsence(entry, leaveByProfile)
     if (!absence) return null
@@ -674,7 +698,10 @@ export default function RosterGridPage() {
   }
 
   // The shifts this roster shows that the leave being cancelled opened.
-  const leaveShifts = cancelLeaveFor
+  // A function, read when the dialog renders: computed here as a value it
+  // ran before nameOf (declared further down) existed, and opening the
+  // dialog for a leave that took someone off a shift blanked the page.
+  const leaveShiftsFor = request => request
     ? entries.filter(e => e.vacated_leave_request_id === cancelLeaveFor.id).map(entry => ({
         entry,
         shiftCode: shiftTypes[entry.shift_type_id] || 'UNKNOWN',
@@ -1065,7 +1092,7 @@ export default function RosterGridPage() {
         />
       )}
 
-      {cancelLeaveFor && (
+      {cancelLeaveFor && (() => { const leaveShifts = leaveShiftsFor(cancelLeaveFor); return (
         <CancelLeaveModal
           request={cancelLeaveFor}
           isOwn={false}
@@ -1098,7 +1125,7 @@ export default function RosterGridPage() {
             />
           )}
         </CancelLeaveModal>
-      )}
+      ) })()}
 
       {absenceOpen && rosterMonth && (
         <Modal title="Record an absence" onClose={() => setAbsenceOpen(false)} centered>
@@ -1552,7 +1579,7 @@ export default function RosterGridPage() {
                               displayNames={displayNames}
                               absence={absenceFor(entry)}
                               onCancelLeave={isAdmin ? setCancelLeaveFor : null}
-                              editHint={editHint({ entry, change: latestChanges.get(entry.id), nameOf: nameById })}
+                              editHint={editHint({ entry, change: latestChanges.get(entry.id), nameOf: nameById, leaveType: vacatedLeaveType(entry) })}
                               onClick={e => canEdit && handleCellClick(day.dateStr, code, entry, e)}
                               onLate={!canEdit && lateOptionFor(entry) ? () => setLatePrompt(lateOptionFor(entry)) : undefined}
                               late={lateByEntryId.has(entry.id)}
@@ -1760,18 +1787,13 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
   // on hover or tap. Untouched names have none.
   // Its own tap target: a tap shows the hint and does not also open the
   // chip's menu or late-arrival prompt.
+  // The whole chip carries the hint (hover, or a tap on a phone).
   const editMark = editHint && (
-    <span
-      data-testid="edit-marker"
-      role="img"
-      aria-label={editHint}
-      title={editHint}
-      onClick={e => e.stopPropagation()}
-      className="-my-0.5 -mr-1 ml-0.5 flex flex-shrink-0 items-center p-0.5 text-ink-muted print:hidden"
-    >
-      <UserRoundPen className="h-3 w-3" aria-hidden="true" />
+    <span data-testid="edit-marker" aria-hidden="true" className="ml-1 flex flex-shrink-0 items-center text-ink-muted print:hidden">
+      <UserRoundPen className="h-3 w-3" />
     </span>
   )
+  const editTitle = editHint || undefined
   const vacated = absence?.kind === 'vacated' ? absence : null
   const vacatedLine = vacated && (
     <div data-testid="vacated-doctor" className={`flex px-1.5 text-[0.834em] text-ink-muted ${dimmed ? 'opacity-30' : ''}`}>
@@ -1839,6 +1861,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
       <div
         data-entry-id={entry.id}
         onClick={isAdmin ? onClick : onLate}
+        title={editTitle}
         className={`flex items-center rounded border border-dashed border-flagAmber bg-flagAmber-bg px-1.5 py-0.5 text-[0.834em] font-medium text-flagAmber ${
           isAdmin || onLate ? 'cursor-pointer hover:opacity-80' : ''
         } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
@@ -1873,6 +1896,7 @@ function DoctorChip({ entry, profile, displayNames, onClick, onDragStart, isAdmi
         isAdmin || onLate ? 'cursor-pointer hover:bg-canvas-sunken' : ''
       } ${dimmed ? 'opacity-30' : ''} ${glowRing}`}
       style={{ borderLeftColor: swatch.stroke(railColor) }}
+      title={editTitle}
     >
       {onLeave
         ? <RosterAbsenceNote name={chipName} summary={onLeave.summary} interactive={!isAdmin} onCancelLeave={onLeave.cancelRequest && onCancelLeave ? () => onCancelLeave(onLeave.cancelRequest) : null} />

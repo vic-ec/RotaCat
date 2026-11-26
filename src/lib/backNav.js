@@ -12,8 +12,17 @@ const STORE = 'rotacat:back'
 
 const LEAVE_TABS = { 'my-leave': 'My leave', team: 'Team Leave', planners: 'Planners', requests: 'Requests', rules: 'Leave rules' }
 
+// A page can name itself better than its path can ("Cara's year"); it
+// records that here when it renders, and the back that returns to it
+// uses it.
+const OWN_LABELS = new Map()
+export function rememberPageLabel(pathname, label) {
+  if (pathname && label) OWN_LABELS.set(pathname, label)
+}
+
 // A short name for a page, for "‹ Dashboard".
 export function pageLabel(pathname, search = '') {
+  if (OWN_LABELS.has(pathname)) return OWN_LABELS.get(pathname)
   const params = new URLSearchParams(search)
   if (pathname === '/') return 'Dashboard'
   if (pathname === '/roster') return params.get('view') === 'summary' ? 'Hours Summary' : 'Rosters'
@@ -23,7 +32,7 @@ export function pageLabel(pathname, search = '') {
   if (pathname === '/staff' || pathname.startsWith('/staff/')) return 'Staff'
   if (pathname.startsWith('/account')) return 'Account'
   if (pathname === '/my-year') return 'My year'
-  if (pathname.startsWith('/my-year/')) return 'Their year'
+  if (pathname.startsWith('/my-year/')) return 'Year'
   if (pathname === '/weekend') return 'Weekend planner'
   return 'Back'
 }

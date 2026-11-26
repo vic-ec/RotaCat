@@ -10,6 +10,8 @@ import { MONTH_SHADES, monthShadeStep, sinceLastBreakText } from '../lib/leaveAu
 import { myYearPath } from '../lib/myYearLinks'
 import { fullDoctorName } from '../lib/doctorNames'
 import { CONTRACT_TYPE_LABEL } from '../lib/doctorSort'
+
+const OT_SUBTYPE_SHORT = { LRCHC: 'Day Hosp', DPM_BCH: 'TB Hosp', PSYCH: 'Psych' }
 import { useSwatch } from '../lib/useSwatch'
 import { useIsDesktop } from '../lib/useIsDesktop'
 import { useDismissablePopover } from '../lib/useDismissablePopover'
@@ -57,6 +59,9 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
               </span>
               <span className="flex-shrink-0 font-semibold text-ink">{plural(days, 'day')}</span>
               {pinned && onCancelLeave && CANCELLABLE_STATUSES.includes(request.status) && (
+                // Pulled up so the icon sits level with the first line of
+                // text (the button's 36px tap box is taller than that line).
+                <span className="-my-2 -mr-2 flex-shrink-0 self-start">
                 <RowActionIcon
                   icon={<CalendarX2 className="h-4 w-4" />}
                   title="Cancel leave"
@@ -64,6 +69,7 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
                   onClick={() => onCancelLeave(request)}
                   tone="danger"
                 />
+                </span>
               )}
             </li>
           ))}
@@ -77,12 +83,12 @@ function MonthBreakdown({ row, month, year, rosterTo, pinned = true, onClose = n
         {pinned ? (
           <>
             {rosterTo && <Link to={rosterTo} className={live}>Roster ›</Link>}
-            <Link to={myYearPath(row.profileId, { tab: 'leave', year })} className={live}>Their year ›</Link>
+            <Link to={myYearPath(row.profileId, { tab: 'leave', year })} className={live}>{row.name || row.surname}’s year ›</Link>
           </>
         ) : (
           <>
             {rosterTo && <span className={greyed} aria-disabled="true">Roster ›</span>}
-            <span className={greyed} aria-disabled="true">Their year ›</span>
+            <span className={greyed} aria-disabled="true">{row.name || row.surname}’s year ›</span>
           </>
         )}
       </p>
@@ -177,7 +183,11 @@ export default function LeaveAuditByMonth({
                 {!collapsedSections[section.key] && section.rows.map(row => {
                   const yearTo = myYearPath(row.profileId, { year })
                   const fullName = `${row.name} ${row.surname}`
-                  const underName = [columnLabelOf(row.profileId), CONTRACT_TYPE_LABEL[row.contractType]].filter(Boolean).join(' · ')
+                  // "EC Intern" / "OT Intern · Psych" (the current OT rotation),
+                  // as Hours Summary names them; ⅝ is the one contract worth
+                  // saying — full-time is the default.
+                  const subtype = row.contractType === 'Junior_Doctor_Overtime' ? OT_SUBTYPE_SHORT[row.psychSubcategory] : null
+                  const underName = [columnLabelOf(row.profileId), subtype, row.contractType === 'five_eighths' ? CONTRACT_TYPE_LABEL.five_eighths : null].filter(Boolean).join(' · ')
                   return (
                     <tr key={row.profileId} className="group">
                       <td title={fullName} className="sticky left-0 z-[1] border-b border-b-slate-hairline border-r border-r-slate-line bg-canvas px-2 py-1.5 align-top group-hover:bg-canvas-cool">

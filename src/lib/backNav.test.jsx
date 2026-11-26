@@ -29,7 +29,7 @@ describe('backNav', () => {
     expect(pageLabel('/')).toBe('Dashboard')
     expect(pageLabel('/leave', '?tab=requests')).toBe('Requests')
     expect(pageLabel('/roster', '?view=summary')).toBe('Hours Summary')
-    expect(pageLabel('/my-year/abc')).toBe('Their year')
+    expect(pageLabel('/my-year/abc')).toBe('Year')
     expect(drawsOwnBack('/roster/abc')).toBe(true)
     expect(drawsOwnBack('/roster/generate')).toBe(false)
   })

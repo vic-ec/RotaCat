@@ -302,7 +302,7 @@ describe('LeaveAuditReport — By month', () => {
     expect(months).toEqual([0, 0, 5, 2, 0, 2, 5, 0, 0, 0, 0, 0])
     expect(ada.slice(13, 18).map(Number)).toEqual([12, 10, 0, 2, 14])
     expect(months.reduce((s, d) => s + d, 0)).toBe(14)
-    expect(ada[0]).toMatch(/MO · Full-time/)
+    expect(ada[0]).toMatch(/MO/); expect(ada[0]).not.toMatch(/Full-time/)
 
     const bo = cells(rowFor('Bo Adams'))
     expect(bo.slice(13, 18).map(Number)).toEqual([0, 22, 2, 0, 2])
@@ -338,7 +338,7 @@ describe('LeaveAuditReport — By month', () => {
     expect(preview.textContent).toMatch(/March 2026.*Ada Zephyr/s)
     // Hover/focus preview: links greyed, a hint, no ×, and the month outlined rather than filled.
     expect(within(preview).queryByRole('link')).not.toBeInTheDocument()
-    expect(within(preview).getByText('Their year ›')).toHaveAttribute('aria-disabled', 'true')
+    expect(within(preview).getByText('Ada’s year ›')).toHaveAttribute('aria-disabled', 'true')
     expect(screen.getByTestId('month-breakdown-hint')).toHaveTextContent('Click the month to keep this open and use the links.')
     expect(within(preview).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
     expect(cell).toHaveAttribute('aria-pressed', 'false')
@@ -351,7 +351,7 @@ describe('LeaveAuditReport — By month', () => {
     expect(dialog.textContent).toMatch(/Annual leave.*10–14 Mar.*5 days/s)
     expect(dialog.textContent).toMatch(/Annual 5 · Sick 0 · Other 0/)
     expect(within(dialog).getByRole('link', { name: /Roster/ })).toHaveAttribute('href', '/roster/m3')
-    expect(within(dialog).getByRole('link', { name: /Their year/ })).toHaveAttribute('href', '/my-year/p1?tab=leave&year=2026')
+    expect(within(dialog).getByRole('link', { name: /Ada’s year/ })).toHaveAttribute('href', '/my-year/p1?tab=leave&year=2026')
 
     await user.click(within(dialog).getByRole('button', { name: 'Close' }))
     expect(screen.queryByTestId('month-breakdown')).not.toBeInTheDocument()

@@ -234,7 +234,7 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
     setLoading(true)
     setError('')
     const [profilesRes, requestsRes] = await Promise.all([
-      supabase.from('profiles').select('id, name, surname, category, contract_type, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
+      supabase.from('profiles').select('id, name, surname, category, contract_type, psych_subcategory, color_code, is_active').eq('role', 'doctor').eq('is_approved', true),
       supabase.from('leave_requests').select('*').lte('date_from', dateTo).gte('date_to', dateFrom),
     ])
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
@@ -262,7 +262,7 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
   const columnByProfileId = useMemo(
     () => new Map(profiles.map(p => [
       p.id,
-      resolveLeaveCapacityColumn({ category: p.category, profileId: p.id, date: dateFrom, rotationsByDoctorId }) ?? LEAVE_OTHER_COLUMN.key,
+      resolveLeaveCapacityColumn({ category: p.category, contractType: p.contract_type, profileId: p.id, date: dateFrom, rotationsByDoctorId }) ?? LEAVE_OTHER_COLUMN.key,
     ])),
     [profiles, dateFrom, rotationsByDoctorId]
   )
@@ -609,12 +609,12 @@ export default function LeaveAuditReport({ leading = null, onCapture }) {
               ) : (
                 <div className="mt-2 divide-y divide-slate-line">
                   {drillDownRequests.map(lr => (
-                    <div key={lr.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div key={lr.id} className="flex items-start justify-between gap-3 py-2 text-sm">
                       <div>
                         <p className="flex items-center gap-2 text-ink"><LeaveTypeIcon leaveType={lr.leave_type} size="sm" />{LEAVE_TYPE_LABELS[lr.leave_type]} — {naturalLeavePeriodLabel(lr.date_from, lr.date_to)}</p>
                         {annualDaysSummary(lr) && <p className="text-xs text-ink-muted">{annualDaysSummary(lr)}</p>}
                       </div>
-                      <span className="flex flex-shrink-0 items-center gap-1">
+                      <span className="-my-1.5 flex flex-shrink-0 items-center gap-1">
                         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[lr.status]}`}>
                           {reviewStatusLabel(lr.status)}
                         </span>

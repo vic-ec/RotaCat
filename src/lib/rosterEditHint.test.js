@@ -13,6 +13,8 @@ describe('editHint', () => {
   it('names who a cover replaces and why', () => {
     const entry = { ...base, profile_id: null, is_locum: true, locum_name: '[Alli]', vacated_profile_id: 'landes', vacated_reason: 'leave' }
     expect(editHint({ entry, nameOf })).toBe('Alli (locum) covering Cara Landes — leave')
+    expect(editHint({ entry, nameOf, leaveType: 'sick' })).toBe('Alli (locum) covering Cara Landes — sick leave')
+    expect(editHint({ entry, nameOf, leaveType: 'course' })).toBe('Alli (locum) covering Cara Landes — course / CPD leave')
   })
   it('says what the newest change was', () => {
     const entry = { ...base, profile_id: 'landes', is_manual_override: true }

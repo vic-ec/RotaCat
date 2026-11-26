@@ -14,6 +14,11 @@ const mockUndo = vi.hoisted(() => ({ undoRosterBatch: vi.fn() }))
 vi.mock('../lib/rosterUndo', async () => ({ ...(await vi.importActual('../lib/rosterUndo')), ...mockUndo }))
 vi.mock('../context/AuthContext', () => ({ useAuth: () => mockAuth }))
 vi.mock('../lib/changeLog', () => ({ logRosterEntryChange: vi.fn().mockResolvedValue({ error: null }), setLogErrorListener: vi.fn(), fetchLatestChangeByEntry: vi.fn().mockResolvedValue(new Map()) }))
+// Alice's sick leave on 20 Aug, which took her off a shift a locum covers.
+vi.mock('../lib/approvedLeave', async () => ({
+  ...(await vi.importActual('../lib/approvedLeave')),
+  fetchApprovedLeaveByProfile: vi.fn().mockResolvedValue({ p1: [['2026-08-20', '2026-08-20', 'sick', 'lv1', null]] }),
+}))
 vi.mock('../lib/weekendPatternSync', () => ({ syncWeekendPatternsFromEntries: vi.fn() }))
 vi.mock('../components/LateArrivalModal', () => ({ default: ({ option }) => <div role="dialog" aria-label="late form">{option.label} · {option.date}</div> }))
 vi.mock('../components/RosterLanesView', () => ({ default: () => null, LanesLegend: () => null }))
@@ -174,6 +179,18 @@ describe('RosterGridPage day blocks', () => {
     const rail = rowFor('2026-08-05').firstElementChild
     expect(rail).toHaveClass('bg-accent', 'text-on-fill', 'border-y-2')
     expect(within(rail).getByTestId('today-tag')).toHaveTextContent('Today')
+  })
+
+  it('cancelling leave that took a doctor off a covered shift opens the dialog and asks about the shift (it used to blank the page)', async () => {
+    extraEntries = [{ id: 'v1', date: '2026-08-20', shift_type_id: st('WD_12'), profile_id: null, is_locum: true, locum_name: '[Alli]', vacated_profile_id: 'p1', vacated_reason: 'leave', vacated_leave_request_id: 'lv1', position: 0 }]
+    try {
+      renderPage()
+      await screen.findByText('August 2026')
+      fireEvent.click(within(rowFor('2026-08-20')).getByRole('button', { name: /Show details/ }))
+      fireEvent.click(screen.getByTestId('absence-cancel-leave'))
+      expect(await screen.findByText('Cancel this leave?')).toBeInTheDocument()
+      expect(screen.getByTestId('leave-shifts-choice')).toHaveTextContent('Alli (locum)')
+    } finally { extraEntries = [] }
   })
 
   it('Fullscreen hides the header bar and the app chrome until Exit', async () => {
